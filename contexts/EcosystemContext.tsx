@@ -7,6 +7,7 @@ import Spinner from '../components/common/Spinner';
 import { useAuth } from './AuthContext'; // Optionally use AuthContext to sign out on local side, but AuthContext also has access to ecosystem
 import { auth } from '../services/firebase'; // Actually, since we'll just invalidate session locally
 import { onAuthStateChanged } from 'firebase/auth';
+import { getCandidateOrganizationIds, isValidCanonicalResponse } from '../services/ecosystem/startupFastPath';
 import { buildEffectiveAccessContext, canManageMusicScales, canManageBandScales, canManageSongs, hasMusicScaleCapability } from '../utils/rbac';
 
 interface EcosystemContextValue {
@@ -38,6 +39,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     let mounted = true;
     let unsubscribeAuth: any = null;
+    let activeControllers: AbortController[] = [];
 
     const bootstrapModule = async () => {
       markStartupMetric('ecosystem_context_started_ms');
@@ -82,6 +84,34 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                            displayName = userData.displayName || displayName;
                            roleInOrg = userData.organizationRole || userData.role || roleInOrg;
                        }
+                       markStartupMetric('ecosystem_user_profile_completed_ms');
+
+                       const localActiveOrg = localStorage.getItem('activeOrganizationId');
+                       const candidates = getCandidateOrganizationIds(localActiveOrg, userHasActive, userHasPrimary, userHasLegacy);
+                       const candidateOrgId = candidates.length > 0 ? candidates[0] : null;
+
+                       let earlyCanonicalPromise: Promise<any> | null = null;
+                       let earlyTokenPromise: Promise<string> | null = null;
+                       let earlyOrgDocPromise: Promise<any> | null = null;
+                       let earlyAbortController: AbortController | null = null;
+                       const currentGeneration = Symbol();
+
+                       if (candidateOrgId && candidateOrgId !== 'offline_default') {
+                           earlyAbortController = new AbortController();
+                           activeControllers.push(earlyAbortController);
+                           
+                           earlyOrgDocPromise = getDoc(doc(db, 'organizations', candidateOrgId)).catch(() => null);
+                           earlyTokenPromise = user.getIdToken(false).catch(() => '');
+                           
+                           markStartupMetric('ecosystem_access_context_started_ms');
+                           earlyCanonicalPromise = earlyTokenPromise.then(token => {
+                               if (!token || !mounted || earlyAbortController?.signal.aborted) return null;
+                               return fetch(`/api/v1/ecosystem/access-context?organizationId=${candidateOrgId}`, {
+                                   headers: { 'Authorization': `Bearer ${token}` },
+                                   signal: earlyAbortController.signal
+                               }).catch(() => null);
+                           });
+                       }
 
                        // Function to check if an org is valid
                        let organizationsMap = new Map();
@@ -89,8 +119,13 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                            if (!idToTest || organizationsMap.has(idToTest)) return false;
                            organizationsMap.set(idToTest, true);
                            try {
-                               const orgSnap = await getDoc(doc(db, 'organizations', idToTest));
-                               if (orgSnap.exists()) {
+                               let orgSnap;
+                               if (idToTest === candidateOrgId && earlyOrgDocPromise) {
+                                   orgSnap = await earlyOrgDocPromise;
+                               } else {
+                                   orgSnap = await getDoc(doc(db, 'organizations', idToTest));
+                               }
+                               if (orgSnap && orgSnap.exists()) {
                                    const orgData = orgSnap.data();
                                    let resolvedRole = roleToSet;
                                     // Precedence 1: Check if user is the explicit owner on the organization document
@@ -166,6 +201,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         ];
 
                         const results = await Promise.allSettled(queries);
+                        markStartupMetric('ecosystem_org_discovery_completed_ms');
 
                         if (results[0].status === 'fulfilled') {
                             for (const orgDoc of results[0].value.docs) {
@@ -334,35 +370,64 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         // Fetch canonical server-resolved access context from the secure endpoint
                         let serverContext = null;
                         if (orgId && orgId !== 'offline_default') {
-                            try {
-                                const token = await user.getIdToken();
-                                const controller = new AbortController();
-                                const timeoutId = setTimeout(() => controller.abort(), 5000);
-                                let apiRes;
+                            if (orgId === candidateOrgId && earlyCanonicalPromise) {
                                 try {
-                                    apiRes = await fetch(`/api/v1/ecosystem/access-context?organizationId=${orgId}`, {
-                                        headers: {
-                                            'Authorization': `Bearer ${token}`
-                                        },
-                                        signal: controller.signal
-                                    });
-                                } finally {
-                                    clearTimeout(timeoutId);
-                                }
-                                if (apiRes.ok) {
-                                    const resJson = await apiRes.json();
-                                    if (resJson && resJson.success) {
-                                        serverContext = resJson;
-                                        systemRole = resJson.systemRole || systemRole;
-                                        roleInOrg = resJson.organizationRole || roleInOrg;
-                                        console.log(`[EcosystemContext] Canonical server-resolved access:`, resJson);
+                                    const apiRes = await earlyCanonicalPromise;
+                                    if (apiRes && apiRes.ok) {
+                                        const resJson = await apiRes.json();
+                                        if (isValidCanonicalResponse(resJson, user.uid, orgId)) {
+                                            serverContext = resJson;
+                                            systemRole = resJson.systemRole || systemRole;
+                                            roleInOrg = resJson.organizationRole || roleInOrg;
+                                            console.log(`[EcosystemContext] Canonical server-resolved access (early):`, resJson);
+                                        } else {
+                                            console.warn("[EcosystemContext] Early response was invalid canonical match.");
+                                        }
                                     }
-                                } else {
-                                    console.warn("[EcosystemContext] Server-resolved access context HTTP error:", apiRes.status);
+                                } catch(e) {
+                                    console.warn("Early canonical fetch failed", e);
                                 }
-                            } catch (apiErr) {
-                                console.error("[EcosystemContext] Failed to fetch server-resolved access context:", apiErr);
+                                markStartupMetric('ecosystem_access_context_completed_ms');
+                            } else {
+                                if (earlyAbortController) earlyAbortController.abort();
+                                
+                                try {
+                                    markStartupMetric('ecosystem_access_context_started_ms');
+                                    const token = await user.getIdToken();
+                                    const controller = new AbortController();
+                                    activeControllers.push(controller);
+                                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                                    let apiRes;
+                                    try {
+                                        apiRes = await fetch(`/api/v1/ecosystem/access-context?organizationId=${orgId}`, {
+                                            headers: {
+                                                'Authorization': `Bearer ${token}`
+                                            },
+                                            signal: controller.signal
+                                        });
+                                    } finally {
+                                        clearTimeout(timeoutId);
+                                    }
+                                    if (apiRes && apiRes.ok) {
+                                        const resJson = await apiRes.json();
+                                        if (isValidCanonicalResponse(resJson, user.uid, orgId)) {
+                                            serverContext = resJson;
+                                            systemRole = resJson.systemRole || systemRole;
+                                            roleInOrg = resJson.organizationRole || roleInOrg;
+                                            console.log(`[EcosystemContext] Canonical server-resolved access:`, resJson);
+                                        } else {
+                                            console.warn("[EcosystemContext] Canonical response was invalid match.");
+                                        }
+                                    } else {
+                                        console.warn("[EcosystemContext] Server-resolved access context HTTP error:", apiRes?.status);
+                                    }
+                                } catch (apiErr) {
+                                    console.error("[EcosystemContext] Failed to fetch server-resolved access context:", apiErr);
+                                }
+                                markStartupMetric('ecosystem_access_context_completed_ms');
                             }
+                        } else {
+                            if (earlyAbortController) earlyAbortController.abort();
                         }
 
                         const resolvedSysRole2 = String(systemRole || '').toLowerCase().trim();
@@ -498,6 +563,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     return () => {
       mounted = false;
+      activeControllers.forEach(c => c.abort());
       if (unsubscribeAuth) unsubscribeAuth();
     };
   }, []);
