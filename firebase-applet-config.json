@@ -1,12 +1,10 @@
 {
-  "projectId": "musicscale-millionsnest",
-  "appId": "1:798100533269:web:6a9096fa6eee9f52849e1c",
-  "apiKey": "AIzaSyDfixH3YmYB9JKzxYDdmTQA-V2-7a8P8v4",
-  "authDomain": "musicscale-millionsnest.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-musicscale-36fa47df-19fe-4c8b-a1e0-0721d1f23f3c",
-  "storageBucket": "musicscale-millionsnest.firebasestorage.app",
-  "messagingSenderId": "798100533269",
-  "measurementId": "",
-  "oAuthClientId": "798100533269-7fopd8jcie75eol4fdj14hj8soij5nsv.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+  "projectId": "millionsnest",
+  "appId": "1:555464791734:web:6f916a69f26e74b9767817",
+  "apiKey": "AIzaSyAhXY8TV8qoXz8Pd2u5jFHUTVssZmi3kMs",
+  "authDomain": "millionsnest.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "millionsnest.firebasestorage.app",
+  "messagingSenderId": "555464791734",
+  "measurementId": "G-65C9S77CY5"
 }
