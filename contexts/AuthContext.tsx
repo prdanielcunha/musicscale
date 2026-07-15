@@ -158,8 +158,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           systemRole: ecoContext?.ecosystemRole || 'user'
         };
       } else {
-        // Sync minimal heartbeat
-        await setDoc(doc(db, 'users', currentUser.uid), { lastLoginAt: serverTimestamp() }, { merge: true }).catch(()=>{});
+        // Sync minimal heartbeat in background (fire-and-forget) to not block UI
+        setDoc(doc(db, 'users', currentUser.uid), { lastLoginAt: serverTimestamp() }, { merge: true }).catch(()=>{});
       }
 
       setUserProfile(profileData);
@@ -174,6 +174,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         systemRole: ecoContext?.ecosystemRole || 'user'
       });
     } finally {
+      markStartupMetric('auth_profile_completed_ms');
       setLoading(false);
     }
   }, [ecoContext]);

@@ -39,6 +39,7 @@ const ALLOWED_FAILURE_REASONS = new Set([
 
 const MAX_EVENTS = 40;
 let eventBuffer: StartupEvent[] = [];
+let snapshotBuffer: StartupEvent[] = [];
 const recordedMilestones = new Set<string>();
 const recordedGauges = new Set<string>();
 
@@ -89,12 +90,14 @@ function sanitizeAttributes(attrs?: any): AllowedAttributes | undefined {
 }
 
 function addEvent(event: StartupEvent) {
-  if (eventBuffer.length >= MAX_EVENTS) return;
+  if (snapshotBuffer.length >= MAX_EVENTS) return;
+  
   eventBuffer.push(event);
+  snapshotBuffer.push(event);
 
   if (typeof window !== 'undefined') {
     try {
-      sessionStorage.setItem('musicscale:startup-snapshot', JSON.stringify(eventBuffer));
+      sessionStorage.setItem('musicscale:startup-snapshot', JSON.stringify(snapshotBuffer));
     } catch (e) {
       // ignore sessionStorage errors
     }
@@ -169,7 +172,7 @@ export function unsubscribeStartupTelemetry(listener: (event: CustomEvent<Startu
 }
 
 export function getStartupTelemetrySnapshot(): StartupEvent[] {
-  return [...eventBuffer];
+  return [...snapshotBuffer];
 }
 
 export function drainStartupTelemetry(): StartupEvent[] {
@@ -181,6 +184,14 @@ export function drainStartupTelemetry(): StartupEvent[] {
 // For tests
 export function _resetStartupTelemetry() {
    eventBuffer = [];
+   snapshotBuffer = [];
    recordedMilestones.clear();
    recordedGauges.clear();
+   if (typeof window !== 'undefined') {
+     try {
+       sessionStorage.removeItem('musicscale:startup-snapshot');
+     } catch (e) {
+       // ignore
+     }
+   }
 }

@@ -43,12 +43,15 @@ function runTests() {
   events = getStartupTelemetrySnapshot();
   assert(events.length === 40, "Buffer should not exceed 40 events");
 
-  // 5: drain returns events and clears buffer
+  // 5: drain returns events and clears buffer, but snapshot remains intact
   _resetStartupTelemetry();
   incrementStartupCounter('test_drain');
   const drained = drainStartupTelemetry();
   assert(drained.length === 1, "Drain should return 1 event");
-  assert(getStartupTelemetrySnapshot().length === 0, "Buffer should be empty after drain");
+  assert(getStartupTelemetrySnapshot().length === 1, "Snapshot should be intact after drain");
+  const drainedAgain = drainStartupTelemetry();
+  assert(drainedAgain.length === 0, "Buffer should be empty on second drain");
+  assert(getStartupTelemetrySnapshot().length === 1, "Snapshot should still be intact after second drain");
 
   // 6 & 7: subscribe/unsubscribe
   _resetStartupTelemetry();
