@@ -1,0 +1,359 @@
+{
+  "entities": {
+    "CreatedBy": {
+      "title": "CreatedBy",
+      "description": "Information about the user who created or modified the document",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": ["string", "null"] },
+        "photoURL": { "type": ["string", "null"] }
+      },
+      "required": ["uid"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with organization and role context",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": ["string", "null"] },
+        "displayName": { "type": ["string", "null"] },
+        "photoURL": { "type": ["string", "null"] },
+        "organizationId": { "type": ["string", "null"] },
+        "roleId": { "type": "string" },
+        "role": { "type": "string" },
+        "specialtyIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": ["string", "null"] },
+        "lastModifiedAt": { "type": ["string", "null"] },
+        "address": {
+          "type": "object",
+          "properties": {
+            "street": { "type": "string" },
+            "city": { "type": "string" },
+            "state": { "type": "string" },
+            "zip": { "type": "string" }
+          }
+        },
+        "chordViewerSettings": { "type": "object" },
+        "lyricsViewerSettings": { "type": "object" }
+      },
+      "required": ["uid", "roleId"]
+    },
+    "Role": {
+      "title": "Role",
+      "description": "Role definition within an organization",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "permissions": {
+          "type": "object",
+          "properties": {
+            "canManageUsers": { "type": "boolean" },
+            "canManageRoles": { "type": "boolean" },
+            "canManageRepertoire": { "type": "boolean" },
+            "canManageScales": { "type": "boolean" },
+            "canViewContent": { "type": "boolean" },
+            "canManageChords": { "type": "boolean" }
+          }
+        },
+        "organizationId": { "type": ["string", "null"] },
+        "createdBy": { "$ref": "#/entities/CreatedBy" },
+        "createdAt": { "type": ["string", "null"] },
+        "lastModifiedBy": { "$ref": "#/entities/CreatedBy" },
+        "lastModifiedAt": { "type": ["string", "null"] }
+      },
+      "required": ["name", "description", "permissions"]
+    },
+    "OrganizationMember": {
+      "title": "OrganizationMember",
+      "description": "Mapping of users to organizations",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "organization_id": { "type": "string" },
+        "role": { "type": "string", "enum": ["owner", "admin", "leader", "member"] },
+        "status": { "type": "string", "enum": ["active", "invited", "disabled"] },
+        "created_at": { "type": "string" }
+      },
+      "required": ["user_id", "organization_id", "role", "created_at"]
+    },
+    "Subscription": {
+      "title": "Subscription",
+      "description": "Tenant stripe subscription",
+      "type": "object",
+      "properties": {
+        "stripeSubscriptionId": { "type": "string" },
+        "stripeCustomerId": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "productId": { "type": "string" },
+        "status": { "type": "string" },
+        "currentPeriodEnd": { "type": "number" },
+        "cancelAtPeriodEnd": { "type": "boolean" }
+      },
+      "required": ["stripeSubscriptionId", "stripeCustomerId", "organizationId", "productId", "status", "currentPeriodEnd"]
+    },
+    "Invite": {
+      "title": "Invite",
+      "description": "Organization invitation links",
+      "type": "object",
+      "properties": {
+        "token": { "type": "string" },
+        "organization_id": { "type": "string" },
+        "expires_at": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["token", "organization_id", "expires_at", "created_at"]
+    },
+    "Organization": {
+      "description": "Tenant definition",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "city": { "type": ["string", "null"] },
+        "state": { "type": ["string", "null"] },
+        "ownerUserId": { "type": "string" },
+        "subscriptionStatus": { "type": "string" },
+        "plan": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "slug", "ownerUserId", "createdAt"]
+    },
+    "Song": {
+      "title": "Song",
+      "description": "Repertoire song",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "artist": { "type": "string" },
+        "key": { "type": "string" },
+        "bpm": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "tagIds": { "type": "array", "items": { "type": "string" } },
+        "lyrics": { "type": "string" },
+        "chords": { "type": "string" },
+        "chordsUrl": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "lastPlayed": { "type": ["string", "null"] },
+        "isNew": { "type": "boolean" },
+        "organizationId": { "type": "string" },
+        "createdBy": { "$ref": "#/entities/CreatedBy" },
+        "lastModifiedBy": { "$ref": "#/entities/CreatedBy" },
+        "lastModifiedAt": { "type": ["string", "null"] },
+        "chordsCreatedBy": { "$ref": "#/entities/CreatedBy" },
+        "chordsLastModifiedBy": { "$ref": "#/entities/CreatedBy" },
+        "chordsLastModifiedAt": { "type": ["string", "null"] }
+      },
+      "required": ["title", "artist", "key", "bpm", "status", "tagIds", "lyrics", "chords", "chordsUrl", "videoUrl", "createdAt", "organizationId", "createdBy"]
+    },
+    "Scale": {
+      "title": "Scale",
+      "description": "Music scale",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "observations": { "type": "string" },
+        "songIds": { "type": "array", "items": { "type": "string" } },
+        "eventTypeId": { "type": "string" },
+        "locationId": { "type": "string" },
+        "eventNameId": { "type": ["string", "null"] },
+        "bandScaleId": { "type": ["string", "null"] },
+        "organizationId": { "type": "string" },
+        "createdBy": { "$ref": "#/entities/CreatedBy" },
+        "createdAt": { "type": "string" },
+        "lastModifiedBy": { "$ref": "#/entities/CreatedBy" },
+        "lastModifiedAt": { "type": ["string", "null"] }
+      },
+      "required": ["date", "observations", "songIds", "eventTypeId", "locationId", "organizationId", "createdBy", "createdAt"]
+    },
+    "BandScale": {
+      "title": "BandScale",
+      "description": "Band members scale",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "observations": { "type": "string" },
+        "assignments": { "type": "array", "items": { "type": "object" } },
+        "eventTypeId": { "type": "string" },
+        "locationId": { "type": "string" },
+        "eventNameId": { "type": ["string", "null"] },
+        "musicScaleId": { "type": ["string", "null"] },
+        "organizationId": { "type": "string" },
+        "createdBy": { "$ref": "#/entities/CreatedBy" },
+        "createdAt": { "type": "string" },
+        "lastModifiedBy": { "$ref": "#/entities/CreatedBy" },
+        "lastModifiedAt": { "type": ["string", "null"] }
+      },
+      "required": ["date", "observations", "assignments", "eventTypeId", "locationId", "organizationId", "createdBy", "createdAt"]
+    },
+    "FixedBandScale": {
+      "title": "FixedBandScale",
+      "description": "Models for Band Scale",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "assignments": { "type": "array", "items": { "type": "object" } },
+        "organizationId": { "type": "string" },
+        "createdBy": { "$ref": "#/entities/CreatedBy" },
+        "createdAt": { "type": "string" },
+        "lastModifiedBy": { "$ref": "#/entities/CreatedBy" },
+        "lastModifiedAt": { "type": ["string", "null"] }
+      },
+      "required": ["name", "assignments", "organizationId", "createdBy", "createdAt"]
+    },
+    "Location": {
+      "title": "Location",
+      "description": "Location",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "createdBy": { "$ref": "#/entities/CreatedBy" },
+        "createdAt": { "type": ["string", "null"] },
+        "lastModifiedBy": { "$ref": "#/entities/CreatedBy" },
+        "lastModifiedAt": { "type": ["string", "null"] }
+      },
+      "required": ["name", "organizationId"]
+    },
+    "EventName": {
+      "title": "EventName",
+      "description": "Event name",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "createdBy": { "$ref": "#/entities/CreatedBy" },
+        "createdAt": { "type": ["string", "null"] },
+        "lastModifiedBy": { "$ref": "#/entities/CreatedBy" },
+        "lastModifiedAt": { "type": ["string", "null"] }
+      },
+      "required": ["name", "organizationId"]
+    },
+    "EventType": {
+      "title": "EventType",
+      "description": "Event Type",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "createdBy": { "$ref": "#/entities/CreatedBy" },
+        "createdAt": { "type": ["string", "null"] },
+        "lastModifiedBy": { "$ref": "#/entities/CreatedBy" },
+        "lastModifiedAt": { "type": ["string", "null"] }
+      },
+      "required": ["name", "organizationId"]
+    },
+    "Tag": {
+      "title": "Tag",
+      "description": "Tag",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "createdBy": { "$ref": "#/entities/CreatedBy" },
+        "createdAt": { "type": ["string", "null"] },
+        "lastModifiedBy": { "$ref": "#/entities/CreatedBy" },
+        "lastModifiedAt": { "type": ["string", "null"] }
+      },
+      "required": ["name", "organizationId"]
+    },
+    "Instrument": {
+      "title": "Instrument",
+      "description": "Instrument",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "createdBy": { "$ref": "#/entities/CreatedBy" },
+        "createdAt": { "type": ["string", "null"] },
+        "lastModifiedBy": { "$ref": "#/entities/CreatedBy" },
+        "lastModifiedAt": { "type": ["string", "null"] }
+      },
+      "required": ["name", "category", "organizationId"]
+    },
+    "Suggestion": {
+      "title": "Suggestion",
+      "description": "Song Suggestion",
+      "type": "object",
+      "properties": {
+        "songs": { "type": "array", "items": { "type": "object" } },
+        "createdBy": { "$ref": "#/entities/CreatedBy" },
+        "createdAt": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "isArchived": { "type": "boolean" },
+        "organizationId": { "type": "string" }
+      },
+      "required": ["songs", "createdBy", "createdAt", "isRead", "organizationId"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profiles"
+    },
+    "roles/{roleId}": {
+      "schema": { "$ref": "#/entities/Role" },
+      "description": "Organization roles"
+    },
+    "organization_members/{memberId}": {
+      "schema": { "$ref": "#/entities/OrganizationMember" },
+      "description": "Users mapped to organizations"
+    },
+    "invites/{inviteId}": {
+      "schema": { "$ref": "#/entities/Invite" },
+      "description": "Organization invites"
+    },
+    "organizations/{organizationId}": {
+      "schema": { "$ref": "#/entities/Organization" },
+      "description": "Organizations / Tenants"
+    },
+    "subscriptions/{subscriptionId}": {
+      "schema": { "$ref": "#/entities/Subscription" },
+      "description": "Tenant stripe subscriptions"
+    },
+    "songs/{songId}": {
+      "schema": { "$ref": "#/entities/Song" },
+      "description": "Songs in repertoire"
+    },
+    "scales/{scaleId}": {
+      "schema": { "$ref": "#/entities/Scale" },
+      "description": "Music scales"
+    },
+    "bandScales/{bandScaleId}": {
+      "schema": { "$ref": "#/entities/BandScale" },
+      "description": "Band schedules"
+    },
+    "fixedBandScales/{fixedBandScaleId}": {
+      "schema": { "$ref": "#/entities/FixedBandScale" },
+      "description": "Fixed templates for Band Scales"
+    },
+    "locations/{locationId}": {
+      "schema": { "$ref": "#/entities/Location" },
+      "description": "Event Locations"
+    },
+    "eventNames/{eventNameId}": {
+      "schema": { "$ref": "#/entities/EventName" },
+      "description": "Event Names"
+    },
+    "eventTypes/{eventTypeId}": {
+      "schema": { "$ref": "#/entities/EventType" },
+      "description": "Event Types"
+    },
+    "tags/{tagId}": {
+      "schema": { "$ref": "#/entities/Tag" },
+      "description": "Song Tags"
+    },
+    "instruments/{instrumentId}": {
+      "schema": { "$ref": "#/entities/Instrument" },
+      "description": "Band Instruments"
+    },
+    "suggestions/{suggestionId}": {
+      "schema": { "$ref": "#/entities/Suggestion" },
+      "description": "Song Suggestions"
+    }
+  }
+}

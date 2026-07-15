@@ -1,0 +1,269 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <title>MusicScale</title>
+    <link rel="icon" type="image/png" href="/LogoIcon.png" />
+    <!-- Web App / PWA Meta tags to control the saved name of the shortcut on home screen -->
+    <meta name="apple-mobile-web-app-title" content="MusicScale" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="MusicScale" />
+    <script>
+      // Early Error Interception to shield from Safari background/sandboxed Script errors (CORS script blocks)
+      window.onerror = function(message, source, lineno, colno, error) {
+        if (
+          message === "Script error." || 
+          !source || 
+          (lineno === 0 && colno === 0) ||
+          (message && typeof message === 'string' && message.includes("Script error"))
+        ) {
+          console.warn("[MusicScale Shield] Suppressed sandboxed/cross-origin background Script error");
+          // removed return true to not silence boot errors entirely
+        }
+      };
+      
+      window.addEventListener("error", function(e) {
+        if (
+          e.message === "Script error." || 
+          !e.filename || 
+          (e.lineno === 0 && e.colno === 0) ||
+          (e.message && typeof e.message === 'string' && e.message.includes("Script error"))
+        ) {
+          // removed preventDefault and stopImmediatePropagation
+          console.warn("error suppressed");
+        } else {
+          console.warn("error:", e.message);
+        }
+      }, { capture: true });
+
+      window.addEventListener("unhandledrejection", function(e) {
+        if (e.reason && e.reason.message && e.reason.message.includes("Script error")) {
+          // removed preventDefault and stopImmediatePropagation
+          console.warn("unhandledrejection suppressed");
+        } else {
+          console.warn("unhandledrejection:", e.reason);
+        }
+      }, { capture: true });
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous">
+    <style>
+      :root {
+        /* Default Light Mode Variables */
+        --color-background: #F2F2F7;
+        --color-surface: #FFFFFF;
+        --color-primary: #007AFF;
+        --color-primary-dark: #0056B3;
+        --color-primary-light: #47A3FF;
+        --color-accent: #5E5CE6;
+        
+        /* Tailwind v4 mappings to prevent circular references */
+        --app-bg: var(--color-background);
+        --app-surface: var(--color-surface);
+        --app-primary: var(--color-primary);
+        --app-primary-dark: var(--color-primary-dark);
+        --app-primary-light: var(--color-primary-light);
+        --app-accent: var(--color-accent);
+      }
+
+      /* Global Styles for Apple-like feel */
+      body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background-color: var(--color-background);
+        color: #111827;
+        transition: background-color 0.5s ease, color 0.5s ease;
+      }
+
+      .dark body {
+        color: #F9FAFB;
+      }
+
+      h1, h2, h3, h4, h5, h6 {
+        letter-spacing: -0.025em;
+        font-weight: 700;
+        line-height: 1.1;
+      }
+
+      h1 { font-size: 2.25rem; letter-spacing: -0.04em; }
+      h2 { font-size: 1.5rem; letter-spacing: -0.03em; }
+      h3 { font-size: 1.25rem; }
+
+      /* Safe Area Utilities */
+      @supports(padding: max(0px)) {
+        .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 1rem); }
+        .pt-safe { padding-top: max(env(safe-area-inset-top), 1rem); }
+        .pl-safe { padding-left: max(env(safe-area-inset-left), 1rem); }
+        .pr-safe { padding-right: max(env(safe-area-inset-right), 1rem); }
+      }
+
+      /* Custom Scrollbar - Minimalist */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(156, 163, 175, 0.4); 
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(156, 163, 175, 0.7); 
+      }
+
+      /* Glass Inputs Global Override */
+      input[type="text"], 
+      input[type="email"], 
+      input[type="password"], 
+      input[type="search"], 
+      input[type="date"], 
+      input[type="number"], 
+      input[type="url"], 
+      select, 
+      textarea {
+        background-color: #F9FAFB;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        border-radius: 12px;
+        padding: 12px 16px;
+        transition: all 0.3s ease;
+      }
+      
+      .dark input[type="text"], 
+      .dark input[type="email"], 
+      .dark input[type="password"], 
+      .dark input[type="search"], 
+      .dark input[type="date"], 
+      .dark input[type="number"], 
+      .dark input[type="url"], 
+      .dark select, 
+      .dark textarea {
+        background-color: rgba(30, 41, 59, 0.5); /* slate-800/50 */
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        color: white;
+        backdrop-filter: blur(16px);
+      }
+
+      input:focus, select:focus, textarea:focus {
+        outline: none;
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 15%, transparent);
+        background-color: #FFFFFF;
+        border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+      }
+      .dark input:focus, .dark select:focus, .dark textarea:focus {
+        background-color: rgba(15, 23, 42, 0.8); /* slate-900/80 */
+        border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+      }
+
+      /* Glassmorphism Utilities */
+      .glass-panel {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+      }
+      .dark .glass-panel {
+        background: rgba(28, 28, 30, 0.65);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      
+      /* Tinted Mode Specifics handled via JS injection of variables, 
+         but we can set transition properties here */
+      *, *::before, *::after {
+        transition-property: background-color, border-color, color, fill, stroke;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transition-duration: 300ms;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.4",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js",
+    "firebase/": "https://aistudiocdn.com/firebase@^12.4.0/",
+    "html-to-image": "https://aistudiocdn.com/html-to-image@^1.11.13"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+<script>
+      // Boot Resilience Watchdog
+      document.addEventListener("DOMContentLoaded", () => {
+        setTimeout(() => {
+          const splash = document.getElementById('splash-loader');
+          if (splash) {
+            splash.innerHTML = `
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; text-align: center; padding: 20px;">
+                <h2 style="font-size: 20px; font-weight: 700; color: #111827; margin: 0 0 12px 0; letter-spacing: -0.025em;">Não foi possível iniciar o MusicScale</h2>
+                <p style="font-size: 14px; font-weight: 500; color: #4B5563; margin: 0 0 24px 0; line-height: 1.5; max-width: 300px;">O aplicativo demorou mais que o esperado para abrir. Tente recarregar a página.</p>
+                <button onclick="window.location.reload()" style="padding: 12px 24px; border-radius: 12px; border: none; background: #007AFF; color: white; font-weight: 600; font-size: 15px; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0, 122, 255, 0.2);">Tentar novamente</button>
+              </div>
+            `;
+          }
+        }, 12000);
+      });
+</script>
+</head>
+  <body class="bg-background text-slate-800 dark:text-gray-200 transition-colors duration-300 selection:bg-primary/30 selection:text-primary-dark antialiased">
+    <div id="root">
+      <!-- Premium Static Splash Screen for iOS Share menu pre-render and background sandboxes -->
+      <div id="splash-loader" style="display: flex; flex-direction: column; height: 100vh; width: 100vw; justify-content: center; align-items: center; background: #F2F2F7; position: fixed; inset: 0; z-index: 9999; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <style>
+          @media (prefers-color-scheme: dark) {
+            #splash-loader {
+              background: #0B0F19 !important;
+            }
+            #splash-loader .splash-logo-container {
+              background: #111827 !important;
+              border-color: rgba(255, 255, 255, 0.05) !important;
+            }
+            #splash-loader h2 {
+              color: #F9FAFB !important;
+            }
+            #splash-loader p {
+              color: #9CA3AF !important;
+            }
+          }
+          @keyframes splash-pulse {
+            0%, 100% { opacity: 0.6; transform: scale(0.97); }
+            50% { opacity: 1; transform: scale(1.03); }
+          }
+          @keyframes spin-loader {
+            to { transform: rotate(360deg); }
+          }
+        </style>
+        
+        <!-- Ambient blurred glow background -->
+        <div style="position: absolute; width: 280px; height: 280px; background: rgba(0, 122, 255, 0.12); filter: blur(80px); border-radius: 50%; pointer-events: none; top: 35%; left: 50%; transform: translate(-50%, -50%);"></div>
+        
+        <!-- Balanced content box -->
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10;">
+          <!-- Premium Logo Shell with Continuous Squircle Radius -->
+          <div class="splash-logo-container" style="animation: splash-pulse 2.2s infinite ease-in-out; position: relative; width: 88px; height: 88px; border-radius: 22px; background: #FFFFFF; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.06), 0 8px 10px -6px rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: center; margin-bottom: 24px; border: 1px solid rgba(0,0,0,0.025);">
+            <img src="/public/LogoIcon.png" alt="MusicScale" style="width: 56px; height: 56px; object-fit: contain;" />
+          </div>
+          
+          <!-- Human & Clear Editorial Branded Labels -->
+          <h2 style="font-size: 20px; font-weight: 700; color: #111827; margin: 0; letter-spacing: -0.025em;">MusicScale</h2>
+          <p style="font-size: 13px; font-weight: 500; color: #4B5563; margin: 6px 0 0 0; letter-spacing: -0.010em;">MillionsNest System</p>
+          
+          <!-- Compact Activity Loop -->
+          <div style="margin-top: 36px; width: 22px; height: 22px; border: 2.5px solid rgba(0, 122, 255, 0.12); border-top-color: #007AFF; border-radius: 50%; animation: spin-loader 0.8s linear infinite;"></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

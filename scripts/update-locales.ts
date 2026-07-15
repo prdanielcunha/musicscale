@@ -1,0 +1,205 @@
+import fs from 'fs';
+
+function update(file: string, data: any) {
+  if (fs.existsSync(file)) {
+    const json = JSON.parse(fs.readFileSync(file, 'utf8'));
+    for (const [key, value] of Object.entries(data)) {
+        if (!json[key]) json[key] = {};
+        Object.assign(json[key], value);
+    }
+    fs.writeFileSync(file, JSON.stringify(json, null, 2));
+  }
+}
+
+const pt = {
+  library: {
+    "title": "Biblioteca Viva MusicScale",
+    "description": "Um acervo premium e atualizado para sua equipe importar, ensaiar e ministrar com excelência. Menos tempo procurando. Mais tempo adorando.",
+    "import_file": "Importar Arquivo",
+    "create_ai": "Criar por IA",
+    "create_global": "Criar Música Global",
+    "complete_library": "Biblioteca Viva completa",
+    "unlimited_imports": "Importações ilimitadas liberadas. Adicione músicas prontas sem restrições.",
+    "songs_in_library": "Músicas no acervo",
+    "complete": "Completas",
+    "with_chords": "Com cifra",
+    "with_lyrics": "Com letra",
+    "search_placeholder": "Buscar por música, artista, trecho da letra, tom ou BPM...",
+    "filter_all": "Todas",
+    "filter_imported": "Já importadas",
+    "filter_not_imported": "Não importadas",
+    "import_all": "Importar Todas",
+    "select": "Selecionar",
+    "most_imported": "Mais importadas",
+    "in_repertoire": "No repertório",
+    "complete_badge": "Completa",
+    "import": "Importar",
+    "added": "Adicionada",
+    "original": "Original",
+    "import_count": "{{count}} importação",
+    "import_count_plural": "{{count}} importações",
+    "select_all": "Selecionar Todas",
+    "deselect_all": "Desmarcar as {{count}} selecionadas",
+    "import_selected": "Importar Selecionadas",
+    "confirm_import_all_title": "Importar músicas da Biblioteca Viva?",
+    "confirm_import_all_desc": "Vamos adicionar ao seu repertório as músicas visíveis que ainda não estão nele. Músicas já adicionadas serão ignoradas automaticamente.",
+    "is_preparing": "A Biblioteca Viva está sendo preparada",
+    "will_have_access": "Em breve sua equipe terá acesso a um acervo poderoso de músicas prontas para importar.",
+    "library_up_to_date": "Sua biblioteca está em dia",
+    "all_displayed_imported": "Todas as músicas exibidas já fazem parte do repertório da sua organização.",
+    "available_in_advanced": "Biblioteca Viva disponível no Advanced",
+    "limit_exceeded": "Limite excedido.",
+    "imported_successfully": "{{count}} música(s) importada(s) com sucesso.",
+    "import_error": "Ocorreu um erro ao importar algumas músicas. Tente novamente.",
+    "no_new_songs": "Nenhuma música nova para importar.",
+    "error_loading": "Ocorreu um erro ao buscar músicas. Tente novamente.",
+    "confirm_delete_title": "Excluir Música?",
+    "confirm_delete_desc": "Tem certeza que deseja excluir '{{title}}' da Biblioteca Viva? Esta ação não pode ser desfeita.",
+    "go_to_repertoire": "Acesse o seu Repertório para editar a música existente."
+  },
+  dashboard: {
+    "next_event": "Próximo Evento",
+    "today": "Hoje",
+    "tomorrow": "Amanhã",
+    "in_days": "Em {{count}} dias",
+    "songs_count": "{{count}} música",
+    "songs_count_plural": "{{count}} músicas",
+    "member_count": "{{count}} membro",
+    "member_count_plural": "{{count}} membros",
+    "current_plan": "Plano atual",
+    "view_library": "Ver Biblioteca Viva",
+    "view_repertoire": "Ver Repertório",
+    "no_events": "Nenhum evento próximo",
+    "no_events_desc": "Os próximos eventos da sua equipe aparecerão aqui."
+  }
+};
+
+const en = {
+  library: {
+    "title": "MusicScale Living Library",
+    "description": "A premium, continuously updated collection for your team to import, rehearse, and lead with excellence. Less time searching. More time worshiping.",
+    "import_file": "Import File",
+    "create_ai": "Create with AI",
+    "create_global": "Create Global Song",
+    "complete_library": "Complete Living Library",
+    "unlimited_imports": "Unlimited imports unlocked. Add ready-to-use songs without restrictions.",
+    "songs_in_library": "Songs in library",
+    "complete": "Complete",
+    "with_chords": "With chords",
+    "with_lyrics": "With lyrics",
+    "search_placeholder": "Search by song, artist, lyric excerpt, key, or BPM...",
+    "filter_all": "All",
+    "filter_imported": "Already imported",
+    "filter_not_imported": "Not imported",
+    "import_all": "Import All",
+    "select": "Select",
+    "most_imported": "Most imported",
+    "in_repertoire": "In repertoire",
+    "complete_badge": "Complete",
+    "import": "Import",
+    "added": "Added",
+    "original": "Original",
+    "import_count": "{{count}} import",
+    "import_count_plural": "{{count}} imports",
+    "select_all": "Select All",
+    "deselect_all": "Deselect {{count}} selected",
+    "import_selected": "Import Selected",
+    "confirm_import_all_title": "Import from Living Library?",
+    "confirm_import_all_desc": "We will add the visible songs that are not yet in your repertoire. Already added songs will be ignored automatically.",
+    "is_preparing": "Living Library is being prepared",
+    "will_have_access": "Soon your team will have access to a powerful collection of ready-to-import songs.",
+    "library_up_to_date": "Your library is up to date",
+    "all_displayed_imported": "All displayed songs are already in your organization's repertoire.",
+    "available_in_advanced": "Living Library available in Advanced",
+    "limit_exceeded": "Limit exceeded.",
+    "imported_successfully": "{{count}} song(s) successfully imported.",
+    "import_error": "An error occurred while importing some songs. Please try again.",
+    "no_new_songs": "No new songs to import.",
+    "error_loading": "An error occurred while fetching songs. Please try again.",
+    "confirm_delete_title": "Delete Song?",
+    "confirm_delete_desc": "Are you sure you want to delete '{{title}}' from the Living Library? This action cannot be undone.",
+    "go_to_repertoire": "Go to your Repertoire to edit the existing song."
+  },
+  dashboard: {
+    "next_event": "Next Event",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "in_days": "In {{count}} days",
+    "songs_count": "{{count}} song",
+    "songs_count_plural": "{{count}} songs",
+    "member_count": "{{count}} member",
+    "member_count_plural": "{{count}} members",
+    "current_plan": "Current plan",
+    "view_library": "View Living Library",
+    "view_repertoire": "View Repertoire",
+    "no_events": "No upcoming events",
+    "no_events_desc": "Your team's upcoming events will appear here."
+  }
+};
+
+const es = {
+  library: {
+    "title": "Biblioteca Viva MusicScale",
+    "description": "Un acervo premium y actualizado para que tu equipo pueda importar, ensayar y ministrar con excelencia. Menos tiempo buscando. Más tiempo adorando.",
+    "import_file": "Importar archivo",
+    "create_ai": "Crear con IA",
+    "create_global": "Crear canción global",
+    "complete_library": "Biblioteca Viva completa",
+    "unlimited_imports": "Importaciones ilimitadas desbloqueadas. Agrega canciones listas sin restricciones.",
+    "songs_in_library": "Canciones en el acervo",
+    "complete": "Completas",
+    "with_chords": "Con cifrado",
+    "with_lyrics": "Con letra",
+    "search_placeholder": "Buscar por canción, artista, fragmento de letra, tono o BPM...",
+    "filter_all": "Todas",
+    "filter_imported": "Ya importadas",
+    "filter_not_imported": "No importadas",
+    "import_all": "Importar todas",
+    "select": "Seleccionar",
+    "most_imported": "Más importadas",
+    "in_repertoire": "En el repertorio",
+    "complete_badge": "Completa",
+    "import": "Importar",
+    "added": "Agregada",
+    "original": "Original",
+    "import_count": "{{count}} importación",
+    "import_count_plural": "{{count}} importaciones",
+    "select_all": "Seleccionar Todas",
+    "deselect_all": "Deseleccionar {{count}} seleccionadas",
+    "import_selected": "Importar Seleccionadas",
+    "confirm_import_all_title": "¿Importar canciones de la Biblioteca Viva?",
+    "confirm_import_all_desc": "Agregaremos a tu repertorio las canciones visibles que aún no están en él. Las canciones ya agregadas serán ignoradas automáticamente.",
+    "is_preparing": "La Biblioteca Viva se está preparando",
+    "will_have_access": "Pronto tu equipo tendrá acceso a un poderoso acervo de canciones listas para importar.",
+    "library_up_to_date": "Tu biblioteca está al día",
+    "all_displayed_imported": "Todas las canciones mostradas ya están en el repertorio de tu organización.",
+    "available_in_advanced": "Biblioteca Viva disponible en Advanced",
+    "limit_exceeded": "Límite superado.",
+    "imported_successfully": "{{count}} canción(ones) importada(s) con éxito.",
+    "import_error": "Ocurrió un error al importar algunas canciones. Inténtalo de nuevo.",
+    "no_new_songs": "No hay canciones nuevas para importar.",
+    "error_loading": "Ocurrió un error al buscar canciones. Inténtalo de nuevo.",
+    "confirm_delete_title": "¿Eliminar Canción?",
+    "confirm_delete_desc": "¿Estás seguro de que deseas eliminar '{{title}}' de la Biblioteca Viva? Esta acción no se puede deshacer.",
+    "go_to_repertoire": "Ve a tu Repertorio para editar la canción existente."
+  },
+  dashboard: {
+    "next_event": "Próximo Evento",
+    "today": "Hoy",
+    "tomorrow": "Mañana",
+    "in_days": "En {{count}} días",
+    "songs_count": "{{count}} canción",
+    "songs_count_plural": "{{count}} canciones",
+    "member_count": "{{count}} miembro",
+    "member_count_plural": "{{count}} miembros",
+    "current_plan": "Plan actual",
+    "view_library": "Ver Biblioteca Viva",
+    "view_repertoire": "Ver Repertorio",
+    "no_events": "No hay próximos eventos",
+    "no_events_desc": "Los próximos eventos de tu equipo aparecerán aquí."
+  }
+};
+
+update('locales/pt.json', pt);
+update('locales/en.json', en);
+update('locales/es.json', es);

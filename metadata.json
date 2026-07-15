@@ -1,0 +1,8 @@
+{
+  "name": "MusicScale",
+  "description": "Uma plataforma profissional para gestão de bandas, repertórios e escalas musicais, simplificando a organização de ministérios e grupos de louvor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

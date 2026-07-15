@@ -1,0 +1,464 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { allow read, write: if false; }
+
+    // ==========================================
+    // FUNÇÕES AUXILIARES E GLOBAIS
+    // ==========================================
+
+    function isAuthenticated() { return request.auth != null; }
+    function incoming() { return request.resource.data; }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isSystemAdminEmail() {
+      return request.auth != null && request.auth.token.email in ['pastordanielpcunha@gmail.com', 'danielcunhapastor@gmail.com'];
+    }
+
+    function isOrgActive(orgId) {
+      return true;
+    }
+
+    function checkMemberExists(orgId) {
+      return (orgId is string) && (
+        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) ||
+        exists(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)) ||
+        exists(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid))
+      );
+    }
+
+    function isOwnerOfOrg(orgId) {
+      return exists(/databases/$(database)/documents/organizations/$(orgId)) && (
+        get(/databases/$(database)/documents/organizations/$(orgId)).data.get('ownerUid', '') == request.auth.uid || 
+        get(/databases/$(database)/documents/organizations/$(orgId)).data.get('ownerId', '') == request.auth.uid || 
+        get(/databases/$(database)/documents/organizations/$(orgId)).data.get('owner_user_id', '') == request.auth.uid || 
+        get(/databases/$(database)/documents/organizations/$(orgId)).data.get('ownerUserId', '') == request.auth.uid
+      );
+    }
+
+    function checkOrgAccess(orgId) {
+      return (
+        isSystemAdminEmail() || 
+        orgId == request.auth.uid || 
+        checkMemberExists(orgId) || 
+        isOwnerOfOrg(orgId)
+      );
+    }
+
+    function hasOrgContext(data) {
+      return ('organizationId' in data) && checkOrgAccess(data.get('organizationId', ''));
+    }
+    
+    function isMemberWithRole(orgId, role) {
+      return (
+        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('role', '') == role
+      ) || (
+        exists(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)) && 
+        get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('role', '') == role
+      ) || (
+        exists(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)) && 
+        get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('role', '') == role
+      );
+    }
+
+    function isMemberWithExplicitPermission(orgId, permission) {
+      return (
+        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('permissions', {}).get(permission, false) == true
+      ) || (
+        exists(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)) && 
+        get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('permissions', {}).get(permission, false) == true
+      ) || (
+        exists(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)) && 
+        get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('permissions', {}).get(permission, false) == true
+      );
+    }
+
+    function isOrgAdmin(orgId) {
+      return isSystemAdmin() || orgId == request.auth.uid || isMemberWithRole(orgId, 'admin') || isMemberWithRole(orgId, 'owner') || isMemberWithRole(orgId, 'Dono');
+    }
+
+    function isOrgOwner(orgId) {
+      return isSystemAdmin() || orgId == request.auth.uid || isMemberWithRole(orgId, 'owner') || isMemberWithRole(orgId, 'Dono');
+    }
+
+    function hasPermission(orgId, permission) {
+      return isSystemAdmin() || isOrgAdmin(orgId) || isMemberWithRole(orgId, 'member') || isMemberWithExplicitPermission(orgId, permission);
+    }
+    
+    function isSystemAdmin() {
+      return isSystemAdminEmail() || (
+        isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('systemRole', '') in ['ceo', 'admin', 'global_admin', 'ecosystem_owner', 'founder', 'owner'] ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('appRole', '') in ['ceo', 'admin', 'global_admin', 'ecosystem_owner', 'founder'] ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') in ['ceo', 'admin', 'global_admin', 'ecosystem_owner', 'founder']
+        )
+      );
+    }
+
+    // ==========================================
+    // 1. DADOS DOS USUÁRIOS
+    // ==========================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (userId == request.auth.uid || isSystemAdmin() || ('organizationId' in resource.data && checkOrgAccess(resource.data.get('organizationId', ''))));
+      allow create: if isAuthenticated() && (userId == request.auth.uid || isSystemAdmin() || hasOrgContext(incoming()));
+      allow update: if isAuthenticated() && (
+        isSystemAdmin() || 
+        // User updating their own profile
+        (userId == request.auth.uid && 
+          (!('systemRole' in incoming()) || incoming().systemRole == resource.data.get('systemRole', null)) &&
+          (!('lifetimeAccess' in incoming()) || incoming().lifetimeAccess == resource.data.get('lifetimeAccess', null)) &&
+          (!('capabilities' in incoming()) || incoming().capabilities == resource.data.get('capabilities', null))
+        ) ||
+        // Org admin updating member of their org
+        (
+          resource != null && 'organizationId' in resource.data && isOrgAdmin(resource.data.get('organizationId', '')) &&
+          (!('systemRole' in incoming()) || incoming().systemRole == resource.data.get('systemRole', null)) &&
+          (!('lifetimeAccess' in incoming()) || incoming().lifetimeAccess == resource.data.get('lifetimeAccess', null)) &&
+          (!('capabilities' in incoming()) || incoming().capabilities == resource.data.get('capabilities', null)) &&
+          (
+            (!isOwner(userId) && (
+              (resource.data.get('role', '') != 'owner' && resource.data.get('role', '') != 'Dono' && resource.data.get('organizationRole', '') != 'Dono' && resource.data.get('organizationRole', '') != 'owner') ||
+              isOrgOwner(resource.data.get('organizationId', ''))
+            ))
+          )
+        )
+      );
+      allow delete: if isAuthenticated() && (isSystemAdmin() || (resource != null && 'organizationId' in resource.data && isOrgAdmin(resource.data.get('organizationId', '')) && checkOrgAccess(resource.data.get('organizationId', ''))));
+    }
+
+    match /users/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ==========================================
+    // 2. DADOS DA ORGANIZAÇÃO (CORE)
+    // ==========================================
+
+    match /organizations/{orgId} {
+      allow get: if isAuthenticated() && (
+        isSystemAdmin() ||
+        (resource != null && resource.data.get('ownerUid', '') == request.auth.uid) ||
+        (resource != null && resource.data.get('ownerId', '') == request.auth.uid) ||
+        (resource != null && resource.data.get('owner_user_id', '') == request.auth.uid) ||
+        (resource != null && resource.data.get('ownerUserId', '') == request.auth.uid) ||
+        checkMemberExists(orgId) ||
+        orgId == request.auth.uid
+      );
+      allow list: if isAuthenticated() && (
+        isSystemAdminEmail() ||
+        resource.data.get('ownerUid', '') == request.auth.uid ||
+        resource.data.get('ownerId', '') == request.auth.uid ||
+        resource.data.get('owner_user_id', '') == request.auth.uid ||
+        resource.data.get('ownerUserId', '') == request.auth.uid
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        isSystemAdmin() ||
+        resource.data.get('ownerUid', '') == request.auth.uid || 
+        resource.data.get('ownerId', '') == request.auth.uid || 
+        resource.data.get('owner_user_id', '') == request.auth.uid || 
+        resource.data.get('ownerUserId', '') == request.auth.uid || 
+        orgId == request.auth.uid ||
+        (checkMemberExists(orgId) && isOrgOwner(orgId))
+      );
+      allow delete: if false; 
+
+      // ---------------------------------------------------------------------------------
+      // MULTI-TENANT ISOLATION (NOVA ESTRUTURA)
+      // ---------------------------------------------------------------------------------
+      
+      match /monthly_usage/{monthStr} {
+        allow read: if isAuthenticated() && checkOrgAccess(orgId);
+        allow write: if false;
+      }
+
+      match /members/{uid} {
+        allow read: if isAuthenticated() && (
+          uid == request.auth.uid || checkOrgAccess(orgId) || isSystemAdmin()
+        );
+        allow list: if isAuthenticated() && (checkOrgAccess(orgId) || isSystemAdmin());
+        allow create: if isAuthenticated() && (
+          uid == request.auth.uid || isOrgAdmin(orgId) || isSystemAdmin()
+        );
+        allow update, delete: if isAuthenticated() && (
+          isOrgAdmin(orgId) || isSystemAdmin()
+        );
+      }
+
+      match /invites/{inviteId} {
+        allow read: if true; 
+        allow list: if isAuthenticated();
+        // Permite atualização se for para marcar como aceito, ou se for Admin
+        allow update: if isAuthenticated() && (
+          isOrgAdmin(orgId) || isSystemAdmin() || 
+          (request.resource.data.get('status', '') == 'accepted' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedByUid', 'acceptedAt']))
+        );
+        allow create, delete: if isAuthenticated() && (isOrgAdmin(orgId) || isSystemAdmin());
+      }
+
+      match /audit_logs/{document=**} {
+        allow read: if isAuthenticated() && checkOrgAccess(orgId);
+        allow write: if isAuthenticated() && checkOrgAccess(orgId);
+      }
+
+      match /timeline/{document=**} {
+        allow read: if isAuthenticated() && checkOrgAccess(orgId);
+        allow write: if isAuthenticated() && checkOrgAccess(orgId);
+      }
+
+      match /{app}/{document=**} {
+        allow read: if isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow create: if isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow update, delete: if isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+      }
+    }
+
+    match /organization_members/{id} {
+      allow read: if isAuthenticated() && (
+        resource.data.get('uid', '') == request.auth.uid ||
+        resource.data.get('user_id', '') == request.auth.uid ||
+        resource.data.get('userId', '') == request.auth.uid ||
+        checkOrgAccess(resource.data.get('organizationId', '')) ||
+        checkOrgAccess(resource.data.get('organization_id', ''))
+      );
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && (
+        request.resource.data.get('uid', '') == request.auth.uid || 
+        request.resource.data.get('user_id', '') == request.auth.uid || 
+        isOrgAdmin(request.resource.data.get('organizationId', ''))
+      );
+      allow update: if isAuthenticated() && (
+        isSystemAdmin() || 
+        request.resource.data.get('uid', '') == request.auth.uid ||
+        request.resource.data.get('user_id', '') == request.auth.uid ||
+        (
+          checkOrgAccess(resource.data.get('organizationId', '')) && 
+          isOrgAdmin(resource.data.get('organizationId', '')) &&
+          (resource.data.get('role', '') != 'owner' || isOrgOwner(resource.data.get('organizationId', ''))) &&
+          (incoming().get('role', '') != 'owner' || isOrgOwner(resource.data.get('organizationId', '')))
+        )
+      );
+      allow delete: if isAuthenticated() && (
+        isSystemAdmin() || 
+        (
+          checkOrgAccess(resource.data.get('organizationId', '')) && 
+          isOrgAdmin(resource.data.get('organizationId', '')) &&
+          (resource.data.get('role', '') != 'owner' || isOrgOwner(resource.data.get('organizationId', '')))
+        )
+      );
+    }
+
+    match /organization_join_requests/{id} {
+      allow read, list: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.get('uid', '') == request.auth.uid;
+      allow update, delete: if isAuthenticated();
+    }
+
+    // ==========================================
+    // 3. ASSINATURAS E CONVITES
+    // ==========================================
+    
+    match /subscriptions/{userId} {
+      allow read, list: if isAuthenticated() && (
+        checkOrgAccess(userId) || 
+        isSystemAdmin() ||
+        (resource != null && 'organizationId' in resource.data && checkOrgAccess(resource.data.get('organizationId', ''))) ||
+        (resource != null && 'userId' in resource.data && resource.data.get('userId', '') == request.auth.uid) ||
+        (resource == null)
+      );
+      allow write: if false; 
+    }
+
+    match /stripe_events_audit/{eventId} {
+      allow read, write: if false;
+    }
+
+    match /invitations/{inviteId} {
+       allow read: if isAuthenticated();
+       allow write: if isAuthenticated() && 
+                    checkMemberExists(request.resource.data.get('organizationId', '')) &&
+                    isOrgAdmin(request.resource.data.get('organizationId', '')) &&
+                    isOrgActive(request.resource.data.get('organizationId', ''));
+    }
+    
+    match /invites/{id} {
+      allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organization_id', ''));
+      allow write: if false; 
+    }
+
+    // ==========================================
+    // 4. MÓDULOS DE NEGÓCIO (APP MILLIONSNEST E OUTROS)
+    // ==========================================
+    
+    match /repertoire/{songId} {
+      allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && checkOrgAccess(request.resource.data.get('organizationId', '')) && isOrgActive(request.resource.data.get('organizationId', ''));
+      allow update: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+    }
+
+    match /schedules/{scheduleId} {
+      allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && checkOrgAccess(request.resource.data.get('organizationId', '')) && isOrgActive(request.resource.data.get('organizationId', ''));
+      allow update: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+    }
+
+    match /feedbacks/{feedbackId} {
+       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+       allow create: if isAuthenticated() && (request.resource.data.get('organizationId', '') == 'none' || (checkOrgAccess(request.resource.data.get('organizationId', '')) && isOrgActive(request.resource.data.get('organizationId', ''))));
+       allow update, delete: if false;
+    }
+
+    // ==========================================
+    // 5. MÓDULOS MUSIC SCALE (ACERVO MUSIC SCALE)
+    // ==========================================
+
+    match /songs/{songId} {
+      allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && (hasPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasPermission(incoming().get('organizationId', ''), 'canManageChords')) && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && (hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageChords')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+    }
+
+    match /scales/{scaleId} {
+      allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && hasPermission(incoming().get('organizationId', ''), 'canManageScales') && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+    }
+
+    match /bandScales/{scaleId} {
+      allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && hasPermission(incoming().get('organizationId', ''), 'canManageScales') && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', ''));
+    }
+
+    match /fixedBandScales/{id} {
+      allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && hasPermission(incoming().get('organizationId', ''), 'canManageScales') && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+    }
+
+    match /liveSessions/{id} {
+      allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && hasPermission(incoming().get('organizationId', ''), 'canManageScales') && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+    }
+
+    match /roles/{roleId} {
+      allow get: if isAuthenticated() && 'organizationId' in resource.data && checkOrgAccess(resource.data.get('organizationId', ''));
+      allow list: if isAuthenticated() && 'organizationId' in resource.data && (checkOrgAccess(resource.data.get('organizationId', '')) || checkMemberExists(resource.data.get('organizationId', '')) || resource.data.get('organizationId', '') == request.auth.uid);
+      allow create: if isAuthenticated() && isOrgAdmin(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && isOrgAdmin(resource.data.get('organizationId', '')) && checkOrgAccess(resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && isOrgAdmin(resource.data.get('organizationId', '')) && checkOrgAccess(resource.data.get('organizationId', ''));
+    }
+
+    match /locations/{id} {
+      allow read, update, delete: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && checkOrgAccess(incoming().get('organizationId', '')) && isOrgActive(incoming().get('organizationId', ''));
+    }
+
+    match /eventTypes/{id} {
+      allow read, update, delete: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && checkOrgAccess(incoming().get('organizationId', '')) && isOrgActive(incoming().get('organizationId', ''));
+    }
+
+    match /eventNames/{id} {
+      allow read, update, delete: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && checkOrgAccess(incoming().get('organizationId', '')) && isOrgActive(incoming().get('organizationId', ''));
+    }
+
+    match /tags/{id} {
+      allow read, update, delete: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && checkOrgAccess(incoming().get('organizationId', '')) && isOrgActive(incoming().get('organizationId', ''));
+    }
+
+    match /instruments/{id} {
+      allow read, update, delete: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && checkOrgAccess(incoming().get('organizationId', '')) && isOrgActive(incoming().get('organizationId', ''));
+    }
+
+    match /suggestions/{id} {
+      allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && hasOrgContext(incoming()) && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+    }
+
+    // ==========================================
+    // 6. RECURSOS GLOBAIS
+    // ==========================================
+
+    match /globalSongs/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isSystemAdmin();
+    }
+
+    match /songSubmissions/{id} {
+      allow read: if isAuthenticated() && (isSystemAdmin() || resource.data.get('submittedBy', '') == request.auth.uid);
+      allow create: if isAuthenticated() && hasOrgContext(incoming());
+      allow update, delete: if isSystemAdmin();
+    }
+    
+    // ==========================================
+    // 7. ECOSYSTEM INFRASTRUCTURE COLLECTIONS
+    // ==========================================
+
+    match /analytics_events/{eventId} {
+      allow create: if true;
+      allow read: if isSystemAdmin();
+      allow update, delete: if false;
+    }
+
+    match /system_audit_logs/{logId} {
+      allow create: if isAuthenticated(); 
+      allow read: if isSystemAdmin();
+      allow update, delete: if false;
+    }
+
+    match /audit_logs/{logId} {
+      allow create: if isAuthenticated(); 
+      allow read: if isSystemAdmin();
+      allow update, delete: if isSystemAdmin(); 
+    }
+
+    match /audits/{logId} {
+      allow create: if isAuthenticated(); 
+      allow read: if isSystemAdmin();
+      allow update, delete: if isSystemAdmin(); 
+    }
+
+    match /apps/{appId} {
+      allow read: if isAuthenticated(); 
+      allow write: if isSystemAdmin();
+    }
+
+    match /system_settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isSystemAdmin();
+    }
+
+    match /{path=**}/members/{uid} {
+      allow read, list: if isAuthenticated() && (
+        isSystemAdminEmail() || 
+        uid == request.auth.uid ||
+        (resource != null && (
+          resource.data.get('uid', '') == request.auth.uid || 
+          resource.data.get('userId', '') == request.auth.uid ||
+          resource.data.get('user_id', '') == request.auth.uid
+        ))
+      );
+    }
+  }
+}

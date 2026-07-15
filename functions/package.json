@@ -1,0 +1,25 @@
+{
+  "name": "musicscale-functions",
+  "version": "1.0.0",
+  "description": "Firebase Functions for MusicScale (Phase 3B)",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --external:firebase-admin --external:firebase-functions --outfile=dist/index.js",
+    "lint": "tsc --noEmit",
+    "test": "tsx tests/trigger.test.ts"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "private": true,
+  "dependencies": {
+    "firebase-admin": "^13.8.0",
+    "firebase-functions": "^6.3.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0",
+    "typescript": "~5.8.2",
+    "tsx": "^4.21.0"
+  }
+}
