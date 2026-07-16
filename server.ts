@@ -762,6 +762,7 @@ app.use((err: any, req: any, res: any, next: any) => {
   });
 
   app.get("/api/v1/ecosystem/access-context", async (req, res) => {
+      const startTime = performance.now();
       const correlationId = "ctx_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
       try {
           if (!db) throw new Error("Database not initialized");
@@ -779,56 +780,59 @@ app.use((err: any, req: any, res: any, next: any) => {
           if (!authUid) {
               return res.status(401).json({ error: "Unauthorized: Invalid Token", correlationId });
           }
+          const authTime = performance.now();
 
           console.log(`[Correlation: ${correlationId}] Resolving access context for uid: ${authUid} in org: ${orgId}`);
 
-          // 1. Get canonical user data from MillionsNest source
-          const userSnap = await db.collection("users").doc(authUid).get();
+          // 1 & 2. FIRST PARALLEL WAVE
+          const [userSnap, orgSnap, orgMemberSnap, rbacModule, resolverModule] = await Promise.all([
+              db.collection("users").doc(authUid).get(),
+              db.collection("organizations").doc(orgId).get(),
+              db.collection("organizations").doc(orgId).collection("members").doc(authUid).get(),
+              import("./utils/rbac.js"),
+              import("./services/ecosystem/accessContextResolver.js")
+          ]);
+          const primaryReadsTime = performance.now();
+
           if (!userSnap.exists) {
               return res.status(404).json({ error: "User profile not found in MillionsNest canonical repository", correlationId });
           }
-          const userData = userSnap.data() || {};
-          const systemRole = userData.systemRole || userData.role || userData.appRole || null;
-
-          // 2. Load Organization Data
-          const orgSnap = await db.collection("organizations").doc(orgId).get();
           if (!orgSnap.exists) {
               return res.status(404).json({ error: "Organization not found", correlationId });
           }
+
+          const userData = userSnap.data() || {};
           const orgData = orgSnap.data() || {};
+          const systemRole = userData.systemRole || userData.role || userData.appRole || null;
+          
+          const directMemberData = orgMemberSnap.exists ? orgMemberSnap.data() : null;
+          let crossMemberData1 = null;
+          let crossMemberData2 = null;
 
-          // 3. Load Canonical Organization Role
-          let orgRole: string | null = null;
-          let membershipStatus: string | null = null;
-
-          // Check direct subcollection members
-          const orgMemberSnap = await db.collection("organizations").doc(orgId).collection("members").doc(authUid).get();
-          if (orgMemberSnap.exists) {
-              orgRole = orgMemberSnap.data()?.role || orgMemberSnap.data()?.organizationRole || null;
-              membershipStatus = orgMemberSnap.data()?.status || 'active';
+          // 3. SECOND PARALLEL WAVE (if direct membership doesn't provide role)
+          let hasDirectRole = false;
+          if (directMemberData && (directMemberData.role || directMemberData.organizationRole)) {
+              hasDirectRole = true;
           }
 
-          // Check cross organization_members collection (different combinations of keys)
-          if (!orgRole) {
-              const crossMemberSnap1 = await db.collection("organization_members").doc(`${orgId}_${authUid}`).get();
-              if (crossMemberSnap1.exists) {
-                  orgRole = crossMemberSnap1.data()?.role || crossMemberSnap1.data()?.organizationRole || null;
-                  membershipStatus = crossMemberSnap1.data()?.status || 'active';
-              }
+          if (!hasDirectRole) {
+              const [cross1, cross2] = await Promise.all([
+                  db.collection("organization_members").doc(`${orgId}_${authUid}`).get(),
+                  db.collection("organization_members").doc(`${authUid}_${orgId}`).get()
+              ]);
+              crossMemberData1 = cross1.exists ? cross1.data() : null;
+              crossMemberData2 = cross2.exists ? cross2.data() : null;
           }
-          if (!orgRole) {
-              const crossMemberSnap2 = await db.collection("organization_members").doc(`${authUid}_${orgId}`).get();
-              if (crossMemberSnap2.exists) {
-                  orgRole = crossMemberSnap2.data()?.role || crossMemberSnap2.data()?.organizationRole || null;
-                  membershipStatus = crossMemberSnap2.data()?.status || 'active';
-              }
-          }
+          const fallbackTime = performance.now();
 
-          // Check owner property on organization
-          if (orgData.ownerUid === authUid || orgData.ownerId === authUid) {
-              orgRole = 'owner';
-              membershipStatus = 'active';
-          }
+          const { resolveMembershipRoleAndStatus } = resolverModule;
+          const { role: orgRole, status: membershipStatus } = resolveMembershipRoleAndStatus(
+              authUid,
+              orgData,
+              directMemberData,
+              crossMemberData1,
+              crossMemberData2
+          );
 
           // 4. MusicScale functional profile
           const musicScaleProfile = userData.musicScaleProfile || {
@@ -838,7 +842,7 @@ app.use((err: any, req: any, res: any, next: any) => {
           };
 
           // 5. Calculate access context and capabilities using precedence
-          const { buildEffectiveAccessContext } = await import("./utils/rbac.js");
+          const { buildEffectiveAccessContext } = rbacModule;
           const accessCtx = buildEffectiveAccessContext(
               authUid,
               orgId,
@@ -847,8 +851,18 @@ app.use((err: any, req: any, res: any, next: any) => {
               membershipStatus,
               musicScaleProfile
           );
+          const resolveTime = performance.now();
 
           console.log(`[Correlation: ${correlationId}] Resolved access context for uid: ${authUid}. SystemRole: ${systemRole}, OrgRole: ${orgRole}, Source: ${accessCtx.accessSource}, Status: ${accessCtx.resolutionStatus}`);
+
+          const totalTime = performance.now();
+          const durAuth = Math.round(authTime - startTime);
+          const durPrimary = Math.round(primaryReadsTime - authTime);
+          const durFallback = Math.round(fallbackTime - primaryReadsTime);
+          const durResolve = Math.round(resolveTime - fallbackTime);
+          const durTotal = Math.round(totalTime - startTime);
+
+          res.set('Server-Timing', `auth;dur=${durAuth}, primary_reads;dur=${durPrimary}, membership_fallback;dur=${durFallback}, access_resolution;dur=${durResolve}, total;dur=${durTotal}`);
 
           res.json({
               success: true,
