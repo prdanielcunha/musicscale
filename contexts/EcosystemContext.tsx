@@ -7,7 +7,8 @@ import Spinner from '../components/common/Spinner';
 import { useAuth } from './AuthContext'; // Optionally use AuthContext to sign out on local side, but AuthContext also has access to ecosystem
 import { auth } from '../services/firebase'; // Actually, since we'll just invalidate session locally
 import { onAuthStateChanged } from 'firebase/auth';
-import { buildEffectiveAccessContext, canManageMusicScales, canManageBandScales, canManageSongs, hasMusicScaleCapability } from '../utils/rbac';
+import { getCandidateOrganizationIds, isValidCanonicalResponse } from '../services/ecosystem/startupFastPath';
+import { canManageMusicScales, canManageBandScales, canManageSongs, hasMusicScaleCapability } from '../utils/rbac';
 
 interface EcosystemContextValue {
   isInitialized: boolean;
@@ -29,6 +30,14 @@ const EcosystemContext = createContext<EcosystemContextValue>({
 
 export const useEcosystem = () => useContext(EcosystemContext);
 
+const DENIED_PERMISSIONS = {
+  canManageOrganization: false,
+  canManageMembers: false,
+  canManageScales: false,
+  canManageRepertoire: false,
+  canManageChords: false,
+};
+
 export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isContextSyncing, setIsContextSyncing] = useState(false);
@@ -38,6 +47,8 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     let mounted = true;
     let unsubscribeAuth: any = null;
+    let activeControllers: AbortController[] = [];
+    let activeGeneration = 0;
 
     const bootstrapModule = async () => {
       markStartupMetric('ecosystem_context_started_ms');
@@ -52,6 +63,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
            
            // If standalone, we must sync the real user context from the backend whenever auth changes.
            unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+               const currentGeneration = ++activeGeneration;
                if (user) {
                    if (mounted) setIsContextSyncing(true);
                    try {
@@ -82,6 +94,35 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                            displayName = userData.displayName || displayName;
                            roleInOrg = userData.organizationRole || userData.role || roleInOrg;
                        }
+                       markStartupMetric('ecosystem_user_profile_completed_ms');
+
+                       const localActiveOrg = localStorage.getItem('activeOrganizationId');
+                       const candidates = getCandidateOrganizationIds(localActiveOrg, userHasActive, userHasPrimary, userHasLegacy);
+                       const candidateOrgId = candidates.length > 0 ? candidates[0] : null;
+
+                       let earlyCanonicalPromise: Promise<any> | null = null;
+                       let earlyTokenPromise: Promise<string> | null = null;
+                       let earlyOrgDocPromise: Promise<any> | null = null;
+                       let earlyAbortController: AbortController | null = null;
+                       let earlyTimeoutId: any = null;
+
+                       if (candidateOrgId && candidateOrgId !== 'offline_default') {
+                           earlyAbortController = new AbortController();
+                           activeControllers.push(earlyAbortController);
+                           
+                           earlyOrgDocPromise = getDoc(doc(db, 'organizations', candidateOrgId)).catch(() => null);
+                           earlyTokenPromise = user.getIdToken(false).catch(() => '');
+                           
+                           markStartupMetric('ecosystem_access_context_started_ms');
+                           earlyTimeoutId = setTimeout(() => earlyAbortController?.abort(), 5000);
+                           earlyCanonicalPromise = earlyTokenPromise.then(token => {
+                               if (!token || !mounted || earlyAbortController?.signal.aborted || currentGeneration !== activeGeneration) return null;
+                               return fetch(`/api/v1/ecosystem/access-context?organizationId=${candidateOrgId}`, {
+                                   headers: { 'Authorization': `Bearer ${token}` },
+                                   signal: earlyAbortController.signal
+                               }).catch(() => null);
+                           }).finally(() => { clearTimeout(earlyTimeoutId); });
+                       }
 
                        // Function to check if an org is valid
                        let organizationsMap = new Map();
@@ -89,8 +130,13 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                            if (!idToTest || organizationsMap.has(idToTest)) return false;
                            organizationsMap.set(idToTest, true);
                            try {
-                               const orgSnap = await getDoc(doc(db, 'organizations', idToTest));
-                               if (orgSnap.exists()) {
+                               let orgSnap;
+                               if (idToTest === candidateOrgId && earlyOrgDocPromise) {
+                                   orgSnap = await earlyOrgDocPromise;
+                               } else {
+                                   orgSnap = await getDoc(doc(db, 'organizations', idToTest));
+                               }
+                               if (orgSnap && orgSnap.exists()) {
                                    const orgData = orgSnap.data();
                                    let resolvedRole = roleToSet;
                                     // Precedence 1: Check if user is the explicit owner on the organization document
@@ -166,6 +212,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         ];
 
                         const results = await Promise.allSettled(queries);
+                        markStartupMetric('ecosystem_org_discovery_completed_ms');
 
                         if (results[0].status === 'fulfilled') {
                             for (const orgDoc of results[0].value.docs) {
@@ -334,34 +381,75 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         // Fetch canonical server-resolved access context from the secure endpoint
                         let serverContext = null;
                         if (orgId && orgId !== 'offline_default') {
-                            try {
-                                const token = await user.getIdToken();
-                                const controller = new AbortController();
-                                const timeoutId = setTimeout(() => controller.abort(), 5000);
-                                let apiRes;
+                            let earlySuccess = false;
+                            if (orgId === candidateOrgId && earlyCanonicalPromise) {
                                 try {
-                                    apiRes = await fetch(`/api/v1/ecosystem/access-context?organizationId=${orgId}`, {
-                                        headers: {
-                                            'Authorization': `Bearer ${token}`
-                                        },
-                                        signal: controller.signal
-                                    });
-                                } finally {
-                                    clearTimeout(timeoutId);
-                                }
-                                if (apiRes.ok) {
-                                    const resJson = await apiRes.json();
-                                    if (resJson && resJson.success) {
-                                        serverContext = resJson;
-                                        systemRole = resJson.systemRole || systemRole;
-                                        roleInOrg = resJson.organizationRole || roleInOrg;
-                                        console.log(`[EcosystemContext] Canonical server-resolved access:`, resJson);
+                                    const apiRes = await earlyCanonicalPromise;
+                                    if (apiRes && apiRes.ok) {
+                                        const resJson = await apiRes.json();
+                                        if (isValidCanonicalResponse(resJson, user.uid, orgId)) {
+                                            serverContext = resJson;
+                                            systemRole = resJson.systemRole || systemRole;
+                                            roleInOrg = resJson.organizationRole || roleInOrg;
+                                            earlySuccess = true;
+                                            console.log(`[EcosystemContext] Canonical server-resolved access (early):`, resJson);
+                                            markStartupMetric('ecosystem_access_context_completed_ms');
+                                        } else {
+                                            console.warn("[EcosystemContext] Early response was invalid canonical match.");
+                                        }
                                     }
-                                } else {
-                                    console.warn("[EcosystemContext] Server-resolved access context HTTP error:", apiRes.status);
+                                } catch(e) {
+                                    console.warn("Early canonical fetch failed", e);
                                 }
-                            } catch (apiErr) {
-                                console.error("[EcosystemContext] Failed to fetch server-resolved access context:", apiErr);
+                            } else {
+                                if (earlyAbortController) {
+                                    earlyAbortController.abort();
+                                    clearTimeout(earlyTimeoutId);
+                                }
+                            }
+                            
+                            if (!earlySuccess) {
+                                try {
+                                    markStartupMetric('ecosystem_access_context_started_ms');
+                                    const token = await user.getIdToken(false);
+                                    if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid) {
+                                        const controller = new AbortController();
+                                        activeControllers.push(controller);
+                                        const timeoutId = setTimeout(() => controller.abort(), 5000);
+                                        let apiRes;
+                                        try {
+                                            apiRes = await fetch(`/api/v1/ecosystem/access-context?organizationId=${orgId}`, {
+                                                headers: {
+                                                    'Authorization': `Bearer ${token}`
+                                                },
+                                                signal: controller.signal
+                                            });
+                                        } finally {
+                                            clearTimeout(timeoutId);
+                                        }
+                                        if (apiRes && apiRes.ok) {
+                                            const resJson = await apiRes.json();
+                                            if (isValidCanonicalResponse(resJson, user.uid, orgId)) {
+                                                serverContext = resJson;
+                                                systemRole = resJson.systemRole || systemRole;
+                                                roleInOrg = resJson.organizationRole || roleInOrg;
+                                                console.log(`[EcosystemContext] Canonical server-resolved access:`, resJson);
+                                                markStartupMetric('ecosystem_access_context_completed_ms');
+                                            } else {
+                                                console.warn("[EcosystemContext] Canonical response was invalid match.");
+                                            }
+                                        } else {
+                                            console.warn("[EcosystemContext] Server-resolved access context HTTP error:", apiRes?.status);
+                                        }
+                                    }
+                                } catch (apiErr) {
+                                    console.error("[EcosystemContext] Failed to fetch server-resolved access context:", apiErr);
+                                }
+                            }
+                        } else {
+                            if (earlyAbortController) {
+                                earlyAbortController.abort();
+                                clearTimeout(earlyTimeoutId);
                             }
                         }
 
@@ -384,30 +472,49 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                            serverContext
                         };
 
-                        if (orgId && orgId !== 'offline_default') {
+                        if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid && orgId && orgId !== 'offline_default') {
                             try {
-                                localStorage.setItem('musicscale_cached_context_' + user.uid, JSON.stringify(data));
+                                const cachePayload = {
+                                    uid: user.uid,
+                                    displayName,
+                                    ecosystemRole: systemRole,
+                                    currentOrganizationId: orgId,
+                                    currentOrganizationName: orgName,
+                                    roleInCurrentOrganization: roleInOrg,
+                                    plan,
+                                    subscriptionStatus: status,
+                                    organizationsAvailable
+                                };
+                                localStorage.setItem('musicscale_cached_context_' + user.uid, JSON.stringify(cachePayload));
                             } catch (cacheErr) {
                                 console.warn("[MusicScale Ecosystem] Failed to update client context cache:", cacheErr);
                             }
                         }
 
-                        if (mounted) {
-                             const accessCtx = serverContext?.effectiveContext || buildEffectiveAccessContext(user.uid, data.currentOrganizationId, data.ecosystemRole, data.roleInCurrentOrganization);
-                             if (!(accessCtx.capabilities instanceof Set)) {
-                                 accessCtx.capabilities = new Set(accessCtx.effectiveCapabilities || []);
+                        if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid) {
+                             let permissions = DENIED_PERMISSIONS;
+                             if (serverContext && serverContext.effectiveContext) {
+                                 const accessCtx = serverContext.effectiveContext;
+                                 if (!(accessCtx.capabilities instanceof Set)) {
+                                     accessCtx.capabilities = new Set(accessCtx.effectiveCapabilities || []);
+                                 }
+                                 permissions = {
+                                     canManageOrganization: hasMusicScaleCapability(accessCtx, 'organization.settings.manage'),
+                                     canManageMembers: hasMusicScaleCapability(accessCtx, 'organization.members.manage'),
+                                     canManageScales: canManageMusicScales(accessCtx) || canManageBandScales(accessCtx),
+                                     canManageRepertoire: canManageSongs(accessCtx),
+                                     canManageChords: true
+                                 };
+                             } else {
+                                 if (orgId && orgId !== 'offline_default') {
+                                     setIsDegraded(true);
+                                 }
                              }
                              setContext((prev: any) => ({
                                  ...payload,
                                  ...data,
                                  isStandalone: true,
-                                 permissions: {
-                                      canManageOrganization: hasMusicScaleCapability(accessCtx, 'organization.settings.manage'),
-                                      canManageMembers: hasMusicScaleCapability(accessCtx, 'organization.members.manage'),
-                                      canManageScales: canManageMusicScales(accessCtx) || canManageBandScales(accessCtx),
-                                      canManageRepertoire: canManageSongs(accessCtx),
-                                      canManageChords: true
-                                 }
+                                 permissions
                              }));
                          }
                     } catch (e) {
@@ -416,20 +523,15 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                          if (cached) {
                              try {
                                  const parsed = JSON.parse(cached);
-                                 if (mounted) {
-                                     const accessCtxCached = buildEffectiveAccessContext(user.uid, parsed.currentOrganizationId, parsed.ecosystemRole, parsed.roleInCurrentOrganization);
+                                 if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid && parsed.uid === user.uid && typeof parsed.currentOrganizationId === 'string' && parsed.currentOrganizationId.trim() !== '') {
                                      setContext((prev: any) => ({
                                          ...payload,
                                          ...parsed,
+                                         serverContext: null,
                                          isStandalone: true,
-                                         permissions: {
-                                              canManageOrganization: hasMusicScaleCapability(accessCtxCached, 'organization.settings.manage'),
-                                              canManageMembers: hasMusicScaleCapability(accessCtxCached, 'organization.members.manage'),
-                                              canManageScales: canManageMusicScales(accessCtxCached) || canManageBandScales(accessCtxCached),
-                                              canManageRepertoire: canManageSongs(accessCtxCached),
-                                              canManageChords: true
-                                         }
+                                         permissions: DENIED_PERMISSIONS
                                      }));
+                                     setIsDegraded(true);
                                      console.log("[MusicScale Ecosystem] Restored fully cached offline context.");
                                  }
                              } catch (parseErr) {
@@ -437,38 +539,31 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                              }
                          } else {
                              // Default fallback if brand new and offline immediately
-                             const isCeoFallback = false;
                              const offlineDefault = {
                                  uid: user.uid,
                                  email: user.email,
                                  displayName: user.displayName || '',
-                                 ecosystemRole: isCeoFallback ? 'ceo' : 'user',
+                                 ecosystemRole: 'none',
                                  currentOrganizationId: 'offline_default',
                                  currentOrganizationName: 'Org Offline',
-                                 roleInCurrentOrganization: 'owner',
+                                 roleInCurrentOrganization: 'none',
                                  plan: 'starter',
                                  subscriptionStatus: 'inactive',
-                                 organizationsAvailable: [{ id: 'offline_default', name: 'Org Offline', role: 'owner' }]
+                                 organizationsAvailable: [{ id: 'offline_default', name: 'Org Offline', role: 'none' }]
                              };
 
-                             if (mounted) {
-                                 const accessCtxOffline = buildEffectiveAccessContext(user.uid, offlineDefault.currentOrganizationId, offlineDefault.ecosystemRole, offlineDefault.roleInCurrentOrganization);
+                             if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid) {
                                  setContext((prev: any) => ({
                                      ...payload,
                                      ...offlineDefault,
                                      isStandalone: true,
-                                     permissions: {
-                                          canManageOrganization: hasMusicScaleCapability(accessCtxOffline, 'organization.settings.manage'),
-                                          canManageMembers: hasMusicScaleCapability(accessCtxOffline, 'organization.members.manage'),
-                                          canManageScales: canManageMusicScales(accessCtxOffline) || canManageBandScales(accessCtxOffline),
-                                          canManageRepertoire: canManageSongs(accessCtxOffline),
-                                          canManageChords: true
-                                     }
+                                     permissions: DENIED_PERMISSIONS
                                  }));
+                                 setIsDegraded(true);
                              }
                          }
                     } finally {
-                        if (mounted) {
+                        if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid) {
                             setIsContextSyncing(false);
                             setIsInitialized(true); // Now we are completely initialized
                             markStartupMetric('ecosystem_context_completed_ms', { standalone: true });
@@ -498,6 +593,8 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     return () => {
       mounted = false;
+      activeGeneration = -1;
+      activeControllers.forEach(c => c.abort());
       if (unsubscribeAuth) unsubscribeAuth();
     };
   }, []);
