@@ -125,6 +125,22 @@ function runTests() {
     const timingBlock = endpointBlock.substring(endpointBlock.indexOf("res.set('Server-Timing'"), endpointBlock.indexOf(")", endpointBlock.indexOf("res.set('Server-Timing'")));
     assert(!timingBlock.includes('uid') && !timingBlock.includes('orgId') && !timingBlock.includes('token'), "Server-Timing must not contain identifiers or payloads");
 
+    // 23. Ambos os headers Server-Timing e X-MusicScale-Timing usam timingValue
+    assert(endpointBlock.includes("res.set('Server-Timing', timingValue);"), "Server-Timing must use timingValue");
+    assert(endpointBlock.includes("res.set('X-MusicScale-Timing', timingValue);"), "X-MusicScale-Timing must use timingValue");
+
+    // 24. Sanitização de timingValue existe
+    assert(endpointBlock.includes("const sanitizeDuration = (value: number) =>"), "sanitizeDuration function must exist");
+    assert(endpointBlock.includes("Number.isFinite(value) && value >= 0 ? Math.round(value) : 0;"), "sanitizeDuration logic must exist");
+
+    // 25. timingValue tem o formato correto
+    assert(endpointBlock.includes("const timingValue = ["), "timingValue array must exist");
+    assert(endpointBlock.includes("`auth;dur=${sanitizeDuration(durAuth)}`"), "timingValue must include auth");
+    assert(endpointBlock.includes("`primary_reads;dur=${sanitizeDuration(durPrimary)}`"), "timingValue must include primary_reads");
+    assert(endpointBlock.includes("`membership_fallback;dur=${sanitizeDuration(durFallback)}`"), "timingValue must include membership_fallback");
+    assert(endpointBlock.includes("`access_resolution;dur=${sanitizeDuration(durResolve)}`"), "timingValue must include access_resolution");
+    assert(endpointBlock.includes("`total;dur=${sanitizeDuration(durTotal)}`"), "timingValue must include total");
+
     console.log("All MS-PERF-5 tests passed.");
 }
 

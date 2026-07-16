@@ -862,7 +862,19 @@ app.use((err: any, req: any, res: any, next: any) => {
           const durResolve = Math.round(resolveTime - fallbackTime);
           const durTotal = Math.round(totalTime - startTime);
 
-          res.set('Server-Timing', `auth;dur=${durAuth}, primary_reads;dur=${durPrimary}, membership_fallback;dur=${durFallback}, access_resolution;dur=${durResolve}, total;dur=${durTotal}`);
+          const sanitizeDuration = (value: number) =>
+            Number.isFinite(value) && value >= 0 ? Math.round(value) : 0;
+
+          const timingValue = [
+            `auth;dur=${sanitizeDuration(durAuth)}`,
+            `primary_reads;dur=${sanitizeDuration(durPrimary)}`,
+            `membership_fallback;dur=${sanitizeDuration(durFallback)}`,
+            `access_resolution;dur=${sanitizeDuration(durResolve)}`,
+            `total;dur=${sanitizeDuration(durTotal)}`
+          ].join(', ');
+
+          res.set('Server-Timing', timingValue);
+          res.set('X-MusicScale-Timing', timingValue);
 
           res.json({
               success: true,
