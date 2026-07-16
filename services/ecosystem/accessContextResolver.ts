@@ -13,15 +13,32 @@ export function resolveMembershipRoleAndStatus(
     let orgRole: string | null = null;
     let membershipStatus: string | null = null;
 
-    if (directMemberData) {
-        orgRole = directMemberData.role || directMemberData.organizationRole || null;
-        membershipStatus = directMemberData.status !== undefined ? directMemberData.status : 'active';
-    } else if (crossMemberData1) {
-        orgRole = crossMemberData1.role || crossMemberData1.organizationRole || null;
-        membershipStatus = crossMemberData1.status !== undefined ? crossMemberData1.status : 'active';
-    } else if (crossMemberData2) {
-        orgRole = crossMemberData2.role || crossMemberData2.organizationRole || null;
-        membershipStatus = crossMemberData2.status !== undefined ? crossMemberData2.status : 'active';
+    const sources = [
+        directMemberData,
+        crossMemberData1,
+        crossMemberData2
+    ];
+
+    let foundRole = false;
+
+    for (const source of sources) {
+        if (source) {
+            const role = source.role || source.organizationRole;
+            if (role) {
+                orgRole = role;
+                membershipStatus = source.status !== undefined ? source.status : 'active';
+                foundRole = true;
+                break;
+            }
+        }
+    }
+
+    if (!foundRole) {
+        for (const source of sources) {
+            if (source) {
+                membershipStatus = source.status !== undefined ? source.status : 'active';
+            }
+        }
     }
 
     if (orgData && (orgData.ownerUid === authUid || orgData.ownerId === authUid)) {
