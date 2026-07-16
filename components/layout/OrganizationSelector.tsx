@@ -79,8 +79,8 @@ export const OrganizationSelector: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute top-[calc(100%+8px)] left-0 w-[280px] md:w-64 bg-white/[0.985] dark:bg-[#0D0F12]/[0.985] backdrop-blur-[32px] backdrop-saturate-[135%] isolation-isolate border border-black/10 dark:border-white/[0.12] rounded-2xl overflow-hidden shadow-[0_16px_48px_rgba(0,0,0,0.15)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.8)] ring-1 ring-black/5 dark:ring-white/5 z-[100] animate-in fade-in slide-in-from-top-2 origin-top-left">
-          <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/[0.055] via-white/[0.012] to-transparent" />
+        <div className="absolute top-[calc(100%+8px)] left-0 w-[280px] md:w-64 bg-white/[0.99] dark:bg-[#0D0F12]/[0.99] backdrop-blur-[32px] backdrop-saturate-[135%] isolation-isolate border border-black/10 dark:border-white/[0.12] rounded-2xl overflow-hidden shadow-[0_16px_48px_rgba(0,0,0,0.15)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.8)] ring-1 ring-black/5 dark:ring-white/5 z-[100] animate-in fade-in slide-in-from-top-2 origin-top-left">
+          <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/[0.05] via-white/[0.01] to-transparent" />
           <div className="absolute inset-0 cinematic-noise mix-blend-overlay opacity-[0.08] pointer-events-none rounded-2xl"></div>
           <div className="px-3 pt-3 pb-2 border-b border-black/10 dark:border-white/[0.08] relative z-10">
             <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
