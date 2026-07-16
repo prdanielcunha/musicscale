@@ -137,7 +137,85 @@ function runTests() {
     assert(contextFile.includes('let activeGeneration = 0;'), "Must have real activeGeneration counter");
     assert(contextFile.includes('const currentGeneration = ++activeGeneration;'), "Must increment generation");
 
-    console.log("All MS-PERF-4B-FIX-1 tests passed.");
+    // FIX-2 TEST CASES
+
+    // 1. uid vazio na raiz + UID válido no effectiveContext deve ser rejeitado;
+    const emptyUidWithCtx = {
+        success: true,
+        uid: '',
+        organizationId: 'org123',
+        effectiveContext: { userId: 'user123' }
+    };
+    assert(isValidCanonicalResponse(emptyUidWithCtx, 'user123', 'org123') === false, "Empty UID in root with valid ctx should be rejected");
+
+    // 2. organizationId vazio na raiz + organização válida no effectiveContext deve ser rejeitado;
+    const emptyOrgWithCtx = {
+        success: true,
+        uid: 'user123',
+        organizationId: '',
+        effectiveContext: { organizationId: 'org123' }
+    };
+    assert(isValidCanonicalResponse(emptyOrgWithCtx, 'user123', 'org123') === false, "Empty OrgID in root with valid ctx should be rejected");
+
+    // 3. UID contendo somente espaços deve ser rejeitado;
+    const spacesUid = { success: true, uid: '   ', organizationId: 'org123' };
+    assert(isValidCanonicalResponse(spacesUid, '   ', 'org123') === false, "Spaces UID should be rejected");
+
+    // 4. organização contendo somente espaços deve ser rejeitada;
+    const spacesOrg = { success: true, uid: 'user123', organizationId: '   ' };
+    assert(isValidCanonicalResponse(spacesOrg, 'user123', '   ') === false, "Spaces OrgID should be rejected");
+
+    // 5. UID null deve ser rejeitado;
+    const nullUid = { success: true, uid: null, organizationId: 'org123' };
+    assert(isValidCanonicalResponse(nullUid, 'user123', 'org123') === false, "Null UID should be rejected");
+
+    // 6. organizationId null deve ser rejeitado;
+    const nullOrg = { success: true, uid: 'user123', organizationId: null };
+    assert(isValidCanonicalResponse(nullOrg, 'user123', 'org123') === false, "Null OrgID should be rejected");
+
+    // 7. UID numérico deve ser rejeitado;
+    const numUid = { success: true, uid: 123, organizationId: 'org123' };
+    assert(isValidCanonicalResponse(numUid, '123', 'org123') === false, "Numeric UID should be rejected");
+
+    // 8. organizationId numérico deve ser rejeitado;
+    const numOrg = { success: true, uid: 'user123', organizationId: 123 };
+    assert(isValidCanonicalResponse(numOrg, 'user123', '123') === false, "Numeric OrgID should be rejected");
+
+    // 9. resposta totalmente válida deve continuar aceita;
+    const validFullRes = {
+        success: true,
+        uid: 'user123',
+        organizationId: 'org123',
+        effectiveContext: {
+            userId: 'user123',
+            organizationId: 'org123'
+        }
+    };
+    assert(isValidCanonicalResponse(validFullRes, 'user123', 'org123') === true, "Fully valid response should be accepted");
+
+    // 10. cache sanitizado não pode incluir serverContext;
+    const cachePayloadBlockMatch = contextFile.match(/const cachePayload = \{[^}]+\}/);
+    assert(cachePayloadBlockMatch !== null && !cachePayloadBlockMatch[0].includes("serverContext"), "Sanitized cache cannot include serverContext");
+
+    // 11. restauração deve sobrescrever serverContext com null;
+    assert(contextFile.includes('serverContext: null,'), "Cache restore must overwrite serverContext with null");
+
+    // 12. localStorage.setItem deve estar protegido pela geração ativa;
+    assert(contextFile.includes("if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid && orgId && orgId !== 'offline_default') {") && contextFile.includes("localStorage.setItem('musicscale_cached_context_' + user.uid"), "localStorage.setItem must be protected by active generation and conditions");
+
+    // 13. incremento da geração deve ocorrer antes de if (user);
+    assert(!!contextFile.match(/const currentGeneration = \+\+activeGeneration;\s*if\s*\(user\)/), "Generation must be incremented before if (user)");
+
+    // 14. earlyCanonicalPromise deve limpar timeout em todos os caminhos;
+    assert(contextFile.includes('.finally(() => { clearTimeout(earlyTimeoutId); })'), "earlyCanonicalPromise must clean timeout in all paths");
+
+    // 15. não existe getIdToken(true);
+    assert(!contextFile.includes('getIdToken(true)'), "getIdToken(true) must not exist");
+
+    // 16. permissões do cache e offline continuam totalmente negadas.
+    assert(contextFile.includes('permissions: DENIED_PERMISSIONS'), "Cache and offline permissions must remain totally denied");
+
+    console.log("All MS-PERF-4B-FIX-1 and FIX-2 tests passed.");
 }
 
 runTests();

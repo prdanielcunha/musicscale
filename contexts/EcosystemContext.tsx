@@ -8,7 +8,7 @@ import { useAuth } from './AuthContext'; // Optionally use AuthContext to sign o
 import { auth } from '../services/firebase'; // Actually, since we'll just invalidate session locally
 import { onAuthStateChanged } from 'firebase/auth';
 import { getCandidateOrganizationIds, isValidCanonicalResponse } from '../services/ecosystem/startupFastPath';
-import { buildEffectiveAccessContext, canManageMusicScales, canManageBandScales, canManageSongs, hasMusicScaleCapability } from '../utils/rbac';
+import { canManageMusicScales, canManageBandScales, canManageSongs, hasMusicScaleCapability } from '../utils/rbac';
 
 interface EcosystemContextValue {
   isInitialized: boolean;
@@ -63,8 +63,8 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
            
            // If standalone, we must sync the real user context from the backend whenever auth changes.
            unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+               const currentGeneration = ++activeGeneration;
                if (user) {
-                   const currentGeneration = ++activeGeneration;
                    if (mounted) setIsContextSyncing(true);
                    try {
                        // Replace backend fetch with client-side fetch to bypass Admin SDK issues in dev
@@ -120,9 +120,8 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                return fetch(`/api/v1/ecosystem/access-context?organizationId=${candidateOrgId}`, {
                                    headers: { 'Authorization': `Bearer ${token}` },
                                    signal: earlyAbortController.signal
-                               }).catch(() => null)
-                               .finally(() => { clearTimeout(earlyTimeoutId); });
-                           });
+                               }).catch(() => null);
+                           }).finally(() => { clearTimeout(earlyTimeoutId); });
                        }
 
                        // Function to check if an org is valid
@@ -473,9 +472,20 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                            serverContext
                         };
 
-                        if (orgId && orgId !== 'offline_default') {
+                        if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid && orgId && orgId !== 'offline_default') {
                             try {
-                                localStorage.setItem('musicscale_cached_context_' + user.uid, JSON.stringify(data));
+                                const cachePayload = {
+                                    uid: user.uid,
+                                    displayName,
+                                    ecosystemRole: systemRole,
+                                    currentOrganizationId: orgId,
+                                    currentOrganizationName: orgName,
+                                    roleInCurrentOrganization: roleInOrg,
+                                    plan,
+                                    subscriptionStatus: status,
+                                    organizationsAvailable
+                                };
+                                localStorage.setItem('musicscale_cached_context_' + user.uid, JSON.stringify(cachePayload));
                             } catch (cacheErr) {
                                 console.warn("[MusicScale Ecosystem] Failed to update client context cache:", cacheErr);
                             }
@@ -513,10 +523,11 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                          if (cached) {
                              try {
                                  const parsed = JSON.parse(cached);
-                                 if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid && parsed.uid === user.uid) {
+                                 if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid && parsed.uid === user.uid && typeof parsed.currentOrganizationId === 'string' && parsed.currentOrganizationId.trim() !== '') {
                                      setContext((prev: any) => ({
                                          ...payload,
                                          ...parsed,
+                                         serverContext: null,
                                          isStandalone: true,
                                          permissions: DENIED_PERMISSIONS
                                      }));

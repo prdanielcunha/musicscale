@@ -24,35 +24,46 @@ export function isValidCanonicalResponse(
 ): boolean {
     if (!response || response.success !== true) return false;
     if (!expectedUid || !expectedOrgId) return false;
-    
-    // Check if there is at least one UID and one OrgID
-    const resUids = [];
-    if (response.uid) resUids.push(response.uid);
-    if (response.userId) resUids.push(response.userId);
-    if (response.effectiveContext) {
-        if (response.effectiveContext.uid) resUids.push(response.effectiveContext.uid);
-        if (response.effectiveContext.userId) resUids.push(response.effectiveContext.userId);
-    }
-    
-    const resOrgIds = [];
-    if (response.organizationId) resOrgIds.push(response.organizationId);
-    if (response.currentOrganizationId) resOrgIds.push(response.currentOrganizationId);
-    if (response.effectiveContext) {
-        if (response.effectiveContext.organizationId) resOrgIds.push(response.effectiveContext.organizationId);
-        if (response.effectiveContext.currentOrganizationId) resOrgIds.push(response.effectiveContext.currentOrganizationId);
+
+    let hasUid = false;
+    let hasOrgId = false;
+
+    function checkField(obj: any, key: string, expected: string): boolean | 'skip' {
+        if (obj && Object.prototype.hasOwnProperty.call(obj, key)) {
+            const val = obj[key];
+            if (typeof val !== 'string') return false;
+            if (val.trim() === '') return false;
+            if (val !== expected) return false;
+            return true;
+        }
+        return 'skip';
     }
 
-    if (resUids.length === 0 || resOrgIds.length === 0) return false;
+    const uidFields = [
+        { obj: response, key: 'uid' },
+        { obj: response, key: 'userId' },
+        { obj: response.effectiveContext, key: 'uid' },
+        { obj: response.effectiveContext, key: 'userId' },
+    ];
 
-    // All present UIDs must exactly match expectedUid
-    for (const u of resUids) {
-        if (u !== expectedUid) return false;
+    for (const { obj, key } of uidFields) {
+        const res = checkField(obj, key, expectedUid);
+        if (res === false) return false;
+        if (res === true) hasUid = true;
     }
 
-    // All present OrgIDs must exactly match expectedOrgId
-    for (const o of resOrgIds) {
-        if (o !== expectedOrgId) return false;
+    const orgFields = [
+        { obj: response, key: 'organizationId' },
+        { obj: response, key: 'currentOrganizationId' },
+        { obj: response.effectiveContext, key: 'organizationId' },
+        { obj: response.effectiveContext, key: 'currentOrganizationId' },
+    ];
+
+    for (const { obj, key } of orgFields) {
+        const res = checkField(obj, key, expectedOrgId);
+        if (res === false) return false;
+        if (res === true) hasOrgId = true;
     }
 
-    return true;
+    return hasUid && hasOrgId;
 }
