@@ -23,20 +23,36 @@ export function isValidCanonicalResponse(
     expectedOrgId: string
 ): boolean {
     if (!response || response.success !== true) return false;
+    if (!expectedUid || !expectedOrgId) return false;
     
-    // We expect the payload effectiveContext.userId or .organizationId to match.
-    // If they exist, they must match perfectly.
-    const ctx = response.effectiveContext;
-    if (ctx) {
-        if (ctx.userId && ctx.userId !== expectedUid) return false;
-        if (ctx.organizationId && ctx.organizationId !== expectedOrgId) return false;
+    // Check if there is at least one UID and one OrgID
+    const resUids = [];
+    if (response.uid) resUids.push(response.uid);
+    if (response.userId) resUids.push(response.userId);
+    if (response.effectiveContext) {
+        if (response.effectiveContext.uid) resUids.push(response.effectiveContext.uid);
+        if (response.effectiveContext.userId) resUids.push(response.effectiveContext.userId);
     }
     
-    // We may also check top-level if the API puts it there.
-    if (response.uid && response.uid !== expectedUid) return false;
-    if (response.userId && response.userId !== expectedUid) return false;
-    if (response.organizationId && response.organizationId !== expectedOrgId) return false;
-    if (response.currentOrganizationId && response.currentOrganizationId !== expectedOrgId) return false;
+    const resOrgIds = [];
+    if (response.organizationId) resOrgIds.push(response.organizationId);
+    if (response.currentOrganizationId) resOrgIds.push(response.currentOrganizationId);
+    if (response.effectiveContext) {
+        if (response.effectiveContext.organizationId) resOrgIds.push(response.effectiveContext.organizationId);
+        if (response.effectiveContext.currentOrganizationId) resOrgIds.push(response.effectiveContext.currentOrganizationId);
+    }
+
+    if (resUids.length === 0 || resOrgIds.length === 0) return false;
+
+    // All present UIDs must exactly match expectedUid
+    for (const u of resUids) {
+        if (u !== expectedUid) return false;
+    }
+
+    // All present OrgIDs must exactly match expectedOrgId
+    for (const o of resOrgIds) {
+        if (o !== expectedOrgId) return false;
+    }
 
     return true;
 }
