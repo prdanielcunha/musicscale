@@ -1,3 +1,20 @@
+export function isGlobalOrganizationCatalogRole(role: unknown): boolean {
+    const normalizedRole = String(role || '').toLowerCase().trim();
+    const globalRoles = [
+        'ceo',
+        'founder',
+        'ecosystem_owner',
+        'owner',
+        'dono',
+        'admin',
+        'global_admin',
+        'administrador',
+        'support',
+        'suporte'
+    ];
+    return globalRoles.includes(normalizedRole);
+}
+
 export function getCandidateOrganizationIds(
     localOrgId: string | null | undefined,
     activeOrgId: string | null | undefined,
