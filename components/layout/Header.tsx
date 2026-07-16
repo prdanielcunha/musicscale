@@ -87,7 +87,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                 {title}
               </h2>
               {organization && (
-                <div className="mt-0.5 opacity-90">
+                <div className="mt-0.5">
                   <OrganizationSelector />
                 </div>
               )}
