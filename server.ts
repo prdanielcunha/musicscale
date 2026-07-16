@@ -3906,7 +3906,7 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
          const existingLocations = locationsSnap.docs.map(d => ({id: d.id, name: d.data().name.trim().toLowerCase()}));
 
          const defaultLocations = [
-           { name: "Templo Principal", address: "", capacity: 0 },
+           { name: "Local Principal", address: "", capacity: 0 },
            { name: "Externo", address: "", capacity: 0 }
          ];
 

@@ -423,14 +423,29 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
         if (scaleType === 'music') {
             const orgId = organization?.id || "";
-            if (!isMusicScalePublishCommandEnabled) {
-                const errMsg = "A publicação ainda não está habilitada para esta organização.";
-                toast({
-                    title: "Publicação Bloqueada",
-                    description: errMsg,
-                    variant: "destructive"
-                });
-                throw new Error(errMsg);
+
+            // Check if we need to bootstrap taxonomy implicitly
+            if (eventTypes.length === 0 || locations.length === 0) {
+                logger.info("Implicitly bootstrapping taxonomy as eventTypes or locations are empty");
+                try {
+                    const token = await user.getIdToken();
+                    const bootstrapRes = await fetch('/api/v1/onboarding/bootstrap', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`,
+                            'x-organization-id': orgId
+                        }
+                    });
+                    if (bootstrapRes.ok) {
+                        logger.info("Implicit taxonomy bootstrap completed successfully");
+                        await refreshData();
+                    } else {
+                        logger.warn("Implicit taxonomy bootstrap returned non-ok status", bootstrapRes.status);
+                    }
+                } catch (bootstrapErr) {
+                    logger.error("Failed to implicitly bootstrap taxonomy", bootstrapErr);
+                }
             }
 
             let musicScaleId: string;
@@ -446,42 +461,59 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 await api.linkScales(musicScaleId, bandScaleId);
             }
 
-            if (!idempotencyKey) {
-                idempotencyKey = crypto.randomUUID();
-            }
-
             const currentStatus = (scaleData as any).status || "draft";
-            console.log('[MusicScale Publish Path] => ' + JSON.stringify({
-                organizationId: orgId,
-                musicScaleId,
-                musicScalePublishCommandEnabled: isMusicScalePublishCommandEnabled,
-                currentStatus,
-                selectedAction: "publish_command_api"
-            }));
+            if (currentStatus === 'published') {
+                if (!isMusicScalePublishCommandEnabled) {
+                    const errMsg = "A publicação ainda não está habilitada para esta organização.";
+                    toast({
+                        title: "Publicação Bloqueada",
+                        description: errMsg,
+                        variant: "destructive"
+                    });
+                    throw new Error(errMsg);
+                }
 
-            const publishResult = await api.musicScaleCommands.publish(
-                musicScaleId,
-                { bandScaleId },
-                idempotencyKey
-            );
+                if (!idempotencyKey) {
+                    idempotencyKey = crypto.randomUUID();
+                }
 
-            console.log('[MusicScale Publish Result] => ' + JSON.stringify({
-                organizationId: orgId,
-                musicScaleId,
-                status: "published",
-                publishRevision: publishResult.version,
-                eventAssignmentCount: publishResult.eventAssignmentCount || publishResult.createdResponseCount || 0,
-                createdResponseCount: publishResult.createdResponseCount || 0,
-                createdNotificationCount: publishResult.createdNotificationCount || 0,
-                recipientCount: publishResult.createdNotificationCount || 0,
-                fromCache: !!publishResult.fromCache,
-                correlationId: publishResult.correlationId || idempotencyKey
-            }));
+                console.log('[MusicScale Publish Path] => ' + JSON.stringify({
+                    organizationId: orgId,
+                    musicScaleId,
+                    musicScalePublishCommandEnabled: isMusicScalePublishCommandEnabled,
+                    currentStatus,
+                    selectedAction: "publish_command_api"
+                }));
 
-            toast({
-                title: "Sucesso",
-                description: `Escala de músicas publicada com sucesso (Revisão: ${publishResult.version}).`,
-            });
+                const publishResult = await api.musicScaleCommands.publish(
+                    musicScaleId,
+                    { bandScaleId },
+                    idempotencyKey
+                );
+
+                console.log('[MusicScale Publish Result] => ' + JSON.stringify({
+                    organizationId: orgId,
+                    musicScaleId,
+                    status: "published",
+                    publishRevision: publishResult.version,
+                    eventAssignmentCount: publishResult.eventAssignmentCount || publishResult.createdResponseCount || 0,
+                    createdResponseCount: publishResult.createdResponseCount || 0,
+                    createdNotificationCount: publishResult.createdNotificationCount || 0,
+                    recipientCount: publishResult.createdNotificationCount || 0,
+                    fromCache: !!publishResult.fromCache,
+                    correlationId: publishResult.correlationId || idempotencyKey
+                }));
+
+                toast({
+                    title: "Sucesso",
+                    description: `Escala de músicas publicada com sucesso (Revisão: ${publishResult.version}).`,
+                });
+            } else {
+                toast({
+                    title: "Rascunho Salvo",
+                    description: "Escala salva como rascunho com sucesso. Ela permanece oculta para os voluntários.",
+                });
+            }
         } else if (scaleType === 'band') {
              let bandScaleId: string;
              const isUpdate = 'id' in scaleData && scaleData.id && scaleData.id !== 'CLONE';
@@ -544,7 +576,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } finally {
         setIsSubmitting(false);
     }
-  }, [user, userProfile, scaleType, linkingOptions, refreshData, closeAllModals, api, bandScales, instruments, isCommandApiV1Enabled, isMusicScalePublishCommandEnabled, organization?.id]);
+  }, [user, userProfile, scaleType, linkingOptions, refreshData, closeAllModals, api, bandScales, instruments, isCommandApiV1Enabled, isMusicScalePublishCommandEnabled, organization?.id, eventTypes, locations]);
 
   const handleDeleteScale = useCallback(async () => {
       if (!scaleToDelete || !api || !user || !userProfile) {

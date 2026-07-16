@@ -223,7 +223,11 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     }
 
     const cultoType = eventTypes.find(e => e.name.toLowerCase() === 'culto');
-    const mainLocation = locations.find(l => l.name.toLowerCase() === 'templo principal' || l.name.toLowerCase() === 'main sanctuary');
+    const mainLocation = locations.find(l => 
+      l.name.toLowerCase() === 'local principal' || 
+      l.name.toLowerCase() === 'templo principal' || 
+      l.name.toLowerCase() === 'main sanctuary'
+    );
     
     const baseData = {
       date: scaleToEdit?.date || new Date().toISOString().split("T")[0],
@@ -272,7 +276,11 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
       if (!next.locationId && locations.length > 0) {
         next.locationId =
-          locations.find(l => l.name.toLowerCase().includes('templo principal') || l.name.toLowerCase().includes('main sanctuary'))?.id ||
+          locations.find(l => 
+            l.name.toLowerCase().includes('local principal') || 
+            l.name.toLowerCase().includes('templo principal') || 
+            l.name.toLowerCase().includes('main sanctuary')
+          )?.id ||
           locations[0].id;
       }
 
@@ -299,7 +307,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, forcedStatus?: 'draft' | 'published') => {
     e.preventDefault();
     const commonData = {
       date: formData.date,
@@ -327,6 +335,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         songIds: selectedSongs, 
         bandScaleId: formData.bandScaleId || null,
         durationMinutes: duration,
+        status: forcedStatus || (scaleToEdit as any)?.status || 'draft',
       };
     } else {
       const validAssignments = formData.assignments ? formData.assignments.filter(
@@ -461,6 +470,34 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
           >
             {t('scaleModal.next', 'Avançar')}
           </Button>
+        ) : scaleType === "music" ? (
+          <div className="flex gap-2.5 w-full sm:w-auto flex-1 sm:flex-none">
+            <Button 
+              key="btn-draft"
+              type="button" 
+              variant="secondary"
+              onClick={(e) => {
+                e.preventDefault();
+                handleSubmit(e as any, 'draft');
+              }}
+              disabled={isSubmitting} 
+              className="flex-1 sm:flex-none h-12 rounded-xl text-[14px] border-zinc-700/80 hover:border-zinc-500 hover:bg-zinc-800/40 text-zinc-300 font-medium"
+            >
+              {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.saveDraft', 'Salvar Rascunho')}
+            </Button>
+            <Button 
+              key="btn-publish"
+              type="button" 
+              onClick={(e) => {
+                e.preventDefault();
+                handleSubmit(e as any, 'published');
+              }}
+              disabled={isSubmitting} 
+              className="flex-1 sm:flex-none h-12 rounded-xl text-[14px] bg-indigo-600 text-white hover:bg-indigo-500 shadow-[0_0_25px_rgba(99,102,241,0.45)] border-none font-bold"
+            >
+              {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.publishScale', 'Publicar Escala')}
+            </Button>
+          </div>
         ) : (
           <Button 
             key="btn-submit"

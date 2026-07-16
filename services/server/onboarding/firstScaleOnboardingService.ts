@@ -227,6 +227,7 @@ export function normalizeStarterSong(
     chordsUrl: song.chordsUrl || "",
     language: song.language || 'pt',
     originGlobalSongId: song.id,
+    onboardingStarter: true,
     onboardingStarterPack: true,
     onboardingStarterVersion: starterPackVersion,
     lastPlayed: song.lastPlayed || null,
