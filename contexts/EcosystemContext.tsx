@@ -309,7 +309,13 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                         if (orgData.status !== 'archived' && orgData.archived !== true) {
                                             if (!organizationsMap.has(orgDoc.id)) {
                                                 organizationsMap.set(orgDoc.id, true);
-                                                organizationsAvailable.push({ id: orgDoc.id, name: orgData.name || 'Organização', role: 'owner' });
+                                                const isExplicitOwner =
+                                                    orgData.ownerUid === user.uid ||
+                                                    orgData.ownerUserId === user.uid ||
+                                                    orgData.ownerId === user.uid ||
+                                                    orgData.owner_user_id === user.uid;
+                                                const catalogRole = isExplicitOwner ? 'owner' : 'global_access';
+                                                organizationsAvailable.push({ id: orgDoc.id, name: orgData.name || 'Organização', role: catalogRole });
                                             }
                                         }
                                     }
@@ -324,7 +330,13 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                             const orgData = orgDoc.data();
                             if (orgData.status !== 'archived' && orgData.archived !== true) {
                                 organizationsMap.set(orgDoc.id, true);
-                                organizationsAvailable.push({ id: orgDoc.id, name: orgData.name || 'Minha Organização', role: 'owner' });
+                                const isExplicitOwner =
+                                    orgData.ownerUid === user.uid ||
+                                    orgData.ownerUserId === user.uid ||
+                                    orgData.ownerId === user.uid ||
+                                    orgData.owner_user_id === user.uid;
+                                const catalogRole = isExplicitOwner ? 'owner' : 'global_access';
+                                organizationsAvailable.push({ id: orgDoc.id, name: orgData.name || 'Minha Organização', role: catalogRole });
                             }
                         }
                         for (const mData of membershipOrgs) {

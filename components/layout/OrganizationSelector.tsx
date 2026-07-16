@@ -3,17 +3,19 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useEcosystem } from "../../contexts/EcosystemContext";
 import { ecosystemBridge } from "../../services/ecosystem/EcosystemBridge";
 import { useApi } from "../../contexts/ApiContext";
-import { Building2, Check, ChevronDown } from "lucide-react";
+import { Building2, Check, ChevronDown, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export const OrganizationSelector: React.FC = () => {
   const { effectiveOrganizationId, effectiveOrganizationName, user } = useAuth();
-  const { context: ecoContext } = useEcosystem();
+  const { context: ecoContext, isStandalone } = useEcosystem();
   const api = useApi();
   const { t } = useTranslation();
   
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const [switchingOrgId, setSwitchingOrgId] = useState<string | null>(null);
 
   const availableOrgs = ecoContext?.organizationsAvailable || [];
 
@@ -40,23 +42,53 @@ export const OrganizationSelector: React.FC = () => {
   }
 
   const handleSwitchOrg = async (orgId: string) => {
-    setIsOpen(false);
+    if (!availableOrgs.some((o) => o.id === orgId)) {
+      console.warn("Selected orgId not available:", orgId);
+      return;
+    }
+    if (switchingOrgId !== null) return;
     if (orgId === effectiveOrganizationId) return;
 
-    // Send the intent to MillionsNest
-    ecosystemBridge.publishEvent({
-      type: "navigation",
-      payload: { action: "switch_org", orgId },
-      timestamp: Date.now()
-    });
+    setIsOpen(false);
+    setSwitchingOrgId(orgId);
 
-    // Write-back directly so standalone or ecosystem re-hydration knows the intent
-    if (user && api) {
-      try {
+    // Save immediately to local storage
+    localStorage.setItem('activeOrganizationId', orgId);
+
+    // Remove client context cache of current user
+    if (user) {
+      localStorage.removeItem(`musicscale_cached_context_${user.uid}`);
+    }
+
+    // Persist remotely with race timeout
+    const persistPromise = (async () => {
+      if (user && api) {
         await api.users.update(user.uid, { activeOrganizationId: orgId });
-      } catch (err) {
-        console.error("Failed to persist organization change:", err);
       }
+    })();
+
+    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 800));
+
+    try {
+      await Promise.race([persistPromise, timeoutPromise]);
+    } catch (err) {
+      console.warn("Failed to persist organization change remotely:", err);
+    }
+
+    if (isStandalone) {
+      window.location.reload();
+    } else {
+      // Send intent to MillionsNest
+      ecosystemBridge.publishEvent({
+        type: "navigation",
+        payload: { action: "switch_org", orgId },
+        timestamp: Date.now()
+      });
+
+      // Fallback reload if host integrated doesn't sync in ~1500ms
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     }
   };
 
@@ -90,11 +122,12 @@ export const OrganizationSelector: React.FC = () => {
           <div className="p-1.5 max-h-[60vh] md:max-h-60 overflow-y-auto custom-scrollbar relative z-10 flex flex-col gap-1">
             {availableOrgs.map((org) => {
               const isActive = org.id === effectiveOrganizationId;
+              const isSwitchingThis = switchingOrgId === org.id;
               return (
                 <button
                   key={org.id}
                   onClick={() => handleSwitchOrg(org.id)}
-                  disabled={isActive}
+                  disabled={isActive || switchingOrgId !== null}
                   className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-left transition-all ${
                     isActive 
                       ? "bg-black/[0.04] dark:bg-white/[0.08] ring-1 ring-black/5 dark:ring-white/10 text-slate-900 dark:text-white shadow-sm" 
@@ -107,7 +140,11 @@ export const OrganizationSelector: React.FC = () => {
                         ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-light ring-1 ring-primary/20' 
                         : 'bg-black/5 dark:bg-white/5 text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300'
                     }`}>
-                      <Building2 className="w-4 h-4" />
+                      {isSwitchingThis ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-primary dark:text-primary-light" />
+                      ) : (
+                        <Building2 className="w-4 h-4" />
+                      )}
                     </div>
                     <div className="flex flex-col truncate">
                       <span className={`text-[13px] tracking-wide truncate ${isActive ? 'font-bold' : 'font-semibold'}`}>
@@ -116,11 +153,19 @@ export const OrganizationSelector: React.FC = () => {
                       <span className={`text-[10px] uppercase tracking-widest mt-0.5 truncate ${
                         isActive ? 'text-slate-600 dark:text-slate-400 font-bold' : 'text-slate-500 dark:text-slate-500 font-semibold'
                       }`}>
-                        {org.role}
+                        {org.role === "owner"
+                          ? "OWNER"
+                          : org.role === "global_access"
+                            ? t("orgPicker.global_access", "Acesso global")
+                            : org.role}
                       </span>
                     </div>
                   </div>
-                  {isActive && (
+                  {isSwitchingThis ? (
+                    <div className="flex-shrink-0 ml-1 animate-spin">
+                      <Loader2 className="w-4 h-4 text-primary dark:text-primary-light" />
+                    </div>
+                  ) : isActive && (
                     <div className="flex-shrink-0 ml-1">
                       <Check className="w-4 h-4 text-primary dark:text-primary-light drop-shadow-sm" />
                     </div>
