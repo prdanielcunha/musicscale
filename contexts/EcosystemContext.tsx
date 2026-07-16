@@ -7,7 +7,7 @@ import Spinner from '../components/common/Spinner';
 import { useAuth } from './AuthContext'; // Optionally use AuthContext to sign out on local side, but AuthContext also has access to ecosystem
 import { auth } from '../services/firebase'; // Actually, since we'll just invalidate session locally
 import { onAuthStateChanged } from 'firebase/auth';
-import { getCandidateOrganizationIds, isValidCanonicalResponse } from '../services/ecosystem/startupFastPath';
+import { getCandidateOrganizationIds, isValidCanonicalResponse, isGlobalOrganizationCatalogRole } from '../services/ecosystem/startupFastPath';
 import { canManageMusicScales, canManageBandScales, canManageSongs, hasMusicScaleCapability } from '../utils/rbac';
 
 interface EcosystemContextValue {
@@ -96,6 +96,14 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                        }
                        markStartupMetric('ecosystem_user_profile_completed_ms');
 
+                       let earlyGlobalCatalogPromise: Promise<any> | null = null;
+                       if (isGlobalOrganizationCatalogRole(systemRole)) {
+                           earlyGlobalCatalogPromise = getDocs(collection(db, 'organizations')).catch((e) => {
+                               console.warn("Global admin early catalog fetch failed:", e);
+                               return null;
+                           });
+                       }
+
                        const localActiveOrg = localStorage.getItem('activeOrganizationId');
                        const candidates = getCandidateOrganizationIds(localActiveOrg, userHasActive, userHasPrimary, userHasLegacy);
                        const candidateOrgId = candidates.length > 0 ? candidates[0] : null;
@@ -124,19 +132,30 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                            }).finally(() => { clearTimeout(earlyTimeoutId); });
                        }
 
+                       const getReusableOrganizationSnapshot = async (targetOrgId: string) => {
+                           if (targetOrgId === candidateOrgId && earlyOrgDocPromise) {
+                               try {
+                                   const snap = await earlyOrgDocPromise;
+                                   if (
+                                     snap &&
+                                     typeof snap.exists === 'function' &&
+                                     snap.exists()
+                                   ) {
+                                     return snap;
+                                   }
+                               } catch (e) {}
+                           }
+                           return getDoc(doc(db, 'organizations', targetOrgId)).catch(() => null);
+                       };
+
                        // Function to check if an org is valid
                        let organizationsMap = new Map();
                        const checkAndAddOrg = async (idToTest: string, roleToSet: string, setActive: boolean = false) => {
                            if (!idToTest || organizationsMap.has(idToTest)) return false;
                            organizationsMap.set(idToTest, true);
                            try {
-                               let orgSnap;
-                               if (idToTest === candidateOrgId && earlyOrgDocPromise) {
-                                   orgSnap = await earlyOrgDocPromise;
-                               } else {
-                                   orgSnap = await getDoc(doc(db, 'organizations', idToTest));
-                               }
-                               if (orgSnap && orgSnap.exists()) {
+                               let orgSnap = await getReusableOrganizationSnapshot(idToTest);
+                               if (orgSnap && orgSnap.exists && orgSnap.exists()) {
                                    const orgData = orgSnap.data();
                                    let resolvedRole = roleToSet;
                                     // Precedence 1: Check if user is the explicit owner on the organization document
@@ -279,17 +298,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         }
 
                         // Dynamic CEO check from canonical user profile systemRole
-                        const resolvedSysRole = String(systemRole || '').toLowerCase().trim();
-                        if (['ceo', 'founder', 'ecosystem_owner', 'owner', 'dono', 'admin', 'global_admin', 'administrador', 'support', 'suporte'].includes(resolvedSysRole)) {
+                        if (isGlobalOrganizationCatalogRole(systemRole)) {
                             systemRole = 'ceo';
                             try {
-                                const allOrgsSnap = await getDocs(collection(db, 'organizations'));
-                                for (const orgDoc of allOrgsSnap.docs) {
-                                    const orgData = orgDoc.data();
-                                    if (orgData.status !== 'archived' && orgData.archived !== true) {
-                                        if (!organizationsMap.has(orgDoc.id)) {
-                                            organizationsMap.set(orgDoc.id, true);
-                                            organizationsAvailable.push({ id: orgDoc.id, name: orgData.name || 'Organização', role: 'owner' });
+                                const allOrgsSnap = await earlyGlobalCatalogPromise;
+                                
+                                if (allOrgsSnap && allOrgsSnap.docs) {
+                                    for (const orgDoc of allOrgsSnap.docs) {
+                                        const orgData = orgDoc.data();
+                                        if (orgData.status !== 'archived' && orgData.archived !== true) {
+                                            if (!organizationsMap.has(orgDoc.id)) {
+                                                organizationsMap.set(orgDoc.id, true);
+                                                organizationsAvailable.push({ id: orgDoc.id, name: orgData.name || 'Organização', role: 'owner' });
+                                            }
                                         }
                                     }
                                 }
@@ -334,8 +355,8 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                             orgName = activeMatch.name;
                             roleInOrg = activeMatch.role;
                             try {
-                                const getPl = await getDoc(doc(db, 'organizations', orgId));
-                                plan = getPl.exists() ? (getPl.data().music_scale_plan || getPl.data().plan || 'starter') : 'starter';
+                                const getPl = await getReusableOrganizationSnapshot(orgId);
+                                plan = (getPl && getPl.exists && getPl.exists()) ? (getPl.data().music_scale_plan || getPl.data().plan || 'starter') : 'starter';
                             } catch (error) {
                                 console.warn("Failed to fetch active organization plan directly:", error);
                             }
@@ -345,8 +366,8 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                             orgName = activeMatch.name;
                             roleInOrg = activeMatch.role;
                             try {
-                                const getPl = await getDoc(doc(db, 'organizations', orgId));
-                                plan = getPl.exists() ? (getPl.data().music_scale_plan || getPl.data().plan || 'starter') : 'starter';
+                                const getPl = await getReusableOrganizationSnapshot(orgId);
+                                plan = (getPl && getPl.exists && getPl.exists()) ? (getPl.data().music_scale_plan || getPl.data().plan || 'starter') : 'starter';
                             } catch (error) {
                                 console.warn("Failed to fetch userHasActive organization plan directly:", error);
                             }
@@ -358,8 +379,8 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                 orgName = activeMatch.name;
                                 roleInOrg = activeMatch.role;
                                 try {
-                                    const getPl = await getDoc(doc(db, 'organizations', orgId));
-                                    plan = getPl.exists() ? (getPl.data().music_scale_plan || getPl.data().plan || 'starter') : 'starter';
+                                    const getPl = await getReusableOrganizationSnapshot(orgId);
+                                    plan = (getPl && getPl.exists && getPl.exists()) ? (getPl.data().music_scale_plan || getPl.data().plan || 'starter') : 'starter';
                                 } catch (error) {
                                     console.warn("Failed to fetch userHasPrimary organization plan directly:", error);
                                 }
@@ -369,8 +390,8 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                             orgName = organizationsAvailable[0].name;
                             roleInOrg = organizationsAvailable[0].role;
                             try {
-                                const getPl = await getDoc(doc(db, 'organizations', orgId));
-                                plan = getPl.exists() ? (getPl.data().music_scale_plan || getPl.data().plan || 'starter') : 'starter';
+                                const getPl = await getReusableOrganizationSnapshot(orgId);
+                                plan = (getPl && getPl.exists && getPl.exists()) ? (getPl.data().music_scale_plan || getPl.data().plan || 'starter') : 'starter';
                             } catch (error) {
                                 console.warn("Failed to fetch default organization plan directly:", error);
                             }
