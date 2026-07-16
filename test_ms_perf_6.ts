@@ -31,50 +31,57 @@ function runTests() {
     // 4. Helper não acessa Firebase, fetch, localStorage ou sessionStorage.
     // Verified by running it in a Node context without those globals.
 
+    // 1 & 2. Verificar arquivos test_ms_perf_6.ts duplicados
+    assert(!fs.existsSync('app/applet/test_ms_perf_6.ts'), "1. app/applet/test_ms_perf_6.ts should not exist");
+    assert(fs.existsSync('test_ms_perf_6.ts'), "2. test_ms_perf_6.ts should exist in the root");
+
     // Static analysis on EcosystemContext.tsx
     const ecosystemContext = fs.readFileSync('contexts/EcosystemContext.tsx', 'utf-8');
 
-    // 5. A Promise do catálogo global é criada antes do array das consultas de descoberta.
+    // 3 & 4. Validating snap.exists() properly
+    assert(ecosystemContext.includes('typeof snap.exists === \'function\''), "3/4. Must verify snap.exists is a function");
+    assert(ecosystemContext.includes('snap.exists()'), "3/4. Must call snap.exists()");
+    assert(!ecosystemContext.match(/if \(snap && snap\.exists\) /), "4. Must not accept just snap.exists presence");
+
+    // 5-9. Fallbacks and exists() logic
+    assert(ecosystemContext.includes('getReusableOrganizationSnapshot = async (targetOrgId: string)'), "5-9. Must have getReusableOrganizationSnapshot helper");
+    assert(ecosystemContext.includes('if (targetOrgId === candidateOrgId && earlyOrgDocPromise)'), "9. Must check earlyOrgDocPromise");
+    assert(ecosystemContext.includes('return getDoc(doc(db, \'organizations\', targetOrgId)).catch(() => null);'), "6/7/8. Must fallback to getDoc");
+
+    // 11 (was 5). A Promise do catálogo global é criada antes do array das consultas de descoberta.
     const globalPromiseIndex = ecosystemContext.indexOf('earlyGlobalCatalogPromise = getDocs(collection(db, \'organizations\'))');
     const queriesArrayIndex = ecosystemContext.indexOf('const queries = [');
-    assert(globalPromiseIndex > -1 && queriesArrayIndex > -1 && globalPromiseIndex < queriesArrayIndex, "5. earlyGlobalCatalogPromise must be created before queries array");
+    assert(globalPromiseIndex > -1 && queriesArrayIndex > -1 && globalPromiseIndex < queriesArrayIndex, "11. earlyGlobalCatalogPromise must be created before queries array");
 
-    // 6. A Promise iniciada antecipadamente é reutilizada no bloco global.
-    assert(ecosystemContext.includes('const allOrgsSnap = await earlyGlobalCatalogPromise'), "6. Must reuse earlyGlobalCatalogPromise");
+    // A Promise iniciada antecipadamente é reutilizada no bloco global.
+    assert(ecosystemContext.includes('const allOrgsSnap = await earlyGlobalCatalogPromise'), "Must reuse earlyGlobalCatalogPromise");
 
-    // 7. Não existe uma segunda consulta global de organizations no bootstrap.
-    // We expect exactly one direct fetch from the DB collection ('organizations') in that file for all orgs.
+    // 10 (was 7). Não existe uma segunda consulta global de organizations no bootstrap.
     const countAllOrgsFetch = (ecosystemContext.match(/getDocs\(collection\(db, 'organizations'\)\)/g) || []).length;
-    assert(countAllOrgsFetch === 1, "7. Must have exactly one getDocs(collection(db, 'organizations'))");
+    assert(countAllOrgsFetch === 1, "10. Must have exactly one getDocs(collection(db, 'organizations'))");
 
-    // 8. earlyOrgDocPromise é reutilizada para a organização candidata.
-    // 9. Falha ou null na Promise antecipada mantém fallback para getDoc.
-    assert(ecosystemContext.includes('getReusableOrganizationSnapshot = async (targetOrgId: string)'), "8/9. Must have getReusableOrganizationSnapshot helper");
-    assert(ecosystemContext.includes('if (targetOrgId === candidateOrgId && earlyOrgDocPromise)'), "8/9. Must check earlyOrgDocPromise");
-    assert(ecosystemContext.includes('return getDoc(doc(db, \'organizations\', targetOrgId)).catch(() => null);'), "8/9. Must fallback to getDoc");
-
-    // 10. Leituras de plano utilizam o helper reutilizável.
+    // Leituras de plano utilizam o helper reutilizável.
     const getPlMatches = (ecosystemContext.match(/const getPl = await getReusableOrganizationSnapshot\(orgId\);/g) || []).length;
-    assert(getPlMatches >= 4, "10. Plan reads must use getReusableOrganizationSnapshot");
+    assert(getPlMatches >= 4, "Plan reads must use getReusableOrganizationSnapshot");
 
-    // 11. Não existe getIdToken(true).
-    assert(!ecosystemContext.includes('getIdToken(true)'), "11. Must not include getIdToken(true)");
+    // 12. Não existe getIdToken(true).
+    assert(!ecosystemContext.includes('getIdToken(true)'), "12. Must not include getIdToken(true)");
 
-    // 12. Resposta canônica continua obrigatória para permissões.
-    assert(ecosystemContext.includes('if (isValidCanonicalResponse('), "12. Must require isValidCanonicalResponse");
+    // 13. Resposta canônica continua obrigatória para permissões.
+    assert(ecosystemContext.includes('if (isValidCanonicalResponse('), "13. Must require isValidCanonicalResponse");
     
-    // 13. AbortController, mounted e currentGeneration permanecem presentes.
-    assert(ecosystemContext.includes('AbortController'), "13. AbortController must be present");
-    assert(ecosystemContext.includes('mounted = true'), "13. mounted must be present");
-    assert(ecosystemContext.includes('currentGeneration'), "13. currentGeneration must be present");
+    // 14 & 15. Endpoints
+    assert(!ecosystemContext.includes('/api/check_membership'), "14. Must not include /api/check_membership");
+    assert(ecosystemContext.includes('/api/v1/ecosystem/access-context'), "15. Must use /api/v1/ecosystem/access-context");
 
-    // 14. Não existe liberação antecipada de isInitialized.
+    // Outras variáveis de estado e segurança
+    assert(ecosystemContext.includes('AbortController'), "AbortController must be present");
+    assert(ecosystemContext.includes('mounted = true'), "mounted must be present");
+    assert(ecosystemContext.includes('currentGeneration'), "currentGeneration must be present");
+
     const isInitializedMatches = (ecosystemContext.match(/setIsInitialized\(true\)/g) || []).length;
-    // Same number of setIsInitialized(true) as before
-    assert(isInitializedMatches > 0, "14. isInitialized must be managed properly");
-
-    // 15. Nenhum contrato visual ou de contexto foi alterado.
-    assert(ecosystemContext.includes('Sincronizando Ecossistema...'), "15. Visual contract preserved");
+    assert(isInitializedMatches > 0, "isInitialized must be managed properly");
+    assert(ecosystemContext.includes('Sincronizando Ecossistema...'), "Visual contract preserved");
 
     console.log("All MS-PERF-6 tests passed.");
 }

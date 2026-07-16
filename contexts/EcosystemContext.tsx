@@ -136,7 +136,13 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                            if (targetOrgId === candidateOrgId && earlyOrgDocPromise) {
                                try {
                                    const snap = await earlyOrgDocPromise;
-                                   if (snap && snap.exists) return snap;
+                                   if (
+                                     snap &&
+                                     typeof snap.exists === 'function' &&
+                                     snap.exists()
+                                   ) {
+                                     return snap;
+                                   }
                                } catch (e) {}
                            }
                            return getDoc(doc(db, 'organizations', targetOrgId)).catch(() => null);
