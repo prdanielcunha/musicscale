@@ -65,6 +65,9 @@ export const OrganizationSelector: React.FC = () => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        aria-label={t("orgPicker.title", "Alternar Organização")}
         className="flex items-center gap-1.5 focus:outline-none group premium-interactive"
       >
         <span className="text-[11px] font-medium text-slate-400 group-hover:text-white transition-colors tracking-wider truncate uppercase">
@@ -76,14 +79,14 @@ export const OrganizationSelector: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute top-[calc(100%+8px)] left-0 w-64 bg-white/95 dark:bg-[#1A1A1C]/95 backdrop-blur-3xl border border-black/[0.08] dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-2xl z-[100] animate-in fade-in slide-in-from-top-2 origin-top-left">
+        <div className="absolute top-[calc(100%+8px)] left-0 w-[280px] md:w-64 bg-white/[0.98] dark:bg-[#101114]/[0.96] backdrop-blur-[24px] border border-black/10 dark:border-white/[0.12] rounded-2xl overflow-hidden shadow-[0_16px_48px_rgba(0,0,0,0.15)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.8)] ring-1 ring-black/5 dark:ring-white/5 z-[100] animate-in fade-in slide-in-from-top-2 origin-top-left">
           <div className="absolute inset-0 cinematic-noise mix-blend-overlay pointer-events-none rounded-2xl"></div>
-          <div className="px-3 pt-3 pb-2 border-b border-black/[0.04] dark:border-white/5 relative z-10">
-            <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+          <div className="px-3 pt-3 pb-2 border-b border-black/10 dark:border-white/[0.08] relative z-10">
+            <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
               {t("orgPicker.title", "Alternar Organização")}
             </h4>
           </div>
-          <div className="p-1 max-h-60 overflow-y-auto custom-scrollbar relative z-10">
+          <div className="p-1.5 max-h-[60vh] md:max-h-60 overflow-y-auto custom-scrollbar relative z-10 flex flex-col gap-1">
             {availableOrgs.map((org) => {
               const isActive = org.id === effectiveOrganizationId;
               return (
@@ -91,32 +94,46 @@ export const OrganizationSelector: React.FC = () => {
                   key={org.id}
                   onClick={() => handleSwitchOrg(org.id)}
                   disabled={isActive}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors ${
+                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-left transition-all ${
                     isActive 
-                      ? "bg-black/[0.03] dark:bg-white/[0.06] text-slate-900 dark:text-white" 
-                      : "text-slate-600 dark:text-slate-300 md:hover:bg-slate-100 md:hover:text-slate-900 md:dark:hover:bg-white/5 md:dark:hover:text-white"
+                      ? "bg-black/[0.04] dark:bg-white/[0.08] ring-1 ring-black/5 dark:ring-white/10 text-slate-900 dark:text-white shadow-sm" 
+                      : "text-slate-600 dark:text-slate-300 hover:bg-black/[0.02] dark:hover:bg-white/[0.04] hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`p-1.5 rounded-md ${isActive ? 'bg-primary/20 text-primary dark:text-primary-light' : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-400'}`}>
+                  <div className="flex items-center gap-3 truncate pr-2">
+                    <div className={`p-1.5 rounded-lg flex-shrink-0 transition-colors ${
+                      isActive 
+                        ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-light ring-1 ring-primary/20' 
+                        : 'bg-black/5 dark:bg-white/5 text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300'
+                    }`}>
                       <Building2 className="w-4 h-4" />
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-[13px] font-bold tracking-wide">{org.name}</span>
-                      <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold mt-0.5">{org.role}</span>
+                    <div className="flex flex-col truncate">
+                      <span className={`text-[13px] tracking-wide truncate ${isActive ? 'font-bold' : 'font-semibold'}`}>
+                        {org.name}
+                      </span>
+                      <span className={`text-[10px] uppercase tracking-widest mt-0.5 truncate ${
+                        isActive ? 'text-slate-600 dark:text-slate-400 font-bold' : 'text-slate-500 dark:text-slate-500 font-semibold'
+                      }`}>
+                        {org.role}
+                      </span>
                     </div>
                   </div>
-                  {isActive && <Check className="w-4 h-4 text-primary dark:text-primary-light" />}
+                  {isActive && (
+                    <div className="flex-shrink-0 ml-1">
+                      <Check className="w-4 h-4 text-primary dark:text-primary-light drop-shadow-sm" />
+                    </div>
+                  )}
                 </button>
               );
             })}
           </div>
-          <div className="p-1 border-t border-black/[0.04] dark:border-white/5 relative z-10">
+          <div className="p-1.5 mt-1 border-t border-black/10 dark:border-white/[0.08] relative z-10 bg-black/[0.01] dark:bg-white/[0.01]">
              <button
                 onClick={() => window.location.href = 'https://millionsnest.com'}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-slate-500 dark:text-slate-400 transition-colors md:hover:bg-slate-100 md:hover:text-slate-900 md:dark:hover:bg-white/5 md:dark:hover:text-white"
+                className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-left text-slate-600 dark:text-slate-300 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white"
              >
-                <div className="p-1.5 rounded-md bg-slate-100 dark:bg-white/5">
+                <div className="p-1.5 rounded-lg flex-shrink-0 bg-black/5 dark:bg-white/5">
                    <Building2 className="w-4 h-4" />
                 </div>
                 <span className="text-[13px] font-semibold tracking-wide">Gerenciar Organizações</span>
