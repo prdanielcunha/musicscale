@@ -214,9 +214,12 @@ const CollapsibleNavItem: React.FC<{
   isCollapsed: boolean;
 }> = ({ link, isCollapsed }) => {
   const location = useLocation();
-  const isParentActive = link.children.some((child) =>
-    location.pathname.startsWith(child.to),
-  );
+  const isParentActive = link.children.some((child) => {
+    const [path, hash] = child.to.split('#');
+    const matchesPath = location.pathname.startsWith(path) && path.startsWith('/');
+    const matchesHash = !hash || location.hash === '#' + hash;
+    return matchesPath && matchesHash;
+  });
   const [isOpen, setIsOpen] = useState(isParentActive);
   const { openSuggestionForm, openHelpModal, openSupportModal, openFeedback } = useModals();
 
@@ -361,189 +364,6 @@ const CollapsibleNavItem: React.FC<{
   );
 };
 
-const SettingsMenu: React.FC<{ isCollapsed: boolean }> = ({ isCollapsed }) => {
-  const { t } = useTranslation();
-  const { permissions, isAdmin, userProfile, isCurationAdmin } = useAuth();
-  const [isOpen, setIsOpen] = useState(false);
-  const [hasJoinRequests, setHasJoinRequests] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const location = useLocation();
-  const { isEcosystemAdmin } = useEcosystemAdmin();
-  const { allowed: finopsAllowed, loading: finopsLoading } = useFinOpsDiagnosticsAccess();
-
-  useEffect(() => {
-     if (permissions?.manageMembers && userProfile?.organizationId) {
-        import("firebase/firestore").then(({ doc, collection, query, where, getDocs, limit }) => {
-           import("../../services/firebase").then(async ({ db }) => {
-              const q = query(
-                 collection(db, 'organization_join_requests'),
-                 where('organizationId', '==', userProfile.organizationId),
-                 where('status', '==', 'pending'),
-                 limit(1)
-              );
-              try {
-                 const snap = await getDocs(q);
-                 setHasJoinRequests(!snap.empty);
-              } catch(e) {}
-           });
-        });
-     }
-  }, [permissions?.manageMembers, userProfile?.organizationId]);
-
-  const settingsLinks: Array<{ to: string; text: string; icon: React.ReactNode; badge?: React.ReactNode }> = [
-    {
-      to: "/profile",
-      text: t("nav.my_profile", "Meu Perfil"),
-      icon: <UserIcon className="w-5 h-5" />,
-    },
-  ];
-
-  if (permissions?.manageMembers) {
-    settingsLinks.push({
-      to: "/users",
-      text: t("nav.members", "Usuários"),
-      icon: <UsersIcon className="w-5 h-5" />,
-      badge: hasJoinRequests ? <span className="w-2.5 h-2.5 bg-red-500 rounded-full" /> : undefined
-    });
-    settingsLinks.push({
-      to: "/roles",
-      text: t("nav.roles", "Funções"),
-      icon: <KeyPermissionsIcon className="w-5 h-5" />,
-    });
-  }
-  
-  if (permissions?.manageOrganization) {
-    settingsLinks.push({
-      to: "/backup",
-      text: t("nav.backup", "Backup & Dados"),
-      icon: <CloudArrowUpIcon className="w-5 h-5" />,
-    });
-    settingsLinks.push({
-      to: "/debug/session",
-      text: t("nav.debug_session", "Debug Session"),
-      icon: <BugIcon className="w-5 h-5" />,
-    });
-  }
-
-  // Backward compatibility reference for previous test validations: userProfile?.systemRole
-  if (isCurationAdmin || (finopsAllowed && !finopsLoading)) {
-    settingsLinks.push({
-      to: "/admin/finops-diagnostics",
-      text: t("nav.finops_diagnostics", "Diagnóstico FinOps"),
-      icon: <ShieldAlert className="w-5 h-5" />,
-    });
-  }
-
-  const isParentActive = settingsLinks.some((link) =>
-    location.pathname.startsWith(link.to),
-  );
-
-  useEffect(() => {
-    setIsOpen(false);
-  }, [location.pathname]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        isOpen &&
-        menuRef.current &&
-        !menuRef.current.contains(event.target as Node) &&
-        triggerRef.current &&
-        !triggerRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
-
-  if (isCollapsed) {
-    return (
-      <div className="relative" ref={menuRef}>
-        <button
-          ref={triggerRef}
-          onClick={() => setIsOpen((prev) => !prev)}
-          className={`flex items-center justify-center w-[42px] h-[42px] mx-auto my-1 rounded-[14px] transition-all duration-200 group relative ${
-            isParentActive
-              ? "bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white"
-              : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"
-          }`}
-          title={t("nav.settings", "Configurações")}
-        >
-          <SettingsIcon className="w-5 h-5" />
-          {hasJoinRequests && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-surface dark:border-slate-900 pointer-events-none" />}
-        </button>
-        {isOpen && (
-          <div className="absolute left-full bottom-0 ml-4 w-56 bg-white/95 dark:bg-[#1A1A1C]/95 backdrop-blur-3xl border border-black/[0.08] dark:border-white/[0.08] shadow-2xl rounded-2xl p-1.5 z-[100] animate-scale-in origin-bottom-left">
-            <div className="absolute inset-0 cinematic-noise mix-blend-overlay pointer-events-none rounded-2xl"></div>
-            <p className="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 dark:text-[#666] uppercase tracking-widest border-b border-black/[0.03] dark:border-white/5 mb-1 relative z-10">
-              {t("nav.settings", "Configurações")}
-            </p>
-            <div className="relative z-10 space-y-0.5">
-            {settingsLinks.map((link) => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                onClick={() => setIsOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center justify-between px-2.5 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${isActive ? "bg-black/[0.03] dark:bg-white/[0.06] text-black dark:text-white" : "text-slate-600 dark:text-[#888888] hover:text-slate-900 dark:hover:text-white hover:bg-black/[0.01]/50 dark:hover:bg-white/[0.02]/50"}`
-                }
-              >
-                <div className="flex items-center gap-2.5">
-                   <div className="opacity-70">{link.icon}</div>
-                   <span>{link.text}</span>
-                </div>
-                {hasJoinRequests && link.to === "/users" && (
-                   <span className="w-2 h-2 rounded-full bg-red-500" />
-                )}
-              </NavLink>
-            ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <button
-        onClick={() => setIsOpen((prev) => !prev)}
-        className={`w-full flex items-center justify-between py-2 px-3 mb-1 text-[13px] font-medium rounded-[10px] transition-all duration-300 overflow-hidden touch-manipulation cursor-pointer ${
-          isParentActive
-            ? "text-white bg-white/[0.04] shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] border border-white/[0.02] font-semibold"
-            : "text-slate-400 md:hover:bg-white/[0.04] md:hover:text-slate-200 border border-transparent"
-        }`}
-      >
-        <div className="flex items-center pointer-events-none">
-          <span
-            className={`flex-shrink-0 transition-transform duration-300 ${isOpen ? "text-primary dark:text-white drop-shadow-sm" : ""}`}
-          >
-            <SettingsIcon className="w-[18px] h-[18px]" />
-          </span>
-          <span className="ml-3 whitespace-nowrap">{t("nav.settings", "Configurações")}</span>
-        </div>
-        <ChevronRightIcon
-          className={`w-3.5 h-3.5 transition-transform duration-300 pointer-events-none ${isOpen ? "rotate-90 text-primary dark:text-white" : "text-slate-400"}`}
-        />
-      </button>
-      <div
-        className={`grid transition-[grid-template-rows] duration-300 ease-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
-      >
-        <div className="overflow-hidden">
-          <div className="pt-0.5 pb-2">
-            {settingsLinks.map((link) => (
-              <SubNavItem key={link.to} link={link} />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed }) => {
   const { user, userProfile, organization, permissions, isAdmin, isCurationAdmin } = useAuth();
   const { navigateToEcosystem } = useEcosystem();
@@ -559,97 +379,91 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed }) => {
     }
   };
 
-  const capabilitiesLinksMap: any[] = [
-    { to: "/", text: t('nav.dashboard', 'Dashboard'), icon: <DashboardIcon />, capability: 'musicscale.performance.use' },
+  const rawGroups = [
     {
+      id: "repertoire",
       text: t('nav.repertoire', 'Repertório'),
       icon: <MusicNoteIcon />,
       capability: 'musicscale.performance.use',
       children: [
-        { to: "/songs", text: t('nav.songs', 'Músicas'), icon: <MusicNoteIcon /> },
-        { to: "/chords", text: t('nav.chords', 'Cifras'), icon: <ChordsIcon /> },
-        { to: "/lyrics", text: t('nav.lyrics', 'Letras'), icon: <FileText className="w-5 h-5 opacity-70" strokeWidth={2} /> },
-      ],
+        { to: "/songs", text: t('nav.songs', 'Músicas'), icon: <MusicNoteIcon />, capability: 'musicscale.performance.use' },
+        { to: "/library", text: t('nav.viva_title', 'Biblioteca Viva'), icon: <BookOpenIcon />, capability: 'musicscale.performance.use' },
+        ...(isCurationAdmin ? [{ to: "/curation", text: t('nav.curation_queue', 'Curadoria'), icon: <ClipboardListIcon />, capability: 'musicscale.performance.use' }] : []),
+        { to: "/chords", text: t('nav.chords', 'Cifras'), icon: <ChordsIcon />, capability: 'musicscale.performance.use' },
+        { to: "/lyrics", text: t('nav.lyrics', 'Letras'), icon: <FileText className="w-4 h-4 opacity-70" strokeWidth={2} />, capability: 'musicscale.performance.use' },
+      ]
     },
     {
+      id: "scales",
       text: t('nav.scales', 'Escalas'),
       icon: <CalendarIcon />,
-      capability: 'musicscale.performance.use', // Everyone can see scales right now
+      capability: 'musicscale.performance.use',
       children: [
-        { to: "/scales", text: t('nav.my_scales', 'Escalas de Músicas'), icon: <ClipboardListIcon /> },
-        { to: "/band-scales", text: t('nav.band_scales', 'Escalas da Banda'), icon: <CalendarIcon /> },
-      ],
-    }
-  ];
-
-  if (isCurationAdmin) {
-    capabilitiesLinksMap.push({
+        { to: "/scales", text: t('nav.my_scales', 'Escalas de Músicas'), icon: <ClipboardListIcon />, capability: 'musicscale.performance.use' },
+        { to: "/band-scales", text: t('nav.band_scales', 'Escalas da Banda'), icon: <CalendarIcon />, capability: 'musicscale.performance.use' },
+      ]
+    },
+    {
+      id: "library_group",
       text: t('nav.library', 'Biblioteca'),
       icon: <BookOpenIcon />,
       capability: 'musicscale.performance.use',
       children: [
-        { to: "/library", text: t('nav.viva_title', 'Biblioteca Viva'), icon: <BookOpenIcon /> },
-        { to: "/curation", text: t('nav.curation_queue', 'Curadoria'), icon: <ClipboardListIcon /> },
-      ],
-    });
-  } else {
-    capabilitiesLinksMap.push({
-      to: "/library",
-      text: t('nav.viva_title', 'Biblioteca Viva'),
-      icon: <BookOpenIcon />,
-      capability: 'musicscale.performance.use',
-    });
-  }
-
-  capabilitiesLinksMap.push(
-    { to: "/band", text: t('nav.band', 'Integrantes'), icon: <UsersIcon />, capability: 'musicscale.members.manage' },
-    { to: "action:whatsnew", text: t('nav.updates', 'Novidades'), icon: <SparklesIcon />, capability: 'musicscale.performance.use' }
-  );
-
-  const primaryNavLinks = capabilitiesLinksMap.filter(link => hasCapability(link.capability));
-
-  const adminLinksMap = [
+        { to: "indicate", text: t('nav.suggest_song', 'Indicar Música'), icon: <ClipboardListIcon />, capability: 'musicscale.performance.use' },
+        { to: "/suggestions", text: t('nav.analyze_suggestions', 'Analisar Indicações'), icon: <SuggestionIcon />, capability: 'musicscale.songs.edit' },
+        { to: "action:whatsnew", text: t('nav.updates', 'Novidades'), icon: <SparklesIcon />, capability: 'musicscale.performance.use' }
+      ]
+    },
     {
-      text: t('nav.structures', 'Configuração do ministério'),
+      id: "database",
+      text: t('nav.database', 'Banco de Dados'),
       icon: <DatabaseIcon />,
       capability: 'manageOrganization',
       children: [
-        { to: "/database", text: t('nav.database', 'Banco de Dados'), icon: <DatabaseIcon /> },
-        {
-          to: "/database#types",
-          text: t('nav.types_events', 'Tipos & Eventos'),
-          icon: <CalendarIcon />,
-        },
-        { to: "/database#tags", text: t('nav.tags_categories', 'Tags & Categorias'), icon: <TagIcon /> },
-        { to: "/database#skills", text: t('nav.skills', 'Habilidades'), icon: <MusicNoteIcon /> },
-      ],
+        { to: "/database", text: t('nav.database', 'Banco de Dados'), icon: <DatabaseIcon />, capability: 'manageOrganization' },
+        { to: "/database#types", text: t('nav.types_events', 'Tipos & Eventos'), icon: <CalendarIcon />, capability: 'manageOrganization' },
+        { to: "/database#tags", text: t('nav.tags_categories', 'Tags & Categorias'), icon: <TagIcon />, capability: 'manageOrganization' },
+        { to: "/database#skills", text: t('nav.skills', 'Habilidades'), icon: <MusicNoteIcon />, capability: 'manageOrganization' },
+      ]
     },
     {
-      text: t('nav.suggestions', 'Indicações'),
-      icon: <SuggestionIcon />,
-      capability: 'musicscale.songs.edit',
+      id: "settings",
+      text: t('nav.settings', 'Configurações'),
+      icon: <SettingsIcon />,
+      capability: 'musicscale.performance.use',
       children: [
-        { to: "indicate", text: t('nav.suggest_song', 'Indicar Música'), icon: <ClipboardListIcon /> },
-        {
-          to: "/suggestions",
-          text: t('nav.analyze_suggestions', 'Analisar Indicações'),
-          icon: <SuggestionIcon />,
-        },
-      ],
+        { to: "/band", text: t('nav.band', 'Integrantes'), icon: <UsersIcon />, capability: 'musicscale.members.manage' },
+        { to: "/profile", text: t('nav.my_profile', 'Meu Perfil'), icon: <UserIcon className="w-4 h-4" />, capability: 'musicscale.performance.use' },
+        { to: "/users", text: t('nav.members', 'Usuários'), icon: <UsersIcon className="w-4 h-4" />, capability: 'manageMembers' },
+        { to: "/roles", text: t('nav.roles', 'Funções'), icon: <KeyPermissionsIcon className="w-4 h-4" />, capability: 'manageMembers' },
+        { to: "/backup", text: t('nav.backup', 'Backup & Dados'), icon: <CloudArrowUpIcon className="w-4 h-4" />, capability: 'manageOrganization' },
+        { to: "/debug/session", text: t('nav.debug_session', 'Debug Session'), icon: <BugIcon className="w-4 h-4" />, capability: 'manageOrganization' },
+        { to: "/plans", text: t('nav.plans', 'Planos & Loja'), icon: <StoreIcon />, capability: 'manageOrganization' },
+      ]
     },
-    { to: "/plans", text: t('nav.plans', 'Planos & Loja'), icon: <StoreIcon />, capability: 'manageOrganization' },
+    {
+      id: "help",
+      text: t('nav.help', 'Ajuda'),
+      icon: <HelpCircleIcon />,
+      capability: 'musicscale.performance.use',
+      children: [
+        { to: "action:feedback", text: t('nav.team_feedback', 'Falar com a equipe'), icon: <MessageSquareQuestionIcon />, capability: 'musicscale.performance.use' },
+        { to: "action:faq", text: t('nav.faq', 'Central de Ajuda'), icon: <BookTextIcon />, capability: 'musicscale.performance.use' },
+      ]
+    }
   ];
 
-  const adminNavLinks = adminLinksMap.filter(link => hasCapability(link.capability));
-
-  const helpLink = {
-    text: t('nav.help', 'Ajuda'),
-    icon: <HelpCircleIcon />,
-    children: [
-      { to: "action:feedback", text: t('nav.team_feedback', 'Falar com a equipe'), icon: <MessageSquareQuestionIcon /> },
-      { to: "action:faq", text: t('nav.faq', 'Central de Ajuda'), icon: <BookTextIcon /> },
-    ],
-  };
+  const visibleGroups = rawGroups
+    .map(group => {
+      if (!hasCapability(group.capability)) return null;
+      const visibleChildren = group.children.filter(child => hasCapability(child.capability));
+      if (visibleChildren.length === 0) return null;
+      return {
+        ...group,
+        children: visibleChildren
+      };
+    })
+    .filter(Boolean) as any[];
 
   const photoURL = userProfile?.photoURL || user?.photoURL;
   const displayName =
@@ -705,62 +519,21 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed }) => {
       <nav
         className={`flex-1 py-4 space-y-1 ${isCollapsed ? "px-2 overflow-visible" : "px-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent"}`}
       >
-        {/* Primary Nav */}
-        <div className="mb-6">
-          <p
-            className={`px-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 transition-all duration-300 ${isCollapsed ? "text-center opacity-0 h-0 hidden" : "opacity-100"}`}
-          >
-            {t("nav.section_primary", "Principal")}
-          </p>
-          {primaryNavLinks.map((link) =>
-            link.children ? (
-              <CollapsibleNavItem
-                key={link.text}
-                link={link}
-                isCollapsed={isCollapsed}
-              />
-            ) : (
-              <NavItem
-                key={link.to}
-                link={link as any}
-                isCollapsed={isCollapsed}
-              />
-            ),
-          )}
-        </div>
-
-        {/* Secondary/Admin Nav */}
-        {(adminNavLinks.length > 0 || permissions?.manageMembers || permissions?.manageOrganization) && (
         <div className="mb-4">
-          <p
-            className={`px-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 mt-4 transition-all duration-300 ${isCollapsed ? "text-center opacity-0 h-0 hidden" : "opacity-100"}`}
-          >
-            {t("nav.section_admin", "Administração")}
-          </p>
-          {adminNavLinks.map((link) =>
-            link.children ? (
-              <CollapsibleNavItem
-                key={link.text}
-                link={link}
-                isCollapsed={isCollapsed}
-              />
-            ) : (
-              <NavItem
-                key={link.to}
-                link={link as any}
-                isCollapsed={isCollapsed}
-              />
-            ),
-          )}
-          
-          <SettingsMenu isCollapsed={isCollapsed} />
+          <NavItem
+            link={{ to: "/", text: t('nav.dashboard', 'Painel'), icon: <DashboardIcon /> }}
+            isCollapsed={isCollapsed}
+          />
         </div>
-        )}
 
-        <div
-          className={`my-4 border-t border-slate-200/50 dark:border-white/5 ${isCollapsed ? "mx-2" : "mx-4"}`}
-        ></div>
-        <CollapsibleNavItem link={helpLink} isCollapsed={isCollapsed} />
+        {visibleGroups.map((group) => (
+          <div key={group.id} className="mb-2">
+            <CollapsibleNavItem
+              link={group}
+              isCollapsed={isCollapsed}
+            />
+          </div>
+        ))}
       </nav>
 
       <div

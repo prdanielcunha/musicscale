@@ -12,6 +12,7 @@ import { canManageMusicScales, canManageBandScales, canManageSongs, hasMusicScal
 
 interface EcosystemContextValue {
   isInitialized: boolean;
+  isContextSyncing: boolean;
   context: EcosystemContextPayload | null;
   publishEvent: (event: EcosystemEvent) => void;
   navigateToEcosystem: (path?: string) => void;
@@ -21,6 +22,7 @@ interface EcosystemContextValue {
 
 const EcosystemContext = createContext<EcosystemContextValue>({
   isInitialized: false,
+  isContextSyncing: false,
   context: null,
   publishEvent: () => {},
   navigateToEcosystem: () => {},
@@ -679,12 +681,13 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const value = useMemo(() => ({
       isInitialized, 
+      isContextSyncing,
       context, 
       publishEvent, 
       navigateToEcosystem,
       isStandalone: !!context?.isStandalone,
       isDegraded
-  }), [isInitialized, context, isDegraded]);
+  }), [isInitialized, isContextSyncing, context, isDegraded]);
 
   if (!isInitialized || !context || isContextSyncing) {
     return (
