@@ -124,20 +124,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const needsRepair = !!ecoContext?.needsRepair;
   const repairReasons = ecoContext?.repairReasons || [];
 
-  const permissions: AppPermissions | null = ecoContext?.permissions ? {
-    manageOrganization: ecoContext.permissions.canManageOrganization,
-    manageMembers: ecoContext.permissions.canManageMembers,
-    manageSongs: ecoContext.permissions.canManageRepertoire,
-    manageScales: ecoContext.permissions.canManageScales,
-    manageChords: ecoContext.permissions.canManageChords,
-    'musicScale.manageSongs': ecoContext.permissions.canManageRepertoire,
-    'musicScale.manageScales': ecoContext.permissions.canManageScales,
-    'musicscale.songs.edit': ecoContext.permissions.canManageRepertoire,
-    'musicscale.scales.manage': ecoContext.permissions.canManageScales,
-    'musicscale.members.manage': ecoContext.permissions.canManageMembers,
-    'musicscale.performance.use': true,
-    'musicscale.chords.edit': ecoContext.permissions.canManageChords,
-  } : null;
+  const permissions: AppPermissions | null = ecoContext?.permissions ? (ecoContext.permissions as unknown as AppPermissions) : null;
 
   const fetchUserData = useCallback(async (currentUser: User | null) => {
     if (!currentUser) return;

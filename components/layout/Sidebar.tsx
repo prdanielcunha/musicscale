@@ -391,7 +391,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
 
   const isCurationAllowed = (id: string) => {
     if (id === "curation_queue") {
-        return isCurationAdmin || hasCapability("musicscale.songs.edit") || hasCapability("manageOrganization");
+        return isCurationAdmin;
     }
     return true;
   };
@@ -403,11 +403,13 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
       .map((item) => {
         if (!isCurationAllowed(item.id)) return null;
 
-        if (item.id === "finops_diagnostics") {
-           if (!finopsAllowed || finopsLoading) return null;
-        } else {
-           const isAllowed = !item.permissionRequired || hasCapability(item.permissionRequired);
-           if (!isAllowed) return null;
+        if (item.type !== "group_trigger") {
+            if (item.id === "finops_diagnostics") {
+               if (!finopsAllowed || finopsLoading) return null;
+            } else {
+               const isAllowed = !item.permissionRequired || hasCapability(item.permissionRequired);
+               if (!isAllowed) return null;
+            }
         }
 
         if (item.type === "group_trigger") {

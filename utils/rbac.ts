@@ -300,3 +300,56 @@ export function canManageSongs(context: EffectiveAccessContext): boolean {
 export function canManageMusicalTaxonomy(context: EffectiveAccessContext): boolean {
   return hasMusicScaleCapability(context, 'taxonomy.roles.manage');
 }
+
+
+export function projectCanonicalCapabilities(accessCtx: any): Record<string, boolean> {
+  const caps = new Set(accessCtx?.effectiveCapabilities || []);
+  const isGlobal = accessCtx?.isGlobalFullAccess === true;
+  const isOrg = accessCtx?.isOrganizationFullAccess === true;
+  
+  const has = (c: string) => isGlobal || isOrg || caps.has(c);
+
+  const permissions: Record<string, boolean> = {};
+
+  if (accessCtx?.effectiveCapabilities) {
+    accessCtx.effectiveCapabilities.forEach((c: string) => {
+      permissions[c] = true;
+    });
+  }
+
+  // Aliases Legados
+  const canUsePerf = has('scales.read') || has('songs.read') || isGlobal || isOrg;
+  permissions['musicscale.performance.use'] = canUsePerf;
+
+  const canEditSongs = has('songs.create') || has('songs.update');
+  permissions['musicscale.songs.edit'] = canEditSongs;
+  permissions['manageSongs'] = canEditSongs;
+  permissions['musicScale.manageSongs'] = canEditSongs;
+
+  const canManageScales = has('scales.create') || has('scales.update') || has('bandScales.create');
+  permissions['musicscale.scales.manage'] = canManageScales;
+  permissions['manageScales'] = canManageScales;
+  permissions['musicScale.manageScales'] = canManageScales;
+
+  const canManageMembers = has('organization.members.manage');
+  permissions['musicscale.members.manage'] = canManageMembers;
+  permissions['manageMembers'] = canManageMembers;
+
+  const canManageOrg = has('organization.settings.manage');
+  const canManageTaxonomy = has('taxonomy.roles.manage') || canManageOrg;
+  permissions['manageTaxonomy'] = canManageTaxonomy;
+  permissions['manageOrganization'] = canManageOrg;
+
+  const canManageChords = has('songs.update');
+  permissions['manageChords'] = canManageChords;
+  permissions['musicscale.chords.edit'] = canManageChords;
+
+  // Retrocompatibility for EcosystemContext
+  permissions['canManageOrganization'] = canManageOrg;
+  permissions['canManageMembers'] = canManageMembers;
+  permissions['canManageScales'] = canManageScales;
+  permissions['canManageRepertoire'] = canEditSongs;
+  permissions['canManageChords'] = canManageChords;
+
+  return permissions;
+}

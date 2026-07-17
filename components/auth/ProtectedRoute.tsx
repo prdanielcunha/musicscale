@@ -39,7 +39,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/" replace />;
   }
 
-  const hasPermission = permissions[requiredPermission] || isGlobalAdmin;
+  const hasPermission = permissions[requiredPermission];
 
   if (!hasPermission) {
     // Prevent infinite redirect loop if already on the root path

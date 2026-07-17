@@ -8,7 +8,7 @@ import { useAuth } from './AuthContext'; // Optionally use AuthContext to sign o
 import { auth } from '../services/firebase'; // Actually, since we'll just invalidate session locally
 import { onAuthStateChanged } from 'firebase/auth';
 import { getCandidateOrganizationIds, isValidCanonicalResponse, isGlobalOrganizationCatalogRole } from '../services/ecosystem/startupFastPath';
-import { canManageMusicScales, canManageBandScales, canManageSongs, hasMusicScaleCapability } from '../utils/rbac';
+import { canManageMusicScales, canManageBandScales, canManageSongs, hasMusicScaleCapability , projectCanonicalCapabilities } from '../utils/rbac';
 
 interface EcosystemContextValue {
   isInitialized: boolean;
@@ -533,13 +533,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                  if (!(accessCtx.capabilities instanceof Set)) {
                                      accessCtx.capabilities = new Set(accessCtx.effectiveCapabilities || []);
                                  }
-                                 permissions = {
-                                     canManageOrganization: hasMusicScaleCapability(accessCtx, 'organization.settings.manage'),
-                                     canManageMembers: hasMusicScaleCapability(accessCtx, 'organization.members.manage'),
-                                     canManageScales: canManageMusicScales(accessCtx) || canManageBandScales(accessCtx),
-                                     canManageRepertoire: canManageSongs(accessCtx),
-                                     canManageChords: true
-                                 };
+                                 permissions = projectCanonicalCapabilities(accessCtx) as any;
                              } else {
                                  if (orgId && orgId !== 'offline_default') {
                                      setIsDegraded(true);
