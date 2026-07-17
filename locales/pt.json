@@ -52,7 +52,14 @@
     "menu": "Menu",
     "degraded_warning": "Atenção",
     "degraded_details": "Ver detalhes",
-    "local_session": "Sessão Local"
+    "local_session": "Sessão Local",
+    "bottom": {
+      "dashboard": "Painel",
+      "songs": "Músicas",
+      "scales": "Escalas",
+      "library": "Biblioteca",
+      "account": "Conta"
+    }
   },
   "dashboard": {
     "title": "Painel Ministerial",

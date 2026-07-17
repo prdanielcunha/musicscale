@@ -181,6 +181,7 @@ const AppLayout: React.FC = () => {
                 <Sidebar 
                     isCollapsed={isSidebarCollapsed}
                     onToggle={handleSidebarToggle}
+                    onLinkClick={() => setSidebarCollapsed(true)}
                 />
                 
                 {/* Mobile close button inside sidebar container area */}

@@ -17,31 +17,31 @@ export const BottomNav: React.FC = () => {
     {
       id: "dashboard",
       to: "/",
-      label: t("nav.dashboard", "Painel"),
+      label: t("nav.bottom.dashboard", "Painel"),
       icon: <DashboardIcon />,
     },
     {
       id: "songs",
       to: "/songs",
-      label: t("nav.songs", "Músicas"),
+      label: t("nav.bottom.songs", "Músicas"),
       icon: <MusicNoteIcon />,
     },
     {
       id: "scales",
       to: "/scales",
-      label: t("nav.scales", "Escalas"),
+      label: t("nav.bottom.scales", "Escalas"),
       icon: <CalendarIcon />,
     },
     {
       id: "library",
       to: "/library",
-      label: t("nav.library", "Biblioteca"),
+      label: t("nav.bottom.library", "Biblioteca"),
       icon: <BookOpenIcon />,
     },
     {
       id: "account",
       to: "/profile",
-      label: t("nav.account", "Conta"),
+      label: t("nav.bottom.account", "Conta"),
       icon: <SettingsIcon />,
     },
   ];
@@ -56,7 +56,7 @@ export const BottomNav: React.FC = () => {
             <NavLink
               key={link.id}
               to={link.to}
-              className={`relative flex h-[54px] flex-1 flex-col items-center justify-center gap-[3px] rounded-[2rem] text-[10px] font-medium transition-colors duration-300 active:scale-[0.92] group ${
+              className={`relative flex h-[54px] w-full min-w-0 flex-1 flex-col items-center justify-center rounded-[2rem] transition-colors duration-300 active:scale-[0.92] group overflow-hidden ${
                 isActive
                   ? "text-white"
                   : "text-white/50 hover:text-white/90 hover:bg-white/[0.04]"
@@ -73,24 +73,30 @@ export const BottomNav: React.FC = () => {
                   }}
                 />
               )}
-              <div className="relative z-10 flex items-center justify-center transition-transform duration-300">
+              
+              {/* Icon wrapper with fixed height */}
+              <div className="relative z-10 flex h-[22px] items-center justify-center transition-transform duration-300">
                 {React.cloneElement(link.icon as React.ReactElement, {
-                  className: `w-[22px] h-[22px] transition-all duration-300 ${
+                  className: `w-[21px] h-[21px] sm:w-[22px] sm:h-[22px] transition-all duration-300 ${
                     isActive
                       ? "text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.3)]"
                       : "text-white/50 group-hover:text-white/90"
                   }`,
                 })}
               </div>
-              <span
-                className={`relative z-10 text-[9px] uppercase tracking-widest transition-all duration-300 mt-[1px] ${
-                  isActive
-                    ? "font-bold text-white drop-shadow-md"
-                    : "font-medium text-white/50 group-hover:text-white/90"
-                }`}
-              >
-                {link.label}
-              </span>
+              
+              {/* Text wrapper with fixed height and no wrap */}
+              <div className="mt-[3px] flex h-[10px] w-full min-w-0 items-center justify-center overflow-hidden px-1">
+                <span
+                  className={`relative z-10 w-full min-w-0 truncate whitespace-nowrap text-center leading-none transition-all duration-300 text-[8px] tracking-[0.10em] sm:text-[9px] sm:tracking-widest ${
+                    isActive
+                      ? "font-bold text-white drop-shadow-md"
+                      : "font-medium text-white/50 group-hover:text-white/90"
+                  }`}
+                >
+                  {link.label}
+                </span>
+              </div>
             </NavLink>
           );
         })}

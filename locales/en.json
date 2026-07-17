@@ -51,7 +51,14 @@
     "menu": "Menu",
     "degraded_warning": "Warning",
     "degraded_details": "See details",
-    "local_session": "Local Session"
+    "local_session": "Local Session",
+    "bottom": {
+      "dashboard": "Dashboard",
+      "songs": "Songs",
+      "scales": "Scales",
+      "library": "Library",
+      "account": "Account"
+    }
   },
   "dashboard": {
     "title": "Ministry Dashboard",

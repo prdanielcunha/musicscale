@@ -51,7 +51,14 @@
     "menu": "Menú",
     "degraded_warning": "Atención",
     "degraded_details": "Ver detalles",
-    "local_session": "Sesión Local"
+    "local_session": "Sesión Local",
+    "bottom": {
+      "dashboard": "Panel",
+      "songs": "Canciones",
+      "scales": "Escalas",
+      "library": "Biblioteca",
+      "account": "Cuenta"
+    }
   },
   "dashboard": {
     "title": "Tablero Ministerial",
