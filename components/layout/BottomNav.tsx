@@ -2,57 +2,47 @@ import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "motion/react";
-import { Menu } from "lucide-react";
 import { DashboardIcon } from "../icons/DashboardIcon";
-import { BookOpenIcon } from "../icons/BookOpenIcon";
-import { CalendarIcon } from "../icons/CalendarIcon";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
-import { navigationRegistry } from "./navigationRegistry";
+import { CalendarIcon } from "../icons/CalendarIcon";
+import { BookOpenIcon } from "../icons/BookOpenIcon";
+import { SettingsIcon } from "../icons/SettingsIcon";
 
-interface BottomNavProps {
-  onMenuClick?: () => void;
-}
-
-export const BottomNav: React.FC<BottomNavProps> = ({ onMenuClick }) => {
+export const BottomNav: React.FC = () => {
   const location = useLocation();
   const { t } = useTranslation();
-
-  const dashboardItem = navigationRegistry.find((item) => item.id === "dashboard");
-  const repertoireItem = navigationRegistry.find((item) => item.id === "repertoire");
-  const scalesItem = navigationRegistry.find((item) => item.id === "scales");
-  const libraryItem = navigationRegistry.find((item) => item.id === "library");
 
   // Bottom nav links, optimized for mobile usage
   const navLinks = [
     {
       id: "dashboard",
       to: "/",
-      label: t("nav.dashboard", "Início"),
-      icon: dashboardItem?.icon || <DashboardIcon />,
+      label: t("nav.dashboard", "Painel"),
+      icon: <DashboardIcon />,
     },
     {
-      id: "repertoire",
+      id: "songs",
       to: "/songs",
-      label: t("nav.repertoire", "Repertório"),
-      icon: repertoireItem?.icon || <MusicNoteIcon />,
+      label: t("nav.songs", "Músicas"),
+      icon: <MusicNoteIcon />,
     },
     {
       id: "scales",
       to: "/scales",
       label: t("nav.scales", "Escalas"),
-      icon: scalesItem?.icon || <CalendarIcon />,
+      icon: <CalendarIcon />,
     },
     {
       id: "library",
       to: "/library",
       label: t("nav.library", "Biblioteca"),
-      icon: libraryItem?.icon || <BookOpenIcon />,
+      icon: <BookOpenIcon />,
     },
     {
-      id: "menu",
-      to: "#",
-      label: t("nav.menu", "Menu"),
-      icon: <Menu />,
+      id: "account",
+      to: "/profile",
+      label: t("nav.account", "Conta"),
+      icon: <SettingsIcon />,
     },
   ];
 
@@ -60,23 +50,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onMenuClick }) => {
     <div className="md:hidden fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-3 right-3 z-[100] flex justify-center pointer-events-none">
       <div className="pointer-events-auto flex justify-between items-center relative w-full max-w-[400px] p-[5px] bg-[#111115]/60 backdrop-blur-[32px] saturate-[180%] border border-white/[0.10] rounded-[2.25rem] shadow-[0_24px_70px_rgba(0,0,0,0.55),inset_0_1px_1px_rgba(255,255,255,0.06)]">
         {navLinks.map((link) => {
-          const isMenu = link.id === "menu";
-          const isActive = !isMenu && location.pathname === link.to;
-
-          const handleClick = (e: React.MouseEvent) => {
-            if (isMenu) {
-              e.preventDefault();
-              if (onMenuClick) {
-                onMenuClick();
-              }
-            }
-          };
+          const isActive = location.pathname === link.to || (link.to !== "/" && location.pathname.startsWith(link.to));
 
           return (
             <NavLink
               key={link.id}
               to={link.to}
-              onClick={handleClick}
               className={`relative flex h-[54px] flex-1 flex-col items-center justify-center gap-[3px] rounded-[2rem] text-[10px] font-medium transition-colors duration-300 active:scale-[0.92] group ${
                 isActive
                   ? "text-white"
@@ -119,3 +98,4 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onMenuClick }) => {
     </div>
   );
 };
+

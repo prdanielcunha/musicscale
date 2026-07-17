@@ -18,7 +18,9 @@ import { CloudArrowUpIcon } from "../icons/CloudArrowUpIcon";
 import { BugIcon } from "../icons/BugIcon";
 import { BookTextIcon } from "../icons/BookTextIcon";
 import { MessageSquareQuestionIcon } from "../icons/MessageSquareQuestionIcon";
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlert, FileText } from "lucide-react";
+import { ChordsIcon } from "../icons/ChordsIcon";
+import { HelpCircleIcon } from "../icons/HelpCircleIcon";
 
 export interface NavigationItem {
   id: string;
@@ -30,6 +32,7 @@ export interface NavigationItem {
   permissionRequired: string | null;
   section: "primary" | "admin" | "help";
   group: string | null;
+  collapseToDirectWhenSingleChild?: boolean;
 }
 
 export const navigationRegistry: NavigationItem[] = [
@@ -47,7 +50,7 @@ export const navigationRegistry: NavigationItem[] = [
   },
   {
     id: "repertoire",
-    type: "link",
+    type: "group_trigger",
     icon: <RepertoireIcon />,
     labelKey: "nav.repertoire",
     defaultLabel: "Repertório",
@@ -57,8 +60,41 @@ export const navigationRegistry: NavigationItem[] = [
     group: null,
   },
   {
-    id: "scales",
+    id: "songs",
     type: "link",
+    icon: <MusicNoteIcon />,
+    labelKey: "nav.songs",
+    defaultLabel: "Músicas",
+    path: "/songs",
+    permissionRequired: "musicscale.performance.use",
+    section: "primary",
+    group: "repertoire",
+  },
+  {
+    id: "chords",
+    type: "link",
+    icon: <ChordsIcon />,
+    labelKey: "nav.chords",
+    defaultLabel: "Cifras",
+    path: "/chords",
+    permissionRequired: "musicscale.performance.use",
+    section: "primary",
+    group: "repertoire",
+  },
+  {
+    id: "lyrics",
+    type: "link",
+    icon: <FileText className="w-4 h-4 opacity-70" strokeWidth={2} />,
+    labelKey: "nav.lyrics",
+    defaultLabel: "Letras",
+    path: "/lyrics",
+    permissionRequired: "musicscale.performance.use",
+    section: "primary",
+    group: "repertoire",
+  },
+  {
+    id: "scales",
+    type: "group_trigger",
     icon: <CalendarIcon />,
     labelKey: "nav.scales",
     defaultLabel: "Escalas",
@@ -68,15 +104,49 @@ export const navigationRegistry: NavigationItem[] = [
     group: null,
   },
   {
-    id: "library",
+    id: "music_scales",
     type: "link",
+    icon: <ClipboardListIcon />,
+    labelKey: "nav.my_scales",
+    defaultLabel: "Escalas de Músicas",
+    path: "/scales",
+    permissionRequired: "musicscale.performance.use",
+    section: "primary",
+    group: "scales",
+  },
+  {
+    id: "band_scales",
+    type: "link",
+    icon: <CalendarIcon />,
+    labelKey: "nav.band_scales",
+    defaultLabel: "Escalas da Banda",
+    path: "/band-scales",
+    permissionRequired: "musicscale.performance.use",
+    section: "primary",
+    group: "scales",
+  },
+  {
+    id: "library",
+    type: "group_trigger",
     icon: <BookOpenIcon />,
     labelKey: "nav.library",
-    defaultLabel: "Biblioteca Viva",
+    defaultLabel: "Biblioteca",
     path: "/library",
     permissionRequired: "musicscale.performance.use",
     section: "primary",
     group: null,
+    collapseToDirectWhenSingleChild: true,
+  },
+  {
+    id: "viva_library",
+    type: "link",
+    icon: <BookOpenIcon />,
+    labelKey: "nav.viva_title",
+    defaultLabel: "Biblioteca Viva",
+    path: "/library",
+    permissionRequired: "musicscale.performance.use",
+    section: "primary",
+    group: "library",
   },
   {
     id: "curation_queue",
@@ -87,7 +157,7 @@ export const navigationRegistry: NavigationItem[] = [
     path: "/curation",
     permissionRequired: "musicscale.performance.use",
     section: "primary",
-    group: null,
+    group: "library",
   },
   {
     id: "band",
@@ -111,28 +181,29 @@ export const navigationRegistry: NavigationItem[] = [
     section: "primary",
     group: null,
   },
+
+  // --- SEÇÃO ADMINISTRAÇÃO ---
   {
-    id: "database",
+    id: "structures",
     type: "group_trigger",
     icon: <DatabaseIcon />,
-    labelKey: "nav.database",
-    defaultLabel: "Banco de Dados",
+    labelKey: "nav.structures",
+    defaultLabel: "Configuração do ministério",
     path: "/database",
     permissionRequired: "manageOrganization",
-    section: "primary",
+    section: "admin",
     group: null,
   },
-  // Subitens de Banco de Dados
   {
     id: "overview",
     type: "link",
     icon: <DatabaseIcon />,
-    labelKey: "nav.overview",
-    defaultLabel: "Visão geral",
+    labelKey: "nav.database",
+    defaultLabel: "Dados da igreja",
     path: "/database",
     permissionRequired: "manageOrganization",
-    section: "primary",
-    group: "database",
+    section: "admin",
+    group: "structures",
   },
   {
     id: "types_events",
@@ -142,8 +213,8 @@ export const navigationRegistry: NavigationItem[] = [
     defaultLabel: "Tipos de culto e evento",
     path: "/database#types",
     permissionRequired: "manageOrganization",
-    section: "primary",
-    group: "database",
+    section: "admin",
+    group: "structures",
   },
   {
     id: "locations",
@@ -153,8 +224,8 @@ export const navigationRegistry: NavigationItem[] = [
     defaultLabel: "Locais",
     path: "/database#locations",
     permissionRequired: "manageOrganization",
-    section: "primary",
-    group: "database",
+    section: "admin",
+    group: "structures",
   },
   {
     id: "event_names",
@@ -164,33 +235,31 @@ export const navigationRegistry: NavigationItem[] = [
     defaultLabel: "Nomes de evento",
     path: "/database#event-names",
     permissionRequired: "manageOrganization",
-    section: "primary",
-    group: "database",
+    section: "admin",
+    group: "structures",
   },
   {
     id: "tags_categories",
     type: "link",
     icon: <TagIcon />,
     labelKey: "nav.tags_categories",
-    defaultLabel: "Tags de músicas",
+    defaultLabel: "Tags & Categorias",
     path: "/database#tags",
     permissionRequired: "manageOrganization",
-    section: "primary",
-    group: "database",
+    section: "admin",
+    group: "structures",
   },
   {
     id: "skills",
     type: "link",
     icon: <MusicNoteIcon />,
     labelKey: "nav.skills",
-    defaultLabel: "Funções e instrumentos",
+    defaultLabel: "Habilidades",
     path: "/database#skills",
     permissionRequired: "manageOrganization",
-    section: "primary",
-    group: "database",
+    section: "admin",
+    group: "structures",
   },
-
-  // --- SEÇÃO ADMINISTRAÇÃO ---
   {
     id: "suggestions",
     type: "group_trigger",
@@ -202,14 +271,13 @@ export const navigationRegistry: NavigationItem[] = [
     section: "admin",
     group: null,
   },
-  // Subitens de Indicações
   {
     id: "suggest_song",
     type: "link",
     icon: <ClipboardListIcon />,
     labelKey: "nav.suggest_song",
     defaultLabel: "Indicar Música",
-    path: "indicate",
+    path: "action:indicate",
     permissionRequired: "musicscale.performance.use",
     section: "admin",
     group: "suggestions",
@@ -247,7 +315,6 @@ export const navigationRegistry: NavigationItem[] = [
     section: "admin",
     group: null,
   },
-  // Subitens de Configurações
   {
     id: "my_profile",
     type: "link",
@@ -275,7 +342,7 @@ export const navigationRegistry: NavigationItem[] = [
     type: "link",
     icon: <KeyPermissionsIcon />,
     labelKey: "nav.roles",
-    defaultLabel: "Funções e Permissões",
+    defaultLabel: "Funções",
     path: "/roles",
     permissionRequired: "manageMembers",
     section: "admin",
@@ -286,7 +353,7 @@ export const navigationRegistry: NavigationItem[] = [
     type: "link",
     icon: <CloudArrowUpIcon />,
     labelKey: "nav.backup",
-    defaultLabel: "Backup & Dados",
+    defaultLabel: "Backup de Sistema",
     path: "/backup",
     permissionRequired: "manageOrganization",
     section: "admin",
@@ -308,7 +375,7 @@ export const navigationRegistry: NavigationItem[] = [
     type: "link",
     icon: <BugIcon />,
     labelKey: "nav.debug_session",
-    defaultLabel: "Diagnóstico de Sessão",
+    defaultLabel: "Debug Session",
     path: "/debug/session",
     permissionRequired: "manageOrganization",
     section: "admin",
@@ -321,18 +388,19 @@ export const navigationRegistry: NavigationItem[] = [
     labelKey: "nav.finops_diagnostics",
     defaultLabel: "Diagnóstico FinOps",
     path: "/admin/finops-diagnostics",
-    permissionRequired: "manageOrganization",
+    // Permissions managed explicitly inside Sidebar logic based on finops diagnostics access
+    permissionRequired: null,
     section: "admin",
     group: "settings",
   },
 
   // --- SEÇÃO AJUDA ---
   {
-    id: "faq",
-    type: "action",
-    icon: <BookTextIcon />,
-    labelKey: "nav.faq",
-    defaultLabel: "Central de Ajuda",
+    id: "help_group",
+    type: "group_trigger",
+    icon: <HelpCircleIcon />,
+    labelKey: "nav.help",
+    defaultLabel: "Ajuda",
     path: "action:faq",
     permissionRequired: "musicscale.performance.use",
     section: "help",
@@ -347,6 +415,17 @@ export const navigationRegistry: NavigationItem[] = [
     path: "action:feedback",
     permissionRequired: "musicscale.performance.use",
     section: "help",
-    group: null,
+    group: "help_group",
+  },
+  {
+    id: "faq",
+    type: "action",
+    icon: <BookTextIcon />,
+    labelKey: "nav.faq",
+    defaultLabel: "Central de Ajuda",
+    path: "action:faq",
+    permissionRequired: "musicscale.performance.use",
+    section: "help",
+    group: "help_group",
   },
 ];

@@ -371,6 +371,10 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed }) => {
   const { t } = useTranslation();
   const { hasCapability } = useCapability();
   const navigate = useNavigate();
+  const { allowed: finopsAllowed, loading: finopsLoading } = useFinOpsDiagnosticsAccess();
+  
+  // TODO: Implement actual pending join requests count if needed. Setting to 0 for now to prevent undefined errors.
+  const pendingJoinRequests = 0;
 
   const handleLogout = async () => {
     try {
@@ -392,15 +396,35 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed }) => {
       .map((item) => {
         if (!isCurationAllowed(item.id)) return null;
 
-        const isAllowed = !item.permissionRequired || hasCapability(item.permissionRequired);
-        if (!isAllowed) return null;
+        // Custom FinOps Diagnostics Logic
+        if (item.id === "finops_diagnostics") {
+           if (!finopsAllowed || finopsLoading) return null;
+        } else {
+           const isAllowed = !item.permissionRequired || hasCapability(item.permissionRequired);
+           if (!isAllowed) return null;
+        }
 
         if (item.type === "group_trigger") {
           const children = navigationRegistry.filter((c) => c.group === item.id);
-          const visibleChildren = children.filter(
-            (child) => !child.permissionRequired || hasCapability(child.permissionRequired)
-          );
+          const visibleChildren = children.filter((child) => {
+             if (child.id === "finops_diagnostics") {
+                 return finopsAllowed && !finopsLoading;
+             }
+             return !child.permissionRequired || hasCapability(child.permissionRequired)
+          });
+          
           if (visibleChildren.length === 0) return null;
+
+          if (visibleChildren.length === 1 && item.collapseToDirectWhenSingleChild) {
+            const child = visibleChildren[0];
+            return {
+              id: item.id,
+              type: "link" as const,
+              to: child.path || "",
+              text: t(child.labelKey, child.defaultLabel),
+              icon: item.icon, // Use parent's icon
+            };
+          }
 
           return {
             id: item.id,
@@ -411,6 +435,10 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed }) => {
               to: child.path || "",
               text: t(child.labelKey, child.defaultLabel),
               icon: child.icon,
+              // Badge support
+              badge: child.id === "members" && pendingJoinRequests > 0 ? (
+                <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
+              ) : undefined
             })),
           };
         } else {
@@ -420,6 +448,9 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed }) => {
             to: item.path || "",
             text: t(item.labelKey, item.defaultLabel),
             icon: item.icon,
+            badge: item.id === "members" && pendingJoinRequests > 0 ? (
+              <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
+            ) : undefined
           };
         }
       })
@@ -515,30 +546,40 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed }) => {
         className={`mt-auto bg-transparent flex-shrink-0 pb-4 ${isCollapsed ? "p-2" : "px-4"}`}
       >
         {isDegraded && (
-          <div className={`mb-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex flex-col gap-1 ${isCollapsed ? "items-center justify-center w-10 h-10 mx-auto" : ""}`} title={t("nav.degraded_title")}>
+          <div className={`mb-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex flex-col gap-1 ${isCollapsed ? "items-center justify-center w-10 h-10 mx-auto" : ""}`} title={t("nav.degraded_title", "Algumas opções estão temporariamente indisponíveis.")}>
             {isCollapsed ? (
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
               </span>
             ) : (
               <>
                 <div className="flex items-center gap-2 font-semibold text-[11px] uppercase tracking-wider">
                   <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
                   </span>
-                  <span>Sessão Local</span>
+                  <span>{user ? t("nav.degraded_warning", "Atenção") : "Sessão Local"}</span>
                 </div>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
                   {t("nav.degraded_title", "Algumas opções estão temporariamente indisponíveis.")}
                 </p>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="mt-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 hover:underline text-left cursor-pointer"
-                >
-                  {t("nav.degraded_retry", "Tentar novamente")}
-                </button>
+                <div className="mt-1 flex gap-3">
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 hover:underline text-left cursor-pointer"
+                  >
+                    {t("nav.degraded_retry", "Tentar novamente")}
+                  </button>
+                  {hasCapability('manageOrganization') && (
+                    <Link
+                      to="/debug/session"
+                      className="text-[10px] font-bold uppercase tracking-wider text-amber-600/70 dark:text-amber-400/70 hover:underline text-left cursor-pointer"
+                    >
+                      {t("nav.degraded_details", "Ver detalhes")}
+                    </Link>
+                  )}
+                </div>
               </>
             )}
           </div>
