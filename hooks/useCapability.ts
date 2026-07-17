@@ -8,10 +8,12 @@ export type MusicScaleCapability =
   | 'manageOrganization';
 
 export function useCapability() {
-  const { permissions } = useAuth();
+  const { permissions, isOwner, isAdmin } = useAuth();
 
   const hasCapability = (capability: MusicScaleCapability | string): boolean => {
     if (!permissions) return false;
+    // Owners/Admins have all capabilities by default unless specifically revoked
+    // However, the permissions object from AuthContext already proxies to true for owners/admins.
     return !!permissions[capability as string];
   };
 

@@ -1,8 +1,6 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth, AppPermissions } from "../../contexts/AuthContext";
-import { useEcosystem } from "../../contexts/EcosystemContext";
-import { CanonicalAccessUnavailableScreen } from "./CanonicalAccessUnavailableScreen";
 import Spinner from "../common/Spinner";
 import { getSubscriptionBlockReason } from "../../utils/subscriptionValidator";
 
@@ -16,17 +14,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requiredPermission,
 }) => {
   const { permissions, loading, isGlobalAdmin, entitlements, organization, subscription } = useAuth();
-  const { accessContextStatus } = useEcosystem();
 
   const isSubscriptionValid = React.useMemo(() => {
     if (isGlobalAdmin) return true;
     const { valid } = getSubscriptionBlockReason({ entitlements, organization, subscription });
     return valid;
   }, [entitlements, organization, subscription, isGlobalAdmin]);
-
-  if (accessContextStatus === 'infrastructure_unavailable') {
-    return <CanonicalAccessUnavailableScreen />;
-  }
 
   if (loading || permissions === null) {
     return (
@@ -46,7 +39,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/" replace />;
   }
 
-  const hasPermission = permissions[requiredPermission];
+  const hasPermission = permissions[requiredPermission] || isGlobalAdmin;
 
   if (!hasPermission) {
     // Prevent infinite redirect loop if already on the root path

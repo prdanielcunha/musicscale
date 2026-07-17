@@ -2,18 +2,11 @@ import React, { useState } from 'react';
 import { useFinOpsDiagnosticsAccess } from '../../hooks/useFinOpsDiagnosticsAccess';
 import Spinner from '../common/Spinner';
 import { Link } from 'react-router-dom';
-import { useEcosystem } from '../../contexts/EcosystemContext';
-import { CanonicalAccessUnavailableScreen } from './CanonicalAccessUnavailableScreen';
 import { Copy, Check } from 'lucide-react';
 
 export default function FinOpsDiagnosticsProtectedRoute({ children }: { children: React.ReactNode }) {
   const { loading, allowed, checked, safeCode, diagnostic } = useFinOpsDiagnosticsAccess();
-  const { accessContextStatus } = useEcosystem();
   const [copied, setCopied] = useState(false);
-
-  if (accessContextStatus === 'infrastructure_unavailable') {
-    return <CanonicalAccessUnavailableScreen />;
-  }
 
   if (loading || !checked) {
     return (
