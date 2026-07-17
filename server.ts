@@ -803,7 +803,7 @@ app.use((err: any, req: any, res: any, next: any) => {
 
           const userData = userSnap.data() || {};
           const orgData = orgSnap.data() || {};
-          const systemRole = userData.systemRole || userData.role || userData.appRole || null;
+          const systemRole = userData.systemRole || userData.role || userData.appRole || userData.globalRole || userData.ecosystemRole || null;
           
           const directMemberData = orgMemberSnap.exists ? orgMemberSnap.data() : null;
           let crossMemberData1 = null;

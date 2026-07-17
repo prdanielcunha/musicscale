@@ -187,7 +187,11 @@ class EcosystemBridge {
 
   public mapEcosystemRoleToAppPermissions(role: EcosystemRoleType) {
     const rLower = String(role || '').toLowerCase();
-    const isOwnerOrAdmin = ['owner', 'dono', 'admin', 'administrador'].includes(rLower);
+    const isOwnerOrAdmin = [
+      'owner', 'dono', 'admin', 'administrador',
+      'ceo', 'founder', 'ecosystem_owner', 'global_admin',
+      'support', 'suporte'
+    ].includes(rLower);
     const isLeader = ['worship_leader', 'leader', 'lider', 'líder', 'lider / ministro', 'líder / ministro', 'ministro', 'pastor'].includes(rLower);
     return {
       canManageOrganization: isOwnerOrAdmin,
