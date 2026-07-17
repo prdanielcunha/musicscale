@@ -1,6 +1,8 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { useEcosystem } from "../../contexts/EcosystemContext";
+import { CanonicalAccessUnavailableScreen } from "./CanonicalAccessUnavailableScreen";
 import Spinner from "../common/Spinner";
 
 interface GlobalCurationProtectedRouteProps {
@@ -11,6 +13,11 @@ const GlobalCurationProtectedRoute: React.FC<GlobalCurationProtectedRouteProps> 
   children,
 }) => {
   const { loading, isCurationAdmin } = useAuth();
+  const { accessContextStatus } = useEcosystem();
+
+  if (accessContextStatus === 'infrastructure_unavailable') {
+    return <CanonicalAccessUnavailableScreen />;
+  }
 
   if (loading || isCurationAdmin === undefined) {
     return (

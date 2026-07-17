@@ -1,0 +1,13 @@
+if (apiRes && apiRes.ok) {
+                                        const resJson = await apiRes.json();
+                                        if (isValidCanonicalResponse(resJson, user.uid, orgId)) {
+                                            serverContext = resJson;
+                                            systemRole = resJson.systemRole || systemRole;
+                                            roleInOrg = resJson.organizationRole || roleInOrg;
+                                            earlySuccess = true;
+                                            console.log(`[EcosystemContext] Canonical server-resolved access (early):`, resJson);
+                                            markStartupMetric('ecosystem_access_context_completed_ms');
+                                        } else {
+                                            console.warn("[EcosystemContext] Early response was invalid canonical match.");
+                                        }
+                                    }

@@ -10,16 +10,9 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { getCandidateOrganizationIds, isValidCanonicalResponse, isGlobalOrganizationCatalogRole } from '../services/ecosystem/startupFastPath';
 import { canManageMusicScales, canManageBandScales, canManageSongs, hasMusicScaleCapability , projectCanonicalCapabilities } from '../utils/rbac';
 
-export type AccessContextStatus = 'resolved' | 'syncing' | 'access_denied' | 'infrastructure_unavailable' | 'invalid_response' | 'timeout' | 'offline' | 'unauthenticated';
-
 interface EcosystemContextValue {
   isInitialized: boolean;
   isContextSyncing: boolean;
-  accessContextStatus: AccessContextStatus;
-  degradedReason?: string;
-  safeErrorCode?: string;
-  correlationId?: string;
-  retryAccessContext: () => Promise<void>;
   context: EcosystemContextPayload | null;
   publishEvent: (event: EcosystemEvent) => void;
   navigateToEcosystem: (path?: string) => void;
@@ -30,8 +23,6 @@ interface EcosystemContextValue {
 const EcosystemContext = createContext<EcosystemContextValue>({
   isInitialized: false,
   isContextSyncing: false,
-  accessContextStatus: 'syncing',
-  retryAccessContext: async () => {},
   context: null,
   publishEvent: () => {},
   navigateToEcosystem: () => {},
@@ -54,32 +45,13 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isContextSyncing, setIsContextSyncing] = useState(false);
   const [context, setContext] = useState<EcosystemContextPayload | null>(null);
   const [isDegraded, setIsDegraded] = useState(false);
-  const [accessContextStatus, setAccessContextStatus] = useState<AccessContextStatus>('syncing');
-  const [degradedReason, setDegradedReason] = useState<string>();
-  const [safeErrorCode, setSafeErrorCode] = useState<string>();
-  const [correlationId, setCorrelationId] = useState<string>();
-
-  const retryAccessContext = async () => {
-    if (!context || !context.isStandalone) return;
-    setIsContextSyncing(true);
-    setAccessContextStatus('syncing');
-    setDegradedReason(undefined);
-    setSafeErrorCode(undefined);
-    
-    // Attempt re-import if necessary or rely on existing session
-    const { auth } = await import('../services/firebase');
-    if (auth.currentUser) {
-       await auth.currentUser.getIdToken(true);
-       window.location.reload();
-    }
-  };
 
   useEffect(() => {
     let mounted = true;
     let unsubscribeAuth: any = null;
     let activeControllers: AbortController[] = [];
     let activeGeneration = 0;
-    
+
     const bootstrapModule = async () => {
       markStartupMetric('ecosystem_context_started_ms');
       try {
@@ -490,33 +462,20 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                         } finally {
                                             clearTimeout(timeoutId);
                                         }
-                                        if (apiRes) {
-    if (apiRes.ok) {
-        const resJson = await apiRes.json();
-        if (isValidCanonicalResponse(resJson, user.uid, orgId)) {
-            serverContext = resJson;
-            systemRole = resJson.systemRole || systemRole;
-            roleInOrg = resJson.organizationRole || roleInOrg;
-            setAccessContextStatus('resolved');
-            console.log(`[EcosystemContext] Canonical server-resolved access:`, resJson);
-            markStartupMetric('ecosystem_access_context_completed_ms');
-        } else {
-            console.warn("[EcosystemContext] Canonical response was invalid match.");
-            setAccessContextStatus('invalid_response');
-        }
-    } else {
-        const errJson = await apiRes.json().catch(() => ({}));
-        setSafeErrorCode(errJson.safeErrorCode || 'HTTP_' + apiRes.status);
-        setCorrelationId(errJson.correlationId);
-        if (apiRes.status === 401 || apiRes.status === 403) setAccessContextStatus('access_denied');
-        else if (apiRes.status === 503) setAccessContextStatus('infrastructure_unavailable');
-        else if (apiRes.status === 404) setAccessContextStatus('access_denied');
-        else setAccessContextStatus('invalid_response');
-        console.warn("[EcosystemContext] Server-resolved access context HTTP error:", apiRes.status);
-    }
-} else {
-    setAccessContextStatus('infrastructure_unavailable');
-}
+                                        if (apiRes && apiRes.ok) {
+                                            const resJson = await apiRes.json();
+                                            if (isValidCanonicalResponse(resJson, user.uid, orgId)) {
+                                                serverContext = resJson;
+                                                systemRole = resJson.systemRole || systemRole;
+                                                roleInOrg = resJson.organizationRole || roleInOrg;
+                                                console.log(`[EcosystemContext] Canonical server-resolved access:`, resJson);
+                                                markStartupMetric('ecosystem_access_context_completed_ms');
+                                            } else {
+                                                console.warn("[EcosystemContext] Canonical response was invalid match.");
+                                            }
+                                        } else {
+                                            console.warn("[EcosystemContext] Server-resolved access context HTTP error:", apiRes?.status);
+                                        }
                                     }
                                 } catch (apiErr) {
                                     console.error("[EcosystemContext] Failed to fetch server-resolved access context:", apiErr);
@@ -629,7 +588,6 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                      isStandalone: true,
                                      permissions: DENIED_PERMISSIONS
                                  }));
-                                 setAccessContextStatus(prev => prev === 'syncing' ? 'infrastructure_unavailable' : prev);
                                  setIsDegraded(true);
                              }
                          }
@@ -716,11 +674,6 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const value = useMemo(() => ({
-      accessContextStatus,
-      degradedReason,
-      safeErrorCode,
-      correlationId,
-      retryAccessContext,
       isInitialized, 
       isContextSyncing,
       context, 
@@ -728,7 +681,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       navigateToEcosystem,
       isStandalone: !!context?.isStandalone,
       isDegraded
-  }), [isInitialized, isContextSyncing, context, isDegraded, accessContextStatus, degradedReason, safeErrorCode, correlationId]);
+  }), [isInitialized, isContextSyncing, context, isDegraded]);
 
   if (!isInitialized || !context || isContextSyncing) {
     return (

@@ -1,4 +1,6 @@
-import admin from 'firebase-admin';
+const fs = require('fs');
+
+const content = `import admin from 'firebase-admin';
 import * as fs from 'fs';
 import * as dotenv from 'dotenv';
 import { logger } from '../lib/logger.js';
@@ -45,7 +47,7 @@ function initAdmin() {
             credential = admin.credential.cert({
                  projectId: process.env.FIREBASE_PROJECT_ID,
                  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                 privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+                 privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\\\n/g, "\\n"),
             });
         } else {
             credential = admin.credential.applicationDefault();
@@ -167,3 +169,5 @@ export async function getFirebaseAdminRuntimeStatus() {
 }
 
 export { admin };
+`;
+fs.writeFileSync('services/firebaseAdmin.ts', content);
