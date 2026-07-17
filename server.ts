@@ -11,6 +11,7 @@ process.on('uncaughtException', (err) => {
 });
 
 import express from "express";
+import { createProxyMiddleware } from "http-proxy-middleware";
 import cors from "cors";
 import crypto from "crypto";
 import path from "path";
@@ -95,6 +96,48 @@ app.use(cors({
 }));
 
 app.options('*all', cors());
+
+// Preview Production Backend Proxy (MS-PREVIEW-PRODUCTION-BACKEND-BRIDGE-01)
+const isPreviewCanonicalApiEnabled = process.env.MUSICSCALE_PREVIEW_CANONICAL_API_ENABLED === 'true';
+const canonicalApiOrigin = process.env.MUSICSCALE_PREVIEW_CANONICAL_API_ORIGIN;
+const isAllowedCanonicalOrigin = canonicalApiOrigin === 'https://musicscale.millionsnest.com';
+const isNotProduction = process.env.NODE_ENV !== 'production';
+
+if (isPreviewCanonicalApiEnabled && canonicalApiOrigin && isAllowedCanonicalOrigin && isNotProduction) {
+  app.use(createProxyMiddleware({
+    pathFilter: '/api',
+    target: canonicalApiOrigin,
+    changeOrigin: true,
+    ws: true,
+    proxyTimeout: 15000,
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        if (req.headers.host && req.headers.host.includes('millionsnest.com')) {
+          // Safety fallback: Never proxy from production to itself
+          return;
+        }
+        
+        proxyReq.removeHeader('cookie');
+        proxyReq.removeHeader('x-forwarded-host');
+        proxyReq.removeHeader('x-forwarded-proto');
+        proxyReq.removeHeader('host'); // handled by changeOrigin
+        
+        proxyReq.setHeader('X-MusicScale-Client-Environment', 'ai-studio-preview');
+        
+        console.log(`[MusicScale Preview] Connected to canonical production backend. (Forwarding ${req.method} ${req.url})`);
+      },
+      error: (err, req, res: any) => {
+        console.error('[MusicScale Proxy Error]', err.message);
+        if (res && !res.headersSent) {
+          res.status(502).json({
+            error: "Canonical production backend is currently unavailable.",
+            code: "CANONICAL_PRODUCTION_BACKEND_UNAVAILABLE"
+          });
+        }
+      }
+    }
+  }));
+}
 
 // Standard JSON Middleware for other routes
 const AI_IMPORT_BODY_LIMIT_BYTES = 128 * 1024;
