@@ -58,7 +58,7 @@ async function runTests() {
   const sidebarPath = path.resolve(process.cwd(), './components/layout/Sidebar.tsx');
   assert.ok(fs.existsSync(sidebarPath), "Sidebar.tsx must exist");
   const sidebarContent = fs.readFileSync(sidebarPath, 'utf8');
-  assert.ok(sidebarContent.includes('rawGroups'), "Sidebar must use rawGroups for canonical menu structure");
+  assert.ok(sidebarContent.includes('navigationRegistry'), "Sidebar must use navigationRegistry for centralized canonical menu structure");
   assert.ok(!sidebarContent.includes('SettingsMenu'), "Sidebar must not contain the old SettingsMenu overlay");
   console.log("[PASS] Sidebar structure aligns with canonical refactoring requirements.");
 

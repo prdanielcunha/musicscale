@@ -931,33 +931,37 @@ const DatabasePage: React.FC = () => {
           />
         </div>
 
-        <ModernDataManager<Location>
-          title={t("database.locations_title", "Locais")}
-          subtitle={t("database.locations_subtitle", "Igreja, Praça, etc.")}
-          icon={<LocationMarkerIcon className="w-5 h-5" />}
-          items={locations}
-          {...(api
-            ? createHandlers<Location>(api.locations)
-            : {
-                onAdd: async () => {},
-                onUpdate: async () => {},
-                onDelete: async () => {},
-              })}
-        />
+        <div id="locations">
+          <ModernDataManager<Location>
+            title={t("database.locations_title", "Locais")}
+            subtitle={t("database.locations_subtitle", "Igreja, Praça, etc.")}
+            icon={<LocationMarkerIcon className="w-5 h-5" />}
+            items={locations}
+            {...(api
+              ? createHandlers<Location>(api.locations)
+              : {
+                  onAdd: async () => {},
+                  onUpdate: async () => {},
+                  onDelete: async () => {},
+                })}
+          />
+        </div>
 
-        <ModernDataManager<EventName>
-          title={t("database.event_names_title", "Nomes de Evento (Opcional)")}
-          subtitle={t("database.event_names_subtitle", "Ex: Santa Ceia, Culto de Jovens")}
-          icon={<TagIcon className="w-5 h-5" />}
-          items={eventNames}
-          {...(api
-            ? createHandlers<EventName>(api.eventNames)
-            : {
-                onAdd: async () => {},
-                onUpdate: async () => {},
-                onDelete: async () => {},
-              })}
-        />
+        <div id="event-names">
+          <ModernDataManager<EventName>
+            title={t("database.event_names_title", "Nomes de Evento (Opcional)")}
+            subtitle={t("database.event_names_subtitle", "Ex: Santa Ceia, Culto de Jovens")}
+            icon={<TagIcon className="w-5 h-5" />}
+            items={eventNames}
+            {...(api
+              ? createHandlers<EventName>(api.eventNames)
+              : {
+                  onAdd: async () => {},
+                  onUpdate: async () => {},
+                  onDelete: async () => {},
+                })}
+          />
+        </div>
         <div id="tags">
           <ModernDataManager<Tag>
             title={t("database.music_tags_title", "Tags de Músicas")}

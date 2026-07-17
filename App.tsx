@@ -350,7 +350,7 @@ const AppLayout: React.FC = () => {
                         </Suspense>
                     </div>
                 </main>
-                <BottomNav />
+                <BottomNav onMenuClick={() => setSidebarCollapsed(false)} />
             </div>
         </div>
     );
