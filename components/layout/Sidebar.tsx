@@ -135,10 +135,22 @@ const NavItem: React.FC<{
   </NavLink>
 )};
 
+const normalizeSubmenuIcon = (icon: React.ReactNode) => {
+  if (!React.isValidElement(icon)) return icon;
+  
+  const existingClassName = icon.props.className || '';
+  const normalizedClassName = `${existingClassName} block w-[15px] h-[15px] shrink-0`.trim();
+  
+  return React.cloneElement(icon as React.ReactElement, {
+    className: normalizedClassName
+  });
+};
+
 const SubNavItem: React.FC<{
   link: { to: string; text: string; icon: React.ReactNode; badge?: React.ReactNode };
   onLinkClick?: () => void;
-}> = ({ link, onLinkClick }) => {
+  variant?: "accordion" | "popover";
+}> = ({ link, onLinkClick, variant = "accordion" }) => {
   const modals = useModals();
 
   const handleClick = (e: React.MouseEvent) => {
@@ -150,16 +162,20 @@ const SubNavItem: React.FC<{
     }
   };
 
+  const isAccordion = variant === "accordion";
+
   return (
     <NavLink
       to={link.to.startsWith("action:") ? "#" : link.to}
       onClick={handleClick}
       role="menuitem"
       className={({ isActive }) =>
-        `flex items-center py-2 px-3 pl-10 text-[13px] font-medium rounded-[10px] transition-all duration-300 relative my-0.5 overflow-hidden touch-manipulation cursor-pointer ${
+        `grid grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-x-2.5 min-h-[36px] py-1.5 pr-3 text-[13px] font-medium rounded-[10px] transition-all duration-300 relative my-0.5 touch-manipulation cursor-pointer ${
+          isAccordion ? "pl-[38px]" : "px-3"
+        } ${
           isActive && !link.to.startsWith("action:")
             ? "text-white bg-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_1px_2px_rgba(0,0,0,0.1)] border border-white/[0.04] font-semibold"
-            : "text-slate-400 md:hover:bg-white/[0.04] md:hover:text-slate-200 border border-transparent"
+            : "text-slate-400 md:hover:bg-white/[0.03] md:hover:text-slate-300 border border-transparent"
         }`
       }
     >
@@ -168,16 +184,24 @@ const SubNavItem: React.FC<{
           isActive && !link.to.startsWith("action:");
         return (
           <>
-            {isReallyActive && <div className="absolute left-8 top-1/2 -translate-y-1/2 w-1 h-1 bg-white/40 rounded-full shadow-[0_0_6px_rgba(255,255,255,0.2)]"></div>}
-            <div className="flex items-center flex-1 min-w-0">
-               <span
-                 className={`w-4 h-4 flex-shrink-0 mr-2 transition-transform duration-300 pointer-events-none ${isReallyActive ? "text-white drop-shadow-sm" : "opacity-70"}`}
-               >
-                 {link.icon}
-               </span>
-               <span className="whitespace-nowrap pointer-events-none truncate mr-2">{link.text}</span>
+            {isReallyActive && (
+              <div 
+                className={`absolute top-1/2 -translate-y-1/2 w-[3px] h-[3px] bg-white/40 rounded-full shadow-[0_0_6px_rgba(255,255,255,0.2)] ${
+                  isAccordion ? "left-7" : "left-1.5"
+                }`}
+              ></div>
+            )}
+            <div className={`flex justify-center items-center pointer-events-none transition-colors duration-300 ${isReallyActive ? "text-white drop-shadow-sm" : ""}`}>
+               {normalizeSubmenuIcon(link.icon)}
             </div>
-            {link.badge && <span className="flex-shrink-0">{link.badge}</span>}
+            <div className="whitespace-nowrap pointer-events-none truncate leading-none md:mt-0.5">
+               {link.text}
+            </div>
+            {link.badge && (
+              <div className="flex-shrink-0 flex items-center justify-center">
+                {link.badge}
+              </div>
+            )}
           </>
         );
       }}
@@ -315,7 +339,7 @@ const CollapsibleNavItem: React.FC<{
           }`}
         >
           {link.children.map((child, idx) => (
-            <SubNavItem key={idx} link={child} onLinkClick={onLinkClick} />
+            <SubNavItem key={idx} link={child} onLinkClick={onLinkClick} variant="accordion" />
           ))}
         </div>
       )}
@@ -340,7 +364,7 @@ const CollapsibleNavItem: React.FC<{
               <SubNavItem key={idx} link={child} onLinkClick={() => {
                   setPopoverOpen(false);
                   if (onLinkClick) onLinkClick();
-              }} />
+              }} variant="popover" />
             ))}
           </div>
         </div>,
