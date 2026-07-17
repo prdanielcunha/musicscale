@@ -103,30 +103,30 @@ const NavItem: React.FC<{
     onClick={handleClick}
     end={link.to === "/"}
     className={({ isActive }) =>
-      `flex items-center py-2 px-3 mb-1 text-[13px] font-medium rounded-[10px] transition-all duration-300 relative overflow-hidden touch-manipulation cursor-pointer ${
-        isCollapsed ? "justify-center w-10 h-10 mx-auto" : ""
-      } ${
-        isActive && !link.to.startsWith("action:")
-          ? "bg-white/[0.06] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_1px_2px_rgba(0,0,0,0.2)] border border-white/[0.04] font-semibold"
-          : "text-slate-400 md:hover:bg-white/[0.04] md:hover:text-slate-200 border border-transparent"
-      }`
-    }
+        `flex items-center py-[10px] px-3 mb-1 text-[14px] rounded-[12px] transition-all duration-200 relative touch-manipulation cursor-pointer group active:scale-[0.985] outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-[#07080A] ${
+          isCollapsed ? "justify-center w-11 h-11 mx-auto" : "justify-start gap-3"
+        } ${
+          isActive && !link.to.startsWith("action:")
+            ? "bg-white/[0.07] text-white border border-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] font-semibold"
+            : "text-slate-300 hover:bg-white/[0.03] hover:text-slate-100 border border-transparent font-medium"
+        }`
+      }
     title={isCollapsed ? link.text : undefined}
   >
     {({ isActive }) => {
       const isReallyActive = isActive && !link.to.startsWith("action:");
       return (
       <>
-        {isReallyActive && !isCollapsed && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-primary dark:bg-white/30 rounded-r-full pointer-events-none"></div>}
+        {isReallyActive && !isCollapsed && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-[20px] bg-gradient-to-b from-indigo-400 to-violet-500 rounded-r-full pointer-events-none"></div>}
         <span
-          className={`flex-shrink-0 transition-transform duration-300 pointer-events-none ${isReallyActive ? "text-primary dark:text-white drop-shadow-sm" : ""}`}
+          className={`flex-shrink-0 transition-transform duration-200 pointer-events-none ${isReallyActive ? "text-white" : "text-slate-400 group-hover:text-slate-200"}`}
         >
           {React.cloneElement(link.icon as React.ReactElement, {
             className: "w-[18px] h-[18px]",
           })}
         </span>
         {!isCollapsed && (
-          <span className="ml-3 whitespace-nowrap pointer-events-none flex-1 truncate">{link.text}</span>
+          <span className="whitespace-nowrap pointer-events-none flex-1 truncate">{link.text}</span>
         )}
         {!isCollapsed && link.badge && <span className="flex-shrink-0 ml-2">{link.badge}</span>}
         {isCollapsed && link.badge && <span className="absolute top-1.5 right-1.5">{link.badge}</span>}
@@ -156,10 +156,10 @@ const SubNavItem: React.FC<{
       onClick={handleClick}
       role="menuitem"
       className={({ isActive }) =>
-        `flex items-center py-2 px-3 pl-10 text-[13px] font-medium rounded-[10px] transition-all duration-300 relative my-0.5 overflow-hidden touch-manipulation cursor-pointer ${
+        `flex items-center py-2 px-3 pl-[42px] mb-0.5 text-[13.5px] rounded-[10px] transition-all duration-200 relative touch-manipulation cursor-pointer group active:scale-[0.985] outline-none focus-visible:ring-2 focus-visible:ring-primary ${
           isActive && !link.to.startsWith("action:")
-            ? "text-white bg-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_1px_2px_rgba(0,0,0,0.1)] border border-white/[0.04] font-semibold"
-            : "text-slate-400 md:hover:bg-white/[0.04] md:hover:text-slate-200 border border-transparent"
+            ? "bg-white/[0.07] text-white border border-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] font-semibold"
+            : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200 border border-transparent font-medium"
         }`
       }
     >
@@ -168,14 +168,14 @@ const SubNavItem: React.FC<{
           isActive && !link.to.startsWith("action:");
         return (
           <>
-            {isReallyActive && <div className="absolute left-8 top-1/2 -translate-y-1/2 w-1 h-1 bg-primary dark:bg-white/40 rounded-full shadow-[0_0_6px_rgba(255,255,255,0.5)]"></div>}
-            <div className="flex items-center flex-1 min-w-0">
+            {isReallyActive && <div className="absolute left-[24px] top-1/2 -translate-y-1/2 w-[3px] h-[3px] bg-indigo-400 rounded-full"></div>}
+            <div className="flex items-center gap-3 flex-1 min-w-0">
                <span
-                 className={`w-4 h-4 flex-shrink-0 mr-2 transition-transform duration-300 pointer-events-none ${isReallyActive ? "text-primary dark:text-white drop-shadow-sm" : "opacity-70"}`}
+                 className={`flex-shrink-0 transition-transform duration-200 pointer-events-none ${isReallyActive ? "text-white" : "text-slate-500 group-hover:text-slate-300"}`}
                >
-                 {link.icon}
+                 {React.cloneElement(link.icon as React.ReactElement, { className: "w-4 h-4" })}
                </span>
-               <span className="whitespace-nowrap pointer-events-none truncate mr-2">{link.text}</span>
+               <span className="whitespace-nowrap pointer-events-none truncate">{link.text}</span>
             </div>
             {link.badge && <span className="flex-shrink-0">{link.badge}</span>}
           </>
@@ -272,34 +272,34 @@ const CollapsibleNavItem: React.FC<{
       <button
         ref={triggerRef}
         onClick={togglePopover}
-        className={`w-full flex items-center py-2 px-3 text-[13px] font-medium rounded-[10px] transition-all duration-300 relative touch-manipulation group ${
-          isCollapsed ? "justify-center w-10 h-10 mx-auto" : "justify-between"
+        className={`w-full flex items-center py-[10px] px-3 text-[14px] rounded-[12px] transition-all duration-200 relative touch-manipulation group outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-[#07080A] ${
+          isCollapsed ? "justify-center w-11 h-11 mx-auto" : "justify-start gap-3"
         } ${
           isParentActive
-            ? "bg-white/[0.04] text-white"
-            : "text-slate-400 md:hover:bg-white/[0.04] md:hover:text-slate-200"
+            ? "text-slate-100 font-semibold"
+            : "text-slate-300 hover:bg-white/[0.03] hover:text-slate-100 font-medium border border-transparent"
         }`}
         title={isCollapsed ? link.text : undefined}
         aria-expanded={isCollapsed ? isPopoverOpen : isOpen}
         aria-haspopup="menu"
         aria-controls={`menu-${link.text.replace(/\s+/g, '-')}`}
       >
-        <div className="flex items-center pointer-events-none">
+        <div className="flex items-center gap-3 pointer-events-none flex-1 min-w-0">
           <span
-            className={`flex-shrink-0 transition-transform duration-300 ${
-              isParentActive ? "text-primary dark:text-white" : ""
+            className={`flex-shrink-0 transition-transform duration-200 ${
+              isParentActive ? "text-white" : "text-slate-400 group-hover:text-slate-200"
             }`}
           >
             {React.cloneElement(link.icon as React.ReactElement, {
               className: "w-[18px] h-[18px]",
             })}
           </span>
-          {!isCollapsed && <span className="ml-3 truncate">{link.text}</span>}
+          {!isCollapsed && <span className="truncate flex-1 text-left">{link.text}</span>}
         </div>
         {!isCollapsed && (
           <ChevronRightIcon
-            className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-300 pointer-events-none ${
-              isOpen ? "rotate-90" : ""
+            className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 pointer-events-none text-slate-500 ${
+              isOpen ? "rotate-90 text-slate-300" : ""
             }`}
           />
         )}
@@ -325,14 +325,14 @@ const CollapsibleNavItem: React.FC<{
         <div
           ref={popoverRef}
           role="menu"
-          className="fixed z-[1000] min-w-[200px] bg-[#111115]/95 backdrop-blur-xl border border-white/[0.1] rounded-xl shadow-2xl overflow-y-auto"
+          className="fixed z-[1000] min-w-[200px] bg-[#07080A]/95 backdrop-blur-[28px] border border-white/[0.08] shadow-[0_16px_40px_-8px_rgba(0,0,0,0.6)] rounded-[16px] overflow-hidden"
           style={{
             top: `${popoverPos.top}px`,
             left: `${popoverPos.left}px`,
             maxHeight: `${popoverPos.maxHeight}px`,
           }}
         >
-          <div className="px-3 pt-3 pb-2 border-b border-white/[0.05] mb-1 sticky top-0 bg-[#111115]/95 backdrop-blur-md z-10">
+          <div className="px-3 pt-3 pb-2 border-b border-white/[0.05] mb-1 sticky top-0 bg-[#07080A]/95 backdrop-blur-md z-10">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider">{link.text}</h4>
           </div>
           <div className="p-1.5 flex flex-col gap-0.5">
@@ -351,7 +351,7 @@ const CollapsibleNavItem: React.FC<{
 };
 
 const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClick }) => {
-  const { user, userProfile, organization, isAdmin, isCurationAdmin } = useAuth();
+  const { user, userProfile, organization, effectiveOrganizationName, isAdmin, isCurationAdmin } = useAuth();
   const { navigateToEcosystem, isDegraded } = useEcosystem();
   const { t } = useTranslation();
   const { hasCapability } = useCapability();
@@ -470,24 +470,35 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
   const displayName = userProfile?.displayName || user?.displayName || "Usuário";
 
   return (
-    <div className="h-full flex flex-col bg-white/5 dark:bg-[#111115]/95 backdrop-blur-3xl border-r border-slate-200/50 dark:border-white/[0.08] shadow-[4px_0_24px_rgba(0,0,0,0.15)] pt-2 md:pt-4 relative overflow-hidden rounded-r-3xl md:rounded-none">
+    <div className="h-full flex flex-col bg-[#07080A]/95 backdrop-blur-[28px] border border-white/[0.08] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.03)] pt-3 md:pt-4 relative overflow-hidden rounded-[24px] md:rounded-none ring-1 ring-inset ring-white/[0.02]">
       
       <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none opacity-50 mix-blend-screen"></div>
       <div className="absolute -top-[200px] -left-[200px] w-[400px] h-[400px] bg-primary/20 blur-[120px] rounded-full pointer-events-none opacity-40 mix-blend-screen"></div>
       <div className="absolute -bottom-[200px] -right-[200px] w-[400px] h-[400px] bg-primary/10 blur-[100px] rounded-full pointer-events-none opacity-30 mix-blend-screen"></div>
 
-      <div
-        className={`flex items-center px-4 mb-4 relative z-10 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          isCollapsed ? "justify-center" : "justify-between"
-        }`}
-      >
+      <div className={`flex flex-col px-4 mb-6 relative z-10 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCollapsed ? "items-center" : "items-stretch"}`}>
         <button
           onClick={navigateToEcosystem}
-          className="group flex items-center justify-center p-2 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.05] hover:border-white/[0.1] transition-all duration-300 shadow-[0_0_15px_rgba(0,0,0,0.2)] hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] focus:outline-none"
-          title={t("nav.back_to_ecosystem", "Voltar para MillionsNest")}
+          className={`group flex items-center justify-center h-10 rounded-full bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.05] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.985] ${isCollapsed ? "w-10 px-0" : "w-full px-4 mb-6"}`}
+          title={t("nav.back_to_ecosystem", "Voltar")}
         >
-          <MoveLeft className="w-4 h-4 text-slate-300 group-hover:text-white transition-colors" />
+          <MoveLeft className={`w-4 h-4 text-slate-300 group-hover:text-white transition-colors ${!isCollapsed && "mr-2"}`} />
+          {!isCollapsed && <span className="text-[13px] font-medium text-slate-300 group-hover:text-white transition-colors">{t("nav.back_to_ecosystem", "Voltar")}</span>}
         </button>
+
+        {!isCollapsed && (
+          <div className="flex flex-col items-center text-center px-2">
+             <div className="w-[42px] h-[42px] rounded-[14px] bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mb-3 shadow-[0_8px_16px_-6px_rgba(99,102,241,0.4)] border border-white/[0.12]">
+                <MusicNoteIcon className="w-5 h-5 text-white" />
+             </div>
+             <h2 className="text-[15px] font-bold text-white tracking-tight leading-tight">MusicScale</h2>
+             {organization && (
+               <p className="text-[12px] font-medium text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.3)] truncate w-full max-w-full mt-1">
+                 {effectiveOrganizationName || organization.name}
+               </p>
+             )}
+          </div>
+        )}
       </div>
       
       <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
@@ -497,7 +508,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
               <div key={section.id} className={`${section.id === "primary" ? "mb-6" : section.id === "admin" ? "mb-4" : ""}`}>
                 {section.id === "help" && <div className="border-t border-white/[0.06] mt-4 mb-4 mx-2"></div>}
                 {!isCollapsed && section.id !== "primary" && section.id !== "help" && (
-                  <h3 className="px-3 mb-2 text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">
+                  <h3 className="px-3 mt-6 mb-2 text-[10px] font-semibold tracking-[0.16em] text-slate-500 uppercase">
                     {t(`nav.section_${section.id}`)}
                   </h3>
                 )}
@@ -514,7 +525,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
         </nav>
 
         <div
-          className={`mt-auto bg-transparent flex-shrink-0 pb-4 ${isCollapsed ? "p-2" : "px-4"}`}
+          className={`mt-auto bg-transparent flex-shrink-0 pb-6 pt-4 ${isCollapsed ? "px-2" : "px-4"}`}
         >
           {isDegraded && (
             <div className={`mb-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex flex-col gap-1 ${isCollapsed ? "items-center justify-center w-10 h-10 mx-auto" : ""}`} title={t("nav.degraded_title", "Algumas opções estão temporariamente indisponíveis.")}>
@@ -564,10 +575,10 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
             <NavLink
               to="/profile"
               onClick={onLinkClick}
-              className={`flex items-center gap-3 p-2.5 rounded-[12px] transition-all duration-300 group ${isCollapsed ? "justify-center w-10 h-10 mx-auto" : "hover:bg-white/[0.04]"}`}
+              className={`flex items-center gap-3 p-2.5 rounded-[12px] transition-all duration-200 group active:scale-[0.985] outline-none focus-visible:ring-2 focus-visible:ring-primary ${isCollapsed ? "justify-center w-11 h-11 mx-auto" : "hover:bg-white/[0.03]"}`}
               title={isCollapsed ? t("nav.my_profile", "Meu Perfil") : undefined}
             >
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-white/10 to-white/5 p-[1px] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.5)] overflow-hidden transition-transform group-hover:scale-105 duration-300">
+              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-white/10 to-white/5 p-[1px] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.5)] overflow-hidden transition-transform group-hover:scale-105 duration-200">
                 <div className="w-full h-full rounded-full bg-[#111111] flex items-center justify-center overflow-hidden">
                   {photoURL ? (
                     <img
@@ -584,7 +595,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
               <div
                 className={`flex-1 min-w-0 overflow-hidden transition-all duration-300 ${isCollapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"}`}
               >
-                <p className="font-semibold text-sm text-slate-900 dark:text-white truncate tracking-tight">
+                <p className="font-semibold text-[13px] text-white truncate tracking-tight">
                   {displayName}
                 </p>
                 {(() => {
@@ -597,9 +608,9 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
                   let displayLabel = displayRole.label;
                   
                   if (isPremiumSys) {
-                      primaryColor = "text-[#FFD700] drop-shadow-[0_0_2px_rgba(255,215,0,0.5)]";
+                      primaryColor = "text-amber-400/90";
                   } else if (displayRole.badgeVariant === 'organizationOwner') {
-                      primaryColor = "text-[#A855F7] dark:text-[#C084FC]";
+                      primaryColor = "text-purple-400";
                   }
 
                   let secondaryBadge = null;
@@ -633,14 +644,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
 
             <button
               onClick={handleLogout}
-              className={`flex items-center gap-3 p-2.5 rounded-[12px] text-[13px] font-semibold text-red-500/90 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 group active:scale-[0.98] ${isCollapsed ? "justify-center w-10 h-10 mx-auto" : "w-full"}`}
+              className={`flex items-center gap-3 p-2.5 rounded-[12px] text-[13px] font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200 group active:scale-[0.985] outline-none focus-visible:ring-2 focus-visible:ring-red-500 ${isCollapsed ? "justify-center w-11 h-11 mx-auto" : "w-full"}`}
               title={t("nav.logout_short", "Sair")}
             >
               <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-[10px] bg-red-500/10 group-hover:bg-red-500/20 transition-colors">
-                <LogoutIcon className="w-4 h-4 ml-0.5" />
+                <LogoutIcon className="w-4 h-4 ml-0.5 text-red-400 group-hover:text-red-300 transition-colors" />
               </div>
               <div
-                className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${isCollapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"}`}
+                className={`overflow-hidden transition-all duration-300 whitespace-nowrap text-left ${isCollapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"}`}
               >
                 {t("nav.logout", "Sair da Conta")}
               </div>
@@ -663,7 +674,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle, onLinkClick })
 
   return (
     <div
-      className={`relative z-[90] h-full transition-all duration-300 ease-in-out pointer-events-auto ${isCollapsed ? "w-20" : "w-64"}`}
+      className={`relative z-[90] h-full transition-all duration-300 ease-in-out pointer-events-auto ${isCollapsed ? "w-20" : "w-[min(88vw,304px)] md:w-[256px]"}`}
     >
       <SidebarContent isCollapsed={isCollapsed} onLinkClick={onLinkClick} />
       <button
