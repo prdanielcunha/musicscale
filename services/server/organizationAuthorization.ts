@@ -38,7 +38,7 @@ export async function resolveOrganizationAuthorization(
   try {
     const userDoc = await dbInstance.collection('users').doc(uid).get();
     if (!userDoc.exists) {
-      return { statusCode: 403, error: "FORBIDDEN" };
+      return { statusCode: 404, error: "NOT_FOUND" };
     }
     const userData = userDoc.data();
 
@@ -53,13 +53,13 @@ export async function resolveOrganizationAuthorization(
 
     const orgDoc = await dbInstance.collection('organizations').doc(organizationId).get();
     if (!orgDoc.exists) {
-      return { statusCode: 403, error: "FORBIDDEN" };
+      return { statusCode: 404, error: "NOT_FOUND" };
     }
     
     const orgData = orgDoc.data();
     const normalizedOrgStatus = String(orgData?.status || "").trim().toLowerCase();
     if (normalizedOrgStatus === 'archived' || orgData?.archived === true) {
-      return { statusCode: 403, error: "FORBIDDEN" };
+      return { statusCode: 404, error: "NOT_FOUND" };
     }
 
     const isOwner = orgData?.ownerUid === uid || orgData?.ownerUserId === uid || orgData?.ownerId === uid;

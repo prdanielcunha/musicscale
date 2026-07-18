@@ -177,7 +177,7 @@ export default function LibraryPage() {
   const api = useApi();
   const navigate = useNavigate();
 
-  const { allowance, refreshAllowance } = useStarterPackAllowance();
+  const { allowance, loading: allowanceLoading, error: allowanceError, refreshAllowance } = useStarterPackAllowance();
   const [isStarterModalOpen, setIsStarterModalOpen] = useState(false);
   const hasAccess = canAccessGlobalLibrary();
 
@@ -738,15 +738,20 @@ export default function LibraryPage() {
           <h2 className="text-xs font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-widest pl-1">
             {t('starterPackAllowance.accessOverviewTitle', 'SEUS ACESSOS')}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {allowance && (
-              <StarterPackAllowanceCard 
-                allowance={allowance} 
-                onOpen={() => setIsStarterModalOpen(true)}
-                variant="library"
-              />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+            {(!allowance?.completed || allowanceLoading || allowanceError) && (
+              <div className="flex flex-col h-full">
+                <StarterPackAllowanceCard 
+                  allowance={allowance} 
+                  loading={allowanceLoading}
+                  error={allowanceError}
+                  onRetry={refreshAllowance}
+                  onOpen={() => setIsStarterModalOpen(true)}
+                  variant="library"
+                />
+              </div>
             )}
-            <div className="flex flex-col h-full justify-between">
+            <div className="flex flex-col h-full">
               <LibraryUsageBanner />
             </div>
           </div>
@@ -1138,7 +1143,7 @@ export default function LibraryPage() {
         <div className="animate-fade-in-up" style={{ animationDelay: "200ms" }}>
           {loading && songs.length === 0 ? (
             viewMode === "grid" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1  lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                   <div
                     key={i}

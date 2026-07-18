@@ -1,25 +1,38 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { StarterPackAllowance } from '../utils/starterPackAllowance';
+
+export interface StarterPackError {
+  message: string;
+  code?: string;
+  status?: number;
+  correlationId?: string;
+}
 
 export function useStarterPackAllowance() {
   const { organization, user } = useAuth();
   const [allowance, setAllowance] = useState<StarterPackAllowance | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<StarterPackError | null>(null);
+  const retryCount = useRef(0);
 
-  const fetchAllowance = useCallback(async (signal?: AbortSignal) => {
+  const fetchAllowance = useCallback(async (signal?: AbortSignal, isRetry = false) => {
     if (!organization?.id || !user) {
       setAllowance(null);
       setLoading(false);
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    if (!isRetry) {
+      setLoading(true);
+      setError(null);
+      retryCount.current = 0;
+    }
 
     try {
-      const token = await user.getIdToken();
+      const forceRefresh = isRetry && retryCount.current === 1;
+      const token = await user.getIdToken(forceRefresh);
+      
       const response = await fetch('/api/v1/onboarding/starter-pack/status', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -29,22 +42,54 @@ export function useStarterPackAllowance() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch starter pack allowance');
+        if (response.status === 401 && retryCount.current < 1) {
+          retryCount.current += 1;
+          return fetchAllowance(signal, true);
+        }
+
+        let errData: any = {};
+        try {
+          errData = await response.json();
+        } catch {
+          // ignore
+        }
+        
+        let message = errData.message || 'Falha ao buscar os dados do pacote inicial';
+        if (response.status === 401) message = 'Sessão expirada ou inválida. Faça login novamente.';
+        if (response.status === 403) message = errData.message || 'Sem permissão ou sem assinatura do MusicScale.';
+        if (response.status === 404) message = 'Organização não encontrada.';
+        
+        setError({
+          message,
+          code: errData.error || (response.status === 401 ? 'UNAUTHORIZED' : 'UNKNOWN_ERROR'),
+          status: response.status,
+          correlationId: errData.correlationId
+        });
+        setAllowance(null);
+        setLoading(false);
+        return;
       }
 
       const data = await response.json();
+
       if (data.success && data.allowance) {
         setAllowance(data.allowance);
+        setError(null);
       } else {
-        throw new Error('Invalid response format');
+        throw new Error('Formato de resposta inválido');
       }
     } catch (err: any) {
       if (err.name === 'AbortError') return;
       console.error('Failed to load starter pack allowance:', err);
-      setError(err.message || 'Error loading allowance');
+      setError({
+        message: 'Erro de conexão. Tente novamente mais tarde.',
+        code: 'NETWORK_ERROR'
+      });
       setAllowance(null);
     } finally {
-      setLoading(false);
+      if (!isRetry || retryCount.current >= 1) {
+        setLoading(false);
+      }
     }
   }, [organization?.id, user]);
 

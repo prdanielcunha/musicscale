@@ -513,33 +513,12 @@ const SongsPage: React.FC = () => {
           </p>
 
           <div className="mb-12" id="starter-pack-container">
-            {canManageRepertoire && allowanceLoading && (
-              <div data-testid="starter-pack-loading" aria-label={t('starterPackAllowance.loading', 'Carregando pacote inicial')} className="w-full h-[180px] rounded-xl bg-slate-200 dark:bg-slate-800/50 animate-pulse"></div>
-            )}
-            
-            {canManageRepertoire && allowanceError && (
-              <Card data-testid="starter-pack-error" className="w-full bg-slate-100 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700 p-6 flex flex-col md:flex-row items-center gap-4 text-left">
-                <div data-testid="starter-pack-error" className="flex-1">
-                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-1">
-                    {t('starterPackAllowance.unavailableTitle', 'Pacote inicial temporariamente indisponível')}
-                  </h3>
-                  <p className="text-slate-600 dark:text-slate-400 text-sm">
-                    {t('starterPackAllowance.unavailableDescription', 'Não foi possível consultar suas músicas iniciais agora.')}
-                  </p>
-                </div>
-                <button
-                  data-testid="starter-pack-retry"
-                  onClick={refreshAllowance}
-                  className="px-5 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-sm font-medium rounded-lg transition-colors"
-                >
-                  {t('starterPackAllowance.retryAction', 'Tentar novamente')}
-                </button>
-              </Card>
-            )}
-
-            {showStarterPack && !allowanceLoading && !allowanceError && (
+            {canManageRepertoire && (!allowance?.completed || allowanceLoading || allowanceError) && (
               <StarterPackAllowanceCard 
-                allowance={allowance!} 
+                allowance={allowance} 
+                loading={allowanceLoading}
+                error={allowanceError}
+                onRetry={refreshAllowance}
                 onOpen={() => setIsStarterModalOpen(true)} 
                 variant="empty-repertoire" 
               />
@@ -627,9 +606,12 @@ const SongsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {canManageRepertoire && allowance && !allowance.completed && allowance.remaining > 0 && (
+      {canManageRepertoire && (!allowance?.completed || allowanceLoading || allowanceError) && (
         <StarterPackAllowanceCard 
           allowance={allowance} 
+          loading={allowanceLoading}
+          error={allowanceError}
+          onRetry={refreshAllowance}
           onOpen={() => setIsStarterModalOpen(true)} 
           variant="compact" 
         />

@@ -301,3 +301,81 @@ export async function resolveStarterEntitlementState(db: any, orgId: string): Pr
 
   return false;
 }
+
+/**
+ * Resolves the Starter Pack Allowance Context for API routes.
+ * This checks authorization, entitlement, and retrieves the current allowance.
+ */
+export async function resolveStarterPackAllowanceContext(
+  req: any,
+  res: any,
+  db: any,
+  adminAuth: any
+): Promise<{ 
+  error?: string; 
+  statusCode?: number; 
+  message?: string; 
+  correlationId?: string;
+  allowance?: any;
+  orgId?: string;
+  authContext?: any;
+} | null> {
+  const orgIdHeader = req.headers["x-organization-id"];
+  const orgId = Array.isArray(orgIdHeader) ? orgIdHeader[0] : orgIdHeader;
+  
+  if (!orgId) {
+    res.status(400).json({ error: "Missing x-organization-id header", message: "Falta x-organization-id" });
+    return null;
+  }
+
+  const { resolveOrganizationAuthorization } = await import("../organizationAuthorization.js");
+  const authResult = await resolveOrganizationAuthorization(req.headers.authorization, orgId, db, adminAuth);
+  
+  if (authResult.error || authResult.statusCode || !authResult.context?.isActive) {
+    res.status(authResult.statusCode || 403).json({ 
+      error: authResult.error,
+      message: "Não autorizado ou sem acesso à organização."
+    });
+    return null;
+  }
+
+  const entitled = await resolveStarterEntitlementState(db, orgId);
+  if (!entitled) {
+    res.status(403).json({ 
+       error: "NO_ENTITLEMENT", 
+       message: "Esta organização não possui entitlement do MusicScale."
+    });
+    return null;
+  }
+
+  const { resolveStarterPackAllowance } = await import("../../../utils/starterPackAllowance.js");
+  
+  // Read state
+  const stateRef = db.collection("organizations").doc(orgId).collection("musicScaleOnboarding").doc("state");
+  const stateSnap = await stateRef.get();
+  const onboardingState = stateSnap.exists ? stateSnap.data() : {};
+  
+  // Read songs for fallback verification
+  const songsRef = db.collection("songs");
+  const songsSnap = await songsRef.where("organizationId", "==", orgId).get();
+  
+  const organizationSongs: any[] = [];
+  songsSnap.forEach((doc: any) => {
+    const data = doc.data();
+    if (data.onboardingStarter || data.onboardingStarterPack) {
+       organizationSongs.push({
+         originGlobalSongId: data.originGlobalSongId,
+         onboardingStarter: data.onboardingStarter,
+         onboardingStarterPack: data.onboardingStarterPack
+       });
+    }
+  });
+
+  const allowance = resolveStarterPackAllowance({ onboardingState, organizationSongs, limit: 10 });
+
+  return {
+    allowance,
+    orgId,
+    authContext: authResult.context
+  };
+}

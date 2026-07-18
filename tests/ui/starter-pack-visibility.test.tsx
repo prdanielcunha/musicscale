@@ -289,3 +289,4 @@ describe('SongsPage Starter Pack Visibility', () => {
     expect(screen.getByTestId('starter-pack-loading')).toBeInTheDocument();
   });
 });
+

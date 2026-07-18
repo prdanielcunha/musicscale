@@ -1,6 +1,6 @@
 import React from "react";
 
-interface CardProps {
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
@@ -12,6 +12,7 @@ const Card: React.FC<CardProps> = ({
   className = "",
   onClick,
   padding = "normal",
+  ...rest
 }) => {
   const cardClasses = `
     bg-white dark:bg-white/[0.02] dark:backdrop-blur-3xl border border-black/[0.04] dark:border-white/5
@@ -24,7 +25,7 @@ const Card: React.FC<CardProps> = ({
   `;
 
   return (
-    <div className={cardClasses} onClick={onClick}>
+    <div className={cardClasses} onClick={onClick} {...rest}>
       {children}
     </div>
   );

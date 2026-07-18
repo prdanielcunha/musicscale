@@ -3593,99 +3593,46 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
     let orgId;
     try {
       if (!db || !admin) throw new Error("Database not initialized");
-
-      const orgIdHeader = req.headers["x-organization-id"];
-      orgId = Array.isArray(orgIdHeader) ? orgIdHeader[0] : orgIdHeader;
-      if (!orgId) return res.status(400).json({ error: "Missing x-organization-id header" });
-
-      const { resolveOrganizationAuthorization } = await import("./services/server/organizationAuthorization.js");
-      const authResult = await resolveOrganizationAuthorization(req.headers.authorization, orgId, db, admin.auth());
       
-      if (authResult.error || authResult.statusCode) {
-          return res.status(authResult.statusCode || 403).json({ error: authResult.error });
-      }
-
-      const { resolveStarterEntitlementState } = await import("./services/server/onboarding/firstScaleOnboardingService.js");
-
-      // Check server-side subscription entitlement
-      const entitled = await resolveStarterEntitlementState(db, orgId);
-      if (!entitled) {
-        return res.status(403).json({
-           error: "NO_ENTITLEMENT",
-           message: "Esta organização não possui entitlement do MusicScale."
-        });
-      }
-
-      const { resolveStarterPackAllowance } = await import("./utils/starterPackAllowance.js");
-
-      // Read state
-      const stateRef = db.collection("organizations").doc(orgId).collection("musicScaleOnboarding").doc("state");
-      const stateSnap = await stateRef.get();
-      const onboardingState = stateSnap.exists ? stateSnap.data() : {};
-
-      // Read songs for fallback verification
-      const songsRef = db.collection("songs");
-      const songsSnap = await songsRef.where("organizationId", "==", orgId).get();
-      const organizationSongs = [];
-      songsSnap.forEach(doc => {
-        const data = doc.data();
-        if (data.onboardingStarter || data.onboardingStarterPack) {
-           organizationSongs.push({
-             originGlobalSongId: data.originGlobalSongId,
-             onboardingStarter: data.onboardingStarter,
-             onboardingStarterPack: data.onboardingStarterPack
-           });
-        }
-      });
-
-      const allowance = resolveStarterPackAllowance({ onboardingState, organizationSongs, limit: 10 });
-
+      const { resolveStarterPackAllowanceContext } = await import("./services/server/onboarding/firstScaleOnboardingService.js");
+      const context = await resolveStarterPackAllowanceContext(req, res, db, admin.auth());
+      if (!context) return;
+      
+      orgId = context.orgId;
+      
       return res.status(200).json({
         success: true,
-        allowance
+        allowance: context.allowance
       });
     } catch (err) {
-      return res.status(500).json({
-         error: "STARTER_PACK_STATUS_FAILED",
-         organizationId: orgId || "unknown",
-         source: "starter_pack_status",
-         path: "/api/v1/onboarding/starter-pack/status",
+      return res.status(500).json({ 
+         error: "STARTER_PACK_STATUS_FAILED", 
+         organizationId: orgId || "unknown", 
+         source: "starter_pack_status", 
+         path: "/api/v1/onboarding/starter-pack/status", 
          message: "Não foi possível carregar o status do pacote inicial."
       });
     }
   });
 
   app.get("/api/v1/onboarding/starter-pack", async (req, res) => {
-    let orgId: string | undefined;
+    let orgId;
     try {
       if (!db || !admin) throw new Error("Database not initialized");
-
-      const orgIdHeader = req.headers["x-organization-id"];
-      orgId = Array.isArray(orgIdHeader) ? orgIdHeader[0] : orgIdHeader;
-      if (!orgId) return res.status(400).json({ error: "Missing x-organization-id header" });
-
-      const { resolveOrganizationAuthorization } = await import("./services/server/organizationAuthorization.js");
-      const authResult = await resolveOrganizationAuthorization(req.headers.authorization, orgId, db, admin.auth());
       
-      if (authResult.error || authResult.statusCode) {
-          return res.status(authResult.statusCode || 403).json({ error: authResult.error });
-      }
-
-      const { resolveStarterEntitlementState, selectStarterPack } = await import("./services/server/onboarding/firstScaleOnboardingService.js");
-
-      // Check server-side subscription entitlement
-      const entitled = await resolveStarterEntitlementState(db, orgId);
-      if (!entitled) {
-         return res.status(403).json({ error: "REQUIRED_ACTIVE_SUBSCRIPTION", message: "Acesso restrito. Esta funcionalidade requer uma assinatura ativa ou período de teste ativo no MillionsNest." });
-      }
-
+      const { resolveStarterPackAllowanceContext, selectStarterPack } = await import("./services/server/onboarding/firstScaleOnboardingService.js");
+      const context = await resolveStarterPackAllowanceContext(req, res, db, admin.auth());
+      if (!context) return;
+      
+      orgId = context.orgId;
+      
       const { buildEffectiveAccessContext, hasMusicScaleCapability } = await import("./utils/rbac.js");
       const accessCtx = buildEffectiveAccessContext(
-          authResult.context.uid, 
+          context.authContext.uid, 
           orgId, 
-          authResult.context.systemRole || null, 
-          authResult.context.organizationRole || null,
-          authResult.context.isActive ? 'active' : 'inactive'
+          context.authContext.systemRole || null, 
+          context.authContext.organizationRole || null,
+          context.authContext.isActive ? 'active' : 'inactive'
       );
       
       if (!hasMusicScaleCapability(accessCtx, 'songs.read')) {
@@ -3724,223 +3671,123 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
       res.json({ starterPack: safeStarterSongs });
     } catch (err: any) {
       logger.error(`[Onboarding] Starter pack resolution failed: orgId=${orgId}`, err);
-      return res.status(500).json({
-         error: "STARTER_PACK_RESOLUTION_FAILED",
-         organizationId: orgId || "unknown",
-         source: "starter_pack_fetch",
-         count: 0,
-         path: "/api/v1/onboarding/starter-pack",
+      return res.status(500).json({ 
+         error: "STARTER_PACK_RESOLUTION_FAILED", 
+         organizationId: orgId || "unknown", 
+         source: "starter_pack_fetch", 
+         count: 0, 
+         path: "/api/v1/onboarding/starter-pack", 
          message: "Não foi possível carregar o pacote de músicas inicial."
       });
     }
   });
 
   app.post("/api/v1/onboarding/starter-pack/import", async (req, res) => {
-    let orgId: string | undefined;
+    let orgId;
+    let actorUid;
     try {
       if (!db || !admin) throw new Error("Database not initialized");
-
-      const orgIdHeader = req.headers["x-organization-id"];
-      orgId = Array.isArray(orgIdHeader) ? orgIdHeader[0] : orgIdHeader;
-      if (!orgId) return res.status(400).json({ error: "Missing x-organization-id header" });
-
-      const { resolveOrganizationAuthorization } = await import("./services/server/organizationAuthorization.js");
-      const authResult = await resolveOrganizationAuthorization(req.headers.authorization, orgId, db, admin.auth());
       
-      if (authResult.error || authResult.statusCode) {
-          return res.status(authResult.statusCode || 403).json({ error: authResult.error });
-      }
-
-      const {
-        resolveStarterEntitlementState,
-        selectStarterPack,
-        validateStarterSelection,
-        computeStarterImportPlan,
-        buildUpdatedOnboardingState,
-        normalizeStarterSong
-      } = await import("./services/server/onboarding/firstScaleOnboardingService.js");
-
-      // Check server-side subscription entitlement
-      const entitled = await resolveStarterEntitlementState(db, orgId);
-      if (!entitled) {
-         return res.status(403).json({ error: "REQUIRED_ACTIVE_SUBSCRIPTION", message: "Acesso restrito. Esta funcionalidade requer uma assinatura ativa ou período de teste ativo no MillionsNest." });
-      }
-
+      const { resolveStarterPackAllowanceContext, validateStarterSelection, computeStarterImportPlan, buildUpdatedOnboardingState, normalizeStarterSong, selectStarterPack } = await import("./services/server/onboarding/firstScaleOnboardingService.js");
+      const context = await resolveStarterPackAllowanceContext(req, res, db, admin.auth());
+      if (!context) return;
+      
+      orgId = context.orgId;
+      actorUid = context.authContext.uid;
+      
       const { buildEffectiveAccessContext, hasMusicScaleCapability } = await import("./utils/rbac.js");
       const accessCtx = buildEffectiveAccessContext(
-          authResult.context.uid, 
+          actorUid, 
           orgId, 
-          authResult.context.systemRole || null, 
-          authResult.context.organizationRole || null,
-          authResult.context.isActive ? 'active' : 'inactive'
+          context.authContext.systemRole || null, 
+          context.authContext.organizationRole || null,
+          context.authContext.isActive ? 'active' : 'inactive'
       );
       
       if (!hasMusicScaleCapability(accessCtx, 'songs.create')) {
-          return res.status(403).json({ error: "Insufficient permissions to create songs" });
+          return res.status(403).json({ error: "Insufficient permissions to import songs" });
       }
 
-      let { selectedSongIds } = req.body;
-      if (!Array.isArray(selectedSongIds)) {
-        return res.status(400).json({ error: "selectedSongIds must be an array" });
+      const { selectedSongIds } = req.body;
+      if (!Array.isArray(selectedSongIds) || selectedSongIds.length === 0) {
+        return res.status(400).json({ error: "No songs selected" });
       }
 
       const starterSongs = await selectStarterPack(db);
       
-      // Validate starter pack selection
-      const valResult = validateStarterSelection(selectedSongIds, starterSongs);
-      if (!valResult.valid) {
-        return res.status(403).json({
-          error: valResult.error || "INVALID_SELECTION",
-          organizationId: orgId,
-          source: "starter_pack_import",
-          count: selectedSongIds.length,
-          path: "/api/v1/onboarding/starter-pack/import",
-          message: valResult.message
-        });
+      const validation = validateStarterSelection(selectedSongIds, starterSongs);
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.error, message: validation.message });
       }
 
-      const transactionResult = await db.runTransaction(async (transaction) => {
-         // --- READ PHASE ---
-         const songsRef = db.collection("songs");
-         const existingSnapshot = await transaction.get(songsRef.where("organizationId", "==", orgId));
-         
-         const stateRef = db.collection("organizations").doc(orgId!).collection("musicScaleOnboarding").doc("state");
-         const stateSnap = await transaction.get(stateRef);
-         const currentStateData = stateSnap.exists ? stateSnap.data() : {};
-         
-         const userDoc = await transaction.get(db.collection('users').doc(authResult.context.uid));
-         const userData = userDoc.data() || {};
-
-         // --- COMPUTE PHASE ---
-         const existingOrganizationGlobalIds: string[] = [];
-         const existingDocIds: string[] = [];
-         existingSnapshot.docs.forEach((doc: any) => {
-            const data = doc.data();
-            existingDocIds.push(doc.id);
-            if (data.originGlobalSongId) {
-               existingOrganizationGlobalIds.push(data.originGlobalSongId);
-            }
-         });
-
-         const starterPackImportedGlobalIds = Array.isArray(currentStateData?.starterPackImportedGlobalIds)
-            ? currentStateData.starterPackImportedGlobalIds
-            : [];
-
-         // Compute import plan
-         const plan = computeStarterImportPlan({
-            selectedSongIds,
-            starterSongs,
-            existingOrganizationGlobalIds,
-            starterPackImportedGlobalIds,
-            existingDocIds,
-            orgId: orgId!,
-            version: '1.0'
-         });
-
-         if (plan.limitExceeded) {
-            throw new Error("LIMIT_EXCEEDED");
-         }
-
-         // Build updated onboarding state doc
-         const updatedOnboardingState = buildUpdatedOnboardingState(
-            currentStateData,
-            plan.newGlobalIds,
-            authResult.context.uid,
-            '1.0',
-            admin.firestore.FieldValue.serverTimestamp()
-         );
-
-         const createdBy = {
-             uid: authResult.context.uid,
-             displayName: userData.displayName || authResult.context.email || 'Unknown User',
-             photoURL: userData.photoURL || null
-         };
-
-         const localImportedIds: string[] = [];
-         let localImportedCount = 0;
-
-         // --- WRITE PHASE ---
-         // Normalize and write songs
-         for (const song of plan.songsToImport) {
-            const songData = normalizeStarterSong(song, orgId!, createdBy, authResult.context.uid);
-            songData.createdAt = admin.firestore.FieldValue.serverTimestamp();
-            songData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
-
-            const newSongRef = db.collection("songs").doc(songData.id);
-            transaction.set(newSongRef, songData);
-
-            localImportedIds.push(songData.id);
-            localImportedCount++;
-            
-            // Increment global importCount
-            const globalRef = db.collection("globalSongs").doc(song.id);
-            transaction.update(globalRef, {
-               importCount: admin.firestore.FieldValue.increment(1)
-            });
-         }
-
-         transaction.set(stateRef, updatedOnboardingState, { merge: true });
-
-         // Log audit event
-         const auditRef = db.collection("auditLogs").doc();
-         transaction.set(auditRef, {
-            id: auditRef.id,
-            organizationId: orgId,
-            action: 'import_starter_pack',
-            userId: authResult.context.uid,
-            details: {
-               importedCount: localImportedCount,
-               skippedCount: plan.skippedIds.length,
-               totalOnboardingImported: updatedOnboardingState.starterPackImportedCount
-            },
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
-         });
-
-         return {
-            importedIds: localImportedIds,
-            skippedIds: plan.skippedIds,
-            importedCount: localImportedCount
-         };
-      });
-
-
-      const updatedStateRef = db.collection("organizations").doc(orgId).collection("musicScaleOnboarding").doc("state");
-      const updatedStateSnap = await updatedStateRef.get();
-      const updatedOnboardingState = updatedStateSnap.exists ? updatedStateSnap.data() : {};
+      // Read current state & existing songs to compute plan
+      const stateRef = db.collection("organizations").doc(orgId).collection("musicScaleOnboarding").doc("state");
+      const stateSnap = await stateRef.get();
+      const existingState = stateSnap.exists ? stateSnap.data() : {};
       
-      const updatedSongsSnap = await db.collection("songs").where("organizationId", "==", orgId).get();
-      const updatedOrganizationSongs = [];
-      updatedSongsSnap.forEach(doc => {
-        const data = doc.data();
-        if (data.onboardingStarter || data.onboardingStarterPack) {
-           updatedOrganizationSongs.push({
-             originGlobalSongId: data.originGlobalSongId,
-             onboardingStarter: data.onboardingStarter,
-             onboardingStarterPack: data.onboardingStarterPack
-           });
-        }
+      const songsRef = db.collection("songs");
+      const existingSongsSnap = await songsRef.where("organizationId", "==", orgId).get();
+      const existingOrganizationGlobalIds = existingSongsSnap.docs.map(doc => doc.data().originGlobalSongId).filter(Boolean);
+      const existingDocIds = existingSongsSnap.docs.map(doc => doc.id);
+
+      const plan = computeStarterImportPlan({
+        selectedSongIds,
+        starterSongs,
+        existingOrganizationGlobalIds,
+        starterPackImportedGlobalIds: existingState.starterPackImportedGlobalIds || [],
+        existingDocIds,
+        orgId
       });
-      const { resolveStarterPackAllowance } = await import("./utils/starterPackAllowance.js");
-      const allowance = resolveStarterPackAllowance({ onboardingState: updatedOnboardingState, organizationSongs: updatedOrganizationSongs, limit: 10 });
 
-      res.json({ success: true, ...transactionResult, allowance });
+      if (plan.limitExceeded) {
+        return res.status(400).json({ error: "LIMIT_EXCEEDED", message: "Pacote inicial excederia o limite de 10 músicas." });
+      }
 
+      if (plan.songsToImport.length === 0) {
+        return res.status(200).json({ success: true, importedCount: 0, message: "Todas as músicas já foram importadas." });
+      }
 
+      // Execute import in batch
+      const batch = db.batch();
+      
+      // Update state
+      const newState = buildUpdatedOnboardingState(existingState, plan.newGlobalIds, actorUid, '1.0', admin.firestore.FieldValue.serverTimestamp());
+      batch.set(stateRef, newState, { merge: true });
+
+      // Build createdBy ref
+      let createdBy = null;
+      try {
+        const userSnap = await db.collection("users").doc(actorUid).get();
+        if (userSnap.exists) {
+           const userData = userSnap.data();
+           createdBy = {
+              uid: actorUid,
+              name: userData.name || userData.displayName || "",
+              email: userData.email || ""
+           };
+        }
+      } catch (e) {
+         console.warn("Could not fetch user for createdBy");
+      }
+
+      for (const song of plan.songsToImport) {
+        const newSong = normalizeStarterSong(song, orgId, createdBy, actorUid);
+        const songRef = db.collection("songs").doc(newSong.id);
+        batch.set(songRef, { ...newSong, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+      }
+
+      await batch.commit();
+
+      res.status(200).json({
+        success: true,
+        importedCount: plan.songsToImport.length,
+        skippedIds: plan.skippedIds
+      });
     } catch (err: any) {
-      const isLimitExceeded = err.message === "LIMIT_EXCEEDED" || err.message === "starter_pack_limit_exceeded";
-      const errorCode = isLimitExceeded ? "LIMIT_EXCEEDED" : "ONBOARDING_IMPORT_FAILED";
-
-      logger.error(`[Onboarding] Import failed: error=${errorCode} orgId=${orgId}`, err);
-
-      return res.status(400).json({
-        error: errorCode,
-        organizationId: orgId || "unknown",
-        source: "starter_pack_import",
-        count: req.body?.selectedSongIds?.length || 0,
-        path: "/api/v1/onboarding/starter-pack/import",
-        message: isLimitExceeded 
-          ? "Limite de 10 músicas do pacote inicial excedido para esta organização."
-          : "Erro interno ao processar importação."
+      logger.error(`[Onboarding] Starter pack import failed: orgId=${orgId}`, err);
+      return res.status(500).json({ 
+         error: "STARTER_PACK_IMPORT_FAILED", 
+         message: "Falha ao importar o pacote inicial."
       });
     }
   });
