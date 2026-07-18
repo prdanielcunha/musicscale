@@ -177,6 +177,7 @@ const SongsPage: React.FC = () => {
   const isOverLimit = songs.length >= limits.maxSongs;
   const isAiImportAllowed = useMusicScaleFeature('aiImport');
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -203,15 +204,57 @@ const SongsPage: React.FC = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isStarterModalOpen, setIsStarterModalOpen] = useState(false);
 
+  const openedFromFirstValueJourney = location.state?.starterRepertoireOrigin === 'first-value-journey';
+
+  // Se a organização for trocada enquanto o modal estiver aberto:
+  // fechar o modal e descartar a origem antiga
+  useEffect(() => {
+    if (isStarterModalOpen) {
+      setIsStarterModalOpen(false);
+      setSearchParams(prev => {
+         prev.delete('starterPack');
+         return prev;
+      }, { replace: true, state: {} });
+    }
+  }, [userProfile?.organizationId]);
+
   useEffect(() => {
     if (!loading && searchParams.get('starterPack') === '1' && canManageRepertoire) {
        setIsStarterModalOpen(true);
+       // We DO NOT remove starterPack from URL immediately if it's from the journey,
+       // otherwise we lose the URL context when closing (or we can rely purely on location.state).
+       // Actually, it's safer to remove it but keep state.
        setSearchParams(prev => {
           prev.delete('starterPack');
           return prev;
-       }, { replace: true });
+       }, { replace: true, state: location.state });
     }
-  }, [loading, searchParams, canManageRepertoire, setSearchParams]);
+  }, [loading, searchParams, canManageRepertoire, setSearchParams, location.state]);
+
+  const handleStarterRepertoireCancel = () => {
+    setIsStarterModalOpen(false);
+    if (openedFromFirstValueJourney) {
+      navigate('/', { replace: true });
+    } else {
+      setSearchParams(prev => {
+         prev.delete('starterPack');
+         return prev;
+      }, { replace: true, state: {} });
+    }
+  };
+
+  const handleStarterRepertoireCompleted = () => {
+    setIsStarterModalOpen(false);
+    refreshData();
+    if (openedFromFirstValueJourney) {
+      navigate('/', { replace: true });
+    } else {
+      setSearchParams(prev => {
+         prev.delete('starterPack');
+         return prev;
+      }, { replace: true, state: {} });
+    }
+  };
   const [isBulkMoreOpen, setIsBulkMoreOpen] = useState(false);
 
   // Intersection observer to load more songs as user scrolls
@@ -508,11 +551,8 @@ const SongsPage: React.FC = () => {
         </div>
         <StarterRepertoireModal
           isOpen={isStarterModalOpen}
-          onClose={() => setIsStarterModalOpen(false)}
-          onSuccess={() => {
-            setIsStarterModalOpen(false);
-            refreshData();
-          }}
+          onCancel={handleStarterRepertoireCancel}
+          onCompleted={handleStarterRepertoireCompleted}
         />
       </>
     );
@@ -1172,13 +1212,10 @@ const SongsPage: React.FC = () => {
       />
 
       <StarterRepertoireModal
-        isOpen={isStarterModalOpen}
-        onClose={() => setIsStarterModalOpen(false)}
-        onSuccess={() => {
-          setIsStarterModalOpen(false);
-          refreshData();
-        }}
-      />
+          isOpen={isStarterModalOpen}
+          onCancel={handleStarterRepertoireCancel}
+          onCompleted={handleStarterRepertoireCompleted}
+        />
     </div>
   );
 };

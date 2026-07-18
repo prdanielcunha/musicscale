@@ -9,11 +9,11 @@ import { useTranslation } from 'react-i18next';
 
 interface StarterRepertoireModalProps {
   isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
+  onCancel: () => void;
+  onCompleted: (result?: any) => void;
 }
 
-export function StarterRepertoireModal({ isOpen, onClose, onSuccess }: StarterRepertoireModalProps) {
+export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: StarterRepertoireModalProps) {
   const { organization, user } = useAuth();
   const { t } = useTranslation();
   const { refreshData, songs } = useMusic();
@@ -108,7 +108,7 @@ export function StarterRepertoireModal({ isOpen, onClose, onSuccess }: StarterRe
         },
         timestamp: Date.now()
       });
-      onSuccess();
+      onCompleted();
     } catch (err: any) {
       const isLimitExceeded = err.message === "LIMIT_EXCEEDED" || err.message === "starter_pack_limit_exceeded";
       const errorCode = isLimitExceeded ? "LIMIT_EXCEEDED" : "ONBOARDING_IMPORT_FAILED";
@@ -140,7 +140,7 @@ export function StarterRepertoireModal({ isOpen, onClose, onSuccess }: StarterRe
   const alreadyImportedIds = new Set(songs?.filter(s => s.originGlobalSongId).map(s => s.originGlobalSongId));
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t('firstValueJourney.starterModalTitle', 'Escolha seu repertório inicial')}>
+    <Modal isOpen={isOpen} onClose={onCancel} title={t('firstValueJourney.starterModalTitle', 'Escolha seu repertório inicial')}>
       <div className="p-4 md:p-6 flex flex-col h-full max-h-[80vh]">
         <div className="mb-6">
           <div className="space-y-2">
@@ -216,7 +216,7 @@ export function StarterRepertoireModal({ isOpen, onClose, onSuccess }: StarterRe
 
         <div className="mt-6 pt-4 border-t border-zinc-800/50 flex justify-end gap-3">
           <button 
-            onClick={onClose}
+            onClick={onCancel}
             className="px-5 py-2.5 text-zinc-400 hover:text-white transition-colors font-medium"
           >
             {t('onboarding.cancel', 'Cancelar')}

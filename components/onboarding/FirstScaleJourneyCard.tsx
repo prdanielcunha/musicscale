@@ -54,7 +54,7 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: any 
             <div className="space-y-6">
               {/* Recommended Action */}
               <button
-                onClick={() => handleAction('starterPack', () => navigate('/songs?starterPack=1'))}
+                onClick={() => handleAction('starterPack', () => navigate('/songs?starterPack=1', { state: { starterRepertoireOrigin: 'first-value-journey' } }))}
                 className="w-full relative overflow-hidden group text-left rounded-2xl bg-[#121214] border border-white/[0.08] hover:border-indigo-500/50 transition-all duration-300 p-6 md:p-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent pointer-events-none" />
