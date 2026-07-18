@@ -40,6 +40,9 @@ export function LibraryUsageBanner() {
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
               {t("billing.library_blocked_desc", "Biblioteca Viva disponível a partir do plano Advanced.")}
             </p>
+            <p className="text-xs text-indigo-500 dark:text-indigo-400 font-medium mt-1">
+              {t("starterPackAllowance.separateFromPlan", "O pacote inicial é separado do limite da sua assinatura.")}
+            </p>
           </div>
         </div>
         <button
@@ -80,7 +83,13 @@ export function LibraryUsageBanner() {
 
   // Advanced
   const used = usage?.libraryImports || 0;
-  const limit = limits?.libraryImportsPerMonth || 20;
+  
+  if (!limits && !usageLoading) {
+     return <div className="animate-pulse bg-white/50 dark:bg-zinc-900/50 rounded-2xl h-16 border border-zinc-200 dark:border-zinc-800"></div>;
+  }
+  
+  const limit = limits?.libraryImportsPerMonth ?? 0;
+  const remaining = Math.max(0, limit - used);
   const percentage = Math.min(100, Math.max(0, (used / limit) * 100));
   const isNearLimit = percentage >= 80;
   const isAtLimit = used >= limit;
@@ -106,7 +115,7 @@ export function LibraryUsageBanner() {
             <h4 className={`text-sm md:text-base font-black tracking-tight ${
               isAtLimit ? 'text-orange-900 dark:text-orange-100' : 'text-slate-900 dark:text-white'
             }`}>
-              {t("billing.used_imports_desc", "{{used}} de {{limit}} importações usadas este mês", { used, limit })}
+              {t("starterPackAllowance.planAllowanceTitle", "Seu plano")}
             </h4>
             <span className="text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300 px-2.5 py-1 rounded-md">
               Advanced
@@ -132,7 +141,8 @@ export function LibraryUsageBanner() {
              </p>
           ) : (
              <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400 mt-2">
-               {t("billing.renewal_desc", "Renovação do ciclo mensal dia 1º.")}
+               {t("starterPackAllowance.monthlyRemaining", "{{remaining}} importações disponíveis neste ciclo", { remaining })}
+             <span className="block mt-1 text-[11px] opacity-75">{t("billing.renewal_desc", "Renovação do ciclo mensal dia 1º.")}</span>
              </p>
           )}
         </div>

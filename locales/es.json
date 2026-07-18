@@ -938,5 +938,33 @@
     "starterModalDescription": "Estas canciones fueron seleccionadas de la Biblioteca Viva para acelerar tu primer culto. Revisa la lista y elige cuáles quieres agregar. Nada será importado hasta que confirmes, y todo podrá ser editado después.",
     "starterModalSelectionCount": "{{selected}} de {{maximum}} seleccionadas",
     "starterModalConfirm": "Añadir {{count}} al repertorio"
+  },
+  "starterPackAllowance": {
+    "recommended": "RECOMENDADO",
+    "title": "Paquete inicial",
+    "emptyTitle": "Comienza con el paquete inicial",
+    "emptyDescription": "Elige canciones listas de la Biblioteca Viva para acelerar tu primer repertorio. Podrás revisar y editar todo después.",
+    "openAction": "Ver canciones sugeridas",
+    "continueAction": "Continuar eligiendo",
+    "completedTitle": "Paquete inicial completado",
+    "completedDescription": "Tu organización ha utilizado las {{limit}} canciones iniciales.",
+    "availableCount": "{{limit}} disponibles",
+    "usedCount": "{{used}} de {{limit}} utilizadas",
+    "remainingCount": "{{remaining}} de {{limit}} canciones iniciales disponibles",
+    "initialBenefitExplanation": "10 canciones iniciales incluidas para ayudar a tu organización a comenzar.",
+    "separateFromPlan": "El paquete inicial es independiente del límite de tu suscripción.",
+    "unavailable": "Paquete inicial no disponible",
+    "loadError": "No se pudo cargar el estado del paquete inicial. Inténtalo de nuevo.",
+    "selectionLimitReached": "Has seleccionado el máximo de canciones disponibles en el paquete inicial.",
+    "selectedCount": "{{selected}} seleccionadas",
+    "remainingBeforeImport": "{{remaining}} importaciones iniciales disponibles antes de esta confirmación",
+    "completedModalMessage": "El paquete inicial de esta organización ya ha sido utilizado.",
+    "accessOverviewTitle": "TUS ACCESOS",
+    "planAllowanceTitle": "Tu plan",
+    "monthlyRemaining": "{{remaining}} importaciones disponibles en este ciclo",
+    "unlimited": "Ilimitado",
+    "compactTitle": "Tu paquete inicial aún está disponible",
+    "compactDescription": "Aún puedes agregar {{remaining}} canciones sugeridas al repertorio.",
+    "compactAction": "Elegir canciones"
   }
 }

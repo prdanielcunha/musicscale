@@ -1,4 +1,6 @@
 import { StarterRepertoireModal } from '../components/onboarding/StarterRepertoireModal';
+import { StarterPackAllowanceCard } from '../components/onboarding/StarterPackAllowanceCard';
+import { useStarterPackAllowance } from '../hooks/useStarterPackAllowance';
 import { logger } from "../lib/logger";
 
 import React, {
@@ -177,6 +179,7 @@ const SongsPage: React.FC = () => {
   const isOverLimit = songs.length >= limits.maxSongs;
   const isAiImportAllowed = useMusicScaleFeature('aiImport');
   const navigate = useNavigate();
+  const { allowance, refreshAllowance } = useStarterPackAllowance();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -248,6 +251,7 @@ const SongsPage: React.FC = () => {
     
     try {
       await refreshData();
+      await refreshAllowance();
       
       if (openedFromFirstValueJourney) {
         navigate('/', { replace: true });

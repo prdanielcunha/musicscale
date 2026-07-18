@@ -3588,6 +3588,73 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
 
   // --- First Scale Onboarding Experience ---
 
+
+  app.get("/api/v1/onboarding/starter-pack/status", async (req, res) => {
+    let orgId;
+    try {
+      if (!db || !admin) throw new Error("Database not initialized");
+
+      const orgIdHeader = req.headers["x-organization-id"];
+      orgId = Array.isArray(orgIdHeader) ? orgIdHeader[0] : orgIdHeader;
+      if (!orgId) return res.status(400).json({ error: "Missing x-organization-id header" });
+
+      const { resolveOrganizationAuthorization } = await import("./services/server/organizationAuthorization.js");
+      const authResult = await resolveOrganizationAuthorization(req.headers.authorization, orgId, db, admin.auth());
+      
+      if (authResult.error || authResult.statusCode) {
+          return res.status(authResult.statusCode || 403).json({ error: authResult.error });
+      }
+
+      const { resolveStarterEntitlementState } = await import("./services/server/onboarding/firstScaleOnboardingService.js");
+
+      // Check server-side subscription entitlement
+      const entitled = await resolveStarterEntitlementState(db, orgId);
+      if (!entitled) {
+        return res.status(403).json({
+           error: "NO_ENTITLEMENT",
+           message: "Esta organização não possui entitlement do MusicScale."
+        });
+      }
+
+      const { resolveStarterPackAllowance } = await import("./utils/starterPackAllowance.js");
+
+      // Read state
+      const stateRef = db.collection("organizations").doc(orgId).collection("musicScaleOnboarding").doc("state");
+      const stateSnap = await stateRef.get();
+      const onboardingState = stateSnap.exists ? stateSnap.data() : {};
+
+      // Read songs for fallback verification
+      const songsRef = db.collection("songs");
+      const songsSnap = await songsRef.where("organizationId", "==", orgId).get();
+      const organizationSongs = [];
+      songsSnap.forEach(doc => {
+        const data = doc.data();
+        if (data.onboardingStarter || data.onboardingStarterPack) {
+           organizationSongs.push({
+             originGlobalSongId: data.originGlobalSongId,
+             onboardingStarter: data.onboardingStarter,
+             onboardingStarterPack: data.onboardingStarterPack
+           });
+        }
+      });
+
+      const allowance = resolveStarterPackAllowance({ onboardingState, organizationSongs, limit: 10 });
+
+      return res.status(200).json({
+        success: true,
+        allowance
+      });
+    } catch (err) {
+      return res.status(500).json({
+         error: "STARTER_PACK_STATUS_FAILED",
+         organizationId: orgId || "unknown",
+         source: "starter_pack_status",
+         path: "/api/v1/onboarding/starter-pack/status",
+         message: "Não foi possível carregar o status do pacote inicial."
+      });
+    }
+  });
+
   app.get("/api/v1/onboarding/starter-pack", async (req, res) => {
     let orgId: string | undefined;
     try {
@@ -3836,7 +3903,27 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
          };
       });
 
-      res.json({ success: true, ...transactionResult });
+
+      const updatedStateRef = db.collection("organizations").doc(orgId).collection("musicScaleOnboarding").doc("state");
+      const updatedStateSnap = await updatedStateRef.get();
+      const updatedOnboardingState = updatedStateSnap.exists ? updatedStateSnap.data() : {};
+      
+      const updatedSongsSnap = await db.collection("songs").where("organizationId", "==", orgId).get();
+      const updatedOrganizationSongs = [];
+      updatedSongsSnap.forEach(doc => {
+        const data = doc.data();
+        if (data.onboardingStarter || data.onboardingStarterPack) {
+           updatedOrganizationSongs.push({
+             originGlobalSongId: data.originGlobalSongId,
+             onboardingStarter: data.onboardingStarter,
+             onboardingStarterPack: data.onboardingStarterPack
+           });
+        }
+      });
+      const { resolveStarterPackAllowance } = await import("./utils/starterPackAllowance.js");
+      const allowance = resolveStarterPackAllowance({ onboardingState: updatedOnboardingState, organizationSongs: updatedOrganizationSongs, limit: 10 });
+
+      res.json({ success: true, ...transactionResult, allowance });
 
 
     } catch (err: any) {

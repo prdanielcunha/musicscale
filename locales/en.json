@@ -941,5 +941,33 @@
     "starterModalDescription": "These songs were selected from the Living Library to accelerate your first service. Review the list and choose which ones to add. Nothing will be imported until you confirm, and everything can be edited later.",
     "starterModalSelectionCount": "{{selected}} of {{maximum}} selected",
     "starterModalConfirm": "Add {{count}} to repertoire"
+  },
+  "starterPackAllowance": {
+    "recommended": "RECOMMENDED",
+    "title": "Starter Pack",
+    "emptyTitle": "Start with the starter pack",
+    "emptyDescription": "Choose ready-to-use songs from the Living Library to accelerate your first repertoire. You can review and edit everything later.",
+    "openAction": "View suggested songs",
+    "continueAction": "Continue choosing",
+    "completedTitle": "Starter pack completed",
+    "completedDescription": "Your organization has used the {{limit}} initial songs.",
+    "availableCount": "{{limit}} available",
+    "usedCount": "{{used}} of {{limit}} used",
+    "remainingCount": "{{remaining}} of {{limit}} starter songs available",
+    "initialBenefitExplanation": "10 initial songs included to help your organization get started.",
+    "separateFromPlan": "The starter pack is separate from your subscription limit.",
+    "unavailable": "Starter pack unavailable",
+    "loadError": "Could not load starter pack status. Please try again.",
+    "selectionLimitReached": "You have selected the maximum available songs in the starter pack.",
+    "selectedCount": "{{selected}} selected",
+    "remainingBeforeImport": "{{remaining}} initial imports available before this confirmation",
+    "completedModalMessage": "This organization's starter pack has already been used.",
+    "accessOverviewTitle": "YOUR ACCESS",
+    "planAllowanceTitle": "Your plan",
+    "monthlyRemaining": "{{remaining}} imports available this cycle",
+    "unlimited": "Unlimited",
+    "compactTitle": "Your starter pack is still available",
+    "compactDescription": "You can still add {{remaining}} suggested songs to the repertoire.",
+    "compactAction": "Choose songs"
   }
 }

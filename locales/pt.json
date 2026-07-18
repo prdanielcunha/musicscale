@@ -940,5 +940,33 @@
     "starterModalDescription": "Estas músicas foram selecionadas da Biblioteca Viva para acelerar seu primeiro culto. Revise a lista e escolha quais deseja adicionar. Nada será importado até você confirmar, e tudo poderá ser editado depois.",
     "starterModalSelectionCount": "{{selected}} de {{maximum}} selecionadas",
     "starterModalConfirm": "Adicionar {{count}} ao repertório"
+  },
+  "starterPackAllowance": {
+    "recommended": "RECOMENDADO",
+    "title": "Pacote inicial",
+    "emptyTitle": "Começar com o pacote inicial",
+    "emptyDescription": "Escolha músicas prontas da Biblioteca Viva para acelerar seu primeiro repertório. Você poderá revisar e editar tudo depois.",
+    "openAction": "Ver músicas sugeridas",
+    "continueAction": "Continuar escolhendo",
+    "completedTitle": "Pacote inicial concluído",
+    "completedDescription": "Sua organização utilizou as {{limit}} músicas iniciais.",
+    "availableCount": "{{limit}} disponíveis",
+    "usedCount": "{{used}} de {{limit}} utilizadas",
+    "remainingCount": "{{remaining}} de {{limit}} músicas iniciais disponíveis",
+    "initialBenefitExplanation": "10 músicas iniciais incluídas para ajudar sua organização a começar.",
+    "separateFromPlan": "O pacote inicial é separado do limite da sua assinatura.",
+    "unavailable": "Pacote inicial indisponível",
+    "loadError": "Não foi possível carregar o status do pacote inicial. Tente novamente.",
+    "selectionLimitReached": "Você selecionou o máximo de músicas disponíveis no pacote inicial.",
+    "selectedCount": "{{selected}} selecionadas",
+    "remainingBeforeImport": "{{remaining}} importações iniciais disponíveis antes desta confirmação",
+    "completedModalMessage": "O pacote inicial desta organização já foi utilizado.",
+    "accessOverviewTitle": "SEUS ACESSOS",
+    "planAllowanceTitle": "Seu plano",
+    "monthlyRemaining": "{{remaining}} importações disponíveis neste ciclo",
+    "unlimited": "Ilimitado",
+    "compactTitle": "Seu pacote inicial ainda está disponível",
+    "compactDescription": "Você ainda pode adicionar {{remaining}} músicas sugeridas ao repertório.",
+    "compactAction": "Escolher músicas"
   }
 }

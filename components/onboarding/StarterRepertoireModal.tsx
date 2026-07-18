@@ -6,6 +6,7 @@ import { useMusic } from '../../contexts/MusicDataContext';
 import { Music, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
 import { GlobalSong } from '../../types';
 import { useTranslation } from 'react-i18next';
+import { useStarterPackAllowance } from '../../hooks/useStarterPackAllowance';
 
 interface StarterRepertoireModalProps {
   isOpen: boolean;
@@ -32,6 +33,8 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
     }
   }, [isOpen, organization, user]);
 
+  const { allowance, refreshAllowance } = useStarterPackAllowance();
+
   const fetchStarterPack = async () => {
     setLoading(true);
     setError(null);
@@ -45,10 +48,27 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
       });
       if (!response.ok) throw new Error('Failed to fetch starter pack');
       const data = await response.json();
-      setStarterSongs(data.starterPack || []);
+      const loadedSongs = data.starterPack || [];
+      setStarterSongs(loadedSongs);
       
-      const ids = new Set(data.starterPack?.map((s: GlobalSong) => s.id));
-      setSelectedIds(ids);
+      const importedIds = new Set<string>();
+      songs.forEach(s => {
+        if (((s as any).onboardingStarter || (s as any).onboardingStarterPack) && s.originGlobalSongId) {
+          importedIds.add(s.originGlobalSongId);
+        }
+      });
+
+      const initialSelection = new Set<string>();
+      const maxSelectable = allowance?.remaining ?? 10;
+      let count = 0;
+      
+      for (const song of loadedSongs) {
+        if (!importedIds.has(song.id) && count < maxSelectable) {
+          initialSelection.add(song.id);
+          count++;
+        }
+      }
+      setSelectedIds(initialSelection);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error fetching starter pack');
     } finally {
@@ -59,8 +79,17 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
   const handleToggle = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      const isImported = songs.some(s => ((s as any).onboardingStarter || (s as any).onboardingStarterPack) && s.originGlobalSongId === id);
+      if (isImported) return prev; // Cannot toggle imported songs
+      
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        if (allowance && next.size >= allowance.remaining) {
+          return prev; // Max reached
+        }
+        next.add(id);
+      }
       return next;
     });
   };
@@ -147,9 +176,26 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
             <p className="text-sm text-zinc-400 leading-relaxed">
               {t('firstValueJourney.starterModalDescription', 'Estas músicas foram selecionadas da Biblioteca Viva para acelerar seu primeiro culto. Revise a lista e escolha quais deseja adicionar. Nada será importado até você confirmar, e tudo poderá ser editado depois.')}
             </p>
-            <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest pt-2">
-              {t('firstValueJourney.starterModalSelectionCount', '{{selected}} de {{maximum}} selecionadas', { selected: selectedIds.size, maximum: starterSongs.length })}
-            </p>
+            {allowance?.completed ? (
+               <p className="text-xs font-bold text-red-400 uppercase tracking-widest pt-2">
+                 {t('starterPackAllowance.completedModalMessage', 'O pacote inicial desta organização já foi utilizado.')}
+               </p>
+            ) : (
+               <>
+                 <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest pt-2">
+                   {t('starterPackAllowance.selectedCount', '{{selected}} selecionadas', { selected: selectedIds.size })}
+                 </p>
+                 <p className="text-xs text-zinc-500">
+                   {t('starterPackAllowance.remainingBeforeImport', '{{remaining}} importações iniciais disponíveis antes desta confirmação', { remaining: allowance?.remaining ?? 10 })}
+                 </p>
+               </>
+            )}
+            
+            {allowance && selectedIds.size >= allowance.remaining && !allowance.completed && (
+              <p className="text-xs text-amber-500 mt-1">
+                {t('starterPackAllowance.selectionLimitReached', 'Você selecionou o máximo de músicas disponíveis no pacote inicial.')}
+              </p>
+            )}
           </div>
         </div>
 
