@@ -24,7 +24,7 @@ export function StarterPackAllowanceCard({ allowance, onOpen, variant = 'compact
         interactive
         className="w-full bg-indigo-500/10 border-indigo-500/30 hover:bg-indigo-500/20 hover:border-indigo-500/50 transition-all flex flex-col md:flex-row items-start md:items-center p-6 gap-4"
       >
-        <div className="flex-1">
+        <div data-testid="starter-pack-empty-card" className="flex-1">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-wider mb-3">
             <Sparkles className="w-3.5 h-3.5" />
             {t('starterPackAllowance.recommended', 'RECOMENDADO')}
@@ -43,7 +43,7 @@ export function StarterPackAllowanceCard({ allowance, onOpen, variant = 'compact
           </p>
         </div>
         <div className="flex-shrink-0 w-full md:w-auto">
-          <button className="w-full md:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2">
+          <button data-testid="starter-pack-open-action" className="w-full md:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2">
             {t('starterPackAllowance.openAction', 'Ver músicas sugeridas')}
             <ArrowRight className="w-4 h-4" />
           </button>
@@ -55,7 +55,7 @@ export function StarterPackAllowanceCard({ allowance, onOpen, variant = 'compact
   if (variant === 'compact') {
     if (allowance.completed) return null;
     return (
-      <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div data-testid="starter-pack-compact-card" className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h4 className="text-white font-medium mb-1">
             {t('starterPackAllowance.compactTitle', 'Seu pacote inicial ainda está disponível')}
@@ -66,6 +66,7 @@ export function StarterPackAllowanceCard({ allowance, onOpen, variant = 'compact
         </div>
         <button
           onClick={onOpen}
+          data-testid="starter-pack-open-action"
           className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
         >
           {t('starterPackAllowance.compactAction', 'Escolher músicas')}

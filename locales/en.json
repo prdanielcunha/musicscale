@@ -968,6 +968,11 @@
     "unlimited": "Unlimited",
     "compactTitle": "Your starter pack is still available",
     "compactDescription": "You can still add {{remaining}} suggested songs to the repertoire.",
-    "compactAction": "Choose songs"
+    "compactAction": "Choose songs",
+    "otherWaysToStart": "Other ways to start",
+    "loading": "Loading starter pack",
+    "unavailableTitle": "Starter pack temporarily unavailable",
+    "unavailableDescription": "We couldn't check your initial songs right now.",
+    "retryAction": "Try again"
   }
 }

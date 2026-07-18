@@ -1,6 +1,7 @@
 import { StarterRepertoireModal } from '../components/onboarding/StarterRepertoireModal';
 import { StarterPackAllowanceCard } from '../components/onboarding/StarterPackAllowanceCard';
 import { useStarterPackAllowance } from '../hooks/useStarterPackAllowance';
+import { useTranslation } from "react-i18next";
 import { logger } from "../lib/logger";
 
 import React, {
@@ -179,7 +180,8 @@ const SongsPage: React.FC = () => {
   const isOverLimit = songs.length >= limits.maxSongs;
   const isAiImportAllowed = useMusicScaleFeature('aiImport');
   const navigate = useNavigate();
-  const { allowance, refreshAllowance } = useStarterPackAllowance();
+  const { t } = useTranslation();
+  const { allowance, refreshAllowance, loading: allowanceLoading, error: allowanceError } = useStarterPackAllowance();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -492,6 +494,8 @@ const SongsPage: React.FC = () => {
     selectedSongIds.length === filteredAndSortedSongs.length;
 
   if (isCompletelyEmpty) {
+    const showStarterPack = canManageRepertoire && allowance && !allowance.completed && allowance.remaining > 0;
+    
     return (
       <>
         <div className="max-w-4xl mx-auto py-12 md:py-20 px-4 text-center">
@@ -508,43 +512,47 @@ const SongsPage: React.FC = () => {
             segundos.
           </p>
 
+          <div className="mb-12" id="starter-pack-container">
+            {canManageRepertoire && allowanceLoading && (
+              <div data-testid="starter-pack-loading" aria-label={t('starterPackAllowance.loading', 'Carregando pacote inicial')} className="w-full h-[180px] rounded-xl bg-slate-200 dark:bg-slate-800/50 animate-pulse"></div>
+            )}
+            
+            {canManageRepertoire && allowanceError && (
+              <Card data-testid="starter-pack-error" className="w-full bg-slate-100 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700 p-6 flex flex-col md:flex-row items-center gap-4 text-left">
+                <div data-testid="starter-pack-error" className="flex-1">
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                    {t('starterPackAllowance.unavailableTitle', 'Pacote inicial temporariamente indisponível')}
+                  </h3>
+                  <p className="text-slate-600 dark:text-slate-400 text-sm">
+                    {t('starterPackAllowance.unavailableDescription', 'Não foi possível consultar suas músicas iniciais agora.')}
+                  </p>
+                </div>
+                <button
+                  data-testid="starter-pack-retry"
+                  onClick={refreshAllowance}
+                  className="px-5 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-sm font-medium rounded-lg transition-colors"
+                >
+                  {t('starterPackAllowance.retryAction', 'Tentar novamente')}
+                </button>
+              </Card>
+            )}
+
+            {showStarterPack && !allowanceLoading && !allowanceError && (
+              <StarterPackAllowanceCard 
+                allowance={allowance!} 
+                onOpen={() => setIsStarterModalOpen(true)} 
+                variant="empty-repertoire" 
+              />
+            )}
+          </div>
+          
+          {(showStarterPack || allowanceLoading || allowanceError) && (
+            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-6 text-left" id="other-ways-to-start">
+              {t('starterPackAllowance.otherWaysToStart', 'Outras formas de começar')}
+            </h3>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card
-              onClick={openAiSongImport}
-              className="p-8 cursor-pointer flex flex-col items-start transition-all duration-300 hover:border-indigo-500/50 border-indigo-500/20 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group bg-gradient-to-br from-indigo-500/10 to-transparent dark:from-indigo-500/5"
-            >
-              <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
-                <SparklesIcon className="w-6 h-6 text-indigo-500" />
-              </div>
-              <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 mb-2 text-left">
-                Importar com IA
-              </h3>
-              <p className="text-slate-500 font-medium text-[15px] leading-relaxed text-left mb-8 flex-1">
-                Dê uma cifra ou letra bagunçada, a IA limpa e estrutura tudo pra você.
-              </p>
-              <div className="flex items-center text-[14px] text-indigo-600 dark:text-indigo-400 font-bold group-hover:translate-x-1 transition-transform bg-indigo-50 dark:bg-indigo-500/10 px-3 py-1.5 rounded-full">
-                Criação Inteligente <ArrowRight className="w-4 h-4 ml-1.5" />
-              </div>
-            </Card>
-
-            <Card
-              onClick={() => navigate("/library")}
-              className="p-8 cursor-pointer flex flex-col items-start transition-all duration-300 hover:border-primary/30 border-black/5 dark:border-white/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group bg-gradient-to-br from-slate-50 to-transparent dark:from-white/[0.02]"
-            >
-              <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
-                <BookOpen className="w-6 h-6 text-primary" />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2 text-left group-hover:text-primary transition-colors">
-                Importar da Biblioteca
-              </h3>
-              <p className="text-slate-500 font-medium text-[15px] leading-relaxed text-left mb-8 flex-1">
-                Músicas prontas com cifras e tons configurados para sua equipe.
-              </p>
-              <div className="flex items-center text-[14px] text-primary font-bold group-hover:translate-x-1 transition-transform bg-primary/5 px-3 py-1.5 rounded-full">
-                Acessar Acervo <ArrowRight className="w-4 h-4 ml-1.5" />
-              </div>
-            </Card>
-
             <Card
               onClick={() => openSongForm()}
               className="p-8 cursor-pointer flex flex-col items-start transition-all duration-300 hover:border-slate-300 dark:hover:border-white/10 border-black/5 dark:border-white/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] group bg-gradient-to-br from-slate-50 to-transparent dark:from-white/[0.02]"
@@ -562,12 +570,56 @@ const SongsPage: React.FC = () => {
                 Criar Nova Música <ArrowRight className="w-4 h-4 ml-1.5" />
               </div>
             </Card>
+
+            <Card
+              onClick={() => navigate("/library")}
+              className="p-8 cursor-pointer flex flex-col items-start transition-all duration-300 hover:border-primary/30 border-black/5 dark:border-white/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group bg-gradient-to-br from-slate-50 to-transparent dark:from-white/[0.02]"
+            >
+              <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
+                <BookOpen className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2 text-left group-hover:text-primary transition-colors">
+                Biblioteca Viva
+              </h3>
+              <p className="text-slate-500 font-medium text-[15px] leading-relaxed text-left mb-8 flex-1">
+                Músicas prontas com cifras e tons configurados para sua equipe.
+              </p>
+              <div className="flex items-center text-[14px] text-primary font-bold group-hover:translate-x-1 transition-transform bg-primary/5 px-3 py-1.5 rounded-full">
+                Acessar Acervo <ArrowRight className="w-4 h-4 ml-1.5" />
+              </div>
+            </Card>
+
+            <Card
+              onClick={openAiSongImport}
+              className="p-8 cursor-pointer flex flex-col items-start transition-all duration-300 hover:border-indigo-500/50 border-indigo-500/20 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group bg-gradient-to-br from-indigo-500/10 to-transparent dark:from-indigo-500/5"
+            >
+              <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
+                <SparklesIcon className="w-6 h-6 text-indigo-500" />
+              </div>
+              <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 mb-2 text-left">
+                Importar com IA
+              </h3>
+              <p className="text-slate-500 font-medium text-[15px] leading-relaxed text-left mb-8 flex-1">
+                Dê uma cifra ou letra bagunçada, a IA limpa e estrutura tudo pra você.
+              </p>
+              <div className="flex items-center text-[14px] text-indigo-600 dark:text-indigo-400 font-bold group-hover:translate-x-1 transition-transform bg-indigo-50 dark:bg-indigo-500/10 px-3 py-1.5 rounded-full">
+                Criação Inteligente <ArrowRight className="w-4 h-4 ml-1.5" />
+              </div>
+            </Card>
           </div>
         </div>
         <StarterRepertoireModal
           isOpen={isStarterModalOpen}
-          onCancel={handleStarterRepertoireCancel}
-          onCompleted={handleStarterRepertoireCompleted}
+          onCancel={() => setIsStarterModalOpen(false)}
+          onCompleted={async () => {
+            setIsStarterModalOpen(false);
+            if (typeof refreshData === 'function') {
+              await refreshData();
+            }
+            if (typeof refreshAllowance === 'function') {
+              await refreshAllowance();
+            }
+          }}
         />
       </>
     );
@@ -575,6 +627,13 @@ const SongsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {canManageRepertoire && allowance && !allowance.completed && allowance.remaining > 0 && (
+        <StarterPackAllowanceCard 
+          allowance={allowance} 
+          onOpen={() => setIsStarterModalOpen(true)} 
+          variant="compact" 
+        />
+      )}
       <RepertoireMetricsView songs={songs} mode="repertoire" />
 
       <div className="flex flex-wrap items-center justify-between gap-4">

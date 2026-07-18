@@ -965,6 +965,11 @@
     "unlimited": "Ilimitado",
     "compactTitle": "Tu paquete inicial aún está disponible",
     "compactDescription": "Aún puedes agregar {{remaining}} canciones sugeridas al repertorio.",
-    "compactAction": "Elegir canciones"
+    "compactAction": "Elegir canciones",
+    "otherWaysToStart": "Otras formas de empezar",
+    "loading": "Cargando paquete inicial",
+    "unavailableTitle": "Paquete inicial temporalmente no disponible",
+    "unavailableDescription": "No pudimos consultar tus canciones iniciales en este momento.",
+    "retryAction": "Intentar nuevamente"
   }
 }
