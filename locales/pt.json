@@ -888,5 +888,33 @@
     "scaleResponses.errors.notPublished": "A escala não está publicada.",
     "scaleResponses.errors.eventStarted": "O horário deste evento já começou e a resposta não pode mais ser alterada.",
     "scaleResponses.errors.notAssigned": "Você não está escalado neste evento."
+  },
+  "firstValueJourney": {
+    "title": "Prepare seu primeiro culto",
+    "subtitle": "Vamos organizar repertório, escala e publicação em poucos passos.",
+    "progress": "{{current}} de {{total}} etapas essenciais concluídas",
+    "milestoneRepertoire": "Repertório",
+    "milestoneFirstScale": "Primeira escala",
+    "milestoneTeam": "Equipe",
+    "milestonePublish": "Publicação",
+    "statusCompleted": "Concluído",
+    "statusCurrent": "Atual",
+    "statusPending": "Pendente",
+    "statusOptional": "Opcional",
+    "repertoireTitle": "Prepare seu repertório",
+    "repertoireDescription": "Escolha músicas prontas ou crie a primeira música do seu ministério.",
+    "starterPackAction": "Escolher repertório inicial",
+    "starterPackHelper": "Até 10 músicas iniciais prontas para começar.",
+    "manualAction": "Criar manualmente",
+    "aiAction": "Importar com IA",
+    "libraryAction": "Biblioteca Viva",
+    "firstScaleTitle": "Crie sua primeira escala",
+    "firstScaleDescription": "Defina data, horário e repertório. O MusicScale já prepara Culto e Local Principal para facilitar o início.",
+    "createScaleAction": "Criar primeira escala",
+    "publishTitle": "Sua primeira escala está quase pronta",
+    "publishDescription": "Revise as informações e publique quando estiver tudo certo.",
+    "continueDraftAction": "Continuar primeira escala",
+    "addTeamAction": "Adicionar equipe",
+    "teamOptionalHelper": "Você também pode publicar agora e adicionar a equipe depois."
   }
 }

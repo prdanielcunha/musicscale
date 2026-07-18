@@ -889,5 +889,33 @@
     "scaleResponses.errors.notPublished": "Scale is not published.",
     "scaleResponses.errors.eventStarted": "This event has already started and the response can no longer be changed.",
     "scaleResponses.errors.notAssigned": "You are not scheduled for this event."
+  },
+  "firstValueJourney": {
+    "title": "Prepare your first service",
+    "subtitle": "Let's organize repertoire, schedule and publish in a few steps.",
+    "progress": "{{current}} of {{total}} essential steps completed",
+    "milestoneRepertoire": "Repertoire",
+    "milestoneFirstScale": "First Schedule",
+    "milestoneTeam": "Team",
+    "milestonePublish": "Publish",
+    "statusCompleted": "Completed",
+    "statusCurrent": "Current",
+    "statusPending": "Pending",
+    "statusOptional": "Optional",
+    "repertoireTitle": "Prepare your repertoire",
+    "repertoireDescription": "Choose ready-made songs or create your ministry's first song.",
+    "starterPackAction": "Choose starter repertoire",
+    "starterPackHelper": "Up to 10 starter songs ready to go.",
+    "manualAction": "Create manually",
+    "aiAction": "Import with AI",
+    "libraryAction": "Living Library",
+    "firstScaleTitle": "Create your first schedule",
+    "firstScaleDescription": "Set date, time, and repertoire. MusicScale pre-fills Service and Main Location to make it easy.",
+    "createScaleAction": "Create first schedule",
+    "publishTitle": "Your first schedule is almost ready",
+    "publishDescription": "Review the information and publish when everything is set.",
+    "continueDraftAction": "Continue first schedule",
+    "addTeamAction": "Add team",
+    "teamOptionalHelper": "You can also publish now and add the team later."
   }
 }
