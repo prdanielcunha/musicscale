@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import { evaluateFirstValueJourney, FirstValueJourneyInput } from '../utils/firstValueJourney';
 
 function assert(condition: boolean, message: string) {
@@ -81,4 +82,51 @@ const test14 = evaluateFirstValueJourney({
 });
 assert(test14.draftScale?.id === 'sc2', "rascunho mais recente é selecionado.");
 
-console.log('All evaluateFirstValueJourney tests passed!');
+
+console.log("Starting Structural UI Tests for First Value Journey...");
+const firstScaleJourneyCard = fs.readFileSync('components/onboarding/FirstScaleJourneyCard.tsx', 'utf8');
+const songsPage = fs.readFileSync('pages/SongsPage.tsx', 'utf8');
+const modal = fs.readFileSync('components/onboarding/StarterRepertoireModal.tsx', 'utf8');
+
+assert(
+  firstScaleJourneyCard.includes("navigate('/songs?starterPack=1', { state: { starterRepertoireOrigin: 'first-value-journey' } })"),
+  "Jornada envia origin first-value-journey"
+);
+
+assert(
+  songsPage.includes("navigate('/', { replace: true });"),
+  "Retorno usa replace e navega para / quando aberto pela jornada"
+);
+
+assert(
+  songsPage.includes("prev.delete('starterPack');"),
+  "Abertura direta remove o parâmetro e permanece na página"
+);
+
+assert(
+  modal.includes("onCancel: () => void;"),
+  "StarterRepertoireModal usa onCancel"
+);
+
+assert(
+  modal.includes("onCompleted: (result?: any) => void;"),
+  "StarterRepertoireModal usa onCompleted"
+);
+
+assert(
+  songsPage.includes("if (isStarterModalOpen) {") && songsPage.includes("setIsStarterModalOpen(false);"),
+  "Effect limpa o modal na troca de organização"
+);
+
+assert(
+  songsPage.includes("const handleStarterRepertoireCompleted = async () => {") && songsPage.includes("await refreshData();"),
+  "Conclusão aguarda refreshData"
+);
+
+assert(
+  !songsPage.includes("setTimeout("),
+  "Nenhum setTimeout utilizado"
+);
+
+console.log("All evaluateFirstValueJourney tests passed!");
+

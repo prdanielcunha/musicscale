@@ -243,12 +243,23 @@ const SongsPage: React.FC = () => {
     }
   };
 
-  const handleStarterRepertoireCompleted = () => {
+  const handleStarterRepertoireCompleted = async () => {
     setIsStarterModalOpen(false);
-    refreshData();
-    if (openedFromFirstValueJourney) {
-      navigate('/', { replace: true });
-    } else {
+    
+    try {
+      await refreshData();
+      
+      if (openedFromFirstValueJourney) {
+        navigate('/', { replace: true });
+        return;
+      }
+      
+      setSearchParams(prev => {
+         prev.delete('starterPack');
+         return prev;
+      }, { replace: true, state: {} });
+    } catch (error) {
+      console.error("Failed to refresh data after starter pack import:", error);
       setSearchParams(prev => {
          prev.delete('starterPack');
          return prev;
