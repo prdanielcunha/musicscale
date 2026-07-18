@@ -140,12 +140,17 @@ export function StarterRepertoireModal({ isOpen, onClose, onSuccess }: StarterRe
   const alreadyImportedIds = new Set(songs?.filter(s => s.originGlobalSongId).map(s => s.originGlobalSongId));
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t('onboarding.starter_modal_title', 'Repertório Inicial')}>
+    <Modal isOpen={isOpen} onClose={onClose} title={t('firstValueJourney.starterModalTitle', 'Escolha seu repertório inicial')}>
       <div className="p-4 md:p-6 flex flex-col h-full max-h-[80vh]">
         <div className="mb-6">
-          <p className="text-zinc-400">
-            {t('onboarding.starter_modal_desc', 'Selecionamos {{count}} músicas para você começar. Elas estão prontas para usar na sua primeira escala.', { count: starterSongs.length })}
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              {t('firstValueJourney.starterModalDescription', 'Estas músicas foram selecionadas da Biblioteca Viva para acelerar seu primeiro culto. Revise a lista e escolha quais deseja adicionar. Nada será importado até você confirmar, e tudo poderá ser editado depois.')}
+            </p>
+            <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest pt-2">
+              {t('firstValueJourney.starterModalSelectionCount', '{{selected}} de {{maximum}} selecionadas', { selected: selectedIds.size, maximum: starterSongs.length })}
+            </p>
+          </div>
         </div>
 
         {error ? (
@@ -222,7 +227,7 @@ export function StarterRepertoireModal({ isOpen, onClose, onSuccess }: StarterRe
             className="px-6 py-2.5 bg-white text-zinc-900 rounded-lg hover:bg-zinc-100 transition-colors font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {importing ? t('onboarding.adding', 'Adicionando...') : (selectedIds.size === 1 ? t('onboarding.add_songs_btn_one', 'Adicionar {{count}} música', { count: selectedIds.size }) : t('onboarding.add_songs_btn_other', 'Adicionar {{count}} músicas', { count: selectedIds.size }))}
+            {importing ? t('onboarding.adding', 'Adicionando...') : t('firstValueJourney.starterModalConfirm', 'Adicionar {{count}} ao repertório', { count: selectedIds.size })}
           </button>
         </div>
       </div>

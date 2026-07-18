@@ -1,4 +1,5 @@
 import { FirstScaleJourneyCard } from '../components/onboarding/FirstScaleJourneyCard';
+import { useFirstScaleExperience } from "../hooks/useFirstScaleExperience";
 import React, { useMemo, useState, useEffect } from "react";
 import { useMusic } from "../contexts/MusicDataContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -116,6 +117,7 @@ const DashboardPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { toast, removeToast } = useToast();
   const { user, organization, isSupportMode } = useAuth();
+  const journey = useFirstScaleExperience();
   const [notifiedUser, setNotifiedUser] = useState(false);
   const {
     songs,
@@ -775,13 +777,17 @@ const DashboardPage: React.FC = () => {
     <div className="relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 animate-fade-in touch-manipulation">
       {/* Mobile Premium Global Background Layer */}
 
+      {journey && !journey.isLoading && journey.isEligible && !journey.isCompleted && Boolean(journey.currentEssentialStep) && (
+        <FirstScaleJourneyCard journey={journey} />
+      )}
+
       {nextUpcomingScale && <HeroScale scale={nextUpcomingScale} />}
 
       <YourNextScaleCard />
 
-      <QuickActions />
-
-      <FirstScaleJourneyCard />
+      {!(journey && !journey.isLoading && journey.isEligible && !journey.isCompleted && Boolean(journey.currentEssentialStep)) && (
+        <QuickActions />
+      )}
       
       <DashboardMetrics />
 

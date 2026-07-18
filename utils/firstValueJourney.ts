@@ -28,7 +28,7 @@ export interface FirstValueJourneyOutput {
 
 export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstValueJourneyOutput {
   const { songs, scales, allUsers, canEditScales, canCreateSongs, canManageMembers, organizationId, loading } = input;
-
+  
   const totalEssentialSteps = 3;
 
   if (loading || !organizationId) {
@@ -113,10 +113,6 @@ export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstV
     {
       id: 'firstScale',
       status: completedEssentialSteps >= 2 ? 'completed' : (currentEssentialStep === 'firstScale' ? 'current' : 'pending')
-    },
-    {
-      id: 'team',
-      status: hasTeam ? 'completed' : 'optional'
     },
     {
       id: 'publish',

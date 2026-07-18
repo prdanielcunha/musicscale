@@ -49,13 +49,13 @@ assert(test6.currentEssentialStep === 'publish', "escala draft inicia publish.")
 // 8. ausência de equipe não bloqueia publish.
 assert(test6.milestones.find(m => m.id === 'publish')?.status === 'current', "ausência de equipe não bloqueia publish.");
 
-// 9. equipe com mais de um usuário fica completed.
+// 9. equipe com mais de um usuário ativa flag hasTeam.
 const test9 = evaluateFirstValueJourney({ ...baseInput, songs: [{ id: 's1' }], scales: [{ id: 'sc1', status: 'draft' }], allUsers: [{ id: 'user1' }, { id: 'user2' }] });
-assert(test9.hasTeam === true && test9.milestones.find(m => m.id === 'team')?.status === 'completed', "equipe com mais de um usuário fica completed.");
+assert(test9.hasTeam === true, "equipe com mais de um usuário ativa hasTeam.");
 
-// 10. equipe sem usuários adicionais fica optional.
+// 10. equipe sem usuários adicionais desativa hasTeam.
 const test10 = evaluateFirstValueJourney({ ...baseInput, songs: [{ id: 's1' }], scales: [{ id: 'sc1', status: 'draft' }] });
-assert(test10.hasTeam === false && test10.milestones.find(m => m.id === 'team')?.status === 'optional', "equipe sem usuários adicionais fica optional.");
+assert(test10.hasTeam === false, "equipe sem usuários adicionais desativa hasTeam.");
 
 // 11. escala published conclui a jornada.
 const test11 = evaluateFirstValueJourney({ ...baseInput, songs: [{ id: 's1' }], scales: [{ id: 'sc1', status: 'published' }] });
