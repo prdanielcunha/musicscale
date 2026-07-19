@@ -73,6 +73,7 @@ describe('SongsPage Starter Pack Visibility', () => {
     (useMusic as any).mockReturnValue({
       songs: [],
       tags: [],
+      starterPack: [],
       loading: false,
       error: null,
       refreshData: mockRefreshData,
@@ -88,6 +89,7 @@ describe('SongsPage Starter Pack Visibility', () => {
     
     (useStarterPackAllowance as any).mockReturnValue({
       allowance: { remaining: 10, limit: 10, completed: false, started: false, used: 0 },
+      starterPack: [],
       loading: false,
       error: null,
       refreshAllowance: mockRefreshAllowance,
@@ -152,6 +154,7 @@ describe('SongsPage Starter Pack Visibility', () => {
   it('Cenário 5: Saldo loading', () => {
     (useStarterPackAllowance as any).mockReturnValue({
       allowance: null,
+      starterPack: [],
       loading: true,
       error: null,
       refreshAllowance: mockRefreshAllowance,
@@ -166,6 +169,7 @@ describe('SongsPage Starter Pack Visibility', () => {
   it('Cenário 6: Erro no saldo', () => {
     (useStarterPackAllowance as any).mockReturnValue({
       allowance: null,
+      starterPack: [],
       loading: false,
       error: 'Failed to fetch',
       refreshAllowance: mockRefreshAllowance,
@@ -185,6 +189,7 @@ describe('SongsPage Starter Pack Visibility', () => {
   it('Cenário 7: Saldo completed (Repertório vazio)', () => {
     (useStarterPackAllowance as any).mockReturnValue({
       allowance: { remaining: 0, limit: 10, completed: true, started: true, used: 10 },
+      starterPack: [],
       loading: false,
       error: null,
       refreshAllowance: mockRefreshAllowance,
@@ -214,6 +219,7 @@ describe('SongsPage Starter Pack Visibility', () => {
     (useMusic as any).mockReturnValue({
       songs: [{ id: '1', title: 'Song 1' }],
       tags: [],
+      starterPack: [],
       loading: false,
       error: null,
       refreshData: mockRefreshData,
@@ -235,6 +241,7 @@ describe('SongsPage Starter Pack Visibility', () => {
     (useMusic as any).mockReturnValue({
       songs: [{ id: '1', title: 'Song 1' }],
       tags: [],
+      starterPack: [],
       loading: false,
       error: null,
       refreshData: mockRefreshData,
@@ -242,6 +249,7 @@ describe('SongsPage Starter Pack Visibility', () => {
     
     (useStarterPackAllowance as any).mockReturnValue({
       allowance: { remaining: 0, limit: 10, completed: true, started: true, used: 10 },
+      starterPack: [],
       loading: false,
       error: null,
       refreshAllowance: mockRefreshAllowance,
@@ -272,6 +280,7 @@ describe('SongsPage Starter Pack Visibility', () => {
     
     (useStarterPackAllowance as any).mockReturnValue({
       allowance: null,
+      starterPack: [],
       loading: true,
       error: null,
       refreshAllowance: mockRefreshAllowance,

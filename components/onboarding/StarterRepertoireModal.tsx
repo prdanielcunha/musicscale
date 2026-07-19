@@ -21,6 +21,18 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
   const { publishEvent } = useEcosystem();
   const { starterPack: hookStarterPack, allowance, refreshAllowance, error: hookError, loading: hookLoading } = useStarterPackAllowance();
   useEffect(() => {
+    if (!isOpen) {
+      setSelectedIds(new Set());
+      setImportError(null);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setImportError(null);
+  }, [organization?.id]);
+
+  useEffect(() => {
     if (isOpen && hookStarterPack.length > 0 && allowance) {
       const importedIds = new Set<string>();
       songs.forEach(s => {
@@ -30,8 +42,10 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
       });
 
       const initialSelection = new Set<string>();
-      const maxSelectable = allowance?.remaining ?? 10;
+      const maxSelectable = allowance.remaining;
       let count = 0;
+      if (allowance.completed || allowance.remaining === 0) return;
+
       
       for (const song of hookStarterPack) {
         if (count >= maxSelectable) break;
@@ -109,6 +123,7 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
       }
       
       await refreshData();
+      await refreshAllowance();
       publishEvent({
         type: 'telemetry',
         payload: {
@@ -170,7 +185,7 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
                    {t('starterPackAllowance.selectedCount', '{{selected}} selecionadas', { selected: selectedIds.size })}
                  </p>
                  <p className="text-xs text-zinc-500">
-                   {t('starterPackAllowance.remainingBeforeImport', '{{remaining}} importações iniciais disponíveis antes desta confirmação', { remaining: allowance?.remaining ?? 10 })}
+                   {t('starterPackAllowance.remainingBeforeImport', '{{remaining}} importações iniciais disponíveis antes desta confirmação', { remaining: allowance?.remaining })}
                  </p>
                </>
             )}
@@ -197,6 +212,11 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
           <div className="flex-1 flex flex-col items-center justify-center py-10">
             <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
             <p className="text-zinc-500">{t('onboarding.fetching_repertoire', 'Buscando o melhor repertório...')}</p>
+          </div>
+        ) : hookStarterPack.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center py-10">
+            <p className="text-zinc-400 mb-2">Seu pacote inicial está vazio no momento.</p>
+            <p className="text-sm text-zinc-500">Volte mais tarde quando houver novas músicas disponíveis.</p>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">

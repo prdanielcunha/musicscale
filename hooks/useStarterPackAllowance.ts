@@ -75,11 +75,18 @@ export function useStarterPackAllowance() {
 
       const data = await response.json();
 
-      if (data.success && data.allowance) {
+      const isValidAllowance = data.allowance && 
+        typeof data.allowance.limit === 'number' &&
+        typeof data.allowance.used === 'number' &&
+        typeof data.allowance.remaining === 'number' &&
+        typeof data.allowance.completed === 'boolean' &&
+        typeof data.allowance.started === 'boolean';
+
+      if (data.success && isValidAllowance) {
         setAllowance(data.allowance);
-        if (data.starterPack) setStarterPack(data.starterPack);
+        setStarterPack(Array.isArray(data.starterPack) ? data.starterPack : []);
         setError(null);
-      } else if (!data.allowance) {
+      } else if (!isValidAllowance) {
         setError({
           message: 'Estamos atualizando o acesso ao pacote inicial. Tente novamente em instantes.',
           code: 'BACKEND_ALLOWANCE_CONTRACT_UNAVAILABLE'
