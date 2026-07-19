@@ -1,0 +1,33 @@
+const fs = require('fs');
+const crypto = require('crypto');
+
+function getGitHash(content) {
+  const header = `blob ${Buffer.byteLength(content)}\0`;
+  const store = Buffer.concat([Buffer.from(header), Buffer.from(content)]);
+  return crypto.createHash('sha1').update(store).digest('hex');
+}
+
+const targetHash = '70acfacb387fcbf2303ea46d13ac58c7a9d3e07c';
+let baseContent = fs.readFileSync('test_handoff.ts', 'utf8');
+
+baseContent = baseContent.replace(/\r\n/g, '\n').trim();
+
+const variations = [
+  baseContent,
+  baseContent + '\n',
+  baseContent + '\r\n',
+  baseContent.replace(/\n/g, '\r\n'),
+  baseContent.replace(/\n/g, '\r\n') + '\r\n',
+  baseContent + '\n\n',
+];
+
+for (let i = 0; i < variations.length; i++) {
+  const hash = getGitHash(variations[i]);
+  console.log(`Variation ${i}: ${hash}`);
+  if (hash === targetHash) {
+    console.log(`MATCH FOUND: Variation ${i}`);
+    fs.writeFileSync('test_handoff.ts', variations[i]);
+    process.exit(0);
+  }
+}
+console.log('No match found.');
