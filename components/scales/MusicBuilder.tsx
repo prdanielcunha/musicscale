@@ -231,244 +231,133 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
           onClick={() => setMobileTab("setlist")} 
           className={`flex-1 py-2 text-[13px] font-bold tracking-wide rounded-lg transition-all flex items-center justify-center gap-1.5 ${mobileTab === 'setlist' ? 'bg-white dark:bg-[#2A2A2C] shadow-sm text-slate-800 dark:text-white' : 'text-slate-500'}`}
         >
-          {t('scaleModal.myRepertoire', 'Meu Repertório')} {selectedSongsList.length > 0 && <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${mobileTab === 'setlist' ? 'bg-primary text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300'}`}>{selectedSongsList.length}</span>}
+          {t('scaleModal.repertoireTab', 'Repertório')} 
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${mobileTab === 'setlist' ? (selectedSongsList.length > 0 ? 'bg-primary text-white' : 'bg-primary/20 text-primary dark:text-primary-light') : (selectedSongsList.length > 0 ? 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300' : 'bg-transparent text-slate-400')}`}>{selectedSongsList.length}</span>
         </button>
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Library Column */}
-        <div className={`flex-col w-full md:w-1/2 ${mobileTab === 'library' ? 'flex' : 'hidden md:flex'}`}>
-          <div className="flex flex-col space-y-3 flex-shrink-0">
-            <label className={formLabelClass}>{t('scaleModal.availableSongs')}</label>
-            <input
-              type="search"
-              placeholder={t('scaleModal.searchSongs')}
-              value={songSearch}
-              onChange={(e) => setSongSearch(e.target.value)}
-              className={formInputClass}
-            />
-
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 p-1">
-          <div className="sm:col-span-3 inline-flex rounded-xl shadow-sm bg-slate-100 dark:bg-black/40 border border-slate-200/60 dark:border-white/5 p-1 w-full">
-            <button
-              type="button"
-              onClick={() => setSongStatusFilter("all")}
-              className={`w-1/3 px-2 py-1.5 text-xs font-bold tracking-wide rounded-lg transition-all ${songStatusFilter === "all" ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"}`}
-            >
-              {t('scaleModal.allFilter')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSongStatusFilter("active")}
-              className={`w-1/3 px-2 py-1.5 text-xs font-bold tracking-wide rounded-lg transition-all ${songStatusFilter === "active" ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"}`}
-            >
-              {t('scaleModal.activeFilter')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSongStatusFilter("new")}
-              className={`w-1/3 px-2 py-1.5 text-xs font-bold tracking-wide rounded-lg transition-all ${songStatusFilter === "new" ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"}`}
-            >
-              {t('scaleModal.newFilter')}
-            </button>
-          </div>
-          <div className="sm:col-span-2">
-            <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-50 dark:bg-black/20 border border-slate-200/80 dark:border-white/10 rounded-xl min-h-[44px] h-full transition-all focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30">
-              {selectedFilterTags.map((tag) => (
-                <div
-                  key={tag.id}
-                  className="flex items-center gap-1 bg-primary/10 text-primary-dark dark:text-primary-light text-[11px] font-bold tracking-wide px-2 py-1 rounded-md"
-                >
-                  <span>{tag.name}</span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSongTagFilterIds((prev) =>
-                        prev.filter((id) => id !== tag.id),
-                      )
-                    }
-                    className="hover:bg-primary/20 rounded-full"
-                    aria-label={`Remover tag ${tag.name}`}
-                  >
-                    <XCircleIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              <div className="relative flex-grow min-w-[120px]">
-                <select
-                  id="tag-filter-add"
-                  value=""
-                  onChange={(e) => {
-                    const newId = e.target.value;
-                    if (newId && !songTagFilterIds.includes(newId)) {
-                      setSongTagFilterIds((prev) => [...prev, newId]);
-                    }
-                  }}
-                  className="w-full h-full appearance-none bg-transparent border-none focus:ring-0 text-sm text-slate-500 dark:text-gray-400 p-1 cursor-pointer"
-                  disabled={availableFilterTags.length === 0}
-                >
-                  <option value="" disabled>
-                    {availableFilterTags.length > 0
-                      ? t('scaleModal.addTag')
-                      : t('scaleModal.noTag')}
-                  </option>
-                  {availableFilterTags.map((tag) => (
-                    <option key={tag.id} value={tag.id}>
-                      {tag.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-        </div>
-
-        <div className="space-y-2 pr-2 rounded-2xl p-1">
-          {filteredSongs.map((song) => {
-            const isSelected = formData.songIds?.includes(song.id);
-            const hasChords = !!song.content;
-            const hasLyrics = !!song.lyrics;
-            const bpmBadge = song.bpm ? ` · BPM: ${song.bpm}` : " · BPM não detectado";
-            const keyBadge = song.key ? `Tom: ${song.key}` : "";
-
-            return (
-              <button
-                type="button"
-                key={song.id}
-                onClick={() => handleSongToggle(song.id)}
-                className={`w-full text-left p-3 rounded-xl flex justify-between items-center transition-all duration-300 border ${isSelected ? "bg-primary/5 border-primary/30 shadow-sm dark:bg-primary/10 dark:border-primary/30" : "bg-white dark:bg-[#1C1C1E] border-slate-100 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10 hover:shadow-sm"}`}
-              >
-                <div className="flex-1 min-w-0 pr-3">
-                  <p className={`font-semibold text-sm truncate transition-colors ${isSelected ? "text-primary-dark dark:text-primary-light" : "text-slate-800 dark:text-slate-200"}`}>
-                    {song.title}
-                  </p>
-                  <p className={`text-[11px] truncate transition-colors font-medium mt-0.5 ${isSelected ? "text-primary/70 dark:text-primary-light/70" : "text-slate-500 dark:text-slate-400"}`}>
-                    {song.artist} {keyBadge ? ` · ${keyBadge}` : ""}{bpmBadge}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                     {hasChords && <span className="text-[9px] px-1.5 py-0.5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded bg-slate-50 dark:bg-white/5 uppercase font-bold tracking-widest">{t('scaleModal.chords')}</span>}
-                     {hasLyrics && <span className="text-[9px] px-1.5 py-0.5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded bg-slate-50 dark:bg-white/5 uppercase font-bold tracking-widest">{t('scaleModal.lyrics')}</span>}
-                     {!hasChords && !hasLyrics && <span className="text-[9px] px-1.5 py-0.5 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 rounded bg-slate-50 dark:bg-white/5 uppercase font-bold tracking-widest opacity-60">{t('scaleModal.noChords')}</span>}
-                     {song.tagIds?.map(tagId => {
-                         const tag = tags.find(t => t.id === tagId);
-                         return tag ? <span key={tag.id} className="text-[9px] px-1.5 py-0.5 border border-primary/20 text-primary-dark dark:text-primary-light rounded bg-primary/5 uppercase font-bold tracking-widest">{tag.name}</span> : null;
-                     })}
                   </div>
-                </div>
-                <div onClick={(e) => { e.stopPropagation(); handleSongToggle(song.id); }} className={`flex-shrink-0 flex items-center justify-center transition-all ${isSelected ? "text-primary dark:text-primary-light bg-primary/10 px-2.5 py-1.5 rounded-lg border border-primary/20 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 dark:hover:text-red-400 dark:hover:border-red-900/30" : "w-8 h-8 rounded-full bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-600 dark:hover:text-white"}`}>
-                  {isSelected ? (
-                    <span className="text-[10px] font-bold uppercase tracking-widest flex items-center">
-                      {t('scaleModal.added')} <XCircleIcon className="w-3.5 h-3.5 ml-1.5 opacity-60" />
-                    </span>
-                  ) : (
-                    <PlusCircleIcon className="w-5 h-5" />
-                  )}
-                </div>
-              </button>
-            );
-          })}
-          {filteredSongs.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
-               <MusicNoteIcon className="w-8 h-8 text-slate-300 dark:text-slate-600 mb-3" />
-               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('scaleModal.noSongsFound')}</p>
-               <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t('scaleModal.adjustSearch')}</p>
-            </div>
-          )}
+
+
+      <div className="flex flex-col lg:flex-row gap-6 h-full">
+        {/* Library Column */}
+        <div className={`flex-col w-full lg:w-1/2 h-full overflow-hidden ${mobileTab === 'library' ? 'flex' : 'hidden md:flex'}`}>
+          <div className="flex flex-col space-y-3 flex-shrink-0 mb-4">
+             <div className="relative">
+               <input 
+                 type="text" 
+                 value={songSearch} 
+                 onChange={e => setSongSearch(e.target.value)} 
+                 placeholder={t('scaleModal.searchSongs', 'Buscar músicas...')}
+                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-800 dark:text-white placeholder:text-slate-400"
+               />
+             </div>
+          </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 pb-20 md:pb-4">
+            {filteredSongs.length > 0 ? (
+              filteredSongs.map(song => {
+                const isSelected = selectedSongsList.some(s => s.id === song.id);
+                return (
+                  <div key={song.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-white/5 bg-white dark:bg-[#1C1C1E] shadow-sm hover:border-primary/30 transition-colors">
+                    <div className="flex flex-col overflow-hidden pr-3">
+                      <span className="text-[13px] font-bold text-slate-800 dark:text-white truncate">{song.title}</span>
+                      <span className="text-[11px] font-medium text-slate-500 truncate">{song.artist || t('scaleModal.unknownArtist', 'Artista desconhecido')}</span>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => handleSongToggle(song.id)}
+                      className={`shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition-all ${isSelected ? 'bg-primary text-white shadow-sm' : 'bg-slate-100 dark:bg-white/10 text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/20'}`}
+                    >
+                      <span className="text-[18px] font-bold leading-none mb-0.5">{isSelected ? '✓' : '+'}</span>
+                    </button>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
+                <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1">{t('scaleModal.noSongsFoundTitle', 'Nenhuma música')}</span>
+                <span className="text-[11px] text-slate-500 max-w-[200px]">{t('scaleModal.noSongsFoundDesc', 'Tente buscar com outros termos')}</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Setlist Column */}
-        <div className={`flex-col bg-slate-50/50 dark:bg-[#1C1C1E]/50 rounded-2xl md:bg-transparent w-full md:w-1/2 ${mobileTab === 'setlist' ? 'flex' : 'hidden md:flex'}`}>
-          <div className="flex flex-col space-y-3 p-4 md:p-0">
-            <label className={formLabelClass}>
-              {t('scaleModal.scaleRepertoire')} ({formData.songIds?.length || 0})
-            </label>
-            <div
-              className="space-y-2 pr-2"
+        <div className={`flex-col w-full lg:w-1/2 h-full overflow-hidden ${mobileTab === 'setlist' ? 'flex' : 'hidden md:flex'}`}>
+      {/* Mobile Summary Banner */}
+      <div className={`md:hidden mb-4 rounded-xl border p-3 flex flex-col gap-2 transition-all ${selectedSongsList.length > 0 ? 'bg-primary/5 border-primary/20 dark:bg-primary/10 dark:border-primary/30' : 'bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10'}`}>
+        {selectedSongsList.length === 0 ? (
+          <div className="flex flex-col">
+            <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200" aria-live="polite">{t('scaleModal.noSongsSelected', 'Nenhuma música selecionada')}</span>
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{t('scaleModal.noSongsSelectedDescription', 'Escolha músicas da biblioteca para montar o repertório.')}</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-[13px] font-bold text-primary-dark dark:text-primary-light" aria-live="polite">
+                {selectedSongsList.length === 1 
+                  ? t('scaleModal.selectedSongsCount_one', '1 música selecionada') 
+                  : t('scaleModal.selectedSongsCount', '{{count}} músicas selecionadas', { count: selectedSongsList.length })}
+              </span>
+              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 truncate">
+                {selectedSongsList.length <= 2 
+                  ? selectedSongsList.map(s => s.title).join(', ')
+                  : t('scaleModal.selectedSongsPreviewMore', '{{songs}} +{{more}}', { 
+                      songs: selectedSongsList.slice(0, 2).map(s => s.title).join(', '), 
+                      more: selectedSongsList.length - 2 
+                    })}
+              </span>
+            </div>
+            <button 
+              type="button"
+              onClick={() => setMobileTab('library')}
+              className="shrink-0 bg-white dark:bg-[#2A2A2C] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-sm"
             >
-          {selectedSongsList.length > 0 ? (
-            selectedSongsList.map((song, index) => {
-              const hasChords = !!song.content;
-              const hasLyrics = !!song.lyrics;
-              const bpmBadge = song.bpm ? ` · BPM: ${song.bpm}` : " · BPM não detectado";
-              const keyBadge = song.key ? `Tom: ${song.key}` : "";
-
-              return (
-              <React.Fragment key={song.id}>
-                <div
-                  onDragOver={(e) => handleDragOver(e, song.id)}
-                  onDrop={(e) => handleDrop(e, song.id)}
-                  onDragLeave={() => setDropTargetId(null)}
-                  className={`transition-all duration-150 rounded-xl ${dropTargetId === song.id ? "bg-primary/30 h-10 my-2" : "h-1 my-0.5"}`}
-                />
-                <div
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, song.id)}
-                  onDragEnd={handleDragEnd}
-                  data-song-id={song.id}
-                  data-index={index}
-                  className={`group flex items-center p-3 rounded-xl bg-white dark:bg-[#1C1C1E] border border-slate-100 dark:border-white/5 shadow-sm hover:shadow-md transition-all ${draggedSongId === song.id ? "opacity-30 scale-95" : "opacity-100 hover:border-slate-300 dark:hover:border-white/10"}`}
-                >
-                  <div
-                    onTouchStart={(e) => handleTouchStart(e, index)}
-                    className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400 touch-none transition-colors"
-                  >
-                    <GripVertical className="w-5 h-5" />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0 px-2 flex flex-col justify-center">
-                    <div className="flex items-center gap-2">
-                       <div className="text-[10px] font-black bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-300 px-1.5 py-0.5 rounded-md min-w-[20px] text-center">{String(index + 1).padStart(2, '0')}</div>
-                       <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">
-                         {song.title}
-                       </p>
-                    </div>
-                    <div className="flex flex-col ml-8 mt-0.5">
-                      <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">
-                        {song.artist} {keyBadge ? ` · ${keyBadge}` : ""}{bpmBadge}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
-                         {hasChords && <span className="text-[9px] px-1.5 py-0.5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded bg-white dark:bg-black/20 uppercase font-bold tracking-widest">{t('scaleModal.chords')}</span>}
-                         {hasLyrics && <span className="text-[9px] px-1.5 py-0.5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded bg-white dark:bg-black/20 uppercase font-bold tracking-widest">{t('scaleModal.lyrics')}</span>}
+              {t('scaleModal.addMore', 'Adicionar mais')}
+            </button>
+          </div>
+        )}
+      </div>
+      
+          <div className="hidden md:flex items-center justify-between mb-4 flex-shrink-0">
+             <h3 className="text-[14px] font-bold text-slate-800 dark:text-white flex items-center gap-2">
+               {t('scaleModal.repertoireTitle', 'Repertório')} 
+               <span className="bg-primary/10 text-primary dark:text-primary-light px-2 py-0.5 rounded-full text-[11px]">{selectedSongsList.length}</span>
+             </h3>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 pb-20 md:pb-4">
+             {selectedSongsList.length > 0 ? (
+                selectedSongsList.map((song, index) => {
+                  return (
+                    <React.Fragment key={song.id}>
+                      <div 
+                        onDragOver={(e) => handleDragOver(e, song.id)}
+                        onDrop={(e) => handleDrop(e, song.id)}
+                        onDragLeave={() => setDropTargetId(null)}
+                        className={`h-2 rounded-md transition-all duration-150 ${dropTargetId === song.id ? "bg-primary/50 h-8" : ""}`}
+                      />
+                      <div 
+                        draggable
+                        onDragStart={() => handleDragStart(song.id)}
+                        onDragEnd={handleDragEnd}
+                        onTouchStart={(e) => handleTouchStart(e, song.id)}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
+                        className={`group relative flex items-center p-3 bg-white dark:bg-[#1C1C1E] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm transition-all duration-200 ${draggedSongId === song.id ? 'opacity-50 scale-[0.98]' : 'hover:border-primary/30 cursor-grab active:cursor-grabbing'}`}
+                      >
+                         <div className="flex-1 flex flex-col overflow-hidden pl-1">
+                           <span className="text-[13px] font-bold text-slate-800 dark:text-white truncate">{song.title}</span>
+                           <span className="text-[11px] font-medium text-slate-500 truncate">{song.artist || t('scaleModal.unknownArtist', 'Artista desconhecido')}</span>
+                         </div>
+                         <div className="flex items-center gap-0.5">
+                            <button type="button" onClick={() => moveSong(index, -1)} disabled={index === 0} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><span className="text-[12px]">↑</span></button>
+                            <button type="button" onClick={() => moveSong(index, 1)} disabled={index === selectedSongsList.length - 1} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><span className="text-[12px]">↓</span></button>
+                            <button type="button" onClick={() => handleSongToggle(song.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg ml-1"><span className="text-[12px]">✕</span></button>
+                         </div>
                       </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center flex-shrink-0 gap-1 transition-opacity">
-                    <div className="flex flex-col bg-slate-50 dark:bg-white/5 rounded-lg overflow-hidden border border-slate-100 dark:border-white/5 mr-1">
-                      <button
-                        type="button"
-                        onClick={() => moveSong(index, "up")}
-                        disabled={index === 0}
-                        className="p-0.5 text-slate-400 enabled:hover:bg-slate-200 dark:enabled:hover:bg-white/10 enabled:hover:text-slate-700 dark:enabled:hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        aria-label="Mover para cima"
-                      >
-                        <ArrowUp className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveSong(index, "down")}
-                        disabled={index === selectedSongsList.length - 1}
-                        className="p-0.5 text-slate-400 enabled:hover:bg-slate-200 dark:enabled:hover:bg-white/10 enabled:hover:text-slate-700 dark:enabled:hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        aria-label="Mover para baixo"
-                      >
-                        <ArrowDown className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleSongToggle(song.id)}
-                      className="p-1.5 text-slate-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors border border-transparent hover:border-red-600"
-                      title="Remover"
-                    >
-                      <XCircleIcon className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              </React.Fragment>
-            )})
-          ) : (
+                    </React.Fragment>
+                  )
+                })
+              ) : (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
               <div className="w-16 h-16 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-slate-100 dark:border-white/5 flex items-center justify-center mb-4">
                  <MusicNoteIcon className="w-8 h-8 text-primary/50" />
@@ -509,7 +398,6 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
         </div>
       </div>
     </div>
-  </div>
   );
 };
 

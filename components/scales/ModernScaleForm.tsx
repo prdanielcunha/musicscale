@@ -145,6 +145,58 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const isCommandApiV1Enabled = useFeatureFlag('musicscale.bandScaleCommandApiV1');
 
   const [formData, setFormData] = useState<Partial<Scale & BandScale>>({});
+
+  const initialFormDataRef = useRef<string | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  // Helper to normalize and get relevant data for dirty check
+  const getComparableData = (data: any) => {
+    return {
+      date: data.date || "",
+      time: data.time || "",
+      eventTypeId: data.eventTypeId || "",
+      locationId: data.locationId || "",
+      eventNameId: data.eventNameId || "",
+      observations: data.observations || "",
+      durationMinutes: data.durationMinutes ? String(data.durationMinutes) : "",
+      songIds: data.songIds || [],
+      assignments: (data.assignments || []).map((a: any) => ({ userId: a.userId, instrumentId: a.instrumentId })),
+      bandScaleId: data.bandScaleId || "",
+      musicScaleId: data.musicScaleId || ""
+    };
+  };
+
+  const handleRequestClose = () => {
+    if (isSubmitting || isSubmittingNested) {
+      toast({ type: 'warning', message: t('scaleModal.submittingCannotClose', 'Aguarde o envio concluir.') });
+      return;
+    }
+    
+    if (initialFormDataRef.current) {
+      const currentDataStr = JSON.stringify(getComparableData(formData));
+      if (currentDataStr !== initialFormDataRef.current) {
+        setShowCancelConfirm(true);
+        return;
+      }
+    }
+    onClose();
+  };
+
+  const handleDiscardChanges = () => {
+    setShowCancelConfirm(false);
+    onClose();
+  };
+
+  // Reset state on open
+  useEffect(() => {
+    if (isOpen) {
+      setShowCancelConfirm(false);
+    } else {
+      setCurrentStep(0);
+      initialFormDataRef.current = null;
+    }
+  }, [isOpen]);
+
   
   // Nested Band Scale Creation State
   const [isCreatingNestedBandScale, setIsCreatingNestedBandScale] = useState(false);
@@ -238,23 +290,28 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       observations: scaleToEdit?.observations || "",
     };
 
+    let initialData;
     if (scaleType === "music") {
       const musicScale = scaleToEdit as Scale;
-      setFormData({
+      initialData = {
         ...baseData,
         songIds: musicScale?.songIds || preselectedSongIds || [],
         bandScaleId: musicScale?.bandScaleId || null,
         durationMinutes: resolveScaleDurationMinutes(musicScale?.durationMinutes),
-      });
+      };
+      setFormData(initialData);
     } else {
       const bandScale = scaleToEdit as BandScale;
-      setFormData({
+      initialData = {
         ...baseData,
         assignments: bandScale?.assignments || [],
         musicScaleId: bandScale?.musicScaleId || null,
-      });
+      };
+      setFormData(initialData);
     }
 
+    // Capture first snapshot
+    initialFormDataRef.current = JSON.stringify(getComparableData(initialData));
     isInitializedRef.current = true;
   }, [isOpen, scaleToEdit, preselectedSongIds, scaleType, eventTypes, locations]);
 
@@ -286,6 +343,8 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
       return next;
     });
+      initialFormDataRef.current = JSON.stringify(getComparableData(next));
+
   }, [isOpen, eventTypes, locations, scaleToEdit]);
 
   const handleChange = (
@@ -453,11 +512,21 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         <Button 
           type="button" 
           variant="secondary" 
-          onClick={currentStep > 0 ? handleBack : onClose} 
-          className="flex-1 sm:flex-none h-12 rounded-xl text-[14px]"
+          onClick={handleRequestClose} 
+          className="hidden md:flex flex-1 sm:flex-none h-12 rounded-xl text-[14px]"
         >
-          {currentStep > 0 ? t('scaleModal.back', 'Voltar') : t('scaleModal.cancel', 'Cancelar')}
+          {t('scaleModal.cancel', 'Cancelar')}
         </Button>
+        {currentStep > 0 && (
+          <Button 
+            type="button" 
+            variant="secondary" 
+            onClick={handleBack} 
+            className="flex-1 sm:flex-none h-12 rounded-xl text-[14px]"
+          >
+            {t('scaleModal.back', 'Voltar')}
+          </Button>
+        )}
         {currentStep < steps.length - 1 ? (
           <Button 
             key="btn-next"
@@ -548,20 +617,30 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const subtitleText = scaleType === "music" ? t('scaleModal.scaleModalSubtitleMusic') : t('scaleModal.scaleModalSubtitleBand');
 
   const modalTitle = (
-    <div className="flex flex-col gap-1.5 mb-2">
+    <div className="flex justify-between items-start gap-4 mb-2">
+      <div className="flex flex-col gap-1.5">
       <span className="text-[22px] font-black tracking-tight text-slate-900 dark:text-white leading-tight">{titleText}</span>
       <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400 max-w-lg">{subtitleText}</span>
       <div className="flex items-center mt-2.5">
           <span className="text-[11px] font-bold uppercase tracking-widest text-primary-dark/70 dark:text-primary-light/70 bg-primary/10 px-2 py-1 rounded-md">{getSubtitle()}</span>
       </div>
     </div>
+    <button
+      type="button"
+      onClick={handleRequestClose}
+      className="md:hidden flex items-center justify-center p-2 -mr-2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+      aria-label={t('scaleModal.cancel', 'Cancelar')}
+    >
+      <XIcon className="w-5 h-5" />
+    </button>
+  </div>
   );
 
   return (
     <>
       <PremiumSheetModal
         isOpen={isOpen}
-        onClose={onClose}
+        onClose={handleRequestClose}
         title={modalTitle}
         maxWidth="max-w-5xl"
         footer={footer}
@@ -1040,6 +1119,24 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       </div>
       </form>
       </PremiumSheetModal>
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setShowCancelConfirm(false)}></div>
+          <div className="relative z-10 w-full max-w-sm bg-white dark:bg-[#111318] rounded-2xl p-6 shadow-2xl border border-slate-200 dark:border-white/10 animate-scale-in">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{t('scaleModal.discardChangesTitle', 'Descartar alterações?')}</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{t('scaleModal.discardChangesDescription', 'Você fez alterações nesta escala que ainda não foram salvas.')}</p>
+            <div className="flex flex-col gap-2.5">
+              <Button type="button" variant="primary" onClick={() => setShowCancelConfirm(false)} className="w-full h-12 rounded-xl">
+                {t('scaleModal.keepEditing', 'Continuar editando')}
+              </Button>
+              <Button type="button" variant="danger" onClick={handleDiscardChanges} className="w-full h-12 rounded-xl bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400 border-none hover:bg-red-500/20 dark:hover:bg-red-500/30">
+                {t('scaleModal.discardAndExit', 'Descartar e sair')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {isCreatingNestedBandScale && (
         <ModernScaleForm

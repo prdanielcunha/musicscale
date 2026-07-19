@@ -537,7 +537,21 @@
     "createMusicScaleBtn": "Create Music Scale",
     "applyFixedScale": "Apply Fixed Scale",
     "fixedScalePlaceholder": "Select a saved formation to apply...",
-    "confirmReplaceAssignments": "This will replace the already scheduled members. Do you wish to continue?"
+    "confirmReplaceAssignments": "This will replace the already scheduled members. Do you wish to continue?",
+    "discardChangesTitle": "Discard changes?",
+    "discardChangesDescription": "You have unsaved changes in this scale.",
+    "discardAndExit": "Discard and exit",
+    "keepEditing": "Keep editing",
+    "unsavedChanges": "Unsaved changes",
+    "selectedSongsCount": "{{count}} songs selected",
+    "selectedSongsCount_one": "1 song selected",
+    "selectedSongsCount_zero": "0 songs selected",
+    "noSongsSelected": "No songs selected",
+    "noSongsSelectedDescription": "Choose songs from the library to build the repertoire.",
+    "viewSetlist": "View repertoire",
+    "repertoireTab": "Repertoire",
+    "submittingCannotClose": "Please wait for submission to complete.",
+    "selectedSongsPreviewMore": "{{songs}} +{{more}}"
   },
   "bandScaleModal": {
     "titleCreate": "New Band Scale",

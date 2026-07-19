@@ -538,7 +538,21 @@
     "createMusicScaleBtn": "Criar Escala de Músicas",
     "applyFixedScale": "Aplicar Escala Fixa",
     "fixedScalePlaceholder": "Selecione uma formação salva para preencher...",
-    "confirmReplaceAssignments": "Isso substituirá os integrantes já escalados. Deseja continuar?"
+    "confirmReplaceAssignments": "Isso substituirá os integrantes já escalados. Deseja continuar?",
+    "discardChangesTitle": "Descartar alterações?",
+    "discardChangesDescription": "Você fez alterações nesta escala que ainda não foram salvas.",
+    "discardAndExit": "Descartar e sair",
+    "keepEditing": "Continuar editando",
+    "unsavedChanges": "Alterações não salvas",
+    "selectedSongsCount": "{{count}} músicas selecionadas",
+    "selectedSongsCount_one": "1 música selecionada",
+    "selectedSongsCount_zero": "0 músicas selecionadas",
+    "noSongsSelected": "Nenhuma música selecionada",
+    "noSongsSelectedDescription": "Escolha músicas da biblioteca para montar o repertório.",
+    "viewSetlist": "Ver repertório",
+    "repertoireTab": "Repertório",
+    "submittingCannotClose": "Aguarde o envio concluir.",
+    "selectedSongsPreviewMore": "{{songs}} +{{more}}"
   },
   "bandScaleModal": {
     "titleCreate": "Nova Escala da Banda",
