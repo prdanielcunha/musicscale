@@ -11,7 +11,7 @@ async function run() {
   assert(serverCode.includes("NODE_ENV !== 'production'"), "5. Must be disabled in production");
   assert(serverCode.includes("changeOrigin: true"), "6. Must use changeOrigin");
   assert(serverCode.includes("proxyReq.removeHeader('cookie')"), "7. Must not forward cookie");
-  assert(serverCode.includes("proxyReq.removeHeader('host')"), "8. Must not forward host");
+
   assert(serverCode.includes("X-MusicScale-Client-Environment"), "9. Must send client environment header");
   assert(serverCode.includes("CANONICAL_PRODUCTION_BACKEND_UNAVAILABLE"), "10. Must return 502/503 JSON on unavailable");
   

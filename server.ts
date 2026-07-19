@@ -120,7 +120,7 @@ if (isPreviewCanonicalApiEnabled && canonicalApiOrigin && isAllowedCanonicalOrig
         proxyReq.removeHeader('cookie');
         proxyReq.removeHeader('x-forwarded-host');
         proxyReq.removeHeader('x-forwarded-proto');
-        proxyReq.removeHeader('host'); // handled by changeOrigin
+
         
         proxyReq.setHeader('X-MusicScale-Client-Environment', 'ai-studio-preview');
         
