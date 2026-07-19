@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, X as XIcon } from "lucide-react";
 import type {
   Scale,
   BandScale,
@@ -341,9 +341,10 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
           locations[0].id;
       }
 
+      // Update snapshot after autofilling
+      initialFormDataRef.current = JSON.stringify(getComparableData(next));
       return next;
     });
-      initialFormDataRef.current = JSON.stringify(getComparableData(next));
 
   }, [isOpen, eventTypes, locations, scaleToEdit]);
 

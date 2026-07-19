@@ -337,9 +337,11 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
                       />
                       <div 
                         draggable
-                        onDragStart={() => handleDragStart(song.id)}
+                        data-song-id={song.id}
+                        data-index={index}
+                        onDragStart={(e) => handleDragStart(e, song.id)}
                         onDragEnd={handleDragEnd}
-                        onTouchStart={(e) => handleTouchStart(e, song.id)}
+                        onTouchStart={(e) => handleTouchStart(e, index)}
                         onTouchMove={handleTouchMove}
                         onTouchEnd={handleTouchEnd}
                         className={`group relative flex items-center p-3 bg-white dark:bg-[#1C1C1E] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm transition-all duration-200 ${draggedSongId === song.id ? 'opacity-50 scale-[0.98]' : 'hover:border-primary/30 cursor-grab active:cursor-grabbing'}`}
@@ -349,8 +351,8 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
                            <span className="text-[11px] font-medium text-slate-500 truncate">{song.artist || t('scaleModal.unknownArtist', 'Artista desconhecido')}</span>
                          </div>
                          <div className="flex items-center gap-0.5">
-                            <button type="button" onClick={() => moveSong(index, -1)} disabled={index === 0} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><span className="text-[12px]">↑</span></button>
-                            <button type="button" onClick={() => moveSong(index, 1)} disabled={index === selectedSongsList.length - 1} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><span className="text-[12px]">↓</span></button>
+                            <button type="button" onClick={() => moveSong(index, "up")} disabled={index === 0} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><span className="text-[12px]">↑</span></button>
+                            <button type="button" onClick={() => moveSong(index, "down")} disabled={index === selectedSongsList.length - 1} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><span className="text-[12px]">↓</span></button>
                             <button type="button" onClick={() => handleSongToggle(song.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg ml-1"><span className="text-[12px]">✕</span></button>
                          </div>
                       </div>
