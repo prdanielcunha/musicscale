@@ -181,6 +181,7 @@ const AppLayout: React.FC = () => {
                 <Sidebar 
                     isCollapsed={isSidebarCollapsed}
                     onToggle={handleSidebarToggle}
+                    onLinkClick={() => setSidebarCollapsed(true)}
                 />
                 
                 {/* Mobile close button inside sidebar container area */}
@@ -195,18 +196,6 @@ const AppLayout: React.FC = () => {
 
             {/* Main Content */}
             <div className={`relative flex-1 flex flex-col overflow-hidden z-10 transition-all duration-300 md:pb-0`}>
-                
-                {isDegraded && (
-                    <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-center gap-3 w-full shrink-0">
-                       <span className="relative flex h-2.5 w-2.5">
-                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                         <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-                       </span>
-                       <span className="text-amber-700 dark:text-amber-400 text-xs font-medium uppercase tracking-wider">
-                           Ecossistema Instável • Contenção de Falhas Ativada
-                       </span>
-                    </div>
-                )}
                 
                 {subscriptionBanner && (
                     <div className="bg-indigo-500/10 border-b border-indigo-500/20 px-4 py-2.5 flex items-center justify-between gap-3 w-full shrink-0 shadow-sm backdrop-blur-md">
@@ -350,7 +339,7 @@ const AppLayout: React.FC = () => {
                         </Suspense>
                     </div>
                 </main>
-                <BottomNav />
+                <BottomNav onMenuClick={() => setSidebarCollapsed(false)} />
             </div>
         </div>
     );

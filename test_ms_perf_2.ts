@@ -9,7 +9,6 @@ import {
   FRESH_TTL_MS,
   STALE_LIMIT_MS
 } from './lib/musicDataCache';
-
 class MockStorage implements Storage {
   private store: Map<string, string> = new Map();
   get length() { return this.store.size; }
@@ -19,19 +18,16 @@ class MockStorage implements Storage {
   removeItem(key: string) { this.store.delete(key); }
   setItem(key: string, value: string) { this.store.set(key, value); }
 }
-
 test('MS-PERF-2: Cache Helper Tests', async (t) => {
   const storage = new MockStorage();
   const uid = 'user123';
   const orgId = 'org456';
   const now = 1000000;
   const data = { some: 'data' };
-
   await t.test('1. Cache key contains version, UID and organizationId', () => {
     const key = getMusicDataCacheKey(uid, orgId);
     assert.strictEqual(key, `musicscale:music-data:v2:${uid}:${orgId}`);
   });
-
   await t.test('2. Fresh cache is valid', () => {
     storage.clear();
     writeMusicDataCache(storage, uid, orgId, data, now);
@@ -39,7 +35,6 @@ test('MS-PERF-2: Cache Helper Tests', async (t) => {
     assert.strictEqual(result.status, 'fresh');
     assert.deepStrictEqual(result.data, data);
   });
-
   await t.test('3. Stale cache < 24h is returned as stale', () => {
     storage.clear();
     writeMusicDataCache(storage, uid, orgId, data, now);
@@ -48,7 +43,6 @@ test('MS-PERF-2: Cache Helper Tests', async (t) => {
     assert.strictEqual(result.status, 'stale');
     assert.deepStrictEqual(result.data, data);
   });
-
   await t.test('4. Cache > 24h is refused and removed', () => {
     storage.clear();
     writeMusicDataCache(storage, uid, orgId, data, now);
@@ -58,7 +52,6 @@ test('MS-PERF-2: Cache Helper Tests', async (t) => {
     assert.strictEqual(result.data, null);
     assert.strictEqual(storage.getItem(getMusicDataCacheKey(uid, orgId)), null);
   });
-
   await t.test('5. Different UID is refused', () => {
     storage.clear();
     writeMusicDataCache(storage, uid, orgId, data, now);
@@ -69,7 +62,6 @@ test('MS-PERF-2: Cache Helper Tests', async (t) => {
     const result2 = readMusicDataCache(storage, 'otherUid', orgId, now);
     assert.strictEqual(result2.status, 'invalid');
   });
-
   await t.test('6. Different organizationId is refused', () => {
     storage.clear();
     writeMusicDataCache(storage, uid, orgId, data, now);
@@ -77,7 +69,6 @@ test('MS-PERF-2: Cache Helper Tests', async (t) => {
     const result = readMusicDataCache(storage, uid, 'otherOrg', now);
     assert.strictEqual(result.status, 'invalid');
   });
-
   await t.test('7. Different contextVersion is refused', () => {
     storage.clear();
     const envelope = {
@@ -92,7 +83,6 @@ test('MS-PERF-2: Cache Helper Tests', async (t) => {
     const result = readMusicDataCache(storage, uid, orgId, now);
     assert.strictEqual(result.status, 'invalid');
   });
-
   await t.test('8. Invalid JSON is refused and removed', () => {
     storage.clear();
     const key = getMusicDataCacheKey(uid, orgId);
@@ -101,7 +91,6 @@ test('MS-PERF-2: Cache Helper Tests', async (t) => {
     assert.strictEqual(result.status, 'invalid');
     assert.strictEqual(storage.getItem(key), null);
   });
-
   await t.test('9. Invalid expiresAt is refused', () => {
     storage.clear();
     const envelope = {
@@ -116,7 +105,6 @@ test('MS-PERF-2: Cache Helper Tests', async (t) => {
     const result = readMusicDataCache(storage, uid, orgId, now);
     assert.strictEqual(result.status, 'invalid');
   });
-
   await t.test('10. Invalid issuedAt is refused', () => {
     storage.clear();
     const envelope = {
@@ -131,7 +119,6 @@ test('MS-PERF-2: Cache Helper Tests', async (t) => {
     const result = readMusicDataCache(storage, uid, orgId, now);
     assert.strictEqual(result.status, 'invalid');
   });
-
   await t.test('11. Write includes all fields', () => {
     storage.clear();
     writeMusicDataCache(storage, uid, orgId, data, now);
@@ -144,7 +131,6 @@ test('MS-PERF-2: Cache Helper Tests', async (t) => {
     assert.strictEqual(parsed.expiresAt, now + FRESH_TTL_MS);
     assert.deepStrictEqual(parsed.data, data);
   });
-
   await t.test('12. No credentials created by helper', () => {
     storage.clear();
     writeMusicDataCache(storage, uid, orgId, data, now);
@@ -152,7 +138,6 @@ test('MS-PERF-2: Cache Helper Tests', async (t) => {
     assert.ok(!raw.includes('token'));
     assert.ok(!raw.includes('password'));
   });
-
   await t.test('13. Keys for different users/orgs do not collide', () => {
     const k1 = getMusicDataCacheKey('u1', 'o1');
     const k2 = getMusicDataCacheKey('u1', 'o2');

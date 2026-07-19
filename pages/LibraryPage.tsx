@@ -53,6 +53,9 @@ import { LibrarySongCard } from "../components/library/LibrarySongCard";
 import { LibrarySongListRow } from "../components/library/LibrarySongListRow";
 import { LibraryPreviewDrawer } from "../components/library/LibraryPreviewDrawer";
 import { LibraryUsageBanner } from "../components/billing/LibraryUsageBanner";
+import { StarterPackAllowanceCard } from "../components/onboarding/StarterPackAllowanceCard";
+import { StarterRepertoireModal } from "../components/onboarding/StarterRepertoireModal";
+import { useStarterPackAllowance } from "../hooks/useStarterPackAllowance";
 import { LockedLibraryPreview } from "../components/library/LockedLibraryPreview";
 
 import { DuplicateSongModal, DuplicateMatch } from "../components/songs/DuplicateSongModal";
@@ -174,6 +177,8 @@ export default function LibraryPage() {
   const api = useApi();
   const navigate = useNavigate();
 
+  const { allowance, loading: allowanceLoading, error: allowanceError, refreshAllowance } = useStarterPackAllowance();
+  const [isStarterModalOpen, setIsStarterModalOpen] = useState(false);
   const hasAccess = canAccessGlobalLibrary();
 
   const [songs, setSongs] = useState<GlobalSong[]>([]);
@@ -646,9 +651,7 @@ export default function LibraryPage() {
     return list;
   }, [songs, searchTerm, activeFilter, sortBy, importedIds]);
 
-  if (!hasAccess) {
-    return <LockedLibraryPreview />;
-  }
+
 
   const isGlobalAdmin = ['owner', 'ecosystem_owner', 'founder', 'ceo', 'admin', 'global_admin'].includes(userProfile?.systemRole?.toLowerCase() || '');
 
@@ -731,12 +734,31 @@ export default function LibraryPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         
-        <div className="animate-fade-in-up">
-          <LibraryUsageBanner />
+        <div className="animate-fade-in-up space-y-4">
+          <h2 className="text-xs font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-widest pl-1">
+            {t('starterPackAllowance.accessOverviewTitle', 'SEUS ACESSOS')}
+          </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+            {(!allowance?.completed || allowanceLoading || allowanceError) && (
+              <div className="flex flex-col h-full">
+                <StarterPackAllowanceCard 
+                  allowance={allowance} 
+                  loading={allowanceLoading}
+                  error={allowanceError}
+                  onRetry={refreshAllowance}
+                  onOpen={() => setIsStarterModalOpen(true)}
+                  variant="library"
+                />
+              </div>
+            )}
+            <div className="flex flex-col h-full">
+              <LibraryUsageBanner />
+            </div>
+          </div>
         </div>
 
         {/* Quick Metrics */}
-        {metrics.total > 0 && (
+        {hasAccess && metrics.total > 0 && (
           <div
             className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 animate-fade-in-up"
             style={{ animationDelay: "100ms" }}
@@ -806,6 +828,8 @@ export default function LibraryPage() {
           </div>
         )}
 
+        {!hasAccess ? <div className="mt-8"><LockedLibraryPreview /></div> : (
+          <>
         {/* Premium Search & Filters & View Toggle */}
         <div
           className="flex flex-col gap-4 animate-fade-in-up"
@@ -1119,7 +1143,7 @@ export default function LibraryPage() {
         <div className="animate-fade-in-up" style={{ animationDelay: "200ms" }}>
           {loading && songs.length === 0 ? (
             viewMode === "grid" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1  lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                   <div
                     key={i}
@@ -1284,6 +1308,8 @@ export default function LibraryPage() {
             </>
           )}
         </div>
+        </>
+        )}
       </div>
 
       <LibraryPreviewDrawer
@@ -1331,6 +1357,15 @@ export default function LibraryPage() {
         }}
       />
 
+      <StarterRepertoireModal
+        isOpen={isStarterModalOpen}
+        onCancel={() => setIsStarterModalOpen(false)}
+        onCompleted={async () => {
+          setIsStarterModalOpen(false);
+          await reloadData();
+          await refreshAllowance();
+        }}
+      />
       <ImportGlobalSongsModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}

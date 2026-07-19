@@ -6,61 +6,88 @@ import { useMusic } from '../../contexts/MusicDataContext';
 import { Music, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
 import { GlobalSong } from '../../types';
 import { useTranslation } from 'react-i18next';
+import { useStarterPackAllowance } from '../../hooks/useStarterPackAllowance';
 
 interface StarterRepertoireModalProps {
   isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
+  onCancel: () => void;
+  onCompleted: (result?: any) => void;
 }
 
-export function StarterRepertoireModal({ isOpen, onClose, onSuccess }: StarterRepertoireModalProps) {
+export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: StarterRepertoireModalProps) {
   const { organization, user } = useAuth();
   const { t } = useTranslation();
   const { refreshData, songs } = useMusic();
   const { publishEvent } = useEcosystem();
+  const { starterPack: hookStarterPack, allowance, refreshAllowance, error: hookError, loading: hookLoading } = useStarterPackAllowance();
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedIds(new Set());
+      setImportError(null);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setImportError(null);
+  }, [organization?.id]);
+
+  useEffect(() => {
+    if (isOpen && hookStarterPack.length > 0 && allowance) {
+      const importedIds = new Set<string>();
+      songs.forEach(s => {
+        if (((s as any).onboardingStarter || (s as any).onboardingStarterPack) && s.originGlobalSongId) {
+          importedIds.add(s.originGlobalSongId);
+        }
+      });
+
+      const initialSelection = new Set<string>();
+      const maxSelectable = allowance.remaining;
+      let count = 0;
+      if (allowance.completed || allowance.remaining === 0) return;
+
+      
+      for (const song of hookStarterPack) {
+        if (count >= maxSelectable) break;
+        if (!importedIds.has(song.id)) {
+          initialSelection.add(song.id);
+          count++;
+        }
+      }
+      setSelectedIds(initialSelection);
+    }
+  }, [isOpen, hookStarterPack, allowance?.remaining]);
+
   
-  const [loading, setLoading] = useState(true);
+  
   const [importing, setImporting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [starterSongs, setStarterSongs] = useState<GlobalSong[]>([]);
+  const [importError, setImportError] = useState<string | null>(null);
+  
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (isOpen && organization && user) {
-      fetchStarterPack();
       publishEvent({ type: 'telemetry', payload: { action: 'musicscale_starter_pack_viewed' }, timestamp: Date.now() });
     }
   }, [isOpen, organization, user]);
 
-  const fetchStarterPack = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = await user?.getIdToken();
-      const response = await fetch('/api/v1/onboarding/starter-pack', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-organization-id': organization?.id || ''
-        }
-      });
-      if (!response.ok) throw new Error('Failed to fetch starter pack');
-      const data = await response.json();
-      setStarterSongs(data.starterPack || []);
-      
-      const ids = new Set(data.starterPack?.map((s: GlobalSong) => s.id));
-      setSelectedIds(ids);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error fetching starter pack');
-    } finally {
-      setLoading(false);
-    }
-  };
 
+
+  
   const handleToggle = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      const isImported = songs.some(s => ((s as any).onboardingStarter || (s as any).onboardingStarterPack) && s.originGlobalSongId === id);
+      if (isImported) return prev; // Cannot toggle imported songs
+      
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        if (allowance && next.size >= allowance.remaining) {
+          return prev; // Max reached
+        }
+        next.add(id);
+      }
       return next;
     });
   };
@@ -69,7 +96,7 @@ export function StarterRepertoireModal({ isOpen, onClose, onSuccess }: StarterRe
     if (!organization || !user || selectedIds.size === 0) return;
     
     setImporting(true);
-    setError(null);
+    setImportError(null);
     try {
       const token = await user.getIdToken();
       const response = await fetch('/api/v1/onboarding/starter-pack/import', {
@@ -96,6 +123,7 @@ export function StarterRepertoireModal({ isOpen, onClose, onSuccess }: StarterRe
       }
       
       await refreshData();
+      await refreshAllowance();
       publishEvent({
         type: 'telemetry',
         payload: {
@@ -108,12 +136,12 @@ export function StarterRepertoireModal({ isOpen, onClose, onSuccess }: StarterRe
         },
         timestamp: Date.now()
       });
-      onSuccess();
+      onCompleted();
     } catch (err: any) {
       const isLimitExceeded = err.message === "LIMIT_EXCEEDED" || err.message === "starter_pack_limit_exceeded";
       const errorCode = isLimitExceeded ? "LIMIT_EXCEEDED" : "ONBOARDING_IMPORT_FAILED";
 
-      setError(
+      setImportError(
         isLimitExceeded 
           ? t('onboarding.limit_exceeded', 'Limite de 10 músicas do pacote inicial excedido para esta organização.')
           : t('onboarding.import_failed_msg', 'Erro ao importar as músicas. Por favor, tente novamente.')
@@ -140,32 +168,59 @@ export function StarterRepertoireModal({ isOpen, onClose, onSuccess }: StarterRe
   const alreadyImportedIds = new Set(songs?.filter(s => s.originGlobalSongId).map(s => s.originGlobalSongId));
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t('onboarding.starter_modal_title', 'Repertório Inicial')}>
+    <Modal isOpen={isOpen} onClose={onCancel} title={t('firstValueJourney.starterModalTitle', 'Escolha seu repertório inicial')}>
       <div className="p-4 md:p-6 flex flex-col h-full max-h-[80vh]">
         <div className="mb-6">
-          <p className="text-zinc-400">
-            {t('onboarding.starter_modal_desc', 'Selecionamos {{count}} músicas para você começar. Elas estão prontas para usar na sua primeira escala.', { count: starterSongs.length })}
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              {t('firstValueJourney.starterModalDescription', 'Estas músicas foram selecionadas da Biblioteca Viva para acelerar seu primeiro culto. Revise a lista e escolha quais deseja adicionar. Nada será importado até você confirmar, e tudo poderá ser editado depois.')}
+            </p>
+            {allowance?.completed ? (
+               <p className="text-xs font-bold text-red-400 uppercase tracking-widest pt-2">
+                 {t('starterPackAllowance.completedModalMessage', 'O pacote inicial desta organização já foi utilizado.')}
+               </p>
+            ) : (
+               <>
+                 <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest pt-2">
+                   {t('starterPackAllowance.selectedCount', '{{selected}} selecionadas', { selected: selectedIds.size })}
+                 </p>
+                 <p className="text-xs text-zinc-500">
+                   {t('starterPackAllowance.remainingBeforeImport', '{{remaining}} importações iniciais disponíveis antes desta confirmação', { remaining: allowance?.remaining })}
+                 </p>
+               </>
+            )}
+            
+            {allowance && selectedIds.size >= allowance.remaining && !allowance.completed && (
+              <p className="text-xs text-amber-500 mt-1">
+                {t('starterPackAllowance.selectionLimitReached', 'Você selecionou o máximo de músicas disponíveis no pacote inicial.')}
+              </p>
+            )}
+          </div>
         </div>
 
-        {error ? (
+        {(hookError || importError) ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center py-10">
-            <p className="text-red-400 mb-4">{error}</p>
+            <p className="text-red-400 mb-4">{hookError?.message || importError}</p>
             <button 
-              onClick={fetchStarterPack}
+              onClick={refreshAllowance}
               className="flex items-center gap-2 px-4 py-2 bg-zinc-800 rounded-lg hover:bg-zinc-700 transition-colors text-white"
             >
               <RefreshCw className="w-4 h-4" /> {t('onboarding.try_again', 'Tentar novamente')}
             </button>
           </div>
-        ) : loading ? (
+        ) : hookLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center py-10">
             <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
             <p className="text-zinc-500">{t('onboarding.fetching_repertoire', 'Buscando o melhor repertório...')}</p>
           </div>
+        ) : hookStarterPack.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center py-10">
+            <p className="text-zinc-400 mb-2">Seu pacote inicial está vazio no momento.</p>
+            <p className="text-sm text-zinc-500">Volte mais tarde quando houver novas músicas disponíveis.</p>
+          </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-            {starterSongs.map(song => {
+            {hookStarterPack.map(song => {
               const isAlreadyImported = alreadyImportedIds.has(song.id);
               const isSelected = selectedIds.has(song.id);
               
@@ -211,18 +266,18 @@ export function StarterRepertoireModal({ isOpen, onClose, onSuccess }: StarterRe
 
         <div className="mt-6 pt-4 border-t border-zinc-800/50 flex justify-end gap-3">
           <button 
-            onClick={onClose}
+            onClick={onCancel}
             className="px-5 py-2.5 text-zinc-400 hover:text-white transition-colors font-medium"
           >
             {t('onboarding.cancel', 'Cancelar')}
           </button>
           <button 
             onClick={handleImport}
-            disabled={importing || selectedIds.size === 0 || loading || error !== null}
+            disabled={importing || selectedIds.size === 0 || hookLoading || (hookError !== null || importError !== null)}
             className="px-6 py-2.5 bg-white text-zinc-900 rounded-lg hover:bg-zinc-100 transition-colors font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {importing ? t('onboarding.adding', 'Adicionando...') : (selectedIds.size === 1 ? t('onboarding.add_songs_btn_one', 'Adicionar {{count}} música', { count: selectedIds.size }) : t('onboarding.add_songs_btn_other', 'Adicionar {{count}} músicas', { count: selectedIds.size }))}
+            {importing ? t('onboarding.adding', 'Adicionando...') : t('firstValueJourney.starterModalConfirm', 'Adicionar {{count}} ao repertório', { count: selectedIds.size })}
           </button>
         </div>
       </div>

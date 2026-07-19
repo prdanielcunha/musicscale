@@ -16,6 +16,7 @@ class EcosystemBridge {
   private static instance: EcosystemBridge;
   private currentContext: EcosystemContextPayload | null = null;
   private isInitialized = false;
+  private isHandshakeCompleted = false;
   private hostOrigin: string | null = null;
   private initializationPromise: Promise<EcosystemContextPayload> | null = null;
   private watchdogInterval: NodeJS.Timeout | null = null;
@@ -39,9 +40,9 @@ class EcosystemBridge {
     this.watchdogInterval = setInterval(() => {
       if (this.currentContext && !this.currentContext.isStandalone) {
          if (this.failedPings >= 3) {
-           logger.warn('[EcosystemBridge] Host seems unresponsive. Falling back to safe degraded mode.');
-           window.dispatchEvent(new CustomEvent('ecosystem:degraded_mode'));
-           this.failedPings = 0; // Reset to avoid event spam
+            logger.warn('[EcosystemBridge] Host seems unresponsive. Falling back to safe degraded mode.');
+            window.dispatchEvent(new CustomEvent('ecosystem:degraded_mode'));
+            this.failedPings = 0; // Reset to avoid event spam
          }
          
          const timeSinceLastHeartbeat = Date.now() - this.lastHeartbeat;
@@ -81,6 +82,7 @@ class EcosystemBridge {
     if (typeof window !== 'undefined' && window.parent === window) {
        this.currentContext = this.getFallbackContext();
        this.isInitialized = true;
+       this.isHandshakeCompleted = true;
        this.initializationPromise = Promise.resolve(this.currentContext);
        return this.initializationPromise;
     }
@@ -91,6 +93,7 @@ class EcosystemBridge {
         logger.debug('[EcosystemBridge] Host handshake timeout. Entering standalone safe mode.');
         this.currentContext = this.getFallbackContext();
         this.isInitialized = true;
+        this.isHandshakeCompleted = true;
         resolve(this.currentContext);
       }, 1000); // 1 second timeout
 
@@ -113,6 +116,7 @@ class EcosystemBridge {
                 window.removeEventListener('message', handler);
                 this.currentContext = this.getFallbackContext();
                 this.isInitialized = true;
+                this.isHandshakeCompleted = true;
                 resolve(this.currentContext);
                 return;
              }
@@ -124,6 +128,7 @@ class EcosystemBridge {
           this.hostOrigin = event.origin;
           this.currentContext = { ...payload, isStandalone: false };
           this.isInitialized = true;
+          this.isHandshakeCompleted = true;
           logger.info('[EcosystemBridge] Host handshake successful. Protocol validated.', { 
              orgId: this.currentContext.currentOrganizationId,
              protocolVersion: payload.protocol?.protocolVersion
@@ -136,6 +141,19 @@ class EcosystemBridge {
       
       // Notify host we are ready, passing our SDK details
       if (window.parent && window.parent !== window) {
+        // Find if document.referrer is a trusted origin to avoid '*' targetOrigin where possible
+        let targetOrigin = '*';
+        try {
+          if (document.referrer) {
+            const refOrigin = new URL(document.referrer).origin;
+            if (this.isOriginTrusted(refOrigin)) {
+              targetOrigin = refOrigin;
+            }
+          }
+        } catch (err) {
+          logger.warn('[EcosystemBridge] Failed to parse referrer origin', err);
+        }
+
         window.parent.postMessage({ 
           type: 'MILLIONSNEST_MODULE_READY', 
           payload: { 
@@ -145,7 +163,7 @@ class EcosystemBridge {
              capabilities: MODULE_CAPABILITIES
           }, 
           timestamp: Date.now() 
-        }, '*');
+        }, targetOrigin);
       }
     });
 
@@ -185,51 +203,27 @@ class EcosystemBridge {
     });
   }
 
-  public mapEcosystemRoleToAppPermissions(role: EcosystemRoleType) {
-    const rLower = String(role || '').toLowerCase();
-    const isOwnerOrAdmin = ['owner', 'dono', 'admin', 'administrador'].includes(rLower);
-    const isLeader = ['worship_leader', 'leader', 'lider', 'líder', 'lider / ministro', 'líder / ministro', 'ministro', 'pastor'].includes(rLower);
-    return {
-      canManageOrganization: isOwnerOrAdmin,
-      canManageMembers: isOwnerOrAdmin,
-      canManageScales: isOwnerOrAdmin || isLeader,
-      canManageRepertoire: isOwnerOrAdmin || isLeader
-    };
-  }
-
   private getFallbackContext(): EcosystemContextPayload {
     return {
-      token: 'dev-token-xyz',
-      uid: 'dev-user-01',
-      userDisplayName: 'Dev User',
-      userEmail: 'dev@millionsnest.local',
-      ecosystemRole: 'admin',
-      currentOrganizationId: 'dev-org-01',
-      currentOrganizationName: 'Local Dev Church',
-      currentOrganizationSlug: 'local-dev-church',
-      organizationsAvailable: [
-        {
-          id: 'dev-org-01',
-          name: 'Local Dev Church',
-          slug: 'local-dev-church',
-          role: 'owner'
-        }
-      ],
-      roleInCurrentOrganization: 'owner',
-      plan: 'pro',
-      subscriptionStatus: 'active',
+      token: '',
+      uid: '',
+      userDisplayName: 'Guest',
+      userEmail: '',
+      ecosystemRole: 'none',
+      currentOrganizationId: '',
+      currentOrganizationName: 'Sem Organização',
+      currentOrganizationSlug: '',
+      organizationsAvailable: [],
+      roleInCurrentOrganization: 'none',
+      plan: 'starter',
+      subscriptionStatus: 'inactive',
       entitlements: {},
-      capabilities: [
-        'musicscale.songs.edit',
-        'musicscale.scales.manage',
-        'musicscale.members.manage',
-        'musicscale.performance.use'
-      ],
+      capabilities: [],
       permissions: {
-        canManageOrganization: true,
-        canManageMembers: true,
-        canManageScales: true,
-        canManageRepertoire: true
+        canManageOrganization: false,
+        canManageMembers: false,
+        canManageScales: false,
+        canManageRepertoire: false
       },
       needsRepair: false,
       repairReasons: [],
@@ -244,6 +238,11 @@ class EcosystemBridge {
     window.addEventListener('message', (event) => {
       // Validate origin strictly for all subsequent messages
       if (this.hostOrigin && event.origin !== this.hostOrigin) return;
+
+      // Ignore operational messages before handshake is completed
+      if (!this.isHandshakeCompleted) {
+        return;
+      }
 
       this.lastHeartbeat = Date.now();
       this.failedPings = 0;

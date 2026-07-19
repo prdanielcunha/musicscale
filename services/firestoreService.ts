@@ -675,7 +675,7 @@ export const seedDefaultLocationsForOrg = async (user: UserProfile, orgId: strin
         const snapshot = await getDocs(q);
         const existingNames = snapshot.docs.map(doc => doc.data().name);
 
-        const defaultLocations = ['Templo Principal', 'Salão Jovem', 'Externo'];
+        const defaultLocations = ['Local Principal', 'Salão Jovem', 'Externo'];
 
         const itemsToAdd = defaultLocations.filter(name => !existingNames.includes(name));
         if (itemsToAdd.length === 0) return;

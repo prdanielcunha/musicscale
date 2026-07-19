@@ -41,7 +41,12 @@ export function resolveMembershipRoleAndStatus(
         }
     }
 
-    if (orgData && (orgData.ownerUid === authUid || orgData.ownerId === authUid)) {
+    if (orgData && (
+        orgData.ownerUid === authUid || 
+        orgData.ownerId === authUid || 
+        orgData.ownerUserId === authUid || 
+        orgData.owner_user_id === authUid
+    )) {
         orgRole = 'owner';
         membershipStatus = 'active';
     }
