@@ -12,6 +12,7 @@ export interface StarterPackError {
 export function useStarterPackAllowance() {
   const { organization, user } = useAuth();
   const [allowance, setAllowance] = useState<StarterPackAllowance | null>(null);
+  const [starterPack, setStarterPack] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<StarterPackError | null>(null);
   const retryCount = useRef(0);
@@ -19,6 +20,7 @@ export function useStarterPackAllowance() {
   const fetchAllowance = useCallback(async (signal?: AbortSignal, isRetry = false) => {
     if (!organization?.id || !user) {
       setAllowance(null);
+        setStarterPack([]);
       setLoading(false);
       return;
     }
@@ -33,7 +35,7 @@ export function useStarterPackAllowance() {
       const forceRefresh = isRetry && retryCount.current === 1;
       const token = await user.getIdToken(forceRefresh);
       
-      const response = await fetch('/api/v1/onboarding/starter-pack/status', {
+      const response = await fetch('/api/v1/onboarding/starter-pack', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'x-organization-id': organization.id
@@ -66,6 +68,7 @@ export function useStarterPackAllowance() {
           correlationId: errData.correlationId
         });
         setAllowance(null);
+        setStarterPack([]);
         setLoading(false);
         return;
       }
@@ -74,7 +77,16 @@ export function useStarterPackAllowance() {
 
       if (data.success && data.allowance) {
         setAllowance(data.allowance);
+        if (data.starterPack) setStarterPack(data.starterPack);
         setError(null);
+      } else if (!data.allowance) {
+        setError({
+          message: 'Estamos atualizando o acesso ao pacote inicial. Tente novamente em instantes.',
+          code: 'BACKEND_ALLOWANCE_CONTRACT_UNAVAILABLE'
+        });
+        setAllowance(null);
+        setStarterPack([]);
+        setLoading(false);
       } else {
         throw new Error('Formato de resposta inválido');
       }
@@ -108,6 +120,7 @@ export function useStarterPackAllowance() {
   }, [fetchAllowance, organization?.id]);
 
   return {
+    starterPack,
     allowance,
     loading,
     error,

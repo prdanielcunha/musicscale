@@ -19,38 +19,9 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
   const { t } = useTranslation();
   const { refreshData, songs } = useMusic();
   const { publishEvent } = useEcosystem();
-  
-  const [loading, setLoading] = useState(true);
-  const [importing, setImporting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [starterSongs, setStarterSongs] = useState<GlobalSong[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
+  const { starterPack: hookStarterPack, allowance, refreshAllowance, error: hookError, loading: hookLoading } = useStarterPackAllowance();
   useEffect(() => {
-    if (isOpen && organization && user) {
-      fetchStarterPack();
-      publishEvent({ type: 'telemetry', payload: { action: 'musicscale_starter_pack_viewed' }, timestamp: Date.now() });
-    }
-  }, [isOpen, organization, user]);
-
-  const { allowance, refreshAllowance } = useStarterPackAllowance();
-
-  const fetchStarterPack = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = await user?.getIdToken();
-      const response = await fetch('/api/v1/onboarding/starter-pack', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-organization-id': organization?.id || ''
-        }
-      });
-      if (!response.ok) throw new Error('Failed to fetch starter pack');
-      const data = await response.json();
-      const loadedSongs = data.starterPack || [];
-      setStarterSongs(loadedSongs);
-      
+    if (isOpen && hookStarterPack.length > 0 && allowance) {
       const importedIds = new Set<string>();
       songs.forEach(s => {
         if (((s as any).onboardingStarter || (s as any).onboardingStarterPack) && s.originGlobalSongId) {
@@ -62,20 +33,33 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
       const maxSelectable = allowance?.remaining ?? 10;
       let count = 0;
       
-      for (const song of loadedSongs) {
-        if (!importedIds.has(song.id) && count < maxSelectable) {
+      for (const song of hookStarterPack) {
+        if (count >= maxSelectable) break;
+        if (!importedIds.has(song.id)) {
           initialSelection.add(song.id);
           count++;
         }
       }
       setSelectedIds(initialSelection);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error fetching starter pack');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isOpen, hookStarterPack, allowance?.remaining]);
 
+  
+  
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (isOpen && organization && user) {
+      publishEvent({ type: 'telemetry', payload: { action: 'musicscale_starter_pack_viewed' }, timestamp: Date.now() });
+    }
+  }, [isOpen, organization, user]);
+
+
+
+  
   const handleToggle = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -98,7 +82,7 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
     if (!organization || !user || selectedIds.size === 0) return;
     
     setImporting(true);
-    setError(null);
+    setImportError(null);
     try {
       const token = await user.getIdToken();
       const response = await fetch('/api/v1/onboarding/starter-pack/import', {
@@ -142,7 +126,7 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
       const isLimitExceeded = err.message === "LIMIT_EXCEEDED" || err.message === "starter_pack_limit_exceeded";
       const errorCode = isLimitExceeded ? "LIMIT_EXCEEDED" : "ONBOARDING_IMPORT_FAILED";
 
-      setError(
+      setImportError(
         isLimitExceeded 
           ? t('onboarding.limit_exceeded', 'Limite de 10 músicas do pacote inicial excedido para esta organização.')
           : t('onboarding.import_failed_msg', 'Erro ao importar as músicas. Por favor, tente novamente.')
@@ -199,24 +183,24 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
           </div>
         </div>
 
-        {error ? (
+        {(hookError || importError) ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center py-10">
-            <p className="text-red-400 mb-4">{error}</p>
+            <p className="text-red-400 mb-4">{hookError?.message || importError}</p>
             <button 
-              onClick={fetchStarterPack}
+              onClick={refreshAllowance}
               className="flex items-center gap-2 px-4 py-2 bg-zinc-800 rounded-lg hover:bg-zinc-700 transition-colors text-white"
             >
               <RefreshCw className="w-4 h-4" /> {t('onboarding.try_again', 'Tentar novamente')}
             </button>
           </div>
-        ) : loading ? (
+        ) : hookLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center py-10">
             <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
             <p className="text-zinc-500">{t('onboarding.fetching_repertoire', 'Buscando o melhor repertório...')}</p>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-            {starterSongs.map(song => {
+            {hookStarterPack.map(song => {
               const isAlreadyImported = alreadyImportedIds.has(song.id);
               const isSelected = selectedIds.has(song.id);
               
@@ -269,7 +253,7 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
           </button>
           <button 
             onClick={handleImport}
-            disabled={importing || selectedIds.size === 0 || loading || error !== null}
+            disabled={importing || selectedIds.size === 0 || hookLoading || (hookError !== null || importError !== null)}
             className="px-6 py-2.5 bg-white text-zinc-900 rounded-lg hover:bg-zinc-100 transition-colors font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}

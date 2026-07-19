@@ -3668,7 +3668,7 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
         alreadyImported: importedIds.has(s.id)
       }));
 
-      res.json({ starterPack: safeStarterSongs });
+      res.json({ success: true, starterPack: safeStarterSongs, allowance: context.allowance });
     } catch (err: any) {
       logger.error(`[Onboarding] Starter pack resolution failed: orgId=${orgId}`, err);
       return res.status(500).json({ 
