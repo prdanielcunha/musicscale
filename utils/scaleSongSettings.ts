@@ -34,7 +34,7 @@ export const normalizeScaleSongSettings = (
     if (settings[id]) {
       const { key, bpm } = settings[id];
       const validKey = key?.trim() || undefined;
-      const bpmNum = typeof bpm === 'string' ? parseInt(bpm, 10) : typeof bpm === 'number' ? bpm : NaN;
+      const bpmNum = typeof bpm === 'string' ? Number(bpm.trim()) : typeof bpm === 'number' ? bpm : NaN;
       const validBpm = (!isNaN(bpmNum) && bpmNum >= 20 && bpmNum <= 300) ? bpmNum : undefined;
       
       if (validKey !== undefined || validBpm !== undefined) {
