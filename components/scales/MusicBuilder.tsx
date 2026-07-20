@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { PopulatedSong, Tag } from "../../types";
-import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm } from "../../utils/scaleSongSettings";
+import { PopulatedSong, Tag, ScaleSongSettingsUpdateResult } from "../../types";
+import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm, moveSongId } from "../../utils/scaleSongSettings";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { XCircleIcon } from "../icons/XCircleIcon";
 import { PlusCircleIcon } from "../icons/PlusCircleIcon";
@@ -18,7 +18,7 @@ interface MusicBuilderProps {
   setFormData: React.Dispatch<React.SetStateAction<any>>;
   songs: PopulatedSong[];
   tags: Tag[];
-  onUpdateSongSettings: (songId: string, key: string | null | undefined, bpm: number | null | undefined, isGlobal: boolean) => Promise<void>;
+  onUpdateSongSettings: (songId: string, key: string | null, bpm: number | null, isGlobal: boolean) => Promise<ScaleSongSettingsUpdateResult>;
 }
 
 const MusicBuilder: React.FC<MusicBuilderProps> = ({
@@ -96,7 +96,7 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
     });
   };
 
-  const handleSettingsChange = async (songId: string, key: string | null | undefined, bpm: number | null | undefined, isGlobal: boolean) => {
+  const handleSettingsChange = async (songId: string, key: string | null, bpm: number | null, isGlobal: boolean) => {
     return onUpdateSongSettings(songId, key, bpm, isGlobal);
   };
 
@@ -107,9 +107,8 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
       (direction === "down" && index === currentIds.length - 1)
     ) return;
 
-    const newIds = [...currentIds];
-    const swapIndex = direction === "up" ? index - 1 : index + 1;
-    [newIds[index], newIds[swapIndex]] = [newIds[swapIndex], newIds[index]];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    const newIds = moveSongId(currentIds, index, targetIndex);
     setFormData((prev: any) => ({ ...prev, songIds: newIds }));
   };
 
@@ -143,23 +142,11 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
 
     const currentIds = formData.songIds || [];
     const sourceIndex = currentIds.indexOf(draggedSongId);
-    let targetIndex = currentIds.indexOf(targetId);
-    
-    if (targetId === "end") {
-      targetIndex = currentIds.length;
-    }
+    let targetIndex = targetId === "end" ? currentIds.length - 1 : currentIds.indexOf(targetId);
     
     if (sourceIndex === -1 || targetIndex === -1) return;
     
-    const newIds = [...currentIds];
-    const [removed] = newIds.splice(sourceIndex, 1);
-    
-    // If we're dropping at a specific index, we need to adjust if we removed an item before it
-    if (targetId !== "end" && sourceIndex < targetIndex) {
-       targetIndex -= 1;
-    }
-    
-    newIds.splice(targetIndex, 0, removed);
+    const newIds = moveSongId(currentIds, sourceIndex, targetIndex);
     
     setFormData((prev: any) => ({ ...prev, songIds: newIds }));
     
@@ -215,9 +202,7 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
 
     if (!isNaN(targetIndex) && targetIndex !== startIndex) {
       const currentIds = formData.songIds || [];
-      const newIds = [...currentIds];
-      const [movedItem] = newIds.splice(startIndex, 1);
-      newIds.splice(targetIndex, 0, movedItem);
+      const newIds = moveSongId(currentIds, startIndex, targetIndex);
 
       dragInfo.current.startIndex = targetIndex;
       setFormData((prev: any) => ({ ...prev, songIds: newIds }));

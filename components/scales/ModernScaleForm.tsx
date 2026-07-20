@@ -10,6 +10,7 @@ import type {
   InstrumentCategory,
   Tag,
   FixedBandScale,
+  ScaleSongSettingsUpdateResult,
 } from "../../types";
 import PremiumSheetModal from "../common/PremiumSheetModal";
 import Button from "../common/Button";
@@ -31,7 +32,7 @@ import MusicBuilder from "./MusicBuilder";
 import { ScaleSongCard } from "./ScaleSongCard";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { resolveScaleDurationMinutes } from "../../utils/calendar";
-import { normalizeScaleSongSettings } from "../../utils/scaleSongSettings";
+import { normalizeScaleSongSettings, moveSongId } from "../../utils/scaleSongSettings";
 import { executeGlobalSongUpdate } from "../../utils/globalSongUpdateController";
 
 const GripVerticalIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -201,10 +202,10 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
   const handleUpdateSongSettings = async (
     songId: string,
-    key: string | null | undefined,
-    bpm: number | null | undefined,
+    key: string | null,
+    bpm: number | null,
     isGlobal: boolean
-  ) => {
+  ): Promise<ScaleSongSettingsUpdateResult> => {
     if (!isGlobal) {
       setFormData((prev: any) => {
         const newSettings = { ...(prev.songSettings || {}) };
@@ -214,8 +215,8 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
           newSettings[songId] = {
             ...(newSettings[songId] || {}),
           };
-          if (key !== undefined) newSettings[songId].key = key || undefined;
-          if (bpm !== undefined) newSettings[songId].bpm = bpm || undefined;
+          if (key !== null) newSettings[songId].key = key || undefined;
+          if (bpm !== null) newSettings[songId].bpm = bpm || undefined;
         }
         return { ...prev, songSettings: newSettings };
       });
@@ -247,6 +248,118 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       showErrorToast(t('scaleModal.confirmationError', 'Erro ao atualizar música.'));
       throw e;
     }
+  };
+
+  // Review Mode Reordering State & Handlers
+  const [draggedSongId, setDraggedSongId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const dragInfo = useRef<{
+    startIndex: number | null;
+    element: HTMLElement | null;
+  }>({ startIndex: null, element: null });
+
+  const moveSongReview = (index: number, direction: "up" | "down") => {
+    const currentIds = formData.songIds || [];
+    if (
+      (direction === "up" && index === 0) ||
+      (direction === "down" && index === currentIds.length - 1)
+    ) return;
+
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    const newIds = moveSongId(currentIds, index, targetIndex);
+    setFormData((prev: any) => ({ ...prev, songIds: newIds }));
+  };
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, songId: string) => {
+    setDraggedSongId(songId);
+    e.dataTransfer.effectAllowed = "move";
+    const img = new Image();
+    img.src =
+      "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+    e.dataTransfer.setDragImage(img, 0, 0);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, songId: string) => {
+    e.preventDefault();
+    if (draggedSongId && draggedSongId !== songId) {
+      setDropTargetId(songId);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetId: string) => {
+    e.preventDefault();
+    if (!draggedSongId || draggedSongId === targetId) return;
+
+    const currentIds = formData.songIds || [];
+    const sourceIndex = currentIds.indexOf(draggedSongId);
+    const targetIndex = targetId === "end" ? currentIds.length - 1 : currentIds.indexOf(targetId);
+    
+    if (sourceIndex === -1 || targetIndex === -1) return;
+    
+    const newIds = moveSongId(currentIds, sourceIndex, targetIndex);
+    setFormData((prev: any) => ({ ...prev, songIds: newIds }));
+    
+    setDraggedSongId(null);
+    setDropTargetId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedSongId(null);
+    setDropTargetId(null);
+  };
+
+  const handleTouchStart = (
+    e: React.TouchEvent<HTMLDivElement>,
+    index: number,
+  ) => {
+    dragInfo.current.startIndex = index;
+    const songItem = e.currentTarget.closest<HTMLElement>("[data-song-id]");
+    dragInfo.current.element = songItem;
+    if (songItem) {
+      songItem.classList.add("opacity-50", "shadow-2xl");
+    }
+    document.body.style.overflow = "hidden";
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (dragInfo.current.startIndex === null) return;
+    e.preventDefault();
+
+    const touch = e.touches[0];
+    const targetElement = document.elementFromPoint(
+      touch.clientX,
+      touch.clientY,
+    );
+    if (!targetElement) return;
+
+    const songItem = targetElement.closest<HTMLElement>("[data-song-id]");
+    if (!songItem) return;
+
+    setDropTargetId(songItem.dataset.songId || null);
+
+    const targetIndex = Number(songItem.dataset.index);
+    const startIndex = dragInfo.current.startIndex;
+
+    if (!isNaN(targetIndex) && targetIndex !== startIndex) {
+      const currentIds = formData.songIds || [];
+      const newIds = moveSongId(currentIds, startIndex, targetIndex);
+
+      dragInfo.current.startIndex = targetIndex;
+      setFormData((prev: any) => ({ ...prev, songIds: newIds }));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (dragInfo.current.element) {
+      dragInfo.current.element.classList.remove("opacity-50", "shadow-2xl");
+    }
+    dragInfo.current = { startIndex: null, element: null };
+    setDropTargetId(null);
+    document.body.style.overflow = "auto";
+  };
+
+  const handleTouchCancel = () => {
+    handleTouchEnd();
   };
 
   // Reset state on open
@@ -1176,18 +1289,43 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                           const song = songs.find(s => s.id === id);
                           if (!song) return null;
                           return (
-                            <ScaleSongCard
-                              key={song.id}
-                              song={song}
-                              isSelected={true}
-                              mode="review"
-                              index={index}
-                              tags={tags}
-                              localSettings={formData.songSettings?.[song.id]}
-                              onSettingsChange={(key, bpm, isGlobal) => handleUpdateSongSettings(song.id, key, bpm, isGlobal)}
-                            />
+                            <React.Fragment key={song.id}>
+                              <div 
+                                onDragOver={(e) => handleDragOver(e, song.id)}
+                                onDrop={(e) => handleDrop(e, song.id)}
+                                onDragLeave={() => setDropTargetId(null)}
+                                className={`h-2 rounded-md transition-all duration-150 ${dropTargetId === song.id ? "bg-primary/50 h-8" : ""}`}
+                              />
+                              <ScaleSongCard
+                                key={song.id}
+                                song={song}
+                                isSelected={true}
+                                mode="review"
+                                index={index}
+                                tags={tags}
+                                localSettings={formData.songSettings?.[song.id]}
+                                onSettingsChange={(key, bpm, isGlobal) => handleUpdateSongSettings(song.id, key, bpm, isGlobal)}
+                                onMoveUp={() => moveSongReview(index, "up")}
+                                onMoveDown={() => moveSongReview(index, "down")}
+                                isFirst={index === 0}
+                                isLast={index === formData.songIds.length - 1}
+                                isDragging={draggedSongId === song.id}
+                                onDragStart={(e) => handleDragStart(e, song.id)}
+                                onDragEnd={handleDragEnd}
+                                onTouchStart={(e: any) => handleTouchStart(e, index)}
+                                onTouchMove={handleTouchMove}
+                                onTouchEnd={handleTouchEnd}
+                                onTouchCancel={handleTouchCancel}
+                              />
+                            </React.Fragment>
                           );
                         })}
+                        <div // Final drop target
+                          onDragOver={(e) => handleDragOver(e, "end")}
+                          onDrop={(e) => handleDrop(e, "end")}
+                          onDragLeave={() => setDropTargetId(null)}
+                          className={`h-2 rounded-md transition-all duration-150 ${dropTargetId === "end" ? "bg-primary/50 h-8" : ""}`}
+                        />
                       </div>
                     ) : (
                       <span className="text-sm text-slate-400 italic">Nenhuma música selecionada</span>

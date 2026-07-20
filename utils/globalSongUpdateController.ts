@@ -1,8 +1,4 @@
-import { ScaleSongSettings } from '../types';
-
-export type GlobalSongUpdateResult =
-  | { status: 'success' }
-  | { status: 'deduplicated' };
+import { GlobalSongUpdateResult } from '../types';
 
 export interface GlobalSongUpdateDependencies {
   songId: string;
@@ -38,17 +34,37 @@ export const executeGlobalSongUpdate = async (
 
   const result = await executeSafeAction(
     async () => {
-      // Requisito 8: Contrato de persistência da música global
-      // Tom preenchido e BPM preenchido: { selectedKey: key || "", bpm: bpm || null }
-      // Testar também: tom vazio, BPM vazio, ambos vazios, valor zero ou inválido não pode aparecer como BPM persistido válido.
-      // Filter bpm: if bpm is falsy (like 0) or negative, or outside [20, 300], it should be null.
-      const sanitizedBpm = (bpm && bpm >= 20 && bpm <= 300) ? bpm : null;
-      
+      // Requisito 2: Deduplicação cobrindo toda a transação global
+      const sanitizedBpm =
+        bpm !== null &&
+        bpm >= 20 &&
+        bpm <= 300
+          ? bpm
+          : null;
+
       await updateSong(songId, {
         selectedKey: key || "",
         bpm: sanitizedBpm,
       });
-      return true;
+
+      await refreshData();
+
+      setFormData((prev) => {
+        const newSettings = {
+          ...(prev.songSettings || {}),
+        };
+        delete newSettings[songId];
+        return {
+          ...prev,
+          songSettings: newSettings,
+        };
+      });
+
+      showSuccessToast(successMessage);
+
+      return {
+        status: "success" as const,
+      };
     },
     {
       key: actionKey,
@@ -57,21 +73,10 @@ export const executeGlobalSongUpdate = async (
   );
 
   if (result === undefined) {
-    // Was deduplicated
-    return { status: 'deduplicated' };
+    return {
+      status: "deduplicated" as const,
+    };
   }
 
-  // Only run refreshData and post-success if not deduplicated!
-  await refreshData();
-
-  // After refreshData completes successfully, remove the local override
-  setFormData((prev: any) => {
-    const newSettings = { ...(prev.songSettings || {}) };
-    delete newSettings[songId];
-    return { ...prev, songSettings: newSettings };
-  });
-
-  showSuccessToast(successMessage);
-
-  return { status: 'success' };
+  return result;
 };

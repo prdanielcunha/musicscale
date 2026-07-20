@@ -496,3 +496,16 @@ export interface Suggestion {
   isRead: boolean;
   isArchived?: boolean;
 }
+
+export interface GlobalSongUpdateResult {
+  status: 'success' | 'deduplicated';
+}
+
+export type ScaleSongSettingsUpdateResult = GlobalSongUpdateResult;
+
+export type ScaleSongSettingsChangeHandler = (
+  key: string | null,
+  bpm: number | null,
+  isGlobal: boolean
+) => Promise<ScaleSongSettingsUpdateResult>;
+

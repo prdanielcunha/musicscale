@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PopulatedSong, Tag } from '../../types';
+import { PopulatedSong, Tag, ScaleSongSettingsChangeHandler } from '../../types';
 import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm } from '../../utils/scaleSongSettings';
 import { useTranslation } from 'react-i18next';
 import { GripVertical, ChevronDown, Check, X, Settings2 } from 'lucide-react';
@@ -24,7 +24,7 @@ export interface ScaleSongCardProps {
   isDragging?: boolean;
   isFirst?: boolean;
   isLast?: boolean;
-  onSettingsChange?: (key: string | null, bpm: number | null, isGlobal: boolean) => Promise<void>;
+  onSettingsChange?: ScaleSongSettingsChangeHandler;
 }
 
 const MUSICAL_KEYS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'];
@@ -195,7 +195,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
       onClick={mode === 'library' ? handleCardClick : undefined}
     >
       <div className="flex items-center justify-between gap-3">
-        {mode === 'setlist' && (
+        {(mode === 'setlist' || mode === 'review') && (
           <div className="flex items-center">
             <div 
               className="flex items-center justify-center min-w-[44px] min-h-[44px] -ml-2 mr-1 cursor-grab active:cursor-grabbing touch-none"
@@ -214,12 +214,6 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
               {(index ?? 0) + 1}
             </span>
           </div>
-        )}
-
-        {mode === 'review' && (
-          <span className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-primary/10 text-[12px] font-bold text-primary-dark mr-2">
-            {(index ?? 0) + 1}
-          </span>
         )}
 
         <div className="flex flex-col overflow-hidden flex-1">
@@ -250,6 +244,29 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
              <button type="button" onClick={onMoveUp} disabled={isFirst} className="hidden md:flex items-center justify-center min-w-[44px] min-h-[44px] text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><ChevronDown className="w-4 h-4 rotate-180"/></button>
              <button type="button" onClick={onMoveDown} disabled={isLast} className="hidden md:flex items-center justify-center min-w-[44px] min-h-[44px] text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><ChevronDown className="w-4 h-4"/></button>
              <button type="button" onClick={onToggle} className="flex items-center justify-center min-w-[44px] min-h-[44px] text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg ml-1"><XCircleIcon className="w-5 h-5"/></button>
+          </div>
+        )}
+
+        {mode === 'review' && (
+          <div className="flex items-center gap-0.5 ml-2" onClick={preventProp}>
+             <button 
+               type="button" 
+               onClick={onMoveUp} 
+               disabled={isFirst} 
+               aria-label={t('scaleModal.moveUp', 'Subir música') + ` - ${song.title}`} 
+               className="flex items-center justify-center min-w-[44px] min-h-[44px] text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"
+             >
+               <ChevronDown className="w-4 h-4 rotate-180"/>
+             </button>
+             <button 
+               type="button" 
+               onClick={onMoveDown} 
+               disabled={isLast} 
+               aria-label={t('scaleModal.moveDown', 'Descer música') + ` - ${song.title}`} 
+               className="flex items-center justify-center min-w-[44px] min-h-[44px] text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"
+             >
+               <ChevronDown className="w-4 h-4"/>
+             </button>
           </div>
         )}
       </div>

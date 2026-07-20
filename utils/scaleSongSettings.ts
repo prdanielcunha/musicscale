@@ -76,3 +76,25 @@ export const applyScaleSongSettings = <T extends Song>(song: T, settings?: Scale
 
   return newSong;
 };
+
+export const moveSongId = (
+  songIds: string[],
+  fromIndex: number,
+  toIndex: number
+): string[] => {
+  if (
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= songIds.length ||
+    toIndex >= songIds.length ||
+    fromIndex === toIndex
+  ) {
+    return songIds;
+  }
+
+  const next = [...songIds];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
+};
+

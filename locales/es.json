@@ -582,7 +582,9 @@
     "confirmationCancel": "Cancelar",
     "confirmationConfirm": "Confirmar",
     "confirmationSuccess": "Repertorio actualizado.",
-    "confirmationError": "Error al actualizar."
+    "confirmationError": "Error al actualizar.",
+    "moveUp": "Subir canción",
+    "moveDown": "Bajar canción"
   },
   "bandScaleModal": {
     "titleCreate": "Nueva Escala de Banda",
