@@ -23,6 +23,31 @@ export const hasLyrics = (song: Song): boolean => {
   return (song.lyrics && song.lyrics.trim().length > 0) || false;
 };
 
+export const normalizeScaleSongSettings = (
+  songIds: string[],
+  settings?: Record<string, ScaleSongSettings>
+): Record<string, ScaleSongSettings> => {
+  if (!settings) return {};
+  const normalized: Record<string, ScaleSongSettings> = {};
+  
+  songIds.forEach(id => {
+    if (settings[id]) {
+      const { key, bpm } = settings[id];
+      const validKey = key?.trim() || undefined;
+      const bpmNum = typeof bpm === 'string' ? parseInt(bpm, 10) : typeof bpm === 'number' ? bpm : NaN;
+      const validBpm = (!isNaN(bpmNum) && bpmNum >= 20 && bpmNum <= 300) ? bpmNum : undefined;
+      
+      if (validKey !== undefined || validBpm !== undefined) {
+        normalized[id] = {};
+        if (validKey !== undefined) normalized[id].key = validKey;
+        if (validBpm !== undefined) normalized[id].bpm = validBpm;
+      }
+    }
+  });
+  
+  return normalized;
+};
+
 export const applyScaleSongSettings = <T extends Song>(song: T, settings?: ScaleSongSettings): T => {
   if (!settings) return song;
 
@@ -30,7 +55,7 @@ export const applyScaleSongSettings = <T extends Song>(song: T, settings?: Scale
   const newSong = { ...song };
 
   if (settings.key !== undefined && settings.key !== null) {
-    const semitones = getKeyDifference(newSong.key, settings.key);
+    const semitones = newSong.key ? getKeyDifference(newSong.key, settings.key) : 0;
     
     newSong.key = settings.key;
     // We update selectedKey too so UI components expecting that use the effective key

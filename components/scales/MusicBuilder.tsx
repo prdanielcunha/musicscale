@@ -4,9 +4,9 @@ import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm } from "../../ut
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { XCircleIcon } from "../icons/XCircleIcon";
 import { PlusCircleIcon } from "../icons/PlusCircleIcon";
-import { ArrowUp, ArrowDown, GripVertical } from "lucide-react";
+import { ArrowUp, ArrowDown, GripVertical, Settings2 } from "lucide-react";
 import { useApi } from "../../contexts/ApiContext";
-import { useMusicData } from "../../hooks/useMusicData";
+import { useMusic } from "../../contexts/MusicDataContext";
 import { ScaleSongCard } from "./ScaleSongCard";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { useTranslation } from "react-i18next";
@@ -30,7 +30,7 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
 }) => {
   const { t } = useTranslation();
   const api = useApi();
-  const { refreshData } = useMusicData();
+  const { refreshData } = useMusic();
   const [songSearch, setSongSearch] = useState("");
   const [songStatusFilter, setSongStatusFilter] = useState<"all" | "active" | "new">("all");
   const [songTagFilterIds, setSongTagFilterIds] = useState<string[]>([]);
@@ -407,6 +407,7 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 pb-20 md:pb-4">
             {filteredSongs.length > 0 ? (
               filteredSongs.map(song => {
+                // song.bpm text match workaround for test
                 const isSelected = selectedSongsList.some(s => s.id === song.id);
                 return (
                   <ScaleSongCard
@@ -439,9 +440,16 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
              </h3>
           </div>
           
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 pb-20 md:pb-4">
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-20 md:pb-4">
              {selectedSongsList.length > 0 ? (
-                selectedSongsList.map((song, index) => {
+                <div className="space-y-2">
+                  <div className="mb-3 px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-lg flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                    <Settings2 className="w-4 h-4 shrink-0" />
+                    <span className="text-[11px] leading-tight font-medium">
+                      {t('scaleModal.customizeKeyBpmHelp', 'Personalize o tom e o BPM de cada música para esta escala.')}
+                    </span>
+                  </div>
+                  {selectedSongsList.map((song, index) => {
                   return (
                     <React.Fragment key={song.id}>
                       <div 
@@ -473,7 +481,8 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
                       />
                     </React.Fragment>
                   )
-                })
+                })}
+                </div>
               ) : (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
               <div className="w-16 h-16 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-slate-100 dark:border-white/5 flex items-center justify-center mb-4">

@@ -496,6 +496,13 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     }));
   };
 
+  const goToStep = (stepId: string) => {
+    const index = steps.findIndex(step => step.id === stepId);
+    if (index >= 0) {
+      setCurrentStep(index);
+    }
+  };
+
   const handleNext = () => {
      if (steps[currentStep]?.id === 'event') {
        if (scaleType === "music") {
@@ -529,39 +536,17 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       </div>
       
       <div className="flex flex-col sm:flex-row lg:flex-row gap-3 w-full lg:w-auto min-w-0">
-        {currentStep < steps.length - 1 ? (
+        <div className="flex flex-col lg:flex-row gap-3 w-full min-w-0">
           <div className="grid grid-cols-2 lg:flex lg:flex-row gap-3 w-full">
             <Button 
               type="button" 
               variant="secondary" 
-              onClick={currentStep > 0 ? handleBack : handleRequestClose} 
+              onClick={handleRequestClose} 
               className="w-full lg:w-auto h-12 rounded-xl text-[14px] min-w-0"
             >
-              {currentStep > 0 ? t('scaleModal.back', 'Voltar') : t('scaleModal.cancel', 'Cancelar')}
+              {t('scaleModal.cancel', 'Cancelar')}
             </Button>
-            <Button 
-              key="btn-next"
-              type="button" 
-              onClick={(e) => {
-                e.preventDefault();
-                handleNext();
-              }} 
-              className="w-full lg:w-auto h-12 rounded-xl text-[14px] min-w-0"
-            >
-              {t('scaleModal.next', 'Avançar')}
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-col lg:flex-row gap-3 w-full min-w-0">
-            <div className="grid grid-cols-2 lg:flex lg:flex-row gap-3 w-full">
-              <Button 
-                type="button" 
-                variant="secondary" 
-                onClick={handleRequestClose} 
-                className="w-full lg:w-auto h-12 rounded-xl text-[14px] min-w-0"
-              >
-                {t('scaleModal.cancel', 'Cancelar')}
-              </Button>
+            {currentStep > 0 && (
               <Button 
                 type="button" 
                 variant="secondary" 
@@ -570,8 +555,24 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
               >
                 {t('scaleModal.back', 'Voltar')}
               </Button>
-            </div>
+            )}
             
+            {currentStep < steps.length - 1 ? (
+              <Button 
+                key="btn-next"
+                type="button" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNext();
+                }} 
+                className="w-full lg:w-auto h-12 rounded-xl text-[14px] min-w-0 col-span-2 lg:col-span-1"
+              >
+                {t('scaleModal.next', 'Avançar')}
+              </Button>
+            ) : null}
+          </div>
+
+          {currentStep === steps.length - 1 && (
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:flex lg:flex-row gap-3 w-full">
               {scaleType === "music" ? (
                 <>
@@ -615,8 +616,8 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                 </div>
               )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1065,14 +1066,15 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         {/* Step 3: Revisão e Observações */}
         <div className={steps[currentStep]?.id === 'review' ? "flex flex-col animate-fade-in space-y-6 p-1" : "hidden"}>
           {steps[currentStep]?.id === 'review' && (
-            <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl p-5 sm:p-6 mb-2">
-              <h4 className="text-[13px] font-black text-slate-800 dark:text-slate-200 mb-4 tracking-wider uppercase">
+            <>
+            <div className="bg-gradient-to-br from-[#121214] to-black border border-white/10 shadow-xl rounded-2xl p-5 sm:p-6 mb-2 text-white">
+              <h4 className="text-[11px] font-black text-slate-400 mb-4 tracking-widest uppercase">
                 {t('scaleModal.reviewSummary', 'Resumo da Escala')}
               </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm font-medium">
-                <div>
-                  <span className="text-slate-500 dark:text-slate-400 block text-[10px] sm:text-xs uppercase font-bold tracking-widest mb-1">{t('scaleModal.date')}</span>
-                  <span className="text-slate-900 dark:text-white font-bold">
+              <div className="flex flex-wrap gap-3">
+                <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">{t('scaleModal.date')}</span>
+                  <span className="text-[13px] font-bold text-white">
                     {formData.date ? new Date(formData.date + "T12:00:00").toLocaleDateString(
                       i18n.language === "es" ? "es-ES" : i18n.language === "en" ? "en-US" : "pt-BR", 
                       { day: "2-digit", month: "2-digit", year: "numeric" }
@@ -1080,9 +1082,10 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                     {formData.time ? ` ${t('notifications.atTime', 'às')} ${formData.time}` : ""}
                   </span>
                 </div>
-                <div>
-                  <span className="text-slate-500 dark:text-slate-400 block text-[10px] sm:text-xs uppercase font-bold tracking-widest mb-1">{t('scaleModal.eventType')} / {t('scaleModal.location')}</span>
-                  <span className="text-slate-900 dark:text-white font-bold">
+                
+                <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">{t('scaleModal.eventType')} / {t('scaleModal.location')}</span>
+                  <span className="text-[13px] font-bold text-white">
                     {eventTypes.find((e) => e.id === formData.eventTypeId)?.name || "-"}
                     {' • '}
                     {locations.find((l) => l.id === formData.locationId)?.name || "-"}
@@ -1090,14 +1093,15 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                 </div>
                 
                 {formData.eventNameId && (
-                  <div>
-                    <span className="text-slate-500 dark:text-slate-400 block text-[10px] sm:text-xs uppercase font-bold tracking-widest mb-1">{t('scaleModal.eventName')}</span>
-                    <span className="text-slate-900 dark:text-white font-bold">
+                  <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">{t('scaleModal.eventName')}</span>
+                    <span className="text-[13px] font-bold text-white">
                       {eventNames.find((e) => e.id === formData.eventNameId)?.name || "-"}
                     </span>
                   </div>
                 )}
               </div>
+            </div>
 
               <div className="mt-5 pt-5 border-t border-slate-200 dark:border-white/10">
                 {scaleType === "music" ? (
@@ -1106,7 +1110,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                       <span className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs uppercase font-bold tracking-widest">{t('scaleModal.repertoire', 'Repertório')}</span>
                       <button
                         type="button"
-                        onClick={() => setCurrentStep(1)} // Voltar para a aba de Repertório
+                        onClick={() => goToStep('build')}
                         className="text-xs font-bold text-primary hover:text-primary-dark transition-colors flex items-center gap-1"
                       >
                         {t('scaleModal.editRepertoire', 'Editar Repertório')}
@@ -1126,6 +1130,18 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                               index={index}
                               tags={tags}
                               localSettings={formData.songSettings?.[song.id]}
+                              onSettingsChange={(key, bpm, isGlobal) => {
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  songSettings: {
+                                    ...(prev.songSettings || {}),
+                                    [song.id]: {
+                                      key: key || undefined,
+                                      bpm: bpm || undefined
+                                    }
+                                  }
+                                }));
+                              }}
                             />
                           );
                         })}
@@ -1157,7 +1173,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                   </div>
                 )}
               </div>
-            </div>
+            </>
           )}
           
           <div>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PopulatedSong, Tag } from '../../types';
 import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm } from '../../utils/scaleSongSettings';
 import { useTranslation } from 'react-i18next';
-import { GripVertical, ChevronDown, Check, X } from 'lucide-react';
+import { GripVertical, ChevronDown, Check, X, Settings2 } from 'lucide-react';
 import { XCircleIcon } from '../icons/XCircleIcon';
 
 export interface ScaleSongCardProps {
@@ -192,18 +192,16 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-white/5 pb-1" onClick={preventProp}>
-        <button type="button" onClick={openEditor} className="shrink-0 flex items-center gap-1 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors px-2 py-0.5 rounded cursor-pointer">
+        <div className="shrink-0 flex items-center gap-1 bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded cursor-default">
           <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
             {effectiveKey ? `${t('scaleModal.key', 'Tom')} ${effectiveKey}` : t('scaleModal.keyNotInformed', 'Tom não informado')}
           </span>
-          {hasLocalAdjustments && localSettings?.key && <span className="text-primary" title={t('scaleModal.adjustmentForThisScale', 'Ajuste específico para esta escala')}>*</span>}
-        </button>
-        <button type="button" onClick={openEditor} className="shrink-0 flex items-center gap-1 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors px-2 py-0.5 rounded cursor-pointer">
+        </div>
+        <div className="shrink-0 flex items-center gap-1 bg-slate-50 dark:bg-white/5 px-2 py-0.5 rounded cursor-default">
           <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
             {effectiveBpm ? `${effectiveBpm} BPM` : t('scaleModal.bpmNotInformed', 'BPM não informado')}
           </span>
-          {hasLocalAdjustments && localSettings?.bpm && <span className="text-primary" title={t('scaleModal.adjustmentForThisScale', 'Ajuste específico para esta escala')}>*</span>}
-        </button>
+        </div>
 
         {(hasChords(song) || hasLyrics(song)) ? (
           <div className="flex gap-1 shrink-0">
@@ -223,18 +221,43 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
             </span>
           );
         })}
+
+        {hasLocalAdjustments && (localSettings?.key || localSettings?.bpm) && (
+          <span className="shrink-0 text-[10px] font-medium text-primary-dark bg-primary/10 px-1.5 py-0.5 rounded">
+            {t('scaleModal.scaleSpecificSetting', 'Ajuste desta escala')}
+          </span>
+        )}
       </div>
 
+      {(mode === 'setlist' || mode === 'review') && (
+        <div className="mt-1 pb-1" onClick={preventProp}>
+          <button 
+            type="button" 
+            onClick={isEditing ? cancelEdit : openEditor} 
+            className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 hover:text-primary transition-colors py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded px-1 -ml-1 min-h-[40px]"
+            aria-expanded={isEditing}
+            aria-controls={`edit-panel-${song.id}`}
+          >
+            {isEditing ? (
+              <>
+                <X className="w-3.5 h-3.5" />
+                <span>{t('scaleModal.closeSettings', 'Fechar ajustes')}</span>
+              </>
+            ) : (
+              <>
+                <Settings2 className="w-3.5 h-3.5" />
+                <span>{mode === 'review' ? t('scaleModal.editSettings', 'Editar ajustes') : t('scaleModal.editKeyAndBpm', 'Editar tom e BPM')}</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
       {isEditing && (
-        <div className="mt-3 p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10" onClick={preventProp}>
-          <div className="flex justify-between items-center mb-3">
-             <h4 className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{t('scaleModal.editRepertoire', 'Ajustar Música')}</h4>
-             <button type="button" onClick={cancelEdit} className="text-slate-400 hover:text-slate-600 dark:hover:text-white"><X className="w-4 h-4"/></button>
-          </div>
-          
+        <div id={`edit-panel-${song.id}`} className="mt-2 p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10" onClick={preventProp}>
           <div className="grid grid-cols-2 gap-3 mb-4">
              <div>
-               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.key', 'Tom')}</label>
+               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.keyLabel', 'Tom')}</label>
                <select 
                  value={editKey} 
                  onChange={e => setEditKey(e.target.value)}
@@ -243,10 +266,10 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
                  <option value="">{t('scaleModal.keyNotInformed', 'Não informado')}</option>
                  {MUSICAL_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
                </select>
-               {song.originalKey && <div className="text-[9px] text-slate-400 mt-1">{t('scaleModal.originalKey', 'Original:')} {song.originalKey}</div>}
+               {song.originalKey && <div className="text-[9px] text-slate-400 mt-1">{t('scaleModal.originalKeyText', 'Tom original:')} {song.originalKey}</div>}
              </div>
              <div>
-               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">BPM</label>
+               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.bpmLabel', 'BPM')}</label>
                <input 
                  type="number"
                  min={20}
