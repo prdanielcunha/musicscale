@@ -32,6 +32,7 @@ import { ScaleSongCard } from "./ScaleSongCard";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { resolveScaleDurationMinutes } from "../../utils/calendar";
 import { normalizeScaleSongSettings } from "../../utils/scaleSongSettings";
+import { executeGlobalSongUpdate } from "../../utils/globalSongUpdateController";
 
 const GripVerticalIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg
@@ -143,7 +144,11 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const { executeSafeAction } = useSafeAction();
   const { hasCapability } = useCapability();
   const api = useApi();
-  const { toast } = useToast();
+  const {
+    toast,
+    success: showSuccessToast,
+    error: showErrorToast,
+  } = useToast();
   const isCommandApiV1Enabled = useFeatureFlag('musicscale.bandScaleCommandApiV1');
 
   const [formData, setFormData] = useState<Partial<Scale & BandScale>>({});
@@ -194,7 +199,12 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     onClose();
   };
 
-  const handleUpdateSongSettings = async (songId: string, key: string | null | undefined, bpm: number | null | undefined, isGlobal: boolean) => {
+  const handleUpdateSongSettings = async (
+    songId: string,
+    key: string | null | undefined,
+    bpm: number | null | undefined,
+    isGlobal: boolean
+  ) => {
     if (!isGlobal) {
       setFormData((prev: any) => {
         const newSettings = { ...(prev.songSettings || {}) };
@@ -209,44 +219,32 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         }
         return { ...prev, songSettings: newSettings };
       });
-      return;
+      return { status: "success" as const };
     }
 
     if (!api) {
-        toast.error(t('scaleModal.confirmationError', 'Erro ao atualizar música.'));
-        throw new Error("API unvailable");
+      showErrorToast(t('scaleModal.confirmationError', 'Erro ao atualizar música.'));
+      throw new Error("API unavailable");
     }
 
-    const actionKey = `scale-song-global-update:${songId}`;
-    
     try {
-      const result = await executeSafeAction(
-        async () => {
-          await api.songs.update(songId, { selectedKey: key || "", bpm: bpm || null });
-          return true;
+      const result = await executeGlobalSongUpdate({
+        songId,
+        key: key || null,
+        bpm: bpm || null,
+        updateSong: async (id, data) => {
+          await api.songs.update(id, data);
         },
-        {
-          key: actionKey,
-          preventDoubleExecution: true,
-        }
-      );
-      
-      if (result !== true) {
-        // Was deduplicated
-        return;
-      }
-      
-      setFormData((prev: any) => {
-        const newSettings = { ...(prev.songSettings || {}) };
-        delete newSettings[songId];
-        return { ...prev, songSettings: newSettings };
+        refreshData,
+        executeSafeAction,
+        setFormData,
+        showSuccessToast,
+        successMessage: t('scaleModal.confirmationSuccess', 'Ajuste global salvo com sucesso.')
       });
-      
-      await refreshData();
-      toast.success(t('scaleModal.confirmationSuccess', 'Ajuste global salvo com sucesso.'));
+      return result;
     } catch (e) {
       console.error("Failed to update globally", e);
-      toast.error(t('scaleModal.confirmationError', 'Erro ao atualizar música.'));
+      showErrorToast(t('scaleModal.confirmationError', 'Erro ao atualizar música.'));
       throw e;
     }
   };
