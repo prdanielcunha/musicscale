@@ -139,17 +139,44 @@ test("MS-FIRST-VALUE-01C - Safe Cancellation and Mobile Setlist Summary", async 
   });
 
   await t.test("24 & 25. No temporary, patch, brute or old files are present", () => {
+    // Explicit non-existence checks
+    const deletedFiles = [
+      "add_keys.cjs",
+      "fix_init.cjs",
+      "fix_timeout.cjs",
+      "patch_music_builder.cjs",
+      "patch_scale_form.cjs",
+      "rewrite_music.cjs"
+    ];
+    for (const file of deletedFiles) {
+      assert.ok(!fs.existsSync(path.join(process.cwd(), file)), `File ${file} must not exist`);
+    }
+
+    // Explicit existence checks for functional files
+    const expectedFiles = [
+      "components/scales/ModernScaleForm.tsx",
+      "components/scales/MusicBuilder.tsx",
+      "locales/pt.json",
+      "locales/en.json",
+      "locales/es.json",
+      "scripts/test_ms_first_value_01c.ts"
+    ];
+    for (const file of expectedFiles) {
+      assert.ok(fs.existsSync(path.join(process.cwd(), file)), `Required functional file ${file} must exist`);
+    }
+
+    // Generic scanning
     const rootFiles = fs.readdirSync(process.cwd());
     const forbiddenPatterns = [
       /\.patch$/, /\.old$/, /\.copy$/, /\.backup$/, /\.brute/, /\.fix_/, /generate/
     ];
     for (const file of rootFiles) {
+      // Ignore the specific files we actually want/pre-exist
+      if (file === "firestore.rules.backup") continue;
+      
       for (const pattern of forbiddenPatterns) {
         if (pattern.test(file)) {
-          // Some pre-existing project files are fine, like .gitignore or .firebaserc, but check any new files
-          if (file !== "firestore.rules.backup" && file !== "fix_init.cjs" && file !== "fix_timeout.cjs") {
-             assert.fail(`Forbidden file pattern detected: ${file}`);
-          }
+          assert.fail(`Forbidden file pattern detected in root: ${file}`);
         }
       }
     }
