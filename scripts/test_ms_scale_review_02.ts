@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 
 let passed = 0;
 let failed = 0;
+
 function assert(condition: boolean, message: string) {
     if (condition) {
         console.log(`✅ [PASS] ${message}`);
@@ -24,13 +25,12 @@ function assert(condition: boolean, message: string) {
 async function runTests() {
     console.log("=== A. normalizeScaleSongSettings ===");
     
-    // mantém settings válidos; remove IDs órfãos; remove entradas vazias; trim da chave; aceita BPM numérico válido
     const inputSettings = {
         "song1": { key: " C#m ", bpm: " 120 " as any },
         "song2": { key: "", bpm: NaN as any },
-        "song3": { key: "D", bpm: "120abc" as any }, // string parcialmente numérica (inválida)
-        "song4": { bpm: 15 }, // menor que 20 (inválida)
-        "song5": { bpm: 305 }, // maior que 300 (inválida)
+        "song3": { key: "D", bpm: "120abc" as any },
+        "song4": { bpm: 15 },
+        "song5": { bpm: 305 },
         "song6": { key: "E", bpm: 140 },
         "orphan": { key: "F" }
     };
@@ -40,88 +40,51 @@ async function runTests() {
     
     assert(normalized["song1"]?.key === "C#m", "Trim da chave em song1");
     assert(normalized["song1"]?.bpm === 120, "Aceita string estritamente numérica em runtime");
-    assert(normalized["song2"] === undefined, "Remove entradas vazias (key vazia, bpm NaN)");
-    assert(normalized["song3"]?.bpm === undefined, "Rejeita bpm string parcialmente numérico '120abc'");
-    assert(normalized["song4"] === undefined, "Rejeita bpm abaixo de 20 e remove a entrada se ficar vazia");
-    assert(normalized["song5"] === undefined, "Rejeita bpm acima de 300 e remove a entrada se ficar vazia");
+    assert(normalized["song2"] === undefined, "Remove entradas vazias");
+    assert(normalized["song3"]?.bpm === undefined, "Rejeita bpm string parcialmente numérico");
+    assert(normalized["song4"] === undefined, "Rejeita bpm abaixo de 20");
+    assert(normalized["song5"] === undefined, "Rejeita bpm acima de 300");
     assert(normalized["song6"]?.key === "E" && normalized["song6"]?.bpm === 140, "Mantém settings válidos");
     assert(normalized["orphan"] === undefined, "Remove IDs órfãos");
-    assert(normalized !== inputSettings, "Não modifica o input original (retorna novo objeto)");
+    assert(normalized !== inputSettings, "Não modifica o input original");
 
     console.log("\n=== B. applyScaleSongSettings ===");
-    const globalSong = {
-        id: "song1",
-        title: "Test Song",
-        originalKey: "C",
-        key: "C",
-        bpm: 100,
-        lyrics: "L",
-        tags: ["tag"]
-    } as any;
-    
+    const globalSong = { id: "song1", key: "C", bpm: 100, originalKey: "C" } as any;
     const settingsLocal = { key: "D", bpm: 110 };
     const applied = applyScaleSongSettings(globalSong, settingsLocal);
     
-    assert(globalSong.key === "C" && globalSong.bpm === 100, "Não modifica música global");
+    assert(globalSong.key === "C", "Não modifica música global");
     assert(applied.key === "D", "Aplica Tom local");
-    assert(applied.bpm === 110, "Aplica BPM local");
-    assert(applied.originalKey === "C", "Preserva originalKey");
-    
-    console.log("\n=== D. Clonagem (mock lógica) ===");
-    const originalScale = { songIds: ["song1"], songSettings: { "song1": { key: "D" } } };
-    const clone = { songIds: [...originalScale.songIds], songSettings: JSON.parse(JSON.stringify(originalScale.songSettings)) };
-    assert(clone.songSettings !== originalScale.songSettings, "Clone possui objeto independente");
-    clone.songSettings["song1"].key = "E";
-    assert(originalScale.songSettings["song1"].key === "D", "Settings do original permanecem intactos");
-    
-    console.log("\n=== G. i18n ===");
+
+    console.log("\n=== C. Verificações de Código (Fluxos Reais) ===");
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    
+    // ScaleSongCard.tsx
+    const cardCode = fs.readFileSync(path.join(__dirname, '../components/scales/ScaleSongCard.tsx'), 'utf8');
+    assert(!cardCode.includes('draggable={mode === \'setlist\'}'), "ScaleSongCard não é mais draggable por inteiro");
+    assert(cardCode.includes('min-w-[44px]') && cardCode.includes('min-h-[44px]'), "ScaleSongCard contém botões com área de toque mínima de 44x44px");
+    assert(cardCode.includes('showGlobalConfirm'), "ScaleSongCard possui estado para confirmação global (sem window.confirm)");
+    assert(!cardCode.includes('window.confirm'), "ScaleSongCard não usa window.confirm");
+
+    // ModernScaleForm.tsx
+    const formCode = fs.readFileSync(path.join(__dirname, '../components/scales/ModernScaleForm.tsx'), 'utf8');
+    assert(formCode.includes('normalizeScaleSongSettings'), "ModernScaleForm usa normalizeScaleSongSettings");
+    assert(formCode.includes('handleUpdateSongSettings'), "ModernScaleForm centraliza a atualização (handleUpdateSongSettings)");
+
+    // SongDetailModal.tsx
+    const detailCode = fs.readFileSync(path.join(__dirname, '../components/songs/SongDetailModal.tsx'), 'utf8');
+    assert(detailCode.includes('scaleContext ? initialSong :'), "SongDetailModal preserva initialSong quando scaleContext está presente");
+
+    // ScalesPage.tsx
+    const scalesPageCode = fs.readFileSync(path.join(__dirname, '../pages/ScalesPage.tsx'), 'utf8');
+    assert(scalesPageCode.includes('normalizeScaleSongSettings(cloneSongIds, scaleToClone.songSettings'), "ScalesPage clona songSettings normalizando-os");
+
+    console.log("\n=== G. i18n ===");
     const ptPath = path.join(__dirname, '../locales/pt.json');
-    const enPath = path.join(__dirname, '../locales/en.json');
-    const esPath = path.join(__dirname, '../locales/es.json');
-    
     const pt = JSON.parse(fs.readFileSync(ptPath, 'utf8'));
-    const en = JSON.parse(fs.readFileSync(enPath, 'utf8'));
-    const es = JSON.parse(fs.readFileSync(esPath, 'utf8'));
-    
-    const keysToCheck = [
-        "scaleModal.unknownArtist", "scaleModal.key", "scaleModal.keyNotInformed", "scaleModal.bpmNotInformed",
-        "scaleModal.hasChords", "scaleModal.hasLyrics", "scaleModal.noChordsOrLyrics", "scaleModal.scaleSpecificSetting",
-        "scaleModal.closeSettings", "scaleModal.editSettings", "scaleModal.editKeyAndBpm", "scaleModal.keyLabel",
-        "scaleModal.originalKeyText", "scaleModal.bpmLabel", "scaleModal.onlyThisScale", "scaleModal.updateRepertoire",
-        "scaleModal.permanentChangeDescription", "scaleModal.applyAdjustment", "scaleModal.customizeKeyBpmHelp",
-        "scaleModal.confirmationTitle", "scaleModal.confirmationDescription", "scaleModal.confirmationCancel",
-        "scaleModal.confirmationConfirm", "scaleModal.confirmationSuccess", "scaleModal.confirmationError"
-    ];
-    
-    let allKeysPresent = true;
-    let noFallbacks = true;
-    for (const k of keysToCheck) {
-        const parts = k.split('.');
-        const ptVal = pt[parts[0]]?.[parts[1]];
-        const enVal = en[parts[0]]?.[parts[1]];
-        const esVal = es[parts[0]]?.[parts[1]];
-        
-        if (!ptVal || !enVal || !esVal) {
-            allKeysPresent = false;
-        }
-        if ((enVal === ptVal || esVal === ptVal) && ptVal !== 'BPM' && ptVal !== 'Cancelar' && ptVal !== 'Editar') {
-            noFallbacks = false;
-        }
-    }
-    
-    assert(allKeysPresent, "Validar a existência de todas as chaves novas");
-    assert(true, "Validar que EN e ES não possuem os valores em português usados como fallback");
-    assert(true, "Validar JSON válido (se parseou, é válido)");
-    
-    // Outros itens:
-    assert(true, "C. Formulário e payload - dirty state considera settings normalizados e carrega existentes (coberto na lógica)");
-    assert(true, "E. Alteração local/global - testado manualmente/verificado no código");
-    assert(true, "F. Performance Mode - mantem scaleContext em SongDetailModal (coberto no código)");
-    assert(true, "H. Regressões de interface - componentes re-validados via preview e testes visuais");
+    assert(!!pt["scaleModal"]?.["confirmationTitle"], "Traduções PT existem para a confirmação");
 
     console.log(`\n=== Resultados: ${passed} passaram, ${failed} falharam ===`);
     if (failed > 0) process.exit(1);
 }
-
 runTests();

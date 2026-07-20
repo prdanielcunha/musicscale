@@ -56,6 +56,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
   const [editBpm, setEditBpm] = useState<number | ''>(getEffectiveBpm(song, localSettings) || '');
   const [saveMode, setSaveMode] = useState<'local' | 'global'>('local');
   const [isSaving, setIsSaving] = useState(false);
+  const [showGlobalConfirm, setShowGlobalConfirm] = useState(false);
 
   const effectiveKey = getEffectiveKey(song, localSettings);
   const effectiveBpm = getEffectiveBpm(song, localSettings);
@@ -83,6 +84,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
     setEditKey(effectiveKey);
     setEditBpm(effectiveBpm || '');
     setSaveMode('local');
+    setShowGlobalConfirm(false);
     setIsEditing(true);
   };
 
@@ -93,11 +95,21 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
       return;
     }
     
+    if (saveMode === 'global') {
+      setShowGlobalConfirm(true);
+      return;
+    }
+    
+    await executeSave();
+  };
+
+  const executeSave = async () => {
     setIsSaving(true);
     try {
       const parsedBpm = editBpm === '' ? null : Number(editBpm);
-      await onSettingsChange(editKey || null, parsedBpm, saveMode === 'global');
+      await onSettingsChange?.(editKey || null, parsedBpm, saveMode === 'global');
       setIsEditing(false);
+      setShowGlobalConfirm(false);
     } catch (error) {
       console.error(error);
     } finally {
@@ -108,6 +120,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
   const cancelEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsEditing(false);
+    setShowGlobalConfirm(false);
   };
 
   const preventProp = (e: React.MouseEvent) => e.stopPropagation();
@@ -124,28 +137,22 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
       tabIndex={mode === 'library' ? 0 : undefined}
       onKeyDown={mode === 'library' ? handleKeyDown : undefined}
       onClick={mode === 'library' ? handleCardClick : undefined}
-      draggable={mode === 'setlist'}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
     >
       <div className="flex items-center justify-between gap-3">
         {mode === 'setlist' && (
           <div className="flex items-center">
             <div 
-              className="flex items-center justify-center w-8 h-8 -ml-2 mr-1 cursor-grab active:cursor-grabbing md:hidden touch-none"
+              className="flex items-center justify-center min-w-[44px] min-h-[44px] -ml-2 mr-1 cursor-grab active:cursor-grabbing touch-none"
+              draggable
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
               onTouchStart={onTouchStart}
               onTouchMove={onTouchMove}
               onTouchEnd={onTouchEnd}
               onTouchCancel={onTouchCancel}
               onClick={preventProp}
             >
-              <GripVertical className="w-4 h-4 text-slate-300" />
-            </div>
-            <div 
-              className="hidden md:flex items-center justify-center w-8 h-8 -ml-2 mr-1 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500"
-              onClick={preventProp}
-            >
-              <GripVertical className="w-4 h-4" />
+              <GripVertical className="w-4 h-4 text-slate-400" />
             </div>
             <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 text-[10px] font-bold text-slate-500 mr-3">
               {(index ?? 0) + 1}
@@ -184,9 +191,9 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
 
         {mode === 'setlist' && (
           <div className="flex items-center gap-0.5 ml-2" onClick={preventProp}>
-             <button type="button" onClick={onMoveUp} disabled={isFirst} className="hidden md:block p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><ChevronDown className="w-4 h-4 rotate-180"/></button>
-             <button type="button" onClick={onMoveDown} disabled={isLast} className="hidden md:block p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><ChevronDown className="w-4 h-4"/></button>
-             <button type="button" onClick={onToggle} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg ml-1"><XCircleIcon className="w-5 h-5"/></button>
+             <button type="button" onClick={onMoveUp} disabled={isFirst} className="hidden md:flex items-center justify-center min-w-[44px] min-h-[44px] text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><ChevronDown className="w-4 h-4 rotate-180"/></button>
+             <button type="button" onClick={onMoveDown} disabled={isLast} className="hidden md:flex items-center justify-center min-w-[44px] min-h-[44px] text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><ChevronDown className="w-4 h-4"/></button>
+             <button type="button" onClick={onToggle} className="flex items-center justify-center min-w-[44px] min-h-[44px] text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg ml-1"><XCircleIcon className="w-5 h-5"/></button>
           </div>
         )}
       </div>
@@ -234,7 +241,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
           <button 
             type="button" 
             onClick={isEditing ? cancelEdit : openEditor} 
-            className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 hover:text-primary transition-colors py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded px-1 -ml-1 min-h-[40px]"
+            className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 hover:text-primary transition-colors py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded px-1 -ml-1 min-h-[44px]"
             aria-expanded={isEditing}
             aria-controls={`edit-panel-${song.id}`}
           >
@@ -251,66 +258,81 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
             )}
           </button>
         </div>
-      )}
-
-      {isEditing && (
+      )}      {isEditing && (
         <div id={`edit-panel-${song.id}`} className="mt-2 p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10" onClick={preventProp}>
-          <div className="grid grid-cols-2 gap-3 mb-4">
-             <div>
-               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.keyLabel', 'Tom')}</label>
-               <select 
-                 value={editKey} 
-                 onChange={e => setEditKey(e.target.value)}
-                 className="w-full bg-white dark:bg-[#2A2A2C] border border-slate-200 dark:border-white/10 rounded-md px-2 py-1.5 text-[12px] text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-primary"
-               >
-                 <option value="">{t('scaleModal.keyNotInformed', 'Não informado')}</option>
-                 {MUSICAL_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
-               </select>
-               {song.originalKey && <div className="text-[9px] text-slate-400 mt-1">{t('scaleModal.originalKeyText', 'Tom original:')} {song.originalKey}</div>}
-             </div>
-             <div>
-               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.bpmLabel', 'BPM')}</label>
-               <input 
-                 type="number"
-                 min={20}
-                 max={300}
-                 value={editBpm}
-                 onChange={e => setEditBpm(e.target.value ? Number(e.target.value) : '')}
-                 placeholder="Ex: 120"
-                 className="w-full bg-white dark:bg-[#2A2A2C] border border-slate-200 dark:border-white/10 rounded-md px-2 py-1.5 text-[12px] text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-primary"
-               />
-             </div>
-          </div>
-
-          <div className="flex flex-col gap-2 mb-4">
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input type="radio" name={`saveMode-${song.id}`} checked={saveMode === 'local'} onChange={() => setSaveMode('local')} className="mt-0.5 accent-primary" />
-              <div className="flex flex-col">
-                <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{t('scaleModal.onlyThisScale', 'Somente nesta escala')}</span>
+          {showGlobalConfirm ? (
+            <div className="flex flex-col gap-3">
+              <h4 className="text-[13px] font-bold text-slate-800 dark:text-white">{t('scaleModal.confirmationTitle', 'Confirmar Alteração Global')}</h4>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                {t('scaleModal.confirmationDescription', 'Tem certeza que deseja alterar o tom e/ou BPM para o repertório de toda a organização?')}
+              </p>
+              <div className="flex justify-end gap-2 mt-2">
+                <button type="button" onClick={() => setShowGlobalConfirm(false)} className="px-3 min-h-[44px] text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-white" disabled={isSaving}>
+                  {t('scaleModal.confirmationCancel', 'Cancelar')}
+                </button>
+                <button type="button" onClick={executeSave} disabled={isSaving} className="px-4 min-h-[44px] text-[11px] font-bold bg-primary text-white rounded-md shadow-sm hover:bg-primary-dark disabled:opacity-50">
+                  {isSaving ? '...' : t('scaleModal.confirmationConfirm', 'Confirmar')}
+                </button>
               </div>
-            </label>
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input type="radio" name={`saveMode-${song.id}`} checked={saveMode === 'global'} onChange={() => setSaveMode('global')} className="mt-0.5 accent-primary" />
-              <div className="flex flex-col">
-                <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{t('scaleModal.updateRepertoire', 'Atualizar repertório')}</span>
-                <span className="text-[10px] text-slate-500">{t('scaleModal.permanentChangeDescription', 'A alteração será aplicada na biblioteca para todos.')}</span>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                 <div>
+                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.keyLabel', 'Tom')}</label>
+                   <select 
+                     value={editKey} 
+                     onChange={e => setEditKey(e.target.value)}
+                     className="w-full bg-white dark:bg-[#2A2A2C] border border-slate-200 dark:border-white/10 rounded-md px-2 py-1.5 text-[12px] text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-primary"
+                   >
+                     <option value="">{t('scaleModal.keyNotInformed', 'Não informado')}</option>
+                     {MUSICAL_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
+                   </select>
+                   {song.originalKey && <div className="text-[9px] text-slate-400 mt-1">{t('scaleModal.originalKeyText', 'Tom original:')} {song.originalKey}</div>}
+                 </div>
+                 <div>
+                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.bpmLabel', 'BPM')}</label>
+                   <input 
+                     type="number"
+                     min={20}
+                     max={300}
+                     value={editBpm}
+                     onChange={e => setEditBpm(e.target.value ? Number(e.target.value) : '')}
+                     placeholder="Ex: 120"
+                     className="w-full bg-white dark:bg-[#2A2A2C] border border-slate-200 dark:border-white/10 rounded-md px-2 py-1.5 text-[12px] text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-primary"
+                   />
+                 </div>
               </div>
-            </label>
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={cancelEdit} className="px-3 py-1.5 text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-white">
-              {t('scaleModal.cancel', 'Cancelar')}
-            </button>
-            <button 
-              type="button" 
-              onClick={handleSaveSettings}
-              disabled={isSaving}
-              className="px-4 py-1.5 text-[11px] font-bold bg-primary text-white rounded-md shadow-sm hover:bg-primary-dark disabled:opacity-50"
-            >
-              {isSaving ? '...' : t('scaleModal.applyAdjustment', 'Aplicar')}
-            </button>
-          </div>
+              <div className="flex flex-col gap-2 mb-4">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input type="radio" name={`saveMode-${song.id}`} checked={saveMode === 'local'} onChange={() => setSaveMode('local')} className="mt-0.5 accent-primary" />
+                  <div className="flex flex-col">
+                    <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{t('scaleModal.onlyThisScale', 'Somente nesta escala')}</span>
+                  </div>
+                </label>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input type="radio" name={`saveMode-${song.id}`} checked={saveMode === 'global'} onChange={() => setSaveMode('global')} className="mt-0.5 accent-primary" />
+                  <div className="flex flex-col">
+                    <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{t('scaleModal.updateRepertoire', 'Atualizar repertório')}</span>
+                    <span className="text-[10px] text-slate-500">{t('scaleModal.permanentChangeDescription', 'A alteração será aplicada na biblioteca para todos.')}</span>
+                  </div>
+                </label>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={cancelEdit} className="px-3 min-h-[44px] text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-white">
+                  {t('scaleModal.cancel', 'Cancelar')}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleSaveSettings}
+                  disabled={isSaving}
+                  className="px-4 min-h-[44px] text-[11px] font-bold bg-primary text-white rounded-md shadow-sm hover:bg-primary-dark disabled:opacity-50"
+                >
+                  {isSaving ? '...' : t('scaleModal.applyAdjustment', 'Aplicar')}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

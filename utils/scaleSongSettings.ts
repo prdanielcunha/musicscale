@@ -32,8 +32,8 @@ export const normalizeScaleSongSettings = (
   
   songIds.forEach(id => {
     if (settings[id]) {
-      const { key, bpm } = settings[id];
-      const validKey = key?.trim() || undefined;
+      const { key, bpm } = settings[id] as any; // Cast to any to handle runtime malformed data as requested by tests
+      const validKey = typeof key === 'string' ? key.trim() || undefined : undefined;
       const bpmNum = typeof bpm === 'string' ? Number(bpm.trim()) : typeof bpm === 'number' ? bpm : NaN;
       const validBpm = (!isNaN(bpmNum) && bpmNum >= 20 && bpmNum <= 300) ? bpmNum : undefined;
       

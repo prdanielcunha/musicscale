@@ -31,6 +31,7 @@ import MusicBuilder from "./MusicBuilder";
 import { ScaleSongCard } from "./ScaleSongCard";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { resolveScaleDurationMinutes } from "../../utils/calendar";
+import { normalizeScaleSongSettings } from "../../utils/scaleSongSettings";
 
 const GripVerticalIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg
@@ -152,15 +153,10 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
   // Helper to normalize and get relevant data for dirty check
   const getComparableData = (data: any) => {
-    const activeSongSettings: Record<string, any> = {};
-    if (data.songSettings && data.songIds) {
-      data.songIds.forEach((id: string) => {
-        if (data.songSettings[id]) {
-          activeSongSettings[id] = data.songSettings[id];
-        }
-      });
+    let activeSongSettings = {};
+    if (data.songIds) {
+      activeSongSettings = normalizeScaleSongSettings(data.songIds, data.songSettings || {});
     }
-
     return {
       date: data.date || "",
       time: data.time || "",
@@ -196,6 +192,47 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const handleDiscardChanges = () => {
     setShowCancelConfirm(false);
     onClose();
+  };
+
+  const handleUpdateSongSettings = async (songId: string, key: string | null | undefined, bpm: number | null | undefined, isGlobal: boolean) => {
+    if (!isGlobal) {
+      setFormData((prev: any) => {
+        const newSettings = { ...(prev.songSettings || {}) };
+        if (!key && !bpm) {
+          delete newSettings[songId];
+        } else {
+          newSettings[songId] = {
+            ...(newSettings[songId] || {}),
+          };
+          if (key !== undefined) newSettings[songId].key = key || undefined;
+          if (bpm !== undefined) newSettings[songId].bpm = bpm || undefined;
+        }
+        return { ...prev, songSettings: newSettings };
+      });
+      return;
+    }
+
+    try {
+      await executeSafeAction(
+        api.songs.update(songId, { selectedKey: key || "", bpm: bpm || null }),
+        {
+          successMessage: t('scaleModal.globalUpdateSuccess', 'Música atualizada no repertório.'),
+          errorMessage: t('scaleModal.globalUpdateError', 'Erro ao atualizar música.'),
+          requireAdmin: false,
+        }
+      );
+      
+      setFormData((prev: any) => {
+        const newSettings = { ...(prev.songSettings || {}) };
+        delete newSettings[songId];
+        return { ...prev, songSettings: newSettings };
+      });
+      
+      await refreshData();
+    } catch (e) {
+      console.error("Failed to update globally", e);
+      throw e;
+    }
   };
 
   // Reset state on open
@@ -309,6 +346,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         songIds: musicScale?.songIds || preselectedSongIds || [],
         bandScaleId: musicScale?.bandScaleId || null,
         durationMinutes: resolveScaleDurationMinutes(musicScale?.durationMinutes),
+        songSettings: musicScale?.songSettings ? { ...musicScale.songSettings } : {},
       };
       setFormData(initialData);
     } else {
@@ -411,7 +449,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       finalData = { 
         ...commonData, 
         songIds: selectedSongs,
-        songSettings: formData.songSettings || {},
+        songSettings: normalizeScaleSongSettings(selectedSongs, formData.songSettings || {}),
         bandScaleId: formData.bandScaleId || null,
         durationMinutes: duration,
         status: forcedStatus || (scaleToEdit as any)?.status || 'draft',
@@ -1017,6 +1055,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
               setFormData={setFormData}
               songs={songs}
               tags={tags}
+              onUpdateSongSettings={handleUpdateSongSettings}
             />
           )}
 
@@ -1131,16 +1170,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                               tags={tags}
                               localSettings={formData.songSettings?.[song.id]}
                               onSettingsChange={(key, bpm, isGlobal) => {
-                                setFormData((prev: any) => ({
-                                  ...prev,
-                                  songSettings: {
-                                    ...(prev.songSettings || {}),
-                                    [song.id]: {
-                                      key: key || undefined,
-                                      bpm: bpm || undefined
-                                    }
-                                  }
-                                }));
+                                handleUpdateSongSettings(song.id, key, bpm, isGlobal);
                               }}
                             />
                           );

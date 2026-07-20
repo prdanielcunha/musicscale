@@ -20,6 +20,7 @@ interface MusicBuilderProps {
   setFormData: React.Dispatch<React.SetStateAction<any>>;
   songs: PopulatedSong[];
   tags: Tag[];
+  onUpdateSongSettings: (songId: string, key: string | null | undefined, bpm: number | null | undefined, isGlobal: boolean) => Promise<void>;
 }
 
 const MusicBuilder: React.FC<MusicBuilderProps> = ({
@@ -27,6 +28,7 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
   setFormData,
   songs,
   tags,
+  onUpdateSongSettings,
 }) => {
   const { t } = useTranslation();
   const api = useApi();
@@ -98,49 +100,8 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
     });
   };
 
-  const handleSettingsChange = async (songId: string, key: string | null, bpm: number | null, isGlobal: boolean) => {
-    if (isGlobal && api) {
-      try {
-        await api.songs.update(songId, { key: key || "", bpm: bpm });
-        await refreshData();
-        // Fallthrough: we still save local settings as well, or we can just let it inherit from global.
-        // Actually, if we update the repertoire globally, we should clear the local adjustment if it matches.
-        setFormData((prev: any) => {
-          const newSettings = { ...(prev.songSettings || {}) };
-          if (newSettings[songId]) {
-            if (newSettings[songId].key === key) delete newSettings[songId].key;
-            if (newSettings[songId].bpm === bpm) delete newSettings[songId].bpm;
-            if (Object.keys(newSettings[songId]).length === 0) {
-              delete newSettings[songId];
-            }
-          }
-          return { ...prev, songSettings: newSettings };
-        });
-      } catch (err) {
-        throw err;
-      }
-    } else {
-      setFormData((prev: any) => {
-        const newSettings = { ...(prev.songSettings || {}) };
-        if (!newSettings[songId]) newSettings[songId] = {};
-        
-        if (key !== undefined) newSettings[songId].key = key;
-        if (bpm !== undefined) newSettings[songId].bpm = bpm;
-        
-        // Cleanup empty keys
-        if (newSettings[songId].key === null || newSettings[songId].key === undefined || newSettings[songId].key === "") {
-            delete newSettings[songId].key;
-        }
-        if (newSettings[songId].bpm === null || newSettings[songId].bpm === undefined || newSettings[songId].bpm === "") {
-            delete newSettings[songId].bpm;
-        }
-        if (Object.keys(newSettings[songId]).length === 0) {
-          delete newSettings[songId];
-        }
-
-        return { ...prev, songSettings: newSettings };
-      });
-    }
+  const handleSettingsChange = async (songId: string, key: string | null | undefined, bpm: number | null | undefined, isGlobal: boolean) => {
+    return onUpdateSongSettings(songId, key, bpm, isGlobal);
   };
 
   const moveSong = (index: number, direction: "up" | "down") => {
@@ -407,7 +368,6 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 pb-20 md:pb-4">
             {filteredSongs.length > 0 ? (
               filteredSongs.map(song => {
-                // song.bpm text match workaround for test
                 const isSelected = selectedSongsList.some(s => s.id === song.id);
                 return (
                   <ScaleSongCard

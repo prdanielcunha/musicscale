@@ -25,6 +25,7 @@ import { useSafeAction } from "../hooks/useSafeAction";
 import { Copy, Trash2 } from "lucide-react";
 import AddToCalendarButton from "../components/common/AddToCalendarButton";
 import { getScaleTitle as getScaleTitleHelper } from "../utils/scaleHelper";
+import { normalizeScaleSongSettings } from "../utils/scaleSongSettings";
 
 const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" {...props}>
@@ -399,11 +400,13 @@ const ScalesPage: React.FC = () => {
 
         try {
             // Create Music Scale securely in current tenant
+            const cloneSongIds = scaleToClone.songs.map((s: any) => s.id);
             const scalePayload: Partial<Scale> = {
                 date: newDate,
                 time: scaleToClone.time || "",
                 observations: scaleToClone.observations || "",
-                songIds: scaleToClone.songs.map((s: any) => s.id),
+                songIds: cloneSongIds,
+                songSettings: normalizeScaleSongSettings(cloneSongIds, scaleToClone.songSettings || {}),
                 eventTypeId: scaleToClone.eventTypeId,
                 locationId: scaleToClone.locationId,
                 eventNameId: scaleToClone.eventNameId || null,

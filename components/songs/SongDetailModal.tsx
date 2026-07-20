@@ -324,15 +324,18 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
 
   useEffect(() => {
     if (initialSong) {
-      const updatedSong = songs.find((s) => s.id === initialSong.id);
-      setSong(updatedSong || initialSong);
+      // If we are in the context of a scale, we MUST use the initialSong because
+      // it already has the transposed chords and local settings applied.
+      // Otherwise, we can refresh from the global songs array.
+      const resolvedSong = scaleContext ? initialSong : (songs.find((s) => s.id === initialSong.id) || initialSong);
+      setSong(resolvedSong);
 
       if (startInPerformanceMode) {
         if (!performanceStartTime) setPerformanceStartTime(Date.now());
         
-        if ((updatedSong || initialSong).chords) {
+        if (resolvedSong.chords) {
           setIsChordsViewerOpen(true);
-        } else if ((updatedSong || initialSong).chordsUrl) {
+        } else if (resolvedSong.chordsUrl) {
           setIsWebViewerOpen(true);
         } else {
           setIsLyricsViewerOpen(true);
@@ -344,7 +347,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
       setIsWebViewerOpen(false);
       setIsLyricsViewerOpen(false);
     }
-  }, [initialSong, songs, startInPerformanceMode]);
+  }, [initialSong, songs, startInPerformanceMode, scaleContext]);
 
   const handleClosePerformance = () => {
     setIsChordsViewerOpen(false);
