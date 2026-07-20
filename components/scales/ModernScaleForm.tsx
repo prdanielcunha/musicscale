@@ -28,6 +28,7 @@ import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { UsersIcon } from "../icons/UsersIcon";
 import BandBuilder from "./BandBuilder";
 import MusicBuilder from "./MusicBuilder";
+import { ScaleSongCard } from "./ScaleSongCard";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { resolveScaleDurationMinutes } from "../../utils/calendar";
 
@@ -151,6 +152,15 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
   // Helper to normalize and get relevant data for dirty check
   const getComparableData = (data: any) => {
+    const activeSongSettings: Record<string, any> = {};
+    if (data.songSettings && data.songIds) {
+      data.songIds.forEach((id: string) => {
+        if (data.songSettings[id]) {
+          activeSongSettings[id] = data.songSettings[id];
+        }
+      });
+    }
+
     return {
       date: data.date || "",
       time: data.time || "",
@@ -160,6 +170,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       observations: data.observations || "",
       durationMinutes: data.durationMinutes ? String(data.durationMinutes) : "",
       songIds: data.songIds || [],
+      songSettings: activeSongSettings,
       assignments: (data.assignments || []).map((a: any) => ({ userId: a.userId, instrumentId: a.instrumentId })),
       bandScaleId: data.bandScaleId || "",
       musicScaleId: data.musicScaleId || ""
@@ -399,7 +410,8 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       }
       finalData = { 
         ...commonData, 
-        songIds: selectedSongs, 
+        songIds: selectedSongs,
+        songSettings: formData.songSettings || {},
         bandScaleId: formData.bandScaleId || null,
         durationMinutes: duration,
         status: forcedStatus || (scaleToEdit as any)?.status || 'draft',
@@ -505,7 +517,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   };
 
   const footer = (
-    <div className="flex flex-col-reverse sm:flex-row items-center justify-between w-full gap-3 sm:gap-4">
+    <div className="flex flex-col lg:flex-row items-center justify-between w-full gap-4 pb-2">
       <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-4 w-full sm:w-auto items-center">
         <div className="text-[12px] font-medium text-slate-500 w-full text-center sm:text-left mt-2 sm:mt-0">
           {scaleType === "music" ? (
@@ -516,80 +528,98 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         </div>
       </div>
       
-      <div className="flex gap-2.5 w-full sm:w-auto ml-auto sm:min-w-[280px]">
-        <Button 
-          type="button" 
-          variant="secondary" 
-          onClick={handleRequestClose} 
-          className="hidden md:flex flex-1 sm:flex-none h-12 rounded-xl text-[14px]"
-        >
-          {t('scaleModal.cancel', 'Cancelar')}
-        </Button>
-        {currentStep > 0 && (
-          <Button 
-            type="button" 
-            variant="secondary" 
-            onClick={handleBack} 
-            className="flex-1 sm:flex-none h-12 rounded-xl text-[14px]"
-          >
-            {t('scaleModal.back', 'Voltar')}
-          </Button>
-        )}
+      <div className="flex flex-col sm:flex-row lg:flex-row gap-3 w-full lg:w-auto min-w-0">
         {currentStep < steps.length - 1 ? (
-          <Button 
-            key="btn-next"
-            type="button" 
-            onClick={(e) => {
-              e.preventDefault();
-              handleNext();
-            }} 
-            className="flex-1 sm:flex-none h-12 rounded-xl text-[14px]"
-          >
-            {t('scaleModal.next', 'Avançar')}
-          </Button>
-        ) : scaleType === "music" ? (
-          <div className="flex gap-2.5 w-full sm:w-auto flex-1 sm:flex-none">
+          <div className="grid grid-cols-2 lg:flex lg:flex-row gap-3 w-full">
             <Button 
-              key="btn-draft"
               type="button" 
-              variant="secondary"
-              onClick={(e) => {
-                e.preventDefault();
-                handleSubmit(e as any, 'draft');
-              }}
-              disabled={isSubmitting} 
-              className="flex-1 sm:flex-none h-12 rounded-xl text-[14px] border-zinc-700/80 hover:border-zinc-500 hover:bg-zinc-800/40 text-zinc-300 font-medium"
+              variant="secondary" 
+              onClick={currentStep > 0 ? handleBack : handleRequestClose} 
+              className="w-full lg:w-auto h-12 rounded-xl text-[14px] min-w-0"
             >
-              {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.saveDraft', 'Salvar Rascunho')}
+              {currentStep > 0 ? t('scaleModal.back', 'Voltar') : t('scaleModal.cancel', 'Cancelar')}
             </Button>
             <Button 
-              key="btn-publish"
+              key="btn-next"
               type="button" 
               onClick={(e) => {
                 e.preventDefault();
-                handleSubmit(e as any, 'published');
-              }}
-              disabled={isSubmitting} 
-              className="flex-1 sm:flex-none h-12 rounded-xl text-[14px] bg-indigo-600 text-white hover:bg-indigo-500 shadow-[0_0_25px_rgba(99,102,241,0.45)] border-none font-bold"
+                handleNext();
+              }} 
+              className="w-full lg:w-auto h-12 rounded-xl text-[14px] min-w-0"
             >
-              {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.publishScale', 'Publicar Escala')}
+              {t('scaleModal.next', 'Avançar')}
             </Button>
           </div>
         ) : (
-          <Button 
-            key="btn-submit"
-            type="button" 
-            onClick={(e) => handleSubmit(e as any)}
-            disabled={isSubmitting} 
-            className="flex-1 sm:flex-none h-12 rounded-xl text-[14px] bg-primary text-white hover:bg-primary-dark shadow-[0_0_20px_rgba(59,130,246,0.3)] border-none"
-          >
-            {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.save', 'Salvar')}
-          </Button>
+          <div className="flex flex-col lg:flex-row gap-3 w-full min-w-0">
+            <div className="grid grid-cols-2 lg:flex lg:flex-row gap-3 w-full">
+              <Button 
+                type="button" 
+                variant="secondary" 
+                onClick={handleRequestClose} 
+                className="w-full lg:w-auto h-12 rounded-xl text-[14px] min-w-0"
+              >
+                {t('scaleModal.cancel', 'Cancelar')}
+              </Button>
+              <Button 
+                type="button" 
+                variant="secondary" 
+                onClick={handleBack} 
+                className="w-full lg:w-auto h-12 rounded-xl text-[14px] min-w-0"
+              >
+                {t('scaleModal.back', 'Voltar')}
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:flex lg:flex-row gap-3 w-full">
+              {scaleType === "music" ? (
+                <>
+                  <Button 
+                    key="btn-draft"
+                    type="button" 
+                    variant="secondary"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleSubmit(e as any, 'draft');
+                    }}
+                    disabled={isSubmitting} 
+                    className="w-full lg:w-auto h-12 rounded-xl text-[12px] sm:text-[14px] border-zinc-700/80 hover:border-zinc-500 hover:bg-zinc-800/40 text-zinc-300 font-medium min-w-0"
+                  >
+                    {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.saveDraft', 'Salvar Rascunho')}
+                  </Button>
+                  <Button 
+                    key="btn-publish"
+                    type="button" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleSubmit(e as any, 'published');
+                    }}
+                    disabled={isSubmitting} 
+                    className="w-full lg:w-auto h-12 rounded-xl text-[12px] sm:text-[14px] bg-indigo-600 text-white hover:bg-indigo-500 shadow-[0_0_25px_rgba(99,102,241,0.45)] border-none font-bold min-w-0"
+                  >
+                    {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.publishScale', 'Publicar Escala')}
+                  </Button>
+                </>
+              ) : (
+                <div className="col-span-2 sm:col-span-1 lg:w-auto flex">
+                    <Button 
+                      key="btn-submit"
+                      type="button" 
+                      onClick={(e) => handleSubmit(e as any)}
+                      disabled={isSubmitting} 
+                      className="w-full lg:w-auto h-12 rounded-xl text-[14px] bg-primary text-white hover:bg-primary-dark shadow-[0_0_20px_rgba(59,130,246,0.3)] border-none"
+                    >
+                      {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.saveScale', 'Salvar Escala')}
+                    </Button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>
   );
-
   const getSubtitle = () => {
     const parts = [];
     if (formData.date) {
@@ -1072,14 +1102,34 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
               <div className="mt-5 pt-5 border-t border-slate-200 dark:border-white/10">
                 {scaleType === "music" ? (
                   <div>
-                    <span className="text-slate-500 dark:text-slate-400 block text-[10px] sm:text-xs uppercase font-bold tracking-widest mb-3">{t('scaleModal.repertoire', 'Repertório')}</span>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs uppercase font-bold tracking-widest">{t('scaleModal.repertoire', 'Repertório')}</span>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentStep(1)} // Voltar para a aba de Repertório
+                        className="text-xs font-bold text-primary hover:text-primary-dark transition-colors flex items-center gap-1"
+                      >
+                        {t('scaleModal.editRepertoire', 'Editar Repertório')}
+                      </button>
+                    </div>
                     {formData.songIds && formData.songIds.length > 0 ? (
-                      <ol className="list-decimal pl-5 space-y-1.5 text-slate-900 dark:text-white">
-                        {formData.songIds.map(id => {
+                      <div className="space-y-2">
+                        {formData.songIds.map((id, index) => {
                           const song = songs.find(s => s.id === id);
-                          return <li key={id} className="text-sm font-semibold">{song ? song.title : "..."}</li>;
+                          if (!song) return null;
+                          return (
+                            <ScaleSongCard
+                              key={song.id}
+                              song={song}
+                              isSelected={true}
+                              mode="review"
+                              index={index}
+                              tags={tags}
+                              localSettings={formData.songSettings?.[song.id]}
+                            />
+                          );
                         })}
-                      </ol>
+                      </div>
                     ) : (
                       <span className="text-sm text-slate-400 italic">Nenhuma música selecionada</span>
                     )}

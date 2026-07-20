@@ -384,6 +384,11 @@ export interface EventAssignmentResponse {
   } | null;
 }
 
+export interface ScaleSongSettings {
+  key?: string | null;
+  bpm?: number | null;
+}
+
 export interface Scale {
   id: string;
   date: string; // ISO date string YYYY-MM-DD
@@ -398,6 +403,7 @@ export interface Scale {
   eventAssignments?: EventAssignment[];
   observations: string;
   songIds: string[];
+  songSettings?: Record<string, ScaleSongSettings>;
   eventTypeId: string;
   locationId: string;
   eventNameId?: string | null;
@@ -463,6 +469,7 @@ export interface PopulatedScale {
   status?: 'draft' | 'published' | 'cancelled' | 'completed';
   observations: string;
   songs: PopulatedSong[];
+  songSettings?: Record<string, ScaleSongSettings>;
   eventType: EventType;
   location: Location;
   eventName?: EventName | null;

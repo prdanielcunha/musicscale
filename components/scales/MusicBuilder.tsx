@@ -1,9 +1,13 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { PopulatedSong, Tag } from "../../types";
+import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm } from "../../utils/scaleSongSettings";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { XCircleIcon } from "../icons/XCircleIcon";
 import { PlusCircleIcon } from "../icons/PlusCircleIcon";
 import { ArrowUp, ArrowDown, GripVertical } from "lucide-react";
+import { useApi } from "../../contexts/ApiContext";
+import { useMusicData } from "../../hooks/useMusicData";
+import { ScaleSongCard } from "./ScaleSongCard";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { useTranslation } from "react-i18next";
 
@@ -25,6 +29,8 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
   tags,
 }) => {
   const { t } = useTranslation();
+  const api = useApi();
+  const { refreshData } = useMusicData();
   const [songSearch, setSongSearch] = useState("");
   const [songStatusFilter, setSongStatusFilter] = useState<"all" | "active" | "new">("all");
   const [songTagFilterIds, setSongTagFilterIds] = useState<string[]>([]);
@@ -75,9 +81,13 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
     setFormData((prev: any) => {
       const currentIds = prev.songIds || [];
       if (currentIds.includes(songId)) {
+        // Remove from list and also remove local settings to keep it clean
+        const newSettings = { ...(prev.songSettings || {}) };
+        delete newSettings[songId];
         return {
           ...prev,
           songIds: currentIds.filter((id: string) => id !== songId),
+          songSettings: newSettings,
         };
       } else {
         return {
@@ -86,6 +96,51 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
         };
       }
     });
+  };
+
+  const handleSettingsChange = async (songId: string, key: string | null, bpm: number | null, isGlobal: boolean) => {
+    if (isGlobal && api) {
+      try {
+        await api.songs.update(songId, { key: key || "", bpm: bpm });
+        await refreshData();
+        // Fallthrough: we still save local settings as well, or we can just let it inherit from global.
+        // Actually, if we update the repertoire globally, we should clear the local adjustment if it matches.
+        setFormData((prev: any) => {
+          const newSettings = { ...(prev.songSettings || {}) };
+          if (newSettings[songId]) {
+            if (newSettings[songId].key === key) delete newSettings[songId].key;
+            if (newSettings[songId].bpm === bpm) delete newSettings[songId].bpm;
+            if (Object.keys(newSettings[songId]).length === 0) {
+              delete newSettings[songId];
+            }
+          }
+          return { ...prev, songSettings: newSettings };
+        });
+      } catch (err) {
+        throw err;
+      }
+    } else {
+      setFormData((prev: any) => {
+        const newSettings = { ...(prev.songSettings || {}) };
+        if (!newSettings[songId]) newSettings[songId] = {};
+        
+        if (key !== undefined) newSettings[songId].key = key;
+        if (bpm !== undefined) newSettings[songId].bpm = bpm;
+        
+        // Cleanup empty keys
+        if (newSettings[songId].key === null || newSettings[songId].key === undefined || newSettings[songId].key === "") {
+            delete newSettings[songId].key;
+        }
+        if (newSettings[songId].bpm === null || newSettings[songId].bpm === undefined || newSettings[songId].bpm === "") {
+            delete newSettings[songId].bpm;
+        }
+        if (Object.keys(newSettings[songId]).length === 0) {
+          delete newSettings[songId];
+        }
+
+        return { ...prev, songSettings: newSettings };
+      });
+    }
   };
 
   const moveSong = (index: number, direction: "up" | "down") => {
@@ -354,54 +409,16 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
               filteredSongs.map(song => {
                 const isSelected = selectedSongsList.some(s => s.id === song.id);
                 return (
-                  <div key={song.id} className="flex flex-col p-3 rounded-xl border border-slate-100 dark:border-white/5 bg-white dark:bg-[#1C1C1E] shadow-sm hover:border-primary/30 transition-colors">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex flex-col overflow-hidden">
-                        <span className="text-[13px] font-bold text-slate-800 dark:text-white truncate">{song.title}</span>
-                        <span className="text-[11px] font-medium text-slate-500 truncate">{song.artist || t('scaleModal.unknownArtist', 'Artista desconhecido')}</span>
-                      </div>
-                      <button 
-                        type="button" 
-                        onClick={() => handleSongToggle(song.id)}
-                        className={`shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition-all ${isSelected ? 'bg-primary text-white shadow-sm' : 'bg-slate-100 dark:bg-white/10 text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/20'}`}
-                      >
-                        <span className="text-[18px] font-bold leading-none mb-0.5">{isSelected ? '✓' : '+'}</span>
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-white/5 overflow-x-auto custom-scrollbar pb-1">
-                      {song.originalKey && (
-                        <span className="shrink-0 text-[10px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">
-                          {song.originalKey}
-                        </span>
-                      )}
-                      {song.bpm ? (
-                        <span className="shrink-0 text-[10px] font-medium text-slate-500 bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded">
-                          {song.bpm} BPM
-                        </span>
-                      ) : (
-                        <span className="shrink-0 text-[10px] font-medium text-slate-400 bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded">
-                          {t('scaleModal.noBpm', 'S/ BPM')}
-                        </span>
-                      )}
-                      {(song.hasChords || song.hasLyrics) ? (
-                        <div className="flex gap-1 shrink-0">
-                          {song.hasChords && <span className="text-[10px] font-medium text-blue-500 bg-blue-50 dark:bg-blue-500/10 px-1.5 py-0.5 rounded">{t('scaleModal.hasChords', 'Cifra')}</span>}
-                          {song.hasLyrics && <span className="text-[10px] font-medium text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded">{t('scaleModal.hasLyrics', 'Letra')}</span>}
-                        </div>
-                      ) : (
-                        <span className="shrink-0 text-[10px] font-medium text-slate-400 bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded">{t('scaleModal.noChordsOrLyrics', 'S/ Anexos')}</span>
-                      )}
-                      {song.tagIds?.map(tagId => {
-                        const tObj = tags.find(tag => tag.id === tagId);
-                        if (!tObj) return null;
-                        return (
-                          <span key={tObj.id} className="shrink-0 text-[10px] font-medium text-primary-dark dark:text-primary-light bg-primary/10 px-1.5 py-0.5 rounded">
-                            {tObj.name}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <ScaleSongCard
+                    key={song.id}
+                    song={song}
+                    isSelected={isSelected}
+                    mode="library"
+                    tags={tags}
+                    localSettings={formData.songSettings?.[song.id]}
+                    onToggle={() => handleSongToggle(song.id)}
+                    onSettingsChange={(key, bpm, isGlobal) => handleSettingsChange(song.id, key, bpm, isGlobal)}
+                  />
                 );
               })
             ) : (
@@ -433,54 +450,27 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
                         onDragLeave={() => setDropTargetId(null)}
                         className={`h-2 rounded-md transition-all duration-150 ${dropTargetId === song.id ? "bg-primary/50 h-8" : ""}`}
                       />
-                      <div 
-                        draggable
-                        data-song-id={song.id}
-                        data-index={index}
+                      <ScaleSongCard
+                        song={song}
+                        isSelected={true}
+                        mode="setlist"
+                        index={index}
+                        tags={tags}
+                        localSettings={formData.songSettings?.[song.id]}
+                        onToggle={() => handleSongToggle(song.id)}
+                        onMoveUp={() => moveSong(index, "up")}
+                        onMoveDown={() => moveSong(index, "down")}
+                        isFirst={index === 0}
+                        isLast={index === selectedSongsList.length - 1}
+                        isDragging={draggedSongId === song.id}
                         onDragStart={(e) => handleDragStart(e, song.id)}
                         onDragEnd={handleDragEnd}
-                        className={`group relative flex items-center p-3 bg-white dark:bg-[#1C1C1E] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm transition-all duration-200 ${draggedSongId === song.id ? 'opacity-50 scale-[0.98]' : 'hover:border-primary/30'}`}
-                      >
-                         <div 
-                           className="flex items-center justify-center w-8 h-8 -ml-2 mr-1 cursor-grab active:cursor-grabbing md:hidden touch-none"
-                           onTouchStart={(e) => handleTouchStart(e, index)}
-                           onTouchMove={handleTouchMove}
-                           onTouchEnd={handleTouchEnd}
-                           onTouchCancel={handleTouchCancel}
-                         >
-                           <GripVertical className="w-4 h-4 text-slate-300" />
-                         </div>
-                         <div className="hidden md:flex items-center justify-center w-8 h-8 -ml-2 mr-1 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
-                           <GripVertical className="w-4 h-4" />
-                         </div>
-                         <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 text-[10px] font-bold text-slate-500 mr-3">
-                           {index + 1}
-                         </span>
-                         <div className="flex-1 flex flex-col overflow-hidden">
-                           <span className="text-[13px] font-bold text-slate-800 dark:text-white truncate">{song.title}</span>
-                           <span className="text-[11px] font-medium text-slate-500 truncate">{song.artist || t('scaleModal.unknownArtist', 'Artista desconhecido')}</span>
-                           
-                           <div className="flex items-center gap-2 mt-1.5">
-                             {song.originalKey && (
-                               <span className="text-[9px] font-bold text-slate-500">{song.originalKey}</span>
-                             )}
-                             {song.bpm && (
-                               <span className="text-[9px] font-medium text-slate-400">{song.bpm} BPM</span>
-                             )}
-                             {(song.hasChords || song.hasLyrics) && (
-                               <div className="flex gap-1">
-                                 {song.hasChords && <span className="text-[9px] font-medium text-blue-500">Cifra</span>}
-                                 {song.hasLyrics && <span className="text-[9px] font-medium text-emerald-500">Letra</span>}
-                               </div>
-                             )}
-                           </div>
-                         </div>
-                         <div className="flex items-center gap-0.5 ml-2">
-                            <button type="button" onClick={() => moveSong(index, "up")} disabled={index === 0} className="hidden md:block p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><ArrowUp className="w-4 h-4"/></button>
-                            <button type="button" onClick={() => moveSong(index, "down")} disabled={index === selectedSongsList.length - 1} className="hidden md:block p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><ArrowDown className="w-4 h-4"/></button>
-                            <button type="button" onClick={() => handleSongToggle(song.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg ml-1"><XCircleIcon className="w-5 h-5"/></button>
-                         </div>
-                      </div>
+                        onTouchStart={(e: any) => handleTouchStart(e, index)}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchCancel={handleTouchCancel}
+                        onSettingsChange={(key, bpm, isGlobal) => handleSettingsChange(song.id, key, bpm, isGlobal)}
+                      />
                     </React.Fragment>
                   )
                 })
