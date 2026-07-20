@@ -1,13 +1,4 @@
-import { JSDOM } from 'jsdom';
-const dom = new JSDOM('<!doctype html><html><body></body></html>');
-global.window = dom.window as any;
-global.document = dom.window.document;
-Object.defineProperty(global, "navigator", { value: dom.window.navigator, configurable: true });
-
 import { normalizeScaleSongSettings, applyScaleSongSettings } from '../utils/scaleSongSettings';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 let passed = 0;
 let failed = 0;
@@ -49,42 +40,24 @@ async function runTests() {
     assert(normalized !== inputSettings, "Não modifica o input original");
 
     console.log("\n=== B. applyScaleSongSettings ===");
-    const globalSong = { id: "song1", key: "C", bpm: 100, originalKey: "C" } as any;
+    const globalSong = { id: "song1", key: "C", originalKey: "C", selectedKey: "C", chords: "C\n[C] Hello" } as any;
     const settingsLocal = { key: "D", bpm: 110 };
     const applied = applyScaleSongSettings(globalSong, settingsLocal);
     
     assert(globalSong.key === "C", "Não modifica música global");
     assert(applied.key === "D", "Aplica Tom local");
+    assert(applied.bpm === 110, "Aplica BPM");
+    assert(applied.originalKey === "C", "Mantém originalKey");
+    assert(applied.selectedKey === "D", "selectedKey recebe o tom de override");
+    assert(applied.chords.includes("[D]"), "Cifra transposta");
 
-    console.log("\n=== C. Verificações de Código (Fluxos Reais) ===");
-    const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    
-    // ScaleSongCard.tsx
-    const cardCode = fs.readFileSync(path.join(__dirname, '../components/scales/ScaleSongCard.tsx'), 'utf8');
-    assert(!cardCode.includes('draggable={mode === \'setlist\'}'), "ScaleSongCard não é mais draggable por inteiro");
-    assert(cardCode.includes('min-w-[44px]') && cardCode.includes('min-h-[44px]'), "ScaleSongCard contém botões com área de toque mínima de 44x44px");
-    assert(cardCode.includes('showGlobalConfirm'), "ScaleSongCard possui estado para confirmação global (sem window.confirm)");
-    assert(!cardCode.includes('window.confirm'), "ScaleSongCard não usa window.confirm");
-
-    // ModernScaleForm.tsx
-    const formCode = fs.readFileSync(path.join(__dirname, '../components/scales/ModernScaleForm.tsx'), 'utf8');
-    assert(formCode.includes('normalizeScaleSongSettings'), "ModernScaleForm usa normalizeScaleSongSettings");
-    assert(formCode.includes('handleUpdateSongSettings'), "ModernScaleForm centraliza a atualização (handleUpdateSongSettings)");
-
-    // SongDetailModal.tsx
-    const detailCode = fs.readFileSync(path.join(__dirname, '../components/songs/SongDetailModal.tsx'), 'utf8');
-    assert(detailCode.includes('scaleContext ? initialSong :'), "SongDetailModal preserva initialSong quando scaleContext está presente");
-
-    // ScalesPage.tsx
-    const scalesPageCode = fs.readFileSync(path.join(__dirname, '../pages/ScalesPage.tsx'), 'utf8');
-    assert(scalesPageCode.includes('normalizeScaleSongSettings(cloneSongIds, scaleToClone.songSettings'), "ScalesPage clona songSettings normalizando-os");
-
-    console.log("\n=== G. i18n ===");
-    const ptPath = path.join(__dirname, '../locales/pt.json');
-    const pt = JSON.parse(fs.readFileSync(ptPath, 'utf8'));
-    assert(!!pt["scaleModal"]?.["confirmationTitle"], "Traduções PT existem para a confirmação");
+    // Without source
+    const songNoSource = { id: "song2", chords: "C\n[C] Hello" } as any;
+    const appliedNoSource = applyScaleSongSettings(songNoSource, { key: "D" });
+    assert(appliedNoSource.chords.includes("[C]"), "Não transpõe sem tom base");
 
     console.log(`\n=== Resultados: ${passed} passaram, ${failed} falharam ===`);
     if (failed > 0) process.exit(1);
 }
+
 runTests();

@@ -57,6 +57,17 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
   const [saveMode, setSaveMode] = useState<'local' | 'global'>('local');
   const [isSaving, setIsSaving] = useState(false);
   const [showGlobalConfirm, setShowGlobalConfirm] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const confirmBtnRef = React.useRef<HTMLButtonElement>(null);
+  const applyBtnRef = React.useRef<HTMLButtonElement>(null);
+
+  // When global confirm is shown, focus the confirm button
+  React.useEffect(() => {
+    if (showGlobalConfirm && confirmBtnRef.current) {
+      confirmBtnRef.current.focus();
+    }
+  }, [showGlobalConfirm]);
 
   const effectiveKey = getEffectiveKey(song, localSettings);
   const effectiveBpm = getEffectiveBpm(song, localSettings);
@@ -85,6 +96,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
     setEditBpm(effectiveBpm || '');
     setSaveMode('local');
     setShowGlobalConfirm(false);
+    setLocalError(null);
     setIsEditing(true);
   };
 
@@ -95,6 +107,8 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
       return;
     }
     
+    setLocalError(null);
+
     if (saveMode === 'global') {
       setShowGlobalConfirm(true);
       return;
@@ -105,6 +119,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
 
   const executeSave = async () => {
     setIsSaving(true);
+    setLocalError(null);
     try {
       const parsedBpm = editBpm === '' ? null : Number(editBpm);
       await onSettingsChange?.(editKey || null, parsedBpm, saveMode === 'global');
@@ -112,6 +127,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
       setShowGlobalConfirm(false);
     } catch (error) {
       console.error(error);
+      setLocalError(t('scaleModal.confirmationError', 'Erro ao atualizar música.'));
     } finally {
       setIsSaving(false);
     }
@@ -121,6 +137,16 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
     e.stopPropagation();
     setIsEditing(false);
     setShowGlobalConfirm(false);
+    setLocalError(null);
+  };
+  
+  const handleCancelConfirm = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowGlobalConfirm(false);
+    setLocalError(null);
+    setTimeout(() => {
+        if (applyBtnRef.current) applyBtnRef.current.focus();
+    }, 0);
   };
 
   const preventProp = (e: React.MouseEvent) => e.stopPropagation();
@@ -261,16 +287,25 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
       )}      {isEditing && (
         <div id={`edit-panel-${song.id}`} className="mt-2 p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10" onClick={preventProp}>
           {showGlobalConfirm ? (
-            <div className="flex flex-col gap-3">
-              <h4 className="text-[13px] font-bold text-slate-800 dark:text-white">{t('scaleModal.confirmationTitle', 'Confirmar Alteração Global')}</h4>
+            <div className="flex flex-col gap-3" role="dialog" aria-modal="true" aria-labelledby={`confirm-title-${song.id}`}>
+              <h4 id={`confirm-title-${song.id}`} className="text-[13px] font-bold text-slate-800 dark:text-white">
+                {t('scaleModal.confirmationTitle', 'Confirmar Alteração Global')} - {song.title}
+              </h4>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
                 {t('scaleModal.confirmationDescription', 'Tem certeza que deseja alterar o tom e/ou BPM para o repertório de toda a organização?')}
               </p>
+              
+              {localError && (
+                <div role="alert" aria-live="polite" className="text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 p-2 rounded-md">
+                  {localError}
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 mt-2">
-                <button type="button" onClick={() => setShowGlobalConfirm(false)} className="px-3 min-h-[44px] text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-white" disabled={isSaving}>
+                <button type="button" onClick={handleCancelConfirm} className="px-3 min-h-[44px] text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-white" disabled={isSaving}>
                   {t('scaleModal.confirmationCancel', 'Cancelar')}
                 </button>
-                <button type="button" onClick={executeSave} disabled={isSaving} className="px-4 min-h-[44px] text-[11px] font-bold bg-primary text-white rounded-md shadow-sm hover:bg-primary-dark disabled:opacity-50">
+                <button ref={confirmBtnRef} type="button" onClick={executeSave} disabled={isSaving} className="px-4 min-h-[44px] text-[11px] font-bold bg-primary text-white rounded-md shadow-sm hover:bg-primary-dark disabled:opacity-50">
                   {isSaving ? '...' : t('scaleModal.confirmationConfirm', 'Confirmar')}
                 </button>
               </div>
@@ -323,6 +358,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
                   {t('scaleModal.cancel', 'Cancelar')}
                 </button>
                 <button 
+                  ref={applyBtnRef}
                   type="button" 
                   onClick={handleSaveSettings}
                   disabled={isSaving}

@@ -5,8 +5,6 @@ import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { XCircleIcon } from "../icons/XCircleIcon";
 import { PlusCircleIcon } from "../icons/PlusCircleIcon";
 import { ArrowUp, ArrowDown, GripVertical, Settings2 } from "lucide-react";
-import { useApi } from "../../contexts/ApiContext";
-import { useMusic } from "../../contexts/MusicDataContext";
 import { ScaleSongCard } from "./ScaleSongCard";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { useTranslation } from "react-i18next";
@@ -31,8 +29,6 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
   onUpdateSongSettings,
 }) => {
   const { t } = useTranslation();
-  const api = useApi();
-  const { refreshData } = useMusic();
   const [songSearch, setSongSearch] = useState("");
   const [songStatusFilter, setSongStatusFilter] = useState<"all" | "active" | "new">("all");
   const [songTagFilterIds, setSongTagFilterIds] = useState<string[]>([]);

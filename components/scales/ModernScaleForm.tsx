@@ -212,15 +212,29 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       return;
     }
 
+    if (!api) {
+        toast.error(t('scaleModal.confirmationError', 'Erro ao atualizar música.'));
+        throw new Error("API unvailable");
+    }
+
+    const actionKey = `scale-song-global-update:${songId}`;
+    
     try {
-      await executeSafeAction(
-        api.songs.update(songId, { selectedKey: key || "", bpm: bpm || null }),
+      const result = await executeSafeAction(
+        async () => {
+          await api.songs.update(songId, { selectedKey: key || "", bpm: bpm || null });
+          return true;
+        },
         {
-          successMessage: t('scaleModal.globalUpdateSuccess', 'Música atualizada no repertório.'),
-          errorMessage: t('scaleModal.globalUpdateError', 'Erro ao atualizar música.'),
-          requireAdmin: false,
+          key: actionKey,
+          preventDoubleExecution: true,
         }
       );
+      
+      if (result !== true) {
+        // Was deduplicated
+        return;
+      }
       
       setFormData((prev: any) => {
         const newSettings = { ...(prev.songSettings || {}) };
@@ -229,8 +243,10 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       });
       
       await refreshData();
+      toast.success(t('scaleModal.confirmationSuccess', 'Ajuste global salvo com sucesso.'));
     } catch (e) {
       console.error("Failed to update globally", e);
+      toast.error(t('scaleModal.confirmationError', 'Erro ao atualizar música.'));
       throw e;
     }
   };
@@ -341,12 +357,13 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     let initialData;
     if (scaleType === "music") {
       const musicScale = scaleToEdit as Scale;
+      const activeSongIds = musicScale?.songIds || preselectedSongIds || [];
       initialData = {
         ...baseData,
-        songIds: musicScale?.songIds || preselectedSongIds || [],
+        songIds: activeSongIds,
         bandScaleId: musicScale?.bandScaleId || null,
         durationMinutes: resolveScaleDurationMinutes(musicScale?.durationMinutes),
-        songSettings: musicScale?.songSettings ? { ...musicScale.songSettings } : {},
+        songSettings: normalizeScaleSongSettings(activeSongIds, musicScale?.songSettings || {}),
       };
       setFormData(initialData);
     } else {
@@ -1169,9 +1186,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                               index={index}
                               tags={tags}
                               localSettings={formData.songSettings?.[song.id]}
-                              onSettingsChange={(key, bpm, isGlobal) => {
-                                handleUpdateSongSettings(song.id, key, bpm, isGlobal);
-                              }}
+                              onSettingsChange={(key, bpm, isGlobal) => handleUpdateSongSettings(song.id, key, bpm, isGlobal)}
                             />
                           );
                         })}

@@ -34,7 +34,7 @@ export const normalizeScaleSongSettings = (
     if (settings[id]) {
       const { key, bpm } = settings[id] as any; // Cast to any to handle runtime malformed data as requested by tests
       const validKey = typeof key === 'string' ? key.trim() || undefined : undefined;
-      const bpmNum = typeof bpm === 'string' ? Number(bpm.trim()) : typeof bpm === 'number' ? bpm : NaN;
+      const bpmNum = typeof bpm === 'string' ? Number((bpm as string).trim()) : typeof bpm === 'number' ? bpm : NaN;
       const validBpm = (!isNaN(bpmNum) && bpmNum >= 20 && bpmNum <= 300) ? bpmNum : undefined;
       
       if (validKey !== undefined || validBpm !== undefined) {
@@ -55,7 +55,8 @@ export const applyScaleSongSettings = <T extends Song>(song: T, settings?: Scale
   const newSong = { ...song };
 
   if (settings.key !== undefined && settings.key !== null) {
-    const semitones = newSong.key ? getKeyDifference(newSong.key, settings.key) : 0;
+    const sourceKey = newSong.selectedKey || newSong.key || newSong.originalKey || "";
+    const semitones = sourceKey ? getKeyDifference(sourceKey, settings.key) : 0;
     
     newSong.key = settings.key;
     // We update selectedKey too so UI components expecting that use the effective key
