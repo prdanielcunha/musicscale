@@ -548,6 +548,7 @@
     "selectedSongsCount_zero": "0 songs selected",
     "noSongsSelected": "No songs selected",
     "noSongsSelectedDescription": "Choose songs from the library to build the repertoire.",
+    "addMoreSongs": "Add more songs",
     "viewSetlist": "View repertoire",
     "repertoireTab": "Repertoire",
     "submittingCannotClose": "Please wait for submission to complete.",

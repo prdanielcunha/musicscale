@@ -547,6 +547,7 @@
     "selectedSongsCount_zero": "0 canciones seleccionadas",
     "noSongsSelected": "Ninguna canción seleccionada",
     "noSongsSelectedDescription": "Elige canciones de la biblioteca para armar el repertorio.",
+    "addMoreSongs": "Agregar más canciones",
     "viewSetlist": "Ver repertorio",
     "repertoireTab": "Repertorio",
     "submittingCannotClose": "Espera a que finalice el envío.",

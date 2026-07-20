@@ -181,4 +181,17 @@ test("MS-FIRST-VALUE-01C - Safe Cancellation and Mobile Setlist Summary", async 
       }
     }
   });
+
+  await t.test("26. MS-FIRST-VALUE-01C-FIX-2: MusicBuilder features are restored", () => {
+    assert.ok(builderContent.includes("songStatusFilter"), "Should have status filters");
+    assert.ok(builderContent.includes("songTagFilterIds"), "Should have tag filters");
+    assert.ok(builderContent.includes("song.bpm"), "Should show BPM in library card");
+    assert.ok(builderContent.includes("handleTouchCancel"), "Should have touch cancel handling");
+    assert.ok(builderContent.includes("GripVertical"), "Should only drag on grip icon");
+  });
+
+  await t.test("27. MS-FIRST-VALUE-01C-FIX-2: Dirty state baseline protection logic", () => {
+    assert.ok(formContent.includes("if (!initialFormDataRef.current || initialFormDataRef.current === prevComparable)"), "Baseline should only be updated if null or unchanged from prev");
+    assert.ok(formContent.includes("changed = true"), "Should only trigger update if event or location was actually populated");
+  });
 });

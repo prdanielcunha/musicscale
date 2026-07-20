@@ -324,11 +324,13 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
     setFormData(prev => {
       const next = { ...prev };
+      let changed = false;
 
       if (!next.eventTypeId && eventTypes.length > 0) {
         next.eventTypeId =
           eventTypes.find(t => t.name.toLowerCase().includes('culto'))?.id ||
           eventTypes[0].id;
+        changed = true;
       }
 
       if (!next.locationId && locations.length > 0) {
@@ -339,10 +341,15 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
             l.name.toLowerCase().includes('main sanctuary')
           )?.id ||
           locations[0].id;
+        changed = true;
       }
 
-      // Update snapshot after autofilling
-      initialFormDataRef.current = JSON.stringify(getComparableData(next));
+      if (changed) {
+        const prevComparable = JSON.stringify(getComparableData(prev));
+        if (!initialFormDataRef.current || initialFormDataRef.current === prevComparable) {
+          initialFormDataRef.current = JSON.stringify(getComparableData(next));
+        }
+      }
       return next;
     });
 

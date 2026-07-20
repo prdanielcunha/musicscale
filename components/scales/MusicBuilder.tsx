@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { PopulatedSong, Tag } from "../../types";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { XCircleIcon } from "../icons/XCircleIcon";
@@ -160,6 +160,12 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
     setDropTargetId(null);
   };
 
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, []);
+
   // Touch Drag Handlers
   const handleTouchStart = (
     e: React.TouchEvent<HTMLDivElement>,
@@ -215,6 +221,10 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
     document.body.style.overflow = "auto"; // Re-enable scroll
   };
 
+  const handleTouchCancel = () => {
+    handleTouchEnd();
+  };
+
   return (
     <div className="flex flex-col -mx-4 px-4 sm:mx-0 sm:px-0">
       {/* Mobile Tabs */}
@@ -234,55 +244,9 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
           {t('scaleModal.repertoireTab', 'Repertório')} 
           <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${mobileTab === 'setlist' ? (selectedSongsList.length > 0 ? 'bg-primary text-white' : 'bg-primary/20 text-primary dark:text-primary-light') : (selectedSongsList.length > 0 ? 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300' : 'bg-transparent text-slate-400')}`}>{selectedSongsList.length}</span>
         </button>
-                  </div>
+      </div>
 
-
-      <div className="flex flex-col lg:flex-row gap-6 h-full">
-        {/* Library Column */}
-        <div className={`flex-col w-full lg:w-1/2 h-full overflow-hidden ${mobileTab === 'library' ? 'flex' : 'hidden md:flex'}`}>
-          <div className="flex flex-col space-y-3 flex-shrink-0 mb-4">
-             <div className="relative">
-               <input 
-                 type="text" 
-                 value={songSearch} 
-                 onChange={e => setSongSearch(e.target.value)} 
-                 placeholder={t('scaleModal.searchSongs', 'Buscar músicas...')}
-                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-800 dark:text-white placeholder:text-slate-400"
-               />
-             </div>
-          </div>
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 pb-20 md:pb-4">
-            {filteredSongs.length > 0 ? (
-              filteredSongs.map(song => {
-                const isSelected = selectedSongsList.some(s => s.id === song.id);
-                return (
-                  <div key={song.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-white/5 bg-white dark:bg-[#1C1C1E] shadow-sm hover:border-primary/30 transition-colors">
-                    <div className="flex flex-col overflow-hidden pr-3">
-                      <span className="text-[13px] font-bold text-slate-800 dark:text-white truncate">{song.title}</span>
-                      <span className="text-[11px] font-medium text-slate-500 truncate">{song.artist || t('scaleModal.unknownArtist', 'Artista desconhecido')}</span>
-                    </div>
-                    <button 
-                      type="button" 
-                      onClick={() => handleSongToggle(song.id)}
-                      className={`shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition-all ${isSelected ? 'bg-primary text-white shadow-sm' : 'bg-slate-100 dark:bg-white/10 text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/20'}`}
-                    >
-                      <span className="text-[18px] font-bold leading-none mb-0.5">{isSelected ? '✓' : '+'}</span>
-                    </button>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
-                <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1">{t('scaleModal.noSongsFoundTitle', 'Nenhuma música')}</span>
-                <span className="text-[11px] text-slate-500 max-w-[200px]">{t('scaleModal.noSongsFoundDesc', 'Tente buscar com outros termos')}</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Setlist Column */}
-        <div className={`flex-col w-full lg:w-1/2 h-full overflow-hidden ${mobileTab === 'setlist' ? 'flex' : 'hidden md:flex'}`}>
-      {/* Mobile Summary Banner */}
+      {/* Mobile Summary Banner (hoisted) */}
       <div className={`md:hidden mb-4 rounded-xl border p-3 flex flex-col gap-2 transition-all ${selectedSongsList.length > 0 ? 'bg-primary/5 border-primary/20 dark:bg-primary/10 dark:border-primary/30' : 'bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10'}`}>
         {selectedSongsList.length === 0 ? (
           <div className="flex flex-col">
@@ -306,17 +270,151 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
                     })}
               </span>
             </div>
-            <button 
-              type="button"
-              onClick={() => setMobileTab('library')}
-              className="shrink-0 bg-white dark:bg-[#2A2A2C] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-sm"
-            >
-              {t('scaleModal.addMore', 'Adicionar mais')}
-            </button>
+            {mobileTab === 'library' ? (
+              <button 
+                type="button"
+                onClick={() => setMobileTab('setlist')}
+                className="shrink-0 bg-white dark:bg-[#2A2A2C] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-sm"
+              >
+                {t('scaleModal.viewSetlist', 'Ver repertório')}
+              </button>
+            ) : (
+              <button 
+                type="button"
+                onClick={() => setMobileTab('library')}
+                className="shrink-0 bg-white dark:bg-[#2A2A2C] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-sm"
+              >
+                {t('scaleModal.addMoreSongs', 'Adicionar mais músicas')}
+              </button>
+            )}
           </div>
         )}
       </div>
-      
+
+      <div className="flex flex-col lg:flex-row gap-6 h-full">
+        {/* Library Column */}
+        <div className={`flex-col w-full lg:w-1/2 h-full overflow-hidden ${mobileTab === 'library' ? 'flex' : 'hidden md:flex'}`}>
+          <div className="flex flex-col space-y-3 flex-shrink-0 mb-4">
+             <div className="relative">
+               <input 
+                 type="text" 
+                 value={songSearch} 
+                 onChange={e => setSongSearch(e.target.value)} 
+                 placeholder={t('scaleModal.searchSongs', 'Buscar músicas...')}
+                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-800 dark:text-white placeholder:text-slate-400"
+               />
+             </div>
+             
+             {/* Status Filters */}
+             <div className="flex space-x-2">
+               {['all', 'active', 'new'].map((status) => (
+                 <button
+                   key={status}
+                   type="button"
+                   onClick={() => setSongStatusFilter(status as any)}
+                   className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all ${
+                     songStatusFilter === status
+                       ? "bg-primary text-white shadow-sm"
+                       : "bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10"
+                   }`}
+                 >
+                   {t(`scaleModal.filter_${status}`, status === 'all' ? 'Todas' : status === 'active' ? 'Ativas' : 'Novas')}
+                 </button>
+               ))}
+             </div>
+
+             {/* Tag Filters */}
+             <div className="flex flex-wrap gap-2 items-center">
+                {selectedFilterTags.map(tag => (
+                  <span key={tag.id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-primary/10 text-primary-dark dark:text-primary-light">
+                    {tag.name}
+                    <button type="button" onClick={() => setSongTagFilterIds(prev => prev.filter(id => id !== tag.id))} className="hover:text-primary"><XCircleIcon className="w-3.5 h-3.5"/></button>
+                  </span>
+                ))}
+                {availableFilterTags.length > 0 && (
+                  <select 
+                    className="bg-transparent text-[11px] font-medium text-slate-500 dark:text-slate-400 outline-none cursor-pointer"
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setSongTagFilterIds(prev => [...prev, e.target.value]);
+                        e.target.value = "";
+                      }
+                    }}
+                  >
+                    <option value="">+ {t('scaleModal.filterTag', 'Tag')}</option>
+                    {availableFilterTags.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                )}
+             </div>
+          </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 pb-20 md:pb-4">
+            {filteredSongs.length > 0 ? (
+              filteredSongs.map(song => {
+                const isSelected = selectedSongsList.some(s => s.id === song.id);
+                return (
+                  <div key={song.id} className="flex flex-col p-3 rounded-xl border border-slate-100 dark:border-white/5 bg-white dark:bg-[#1C1C1E] shadow-sm hover:border-primary/30 transition-colors">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="text-[13px] font-bold text-slate-800 dark:text-white truncate">{song.title}</span>
+                        <span className="text-[11px] font-medium text-slate-500 truncate">{song.artist || t('scaleModal.unknownArtist', 'Artista desconhecido')}</span>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => handleSongToggle(song.id)}
+                        className={`shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition-all ${isSelected ? 'bg-primary text-white shadow-sm' : 'bg-slate-100 dark:bg-white/10 text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/20'}`}
+                      >
+                        <span className="text-[18px] font-bold leading-none mb-0.5">{isSelected ? '✓' : '+'}</span>
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-white/5 overflow-x-auto custom-scrollbar pb-1">
+                      {song.originalKey && (
+                        <span className="shrink-0 text-[10px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">
+                          {song.originalKey}
+                        </span>
+                      )}
+                      {song.bpm ? (
+                        <span className="shrink-0 text-[10px] font-medium text-slate-500 bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded">
+                          {song.bpm} BPM
+                        </span>
+                      ) : (
+                        <span className="shrink-0 text-[10px] font-medium text-slate-400 bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded">
+                          {t('scaleModal.noBpm', 'S/ BPM')}
+                        </span>
+                      )}
+                      {(song.hasChords || song.hasLyrics) ? (
+                        <div className="flex gap-1 shrink-0">
+                          {song.hasChords && <span className="text-[10px] font-medium text-blue-500 bg-blue-50 dark:bg-blue-500/10 px-1.5 py-0.5 rounded">{t('scaleModal.hasChords', 'Cifra')}</span>}
+                          {song.hasLyrics && <span className="text-[10px] font-medium text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded">{t('scaleModal.hasLyrics', 'Letra')}</span>}
+                        </div>
+                      ) : (
+                        <span className="shrink-0 text-[10px] font-medium text-slate-400 bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded">{t('scaleModal.noChordsOrLyrics', 'S/ Anexos')}</span>
+                      )}
+                      {song.tagIds?.map(tagId => {
+                        const tObj = tags.find(tag => tag.id === tagId);
+                        if (!tObj) return null;
+                        return (
+                          <span key={tObj.id} className="shrink-0 text-[10px] font-medium text-primary-dark dark:text-primary-light bg-primary/10 px-1.5 py-0.5 rounded">
+                            {tObj.name}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
+                <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1">{t('scaleModal.noSongsFoundTitle', 'Nenhuma música')}</span>
+                <span className="text-[11px] text-slate-500 max-w-[200px]">{t('scaleModal.noSongsFoundDesc', 'Tente buscar com outros termos')}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Setlist Column */}
+        <div className={`flex-col w-full lg:w-1/2 h-full overflow-hidden ${mobileTab === 'setlist' ? 'flex' : 'hidden md:flex'}`}>
           <div className="hidden md:flex items-center justify-between mb-4 flex-shrink-0">
              <h3 className="text-[14px] font-bold text-slate-800 dark:text-white flex items-center gap-2">
                {t('scaleModal.repertoireTitle', 'Repertório')} 
@@ -341,19 +439,46 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
                         data-index={index}
                         onDragStart={(e) => handleDragStart(e, song.id)}
                         onDragEnd={handleDragEnd}
-                        onTouchStart={(e) => handleTouchStart(e, index)}
-                        onTouchMove={handleTouchMove}
-                        onTouchEnd={handleTouchEnd}
-                        className={`group relative flex items-center p-3 bg-white dark:bg-[#1C1C1E] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm transition-all duration-200 ${draggedSongId === song.id ? 'opacity-50 scale-[0.98]' : 'hover:border-primary/30 cursor-grab active:cursor-grabbing'}`}
+                        className={`group relative flex items-center p-3 bg-white dark:bg-[#1C1C1E] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm transition-all duration-200 ${draggedSongId === song.id ? 'opacity-50 scale-[0.98]' : 'hover:border-primary/30'}`}
                       >
-                         <div className="flex-1 flex flex-col overflow-hidden pl-1">
+                         <div 
+                           className="flex items-center justify-center w-8 h-8 -ml-2 mr-1 cursor-grab active:cursor-grabbing md:hidden touch-none"
+                           onTouchStart={(e) => handleTouchStart(e, index)}
+                           onTouchMove={handleTouchMove}
+                           onTouchEnd={handleTouchEnd}
+                           onTouchCancel={handleTouchCancel}
+                         >
+                           <GripVertical className="w-4 h-4 text-slate-300" />
+                         </div>
+                         <div className="hidden md:flex items-center justify-center w-8 h-8 -ml-2 mr-1 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
+                           <GripVertical className="w-4 h-4" />
+                         </div>
+                         <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 text-[10px] font-bold text-slate-500 mr-3">
+                           {index + 1}
+                         </span>
+                         <div className="flex-1 flex flex-col overflow-hidden">
                            <span className="text-[13px] font-bold text-slate-800 dark:text-white truncate">{song.title}</span>
                            <span className="text-[11px] font-medium text-slate-500 truncate">{song.artist || t('scaleModal.unknownArtist', 'Artista desconhecido')}</span>
+                           
+                           <div className="flex items-center gap-2 mt-1.5">
+                             {song.originalKey && (
+                               <span className="text-[9px] font-bold text-slate-500">{song.originalKey}</span>
+                             )}
+                             {song.bpm && (
+                               <span className="text-[9px] font-medium text-slate-400">{song.bpm} BPM</span>
+                             )}
+                             {(song.hasChords || song.hasLyrics) && (
+                               <div className="flex gap-1">
+                                 {song.hasChords && <span className="text-[9px] font-medium text-blue-500">Cifra</span>}
+                                 {song.hasLyrics && <span className="text-[9px] font-medium text-emerald-500">Letra</span>}
+                               </div>
+                             )}
+                           </div>
                          </div>
-                         <div className="flex items-center gap-0.5">
-                            <button type="button" onClick={() => moveSong(index, "up")} disabled={index === 0} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><span className="text-[12px]">↑</span></button>
-                            <button type="button" onClick={() => moveSong(index, "down")} disabled={index === selectedSongsList.length - 1} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><span className="text-[12px]">↓</span></button>
-                            <button type="button" onClick={() => handleSongToggle(song.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg ml-1"><span className="text-[12px]">✕</span></button>
+                         <div className="flex items-center gap-0.5 ml-2">
+                            <button type="button" onClick={() => moveSong(index, "up")} disabled={index === 0} className="hidden md:block p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><ArrowUp className="w-4 h-4"/></button>
+                            <button type="button" onClick={() => moveSong(index, "down")} disabled={index === selectedSongsList.length - 1} className="hidden md:block p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"><ArrowDown className="w-4 h-4"/></button>
+                            <button type="button" onClick={() => handleSongToggle(song.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg ml-1"><XCircleIcon className="w-5 h-5"/></button>
                          </div>
                       </div>
                     </React.Fragment>
