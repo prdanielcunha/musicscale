@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { ScaleSongCard } from '../../components/scales/ScaleSongCard';
+import { ScaleReviewRepertoire } from '../../components/scales/ScaleReviewRepertoire';
 import { PopulatedSong } from '../../types';
-import { applyLocalScaleSongSettingsUpdate } from '../../utils/scaleSongSettings';
+import { applyLocalScaleSongSettingsUpdate, normalizeScaleSongSettings } from '../../utils/scaleSongSettings';
 
 // Mock translation context
 vi.mock('react-i18next', () => ({
@@ -285,5 +286,72 @@ describe('Scale Local Settings Cleanup Integration & Unit Tests', () => {
         })
       );
     });
+  });
+
+  it('12. Integration: clicking "Limpar ajustes locais" removes all localSettings from the state, resulting in clean save payload without cleared keys, and renders correctly without throwing', async () => {
+    const handleStateChange = vi.fn();
+    const saveMock = vi.fn();
+
+    // Harness to simulate ModernScaleForm saving flow after clear
+    const FormHarness = () => {
+      const [songSettings, setSongSettings] = useState<Record<string, any>>({
+        'song-target': { key: 'A', bpm: 85 },
+        'song-other': { key: 'C', bpm: 100 },
+      });
+
+      const handleUpdateSongSettings = async (
+        songId: string,
+        key: string | null,
+        bpm: number | null,
+        isGlobal: boolean
+      ) => {
+        if (!isGlobal) {
+          setSongSettings((prev: any) => {
+            const nextSettings = applyLocalScaleSongSettingsUpdate(prev, songId, key, bpm);
+            handleStateChange(nextSettings);
+            return nextSettings;
+          });
+        }
+        return { status: 'success' as const };
+      };
+
+      const handleSave = () => {
+        const selectedSongs = ['song-target', 'song-other'];
+        const finalSongSettings = normalizeScaleSongSettings(selectedSongs, songSettings);
+        saveMock(finalSongSettings);
+      };
+
+      return (
+        <div>
+          <ScaleReviewRepertoire
+            songs={mockSongs}
+            songIds={['song-target', 'song-other']}
+            onMoveCallback={() => {}}
+            onUpdateSongSettings={handleUpdateSongSettings}
+            songSettings={songSettings}
+            goToStep={() => {}}
+          />
+          <button onClick={handleSave}>Salvar</button>
+        </div>
+      );
+    };
+
+    render(<FormHarness />);
+
+    // Click "Limpar ajustes locais"
+    const clearBtn = screen.getByText('Limpar ajustes locais');
+    expect(clearBtn).toBeInTheDocument();
+    fireEvent.click(clearBtn);
+
+    // After clicking clear, both keys should be cleared from the state
+    await waitFor(() => {
+      expect(handleStateChange).toHaveBeenCalledWith({});
+    });
+
+    // Let's click Save to verify that the final save payload is clean without the keys
+    const saveBtn = screen.getByText('Salvar');
+    fireEvent.click(saveBtn);
+
+    expect(saveMock).toHaveBeenCalledWith({});
   });
 });

@@ -314,7 +314,7 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
   });
 
   // =========================================================================
-  // SUB-SECTION 4: DRAG AND DROP EVENT HANDLING & SEMANTICS (4 SCENARIOS)
+  // SUB-SECTION 4: DRAG AND DROP EVENT HANDLING & SEMANTICS (12 SCENARIOS)
   // =========================================================================
 
   it('17. Starts drag-and-drop successfully, calling setDragImage and signaling dragging state', () => {
@@ -370,6 +370,146 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
       // A (Amazing Grace) goes before C (10,000 Reasons) -> ['song-2', 'song-1', 'song-3', 'song-4']
       expect(moveMock).toHaveBeenCalledWith(['song-2', 'song-1', 'song-3', 'song-4']);
     });
+  });
+
+  it('19a. D arrastada para a zona anterior a B resulta em A, D, B, C', async () => {
+    const moveMock = vi.fn();
+    render(<TestWrapper onMoveCallback={moveMock} />);
+
+    // Drag D ('song-4')
+    const gripD = screen.getByLabelText('Reordenar Blessed Be Your Name');
+    const fakeDT = new FakeDataTransfer();
+    fireEvent.dragStart(gripD, { dataTransfer: fakeDT });
+
+    // Drop before B ('song-2')
+    const cardB = screen.getByText('How Great Is Our God').closest('[data-song-id]');
+    const previousDiv = cardB?.previousElementSibling;
+    expect(previousDiv).toBeInTheDocument();
+
+    fireEvent.drop(previousDiv!);
+
+    await waitFor(() => {
+      // D goes before B -> ['song-1', 'song-4', 'song-2', 'song-3']
+      expect(moveMock).toHaveBeenCalledWith(['song-1', 'song-4', 'song-2', 'song-3']);
+    });
+  });
+
+  it('19b. A arrastada para a zona final resulta em B, C, D, A', async () => {
+    const moveMock = vi.fn();
+    render(<TestWrapper onMoveCallback={moveMock} />);
+
+    // Drag A ('song-1')
+    const gripA = screen.getByLabelText('Reordenar Amazing Grace');
+    const fakeDT = new FakeDataTransfer();
+    fireEvent.dragStart(gripA, { dataTransfer: fakeDT });
+
+    // Find the final drop zone (at the very bottom, after the last element)
+    const listContainer = screen.getByText('Amazing Grace').closest('.space-y-2');
+    const finalDropZone = listContainer?.lastElementChild;
+    expect(finalDropZone).toBeInTheDocument();
+
+    fireEvent.drop(finalDropZone!);
+
+    await waitFor(() => {
+      // A goes to end -> ['song-2', 'song-3', 'song-4', 'song-1']
+      expect(moveMock).toHaveBeenCalledWith(['song-2', 'song-3', 'song-4', 'song-1']);
+    });
+  });
+
+  it('19c. Nenhuma música é perdida ou duplicada durante reordenação', async () => {
+    const moveMock = vi.fn();
+    render(<TestWrapper onMoveCallback={moveMock} />);
+
+    // Drag B ('song-2')
+    const gripB = screen.getByLabelText('Reordenar How Great Is Our God');
+    const fakeDT = new FakeDataTransfer();
+    fireEvent.dragStart(gripB, { dataTransfer: fakeDT });
+
+    // Drop before D ('song-4')
+    const cardD = screen.getByText('Blessed Be Your Name').closest('[data-song-id]');
+    const previousDiv = cardD?.previousElementSibling;
+    fireEvent.drop(previousDiv!);
+
+    await waitFor(() => {
+      expect(moveMock).toHaveBeenCalled();
+      const lastCallArgs = moveMock.mock.calls[moveMock.mock.calls.length - 1][0];
+      // Assert length is exactly 4 (none lost)
+      expect(lastCallArgs.length).toBe(4);
+      // Assert uniqueness (none duplicated)
+      const uniqueIds = Array.from(new Set(lastCallArgs));
+      expect(uniqueIds.length).toBe(4);
+    });
+  });
+
+  it('19d. Somente a alça possui draggable=true e o elemento raiz do card não é draggable', () => {
+    render(<TestWrapper />);
+    const grip = screen.getByLabelText('Reordenar Amazing Grace');
+    expect(grip).toHaveAttribute('draggable', 'true');
+
+    const cardRoot = grip.closest('[data-song-id]');
+    expect(cardRoot).toBeInTheDocument();
+    expect(cardRoot).not.toHaveAttribute('draggable', 'true');
+  });
+
+  it('19e. Clicar em Editar ajustes não inicia drag e o callback de mudança de ordem não é chamado', () => {
+    const moveMock = vi.fn();
+    render(<TestWrapper onMoveCallback={moveMock} />);
+
+    const editButton = screen.getAllByRole('button', { name: /Ajustes/i })[0];
+    expect(editButton).toBeInTheDocument();
+
+    // Trigger dragStart on edit button - should NOT behave as dragging
+    const fakeDT = new FakeDataTransfer();
+    fireEvent.dragStart(editButton, { dataTransfer: fakeDT });
+
+    expect(fakeDT.effectAllowed).toBe('none');
+    expect(moveMock).not.toHaveBeenCalled();
+  });
+
+  it('19f. O card da música arrastada recebe o estado visual de arraste, dragEnd remove o estado e remove destaque da dropzone', () => {
+    render(<TestWrapper />);
+    const grip = screen.getByLabelText('Reordenar Amazing Grace');
+    const cardRoot = grip.closest('[data-song-id]');
+    expect(cardRoot).toBeInTheDocument();
+
+    // 1. Start drag
+    const fakeDT = new FakeDataTransfer();
+    fireEvent.dragStart(grip, { dataTransfer: fakeDT });
+
+    // cardRoot should have the visual dragging styles (opacity-50 scale-[0.98])
+    expect(cardRoot).toHaveClass('opacity-50');
+
+    // 2. Drag over a drop zone to trigger highlight
+    const cardC = screen.getByText('10,000 Reasons').closest('[data-song-id]');
+    const previousDiv = cardC?.previousElementSibling;
+    fireEvent.dragOver(previousDiv!);
+    expect(previousDiv).toHaveClass('bg-primary/50');
+
+    // 3. End drag
+    fireEvent.dragEnd(grip);
+
+    // Visual styles and dropzone highlights should be removed
+    expect(cardRoot).not.toHaveClass('opacity-50');
+    expect(previousDiv).not.toHaveClass('bg-primary/50');
+  });
+
+  it('19g. Drop inválido sobre a própria música não altera a ordem', () => {
+    const moveMock = vi.fn();
+    render(<TestWrapper onMoveCallback={moveMock} />);
+
+    // Drag A ('song-1')
+    const gripA = screen.getByLabelText('Reordenar Amazing Grace');
+    const fakeDT = new FakeDataTransfer();
+    fireEvent.dragStart(gripA, { dataTransfer: fakeDT });
+
+    // Drop on the dropzone immediately before itself
+    const cardA = gripA.closest('[data-song-id]');
+    const previousDiv = cardA?.previousElementSibling;
+    expect(previousDiv).toBeInTheDocument();
+
+    fireEvent.drop(previousDiv!);
+
+    expect(moveMock).not.toHaveBeenCalled();
   });
 
   it('20. Cleanly terminates drag states on dragEnd event, resetting draggedSongId and dropTargetId', () => {
@@ -482,5 +622,77 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
 
     expect(outerCard).not.toHaveClass('opacity-50');
     expect(document.body.style.overflow).toBe('auto');
+  });
+
+  it('25. simulação completa touch: mover a terceira música para o topo resulta em C, A, B, D', async () => {
+    const moveMock = vi.fn();
+    render(<TestWrapper onMoveCallback={moveMock} />);
+
+    const gripC = screen.getByLabelText('Reordenar 10,000 Reasons');
+    
+    // Start touch (index 2)
+    fireEvent.touchStart(gripC, { touches: [{ clientX: 10, clientY: 200 }] });
+
+    // Mock document.elementFromPoint to return Amazing Grace (song-1, index 0)
+    const fakeTarget = {
+      closest: (selector: string) => {
+        if (selector === '[data-song-id]') {
+          return {
+            dataset: {
+              songId: 'song-1',
+              index: '0',
+            },
+          };
+        }
+        return null;
+      },
+    };
+    document.elementFromPoint = vi.fn().mockReturnValue(fakeTarget);
+
+    // Perform touch move
+    fireEvent.touchMove(gripC, {
+      touches: [{ clientX: 10, clientY: 10 }],
+    });
+
+    await waitFor(() => {
+      // Third song ('song-3') moved from index 2 to target index 0 -> ['song-3', 'song-1', 'song-2', 'song-4']
+      expect(moveMock).toHaveBeenCalledWith(['song-3', 'song-1', 'song-2', 'song-4']);
+    });
+  });
+
+  it('26. simulação completa touch: mover a primeira música para a última posição resulta em B, C, D, A', async () => {
+    const moveMock = vi.fn();
+    render(<TestWrapper onMoveCallback={moveMock} />);
+
+    const gripA = screen.getByLabelText('Reordenar Amazing Grace');
+    
+    // Start touch (index 0)
+    fireEvent.touchStart(gripA, { touches: [{ clientX: 10, clientY: 10 }] });
+
+    // Mock document.elementFromPoint to return Blessed Be Your Name (song-4, index 3)
+    const fakeTarget = {
+      closest: (selector: string) => {
+        if (selector === '[data-song-id]') {
+          return {
+            dataset: {
+              songId: 'song-4',
+              index: '3',
+            },
+          };
+        }
+        return null;
+      },
+    };
+    document.elementFromPoint = vi.fn().mockReturnValue(fakeTarget);
+
+    // Perform touch move
+    fireEvent.touchMove(gripA, {
+      touches: [{ clientX: 10, clientY: 400 }],
+    });
+
+    await waitFor(() => {
+      // First song ('song-1') moved from index 0 to target index 3 -> ['song-2', 'song-3', 'song-4', 'song-1']
+      expect(moveMock).toHaveBeenCalledWith(['song-2', 'song-3', 'song-4', 'song-1']);
+    });
   });
 });

@@ -10,10 +10,12 @@
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "test:ui": "vitest run",
+    "test:functions": "npm --prefix functions test",
+    "test:song-discovery": "tsx run_song_discovery_tests.ts",
     "test:starter-pack-ui": "vitest run tests/ui/starter-pack-visibility.test.tsx",
     "test:release:core": "tsx test_handoff.ts && tsx test_ms_perf_2.ts && tsx test_ms_perf_3.ts && tsx test_ms_perf_4b.ts && tsx test_ms_perf_5.ts && tsx test_ms_perf_6.ts && tsx test_tenant_boundaries.ts && tsx test_onboarding_experience.ts",
     "test:release:scale-review": "tsx scripts/test_ms_first_value_01c.ts && tsx scripts/test_ms_scale_review_02.ts",
-    "test:release": "npm run test:release:core && npm run test:release:scale-review && npm run test:starter-pack-ui && npm run test:ui && npm run lint && npm run build"
+    "test:release": "npm run test:release:core && npm run test:release:scale-review && npm run test:starter-pack-ui && npm run test:ui && npm run test:functions && npm run test:song-discovery && npm run lint && npm run build"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",

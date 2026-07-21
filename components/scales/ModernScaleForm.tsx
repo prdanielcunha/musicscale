@@ -11,6 +11,7 @@ import type {
   Tag,
   FixedBandScale,
   ScaleSongSettingsUpdateResult,
+  ScaleSongSettings,
 } from "../../types";
 import PremiumSheetModal from "../common/PremiumSheetModal";
 import Button from "../common/Button";

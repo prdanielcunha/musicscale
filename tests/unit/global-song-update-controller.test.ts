@@ -250,8 +250,9 @@ describe('global-song-update-controller unit tests', () => {
     // 1. Primeira chamada entra no controller
     const call1Promise = executeGlobalSongUpdate(deps);
 
-    // Permitir que a primeira chamada execute e chegue ao refreshData pendente
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Permitir que a primeira chamada execute e chegue ao refreshData pendente de forma síncrona/determinística
+    await Promise.resolve();
+    await Promise.resolve();
 
     // 2. updateSong resolve (ele foi chamado e adicionado no beforeEach)
     expect(mockUpdateSong).toHaveBeenCalledTimes(1);
