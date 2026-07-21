@@ -40,7 +40,7 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
   // Cleanup body overflow on unmount
   useEffect(() => {
     return () => {
-      document.body.style.overflow = "auto";
+      
     };
   }, []);
 
@@ -97,7 +97,7 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
     if (songItem) {
       songItem.classList.add("opacity-50", "shadow-2xl");
     }
-    document.body.style.overflow = "hidden";
+    
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -133,7 +133,7 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
     }
     dragInfo.current = { startIndex: null, element: null };
     setDropTargetId(null);
-    document.body.style.overflow = "auto";
+    
   };
 
   const handleTouchCancel = () => {

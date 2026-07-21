@@ -1,6 +1,15 @@
 import * as crypto from 'crypto';
 import { compareSongs } from '../../utils/songDiscovery/matcher.js';
 
+function normalizedOptionalString(value: unknown, fieldName: string, errorCode: any): string | null {
+    if (value === undefined || value === null) return null;
+    if (typeof value !== 'string') {
+        throw new CurationError(errorCode, 'Campo ' + fieldName + ' possui tipo inválido.', 400);
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
+
 export interface CurationApprovalDependencies {
     db: any;
     admin: any;
@@ -30,7 +39,7 @@ export type CurationErrorCode =
 | "SOURCE_ORGANIZATION_MISMATCH"
 | "SOURCE_OCCURRENCE_CONFLICT"
 | "TRANSACTION_FAILED"
-| "UNAUTHORIZED"
+
 | "INTERNAL_CURATION_ROUTE_ERROR";
 
 export class CurationError extends Error {
@@ -55,8 +64,9 @@ export class CurationApprovalService {
         if (!candidateId || !occurrenceId || !idempotencyKey) {
             throw new CurationError('VALIDATION_ERROR', 'Parâmetros obrigatórios ausentes.', 400);
         }
-        if (!decodedToken || !decodedToken.uid) {
-            throw new CurationError('UNAUTHORIZED', 'Contexto de usuário (ator) ausente.', 401);
+        const safeUid = normalizedOptionalString(decodedToken?.uid, 'uid', 'ACTOR_CONTEXT_MISSING');
+        if (!decodedToken || !safeUid) {
+            throw new CurationError('ACTOR_CONTEXT_MISSING', 'Contexto de usuário (ator) ausente.', 401);
         }
         if (decodedToken.hasCurationAccess !== true) {
             throw new CurationError('CURATION_ACCESS_DENIED', 'Acesso de curadoria negado no serviço.', 403);
@@ -99,17 +109,20 @@ export class CurationApprovalService {
             if (!canonical) {
                 throw new CurationError('CANONICAL_IDENTITY_INVALID', 'Identidade da candidata inválida ou ausente.', 400);
             }
-            const normTitle = canonical.normalizedTitle?.trim() || '';
+            const normTitle = normalizedOptionalString(canonical.normalizedTitle, 'normalizedTitle', 'CANONICAL_IDENTITY_INVALID') || '';
+            if (canonical.normalizedArtists !== undefined && !Array.isArray(canonical.normalizedArtists)) {
+                throw new CurationError('CANONICAL_IDENTITY_INVALID', 'normalizedArtists deve ser um array.', 400);
+            }
             const normArtistsArray = Array.isArray(canonical.normalizedArtists) ? canonical.normalizedArtists : [];
-            const normArtists = normArtistsArray.filter((a: any) => typeof a === 'string' && a.trim() !== '');
+            const normArtists = normArtistsArray.filter((a: any) => normalizedOptionalString(a, 'normalizedArtists item', 'CANONICAL_IDENTITY_INVALID') !== null).map((a: any) => a.trim());
             
-            const fLyrics = canonical.lyricsFingerprint?.trim() || '';
-            const fContent = canonical.contentFingerprint?.trim() || '';
+            const fLyrics = normalizedOptionalString(canonical.lyricsFingerprint, 'lyricsFingerprint', 'CANONICAL_IDENTITY_INVALID') || '';
+            const fContent = normalizedOptionalString(canonical.contentFingerprint, 'contentFingerprint', 'CANONICAL_IDENTITY_INVALID') || '';
             const baseId = normTitle ? normTitle + "_" + normArtists.join('_') : '';
             
             const reservationId = fContent || fLyrics || baseId;
 
-            if (!reservationId || reservationId === '_' || reservationId.trim() === '') {
+            if (!normalizedOptionalString(reservationId, 'reservationId', 'CANONICAL_IDENTITY_INVALID') || reservationId === '_') {
                 throw new CurationError('CANONICAL_IDENTITY_INVALID', 'Identidade da candidata inválida (título normalizado ausente).', 400);
             }
             if (!normTitle) {
@@ -120,29 +133,25 @@ export class CurationApprovalService {
                 ...canonical,
                 normalizedTitle: normTitle,
                 normalizedArtists: normArtists,
-                externalReferences: canonical.externalReferences && typeof canonical.externalReferences === "object" ? canonical.externalReferences : {},
+                externalReferences: (canonical.externalReferences ? (typeof canonical.externalReferences === "object" && !Array.isArray(canonical.externalReferences) ? canonical.externalReferences : (() => { throw new CurationError('CANONICAL_IDENTITY_INVALID', 'externalReferences invalido', 400) })()) : {}),
                 contentFingerprint: fContent || null,
                 lyricsFingerprint: fLyrics || null,
-                normalizedLyrics: typeof canonical.normalizedLyrics === 'string' ? canonical.normalizedLyrics : null,
-                openingLyrics: typeof canonical.openingLyrics === 'string' ? canonical.openingLyrics : null,
-                chorusLyrics: typeof canonical.chorusLyrics === 'string' ? canonical.chorusLyrics : null,
+                normalizedLyrics: normalizedOptionalString(canonical.normalizedLyrics, 'normalizedLyrics', 'CANONICAL_IDENTITY_INVALID'),
+                openingLyrics: normalizedOptionalString(canonical.openingLyrics, 'openingLyrics', 'CANONICAL_IDENTITY_INVALID'),
+                chorusLyrics: normalizedOptionalString(canonical.chorusLyrics, 'chorusLyrics', 'CANONICAL_IDENTITY_INVALID'),
             };
 
             // VALIDATE SNAPSHOT (REQ 8)
             if (!snapshot || typeof snapshot !== 'object') {
                 throw new CurationError('OCCURRENCE_SNAPSHOT_INVALID', 'Snapshot da ocorrência ausente ou inválido.', 400);
             }
-            if (!snapshot.title || typeof snapshot.title !== 'string' || snapshot.title.trim() === '') {
+            if (!normalizedOptionalString(snapshot.title, 'snapshot.title', 'OCCURRENCE_SNAPSHOT_INVALID')) {
                 throw new CurationError('OCCURRENCE_SNAPSHOT_INVALID', 'Snapshot não possui título válido.', 400);
             }
             
             if (occData.source) {
-                if (occData.source.organizationId && typeof occData.source.organizationId !== 'string') {
-                    throw new CurationError('OCCURRENCE_SNAPSHOT_INVALID', 'organizationId do source inválido.', 400);
-                }
-                if (occData.source.songId && typeof occData.source.songId !== 'string') {
-                    throw new CurationError('OCCURRENCE_SNAPSHOT_INVALID', 'songId do source inválido.', 400);
-                }
+                normalizedOptionalString(occData.source.organizationId, 'source.organizationId', 'OCCURRENCE_SNAPSHOT_INVALID');
+                normalizedOptionalString(occData.source.songId, 'source.songId', 'OCCURRENCE_SNAPSHOT_INVALID');
             }
 
             const reservationRef = db.collection('globalSongs_reservations').doc(reservationId);
@@ -158,8 +167,8 @@ export class CurationApprovalService {
             const sourceSongMap = new Map<string, { songRef: any, songSnap: any, sourceOrg: string }>();
             for (const occDoc of occurrencesSnap.docs) {
                 const oData = occDoc.data() as any;
-                const sourceOrg = oData.source?.organizationId;
-                const sourceSongId = oData.source?.songId;
+                const sourceOrg = normalizedOptionalString(oData.source?.organizationId, 'source.organizationId', 'OCCURRENCE_SNAPSHOT_INVALID');
+                const sourceSongId = normalizedOptionalString(oData.source?.songId, 'source.songId', 'OCCURRENCE_SNAPSHOT_INVALID');
                 if (sourceOrg && sourceSongId) {
                     if (sourceSongMap.has(sourceSongId)) {
                         if (sourceSongMap.get(sourceSongId)!.sourceOrg !== sourceOrg) {
@@ -197,7 +206,7 @@ export class CurationApprovalService {
                 
                 const comparison = compareSongs(comparisonObj as any, safeCanonical as any);
                 if (comparison.classification === 'exact_match' || comparison.classification === 'high_confidence_match') {
-                    throw new CurationError('DUPLICATE_GLOBAL_SONG', 'Duplicata global detectada.', 409, docSnap.id);
+                    throw new CurationError('DUPLICATE_GLOBAL_SONG', 'Música duplicada encontrada na rechecagem', 409, docSnap.id);
                 }
             }
 

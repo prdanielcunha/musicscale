@@ -57,8 +57,11 @@ class StrictTransactionMock {
     }
 
     get get() { return this._get.bind(this); }
+    set get(val: any) { throw new Error("OVERRIDE_FORBIDDEN"); }
     get set() { return this._set.bind(this); }
+    set set(val: any) { throw new Error("OVERRIDE_FORBIDDEN"); }
     get update() { return this._update.bind(this); }
+    set update(val: any) { throw new Error("OVERRIDE_FORBIDDEN"); }
 }
 
 describe('CurationApprovalHttpHandler', () => {
@@ -91,7 +94,7 @@ describe('CurationApprovalHttpHandler', () => {
         const handler = createCurationApprovalHttpHandler(mockDeps);
         mockReq.ecosystemContext = undefined;
         await handler(mockReq, mockRes);
-        expect(mockRes.status).toHaveBeenCalledWith(403);
+        expect(mockRes.status).toHaveBeenCalledWith(401);
     });
     it('4. acesso de curadoria negado retorna 403', async () => {
         const handler = createCurationApprovalHttpHandler(mockDeps);
@@ -141,7 +144,7 @@ describe('CurationApprovalHttpHandler', () => {
         vi.spyOn(CurationApprovalService.prototype, 'approve').mockRejectedValue(new Error('crash'));
         await handler(mockReq, mockRes);
         expect(mockRes.status).toHaveBeenCalledWith(500);
-        expect(mockRes.json).toHaveBeenCalledWith({ error: "Erro inesperado na aprovação.", code: "TRANSACTION_FAILED" });
+        expect(mockRes.json).toHaveBeenCalledWith({ error: "Erro inesperado na aprovação.", code: "INTERNAL_CURATION_ROUTE_ERROR" });
     });
     it('12. body não pode substituir o ator autenticado', async () => {
         const handler = createCurationApprovalHttpHandler(mockDeps);
@@ -261,7 +264,7 @@ describe('CurationApprovalService', () => {
         myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => stdOccurrence });
         vi.spyOn(matcher, 'compareSongs').mockReturnValue({ classification: 'exact_match' } as any);
         myT.registerQuery('globalSongs_query', [{ id: 'dup1', data: () => ({ normalizedTitle: 'A' }) }]);
-        await expect(service.approve(defaultParams)).rejects.toThrow('Duplicata global detectada');
+        await expect(service.approve(defaultParams)).rejects.toThrow('Música duplicada encontrada na rechecagem');
     });
     it('12. documento local inexistente aborta (SOURCE_SONG_NOT_FOUND)', async () => {
         myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => stdCandidate });
@@ -338,8 +341,7 @@ describe('CurationApprovalService', () => {
     it('22. normalizedArtists com tipo inválido (Req 12.4)', async () => {
         myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => ({ status: 'pending_review', canonicalIdentity: { normalizedTitle: 'A', normalizedArtists: 'NotAnArray' } }) });
         myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => stdOccurrence });
-        await service.approve(defaultParams); // Falls back to empty array gracefully
-        expect(myT.sets.some(s => s.ref.id === 'A_')).toBe(true);
+        await expect(service.approve(defaultParams)).rejects.toMatchObject({ code: 'CANONICAL_IDENTITY_INVALID' });
     });
     it('23. externalReferences ausente (Req 12.5)', async () => {
         myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => ({ status: 'pending_review', canonicalIdentity: { normalizedTitle: 'A' } }) });
@@ -367,7 +369,7 @@ describe('CurationApprovalService', () => {
         myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => stdOccurrence });
         vi.spyOn(matcher, 'compareSongs').mockReturnValue({ classification: 'high_confidence_match' } as any);
         myT.registerQuery('globalSongs_query', [{ id: 'dup1', data: () => ({ normalizedTitle: 'A' }) }]);
-        await expect(service.approve(defaultParams)).rejects.toThrow('Duplicata global detectada');
+        await expect(service.approve(defaultParams)).rejects.toThrow('Música duplicada encontrada na rechecagem');
     });
     it('28. duplicata por youtubeVideoId usando compareSongs real (Req 12.10)', async () => {
         myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => ({ status: 'pending_review', canonicalIdentity: { normalizedTitle: 'Somewhat Similar', externalReferences: { youtubeVideoId: 'ABC123XYZ' } } }) });
@@ -375,7 +377,7 @@ describe('CurationApprovalService', () => {
         myT.registerQuery('globalSongs_query', [{ id: 'dup1', data: () => ({ normalizedTitle: 'Somewhat Similar', externalReferences: { youtubeVideoId: 'ABC123XYZ' } }) }]);
         // NOT mock compareSongs, let it run the real one.
         // It should identify it as high_confidence_match because youtubeVideoId matches and titles are identical.
-        await expect(service.approve(defaultParams)).rejects.toThrow('Duplicata global detectada');
+        await expect(service.approve(defaultParams)).rejects.toThrow('Música duplicada encontrada na rechecagem');
     });
     it('29. música global com normalizedArtists em array (Req 12.11)', async () => {
         myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => stdCandidate });
@@ -508,5 +510,80 @@ describe('CurationApprovalService', () => {
         await service.approve(defaultParams);
         // If there was a read after write, myT.get would throw FIRESTORE_READ_AFTER_WRITE_FORBIDDEN.
         expect(myT.sets.length).toBe(2);
+    });
+
+    it('12.1. uid numérico', async () => {
+        await expect(service.approve({
+            ...defaultParams,
+            decodedToken: { uid: 123 as any, hasCurationAccess: true }
+        })).rejects.toMatchObject({ code: 'ACTOR_CONTEXT_MISSING' });
+    });
+
+    it('12.2. uid objeto', async () => {
+        await expect(service.approve({
+            ...defaultParams,
+            decodedToken: { uid: {} as any, hasCurationAccess: true }
+        })).rejects.toMatchObject({ code: 'ACTOR_CONTEXT_MISSING' });
+    });
+
+    it('12.3. uid somente com espaços', async () => {
+        await expect(service.approve({
+            ...defaultParams,
+            decodedToken: { uid: '   ', hasCurationAccess: true }
+        })).rejects.toMatchObject({ code: 'ACTOR_CONTEXT_MISSING' });
+    });
+
+    it('12.4. normalizedTitle numérico', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => ({ status: 'pending_review', canonicalIdentity: { normalizedTitle: 123 } }) });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => ({ snapshot: { title: 'T' } }) });
+        await expect(service.approve(defaultParams)).rejects.toMatchObject({ code: 'CANONICAL_IDENTITY_INVALID' });
+    });
+
+    it('12.5. normalizedTitle objeto', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => ({ status: 'pending_review', canonicalIdentity: { normalizedTitle: {} } }) });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => ({ snapshot: { title: 'T' } }) });
+        await expect(service.approve(defaultParams)).rejects.toMatchObject({ code: 'CANONICAL_IDENTITY_INVALID' });
+    });
+
+    it('12.6. contentFingerprint objeto', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => ({ status: 'pending_review', canonicalIdentity: { normalizedTitle: 'A', contentFingerprint: {} } }) });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => ({ snapshot: { title: 'T' } }) });
+        await expect(service.approve(defaultParams)).rejects.toMatchObject({ code: 'CANONICAL_IDENTITY_INVALID' });
+    });
+
+    it('12.7. lyricsFingerprint array', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => ({ status: 'pending_review', canonicalIdentity: { normalizedTitle: 'A', lyricsFingerprint: [] } }) });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => ({ snapshot: { title: 'T' } }) });
+        await expect(service.approve(defaultParams)).rejects.toMatchObject({ code: 'CANONICAL_IDENTITY_INVALID' });
+    });
+
+    it('12.8. snapshot.title numérico', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => ({ status: 'pending_review', canonicalIdentity: { normalizedTitle: 'A' } }) });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => ({ snapshot: { title: 123 } }) });
+        await expect(service.approve(defaultParams)).rejects.toMatchObject({ code: 'OCCURRENCE_SNAPSHOT_INVALID' });
+    });
+
+    it('12.9. source.organizationId numérico', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => ({ status: 'pending_review', canonicalIdentity: { normalizedTitle: 'A' } }) });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => ({ snapshot: { title: 'T' }, source: { organizationId: 123 } }) });
+        await expect(service.approve(defaultParams)).rejects.toMatchObject({ code: 'OCCURRENCE_SNAPSHOT_INVALID' });
+    });
+
+    it('12.10. source.songId objeto', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => ({ status: 'pending_review', canonicalIdentity: { normalizedTitle: 'A' } }) });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => ({ snapshot: { title: 'T' }, source: { organizationId: 'org1', songId: {} } }) });
+        await expect(service.approve(defaultParams)).rejects.toMatchObject({ code: 'OCCURRENCE_SNAPSHOT_INVALID' });
+    });
+
+    it('12.11. externalReferences array', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => ({ status: 'pending_review', canonicalIdentity: { normalizedTitle: 'A', externalReferences: [] } }) });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => ({ snapshot: { title: 'T' } }) });
+        await expect(service.approve(defaultParams)).rejects.toMatchObject({ code: 'CANONICAL_IDENTITY_INVALID' });
+    });
+
+    it('12.12. normalizedArtists não array', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => ({ status: 'pending_review', canonicalIdentity: { normalizedTitle: 'A', normalizedArtists: 'artist' } }) });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => ({ snapshot: { title: 'T' } }) });
+        await expect(service.approve(defaultParams)).rejects.toMatchObject({ code: 'CANONICAL_IDENTITY_INVALID' });
     });
 });

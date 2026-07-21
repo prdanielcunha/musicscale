@@ -33,18 +33,32 @@ async function runTriggerTests() {
     },
     runTransaction: async (cb: any) => {
       transactionCalls++;
-      return cb({
-        get: async (ref: any) => {
-          getCalls++;
-          targetPath = ref.id;
-          return {
-            exists: !!existingDoc,
-            data: () => existingDoc
+      let writeStarted = false;
+      const t = {
+        get _get() {
+          return async (ref: any) => {
+            if (writeStarted) throw new Error('FIRESTORE_READ_AFTER_WRITE_FORBIDDEN');
+            getCalls++;
+            targetPath = ref.id;
+            return {
+              exists: !!existingDoc,
+              data: () => existingDoc
+            };
           };
         },
-        set: (ref: any, data: any) => { setCalls++; targetPath = ref.id; writtenData = data; },
-        update: (ref: any, data: any) => { updateCalls++; targetPath = ref.id; updatedData = data; }
-      });
+        get _set() {
+          return (ref: any, data: any) => { writeStarted = true; setCalls++; targetPath = ref.id; writtenData = data; };
+        },
+        get _update() {
+          return (ref: any, data: any) => { writeStarted = true; updateCalls++; targetPath = ref.id; updatedData = data; };
+        }
+      };
+      
+      Object.defineProperty(t, 'get', { get: function() { return this._get; }, set: function() { throw new Error('OVERRIDE_FORBIDDEN'); } });
+      Object.defineProperty(t, 'set', { get: function() { return this._set; }, set: function() { throw new Error('OVERRIDE_FORBIDDEN'); } });
+      Object.defineProperty(t, 'update', { get: function() { return this._update; }, set: function() { throw new Error('OVERRIDE_FORBIDDEN'); } });
+      
+      return cb(t);
     }
   };
 
