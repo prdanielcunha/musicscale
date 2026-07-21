@@ -14,9 +14,28 @@ export interface CurationApprovalParams {
     decodedToken: { uid: string; hasCurationAccess?: boolean; [key: string]: any };
 }
 
+export type CurationErrorCode =
+| "VALIDATION_ERROR"
+| "ACTOR_CONTEXT_MISSING"
+| "CURATION_ACCESS_DENIED"
+| "CANDIDATE_NOT_FOUND"
+| "CANDIDATE_STATE_INVALID"
+| "OCCURRENCE_NOT_FOUND"
+| "OCCURRENCE_SNAPSHOT_INVALID"
+| "CANONICAL_IDENTITY_INVALID"
+| "IDEMPOTENCY_CONFLICT"
+| "RESERVATION_COLLISION"
+| "DUPLICATE_GLOBAL_SONG"
+| "SOURCE_SONG_NOT_FOUND"
+| "SOURCE_ORGANIZATION_MISMATCH"
+| "SOURCE_OCCURRENCE_CONFLICT"
+| "TRANSACTION_FAILED"
+| "UNAUTHORIZED"
+| "INTERNAL_CURATION_ROUTE_ERROR";
+
 export class CurationError extends Error {
     constructor(
-        public code: string,
+        public code: CurationErrorCode,
         public safeMessage: string,
         public httpStatus: number,
         public duplicateGlobalSongId?: string
@@ -37,7 +56,10 @@ export class CurationApprovalService {
             throw new CurationError('VALIDATION_ERROR', 'Parâmetros obrigatórios ausentes.', 400);
         }
         if (!decodedToken || !decodedToken.uid) {
-            throw new CurationError('ACTOR_CONTEXT_MISSING', 'Contexto de usuário (ator) ausente ou inválido.', 401);
+            throw new CurationError('UNAUTHORIZED', 'Contexto de usuário (ator) ausente.', 401);
+        }
+        if (decodedToken.hasCurationAccess !== true) {
+            throw new CurationError('CURATION_ACCESS_DENIED', 'Acesso de curadoria negado no serviço.', 403);
         }
 
         const candidateRef = db.collection('globalLibraryCandidates').doc(candidateId);
@@ -45,7 +67,8 @@ export class CurationApprovalService {
         const reviewLogsCollection = candidateRef.collection('reviewLogs');
         const logRef = reviewLogsCollection.doc(`approve_${idempotencyKey}`);
 
-        return await db.runTransaction(async (t: any) => {
+        try {
+            return await db.runTransaction(async (t: any) => {
             // === PHASE 1: READS ===
             const candidateSnap = await t.get(candidateRef);
             if (!candidateSnap.exists) {
@@ -57,7 +80,7 @@ export class CurationApprovalService {
                 if (candidateData.approvalIdempotencyKey === idempotencyKey) {
                     return { success: true, alreadyApproved: true, globalSongId: candidateData.resultingGlobalSongId };
                 }
-                throw new CurationError('IDEMPOTENCY_CONFLICT', 'Candidata já foi aprovada por outra operação/token.', 409);
+                throw new CurationError('IDEMPOTENCY_CONFLICT', 'Candidata já foi aprovada por outra requisição.', 409);
             }
             if (!['pending_review', 'likely_unique'].includes(candidateData.status)) {
                 throw new CurationError('CANDIDATE_STATE_INVALID', `Estado da candidata não permite aprovação. (Estado atual: ${candidateData.status})`, 400);
@@ -77,7 +100,8 @@ export class CurationApprovalService {
                 throw new CurationError('CANONICAL_IDENTITY_INVALID', 'Identidade da candidata inválida ou ausente.', 400);
             }
             const normTitle = canonical.normalizedTitle?.trim() || '';
-            const normArtists = canonical.normalizedArtists || [];
+            const normArtistsArray = Array.isArray(canonical.normalizedArtists) ? canonical.normalizedArtists : [];
+            const normArtists = normArtistsArray.filter((a: any) => typeof a === 'string' && a.trim() !== '');
             
             const fLyrics = canonical.lyricsFingerprint?.trim() || '';
             const fContent = canonical.contentFingerprint?.trim() || '';
@@ -86,10 +110,39 @@ export class CurationApprovalService {
             const reservationId = fContent || fLyrics || baseId;
 
             if (!reservationId || reservationId === '_' || reservationId.trim() === '') {
-                throw new CurationError('CANONICAL_IDENTITY_INVALID', 'Identidade da candidata inválida.', 400);
+                throw new CurationError('CANONICAL_IDENTITY_INVALID', 'Identidade da candidata inválida (título normalizado ausente).', 400);
             }
             if (!normTitle) {
                 throw new CurationError('CANONICAL_IDENTITY_INVALID', 'Identidade da candidata inválida (título normalizado ausente).', 400);
+            }
+            
+            const safeCanonical = {
+                ...canonical,
+                normalizedTitle: normTitle,
+                normalizedArtists: normArtists,
+                externalReferences: canonical.externalReferences && typeof canonical.externalReferences === "object" ? canonical.externalReferences : {},
+                contentFingerprint: fContent || null,
+                lyricsFingerprint: fLyrics || null,
+                normalizedLyrics: typeof canonical.normalizedLyrics === 'string' ? canonical.normalizedLyrics : null,
+                openingLyrics: typeof canonical.openingLyrics === 'string' ? canonical.openingLyrics : null,
+                chorusLyrics: typeof canonical.chorusLyrics === 'string' ? canonical.chorusLyrics : null,
+            };
+
+            // VALIDATE SNAPSHOT (REQ 8)
+            if (!snapshot || typeof snapshot !== 'object') {
+                throw new CurationError('OCCURRENCE_SNAPSHOT_INVALID', 'Snapshot da ocorrência ausente ou inválido.', 400);
+            }
+            if (!snapshot.title || typeof snapshot.title !== 'string' || snapshot.title.trim() === '') {
+                throw new CurationError('OCCURRENCE_SNAPSHOT_INVALID', 'Snapshot não possui título válido.', 400);
+            }
+            
+            if (occData.source) {
+                if (occData.source.organizationId && typeof occData.source.organizationId !== 'string') {
+                    throw new CurationError('OCCURRENCE_SNAPSHOT_INVALID', 'organizationId do source inválido.', 400);
+                }
+                if (occData.source.songId && typeof occData.source.songId !== 'string') {
+                    throw new CurationError('OCCURRENCE_SNAPSHOT_INVALID', 'songId do source inválido.', 400);
+                }
             }
 
             const reservationRef = db.collection('globalSongs_reservations').doc(reservationId);
@@ -102,15 +155,21 @@ export class CurationApprovalService {
             const logSnap = await t.get(logRef);
 
             // Read all local songs
-            const sourceSongRefs: { occDoc: any, songRef: any, songSnap: any, sourceOrg: string }[] = [];
+            const sourceSongMap = new Map<string, { songRef: any, songSnap: any, sourceOrg: string }>();
             for (const occDoc of occurrencesSnap.docs) {
                 const oData = occDoc.data() as any;
                 const sourceOrg = oData.source?.organizationId;
                 const sourceSongId = oData.source?.songId;
                 if (sourceOrg && sourceSongId) {
+                    if (sourceSongMap.has(sourceSongId)) {
+                        if (sourceSongMap.get(sourceSongId)!.sourceOrg !== sourceOrg) {
+                            throw new CurationError('SOURCE_OCCURRENCE_CONFLICT', 'Mesmo songId com múltiplas organizações.', 409);
+                        }
+                        continue; // Already processed
+                    }
                     const songRef = db.collection('songs').doc(sourceSongId);
                     const songSnap = await t.get(songRef);
-                    sourceSongRefs.push({ occDoc, songRef, songSnap, sourceOrg });
+                    sourceSongMap.set(sourceSongId, { songRef, songSnap, sourceOrg });
                 }
             }
 
@@ -125,7 +184,7 @@ export class CurationApprovalService {
                 const globalSong = docSnap.data();
                 const comparisonObj = {
                     normalizedTitle: globalSong.normalizedTitle,
-                    normalizedArtists: [globalSong.normalizedArtist].filter(Boolean),
+                    normalizedArtists: Array.isArray(globalSong.normalizedArtists) ? globalSong.normalizedArtists : (globalSong.normalizedArtist ? [globalSong.normalizedArtist] : []),
                     originalTitle: globalSong.title,
                     originalArtist: globalSong.artist || '',
                     contentFingerprint: globalSong.contentFingerprint || null,
@@ -133,17 +192,17 @@ export class CurationApprovalService {
                     normalizedLyrics: globalSong.normalizedLyrics || null,
                     openingLyrics: globalSong.openingLyrics || null,
                     chorusLyrics: globalSong.chorusLyrics || null,
-                    externalReferences: globalSong.externalReferences || {}
+                    externalReferences: globalSong.externalReferences && typeof globalSong.externalReferences === 'object' ? globalSong.externalReferences : {}
                 };
                 
-                const comparison = compareSongs(comparisonObj as any, canonical);
+                const comparison = compareSongs(comparisonObj as any, safeCanonical as any);
                 if (comparison.classification === 'exact_match' || comparison.classification === 'high_confidence_match') {
                     throw new CurationError('DUPLICATE_GLOBAL_SONG', 'Duplicata global detectada.', 409, docSnap.id);
                 }
             }
 
             // Validate Source Songs to avoid SOURCE_ORGANIZATION_MISMATCH
-            for (const item of sourceSongRefs) {
+            for (const item of sourceSongMap.values()) {
                 if (!item.songSnap.exists) {
                     throw new CurationError('SOURCE_SONG_NOT_FOUND', `Música de origem não encontrada: ${item.songRef.id}`, 400);
                 }
@@ -194,16 +253,12 @@ export class CurationApprovalService {
                 updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            // Keep track of updated source songs to avoid duplicate updates (same source song in two occurrences)
-            const updatedSongIds = new Set<string>();
-            for (const item of sourceSongRefs) {
-                if (!updatedSongIds.has(item.songRef.id)) {
-                    t.update(item.songRef, {
-                        originGlobalSongId: globalSongRef.id,
-                        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                    });
-                    updatedSongIds.add(item.songRef.id);
-                }
+            // Update all local songs exactly once
+            for (const item of sourceSongMap.values()) {
+                t.update(item.songRef, {
+                    originGlobalSongId: globalSongRef.id,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
             }
 
             if (!logSnap.exists) {
@@ -231,5 +286,9 @@ export class CurationApprovalService {
 
             return { success: true, globalSongId: globalSongRef.id };
         });
+        } catch (e: any) {
+            if (e instanceof CurationError) throw e;
+            throw new CurationError('TRANSACTION_FAILED', 'Erro inesperado na transação: ' + e.message, 500);
+        }
     }
 }

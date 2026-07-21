@@ -4746,8 +4746,13 @@ Atenção: Retorne APENAS o objeto JSON puro sem marcações de código markdown
         const handler = createCurationApprovalHttpHandler({ db, admin, logger });
         return await handler(req, res);
     } catch (error: any) {
-        logger.error("Admin curation fallback error:", error);
-        return res.status(500).json({ error: error.message });
+        logger.error("Admin curation fallback error:", {
+            code: "INTERNAL_CURATION_ROUTE_ERROR",
+            message: "Erro interno ao instanciar ou executar handler de aprovação",
+            candidateId: req.body?.candidateId,
+            occurrenceId: req.body?.occurrenceId
+        });
+        return res.status(500).json({ error: "Erro inesperado na aprovação.", code: "INTERNAL_CURATION_ROUTE_ERROR" });
     }
 });
 
