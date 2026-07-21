@@ -98,3 +98,27 @@ export const moveSongId = (
   return next;
 };
 
+export const moveSongBeforeTarget = (
+  songIds: string[],
+  movedSongId: string,
+  targetSongId: string
+): string[] => {
+  if (movedSongId === targetSongId) return songIds;
+  const fromIndex = songIds.indexOf(movedSongId);
+  if (fromIndex === -1) return songIds;
+
+  const next = [...songIds];
+  next.splice(fromIndex, 1);
+
+  if (targetSongId === "end") {
+    next.push(movedSongId);
+    return next;
+  }
+
+  const toIndex = next.indexOf(targetSongId);
+  if (toIndex === -1) return songIds;
+
+  next.splice(toIndex, 0, movedSongId);
+  return next;
+};
+

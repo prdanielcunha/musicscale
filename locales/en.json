@@ -585,7 +585,11 @@
     "confirmationSuccess": "Repertoire updated.",
     "confirmationError": "Error updating.",
     "moveUp": "Move song up",
-    "moveDown": "Move song down"
+    "moveDown": "Move song down",
+    "reorderSong": "Reorder {{song}}",
+    "moveSongUp": "Move {{song}} up",
+    "moveSongDown": "Move {{song}} down",
+    "reviewInstruction": "Drag the songs or use the arrows to set the worship order."
   },
   "bandScaleModal": {
     "titleCreate": "New Band Scale",

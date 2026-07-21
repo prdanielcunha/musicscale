@@ -183,6 +183,8 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
 
   return (
     <div 
+      data-song-id={(mode === 'setlist' || mode === 'review') ? song.id : undefined}
+      data-index={(mode === 'setlist' || mode === 'review') ? index : undefined}
       className={`group relative flex flex-col p-3 rounded-xl border bg-white dark:bg-[#1C1C1E] shadow-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-primary ${
         isDragging ? 'opacity-50 scale-[0.98]' : 'hover:border-primary/30'
       } ${
@@ -200,6 +202,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
             <div 
               className="flex items-center justify-center min-w-[44px] min-h-[44px] -ml-2 mr-1 cursor-grab active:cursor-grabbing touch-none"
               draggable
+              aria-label={t('scaleModal.reorderSong', { song: song.title })}
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
               onTouchStart={onTouchStart}
@@ -253,7 +256,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
                type="button" 
                onClick={onMoveUp} 
                disabled={isFirst} 
-               aria-label={t('scaleModal.moveUp', 'Subir música') + ` - ${song.title}`} 
+               aria-label={t('scaleModal.moveSongUp', { song: song.title })} 
                className="flex items-center justify-center min-w-[44px] min-h-[44px] text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"
              >
                <ChevronDown className="w-4 h-4 rotate-180"/>
@@ -262,7 +265,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
                type="button" 
                onClick={onMoveDown} 
                disabled={isLast} 
-               aria-label={t('scaleModal.moveDown', 'Descer música') + ` - ${song.title}`} 
+               aria-label={t('scaleModal.moveSongDown', { song: song.title })} 
                className="flex items-center justify-center min-w-[44px] min-h-[44px] text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"
              >
                <ChevronDown className="w-4 h-4"/>

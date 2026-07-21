@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { PopulatedSong, Tag, ScaleSongSettingsUpdateResult } from "../../types";
-import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm, moveSongId } from "../../utils/scaleSongSettings";
+import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm, moveSongId, moveSongBeforeTarget } from "../../utils/scaleSongSettings";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { XCircleIcon } from "../icons/XCircleIcon";
 import { PlusCircleIcon } from "../icons/PlusCircleIcon";
@@ -141,12 +141,7 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
     if (!draggedSongId || draggedSongId === targetId) return;
 
     const currentIds = formData.songIds || [];
-    const sourceIndex = currentIds.indexOf(draggedSongId);
-    let targetIndex = targetId === "end" ? currentIds.length - 1 : currentIds.indexOf(targetId);
-    
-    if (sourceIndex === -1 || targetIndex === -1) return;
-    
-    const newIds = moveSongId(currentIds, sourceIndex, targetIndex);
+    const newIds = moveSongBeforeTarget(currentIds, draggedSongId, targetId);
     
     setFormData((prev: any) => ({ ...prev, songIds: newIds }));
     

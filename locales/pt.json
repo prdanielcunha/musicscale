@@ -586,7 +586,11 @@
     "confirmationSuccess": "Repertório atualizado.",
     "confirmationError": "Erro ao atualizar.",
     "moveUp": "Subir música",
-    "moveDown": "Descer música"
+    "moveDown": "Descer música",
+    "reorderSong": "Reordenar {{song}}",
+    "moveSongUp": "Mover {{song}} para cima",
+    "moveSongDown": "Mover {{song}} para baixo",
+    "reviewInstruction": "Arraste as músicas ou use as setas para definir a ordem do culto."
   },
   "bandScaleModal": {
     "titleCreate": "Nova Escala da Banda",

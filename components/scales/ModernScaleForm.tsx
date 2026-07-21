@@ -32,7 +32,7 @@ import MusicBuilder from "./MusicBuilder";
 import { ScaleSongCard } from "./ScaleSongCard";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { resolveScaleDurationMinutes } from "../../utils/calendar";
-import { normalizeScaleSongSettings, moveSongId } from "../../utils/scaleSongSettings";
+import { normalizeScaleSongSettings, moveSongId, moveSongBeforeTarget } from "../../utils/scaleSongSettings";
 import { executeGlobalSongUpdate } from "../../utils/globalSongUpdateController";
 
 const GripVerticalIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -209,14 +209,18 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     if (!isGlobal) {
       setFormData((prev: any) => {
         const newSettings = { ...(prev.songSettings || {}) };
-        if (!key && !bpm) {
+        const nextSettings: any = {};
+        if (key) {
+          nextSettings.key = key;
+        }
+        if (bpm !== null && bpm >= 20 && bpm <= 300) {
+          nextSettings.bpm = bpm;
+        }
+
+        if (Object.keys(nextSettings).length === 0) {
           delete newSettings[songId];
         } else {
-          newSettings[songId] = {
-            ...(newSettings[songId] || {}),
-          };
-          if (key !== null) newSettings[songId].key = key || undefined;
-          if (bpm !== null) newSettings[songId].bpm = bpm || undefined;
+          newSettings[songId] = nextSettings;
         }
         return { ...prev, songSettings: newSettings };
       });
@@ -291,12 +295,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     if (!draggedSongId || draggedSongId === targetId) return;
 
     const currentIds = formData.songIds || [];
-    const sourceIndex = currentIds.indexOf(draggedSongId);
-    const targetIndex = targetId === "end" ? currentIds.length - 1 : currentIds.indexOf(targetId);
-    
-    if (sourceIndex === -1 || targetIndex === -1) return;
-    
-    const newIds = moveSongId(currentIds, sourceIndex, targetIndex);
+    const newIds = moveSongBeforeTarget(currentIds, draggedSongId, targetId);
     setFormData((prev: any) => ({ ...prev, songIds: newIds }));
     
     setDraggedSongId(null);
@@ -369,7 +368,11 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     } else {
       setCurrentStep(0);
       initialFormDataRef.current = null;
+      document.body.style.overflow = "auto";
     }
+    return () => {
+      document.body.style.overflow = "auto";
+    };
   }, [isOpen]);
 
   
@@ -1273,7 +1276,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
               <div className="mt-5 pt-5 border-t border-slate-200 dark:border-white/10">
                 {scaleType === "music" ? (
                   <div>
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-2">
                       <span className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs uppercase font-bold tracking-widest">{t('scaleModal.repertoire', 'Repertório')}</span>
                       <button
                         type="button"
@@ -1283,6 +1286,11 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                         {t('scaleModal.editRepertoire', 'Editar Repertório')}
                       </button>
                     </div>
+                    {formData.songIds && formData.songIds.length >= 2 && (
+                      <p className="text-[12px] text-slate-500 dark:text-slate-400 mb-4 font-medium leading-relaxed">
+                        {t('scaleModal.reviewInstruction', 'Arraste as músicas ou use as setas para definir a ordem do culto.')}
+                      </p>
+                    )}
                     {formData.songIds && formData.songIds.length > 0 ? (
                       <div className="space-y-2">
                         {formData.songIds.map((id, index) => {
