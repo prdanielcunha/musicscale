@@ -96,10 +96,10 @@ export async function processSuggestionCreatedNotification(
 ) {
   const { db } = deps;
   const snap = event.data;
-  if (!snap) return;
+   if (!snap) return;
   const suggestionData = snap.data();
   const orgId = suggestionData.organizationId;
-  if (!orgId) return;
+   if (!orgId) return;
   
   const creatorName = suggestionData.createdBy?.name || suggestionData.createdBy?.displayName || 'Alguém';
   const songsCount = suggestionData.songs?.length || 0;
