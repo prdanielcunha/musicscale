@@ -116,65 +116,8 @@ vi.mock('../../hooks/useFeatureFlag', () => ({
 }));
 
 describe('Scale Local Settings Cleanup Integration & Unit Tests', () => {
-
-  // A test harness component that uses the actual helper function
-  const TestHarness = ({
-    initialSettings,
-    onStateChange
-  }: {
-    initialSettings: Record<string, any>;
-    onStateChange: (state: Record<string, any>) => void;
-  }) => {
-    const [songSettings, setSongSettings] = useState<Record<string, any>>(initialSettings);
-
-    const handleUpdateSongSettings = async (
-      songId: string,
-      key: string | null,
-      bpm: number | null,
-      isGlobal: boolean
-    ) => {
-      if (!isGlobal) {
-        let updatedState: any = null;
-        setSongSettings((prev: any) => {
-          const nextSettings = applyLocalScaleSongSettingsUpdate(prev, songId, key, bpm);
-          updatedState = nextSettings;
-          return nextSettings;
-        });
-
-        // Let the test assert the synchronous next state
-        setTimeout(() => {
-          if (updatedState) {
-            onStateChange(updatedState);
-          }
-        }, 0);
-      }
-      return { status: 'success' as const };
-    };
-
-    return (
-      <div className="space-y-4">
-        {mockSongs.map((song, index) => (
-          <ScaleSongCard
-            key={song.id}
-            song={song}
-            isSelected={true}
-            mode="review"
-            index={index}
-            tags={[]}
-            localSettings={songSettings[song.id]}
-            onSettingsChange={(key, bpm, isGlobal) => handleUpdateSongSettings(song.id, key, bpm, isGlobal)}
-            onMoveUp={() => {}}
-            onMoveDown={() => {}}
-            isFirst={index === 0}
-            isLast={index === mockSongs.length - 1}
-          />
-        ))}
-      </div>
-    );
-  };
-
   // =========================================================================
-  // SECTION 1: DIRECT HELPER UNIT TESTS (COVERS REQUISITO 6)
+  // SECTION 1: DIRECT HELPER UNIT TESTS
   // =========================================================================
 
   it('1. Direct Helper: apagar somente tom preserva BPM', () => {
@@ -236,15 +179,10 @@ describe('Scale Local Settings Cleanup Integration & Unit Tests', () => {
     const input = {
       'song-target': { key: 'G', bpm: 80 }
     };
-    // BPM below 20 should not be saved (removes BPM, keeps key)
     const resultBelow = applyLocalScaleSongSettingsUpdate(input, 'song-target', 'G', 19);
     expect(resultBelow['song-target']).toEqual({ key: 'G' });
-
-    // BPM above 300 should not be saved
     const resultAbove = applyLocalScaleSongSettingsUpdate(input, 'song-target', 'G', 301);
     expect(resultAbove['song-target']).toEqual({ key: 'G' });
-
-    // NaN BPM
     const resultNaN = applyLocalScaleSongSettingsUpdate(input, 'song-target', 'G', NaN);
     expect(resultNaN['song-target']).toEqual({ key: 'G' });
   });
@@ -253,10 +191,8 @@ describe('Scale Local Settings Cleanup Integration & Unit Tests', () => {
     const input = {
       'song-target': { key: 'G', bpm: 80 }
     };
-    // Empty key should not be saved (removes key, keeps BPM)
     const resultEmpty = applyLocalScaleSongSettingsUpdate(input, 'song-target', '', 80);
     expect(resultEmpty['song-target']).toEqual({ bpm: 80 });
-
     const resultSpaces = applyLocalScaleSongSettingsUpdate(input, 'song-target', '   ', 80);
     expect(resultSpaces['song-target']).toEqual({ bpm: 80 });
   });
@@ -270,83 +206,12 @@ describe('Scale Local Settings Cleanup Integration & Unit Tests', () => {
   });
 
   // =========================================================================
-  // SECTION 2: INTEGRATION TESTS USING TEST HARNESS WITH REAL COMPONENT
+  // SECTION 2: INTEGRATION TESTS USING REAL COMPONENT
   // =========================================================================
 
-  it('10. Integration: removes key from settings but preserves BPM when only key is deleted', async () => {
-    const handleStateChange = vi.fn();
-    const { container } = render(
-      <TestHarness
-        initialSettings={{
-          'song-target': { key: 'A', bpm: 85 },
-          'song-other': { key: 'C', bpm: 100 },
-        }}
-        onStateChange={handleStateChange}
-      />
-    );
-
-    // Click Edit on target song card
-    const editBtns = screen.getAllByText(/Editar/i);
-    fireEvent.click(editBtns[0]); // target song card edit
-
-    // Change Key to empty (original key or none)
-    const keySelect = container.querySelector('select');
-    expect(keySelect).toBeInTheDocument();
-    fireEvent.change(keySelect!, { target: { value: '' } });
-
-    // Click Apply
-    const applyBtn = screen.getByText(/Aplicar/i);
-    fireEvent.click(applyBtn);
-
-    await waitFor(() => {
-      expect(handleStateChange).toHaveBeenCalledWith(
-        expect.objectContaining({
-          'song-target': { bpm: 85 },
-          'song-other': { key: 'C', bpm: 100 },
-        })
-      );
-    });
-  });
-
-  it('11. Integration: removes BPM from settings but preserves key when only BPM is cleared', async () => {
-    const handleStateChange = vi.fn();
-    const { container } = render(
-      <TestHarness
-        initialSettings={{
-          'song-target': { key: 'A', bpm: 85 },
-          'song-other': { key: 'C', bpm: 100 },
-        }}
-        onStateChange={handleStateChange}
-      />
-    );
-
-    // Click Edit on target song card
-    const editBtns = screen.getAllByText(/Editar/i);
-    fireEvent.click(editBtns[0]);
-
-    // Change BPM to empty input
-    const bpmInput = container.querySelector('input[type="number"]');
-    expect(bpmInput).toBeInTheDocument();
-    fireEvent.change(bpmInput!, { target: { value: '' } });
-
-    // Click Apply
-    const applyBtn = screen.getByText(/Aplicar/i);
-    fireEvent.click(applyBtn);
-
-    await waitFor(() => {
-      expect(handleStateChange).toHaveBeenCalledWith(
-        expect.objectContaining({
-          'song-target': { key: 'A' },
-          'song-other': { key: 'C', bpm: 100 },
-        })
-      );
-    });
-  });
-
-  it('12. Integration CENÁRIO A: apagar apenas o tom, salvar e verificar onSave', async () => {
+  it('10. Integration CENÁRIO A: apagar apenas o tom, salvar e verificar onSave', async () => {
     const onSaveMock = vi.fn().mockResolvedValue(undefined);
     const onCloseMock = vi.fn();
-
     const { container } = render(
       <ModernScaleForm
         isOpen={true}
@@ -369,53 +234,43 @@ describe('Scale Local Settings Cleanup Integration & Unit Tests', () => {
       />
     );
 
-    // 2. acessar a etapa Revisão
     const reviewTab = screen.getByText('Revisão');
     fireEvent.click(reviewTab);
 
-    // Wait for step transition to complete and show song settings buttons
     await waitFor(() => {
       expect(screen.queryAllByText(/Editar ajustes/i).length).toBeGreaterThan(0);
     });
 
-    // 3. música possui override { key: "A", bpm: 85 }
-    // 4. abrir Ajustes
     const editBtns = screen.getAllByText(/Editar ajustes/i);
-    // Click edit on the target song card
     fireEvent.click(editBtns[0]);
 
-    // 5. apagar apenas o tom
     const editPanel = document.getElementById('edit-panel-song-target');
     expect(editPanel).toBeInTheDocument();
+    
     const keySelect = editPanel!.querySelector('select');
     expect(keySelect).toBeInTheDocument();
     fireEvent.change(keySelect!, { target: { value: '' } });
 
-    // 6. aplicar
     const applyBtn = screen.getByText(/Aplicar/i);
     fireEvent.click(applyBtn);
 
-    // 7. salvar formulário
     const saveBtn = screen.getByText('Salvar Rascunho');
     fireEvent.click(saveBtn);
 
-    // 8. verificar no onSave real
     await waitFor(() => {
       expect(onSaveMock).toHaveBeenCalled();
     });
-
+    
     const savedPayload = onSaveMock.mock.calls[0][0];
     expect(savedPayload.songIds).toEqual(['song-target', 'song-other']);
     expect(savedPayload.songSettings['song-target']).toEqual({ bpm: 85 });
     expect(savedPayload.songSettings['song-target'].key).toBeUndefined();
-    // outras músicas intactas
     expect(savedPayload.songSettings['song-other']).toBeUndefined();
   });
 
-  it('13. Integration CENÁRIO B: apagar apenas BPM, salvar e verificar onSave', async () => {
+  it('11. Integration CENÁRIO B: apagar apenas BPM, salvar e verificar onSave', async () => {
     const onSaveMock = vi.fn().mockResolvedValue(undefined);
     const onCloseMock = vi.fn();
-
     const { container } = render(
       <ModernScaleForm
         isOpen={true}
@@ -438,40 +293,33 @@ describe('Scale Local Settings Cleanup Integration & Unit Tests', () => {
       />
     );
 
-    // 2. acessar a etapa Revisão
     const reviewTab = screen.getByText('Revisão');
     fireEvent.click(reviewTab);
 
-    // Wait for step transition to complete and show song settings buttons
     await waitFor(() => {
       expect(screen.queryAllByText(/Editar ajustes/i).length).toBeGreaterThan(0);
     });
 
-    // 3. música possui override { key: "A", bpm: 85 }
-    // 4. abrir Ajustes
     const editBtns = screen.getAllByText(/Editar ajustes/i);
     fireEvent.click(editBtns[0]);
 
-    // 5. apagar apenas BPM
     const editPanel = document.getElementById('edit-panel-song-target');
     expect(editPanel).toBeInTheDocument();
+    
     const bpmInput = editPanel!.querySelector('input[type="number"]');
     expect(bpmInput).toBeInTheDocument();
     fireEvent.change(bpmInput!, { target: { value: '' } });
 
-    // 6. aplicar
     const applyBtn = screen.getByText(/Aplicar/i);
     fireEvent.click(applyBtn);
 
-    // 7. salvar formulário
     const saveBtn = screen.getByText('Salvar Rascunho');
     fireEvent.click(saveBtn);
 
-    // 8. verificar no onSave real
     await waitFor(() => {
       expect(onSaveMock).toHaveBeenCalled();
     });
-
+    
     const savedPayload = onSaveMock.mock.calls[0][0];
     expect(savedPayload.songIds).toEqual(['song-target', 'song-other']);
     expect(savedPayload.songSettings['song-target']).toEqual({ key: 'A' });

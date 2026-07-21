@@ -3,8 +3,7 @@ import { processLocalSongWritten } from '../src/processor.js';
 
 async function runTriggerTests() {
   console.log('Running Trigger Processor tests (12 Canonical Scenarios)...');
-
-  // Mock logger
+  
   const logs: any[] = [];
   (global as any).mockLogger = {
     info: (msg: string, meta: any) => logs.push({ type: 'info', msg, meta }),
@@ -14,6 +13,11 @@ async function runTriggerTests() {
   let writtenData: any = null;
   let updatedData: any = null;
   let existingDoc: any = null;
+  let targetPath: string = '';
+  let getCalls = 0;
+  let setCalls = 0;
+  let updateCalls = 0;
+  let transactionCalls = 0;
 
   const mockDb = {
     collection: (colPath: string) => {
@@ -28,13 +32,18 @@ async function runTriggerTests() {
       };
     },
     runTransaction: async (cb: any) => {
+      transactionCalls++;
       return cb({
-        get: async (ref: any) => ({
-          exists: !!existingDoc,
-          data: () => existingDoc
-        }),
-        set: (ref: any, data: any) => { writtenData = data; },
-        update: (ref: any, data: any) => { updatedData = data; }
+        get: async (ref: any) => {
+          getCalls++;
+          targetPath = ref.id;
+          return {
+            exists: !!existingDoc,
+            data: () => existingDoc
+          };
+        },
+        set: (ref: any, data: any) => { setCalls++; targetPath = ref.id; writtenData = data; },
+        update: (ref: any, data: any) => { updateCalls++; targetPath = ref.id; updatedData = data; }
       });
     }
   };
@@ -43,149 +52,110 @@ async function runTriggerTests() {
     writtenData = null;
     updatedData = null;
     existingDoc = null;
+    targetPath = '';
+    getCalls = 0;
+    setCalls = 0;
+    updateCalls = 0;
+    transactionCalls = 0;
     logs.length = 0;
   }
 
-  // Scenario 1: Valid song is queued as pending
+  // Contract requirement 1 & 2: ID and collection logic is internal to processor
+  // But we can check targetPath is `${orgId}_${songId}`
+  
+  // Scenario 1
   resetMocks();
   await processLocalSongWritten({
-    data: () => ({
-      title: 'Deus de Aliança',
-      artist: 'Toque no Altar',
-      lyrics: 'Letra',
-      chords: 'A B'
-    })
+    data: () => ({ title: 'Deus de Aliança', artist: 'Toque no Altar' })
   }, 'song1', 'org1', mockDb);
-  assert.ok(writtenData, "Scenario 1: Should write a record");
+  assert.ok(writtenData);
   assert.strictEqual(writtenData.title, 'Deus de Aliança');
-  assert.strictEqual(writtenData.status, 'pending');
+  assert.strictEqual(writtenData.status, 'pending'); // Req 8
+  assert.strictEqual(writtenData.attempts, 0); // Req 7
+  assert.strictEqual(writtenData.sourceOrganizationId, 'org1'); // Req 3
+  assert.strictEqual(writtenData.sourceSongId, 'song1'); // Req 4
+  assert.strictEqual(targetPath, 'org1_song1'); // Req 2
+  assert.strictEqual(setCalls, 1); // Req 9
+  assert.strictEqual(updateCalls, 0);
+  assert.strictEqual(writtenData.normalizedTitle, 'deus de alianca'); // Req 5
 
-  // Scenario 2: Missing song data (no document data)
+  // Scenario 2
   resetMocks();
-  await processLocalSongWritten({
-    data: () => null
-  }, 'song1', 'org1', mockDb);
-  assert.strictEqual(writtenData, null, "Scenario 2: Should ignore missing data");
+  await processLocalSongWritten({ data: () => null }, 'song1', 'org1', mockDb);
+  assert.strictEqual(transactionCalls, 0); // Req 16
 
-  // Scenario 3: Empty title is ignored
+  // Scenario 3
   resetMocks();
-  await processLocalSongWritten({
-    data: () => ({
-      title: '',
-      artist: 'Toque no Altar'
-    })
-  }, 'song1', 'org1', mockDb);
-  assert.strictEqual(writtenData, null, "Scenario 3: Should ignore empty title");
+  await processLocalSongWritten({ data: () => ({ title: '', artist: 'A' }) }, 'song1', 'org1', mockDb);
+  assert.strictEqual(transactionCalls, 0); // Req 17
 
-  // Scenario 4: Title with only whitespace is ignored
+  // Scenario 4
   resetMocks();
-  await processLocalSongWritten({
-    data: () => ({
-      title: '   ',
-      artist: 'Toque no Altar'
-    })
-  }, 'song1', 'org1', mockDb);
-  assert.strictEqual(writtenData, null, "Scenario 4: Should ignore whitespace title");
+  await processLocalSongWritten({ data: () => ({ title: '   ', artist: 'A' }) }, 'song1', 'org1', mockDb);
+  assert.strictEqual(transactionCalls, 0); // Req 17
 
-  // Scenario 5: Deleted song is ignored
+  // Scenario 5
   resetMocks();
-  await processLocalSongWritten({
-    data: () => ({
-      title: 'Deus de Aliança',
-      deleted: true
-    })
-  }, 'song1', 'org1', mockDb);
-  assert.strictEqual(writtenData, null, "Scenario 5: Should ignore deleted songs");
+  await processLocalSongWritten({ data: () => ({ title: 'A', deleted: true }) }, 'song1', 'org1', mockDb);
+  assert.strictEqual(transactionCalls, 0); // Req 18
 
-  // Scenario 6: Archived song is ignored
+  // Scenario 6
   resetMocks();
-  await processLocalSongWritten({
-    data: () => ({
-      title: 'Deus de Aliança',
-      archived: true
-    })
-  }, 'song1', 'org1', mockDb);
-  assert.strictEqual(writtenData, null, "Scenario 6: Should ignore archived songs");
+  await processLocalSongWritten({ data: () => ({ title: 'A', archived: true }) }, 'song1', 'org1', mockDb);
+  assert.strictEqual(transactionCalls, 0); // Req 19
 
-  // Scenario 7: Draft song is ignored
+  // Scenario 7
   resetMocks();
-  await processLocalSongWritten({
-    data: () => ({
-      title: 'Deus de Aliança',
-      isDraft: true
-    })
-  }, 'song1', 'org1', mockDb);
-  assert.strictEqual(writtenData, null, "Scenario 7: Should ignore draft songs");
+  await processLocalSongWritten({ data: () => ({ title: 'A', isDraft: true }) }, 'song1', 'org1', mockDb);
+  assert.strictEqual(transactionCalls, 0); // Req 20
 
-  // Scenario 8: Song with originGlobalSongId is ignored
+  // Scenario 8
   resetMocks();
-  await processLocalSongWritten({
-    data: () => ({
-      title: 'Deus de Aliança',
-      originGlobalSongId: 'global-123'
-    })
-  }, 'song1', 'org1', mockDb);
-  assert.strictEqual(writtenData, null, "Scenario 8: Should ignore already linked songs");
+  await processLocalSongWritten({ data: () => ({ title: 'A', originGlobalSongId: 'g1' }) }, 'song1', 'org1', mockDb);
+  assert.strictEqual(transactionCalls, 0); // Req 21
 
-  // Scenario 9: Existing document with 'ignored' status resets to 'pending'
+  // Scenario 9
   resetMocks();
-  existingDoc = {
-    inboxId: 'org1_song1',
-    status: 'ignored',
-    title: 'Old Title',
-    attempts: 1
-  };
-  await processLocalSongWritten({
-    data: () => ({
-      title: 'Deus de Aliança',
-      artist: 'Toque no Altar'
-    })
-  }, 'song1', 'org1', mockDb);
-  assert.ok(updatedData, "Scenario 9: Should update existing record");
-  assert.strictEqual(updatedData.status, 'pending', "Scenario 9: Status should reset to pending");
+  existingDoc = { status: 'ignored', title: 'Old Title', attempts: 1, keepMe: 'yes' };
+  await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song1', 'org1', mockDb);
+  assert.strictEqual(updateCalls, 1); // Req 10
+  assert.strictEqual(updatedData.status, 'pending'); // Req 11
 
-  // Scenario 10: Existing document with 'failed' status resets to 'pending'
+  // Scenario 10
   resetMocks();
-  existingDoc = {
-    inboxId: 'org1_song1',
-    status: 'failed',
-    title: 'Old Title',
-    attempts: 3
-  };
-  await processLocalSongWritten({
-    data: () => ({
-      title: 'Deus de Aliança',
-      artist: 'Toque no Altar'
-    })
-  }, 'song1', 'org1', mockDb);
-  assert.ok(updatedData, "Scenario 10: Should update existing record");
-  assert.strictEqual(updatedData.status, 'pending', "Scenario 10: Status should reset to pending");
+  existingDoc = { status: 'failed', title: 'Old Title', attempts: 3 };
+  await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song1', 'org1', mockDb);
+  assert.strictEqual(updatedData.status, 'pending'); // Req 12
 
-  // Scenario 11: Existing document with 'analyzed' status keeps its status (already_queued)
+  // Scenario 11
   resetMocks();
-  existingDoc = {
-    inboxId: 'org1_song1',
-    status: 'analyzed',
-    title: 'Deus de Aliança'
-  };
-  await processLocalSongWritten({
-    data: () => ({
-      title: 'Deus de Aliança',
-      artist: 'Toque no Altar'
-    })
-  }, 'song1', 'org1', mockDb);
-  assert.ok(updatedData, "Scenario 11: Should perform updates");
-  assert.strictEqual(updatedData.status, 'analyzed', "Scenario 11: Should preserve analyzed status");
+  existingDoc = { status: 'analyzed', title: 'Deus de Aliança', keepMe: 'yes' };
+  await processLocalSongWritten({ data: () => ({ title: 'Deus de Aliança' }) }, 'song1', 'org1', mockDb);
+  assert.strictEqual(updatedData.status, 'analyzed'); // Req 13
+  assert.strictEqual(updatedData.keepMe, undefined); // We only verify we didn't overwrite fields if we don't supply them. Since update does partial update in firestore, fields not passed to update are implicitly not overwritten. // Req 15
 
-  // Scenario 12: Missing artist defaults to 'Desconhecido'
+  // Processing remains processing
   resetMocks();
-  await processLocalSongWritten({
-    data: () => ({
-      title: 'Deus de Aliança'
-    })
-  }, 'song1', 'org1', mockDb);
-  assert.ok(writtenData, "Scenario 12: Should write a record");
-  assert.strictEqual(writtenData.artist, 'Desconhecido', "Scenario 12: Should default artist to Desconhecido");
+  existingDoc = { status: 'processing', title: 'A' };
+  await processLocalSongWritten({ data: () => ({ title: 'B' }) }, 'song1', 'org1', mockDb);
+  assert.strictEqual(updatedData.status, 'processing'); // Req 14
+
+  // Scenario 12
+  resetMocks();
+  await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song1', 'org1', mockDb);
+  assert.strictEqual(writtenData.artist, 'Desconhecido'); // Req 6
+
+  // Req 22: Error is propagated
+  resetMocks();
+  mockDb.runTransaction = async () => { throw new Error('TRANSACTION_FAIL'); };
+  try {
+    await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song1', 'org1', mockDb as any);
+    assert.fail('Should have thrown');
+  } catch (e: any) {
+    assert.strictEqual(e.message, 'TRANSACTION_FAIL');
+  }
+
+  // Req 23, 24 handled by logical document ID definition (`${orgId}_${songId}`) in the processor
 
   console.log('Curation Trigger 12 canonical scenarios tests passed!');
 }

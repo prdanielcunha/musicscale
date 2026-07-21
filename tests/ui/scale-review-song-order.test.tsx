@@ -426,8 +426,7 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
     fireEvent.dragStart(gripB, { dataTransfer: fakeDT });
 
     // Drop before D ('song-4')
-    const cardD = screen.getByText('Blessed Be Your Name').closest('[data-song-id]');
-    const previousDiv = cardD?.previousElementSibling;
+    const cardD = screen.getByText('Blessed Be Your Name').closest('[data-song-id]'); const previousDiv = cardD?.previousElementSibling;
     fireEvent.drop(previousDiv!);
 
     await waitFor(() => {
@@ -694,5 +693,66 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
       // First song ('song-1') moved from index 0 to target index 3 -> ['song-2', 'song-3', 'song-4', 'song-1']
       expect(moveMock).toHaveBeenCalledWith(['song-2', 'song-3', 'song-4', 'song-1']);
     });
+  });
+
+  it('27. simulação completa touch: múltiplos movimentos no mesmo gesto, salva o último destino', async () => {
+    const moveMock = vi.fn();
+    render(<TestWrapper onMoveCallback={moveMock} />);
+    const gripA = screen.getByLabelText('Reordenar Amazing Grace');
+    
+    // Start touch (index 0)
+    fireEvent.touchStart(gripA, { touches: [{ clientX: 10, clientY: 10 }] });
+
+    // Move to index 1 (song-2)
+    let fakeTarget: any = {
+      closest: (selector: string) => {
+        if (selector === '[data-song-id]') return { dataset: { songId: 'song-2', index: '1' } };
+        return null;
+      },
+    };
+    document.elementFromPoint = vi.fn().mockReturnValue(fakeTarget);
+    fireEvent.touchMove(gripA, { touches: [{ clientX: 10, clientY: 100 }] });
+
+    // Then move to index 2 (song-3)
+    fakeTarget = {
+      closest: (selector: string) => {
+        if (selector === '[data-song-id]') return { dataset: { songId: 'song-3', index: '2' } };
+        return null;
+      },
+    };
+    document.elementFromPoint = vi.fn().mockReturnValue(fakeTarget);
+    fireEvent.touchMove(gripA, { touches: [{ clientX: 10, clientY: 200 }] });
+
+    // Then move to index 3 (song-4)
+    fakeTarget = {
+      closest: (selector: string) => {
+        if (selector === '[data-song-id]') return { dataset: { songId: 'song-4', index: '3' } };
+        return null;
+      },
+    };
+    document.elementFromPoint = vi.fn().mockReturnValue(fakeTarget);
+    fireEvent.touchMove(gripA, { touches: [{ clientX: 10, clientY: 300 }] });
+
+    fireEvent.touchEnd(gripA);
+
+    await waitFor(() => {
+      // First song ('song-1') moved from index 0 to target index 3 -> ['song-2', 'song-3', 'song-4', 'song-1']
+      expect(moveMock).toHaveBeenCalledWith(['song-2', 'song-3', 'song-4', 'song-1']);
+    });
+  });
+
+  it('28. limpa bloqueio de scroll ao desmontar componente com toque em andamento', () => {
+    const { unmount } = render(<TestWrapper />);
+    const grip = screen.getByLabelText('Reordenar Amazing Grace');
+    
+    // Start touch
+    fireEvent.touchStart(grip, { touches: [{ clientX: 10, clientY: 20 }] });
+    expect(document.body.style.overflow).toBe('hidden');
+
+    // Unmount
+    unmount();
+    
+    // Must clean up
+    expect(document.body.style.overflow).toBe('auto');
   });
 });

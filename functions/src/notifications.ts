@@ -8,9 +8,13 @@ if (getApps().length === 0) {
   initializeApp();
 }
 
-const db = getFirestore();
+export interface NotificationDependencies {
+  db: any;
+  logger: any;
+  serverTimestamp: any;
+}
 
-interface NotificationPayload {
+export interface NotificationPayload {
   recipientId: string;
   type: 'band_scale' | 'scale' | 'suggestion' | 'system';
   title: string;
@@ -19,44 +23,25 @@ interface NotificationPayload {
   metadata?: Record<string, any>;
 }
 
-interface NormalizedAssignment {
-  userId: string;
-  instrumentId: string | null;
-}
-
 export function generateDeterministicId(orgId: string, eventType: string, eventId: string, recipientId: string, extra?: string): string {
   const hash = crypto.createHash('sha256');
   hash.update(`${orgId}|${eventType}|${eventId}|${recipientId}|${extra || ''}`);
   return hash.digest('hex');
 }
 
-function normalizeAssignment(raw: any): NormalizedAssignment | null {
-  if (!raw) return null;
-  
-  // Format A: { userId, instrumentId }
-  if (typeof raw.userId === 'string' && raw.userId.trim() !== '') {
-    return {
-      userId: raw.userId,
-      instrumentId: typeof raw.instrumentId === 'string' ? raw.instrumentId : null
-    };
-  }
-  
-  // Format B: { user: { uid }, instrument?: { id } }
-  if (raw.user && typeof raw.user.uid === 'string' && raw.user.uid.trim() !== '') {
-    return {
-      userId: raw.user.uid,
-      instrumentId: (raw.instrument && typeof raw.instrument.id === 'string') ? raw.instrument.id : null
-    };
-  }
-  
-  return null;
-}
-
-async function createNotification(orgId: string, payload: NotificationPayload, eventId: string, instrumentId?: string | null) {
+export async function createNotificationWithDependencies(
+  deps: NotificationDependencies,
+  orgId: string, 
+  payload: NotificationPayload, 
+  eventId: string, 
+  instrumentId?: string | null
+) {
+  const { db, logger, serverTimestamp } = deps;
   const docId = generateDeterministicId(orgId, payload.type, eventId, payload.recipientId, instrumentId || '');
+  
   try {
     const docRef = db.doc(`organizations/${orgId}/notifications/${docId}`);
-    
+        
     logger.info("Attempting to create notification", {
       scaleId: eventId,
       normalizedAssignmentUserId: payload.recipientId,
@@ -71,11 +56,12 @@ async function createNotification(orgId: string, payload: NotificationPayload, e
       ...payload,
       isRead: false,
       isArchived: false,
-      createdAt: FieldValue.serverTimestamp(),
+      createdAt: serverTimestamp(),
       sourceEventId: eventId,
       organizationId: orgId,
       idempotencyKey: docId
     });
+
     logger.info(`Notification created with deterministic ID ${docId} for user ${payload.recipientId} in org ${orgId}`);
   } catch (err: any) {
     if (err.code === 6 || err.message?.includes('ALREADY_EXISTS')) { // grpc status 6: ALREADY_EXISTS
@@ -91,28 +77,51 @@ async function createNotification(orgId: string, payload: NotificationPayload, e
       return;
     }
     logger.error('Failed to create notification', { orgId, payload, err });
+    throw err;
   }
 }
 
-const instrumentCache = new Map<string, string>();
+export async function processBandScaleWrittenNotification(
+  deps: NotificationDependencies,
+  event: any
+) {
+  // Deprecated: Escala de Música is the canonical source of events.
+  // BandScale isolated save/edit no longer triggers notifications.
+  return;
+}
 
-async function getInstrumentName(instrumentId: string | null): Promise<string> {
-  if (!instrumentId) return 'sua função';
-  if (instrumentCache.has(instrumentId)) {
-    return instrumentCache.get(instrumentId)!;
-  }
+export async function processSuggestionCreatedNotification(
+  deps: NotificationDependencies,
+  event: any
+) {
+  const { db } = deps;
+  const snap = event.data;
+  if (!snap) return;
+  const suggestionData = snap.data();
+  const orgId = suggestionData.organizationId;
+  if (!orgId) return;
   
-  try {
-    const instSnap = await db.collection('instruments').doc(instrumentId).get();
-    if (instSnap.exists) {
-      const name = instSnap.data()?.name || 'sua função';
-      instrumentCache.set(instrumentId, name);
-      return name;
-    }
-  } catch (err) {
-    logger.error(`Error fetching instrument ${instrumentId}`, err);
+  const creatorName = suggestionData.createdBy?.name || suggestionData.createdBy?.displayName || 'Alguém';
+  const songsCount = suggestionData.songs?.length || 0;
+      
+  // Find admins to notify
+  const usersSnap = await db.collection('users')
+    .where('organizationId', '==', orgId)
+    .where('role', 'in', ['Administrador', 'Dono'])
+    .get();
+
+  for (const doc of usersSnap.docs) {
+    await createNotificationWithDependencies(deps, orgId, {
+      recipientId: doc.id,
+      type: 'suggestion',
+      title: 'Nova Indicação de Música',
+      message: `${creatorName} indicou ${songsCount} música(s) para o repertório.`,
+      link: `/suggestions`,
+      metadata: {
+        suggestionId: event.params.suggestionId
+      }
+    }, event.params.suggestionId);
   }
-  return 'sua função';
 }
 
 const DEPLOY_VERSION = process.env.GITHUB_SHA || 'local';
@@ -124,9 +133,11 @@ export const onBandScaleWritten = onDocumentWritten(
     retry: true,
   },
   async (event) => {
-    // Deprecated: Escala de Música is the canonical source of events.
-    // BandScale isolated save/edit no longer triggers notifications.
-    return;
+    return processBandScaleWrittenNotification({
+      db: getFirestore(),
+      logger,
+      serverTimestamp: FieldValue.serverTimestamp
+    }, event);
   }
 );
 
@@ -137,33 +148,10 @@ export const onSuggestionCreated = onDocumentCreated(
     retry: true,
   },
   async (event) => {
-    const snap = event.data;
-    if (!snap) return;
-
-    const suggestionData = snap.data();
-    const orgId = suggestionData.organizationId;
-    if (!orgId) return;
-
-    const creatorName = suggestionData.createdBy?.name || suggestionData.createdBy?.displayName || 'Alguém';
-    const songsCount = suggestionData.songs?.length || 0;
-    
-    // Find admins to notify
-    const usersSnap = await db.collection('users')
-      .where('organizationId', '==', orgId)
-      .where('role', 'in', ['Administrador', 'Dono'])
-      .get();
-
-    for (const doc of usersSnap.docs) {
-      await createNotification(orgId, {
-        recipientId: doc.id,
-        type: 'suggestion',
-        title: 'Nova Indicação de Música',
-        message: `${creatorName} indicou ${songsCount} música(s) para o repertório.`,
-        link: `/suggestions`,
-        metadata: {
-          suggestionId: event.params.suggestionId
-        }
-      }, event.params.suggestionId);
-    }
+    return processSuggestionCreatedNotification({
+      db: getFirestore(),
+      logger,
+      serverTimestamp: FieldValue.serverTimestamp
+    }, event);
   }
 );
