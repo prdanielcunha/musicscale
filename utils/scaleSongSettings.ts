@@ -122,3 +122,27 @@ export const moveSongBeforeTarget = (
   return next;
 };
 
+export const applyLocalScaleSongSettingsUpdate = (
+  currentSettings: Record<string, any> | undefined,
+  songId: string,
+  key: string | null,
+  bpm: number | null
+): Record<string, any> => {
+  const nextSettings = { ...(currentSettings || {}) };
+  const singleSettings: any = {};
+  if (key && key.trim() !== '') {
+    singleSettings.key = key;
+  }
+  if (bpm !== null && !isNaN(bpm) && bpm >= 20 && bpm <= 300) {
+    singleSettings.bpm = bpm;
+  }
+
+  if (Object.keys(singleSettings).length === 0) {
+    delete nextSettings[songId];
+  } else {
+    nextSettings[songId] = singleSettings;
+  }
+  return nextSettings;
+};
+
+

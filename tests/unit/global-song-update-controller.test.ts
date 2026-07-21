@@ -232,4 +232,67 @@ describe('global-song-update-controller unit tests', () => {
     expect(result).toEqual({ status: 'success' });
     expect(mockUpdateSong).toHaveBeenCalledTimes(2); // One failed, one succeeded
   });
+
+  // Requisito 7: Teste de lock durante refresh com Promise controlada
+  it('locks execution and deduplicates calls while refreshData is pending, then completes successfully', async () => {
+    let resolveRefresh: (() => void) | null = null;
+    const refreshPromise = new Promise<void>((resolve) => {
+      resolveRefresh = resolve;
+    });
+
+    mockRefreshData.mockImplementation(() => {
+      executionOrder.push('refresh');
+      return refreshPromise;
+    });
+
+    const deps = getDeps();
+
+    // 1. Primeira chamada entra no controller
+    const call1Promise = executeGlobalSongUpdate(deps);
+
+    // Permitir que a primeira chamada execute e chegue ao refreshData pendente
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 2. updateSong resolve (ele foi chamado e adicionado no beforeEach)
+    expect(mockUpdateSong).toHaveBeenCalledTimes(1);
+
+    // 3. refreshData permanece pendente
+    expect(mockRefreshData).toHaveBeenCalledTimes(1);
+
+    // 4. Disparar segunda chamada para o mesmo songId
+    const call2Promise = executeGlobalSongUpdate(deps);
+
+    // 5. Segunda chamada retorna deduplicated
+    const call2Result = await call2Promise;
+    expect(call2Result).toEqual({ status: 'deduplicated' });
+
+    // 6. updateSong continua com uma chamada
+    expect(mockUpdateSong).toHaveBeenCalledTimes(1);
+
+    // 7. refreshData continua com uma chamada
+    expect(mockRefreshData).toHaveBeenCalledTimes(1);
+
+    // 8. setFormData ainda não foi chamado enquanto refresh está pendente
+    expect(mockSetFormData).not.toHaveBeenCalled();
+
+    // 9. toast ainda não foi chamado
+    expect(mockShowSuccessToast).not.toHaveBeenCalled();
+
+    // 10. Resolver refreshData
+    resolveRefresh!();
+
+    // 11. Primeira chamada retorna success
+    const call1Result = await call1Promise;
+    expect(call1Result).toEqual({ status: 'success' });
+
+    // 12. Somente então setFormData e toast são chamados
+    expect(mockSetFormData).toHaveBeenCalledTimes(1);
+    expect(mockShowSuccessToast).toHaveBeenCalledTimes(1);
+
+    // 13. Terceira chamada, após conclusão, pode executar normalmente
+    const call3Result = await executeGlobalSongUpdate(deps);
+    expect(call3Result).toEqual({ status: 'success' });
+    expect(mockUpdateSong).toHaveBeenCalledTimes(2);
+    expect(mockRefreshData).toHaveBeenCalledTimes(2);
+  });
 });
