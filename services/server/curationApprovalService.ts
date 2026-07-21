@@ -61,8 +61,17 @@ export class CurationApprovalService {
         const { db, admin, logger } = this.deps;
         const { candidateId, occurrenceId, idempotencyKey, decodedToken } = params;
 
-        if (!candidateId || !occurrenceId || !idempotencyKey) {
-            throw new CurationError('VALIDATION_ERROR', 'Parâmetros obrigatórios ausentes.', 400);
+        const safeCandidateId = normalizedOptionalString(candidateId, 'candidateId', 'VALIDATION_ERROR');
+        const safeOccurrenceId = normalizedOptionalString(occurrenceId, 'occurrenceId', 'VALIDATION_ERROR');
+        const safeIdempotencyKey = normalizedOptionalString(idempotencyKey, 'idempotencyKey', 'VALIDATION_ERROR');
+
+        if (!safeCandidateId || safeCandidateId.length > 200 || 
+            !safeOccurrenceId || safeOccurrenceId.length > 200 || 
+            !safeIdempotencyKey || safeIdempotencyKey.length > 200 || 
+            /[\x00-\x1F\x7F]/.test(safeCandidateId) || 
+            /[\x00-\x1F\x7F]/.test(safeOccurrenceId) || 
+            /[\x00-\x1F\x7F]/.test(safeIdempotencyKey)) {
+            throw new CurationError('VALIDATION_ERROR', 'Parâmetros obrigatórios ausentes ou inválidos.', 400);
         }
         const safeUid = normalizedOptionalString(decodedToken?.uid, 'uid', 'ACTOR_CONTEXT_MISSING');
         if (!decodedToken || !safeUid) {
@@ -72,10 +81,10 @@ export class CurationApprovalService {
             throw new CurationError('CURATION_ACCESS_DENIED', 'Acesso de curadoria negado no serviço.', 403);
         }
 
-        const candidateRef = db.collection('globalLibraryCandidates').doc(candidateId);
-        const occurrenceRef = candidateRef.collection('occurrences').doc(occurrenceId);
+        const candidateRef = db.collection('globalLibraryCandidates').doc(safeCandidateId);
+        const occurrenceRef = candidateRef.collection('occurrences').doc(safeOccurrenceId);
         const reviewLogsCollection = candidateRef.collection('reviewLogs');
-        const logRef = reviewLogsCollection.doc(`approve_${idempotencyKey}`);
+        const logRef = reviewLogsCollection.doc(`approve_${safeIdempotencyKey}`);
 
         try {
             return await db.runTransaction(async (t: any) => {
@@ -87,7 +96,7 @@ export class CurationApprovalService {
             const candidateData = candidateSnap.data() as any;
 
             if (candidateData.status === 'approved') {
-                if (candidateData.approvalIdempotencyKey === idempotencyKey) {
+                if (candidateData.approvalIdempotencyKey === safeIdempotencyKey) {
                     return { success: true, alreadyApproved: true, globalSongId: candidateData.resultingGlobalSongId };
                 }
                 throw new CurationError('IDEMPOTENCY_CONFLICT', 'Candidata já foi aprovada por outra requisição.', 409);
@@ -184,7 +193,7 @@ export class CurationApprovalService {
 
             // === VALIDATIONS POST-READS ===
             if (reservationSnap.exists) {
-                if (reservationSnap.data()?.candidateId !== candidateId) {
+                if (reservationSnap.data()?.candidateId !== safeCandidateId) {
                     throw new CurationError("RESERVATION_COLLISION", "Colisão de reserva com outra candidata.", 409);
                 }
             }
@@ -225,13 +234,14 @@ export class CurationApprovalService {
             const globalSongRef = db.collection('globalSongs').doc();
 
             if (!reservationSnap.exists) {
-                t.set(reservationRef, { candidateId, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+                t.set(reservationRef, { candidateId: safeCandidateId, createdAt: admin.firestore.FieldValue.serverTimestamp() });
             }
 
             const primaryArtist = normArtists[0] || snapshot.artist || '';
+            const safeSnapshotTitle = normalizedOptionalString(snapshot.title, 'snapshot.title', 'OCCURRENCE_SNAPSHOT_INVALID')!;
             const newGlobalSong = {
-                title: snapshot.title,
-                normalizedTitle: normTitle,
+                title: safeSnapshotTitle,
+                normalizedTitle: safeCanonical.normalizedTitle,
                 artist: snapshot.artist || '',
                 normalizedArtist: primaryArtist,
                 key: snapshot.originalKey || snapshot.key || 'C',
@@ -244,11 +254,15 @@ export class CurationApprovalService {
                 tags: snapshot.tagIds || snapshot.tags || [],
                 videoUrl: snapshot.videoUrl || '',
                 videos: snapshot.videos || [],
-                externalReferences: canonical.externalReferences || {},
-                contentFingerprint: canonical.contentFingerprint || null,
-                lyricsFingerprint: canonical.lyricsFingerprint || null,
+                externalReferences: safeCanonical.externalReferences,
+                contentFingerprint: safeCanonical.contentFingerprint,
+                lyricsFingerprint: safeCanonical.lyricsFingerprint,
+                normalizedLyrics: safeCanonical.normalizedLyrics,
+                openingLyrics: safeCanonical.openingLyrics,
+                chorusLyrics: safeCanonical.chorusLyrics,
+                normalizedArtists: safeCanonical.normalizedArtists,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                createdBy: decodedToken.uid,
+                createdBy: safeUid,
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 status: 'active',
                 importCount: 0
@@ -258,7 +272,7 @@ export class CurationApprovalService {
             t.update(candidateRef, {
                 status: 'approved',
                 resultingGlobalSongId: globalSongRef.id,
-                approvalIdempotencyKey: idempotencyKey,
+                approvalIdempotencyKey: safeIdempotencyKey,
                 updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
 
@@ -271,12 +285,12 @@ export class CurationApprovalService {
             }
 
             if (!logSnap.exists) {
-                const correlationId = crypto.createHash('sha256').update(idempotencyKey).digest('hex');
+                const correlationId = crypto.createHash('sha256').update(safeIdempotencyKey).digest('hex');
                 const serverTimestamp = admin.firestore.FieldValue.serverTimestamp();
                 const logData = {
                     eventType: 'approved',
                     actorType: 'admin',
-                    actorId: decodedToken.uid,
+                    actorId: safeUid,
                     resultingGlobalSongId: globalSongRef.id,
                     schemaVersion: 1,
                     correlationId: correlationId,
@@ -284,10 +298,10 @@ export class CurationApprovalService {
                     metadata: {
                         sourceOrganizationId: occData.source?.organizationId || null,
                         sourceSongId: occData.source?.songId || null,
-                        sourceCandidateId: candidateId,
+                        sourceCandidateId: safeCandidateId,
                     },
                     action: 'approved_as_new',
-                    actorUid: decodedToken.uid,
+                    actorUid: safeUid,
                     createdAt: serverTimestamp
                 };
                 t.set(logRef, logData);
@@ -297,7 +311,7 @@ export class CurationApprovalService {
         });
         } catch (e: any) {
             if (e instanceof CurationError) throw e;
-            throw new CurationError('TRANSACTION_FAILED', 'Erro inesperado na transação: ' + e.message, 500);
+            throw new CurationError('TRANSACTION_FAILED', 'Erro inesperado na transação de curadoria.', 500);
         }
     }
 }

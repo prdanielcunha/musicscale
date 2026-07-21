@@ -39,12 +39,21 @@ export function createCurationApprovalHttpHandler(deps: { db: any, admin: any, l
             return res.status(200).json(result);
         } catch (error: any) {
             if (error instanceof CurationError) {
-                deps.logger.error("Curation approval HTTP error", { 
+                const logPayload: any = {
                     code: error.code,
-                    safeMessage: error.safeMessage,
                     candidateId: req.body?.candidateId,
                     occurrenceId: req.body?.occurrenceId
-                });
+                };
+                if (error.code === 'TRANSACTION_FAILED') {
+                    logPayload.message = "Falha inesperada na transação de curadoria";
+                    logPayload.correlationId = req.body?.idempotencyKey ? crypto.createHash('sha256').update(req.body.idempotencyKey).digest('hex') : 'unknown';
+                } else {
+                    logPayload.safeMessage = error.safeMessage;
+                    if (req.body?.idempotencyKey) {
+                        logPayload.correlationId = crypto.createHash('sha256').update(req.body.idempotencyKey).digest('hex');
+                    }
+                }
+                deps.logger.error("Curation approval HTTP error", logPayload);
                 
                 const responsePayload: any = {
                     error: error.safeMessage,
@@ -65,7 +74,7 @@ export function createCurationApprovalHttpHandler(deps: { db: any, admin: any, l
                 correlationId
             });
 
-            return res.status(500).json({ error: "Erro inesperado na aprovação.", code: "INTERNAL_CURATION_ROUTE_ERROR" });
+            return res.status(500).json({ error: "Erro inesperado na transação de curadoria.", code: "TRANSACTION_FAILED" });
         }
     };
 }

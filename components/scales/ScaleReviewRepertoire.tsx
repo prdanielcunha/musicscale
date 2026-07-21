@@ -32,17 +32,36 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
   const [draggedSongId, setDraggedSongId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
-  const dragInfo = useRef<{
+    const dragInfo = useRef<{
     startIndex: number | null;
     element: HTMLElement | null;
-  }>({ startIndex: null, element: null });
+    previousBodyOverflow: string | null;
+  }>({ startIndex: null, element: null, previousBodyOverflow: null });
+  const isMounted = useRef(true);
 
-  // Cleanup body overflow on unmount
   useEffect(() => {
+    isMounted.current = true;
     return () => {
-      
+      isMounted.current = false;
+      cleanupTouch();
     };
   }, []);
+
+  const cleanupTouch = () => {
+    if (dragInfo.current.element) {
+      dragInfo.current.element.classList.remove("opacity-50", "shadow-2xl");
+    }
+    if (dragInfo.current.previousBodyOverflow !== null) {
+      document.body.style.overflow = dragInfo.current.previousBodyOverflow;
+    }
+    dragInfo.current = { startIndex: null, element: null, previousBodyOverflow: null };
+    if (isMounted.current) {
+      setDropTargetId(null);
+    }
+  };
+
+  // Cleanup body overflow on unmount
+  
 
   const moveSongReview = (index: number, direction: "up" | "down") => {
     if (
@@ -87,17 +106,16 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
     setDropTargetId(null);
   };
 
-  const handleTouchStart = (
-    e: React.TouchEvent<HTMLDivElement>,
-    index: number,
-  ) => {
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>, index: number) => {
+    cleanupTouch(); // garantir que um novo gesto não herde referências do gesto anterior
     dragInfo.current.startIndex = index;
     const songItem = e.currentTarget.closest<HTMLElement>("[data-song-id]");
     dragInfo.current.element = songItem;
+    dragInfo.current.previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     if (songItem) {
       songItem.classList.add("opacity-50", "shadow-2xl");
     }
-    
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -128,16 +146,11 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
   };
 
   const handleTouchEnd = () => {
-    if (dragInfo.current.element) {
-      dragInfo.current.element.classList.remove("opacity-50", "shadow-2xl");
-    }
-    dragInfo.current = { startIndex: null, element: null };
-    setDropTargetId(null);
-    
+    cleanupTouch();
   };
 
   const handleTouchCancel = () => {
-    handleTouchEnd();
+    cleanupTouch();
   };
 
   return (

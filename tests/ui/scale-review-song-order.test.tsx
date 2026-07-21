@@ -532,129 +532,106 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
     expect(previousDiv).not.toHaveClass('bg-primary/50');
   });
 
+    // =========================================================================
+  // SUB-SECTION 5: TOUCH GESTURE HANDLING & LIFECYCLE (DOM REAL)
   // =========================================================================
-  // SUB-SECTION 5: TOUCH GESTURE HANDLING & LIFECYCLE (4 SCENARIOS)
-  // =========================================================================
-
   it('21. Dispatches touchStart gesture identifying selected card correctly, adding styling', () => {
+    document.body.style.overflow = "scroll";
     render(<TestWrapper />);
     const grip = screen.getByLabelText('Reordenar Amazing Grace');
     const outerCard = grip.closest('[data-song-id]');
     expect(outerCard).toBeInTheDocument();
-
+    
     // Touch start
     fireEvent.touchStart(grip, { touches: [{ clientX: 10, clientY: 20 }] });
-
     expect(outerCard).toHaveClass('opacity-50');
-    // removed overflow check
+    expect(outerCard).toHaveClass('shadow-2xl');
+    expect(document.body.style.overflow).toBe('hidden');
+    fireEvent.touchEnd(grip);
+    expect(document.body.style.overflow).toBe('scroll');
   });
 
-  it('22. Tracks touchMove gesture calling preventDefault and finding target via elementFromPoint', async () => {
+  it('22. Tracks touchMove gesture calling preventDefault and finding target via elementFromPoint (Real DOM)', async () => {
     const moveMock = vi.fn();
     render(<TestWrapper onMoveCallback={moveMock} />);
-
     const grip = screen.getByLabelText('Reordenar Amazing Grace');
     const preventDefaultSpy = vi.spyOn(window.TouchEvent.prototype, 'preventDefault');
     
+    // Target 3rd song "10,000 Reasons" (index 2)
+    const targetCard = screen.getByText('10,000 Reasons').closest('[data-song-id]') as HTMLElement;
+    expect(targetCard).toBeInstanceOf(HTMLElement);
+    document.elementFromPoint = vi.fn().mockReturnValue(targetCard);
+    
     // Start touch
     fireEvent.touchStart(grip, { touches: [{ clientX: 10, clientY: 20 }] });
-
-    // Mock document.elementFromPoint to return 10,000 Reasons (song-3) card at index 2
-    const fakeTarget = {
-      closest: (selector: string) => {
-        if (selector === '[data-song-id]') {
-          return {
-            dataset: {
-              songId: 'song-3',
-              index: '2',
-            },
-          };
-        }
-        return null;
-      },
-    };
-    document.elementFromPoint = vi.fn().mockReturnValue(fakeTarget);
-
+    
     // Perform touch move
     fireEvent.touchMove(grip, {
       touches: [{ clientX: 10, clientY: 100 }],
     });
-
+    
     expect(preventDefaultSpy).toHaveBeenCalled();
-    expect(document.elementFromPoint).toHaveBeenCalled();
-
+    const element = document.elementFromPoint(10, 100);
+    expect(element).toBeInstanceOf(HTMLElement);
+    
     await waitFor(() => {
-      // Reordered: song-1 moved from index 0 to target index 2 -> ['song-2', 'song-3', 'song-1', 'song-4']
       expect(moveMock).toHaveBeenCalledWith(['song-2', 'song-3', 'song-1', 'song-4']);
     });
   });
 
   it('23. Finishes touch reorder cleanly on touchEnd, restoring styles', () => {
+    document.body.style.overflow = "";
     render(<TestWrapper />);
     const grip = screen.getByLabelText('Reordenar Amazing Grace');
     const outerCard = grip.closest('[data-song-id]');
-
+    
     // Start touch
     fireEvent.touchStart(grip, { touches: [{ clientX: 10, clientY: 20 }] });
     expect(outerCard).toHaveClass('opacity-50');
-    // removed overflow check
-
+    expect(document.body.style.overflow).toBe('hidden');
+    
     // End touch
     fireEvent.touchEnd(grip);
-
     expect(outerCard).not.toHaveClass('opacity-50');
-    // removed overflow check
+    expect(document.body.style.overflow).toBe('');
   });
 
   it('24. Cancels touch interaction gracefully on touchCancel, resetting styles and restoring overflow', () => {
+    document.body.style.overflow = "auto";
     render(<TestWrapper />);
     const grip = screen.getByLabelText('Reordenar Amazing Grace');
     const outerCard = grip.closest('[data-song-id]');
-
+    
     // Start touch
     fireEvent.touchStart(grip, { touches: [{ clientX: 10, clientY: 20 }] });
     expect(outerCard).toHaveClass('opacity-50');
-    // removed overflow check
-
+    expect(document.body.style.overflow).toBe('hidden');
+    
     // Cancel touch
     fireEvent.touchCancel(grip);
-
     expect(outerCard).not.toHaveClass('opacity-50');
-    // removed overflow check
+    expect(document.body.style.overflow).toBe('auto');
   });
 
   it('25. simulação completa touch: mover a terceira música para o topo resulta em C, A, B, D', async () => {
     const moveMock = vi.fn();
     render(<TestWrapper onMoveCallback={moveMock} />);
-
     const gripC = screen.getByLabelText('Reordenar 10,000 Reasons');
+    
+    const targetCard = screen.getByText('Amazing Grace').closest('[data-song-id]') as HTMLElement;
+    expect(targetCard).toBeInstanceOf(HTMLElement);
+    document.elementFromPoint = vi.fn().mockReturnValue(targetCard);
     
     // Start touch (index 2)
     fireEvent.touchStart(gripC, { touches: [{ clientX: 10, clientY: 200 }] });
-
-    // Mock document.elementFromPoint to return Amazing Grace (song-1, index 0)
-    const fakeTarget = {
-      closest: (selector: string) => {
-        if (selector === '[data-song-id]') {
-          return {
-            dataset: {
-              songId: 'song-1',
-              index: '0',
-            },
-          };
-        }
-        return null;
-      },
-    };
-    document.elementFromPoint = vi.fn().mockReturnValue(fakeTarget);
-
+    
     // Perform touch move
-    fireEvent.touchMove(gripC, {
-      touches: [{ clientX: 10, clientY: 10 }],
-    });
-
+    fireEvent.touchMove(gripC, { touches: [{ clientX: 10, clientY: 10 }] });
+    
+    const element = document.elementFromPoint(10, 10);
+    expect(element).toBeInstanceOf(HTMLElement);
+    
     await waitFor(() => {
-      // Third song ('song-3') moved from index 2 to target index 0 -> ['song-3', 'song-1', 'song-2', 'song-4']
       expect(moveMock).toHaveBeenCalledWith(['song-3', 'song-1', 'song-2', 'song-4']);
     });
   });
@@ -662,97 +639,81 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
   it('26. simulação completa touch: mover a primeira música para a última posição resulta em B, C, D, A', async () => {
     const moveMock = vi.fn();
     render(<TestWrapper onMoveCallback={moveMock} />);
-
     const gripA = screen.getByLabelText('Reordenar Amazing Grace');
+    
+    const targetCard = screen.getByText('Blessed Be Your Name').closest('[data-song-id]') as HTMLElement;
+    expect(targetCard).toBeInstanceOf(HTMLElement);
+    document.elementFromPoint = vi.fn().mockReturnValue(targetCard);
     
     // Start touch (index 0)
     fireEvent.touchStart(gripA, { touches: [{ clientX: 10, clientY: 10 }] });
-
-    // Mock document.elementFromPoint to return Blessed Be Your Name (song-4, index 3)
-    const fakeTarget = {
-      closest: (selector: string) => {
-        if (selector === '[data-song-id]') {
-          return {
-            dataset: {
-              songId: 'song-4',
-              index: '3',
-            },
-          };
-        }
-        return null;
-      },
-    };
-    document.elementFromPoint = vi.fn().mockReturnValue(fakeTarget);
-
+    
     // Perform touch move
-    fireEvent.touchMove(gripA, {
-      touches: [{ clientX: 10, clientY: 400 }],
-    });
-
+    fireEvent.touchMove(gripA, { touches: [{ clientX: 10, clientY: 400 }] });
+    
+    const element = document.elementFromPoint(10, 400);
+    expect(element).toBeInstanceOf(HTMLElement);
+    
     await waitFor(() => {
-      // First song ('song-1') moved from index 0 to target index 3 -> ['song-2', 'song-3', 'song-4', 'song-1']
       expect(moveMock).toHaveBeenCalledWith(['song-2', 'song-3', 'song-4', 'song-1']);
     });
   });
 
-  it('27. simulação completa touch: múltiplos movimentos no mesmo gesto, salva o último destino', async () => {
-    const moveMock = vi.fn();
-    render(<TestWrapper onMoveCallback={moveMock} />);
+  // Req 11: DOIS MOVIMENTOS NO MESMO GESTO
+  it('27. simulação completa touch: múltiplos movimentos no mesmo gesto, salva a ordem', async () => {
+    let moveIds: string[] = ['song-1', 'song-2', 'song-3', 'song-4'];
+    const TestComponent = () => {
+        const [ids, setIds] = React.useState(moveIds);
+        return <ScaleReviewRepertoire songIds={ids} songs={mockSongs as any} tags={[]} songSettings={undefined} onUpdateSongSettings={vi.fn()} onSongIdsChange={(newIds) => { moveIds = newIds; setIds(newIds); }} goToStep={vi.fn()} />;
+    };
+    render(<TestComponent />);
+    
     const gripA = screen.getByLabelText('Reordenar Amazing Grace');
     
     // Start touch (index 0)
     fireEvent.touchStart(gripA, { touches: [{ clientX: 10, clientY: 10 }] });
-
-    // Move to index 1 (song-2)
-    let fakeTarget: any = {
-      closest: (selector: string) => {
-        if (selector === '[data-song-id]') return { dataset: { songId: 'song-2', index: '1' } };
-        return null;
-      },
-    };
-    document.elementFromPoint = vi.fn().mockReturnValue(fakeTarget);
+    
+    // Move to 10,000 Reasons (C) position (which is initially index 2)
+    const targetCardC = screen.getByText('10,000 Reasons').closest('[data-song-id]') as HTMLElement;
+    expect(targetCardC).toBeInstanceOf(HTMLElement);
+    document.elementFromPoint = vi.fn().mockReturnValue(targetCardC);
+    
     fireEvent.touchMove(gripA, { touches: [{ clientX: 10, clientY: 100 }] });
-
-    // Then move to index 2 (song-3)
-    fakeTarget = {
-      closest: (selector: string) => {
-        if (selector === '[data-song-id]') return { dataset: { songId: 'song-3', index: '2' } };
-        return null;
-      },
-    };
-    document.elementFromPoint = vi.fn().mockReturnValue(fakeTarget);
-    fireEvent.touchMove(gripA, { touches: [{ clientX: 10, clientY: 200 }] });
-
-    // Then move to index 3 (song-4)
-    fakeTarget = {
-      closest: (selector: string) => {
-        if (selector === '[data-song-id]') return { dataset: { songId: 'song-4', index: '3' } };
-        return null;
-      },
-    };
-    document.elementFromPoint = vi.fn().mockReturnValue(fakeTarget);
-    fireEvent.touchMove(gripA, { touches: [{ clientX: 10, clientY: 300 }] });
-
-    fireEvent.touchEnd(gripA);
-
+    
     await waitFor(() => {
-      // First song ('song-1') moved from index 0 to target index 3 -> ['song-2', 'song-3', 'song-4', 'song-1']
-      expect(moveMock).toHaveBeenCalledWith(['song-2', 'song-3', 'song-4', 'song-1']);
+      expect(moveIds).toEqual(['song-2', 'song-3', 'song-1', 'song-4']); // C is index 1 now, song-1 moved to index 2
     });
+    
+    // Now move again to Blessed Be Your Name (D) without ending gesture
+    const targetCardD = screen.getByText('Blessed Be Your Name').closest('[data-song-id]') as HTMLElement;
+    expect(targetCardD).toBeInstanceOf(HTMLElement);
+    document.elementFromPoint = vi.fn().mockReturnValue(targetCardD);
+    
+    fireEvent.touchMove(gripA, { touches: [{ clientX: 10, clientY: 200 }] });
+    
+    await waitFor(() => {
+      expect(moveIds).toEqual(['song-2', 'song-3', 'song-4', 'song-1']);
+    });
+    
+    fireEvent.touchEnd(gripA);
   });
 
+  // Req 12: CLEANUP TOUCH COMPLETO unmount
   it('28. limpa bloqueio de scroll ao desmontar componente com toque em andamento', () => {
+    document.body.style.overflow = "scroll";
     const { unmount } = render(<TestWrapper />);
     const grip = screen.getByLabelText('Reordenar Amazing Grace');
+    const outerCard = grip.closest('[data-song-id]');
     
-    // Start touch
     fireEvent.touchStart(grip, { touches: [{ clientX: 10, clientY: 20 }] });
-    // removed overflow check
-
-    // Unmount
+    expect(outerCard).toHaveClass('opacity-50');
+    expect(outerCard).toHaveClass('shadow-2xl');
+    expect(document.body.style.overflow).toBe('hidden');
+    
     unmount();
     
-    // Must clean up
-    // removed overflow check
+    expect(outerCard).not.toHaveClass('opacity-50');
+    expect(outerCard).not.toHaveClass('shadow-2xl');
+    expect(document.body.style.overflow).toBe('scroll');
   });
 });

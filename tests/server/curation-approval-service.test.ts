@@ -31,7 +31,7 @@ class StrictTransactionMock {
             throw this._failures.get(path);
         }
 
-        if (ref._isCollection) { console.log("COLLECTION PATH:", path, "REGISTERED HAS:", this._registeredQueries.has(path));
+        if (ref._isCollection) {
             if (this._registeredQueries.has(path)) {
                 return { docs: this._registeredQueries.get(path) };
             }
@@ -51,7 +51,7 @@ class StrictTransactionMock {
         this.sets.push({ ref, data });
     }
 
-    private _update(ref: any, data: any) { console.log("UPDATING:", ref.id);
+    private _update(ref: any, data: any) { 
         this.writeStarted = true;
         this.updates.push({ ref, data });
     }
@@ -144,7 +144,7 @@ describe('CurationApprovalHttpHandler', () => {
         vi.spyOn(CurationApprovalService.prototype, 'approve').mockRejectedValue(new Error('crash'));
         await handler(mockReq, mockRes);
         expect(mockRes.status).toHaveBeenCalledWith(500);
-        expect(mockRes.json).toHaveBeenCalledWith({ error: "Erro inesperado na aprovação.", code: "INTERNAL_CURATION_ROUTE_ERROR" });
+        expect(mockRes.json).toHaveBeenCalledWith({ error: "Erro inesperado na transação de curadoria.", code: "TRANSACTION_FAILED" });
     });
     it('12. body não pode substituir o ator autenticado', async () => {
         const handler = createCurationApprovalHttpHandler(mockDeps);
@@ -156,6 +156,65 @@ describe('CurationApprovalHttpHandler', () => {
 });
 
 describe('CurationApprovalService', () => {
+    it('tentar reatribuir transaction.get lança OVERRIDE_FORBIDDEN', async () => {
+        const error = await mockDb.runTransaction(async (t: any) => {
+            t.get = () => {};
+        }).catch((e: any) => e);
+        expect(error.message).toBe('OVERRIDE_FORBIDDEN');
+    });
+
+    it('tentar reatribuir transaction.set lança OVERRIDE_FORBIDDEN', async () => {
+        const error = await mockDb.runTransaction(async (t: any) => {
+            t.set = () => {};
+        }).catch((e: any) => e);
+        expect(error.message).toBe('OVERRIDE_FORBIDDEN');
+    });
+
+    it('tentar reatribuir transaction.update lança OVERRIDE_FORBIDDEN', async () => {
+        const error = await mockDb.runTransaction(async (t: any) => {
+            t.update = () => {};
+        }).catch((e: any) => e);
+        expect(error.message).toBe('OVERRIDE_FORBIDDEN');
+    });
+
+    it('500 error security - log does not leak, message is safe', async () => {
+        const customDb = {
+            collection: mockDb.collection.bind(mockDb),
+            runTransaction: async () => {
+                throw new Error("Detailed technical error with path /collections/secrets");
+            }
+        };
+        const customDeps = {
+            db: customDb,
+            admin: { firestore: { FieldValue: { serverTimestamp: () => 'SERVER_TIME' } } },
+            logger: { error: vi.fn(), info: vi.fn() }
+        };
+        
+        const service = new CurationApprovalService(customDeps as any);
+        const { createCurationApprovalHttpHandler } = await import('../../services/server/curationApprovalHttpHandler.js');
+        const handler = createCurationApprovalHttpHandler(customDeps as any);
+        
+        const req = {
+            body: { candidateId: 'c1', occurrenceId: 'o1', idempotencyKey: 'idemp1' },
+            ecosystemContext: { uid: 'user1', hasCurationAccess: true }
+        };
+        const res = {
+            status: vi.fn().mockReturnThis(),
+            json: vi.fn()
+        };
+        
+        await handler(req as any, res as any);
+        
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(res.json).toHaveBeenCalledWith({ error: 'Erro inesperado na transação de curadoria.', code: 'TRANSACTION_FAILED' });
+        
+        expect(customDeps.logger.error).toHaveBeenCalledWith("Curation approval HTTP error", expect.objectContaining({
+            code: "TRANSACTION_FAILED",
+            message: "Falha inesperada na transação de curadoria"
+        }));
+        expect(customDeps.logger.error.mock.calls[0][1]).not.toHaveProperty("stack");
+        expect(customDeps.logger.error.mock.calls[0][1]).not.toHaveProperty("snapshot");
+    });
     let mockDb: any;
     let mockAdmin: any;
     let service: CurationApprovalService;
@@ -452,7 +511,7 @@ describe('CurationApprovalService', () => {
     });
     it('36. falha em leitura não produz writes (Req 12.18)', async () => {
         myT.failOnPath('globalLibraryCandidates/c1', new Error('Read crash'));
-        await expect(service.approve(defaultParams)).rejects.toThrow('Read crash');
+        await expect(service.approve(defaultParams)).rejects.toThrow('Erro inesperado na transação de curadoria.');
         expect(myT.sets.length).toBe(0);
         expect(myT.updates.length).toBe(0);
     });
