@@ -87,12 +87,6 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
     setDropTargetId(null);
   };
 
-  const handleClearAllLocalSettings = async () => {
-    for (const id of songIds) {
-      await onUpdateSongSettings(id, null, null, false);
-    }
-  };
-
   const handleTouchStart = (
     e: React.TouchEvent<HTMLDivElement>,
     index: number,
@@ -152,22 +146,13 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
         <span className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs uppercase font-bold tracking-widest">
           {t('scaleModal.repertoire', 'Repertório')}
         </span>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleClearAllLocalSettings}
-            className="text-xs font-bold text-slate-500 hover:text-red-500 transition-colors flex items-center gap-1"
-          >
-            {t('scaleModal.clearLocalSettings', 'Limpar ajustes locais')}
-          </button>
-          <button
-            type="button"
-            onClick={() => goToStep('build')}
-            className="text-xs font-bold text-primary hover:text-primary-dark transition-colors flex items-center gap-1"
-          >
-            {t('scaleModal.editRepertoire', 'Editar Repertório')}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => goToStep('build')}
+          className="text-xs font-bold text-primary hover:text-primary-dark transition-colors flex items-center gap-1"
+        >
+          {t('scaleModal.editRepertoire', 'Editar Repertório')}
+        </button>
       </div>
       {songIds && songIds.length >= 2 && (
         <p className="text-[12px] text-slate-500 dark:text-slate-400 mb-4 font-medium leading-relaxed">

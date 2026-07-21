@@ -1,5 +1,5 @@
 import assert from 'assert';
-import * as crypto from 'crypto';
+import { generateDeterministicId } from '../src/notifications.js';
 
 // Minimal mock environment
 const logs: any[] = [];
@@ -8,15 +8,8 @@ const logs: any[] = [];
   error: (msg: string, meta: any) => logs.push({ type: 'error', msg, meta })
 };
 
-// Simulate generateDeterministicId
-function generateDeterministicId(orgId: string, eventType: string, eventId: string, recipientId: string): string {
-  const hash = crypto.createHash('sha256');
-  hash.update(`${orgId}|${eventType}|${eventId}|${recipientId}`);
-  return hash.digest('hex');
-}
-
 async function runNotificationTests() {
-  console.log('Running Notification tests...');
+  console.log('Running Notification tests (Importing Production Functions)...');
   
   const orgId = "test-org";
   const scaleId = "scale-123";
@@ -47,7 +40,7 @@ async function runNotificationTests() {
     date: '2026-06-26'
   };
 
-  // Emulate onBandScaleWritten logic
+  // Emulate onBandScaleWritten logic using imported production function for ID generation
   const usersToNotify: { userId: string; instrumentId: string | null }[] = [
     { userId: actorId, instrumentId: 'inst-1' }
   ];
@@ -95,11 +88,12 @@ async function runNotificationTests() {
   }
   
   assert.strictEqual(functionInvoked, false);
-  // Assert no new docs created
   assert.strictEqual(createdDocs.length, 1);
 
   console.log('Notification tests passed!');
 }
 
-runNotificationTests().catch(console.error);
-
+runNotificationTests().catch(e => {
+  console.error('Notification tests failed:', e);
+  process.exit(1);
+});

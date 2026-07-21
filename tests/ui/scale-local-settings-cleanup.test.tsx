@@ -5,57 +5,117 @@ import { ScaleSongCard } from '../../components/scales/ScaleSongCard';
 import { ScaleReviewRepertoire } from '../../components/scales/ScaleReviewRepertoire';
 import { PopulatedSong } from '../../types';
 import { applyLocalScaleSongSettingsUpdate, normalizeScaleSongSettings } from '../../utils/scaleSongSettings';
+import ModernScaleForm from '../../components/scales/ModernScaleForm';
 
 // Mock translation context
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, defaultValue: string) => defaultValue,
+    t: (key: string, defaultValue?: string) => {
+      if (key === 'scaleModal.emptyScaleTip') return 'Clique + Música';
+      return defaultValue || key;
+    },
+    i18n: { language: 'pt', changeLanguage: vi.fn() },
   }),
 }));
 
+const mockSongs: PopulatedSong[] = [
+  {
+    id: 'song-target',
+    organizationId: 'org-abc',
+    title: 'Amazing Grace',
+    artist: 'John Newton',
+    key: 'G',
+    originalKey: 'G',
+    selectedKey: 'G',
+    bpm: 80,
+    status: 'active',
+    tagIds: [],
+    lyrics: 'Lyrics 1',
+    chords: 'Chords 1',
+    chordsUrl: '',
+    videoUrl: '',
+    createdAt: '2026-01-01T00:00:00Z',
+    lastPlayed: null,
+    createdBy: { uid: 'u1' } as any,
+    tags: [],
+  },
+  {
+    id: 'song-other',
+    organizationId: 'org-abc',
+    title: 'How Great Is Our God',
+    artist: 'Chris Tomlin',
+    key: 'C',
+    originalKey: 'C',
+    selectedKey: 'C',
+    bpm: 76,
+    status: 'active',
+    tagIds: [],
+    lyrics: 'Lyrics 2',
+    chords: 'Chords 2',
+    chordsUrl: '',
+    videoUrl: '',
+    createdAt: '2026-01-01T00:00:00Z',
+    lastPlayed: null,
+    createdBy: { uid: 'u1' } as any,
+    tags: [],
+  }
+];
+
+vi.mock('../../contexts/MusicDataContext', () => ({
+  useMusic: () => ({
+    songs: mockSongs,
+    eventTypes: [{ id: 'et-1', name: 'Culto' }],
+    locations: [{ id: 'loc-1', name: 'Templo' }],
+    eventNames: [],
+    instruments: [],
+    tags: [],
+    fixedBandScales: [],
+    allUsers: [],
+    populatedBandScales: [],
+    populatedScales: [],
+    refreshData: vi.fn(),
+  }),
+}));
+
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    userProfile: { id: 'u1', name: 'User 1', organizationId: 'org-abc' },
+    user: { uid: 'u1' },
+    organization: { id: 'org-abc' },
+  }),
+}));
+
+vi.mock('../../hooks/useSafeAction', () => ({
+  useSafeAction: () => ({
+    executeSafeAction: vi.fn((fn) => fn()),
+  }),
+}));
+
+vi.mock('../../hooks/useCapability', () => ({
+  useCapability: () => ({
+    hasCapability: () => true,
+  }),
+}));
+
+vi.mock('../../contexts/ApiContext', () => ({
+  useApi: () => ({
+    updateScaleSongSettings: vi.fn(),
+  }),
+}));
+
+vi.mock('../../contexts/ToastContext', () => ({
+  useToast: () => ({
+    toast: vi.fn(),
+    success: vi.fn(),
+    error: vi.fn(),
+  }),
+}));
+
+vi.mock('../../hooks/useFeatureFlag', () => ({
+  useFeatureFlag: () => true,
+}));
+
 describe('Scale Local Settings Cleanup Integration & Unit Tests', () => {
-  const mockSongs: PopulatedSong[] = [
-    {
-      id: 'song-target',
-      organizationId: 'org-abc',
-      title: 'Amazing Grace',
-      artist: 'John Newton',
-      key: 'G',
-      originalKey: 'G',
-      selectedKey: 'G',
-      bpm: 80,
-      status: 'active',
-      tagIds: [],
-      lyrics: 'Lyrics 1',
-      chords: 'Chords 1',
-      chordsUrl: '',
-      videoUrl: '',
-      createdAt: '2026-01-01T00:00:00Z',
-      lastPlayed: null,
-      createdBy: { uid: 'u1' } as any,
-      tags: [],
-    },
-    {
-      id: 'song-other',
-      organizationId: 'org-abc',
-      title: 'How Great Is Our God',
-      artist: 'Chris Tomlin',
-      key: 'C',
-      originalKey: 'C',
-      selectedKey: 'C',
-      bpm: 76,
-      status: 'active',
-      tagIds: [],
-      lyrics: 'Lyrics 2',
-      chords: 'Chords 2',
-      chordsUrl: '',
-      videoUrl: '',
-      createdAt: '2026-01-01T00:00:00Z',
-      lastPlayed: null,
-      createdBy: { uid: 'u1' } as any,
-      tags: [],
-    }
-  ];
 
   // A test harness component that uses the actual helper function
   const TestHarness = ({
@@ -159,7 +219,7 @@ describe('Scale Local Settings Cleanup Integration & Unit Tests', () => {
       'song-target': { key: 'G', bpm: 80 },
       'song-other': { key: 'C', bpm: 100 }
     };
-    const result = applyLocalScaleScaleSongSettingsUpdateClone(input, 'song-target', 'A', 120);
+    const result = applyLocalScaleSongSettingsUpdate(input, 'song-target', 'A', 120);
     expect(result['song-other']).toEqual({ key: 'C', bpm: 100 });
   });
 
@@ -208,11 +268,6 @@ describe('Scale Local Settings Cleanup Integration & Unit Tests', () => {
     applyLocalScaleSongSettingsUpdate(input, 'song-target', 'A', 120);
     expect(songIds).toEqual(songIdsCopy);
   });
-
-  // Helper function wrapper for test 5
-  function applyLocalScaleScaleSongSettingsUpdateClone(input: any, id: string, key: any, bpm: any) {
-    return applyLocalScaleSongSettingsUpdate(input, id, key, bpm);
-  }
 
   // =========================================================================
   // SECTION 2: INTEGRATION TESTS USING TEST HARNESS WITH REAL COMPONENT
@@ -288,70 +343,138 @@ describe('Scale Local Settings Cleanup Integration & Unit Tests', () => {
     });
   });
 
-  it('12. Integration: clicking "Limpar ajustes locais" removes all localSettings from the state, resulting in clean save payload without cleared keys, and renders correctly without throwing', async () => {
-    const handleStateChange = vi.fn();
-    const saveMock = vi.fn();
+  it('12. Integration CENÁRIO A: apagar apenas o tom, salvar e verificar onSave', async () => {
+    const onSaveMock = vi.fn().mockResolvedValue(undefined);
+    const onCloseMock = vi.fn();
 
-    // Harness to simulate ModernScaleForm saving flow after clear
-    const FormHarness = () => {
-      const [songSettings, setSongSettings] = useState<Record<string, any>>({
-        'song-target': { key: 'A', bpm: 85 },
-        'song-other': { key: 'C', bpm: 100 },
-      });
+    const { container } = render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        scaleToEdit={{
+          id: 'scale-1',
+          date: '2026-07-21',
+          eventTypeId: 'et-1',
+          locationId: 'loc-1',
+          time: '10:00',
+          songIds: ['song-target', 'song-other'],
+          songSettings: {
+            'song-target': { key: 'A', bpm: 85 }
+          }
+        }}
+        preselectedSongIds={['song-target', 'song-other']}
+        onSave={onSaveMock}
+        onClose={onCloseMock}
+        isSubmitting={false}
+      />
+    );
 
-      const handleUpdateSongSettings = async (
-        songId: string,
-        key: string | null,
-        bpm: number | null,
-        isGlobal: boolean
-      ) => {
-        if (!isGlobal) {
-          setSongSettings((prev: any) => {
-            const nextSettings = applyLocalScaleSongSettingsUpdate(prev, songId, key, bpm);
-            handleStateChange(nextSettings);
-            return nextSettings;
-          });
-        }
-        return { status: 'success' as const };
-      };
+    // 2. acessar a etapa Revisão
+    const reviewTab = screen.getByText('Revisão');
+    fireEvent.click(reviewTab);
 
-      const handleSave = () => {
-        const selectedSongs = ['song-target', 'song-other'];
-        const finalSongSettings = normalizeScaleSongSettings(selectedSongs, songSettings);
-        saveMock(finalSongSettings);
-      };
-
-      return (
-        <div>
-          <ScaleReviewRepertoire
-            songs={mockSongs}
-            songIds={['song-target', 'song-other']}
-            onMoveCallback={() => {}}
-            onUpdateSongSettings={handleUpdateSongSettings}
-            songSettings={songSettings}
-            goToStep={() => {}}
-          />
-          <button onClick={handleSave}>Salvar</button>
-        </div>
-      );
-    };
-
-    render(<FormHarness />);
-
-    // Click "Limpar ajustes locais"
-    const clearBtn = screen.getByText('Limpar ajustes locais');
-    expect(clearBtn).toBeInTheDocument();
-    fireEvent.click(clearBtn);
-
-    // After clicking clear, both keys should be cleared from the state
+    // Wait for step transition to complete and show song settings buttons
     await waitFor(() => {
-      expect(handleStateChange).toHaveBeenCalledWith({});
+      expect(screen.queryAllByText(/Editar ajustes/i).length).toBeGreaterThan(0);
     });
 
-    // Let's click Save to verify that the final save payload is clean without the keys
-    const saveBtn = screen.getByText('Salvar');
+    // 3. música possui override { key: "A", bpm: 85 }
+    // 4. abrir Ajustes
+    const editBtns = screen.getAllByText(/Editar ajustes/i);
+    // Click edit on the target song card
+    fireEvent.click(editBtns[0]);
+
+    // 5. apagar apenas o tom
+    const editPanel = document.getElementById('edit-panel-song-target');
+    expect(editPanel).toBeInTheDocument();
+    const keySelect = editPanel!.querySelector('select');
+    expect(keySelect).toBeInTheDocument();
+    fireEvent.change(keySelect!, { target: { value: '' } });
+
+    // 6. aplicar
+    const applyBtn = screen.getByText(/Aplicar/i);
+    fireEvent.click(applyBtn);
+
+    // 7. salvar formulário
+    const saveBtn = screen.getByText('Salvar Rascunho');
     fireEvent.click(saveBtn);
 
-    expect(saveMock).toHaveBeenCalledWith({});
+    // 8. verificar no onSave real
+    await waitFor(() => {
+      expect(onSaveMock).toHaveBeenCalled();
+    });
+
+    const savedPayload = onSaveMock.mock.calls[0][0];
+    expect(savedPayload.songIds).toEqual(['song-target', 'song-other']);
+    expect(savedPayload.songSettings['song-target']).toEqual({ bpm: 85 });
+    expect(savedPayload.songSettings['song-target'].key).toBeUndefined();
+    // outras músicas intactas
+    expect(savedPayload.songSettings['song-other']).toBeUndefined();
+  });
+
+  it('13. Integration CENÁRIO B: apagar apenas BPM, salvar e verificar onSave', async () => {
+    const onSaveMock = vi.fn().mockResolvedValue(undefined);
+    const onCloseMock = vi.fn();
+
+    const { container } = render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        scaleToEdit={{
+          id: 'scale-1',
+          date: '2026-07-21',
+          eventTypeId: 'et-1',
+          locationId: 'loc-1',
+          time: '10:00',
+          songIds: ['song-target', 'song-other'],
+          songSettings: {
+            'song-target': { key: 'A', bpm: 85 }
+          }
+        }}
+        preselectedSongIds={['song-target', 'song-other']}
+        onSave={onSaveMock}
+        onClose={onCloseMock}
+        isSubmitting={false}
+      />
+    );
+
+    // 2. acessar a etapa Revisão
+    const reviewTab = screen.getByText('Revisão');
+    fireEvent.click(reviewTab);
+
+    // Wait for step transition to complete and show song settings buttons
+    await waitFor(() => {
+      expect(screen.queryAllByText(/Editar ajustes/i).length).toBeGreaterThan(0);
+    });
+
+    // 3. música possui override { key: "A", bpm: 85 }
+    // 4. abrir Ajustes
+    const editBtns = screen.getAllByText(/Editar ajustes/i);
+    fireEvent.click(editBtns[0]);
+
+    // 5. apagar apenas BPM
+    const editPanel = document.getElementById('edit-panel-song-target');
+    expect(editPanel).toBeInTheDocument();
+    const bpmInput = editPanel!.querySelector('input[type="number"]');
+    expect(bpmInput).toBeInTheDocument();
+    fireEvent.change(bpmInput!, { target: { value: '' } });
+
+    // 6. aplicar
+    const applyBtn = screen.getByText(/Aplicar/i);
+    fireEvent.click(applyBtn);
+
+    // 7. salvar formulário
+    const saveBtn = screen.getByText('Salvar Rascunho');
+    fireEvent.click(saveBtn);
+
+    // 8. verificar no onSave real
+    await waitFor(() => {
+      expect(onSaveMock).toHaveBeenCalled();
+    });
+
+    const savedPayload = onSaveMock.mock.calls[0][0];
+    expect(savedPayload.songIds).toEqual(['song-target', 'song-other']);
+    expect(savedPayload.songSettings['song-target']).toEqual({ key: 'A' });
+    expect(savedPayload.songSettings['song-target'].bpm).toBeUndefined();
   });
 });

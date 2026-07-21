@@ -24,7 +24,7 @@ interface NormalizedAssignment {
   instrumentId: string | null;
 }
 
-function generateDeterministicId(orgId: string, eventType: string, eventId: string, recipientId: string, extra?: string): string {
+export function generateDeterministicId(orgId: string, eventType: string, eventId: string, recipientId: string, extra?: string): string {
   const hash = crypto.createHash('sha256');
   hash.update(`${orgId}|${eventType}|${eventId}|${recipientId}|${extra || ''}`);
   return hash.digest('hex');
