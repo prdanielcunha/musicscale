@@ -4740,41 +4740,16 @@ Atenção: Retorne APENAS o objeto JSON puro sem marcações de código markdown
   });
 
   app.post("/api/curation/approve", requireEcosystemRole, async (req: any, res: any) => {
-      try {
-          if (!db) throw new Error("Database not initialized");
-
-          const { candidateId, occurrenceId, idempotencyKey } = req.body;
-          const decodedToken = req.ecosystemContext;
-
-          const { CurationApprovalService } = await import('./services/server/curationApprovalService.js');
-          const service = new CurationApprovalService({
-              db,
-              admin,
-              logger
-          });
-
-          const result = await service.approve({
-              candidateId,
-              occurrenceId,
-              idempotencyKey,
-              decodedToken
-          });
-
-          res.json(result);
-      } catch (e: any) {
-          if (e.message.startsWith("ABORT_DUPLICATE|")) {
-              const songId = e.message.split("|")[1];
-              return res.status(409).json({ error: "Música duplicada encontrada na rechecagem", duplicateGlobalSongId: songId });
-          }
-          if (e.message === "ABORT_RESERVATION_COLLISION") {
-              return res.status(409).json({ error: "Outra candidata para a mesma música está sendo avaliada simultaneamente (colisão de reserva de identidade)." });
-          }
-          if (e.message === "Parâmetros obrigatórios ausentes.") {
-              return res.status(400).json({ error: e.message });
-          }
-          res.status(500).json({ error: e.message || "Erro no processo de aprovação." });
-      }
-  });
+    try {
+        if (!db) throw new Error("Database not initialized");
+        const { createCurationApprovalHttpHandler } = await import('./services/server/curationApprovalHttpHandler.js');
+        const handler = createCurationApprovalHttpHandler({ db, admin, logger });
+        return await handler(req, res);
+    } catch (error: any) {
+        logger.error("Admin curation fallback error:", error);
+        return res.status(500).json({ error: error.message });
+    }
+});
 
   app.post("/api/curation/link", requireEcosystemRole, async (req: any, res: any) => {
       try {
