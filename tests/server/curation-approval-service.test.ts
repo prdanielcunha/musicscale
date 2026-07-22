@@ -153,28 +153,92 @@ describe('CurationApprovalHttpHandler', () => {
         await handler(mockReq, mockRes);
         expect(approveSpy).toHaveBeenCalledWith(expect.objectContaining({ decodedToken: mockReq.ecosystemContext }));
     });
+
+    it('13. parâmetros inválidos', async () => {
+        const handler = createCurationApprovalHttpHandler(mockDeps);
+        const cases = [
+            { candidateId: 1, occurrenceId: 'o1', idempotencyKey: 'idk1' },
+            { candidateId: {}, occurrenceId: 'o1', idempotencyKey: 'idk1' },
+            { candidateId: [], occurrenceId: 'o1', idempotencyKey: 'idk1' },
+            { candidateId: '   ', occurrenceId: 'o1', idempotencyKey: 'idk1' },
+            { candidateId: 'c1', occurrenceId: 1, idempotencyKey: 'idk1' },
+            { candidateId: 'c1', occurrenceId: {}, idempotencyKey: 'idk1' },
+            { candidateId: 'c1', occurrenceId: [], idempotencyKey: 'idk1' },
+            { candidateId: 'c1', occurrenceId: '   ', idempotencyKey: 'idk1' },
+            { candidateId: 'c1', occurrenceId: 'o1', idempotencyKey: 1 },
+            { candidateId: 'c1', occurrenceId: 'o1', idempotencyKey: {} },
+            { candidateId: 'c1', occurrenceId: 'o1', idempotencyKey: [] },
+            { candidateId: 'c1', occurrenceId: 'o1', idempotencyKey: true },
+            { candidateId: 'c1', occurrenceId: 'o1', idempotencyKey: '   ' },
+            { candidateId: 'c1', occurrenceId: 'o1', idempotencyKey: 'a\u0000b' },
+            { candidateId: 'c1', occurrenceId: 'o1', idempotencyKey: 'a'.repeat(201) },
+        ];
+        
+        for (const c of cases) {
+            mockReq.body = c;
+            await handler(mockReq, mockRes);
+            expect(mockRes.status).toHaveBeenCalledWith(400);
+            expect(mockRes.json).toHaveBeenCalledWith({
+                error: "Parâmetros obrigatórios ausentes ou inválidos.",
+                code: "VALIDATION_ERROR"
+            });
+            mockRes.status.mockClear();
+            mockRes.json.mockClear();
+        }
+    });
+
+    it('14. log de erro inesperado com payload malformado sanitiza chaves', async () => {
+        const handler = createCurationApprovalHttpHandler(mockDeps);
+        mockReq.body = { candidateId: 1, occurrenceId: {}, idempotencyKey: [] };
+        mockRes.status.mockImplementationOnce(() => { throw new Error('crash'); }).mockReturnThis();
+        await handler(mockReq, mockRes);
+        expect(mockDeps.logger.error).toHaveBeenCalledWith(
+            "Curation approval HTTP error", 
+            expect.objectContaining({
+                candidateId: null,
+                occurrenceId: null,
+                correlationId: expect.any(String)
+            })
+        );
+        expect(mockDeps.logger.error.mock.calls[0][1].correlationId).not.toEqual([]);
+    });
+
+    it('15. log de CurationError sanitiza identificadores e inclui safeMessage', async () => {
+        const handler = createCurationApprovalHttpHandler(mockDeps);
+        mockReq.body = { candidateId: 1, occurrenceId: {}, idempotencyKey: [] };
+        mockRes.status.mockImplementationOnce(() => { throw new CurationError('DUPLICATE_GLOBAL_SONG', 'Duplicata encontrada', 409, 'g2'); }).mockReturnThis();
+        await handler(mockReq, mockRes);
+        expect(mockDeps.logger.error).toHaveBeenCalledWith(
+            "Curation approval HTTP error",
+            expect.objectContaining({
+                candidateId: null,
+                occurrenceId: null,
+                correlationId: expect.any(String),
+                code: 'DUPLICATE_GLOBAL_SONG',
+                safeMessage: 'Duplicata encontrada'
+            })
+        );
+    });
+
 });
 
 describe('CurationApprovalService', () => {
     it('tentar reatribuir transaction.get lança OVERRIDE_FORBIDDEN', async () => {
-        const error = await mockDb.runTransaction(async (t: any) => {
+        await expect(mockDb.runTransaction(async (t: any) => {
             t.get = () => {};
-        }).catch((e: any) => e);
-        expect(error.message).toBe('OVERRIDE_FORBIDDEN');
+        })).rejects.toThrow('OVERRIDE_FORBIDDEN');
     });
 
     it('tentar reatribuir transaction.set lança OVERRIDE_FORBIDDEN', async () => {
-        const error = await mockDb.runTransaction(async (t: any) => {
+        await expect(mockDb.runTransaction(async (t: any) => {
             t.set = () => {};
-        }).catch((e: any) => e);
-        expect(error.message).toBe('OVERRIDE_FORBIDDEN');
+        })).rejects.toThrow('OVERRIDE_FORBIDDEN');
     });
 
     it('tentar reatribuir transaction.update lança OVERRIDE_FORBIDDEN', async () => {
-        const error = await mockDb.runTransaction(async (t: any) => {
+        await expect(mockDb.runTransaction(async (t: any) => {
             t.update = () => {};
-        }).catch((e: any) => e);
-        expect(error.message).toBe('OVERRIDE_FORBIDDEN');
+        })).rejects.toThrow('OVERRIDE_FORBIDDEN');
     });
 
     it('500 error security - log does not leak, message is safe', async () => {

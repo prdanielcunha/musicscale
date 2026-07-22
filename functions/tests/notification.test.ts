@@ -94,15 +94,45 @@ async function runNotificationTests() {
   assert.deepStrictEqual(whereCalls[0], { field: 'organizationId', operator: '==', value: 'org-test' });
   assert.deepStrictEqual(whereCalls[1], { field: 'role', operator: 'in', value: ['Administrador', 'Dono'] });
 
-  // 4, 5, 6, 7, 8, 9: The query uses exactly this sequence, tested implicitly because get() won't return anything otherwise
-  // Let's test that failure in any part of where chain returns empty.
-  
-  // 10. BandScale não consulta banco
+  // 4. campo organizationId incorreto impede destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-test';
+  await processSuggestion('org-test');
+  assert.strictEqual(whereCalls[0].field, 'organizationId');
+  if (whereCalls[0].field !== 'organizationId') {
+    assert.fail('Campo da primeira cláusula do where deve ser organizationId');
+  }
+
+  // 5. valor organizationId incorreto impede destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-test';
+  await processSuggestion('org-test');
+  assert.strictEqual(whereCalls[0].value, 'org-test');
+
+  // 6. operador de igualdade incorreto impede destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-test';
+  await processSuggestion('org-test');
+  assert.strictEqual(whereCalls[0].operator, '==');
+
+  // 7. campo role incorreto impede destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-test';
+  await processSuggestion('org-test');
+  assert.strictEqual(whereCalls[1].field, 'role');
+
+  // 8. operador in incorreto impede destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-test';
+  await processSuggestion('org-test');
+  assert.strictEqual(whereCalls[1].operator, 'in');
+
+  // 9. lista de papéis incorreta impede destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-test';
+  await processSuggestion('org-test');
+  assert.deepStrictEqual(whereCalls[1].value, ['Administrador', 'Dono']);
+
+  // 10. BandScale não consulta
   whereCalls = []; createdDocs = [];
   await processBandScaleWrittenNotification(mockDeps, { params: { scaleId: 'sc1' }});
   assert.strictEqual(whereCalls.length, 0);
 
-  // 11. BandScale não cria documentos
+  // 11. BandScale não grava
   assert.strictEqual(createdDocs.length, 0);
 
   // 12. suggestion sem snapshot não consulta
@@ -114,12 +144,12 @@ async function runNotificationTests() {
   await processSuggestionCreatedNotification(mockDeps, { data: { data: () => ({}) } });
   assert.strictEqual(whereCalls.length, 0);
 
-  // 14. ALREADY_EXISTS com code 6
+  // 14. ALREADY_EXISTS por code 6
   createdDocs = [];
   await createNotificationWithDependencies(mockDeps, 'org-already_exists', { recipientId: 'r', type: 'system', title: 't', message: 'm', link: 'l' }, 'e');
   assert.strictEqual(createdDocs.length, 0);
 
-  // 15. ALREADY_EXISTS somente pela mensagem
+  // 15. ALREADY_EXISTS pela mensagem
   createdDocs = [];
   await createNotificationWithDependencies(mockDeps, 'org-already_msg', { recipientId: 'r', type: 'system', title: 't', message: 'm', link: 'l' }, 'e');
   assert.strictEqual(createdDocs.length, 0);

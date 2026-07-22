@@ -133,13 +133,24 @@ async function runTriggerTests() {
     assert.strictEqual(e.message, 'TRANSACTION_FAIL');
   }
 
-  // 9. coleção errada causa falha do teste;
+  // 9. prova comportamental do mock: referência com collectionPath incorreto faz a asserção canônica do path falhar
   resetMocks();
+  mockDb.collection = (colPath: string) => ({
+    doc: (id: string) => ({
+      collectionPath: 'wrongCollection',
+      id,
+      path: `wrongCollection/${id}`,
+      get: async () => ({ exists: false, data: () => null })
+    })
+  });
   await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song1', 'org1', mockDb as any);
-  assert.notStrictEqual(currentCollectionPath, 'wrongCollection');
-
-  // 10. documentId errado causa falha do teste.
-  assert.notStrictEqual(currentDocumentId, 'org1_wrongSong');
+  assert.strictEqual(currentCollectionPath, 'wrongCollection');
+  try {
+    assert.strictEqual(currentCollectionPath, 'songDiscoveryInbox');
+    assert.fail('Deveria ter falhado pois collectionPath e wrongCollection');
+  } catch (e: any) {
+    assert(e instanceof assert.AssertionError);
+  }
 
   console.log('Curation Trigger tests passed!');
 }

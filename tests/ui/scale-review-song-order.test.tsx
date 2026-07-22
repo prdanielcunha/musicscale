@@ -113,13 +113,16 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
     }
   ];
 
+  // Mock settings for testing
+  const initialSongSettings = {
+    'song-1': { key: 'A', bpm: 85 },
+    'song-2': { key: 'F', bpm: 72 },
+  };
+
   // Test Harness Component rendering the real production component
   const TestWrapper = ({
     initialOrder = ['song-1', 'song-2', 'song-3', 'song-4'],
-    initialSettings = {
-      'song-1': { key: 'A', bpm: 85 },
-      'song-2': { key: 'F', bpm: 72 },
-    },
+    initialSettings = initialSongSettings,
     onSettingsChange = async () => ({ status: 'success' as const }),
     onMoveCallback = null as any
   }) => {
@@ -661,42 +664,83 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
 
   // Req 11: DOIS MOVIMENTOS NO MESMO GESTO
   it('27. simulação completa touch: múltiplos movimentos no mesmo gesto, salva a ordem', async () => {
-    let moveIds: string[] = ['song-1', 'song-2', 'song-3', 'song-4'];
+    document.body.style.overflow = "scroll";
+    let currentIds = ['song-1', 'song-2', 'song-3', 'song-4'];
     const TestComponent = () => {
-        const [ids, setIds] = React.useState(moveIds);
-        return <ScaleReviewRepertoire songIds={ids} songs={mockSongs as any} tags={[]} songSettings={undefined} onUpdateSongSettings={vi.fn()} onSongIdsChange={(newIds) => { moveIds = newIds; setIds(newIds); }} goToStep={vi.fn()} />;
+        const [ids, setIds] = React.useState(currentIds);
+        return <ScaleReviewRepertoire songIds={ids} songs={mockSongs as any} tags={[]} songSettings={initialSongSettings} onUpdateSongSettings={vi.fn()} onSongIdsChange={(newIds) => { currentIds = newIds; setIds(newIds); }} goToStep={vi.fn()} />;
     };
     render(<TestComponent />);
     
-    const gripA = screen.getByLabelText('Reordenar Amazing Grace');
-    
-    // Start touch (index 0)
+    // 1. Iniciar A em Amazing Grace
+    let gripA = screen.getByLabelText('Reordenar Amazing Grace');
+    const startCardA = gripA.closest('[data-song-id]') as HTMLElement;
     fireEvent.touchStart(gripA, { touches: [{ clientX: 10, clientY: 10 }] });
     
-    // Move to 10,000 Reasons (C) position (which is initially index 2)
+    // 2. Mover A para o card real de 10,000 Reasons
     const targetCardC = screen.getByText('10,000 Reasons').closest('[data-song-id]') as HTMLElement;
-    expect(targetCardC).toBeInstanceOf(HTMLElement);
     document.elementFromPoint = vi.fn().mockReturnValue(targetCardC);
-    
     fireEvent.touchMove(gripA, { touches: [{ clientX: 10, clientY: 100 }] });
     
+    // 3. Aguardar o rerender
+    // 4. Consultar os cards reais no DOM
+    // 5. Confirmar a ordem intermediária por data-song-id
+    // 6. Confirmar a numeração intermediária exibida
     await waitFor(() => {
-      expect(moveIds).toEqual(['song-2', 'song-3', 'song-1', 'song-4']); // C is index 1 now, song-1 moved to index 2
+        const domCards = document.querySelectorAll('[data-song-id]');
+        expect(Array.from(domCards).map(c => c.getAttribute('data-song-id'))).toEqual(['song-2', 'song-3', 'song-1', 'song-4']);
+        const labels = document.querySelectorAll('.rounded-full.bg-slate-100');
+        expect(Array.from(labels).map(l => l.textContent)).toEqual(['1', '2', '3', '4']);
     });
     
-    // Now move again to Blessed Be Your Name (D) without ending gesture
+    // 7. Relocalizar a alça da música arrastada depois do rerender
+    gripA = screen.getByLabelText('Reordenar Amazing Grace');
+    
+    // 8. Relocalizar o card real de Blessed Be Your Name
     const targetCardD = screen.getByText('Blessed Be Your Name').closest('[data-song-id]') as HTMLElement;
-    expect(targetCardD).toBeInstanceOf(HTMLElement);
     document.elementFromPoint = vi.fn().mockReturnValue(targetCardD);
     
+    // 9. Realizar o segundo touchMove sem touchEnd
     fireEvent.touchMove(gripA, { touches: [{ clientX: 10, clientY: 200 }] });
     
+    // 10. Confirmar a ordem final no DOM
+    // 11. Confirmar a numeração final
+    // 12. Confirmar que cada título permanece associado ao seu songId
+    // 13. Confirmar que songSettings permanece associado ao songId
+    // 14. Confirmar exatamente quatro IDs
+    // 15. Confirmar quatro IDs únicos
     await waitFor(() => {
-      expect(moveIds).toEqual(['song-2', 'song-3', 'song-4', 'song-1']);
+        const domCards = document.querySelectorAll('[data-song-id]');
+        const ids = Array.from(domCards).map(c => c.getAttribute('data-song-id'));
+        expect(ids).toEqual(['song-2', 'song-3', 'song-4', 'song-1']);
+        expect(ids.length).toBe(4);
+        expect(new Set(ids).size).toBe(4);
+        
+        const labels = document.querySelectorAll('.rounded-full.bg-slate-100');
+        expect(Array.from(labels).map(l => l.textContent)).toEqual(['1', '2', '3', '4']);
+        
+        // title and songSettings association check
+        const song1Card = document.querySelector('[data-song-id="song-1"]');
+        expect(song1Card?.textContent).toContain('Amazing Grace');
+        expect(song1Card?.textContent).toContain('Tom A');
+        const song2Card = document.querySelector('[data-song-id="song-2"]');
+        expect(song2Card?.textContent).toContain('How Great Is Our God');
+        expect(song2Card?.textContent).toContain('Tom F');
     });
     
+    // 16. Executar touchEnd
     fireEvent.touchEnd(gripA);
+    
+    // 17. Confirmar overflow restaurado
+    expect(document.body.style.overflow).toBe("scroll");
+    
+    // 18. Confirmar opacity-50 removida
+    // 19. Confirmar shadow-2xl removida
+    const finalCardA = document.querySelector('[data-song-id="song-1"]');
+    expect(finalCardA).not.toHaveClass('opacity-50');
+    expect(finalCardA).not.toHaveClass('shadow-2xl');
   });
+
 
   // Req 12: CLEANUP TOUCH COMPLETO unmount
   it('28. limpa bloqueio de scroll ao desmontar componente com toque em andamento', () => {
@@ -715,5 +759,57 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
     expect(outerCard).not.toHaveClass('opacity-50');
     expect(outerCard).not.toHaveClass('shadow-2xl');
     expect(document.body.style.overflow).toBe('scroll');
+  });
+
+  it('29. casos de borda touch: elementFromPoint null, sem data-song-id, data-song-id inexistente, mesma posição, overflow hidden e novo gesto após cancelamento', async () => {
+    // A. overflow hidden é restaurado como hidden
+    document.body.style.overflow = "hidden";
+    const moveMock = vi.fn();
+    render(<TestWrapper onMoveCallback={moveMock} />);
+    const grip = screen.getByLabelText('Reordenar Amazing Grace');
+    
+    fireEvent.touchStart(grip, { touches: [{ clientX: 10, clientY: 20 }] });
+    expect(document.body.style.overflow).toBe('hidden');
+    
+    // B. elementFromPoint retorna null -> não reordena
+    document.elementFromPoint = vi.fn().mockReturnValue(null);
+    fireEvent.touchMove(grip, { touches: [{ clientX: 10, clientY: 100 }] });
+    expect(moveMock).not.toHaveBeenCalled();
+
+    // C. elementFromPoint retorna elemento sem data-song-id -> não reordena
+    const dummyDiv = document.createElement('div');
+    document.elementFromPoint = vi.fn().mockReturnValue(dummyDiv);
+    fireEvent.touchMove(grip, { touches: [{ clientX: 10, clientY: 100 }] });
+    expect(moveMock).not.toHaveBeenCalled();
+
+    // C2. elementFromPoint retorna elemento com data-song-id inexistente / inválido -> não reordena
+    const invalidCard = document.createElement('div');
+    invalidCard.setAttribute('data-song-id', 'song-non-existent');
+    document.elementFromPoint = vi.fn().mockReturnValue(invalidCard);
+    fireEvent.touchMove(grip, { touches: [{ clientX: 10, clientY: 100 }] });
+    expect(moveMock).not.toHaveBeenCalled();
+
+    // D. elementFromPoint retorna o mesmo card (mesma posição) -> não reordena
+    const sameCard = grip.closest('[data-song-id]') as HTMLElement;
+    document.elementFromPoint = vi.fn().mockReturnValue(sameCard);
+    fireEvent.touchMove(grip, { touches: [{ clientX: 10, clientY: 20 }] });
+    expect(moveMock).not.toHaveBeenCalled();
+
+    // E. touchCancel limpa e restaura overflow hidden
+    fireEvent.touchCancel(grip);
+    expect(document.body.style.overflow).toBe('hidden');
+
+    // F. novo gesto após cancelamento reordena normalmente
+    const targetCard = screen.getByText('10,000 Reasons').closest('[data-song-id]') as HTMLElement;
+    document.elementFromPoint = vi.fn().mockReturnValue(targetCard);
+    
+    fireEvent.touchStart(grip, { touches: [{ clientX: 10, clientY: 20 }] });
+    fireEvent.touchMove(grip, { touches: [{ clientX: 10, clientY: 100 }] });
+    
+    await waitFor(() => {
+      expect(moveMock).toHaveBeenCalledWith(['song-2', 'song-3', 'song-1', 'song-4']);
+    });
+
+    fireEvent.touchEnd(grip);
   });
 });
