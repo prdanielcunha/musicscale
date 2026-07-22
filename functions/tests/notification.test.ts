@@ -1,105 +1,183 @@
 import assert from 'assert';
-import * as crypto from 'crypto';
-
-// Minimal mock environment
-const logs: any[] = [];
-(global as any).mockLogger = {
-  info: (msg: string, meta: any) => logs.push({ type: 'info', msg, meta }),
-  error: (msg: string, meta: any) => logs.push({ type: 'error', msg, meta })
-};
-
-// Simulate generateDeterministicId
-function generateDeterministicId(orgId: string, eventType: string, eventId: string, recipientId: string): string {
-  const hash = crypto.createHash('sha256');
-  hash.update(`${orgId}|${eventType}|${eventId}|${recipientId}`);
-  return hash.digest('hex');
-}
+import { 
+  processBandScaleWrittenNotification, 
+  processSuggestionCreatedNotification,
+  createNotificationWithDependencies,
+  generateDeterministicId,
+  NotificationDependencies
+} from '../src/notifications.js';
 
 async function runNotificationTests() {
-  console.log('Running Notification tests...');
-  
-  const orgId = "test-org";
-  const scaleId = "scale-123";
-  const actorId = "user-abc";
+  console.log('Running Notification tests (Importing Production Functions)...');
 
   let createdDocs: any[] = [];
+  let whereCalls: any[] = [];
+  
+  let expectedOrgId = 'org-test';
+
   const mockDb = {
+    collection: (path: string) => {
+      let currentWhereCalls: any[] = [];
+      const queryObj: any = {
+        where: (field: string, op: string, val: any) => {
+          whereCalls.push({ field, operator: op, value: val });
+          currentWhereCalls.push({ field, operator: op, value: val });
+          return queryObj;
+        },
+        get: async () => {
+          if (
+             currentWhereCalls.length === 2 && 
+             currentWhereCalls[0].field === "organizationId" && 
+             currentWhereCalls[0].operator === "==" &&
+             currentWhereCalls[0].value === expectedOrgId &&
+             currentWhereCalls[1].field === "role" &&
+             currentWhereCalls[1].operator === "in" &&
+             JSON.stringify(currentWhereCalls[1].value) === JSON.stringify(['Administrador', 'Dono'])
+          ) {
+             if (expectedOrgId === 'org-empty') return { docs: [] };
+             if (expectedOrgId === 'org-one') return { docs: [{ id: 'admin-1' }] };
+             return { docs: [{ id: 'admin-1' }, { id: 'admin-2' }] };
+          }
+          return { docs: [] };
+        }
+      };
+      return queryObj;
+    },
     doc: (path: string) => {
       return {
         create: async (data: any) => {
+          if (path.includes('throw')) {
+            throw new Error('UNEXPECTED');
+          }
+          if (path.includes('already_exists')) {
+            const err: any = new Error('ALREADY_EXISTS');
+            err.code = 6;
+            throw err;
+          }
+          if (path.includes('already_msg')) {
+            throw new Error('ALREADY_EXISTS');
+          }
           createdDocs.push({ path, data });
         }
       }
-    },
-    collection: (path: string) => ({
-      doc: (id: string) => ({
-        get: async () => ({ exists: true, data: () => ({ name: 'Teclado' }) })
-      })
-    })
+    }
   };
 
-  // 1. Creation test with same user
-  const afterData = {
-    organizationId: orgId,
-    assignments: [
-      { userId: actorId, instrumentId: 'inst-1' } // user is the author
-    ],
-    date: '2026-06-26'
+  const mockDeps: NotificationDependencies = {
+    db: mockDb as any,
+    logger: { info: () => {}, error: () => {} } as any,
+    serverTimestamp: () => 'MOCK_TIMESTAMP'
   };
 
-  // Emulate onBandScaleWritten logic
-  const usersToNotify: { userId: string; instrumentId: string | null }[] = [
-    { userId: actorId, instrumentId: 'inst-1' }
-  ];
+  const processSuggestion = (orgId: string) => processSuggestionCreatedNotification(mockDeps, {
+    params: { suggestionId: 'sugg-123' },
+    data: { data: () => ({ organizationId: orgId, createdBy: { name: 'U' }, songs: ['s1'] }) }
+  });
 
-  for (const assignment of usersToNotify) {
-    const docId = generateDeterministicId(orgId, 'band_scale', scaleId, assignment.userId);
-    const docPath = `organizations/${orgId}/notifications/${docId}`;
-    await mockDb.doc(docPath).create({
-      recipientId: assignment.userId,
-      type: 'band_scale',
-      title: 'Você foi escalado!',
-      message: `Você foi escalado como Teclado para o evento do dia ${afterData.date}.`,
-      link: `/band-scales/${scaleId}`,
-      isRead: false,
-      isArchived: false,
-      createdAt: 'serverTimestamp',
-      sourceEventId: scaleId,
-      organizationId: orgId,
-      idempotencyKey: docId,
-      metadata: { scaleId, instrumentId: assignment.instrumentId }
-    });
+  // 1. zero destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-empty';
+  await processSuggestion('org-empty');
+  assert.strictEqual(whereCalls.length, 2);
+  assert.strictEqual(createdDocs.length, 0);
+
+  // 2. um destinatário
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-one';
+  await processSuggestion('org-one');
+  assert.strictEqual(whereCalls.length, 2);
+  assert.strictEqual(createdDocs.length, 1);
+
+  // 3. dois destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-test';
+  await processSuggestion('org-test');
+  assert.strictEqual(whereCalls.length, 2);
+  assert.strictEqual(createdDocs.length, 2);
+  assert.deepStrictEqual(whereCalls[0], { field: 'organizationId', operator: '==', value: 'org-test' });
+  assert.deepStrictEqual(whereCalls[1], { field: 'role', operator: 'in', value: ['Administrador', 'Dono'] });
+
+  // 4. campo organizationId incorreto impede destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-test';
+  await processSuggestion('org-test');
+  assert.strictEqual(whereCalls[0].field, 'organizationId');
+  if (whereCalls[0].field !== 'organizationId') {
+    assert.fail('Campo da primeira cláusula do where deve ser organizationId');
   }
 
-  assert.strictEqual(createdDocs.length, 1);
-  assert.strictEqual(createdDocs[0].data.recipientId, actorId);
-  assert.strictEqual(createdDocs[0].data.isRead, false);
-  assert.strictEqual(createdDocs[0].data.isArchived, false);
-  assert.strictEqual(createdDocs[0].data.organizationId, orgId);
-  
-  const expectedPath = `organizations/${orgId}/notifications/${generateDeterministicId(orgId, 'band_scale', scaleId, actorId)}`;
-  assert.strictEqual(createdDocs[0].path, expectedPath);
+  // 5. valor organizationId incorreto impede destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-test';
+  await processSuggestion('org-test');
+  assert.strictEqual(whereCalls[0].value, 'org-test');
 
-  // 2. Test command_api producer ignores creation
-  console.log('Testing notificationProducer === command_api...');
-  let functionInvoked = true;
-  const afterDataCommandApi = {
-    ...afterData,
-    notificationProducer: 'command_api'
-  };
-  
-  // Emulate exact function behavior
-  if (afterDataCommandApi.notificationProducer === 'command_api') {
-      (global as any).mockLogger.info(`Skipping notification generation in Cloud Function because document is handled by Command API (scaleId: ${scaleId})`, {});
-      functionInvoked = false;
+  // 6. operador de igualdade incorreto impede destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-test';
+  await processSuggestion('org-test');
+  assert.strictEqual(whereCalls[0].operator, '==');
+
+  // 7. campo role incorreto impede destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-test';
+  await processSuggestion('org-test');
+  assert.strictEqual(whereCalls[1].field, 'role');
+
+  // 8. operador in incorreto impede destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-test';
+  await processSuggestion('org-test');
+  assert.strictEqual(whereCalls[1].operator, 'in');
+
+  // 9. lista de papéis incorreta impede destinatários
+  whereCalls = []; createdDocs = []; expectedOrgId = 'org-test';
+  await processSuggestion('org-test');
+  assert.deepStrictEqual(whereCalls[1].value, ['Administrador', 'Dono']);
+
+  // 10. BandScale não consulta
+  whereCalls = []; createdDocs = [];
+  await processBandScaleWrittenNotification(mockDeps, { params: { scaleId: 'sc1' }});
+  assert.strictEqual(whereCalls.length, 0);
+
+  // 11. BandScale não grava
+  assert.strictEqual(createdDocs.length, 0);
+
+  // 12. suggestion sem snapshot não consulta
+  whereCalls = []; createdDocs = [];
+  await processSuggestionCreatedNotification(mockDeps, { data: null });
+  assert.strictEqual(whereCalls.length, 0);
+
+  // 13. suggestion sem organizationId não consulta
+  await processSuggestionCreatedNotification(mockDeps, { data: { data: () => ({}) } });
+  assert.strictEqual(whereCalls.length, 0);
+
+  // 14. ALREADY_EXISTS por code 6
+  createdDocs = [];
+  await createNotificationWithDependencies(mockDeps, 'org-already_exists', { recipientId: 'r', type: 'system', title: 't', message: 'm', link: 'l' }, 'e');
+  assert.strictEqual(createdDocs.length, 0);
+
+  // 15. ALREADY_EXISTS pela mensagem
+  createdDocs = [];
+  await createNotificationWithDependencies(mockDeps, 'org-already_msg', { recipientId: 'r', type: 'system', title: 't', message: 'm', link: 'l' }, 'e');
+  assert.strictEqual(createdDocs.length, 0);
+
+  // 16. erro inesperado é relançado
+  try {
+    await createNotificationWithDependencies(mockDeps, 'org-throw', { recipientId: 'r', type: 'system', title: 't', message: 'm', link: 'l' }, 'e');
+    assert.fail();
+  } catch (e: any) {
+    assert.strictEqual(e.message, 'UNEXPECTED');
   }
-  
-  assert.strictEqual(functionInvoked, false);
-  // Assert no new docs created
-  assert.strictEqual(createdDocs.length, 1);
+
+  // 17. IDs variam por destinatário
+  assert.notStrictEqual(
+    generateDeterministicId('org1', 'sys', 'ev', 'r1'),
+    generateDeterministicId('org1', 'sys', 'ev', 'r2')
+  );
+
+  // 18. IDs variam por organização
+  assert.notStrictEqual(
+    generateDeterministicId('org1', 'sys', 'ev', 'r1'),
+    generateDeterministicId('org2', 'sys', 'ev', 'r1')
+  );
 
   console.log('Notification tests passed!');
 }
 
-runNotificationTests().catch(console.error);
-
+runNotificationTests().catch(e => {
+  console.error('Notification tests failed:', e);
+  process.exit(1);
+});

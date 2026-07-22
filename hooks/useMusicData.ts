@@ -2,6 +2,7 @@ import { markStartupMetric, markStartupFailure, recordStartupGauge } from '../li
 import { logger } from '../lib/logger';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Song, Scale, EventType, Location, PopulatedScale, EventName, Tag, PopulatedSong, Role, Instrument, BandScale, PopulatedBandScale, UserProfile, FixedBandScale } from '../types';
+import { applyScaleSongSettings } from '../utils/scaleSongSettings';
 import { useAuth } from '../contexts/AuthContext';
 import { useApi } from '../contexts/ApiContext';
 
@@ -228,7 +229,11 @@ export const useMusicData = () => {
 
           initialPopulatedScalesResult = scalesData
             .map((scale: any): PopulatedScale | null => {
-                const scaleSongs = (scale.songIds || []).map((id: string) => populatedSongs.find((s: any) => s.id === id)).filter((s: any): s is PopulatedSong => !!s);
+                const scaleSongs = (scale.songIds || []).map((id: string) => {
+                  const s = populatedSongs.find((s: any) => s.id === id);
+                  if (!s) return null;
+                  return applyScaleSongSettings(s, scale.songSettings?.[id]);
+                }).filter((s: any): s is PopulatedSong => !!s);
                 const eventType = eventTypesData.find((et: any) => et.id === scale.eventTypeId);
                 const location = locationsData.find((l: any) => l.id === scale.locationId);
                 if (!eventType || !location) return null;
@@ -407,7 +412,11 @@ export const useMusicData = () => {
 
       const finalPopulatedScalesResult = scalesData
         .map((scale: any): PopulatedScale | null => {
-            const scaleSongs = (scale.songIds || []).map((id: string) => populatedSongs.find((s: any) => s.id === id)).filter((s: any): s is PopulatedSong => !!s);
+            const scaleSongs = (scale.songIds || []).map((id: string) => {
+              const s = populatedSongs.find((s: any) => s.id === id);
+              if (!s) return null;
+              return applyScaleSongSettings(s, scale.songSettings?.[id]);
+            }).filter((s: any): s is PopulatedSong => !!s);
             const eventType = eventTypesData.find((et: any) => et.id === scale.eventTypeId);
             const location = locationsData.find((l: any) => l.id === scale.locationId);
             if (!eventType || !location) return null;

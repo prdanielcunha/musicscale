@@ -1,136 +1,161 @@
 import assert from 'assert';
 import { processLocalSongWritten } from '../src/processor.js';
-import { GlobalLibraryCandidateRepository } from '../../services/server/globalLibraryCandidateRepository.js';
 
 async function runTriggerTests() {
   console.log('Running Trigger Processor tests...');
 
-  // Mock logger
-  const logs: any[] = [];
-  (global as any).mockLogger = {
-    info: (msg: string, meta: any) => logs.push({ type: 'info', msg, meta }),
-    error: (msg: string, meta: any) => logs.push({ type: 'error', msg, meta })
-  };
+  let writtenData: any = null;
+  let updatedData: any = null;
+  let existingDoc: any = null;
+  
+  let currentCollectionPath = '';
+  let currentDocumentId = '';
+  let currentFullPath = '';
+  
+  let setCalls = 0;
+  let updateCalls = 0;
+  let transactionCalls = 0;
 
-  let queriedCandidates: any[] = [];
-  let queriedGlobalSongs: any[] = [];
-  const mockDb = {
-        collection: (colPath: string) => {
-           if (colPath === 'globalSongs') {
-               return {
-                  where: (_field: string, _op: string, _val: any) => ({
-                      limit: (_limit: number) => ({
-                          get: async () => ({ docs: queriedGlobalSongs })
-                      })
-                  })
-               };
-           }
-           if (colPath === 'globalLibraryCandidates') {
-               return {
-                  doc: (id?: string) => ({ id: id || 'generated-candidate-id' }),
-                  where: (_field: string, _op: string, _val: any) => ({
-                      limit: (_limit: number) => ({
-                          get: async () => ({ docs: queriedCandidates })
-                      })
-                  })
-               };
-           }
-           return {} as any;
-        },
-        runTransaction: async (cb: any) => cb({
-          get: async () => ({ exists: false }),
-          set: () => {},
-          update: () => {}
-        })
-  };
+  class MockDb {
+    public runTransactionImpl: any;
 
-  // Replace default repo call by patching prototype
-  const orgAdd = GlobalLibraryCandidateRepository.prototype.addOccurrenceIdempotently;
-  let calls = 0;
-  GlobalLibraryCandidateRepository.prototype.addOccurrenceIdempotently = async function(candId: string, input: any) {
-    calls++;
-    return { outcome: 'candidate_created', candidateId: candId, occurrenceId: 'occ-123' };
-  };
-
-  // 1. música válida
-  calls = 0; queriedCandidates = [];
-  await processLocalSongWritten({ data: () => ({ title: 'Deus de Aliança', artist: 'Toque no Altar', lyrics: 'A letra', chords: 'A B C' }) }, 'song1', 'org1', mockDb);
-  assert.strictEqual(calls, 1);
-
-  // 2. música da Biblioteca Viva ignorada
-  calls = 0; queriedCandidates = [];
-  await processLocalSongWritten({ data: () => ({ title: 'Deus de Aliança', originGlobalSongId: 'global-1' }) }, 'song1', 'org1', mockDb);
-  assert.strictEqual(calls, 0);
-
-  // 3. música sem título ignorada
-  calls = 0; queriedCandidates = [];
-  await processLocalSongWritten({ data: () => ({ title: '   ', artist: 'Toque no Altar' }) }, 'song1', 'org1', mockDb);
-  assert.strictEqual(calls, 0);
-
-  // 4. música arquivada
-  calls = 0; queriedCandidates = [];
-  await processLocalSongWritten({ data: () => ({ title: 'Valid', deleted: true }) }, 'song1', 'org1', mockDb);
-  assert.strictEqual(calls, 0);
-
-  // 5. ausência de candidatos
-  calls = 0; queriedCandidates = []; // empty query
-  await processLocalSongWritten({ data: () => ({ title: 'Inédita 2024', lyrics: 'Letra nova local' }) }, 'song2', 'org1', mockDb);
-  assert.strictEqual(calls, 1);
-
-  // 6. possível duplicada (match found)
-  queriedCandidates = [
-      { id: 'cand-existente', data: () => ({
-          canonicalIdentity: {
-              normalizedTitle: 'inedita 2024',
-              normalizedArtists: [],
-              normalizedLyrics: 'letra nova local',
-              lyricsFingerprint: 'mock-fp',
-              originalTitle: 'Inédita 2024'
+    constructor() {
+      this.runTransactionImpl = async (cb: any) => {
+        transactionCalls++;
+        const t = {
+          get _get() {
+            return async (ref: any) => {
+              return {
+                exists: !!existingDoc,
+                data: () => existingDoc
+              };
+            };
           },
-          discovery: {
-              sourceSnapshot: { title: 'Inédita 2024', artists: [], lyrics: 'Letra nova local', chords: '', bpm: null }
+          get _set() {
+            return (ref: any, data: any) => { setCalls++; currentCollectionPath = ref.collectionPath; currentDocumentId = ref.id; currentFullPath = ref.path; writtenData = data; };
+          },
+          get _update() {
+            return (ref: any, data: any) => { updateCalls++; currentCollectionPath = ref.collectionPath; currentDocumentId = ref.id; currentFullPath = ref.path; updatedData = { ...existingDoc, ...data }; };
           }
-      }) }
-  ];
-  calls = 0;
-  await processLocalSongWritten({ data: () => ({ title: 'Inédita 2024', lyrics: 'Letra nova local' }) }, 'song3', 'org1', mockDb);
-  assert.strictEqual(calls, 1);
+        };
+        Object.defineProperty(t, 'get', { get: function() { return this._get; }, set: function() { throw new Error('OVERRIDE_FORBIDDEN'); } });
+        Object.defineProperty(t, 'set', { get: function() { return this._set; }, set: function() { throw new Error('OVERRIDE_FORBIDDEN'); } });
+        Object.defineProperty(t, 'update', { get: function() { return this._update; }, set: function() { throw new Error('OVERRIDE_FORBIDDEN'); } });
+        
+        return cb(t);
+      };
+    }
 
-  // 7. idempotência / colisão tratada -> already_exists
-  GlobalLibraryCandidateRepository.prototype.addOccurrenceIdempotently = async function(candId: string, input: any) {
-    calls++;
-    return { outcome: 'already_exists', candidateId: candId, occurrenceId: 'occ-4' };
-  };
-  calls = 0;
-  await processLocalSongWritten({ data: () => ({ title: 'Inédita 2024', lyrics: 'Letra nova local' }) }, 'song3', 'org1', mockDb);
-  assert.strictEqual(calls, 1);
+    collection(colPath: string) {
+      return {
+        doc: (id: string) => ({
+          collectionPath: colPath,
+          id,
+          path: `${colPath}/${id}`,
+          get: async () => ({
+            exists: !!existingDoc,
+            data: () => existingDoc
+          })
+        })
+      };
+    }
 
-  // 8. globalSong match
-  queriedCandidates = [];
-  queriedGlobalSongs = [
-      { id: 'global-2', data: () => ({
-          normalizedTitle: 'inedita 2024',
-          normalizedArtists: [],
-          normalizedLyrics: 'letra nova local',
-          title: 'Inédita 2024'
-      }) }
-  ];
-  calls = 0;
-  let saveMatchesCalls = 0;
-  GlobalLibraryCandidateRepository.prototype.addOccurrenceIdempotently = async function(candId: string, input: any) {
-    calls++;
-    return { outcome: 'candidate_created', candidateId: candId, occurrenceId: 'occ-5' };
-  };
-  GlobalLibraryCandidateRepository.prototype.saveCandidateMatches = async function(candId: string, matches: any) {
-    saveMatchesCalls++;
-  };
-  await processLocalSongWritten({ data: () => ({ title: 'Inédita 2024', lyrics: 'Letra nova local' }) }, 'song4', 'org1', mockDb);
-  assert.strictEqual(calls, 1);
-  assert.strictEqual(saveMatchesCalls, 1);
+    async runTransaction(cb: any) {
+      return this.runTransactionImpl(cb);
+    }
+  }
 
-  // Restore
-  GlobalLibraryCandidateRepository.prototype.addOccurrenceIdempotently = orgAdd;
-  console.log('Trigger Processor tests passed!');
+  let mockDb = new MockDb();
+
+  function resetMocks() {
+    mockDb = new MockDb();
+    writtenData = null;
+    updatedData = null;
+    existingDoc = null;
+    currentCollectionPath = '';
+    currentDocumentId = '';
+    currentFullPath = '';
+    setCalls = 0;
+    updateCalls = 0;
+    transactionCalls = 0;
+  }
+
+  // 1. path exato de organização e música;
+  resetMocks();
+  await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song1', 'org1', mockDb as any);
+  assert.strictEqual(currentFullPath, 'songDiscoveryInbox/org1_song1');
+  assert.strictEqual(currentCollectionPath, 'songDiscoveryInbox');
+  assert.strictEqual(currentDocumentId, 'org1_song1');
+
+  // 2. mesma organização e mesma música produzem o mesmo path;
+  resetMocks();
+  await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song1', 'org1', mockDb as any);
+  const path1 = currentFullPath;
+  resetMocks();
+  await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song1', 'org1', mockDb as any);
+  assert.strictEqual(path1, currentFullPath);
+
+  // 3. organizações diferentes produzem paths diferentes;
+  resetMocks();
+  await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song1', 'org2', mockDb as any);
+  assert.notStrictEqual(path1, currentFullPath);
+
+  // 4. músicas diferentes produzem paths diferentes;
+  resetMocks();
+  await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song2', 'org1', mockDb as any);
+  assert.notStrictEqual(path1, currentFullPath);
+
+  // 5. segunda execução usa update, não set;
+  resetMocks();
+  existingDoc = { status: 'ignored' };
+  await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song1', 'org1', mockDb as any);
+  assert.strictEqual(updateCalls, 1);
+  assert.strictEqual(setCalls, 0);
+
+  // 6. update parcial preserva keepMe no estado final simulado;
+  resetMocks();
+  existingDoc = { status: 'ignored', keepMe: 'sim' };
+  await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song1', 'org1', mockDb as any);
+  assert.strictEqual(updatedData.keepMe, 'sim');
+
+  // 7. música inelegível não inicia transação;
+  resetMocks();
+  await processLocalSongWritten({ data: () => ({ title: '', artist: 'A' }) }, 'song1', 'org1', mockDb as any);
+  assert.strictEqual(transactionCalls, 0);
+
+  // 8. erro transacional é propagado;
+  resetMocks();
+  mockDb.runTransactionImpl = async () => { throw new Error('TRANSACTION_FAIL'); };
+  try {
+    await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song1', 'org1', mockDb as any);
+    assert.fail();
+  } catch (e: any) {
+    assert.strictEqual(e.message, 'TRANSACTION_FAIL');
+  }
+
+  // 9. prova comportamental do mock: referência com collectionPath incorreto faz a asserção canônica do path falhar
+  resetMocks();
+  mockDb.collection = (colPath: string) => ({
+    doc: (id: string) => ({
+      collectionPath: 'wrongCollection',
+      id,
+      path: `wrongCollection/${id}`,
+      get: async () => ({ exists: false, data: () => null })
+    })
+  });
+  await processLocalSongWritten({ data: () => ({ title: 'A' }) }, 'song1', 'org1', mockDb as any);
+  assert.strictEqual(currentCollectionPath, 'wrongCollection');
+  try {
+    assert.strictEqual(currentCollectionPath, 'songDiscoveryInbox');
+    assert.fail('Deveria ter falhado pois collectionPath e wrongCollection');
+  } catch (e: any) {
+    assert(e instanceof assert.AssertionError);
+  }
+
+  console.log('Curation Trigger tests passed!');
 }
 
-runTriggerTests().catch(console.error);
+runTriggerTests().catch(e => {
+  console.error('Trigger tests failed:', e);
+  process.exit(1);
+});

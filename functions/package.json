@@ -7,7 +7,7 @@
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --external:firebase-admin --external:firebase-functions --outfile=dist/index.js",
     "lint": "tsc --noEmit",
-    "test": "tsx tests/trigger.test.ts"
+    "test": "tsx tests/trigger.test.ts && tsx tests/notification.test.ts"
   },
   "engines": {
     "node": "22"

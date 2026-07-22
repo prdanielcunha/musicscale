@@ -1,9 +1,11 @@
-import React, { useState, useMemo, useRef } from "react";
-import { PopulatedSong, Tag } from "../../types";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { PopulatedSong, Tag, ScaleSongSettingsUpdateResult } from "../../types";
+import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm, moveSongId, moveSongBeforeTarget } from "../../utils/scaleSongSettings";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { XCircleIcon } from "../icons/XCircleIcon";
 import { PlusCircleIcon } from "../icons/PlusCircleIcon";
-import { ArrowUp, ArrowDown, GripVertical } from "lucide-react";
+import { ArrowUp, ArrowDown, GripVertical, Settings2 } from "lucide-react";
+import { ScaleSongCard } from "./ScaleSongCard";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { useTranslation } from "react-i18next";
 
@@ -16,6 +18,7 @@ interface MusicBuilderProps {
   setFormData: React.Dispatch<React.SetStateAction<any>>;
   songs: PopulatedSong[];
   tags: Tag[];
+  onUpdateSongSettings: (songId: string, key: string | null, bpm: number | null, isGlobal: boolean) => Promise<ScaleSongSettingsUpdateResult>;
 }
 
 const MusicBuilder: React.FC<MusicBuilderProps> = ({
@@ -23,6 +26,7 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
   setFormData,
   songs,
   tags,
+  onUpdateSongSettings,
 }) => {
   const { t } = useTranslation();
   const [songSearch, setSongSearch] = useState("");
@@ -75,9 +79,13 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
     setFormData((prev: any) => {
       const currentIds = prev.songIds || [];
       if (currentIds.includes(songId)) {
+        // Remove from list and also remove local settings to keep it clean
+        const newSettings = { ...(prev.songSettings || {}) };
+        delete newSettings[songId];
         return {
           ...prev,
           songIds: currentIds.filter((id: string) => id !== songId),
+          songSettings: newSettings,
         };
       } else {
         return {
@@ -88,6 +96,10 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
     });
   };
 
+  const handleSettingsChange = async (songId: string, key: string | null, bpm: number | null, isGlobal: boolean) => {
+    return onUpdateSongSettings(songId, key, bpm, isGlobal);
+  };
+
   const moveSong = (index: number, direction: "up" | "down") => {
     const currentIds = formData.songIds || [];
     if (
@@ -95,9 +107,8 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
       (direction === "down" && index === currentIds.length - 1)
     ) return;
 
-    const newIds = [...currentIds];
-    const swapIndex = direction === "up" ? index - 1 : index + 1;
-    [newIds[index], newIds[swapIndex]] = [newIds[swapIndex], newIds[index]];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    const newIds = moveSongId(currentIds, index, targetIndex);
     setFormData((prev: any) => ({ ...prev, songIds: newIds }));
   };
 
@@ -130,24 +141,7 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
     if (!draggedSongId || draggedSongId === targetId) return;
 
     const currentIds = formData.songIds || [];
-    const sourceIndex = currentIds.indexOf(draggedSongId);
-    let targetIndex = currentIds.indexOf(targetId);
-    
-    if (targetId === "end") {
-      targetIndex = currentIds.length;
-    }
-    
-    if (sourceIndex === -1 || targetIndex === -1) return;
-    
-    const newIds = [...currentIds];
-    const [removed] = newIds.splice(sourceIndex, 1);
-    
-    // If we're dropping at a specific index, we need to adjust if we removed an item before it
-    if (targetId !== "end" && sourceIndex < targetIndex) {
-       targetIndex -= 1;
-    }
-    
-    newIds.splice(targetIndex, 0, removed);
+    const newIds = moveSongBeforeTarget(currentIds, draggedSongId, targetId);
     
     setFormData((prev: any) => ({ ...prev, songIds: newIds }));
     
@@ -159,6 +153,12 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
     setDraggedSongId(null);
     setDropTargetId(null);
   };
+
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, []);
 
   // Touch Drag Handlers
   const handleTouchStart = (
@@ -197,9 +197,7 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
 
     if (!isNaN(targetIndex) && targetIndex !== startIndex) {
       const currentIds = formData.songIds || [];
-      const newIds = [...currentIds];
-      const [movedItem] = newIds.splice(startIndex, 1);
-      newIds.splice(targetIndex, 0, movedItem);
+      const newIds = moveSongId(currentIds, startIndex, targetIndex);
 
       dragInfo.current.startIndex = targetIndex;
       setFormData((prev: any) => ({ ...prev, songIds: newIds }));
@@ -213,6 +211,10 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
     dragInfo.current = { startIndex: null, element: null };
     setDropTargetId(null);
     document.body.style.overflow = "auto"; // Re-enable scroll
+  };
+
+  const handleTouchCancel = () => {
+    handleTouchEnd();
   };
 
   return (
@@ -231,244 +233,193 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
           onClick={() => setMobileTab("setlist")} 
           className={`flex-1 py-2 text-[13px] font-bold tracking-wide rounded-lg transition-all flex items-center justify-center gap-1.5 ${mobileTab === 'setlist' ? 'bg-white dark:bg-[#2A2A2C] shadow-sm text-slate-800 dark:text-white' : 'text-slate-500'}`}
         >
-          {t('scaleModal.myRepertoire', 'Meu Repertório')} {selectedSongsList.length > 0 && <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${mobileTab === 'setlist' ? 'bg-primary text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300'}`}>{selectedSongsList.length}</span>}
+          {t('scaleModal.repertoireTab', 'Repertório')} 
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${mobileTab === 'setlist' ? (selectedSongsList.length > 0 ? 'bg-primary text-white' : 'bg-primary/20 text-primary dark:text-primary-light') : (selectedSongsList.length > 0 ? 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300' : 'bg-transparent text-slate-400')}`}>{selectedSongsList.length}</span>
         </button>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Library Column */}
-        <div className={`flex-col w-full md:w-1/2 ${mobileTab === 'library' ? 'flex' : 'hidden md:flex'}`}>
-          <div className="flex flex-col space-y-3 flex-shrink-0">
-            <label className={formLabelClass}>{t('scaleModal.availableSongs')}</label>
-            <input
-              type="search"
-              placeholder={t('scaleModal.searchSongs')}
-              value={songSearch}
-              onChange={(e) => setSongSearch(e.target.value)}
-              className={formInputClass}
-            />
-
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 p-1">
-          <div className="sm:col-span-3 inline-flex rounded-xl shadow-sm bg-slate-100 dark:bg-black/40 border border-slate-200/60 dark:border-white/5 p-1 w-full">
-            <button
-              type="button"
-              onClick={() => setSongStatusFilter("all")}
-              className={`w-1/3 px-2 py-1.5 text-xs font-bold tracking-wide rounded-lg transition-all ${songStatusFilter === "all" ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"}`}
-            >
-              {t('scaleModal.allFilter')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSongStatusFilter("active")}
-              className={`w-1/3 px-2 py-1.5 text-xs font-bold tracking-wide rounded-lg transition-all ${songStatusFilter === "active" ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"}`}
-            >
-              {t('scaleModal.activeFilter')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSongStatusFilter("new")}
-              className={`w-1/3 px-2 py-1.5 text-xs font-bold tracking-wide rounded-lg transition-all ${songStatusFilter === "new" ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white"}`}
-            >
-              {t('scaleModal.newFilter')}
-            </button>
+      {/* Mobile Summary Banner (hoisted) */}
+      <div className={`md:hidden mb-4 rounded-xl border p-3 flex flex-col gap-2 transition-all ${selectedSongsList.length > 0 ? 'bg-primary/5 border-primary/20 dark:bg-primary/10 dark:border-primary/30' : 'bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10'}`}>
+        {selectedSongsList.length === 0 ? (
+          <div className="flex flex-col">
+            <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200" aria-live="polite">{t('scaleModal.noSongsSelected', 'Nenhuma música selecionada')}</span>
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{t('scaleModal.noSongsSelectedDescription', 'Escolha músicas da biblioteca para montar o repertório.')}</span>
           </div>
-          <div className="sm:col-span-2">
-            <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-50 dark:bg-black/20 border border-slate-200/80 dark:border-white/10 rounded-xl min-h-[44px] h-full transition-all focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30">
-              {selectedFilterTags.map((tag) => (
-                <div
-                  key={tag.id}
-                  className="flex items-center gap-1 bg-primary/10 text-primary-dark dark:text-primary-light text-[11px] font-bold tracking-wide px-2 py-1 rounded-md"
-                >
-                  <span>{tag.name}</span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSongTagFilterIds((prev) =>
-                        prev.filter((id) => id !== tag.id),
-                      )
-                    }
-                    className="hover:bg-primary/20 rounded-full"
-                    aria-label={`Remover tag ${tag.name}`}
-                  >
-                    <XCircleIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              <div className="relative flex-grow min-w-[120px]">
-                <select
-                  id="tag-filter-add"
-                  value=""
-                  onChange={(e) => {
-                    const newId = e.target.value;
-                    if (newId && !songTagFilterIds.includes(newId)) {
-                      setSongTagFilterIds((prev) => [...prev, newId]);
-                    }
-                  }}
-                  className="w-full h-full appearance-none bg-transparent border-none focus:ring-0 text-sm text-slate-500 dark:text-gray-400 p-1 cursor-pointer"
-                  disabled={availableFilterTags.length === 0}
-                >
-                  <option value="" disabled>
-                    {availableFilterTags.length > 0
-                      ? t('scaleModal.addTag')
-                      : t('scaleModal.noTag')}
-                  </option>
-                  {availableFilterTags.map((tag) => (
-                    <option key={tag.id} value={tag.id}>
-                      {tag.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-[13px] font-bold text-primary-dark dark:text-primary-light" aria-live="polite">
+                {selectedSongsList.length === 1 
+                  ? t('scaleModal.selectedSongsCount_one', '1 música selecionada') 
+                  : t('scaleModal.selectedSongsCount', '{{count}} músicas selecionadas', { count: selectedSongsList.length })}
+              </span>
+              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 truncate">
+                {selectedSongsList.length <= 2 
+                  ? selectedSongsList.map(s => s.title).join(', ')
+                  : t('scaleModal.selectedSongsPreviewMore', '{{songs}} +{{more}}', { 
+                      songs: selectedSongsList.slice(0, 2).map(s => s.title).join(', '), 
+                      more: selectedSongsList.length - 2 
+                    })}
+              </span>
             </div>
-          </div>
-        </div>
-        </div>
-
-        <div className="space-y-2 pr-2 rounded-2xl p-1">
-          {filteredSongs.map((song) => {
-            const isSelected = formData.songIds?.includes(song.id);
-            const hasChords = !!song.content;
-            const hasLyrics = !!song.lyrics;
-            const bpmBadge = song.bpm ? ` · BPM: ${song.bpm}` : " · BPM não detectado";
-            const keyBadge = song.key ? `Tom: ${song.key}` : "";
-
-            return (
-              <button
+            {mobileTab === 'library' ? (
+              <button 
                 type="button"
-                key={song.id}
-                onClick={() => handleSongToggle(song.id)}
-                className={`w-full text-left p-3 rounded-xl flex justify-between items-center transition-all duration-300 border ${isSelected ? "bg-primary/5 border-primary/30 shadow-sm dark:bg-primary/10 dark:border-primary/30" : "bg-white dark:bg-[#1C1C1E] border-slate-100 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10 hover:shadow-sm"}`}
+                onClick={() => setMobileTab('setlist')}
+                className="shrink-0 bg-white dark:bg-[#2A2A2C] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-sm"
               >
-                <div className="flex-1 min-w-0 pr-3">
-                  <p className={`font-semibold text-sm truncate transition-colors ${isSelected ? "text-primary-dark dark:text-primary-light" : "text-slate-800 dark:text-slate-200"}`}>
-                    {song.title}
-                  </p>
-                  <p className={`text-[11px] truncate transition-colors font-medium mt-0.5 ${isSelected ? "text-primary/70 dark:text-primary-light/70" : "text-slate-500 dark:text-slate-400"}`}>
-                    {song.artist} {keyBadge ? ` · ${keyBadge}` : ""}{bpmBadge}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                     {hasChords && <span className="text-[9px] px-1.5 py-0.5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded bg-slate-50 dark:bg-white/5 uppercase font-bold tracking-widest">{t('scaleModal.chords')}</span>}
-                     {hasLyrics && <span className="text-[9px] px-1.5 py-0.5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded bg-slate-50 dark:bg-white/5 uppercase font-bold tracking-widest">{t('scaleModal.lyrics')}</span>}
-                     {!hasChords && !hasLyrics && <span className="text-[9px] px-1.5 py-0.5 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 rounded bg-slate-50 dark:bg-white/5 uppercase font-bold tracking-widest opacity-60">{t('scaleModal.noChords')}</span>}
-                     {song.tagIds?.map(tagId => {
-                         const tag = tags.find(t => t.id === tagId);
-                         return tag ? <span key={tag.id} className="text-[9px] px-1.5 py-0.5 border border-primary/20 text-primary-dark dark:text-primary-light rounded bg-primary/5 uppercase font-bold tracking-widest">{tag.name}</span> : null;
-                     })}
-                  </div>
-                </div>
-                <div onClick={(e) => { e.stopPropagation(); handleSongToggle(song.id); }} className={`flex-shrink-0 flex items-center justify-center transition-all ${isSelected ? "text-primary dark:text-primary-light bg-primary/10 px-2.5 py-1.5 rounded-lg border border-primary/20 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 dark:hover:text-red-400 dark:hover:border-red-900/30" : "w-8 h-8 rounded-full bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-600 dark:hover:text-white"}`}>
-                  {isSelected ? (
-                    <span className="text-[10px] font-bold uppercase tracking-widest flex items-center">
-                      {t('scaleModal.added')} <XCircleIcon className="w-3.5 h-3.5 ml-1.5 opacity-60" />
-                    </span>
-                  ) : (
-                    <PlusCircleIcon className="w-5 h-5" />
-                  )}
-                </div>
+                {t('scaleModal.viewSetlist', 'Ver repertório')}
               </button>
-            );
-          })}
-          {filteredSongs.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
-               <MusicNoteIcon className="w-8 h-8 text-slate-300 dark:text-slate-600 mb-3" />
-               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('scaleModal.noSongsFound')}</p>
-               <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t('scaleModal.adjustSearch')}</p>
-            </div>
-          )}
+            ) : (
+              <button 
+                type="button"
+                onClick={() => setMobileTab('library')}
+                className="shrink-0 bg-white dark:bg-[#2A2A2C] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-sm"
+              >
+                {t('scaleModal.addMoreSongs', 'Adicionar mais músicas')}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-6 h-full">
+        {/* Library Column */}
+        <div className={`flex-col w-full lg:w-1/2 h-full overflow-hidden ${mobileTab === 'library' ? 'flex' : 'hidden md:flex'}`}>
+          <div className="flex flex-col space-y-3 flex-shrink-0 mb-4">
+             <div className="relative">
+               <input 
+                 type="text" 
+                 value={songSearch} 
+                 onChange={e => setSongSearch(e.target.value)} 
+                 placeholder={t('scaleModal.searchSongs', 'Buscar músicas...')}
+                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-800 dark:text-white placeholder:text-slate-400"
+               />
+             </div>
+             
+             {/* Status Filters */}
+             <div className="flex space-x-2">
+               {['all', 'active', 'new'].map((status) => (
+                 <button
+                   key={status}
+                   type="button"
+                   onClick={() => setSongStatusFilter(status as any)}
+                   className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all ${
+                     songStatusFilter === status
+                       ? "bg-primary text-white shadow-sm"
+                       : "bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10"
+                   }`}
+                 >
+                   {t(`scaleModal.filter_${status}`, status === 'all' ? 'Todas' : status === 'active' ? 'Ativas' : 'Novas')}
+                 </button>
+               ))}
+             </div>
+
+             {/* Tag Filters */}
+             <div className="flex flex-wrap gap-2 items-center">
+                {selectedFilterTags.map(tag => (
+                  <span key={tag.id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-primary/10 text-primary-dark dark:text-primary-light">
+                    {tag.name}
+                    <button type="button" onClick={() => setSongTagFilterIds(prev => prev.filter(id => id !== tag.id))} className="hover:text-primary"><XCircleIcon className="w-3.5 h-3.5"/></button>
+                  </span>
+                ))}
+                {availableFilterTags.length > 0 && (
+                  <select 
+                    className="bg-transparent text-[11px] font-medium text-slate-500 dark:text-slate-400 outline-none cursor-pointer"
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setSongTagFilterIds(prev => [...prev, e.target.value]);
+                        e.target.value = "";
+                      }
+                    }}
+                  >
+                    <option value="">+ {t('scaleModal.filterTag', 'Tag')}</option>
+                    {availableFilterTags.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                )}
+             </div>
+          </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 pb-20 md:pb-4">
+            {filteredSongs.length > 0 ? (
+              filteredSongs.map(song => {
+                const isSelected = selectedSongsList.some(s => s.id === song.id);
+                return (
+                  <ScaleSongCard
+                    key={song.id}
+                    song={song}
+                    isSelected={isSelected}
+                    mode="library"
+                    tags={tags}
+                    localSettings={formData.songSettings?.[song.id]}
+                    onToggle={() => handleSongToggle(song.id)}
+                    onSettingsChange={(key, bpm, isGlobal) => handleSettingsChange(song.id, key, bpm, isGlobal)}
+                  />
+                );
+              })
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
+                <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1">{t('scaleModal.noSongsFoundTitle', 'Nenhuma música')}</span>
+                <span className="text-[11px] text-slate-500 max-w-[200px]">{t('scaleModal.noSongsFoundDesc', 'Tente buscar com outros termos')}</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Setlist Column */}
-        <div className={`flex-col bg-slate-50/50 dark:bg-[#1C1C1E]/50 rounded-2xl md:bg-transparent w-full md:w-1/2 ${mobileTab === 'setlist' ? 'flex' : 'hidden md:flex'}`}>
-          <div className="flex flex-col space-y-3 p-4 md:p-0">
-            <label className={formLabelClass}>
-              {t('scaleModal.scaleRepertoire')} ({formData.songIds?.length || 0})
-            </label>
-            <div
-              className="space-y-2 pr-2"
-            >
-          {selectedSongsList.length > 0 ? (
-            selectedSongsList.map((song, index) => {
-              const hasChords = !!song.content;
-              const hasLyrics = !!song.lyrics;
-              const bpmBadge = song.bpm ? ` · BPM: ${song.bpm}` : " · BPM não detectado";
-              const keyBadge = song.key ? `Tom: ${song.key}` : "";
-
-              return (
-              <React.Fragment key={song.id}>
-                <div
-                  onDragOver={(e) => handleDragOver(e, song.id)}
-                  onDrop={(e) => handleDrop(e, song.id)}
-                  onDragLeave={() => setDropTargetId(null)}
-                  className={`transition-all duration-150 rounded-xl ${dropTargetId === song.id ? "bg-primary/30 h-10 my-2" : "h-1 my-0.5"}`}
-                />
-                <div
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, song.id)}
-                  onDragEnd={handleDragEnd}
-                  data-song-id={song.id}
-                  data-index={index}
-                  className={`group flex items-center p-3 rounded-xl bg-white dark:bg-[#1C1C1E] border border-slate-100 dark:border-white/5 shadow-sm hover:shadow-md transition-all ${draggedSongId === song.id ? "opacity-30 scale-95" : "opacity-100 hover:border-slate-300 dark:hover:border-white/10"}`}
-                >
-                  <div
-                    onTouchStart={(e) => handleTouchStart(e, index)}
-                    className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400 touch-none transition-colors"
-                  >
-                    <GripVertical className="w-5 h-5" />
+        <div className={`flex-col w-full lg:w-1/2 h-full overflow-hidden ${mobileTab === 'setlist' ? 'flex' : 'hidden md:flex'}`}>
+          <div className="hidden md:flex items-center justify-between mb-4 flex-shrink-0">
+             <h3 className="text-[14px] font-bold text-slate-800 dark:text-white flex items-center gap-2">
+               {t('scaleModal.repertoireTitle', 'Repertório')} 
+               <span className="bg-primary/10 text-primary dark:text-primary-light px-2 py-0.5 rounded-full text-[11px]">{selectedSongsList.length}</span>
+             </h3>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-20 md:pb-4">
+             {selectedSongsList.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="mb-3 px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-lg flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                    <Settings2 className="w-4 h-4 shrink-0" />
+                    <span className="text-[11px] leading-tight font-medium">
+                      {t('scaleModal.customizeKeyBpmHelp', 'Personalize o tom e o BPM de cada música para esta escala.')}
+                    </span>
                   </div>
-                  
-                  <div className="flex-1 min-w-0 px-2 flex flex-col justify-center">
-                    <div className="flex items-center gap-2">
-                       <div className="text-[10px] font-black bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-300 px-1.5 py-0.5 rounded-md min-w-[20px] text-center">{String(index + 1).padStart(2, '0')}</div>
-                       <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">
-                         {song.title}
-                       </p>
-                    </div>
-                    <div className="flex flex-col ml-8 mt-0.5">
-                      <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">
-                        {song.artist} {keyBadge ? ` · ${keyBadge}` : ""}{bpmBadge}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
-                         {hasChords && <span className="text-[9px] px-1.5 py-0.5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded bg-white dark:bg-black/20 uppercase font-bold tracking-widest">{t('scaleModal.chords')}</span>}
-                         {hasLyrics && <span className="text-[9px] px-1.5 py-0.5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 rounded bg-white dark:bg-black/20 uppercase font-bold tracking-widest">{t('scaleModal.lyrics')}</span>}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center flex-shrink-0 gap-1 transition-opacity">
-                    <div className="flex flex-col bg-slate-50 dark:bg-white/5 rounded-lg overflow-hidden border border-slate-100 dark:border-white/5 mr-1">
-                      <button
-                        type="button"
-                        onClick={() => moveSong(index, "up")}
-                        disabled={index === 0}
-                        className="p-0.5 text-slate-400 enabled:hover:bg-slate-200 dark:enabled:hover:bg-white/10 enabled:hover:text-slate-700 dark:enabled:hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        aria-label="Mover para cima"
-                      >
-                        <ArrowUp className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveSong(index, "down")}
-                        disabled={index === selectedSongsList.length - 1}
-                        className="p-0.5 text-slate-400 enabled:hover:bg-slate-200 dark:enabled:hover:bg-white/10 enabled:hover:text-slate-700 dark:enabled:hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        aria-label="Mover para baixo"
-                      >
-                        <ArrowDown className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleSongToggle(song.id)}
-                      className="p-1.5 text-slate-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors border border-transparent hover:border-red-600"
-                      title="Remover"
-                    >
-                      <XCircleIcon className="w-5 h-5" />
-                    </button>
-                  </div>
+                  {selectedSongsList.map((song, index) => {
+                  return (
+                    <React.Fragment key={song.id}>
+                      <div 
+                        onDragOver={(e) => handleDragOver(e, song.id)}
+                        onDrop={(e) => handleDrop(e, song.id)}
+                        onDragLeave={() => setDropTargetId(null)}
+                        className={`h-2 rounded-md transition-all duration-150 ${dropTargetId === song.id ? "bg-primary/50 h-8" : ""}`}
+                      />
+                      <ScaleSongCard
+                        song={song}
+                        isSelected={true}
+                        mode="setlist"
+                        index={index}
+                        tags={tags}
+                        localSettings={formData.songSettings?.[song.id]}
+                        onToggle={() => handleSongToggle(song.id)}
+                        onMoveUp={() => moveSong(index, "up")}
+                        onMoveDown={() => moveSong(index, "down")}
+                        isFirst={index === 0}
+                        isLast={index === selectedSongsList.length - 1}
+                        isDragging={draggedSongId === song.id}
+                        onDragStart={(e) => handleDragStart(e, song.id)}
+                        onDragEnd={handleDragEnd}
+                        onTouchStart={(e: any) => handleTouchStart(e, index)}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchCancel={handleTouchCancel}
+                        onSettingsChange={(key, bpm, isGlobal) => handleSettingsChange(song.id, key, bpm, isGlobal)}
+                      />
+                    </React.Fragment>
+                  )
+                })}
                 </div>
-              </React.Fragment>
-            )})
-          ) : (
+              ) : (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
               <div className="w-16 h-16 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-slate-100 dark:border-white/5 flex items-center justify-center mb-4">
                  <MusicNoteIcon className="w-8 h-8 text-primary/50" />
@@ -509,7 +460,6 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
         </div>
       </div>
     </div>
-  </div>
   );
 };
 
