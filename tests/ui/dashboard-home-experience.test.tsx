@@ -1,179 +1,350 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import DashboardPage from '../../pages/DashboardPage';
-import { useHomeExperience } from '../../hooks/useHomeExperience';
-import { useAuth } from '../../contexts/AuthContext';
-import { useMusic } from '../../contexts/MusicDataContext';
-import { useSuggestionsContext } from '../../contexts/SuggestionContext';
-import { useModals } from '../../contexts/ModalContext';
-import { BrowserRouter } from 'react-router-dom';
 
-vi.mock('../../hooks/useHomeExperience');
-vi.mock('../../contexts/AuthContext');
-vi.mock('../../contexts/MusicDataContext');
-vi.mock('../../contexts/SuggestionContext');
-vi.mock('../../contexts/ModalContext');
-vi.mock('../../hooks/useMusicScaleEntitlements', () => ({
-  useMusicScaleEntitlements: () => ({ hasFeature: () => true })
-}));
+// Mock Modules
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, fallback: string, vars?: any) => {
-      if (key === 'dashboard.noOrgTitle') return 'Nenhuma organização conectada';
-      if (key === 'dashboard.focus.createNextEvent') return 'Criar próxima escala';
-      if (key === 'dashboard.focus.continueDraft') return 'Continue preparando';
-      if (key === 'dashboard.focus.resolveIssues') return 'Resolver pendências';
-      if (key === 'dashboard.focus.noEventsTitle') return 'Você não tem compromissos próximos.';
-      if (key === 'dashboard.focus.assignedEyebrow') return 'Você está escalado';
-      if (key === 'dashboard.focus.openRepertoire') return 'Abrir repertório';
-      if (key === 'dashboard.upcomingEvents.viewAll') return 'Ver todos';
-      if (key === 'dashboard.secondaryContent.exploreMore') return 'Explorar mais';
-      if (key === 'dashboard.attention.missingRepertoire') return 'Repertório vazio';
-      
-      if (vars && vars.count !== undefined) return fallback.replace('{{count}}', vars.count.toString());
-      return fallback || key;
+vi.unmock('react-i18next');
+import i18n from 'i18next';
+import { I18nextProvider, initReactI18next } from 'react-i18next';
+import pt from '../../locales/pt.json';
+import en from '../../locales/en.json';
+import es from '../../locales/es.json';
+
+i18n
+  .use(initReactI18next)
+  .init({
+    resources: {
+      'pt-BR': { translation: pt },
+      'en-US': { translation: en },
+      'es-ES': { translation: es }
     },
-    i18n: { language: 'pt' }
+    lng: 'pt-BR',
+    fallbackLng: 'pt-BR',
+    interpolation: { escapeValue: false }
+  });
+
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
+const mockUseAuth = vi.fn();
+vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => mockUseAuth() }));
+
+const mockUseMusic = vi.fn();
+vi.mock('../../contexts/MusicDataContext', () => ({ useMusic: () => mockUseMusic() }));
+
+const mockUseCapability = vi.fn();
+vi.mock('../../hooks/useCapability', () => ({ useCapability: () => mockUseCapability() }));
+
+const mockUseFirstScaleExperience = vi.fn();
+vi.mock('../../hooks/useFirstScaleExperience', () => ({ useFirstScaleExperience: () => mockUseFirstScaleExperience() }));
+
+const mockUseSuggestionsContext = vi.fn();
+vi.mock('../../contexts/SuggestionContext', () => ({ useSuggestionsContext: () => mockUseSuggestionsContext() }));
+
+const mockOpenScaleDetail = vi.fn();
+const mockOpenBandScaleDetail = vi.fn();
+const mockOpenSongDetail = vi.fn();
+const mockOpenScaleForm = vi.fn();
+vi.mock('../../contexts/ModalContext', () => ({
+  useModals: () => ({
+    openScaleDetail: mockOpenScaleDetail,
+    openBandScaleDetail: mockOpenBandScaleDetail,
+    openSongDetail: mockOpenSongDetail,
+    openScaleForm: mockOpenScaleForm,
   })
 }));
 
+const mockAssignmentResponseActions = vi.fn();
 vi.mock('../../components/scales/AssignmentResponseActions', () => ({
-  default: ({ musicScaleId, eventStart }: any) => <div data-testid="assignment-response">Response {musicScaleId} {eventStart}</div>
+  default: (props: any) => {
+    mockAssignmentResponseActions(props);
+    return <div data-testid="mock-response-actions">Response Actions</div>;
+  }
+}));
+
+vi.mock('../../components/support/SupportRuntimeInspector', () => ({
+  SupportRuntimeInspector: () => <div data-testid="support-inspector" style={{ display: 'none' }} />
 }));
 
 vi.mock('../../components/onboarding/FirstScaleJourneyCard', () => ({
   FirstScaleJourneyCard: () => <div data-testid="first-scale-journey">Journey</div>
 }));
 
-const renderWithRouter = (ui: React.ReactElement) => {
-  return render(<BrowserRouter>{ui}</BrowserRouter>);
+// Default Mocks
+const defaultUser = { uid: 'u1', displayName: 'Daniel' };
+const defaultOrg = { id: 'org1', slug: 'org1' };
+const getFutureDate = () => '2099-12-31';
+
+
+const renderWithRouter = (ui: React.ReactElement, lang = 'pt-BR') => {
+  i18n.changeLanguage(lang);
+  return render(
+    <I18nextProvider i18n={i18n}>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </I18nextProvider>
+  );
 };
 
-describe('Dashboard Home Experience', () => {
-  const defaultAuth = {
-    user: { uid: 'u1', displayName: 'Test User' },
-    organization: { id: 'org1', slug: 'org1' },
-    isSupportMode: false,
-    hasRole: () => true
-  };
 
-  vi.mocked(useModals).mockReturnValue({ openSongDetail: vi.fn(), openSongForm: vi.fn(), openScaleForm: vi.fn(), openAiSongImport: vi.fn() } as any);
-  const setup = (mode: string, overrides: any = {}) => {
-    vi.mocked(useAuth).mockReturnValue(defaultAuth as any);
-    vi.mocked(useMusic).mockReturnValue({ songs: [], populatedScales: [], loading: false } as any);
-    vi.mocked(useSuggestionsContext).mockReturnValue({ suggestions: [], loading: false } as any);
-    
-    vi.mocked(useHomeExperience).mockReturnValue({
-      isLoading: false,
-      upcomingEvents: [],
-      experience: {
-        mode,
-        event: null,
-        draftEvent: null,
-        attentionItems: [],
-        canManageScales: false,
-        isUserAssigned: false,
-        ...overrides
-      }
-    } as any);
-  };
-
-  it('1. músico escalado vê evento, função e ação de resposta', () => {
-    setup('assigned-event', {
-      event: {
-        id: 'e1',
-        title: 'Culto de Domingo',
-        date: '2026-10-10',
-        time: '19:00',
-        songCount: 3,
-        userFunctionNames: ['Violão'],
-        isUserAssigned: true,
-      }
+describe('Dashboard Home Experience UI', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockUseAuth.mockReturnValue({ user: defaultUser, organization: defaultOrg, isOwner: false, isSupportMode: false });
+    mockUseCapability.mockReturnValue({ hasCapability: () => false });
+    mockUseFirstScaleExperience.mockReturnValue({
+      isLoading: false, isEligible: false, isCompleted: true, currentEssentialStep: null
     });
-    
-    renderWithRouter(<DashboardPage />);
-    expect(screen.getByText('Você está escalado')).toBeDefined();
-    expect(screen.getByText('Culto de Domingo')).toBeDefined();
-    expect(screen.getByText('Violão')).toBeDefined();
-    expect(screen.getByTestId('assignment-response')).toBeDefined();
+    mockUseSuggestionsContext.mockReturnValue({ suggestions: [], loading: false });
+    mockUseMusic.mockReturnValue({ populatedScales: [], populatedBandScales: [], songs: [], loading: false });
   });
 
-  it('3. líder vê rascunho e Continuar preparando', () => {
-    setup('continue-draft', {
-      canManageScales: true,
-      draftEvent: {
-        id: 'd1',
-        title: 'Rascunho de Culto',
-        date: '2026-10-15'
-      }
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('1. músico escalado vê evento, função e resposta', () => {
+    const scale = {
+      id: 's1', date: getFutureDate(), eventName: { name: 'Sunday Service' },
+      eventAssignments: [{ userId: 'u1', functionName: 'Vocal', active: true }]
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByText('Você está na equipe')).toBeInTheDocument();
+    expect(screen.getAllByText('Sunday Service')[0]).toBeInTheDocument();
+    expect(screen.getByText('Função:')).toBeInTheDocument();
+    expect(screen.getAllByText('Vocal')[0]).toBeInTheDocument();
+    expect(screen.getByTestId('mock-response-actions')).toBeInTheDocument();
+  });
+
+  it('2. músico não vê criar, editar, excluir ou clonar', () => {
+    const scale = {
+      id: 's1', date: getFutureDate(), eventName: { name: 'Sunday Service' },
+      eventAssignments: [{ userId: 'u1', functionName: 'Vocal', active: true }]
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.queryByText('Criar próxima escala')).not.toBeInTheDocument();
+    expect(screen.queryByText('Repetir uma escala')).not.toBeInTheDocument();
+  });
+
+  it('3. líder vê rascunho', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.scales.manage' });
+    const scale = { id: 's1', date: getFutureDate(), status: 'draft', eventName: { name: 'Draft Service' } };
+    mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByText('Rascunho salvo')).toBeInTheDocument();
+    expect(screen.getByText('Continue preparando')).toBeInTheDocument();
+  });
+
+  it('4. líder vê pendências', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.scales.manage' });
+    const scale = { id: 's1', date: getFutureDate(), status: 'published', eventName: { name: 'Pending Service' }, songs: [] };
+    mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByText('Requer atenção')).toBeInTheDocument();
+    expect(screen.getByText('Repertório vazio')).toBeInTheDocument();
+  });
+
+  it('5. organização nova vê jornada (FirstScaleJourney)', () => {
+    mockUseFirstScaleExperience.mockReturnValue({
+      isLoading: false, isEligible: true, isCompleted: false, currentEssentialStep: 'band'
     });
-
     renderWithRouter(<DashboardPage />);
-    expect(screen.getByText('Continue preparando')).toBeDefined();
-    expect(screen.getByText(/Rascunho de Culto/)).toBeDefined();
+    expect(screen.getByTestId('first-scale-journey')).toBeInTheDocument();
   });
 
-  it('4. líder vê pendências confiáveis', () => {
-    setup('leader-attention', {
-      canManageScales: true,
-      event: { id: 'e2', title: 'Culto', date: '2026-10-10' },
-      attentionItems: [
-        { code: 'missing-repertoire', severity: 'important' }
-      ]
-    });
-
+  it('6. organização sem eventos vê criação', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.scales.manage' });
     renderWithRouter(<DashboardPage />);
-    expect(screen.getByText('Repertório vazio')).toBeDefined();
-    expect(screen.getByText('Resolver pendências')).toBeDefined();
+    expect(screen.getByText('Vamos preparar o próximo culto?')).toBeInTheDocument();
+    expect(screen.getByText('Criar próxima escala')).toBeInTheDocument();
   });
 
-  it('5. organização nova vê FirstScaleJourneyCard', () => {
-    setup('first-value');
+  it('7. usuário comum sem eventos vê vazio', () => {
     renderWithRouter(<DashboardPage />);
-    expect(screen.getByTestId('first-scale-journey')).toBeDefined();
+    expect(screen.getByText('Agenda livre')).toBeInTheDocument();
+    expect(screen.getByText('Você não tem compromissos próximos.')).toBeInTheDocument();
   });
 
-  it('6. organização sem eventos e com capacidade vê Criar próxima escala', () => {
-    setup('create-next-event', { canManageScales: true });
+  it('8. métricas artificiais não aparecem', () => {
     renderWithRouter(<DashboardPage />);
-    expect(screen.getByText('Criar próxima escala')).toBeDefined();
+    expect(screen.queryByText(/0 métricas/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/músicas tocadas/i)).not.toBeInTheDocument();
   });
 
-  it('7. usuário comum sem eventos vê estado vazio correto', () => {
-    setup('no-upcoming-event', { canManageScales: false });
+  it('9. acesso rápido antigo não aparece', () => {
     renderWithRouter(<DashboardPage />);
-    expect(screen.getByText('Você não tem compromissos próximos.')).toBeDefined();
+    expect(screen.queryByText(/Acesso rápido/i)).not.toBeInTheDocument();
+  });
+
+  it('10. Biblioteca Viva não domina o foco', () => {
+    renderWithRouter(<DashboardPage />);
+    expect(screen.queryByText(/Biblioteca Viva/i)).not.toBeInTheDocument();
   });
 
   it('11. Explorar mais inicia recolhido no celular', () => {
-    setup('no-upcoming-event');
-    vi.mocked(useSuggestionsContext).mockReturnValue({
-      suggestions: [{ id: 's1', isRead: false, songs: [{ title: 'Música 1' }], createdBy: { name: 'User' } }],
+    mockUseSuggestionsContext.mockReturnValue({
+      suggestions: [{ id: '1', isRead: false, songs: [{ title: 'Song 1' }], createdBy: { name: 'User' } }],
       loading: false
-    } as any);
-
+    });
     renderWithRouter(<DashboardPage />);
-    const exploreMoreBtn = screen.getByText('Explorar mais').closest("button")!;
-    expect(exploreMoreBtn.getAttribute('aria-expanded')).toBe('false');
+    const exploreBtnText = screen.getByText('Explorar mais');
+    const exploreBtn = exploreBtnText.closest('button');
+    expect(exploreBtn).not.toBeNull();
+    expect(exploreBtn!.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('13. próximos eventos são limitados a três', () => {
-    setup('observer-event', {
-      upcomingEvents: [
-        { id: '1', title: 'E1', date: '2026-10-01' },
-        { id: '2', title: 'E2', date: '2026-10-02' },
-        { id: '3', title: 'E3', date: '2026-10-03' },
-        { id: '4', title: 'E4', date: '2026-10-04' },
-      ]
+  it('12. aria-expanded muda ao clicar em Explorar mais', () => {
+    mockUseSuggestionsContext.mockReturnValue({
+      suggestions: [{ id: '1', isRead: false, songs: [{ title: 'Song 1' }], createdBy: { name: 'User' } }],
+      loading: false
     });
-
     renderWithRouter(<DashboardPage />);
-    expect(screen.queryByText('E1')).toBeDefined();
-    expect(screen.queryByText('E2')).toBeDefined();
-    expect(screen.queryByText('E3')).toBeDefined();
-    expect(screen.queryByText('E4')).toBeNull(); // Limited to 3
-    expect(screen.getByText('Ver todos')).toBeDefined();
+    const exploreBtnText = screen.getByText('Explorar mais');
+    const exploreBtn = exploreBtnText.closest('button');
+    expect(exploreBtn).not.toBeNull();
+    fireEvent.click(exploreBtn!);
+    expect(exploreBtn!.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('13. próximos eventos limitados a três', () => {
+    const scales = Array.from({ length: 5 }).map((_, i) => ({
+      id: `s${i}`, date: getFutureDate(), time: `10:0${i}`, eventName: { name: `Event ${i}` }
+    }));
+    mockUseMusic.mockReturnValue({ populatedScales: scales, populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getAllByText('Event 1').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Event 2').length).toBeGreaterThan(0);
+    expect(screen.queryAllByText('Event 4').length).toBe(0);
+  });
+
+  it('14. Ver todos abre /scales', () => {
+    const scales = Array.from({ length: 5 }).map((_, i) => ({
+      id: `s${i}`, date: getFutureDate(), time: `10:0${i}`, eventName: { name: `Event ${i}` }
+    }));
+    mockUseMusic.mockReturnValue({ populatedScales: scales, populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    const viewAllBtn = screen.getAllByText('Ver todos')[0];
+    fireEvent.click(viewAllBtn);
+    expect(mockNavigate).toHaveBeenCalledWith('/scales');
+  });
+
+  it('15. evento funciona por teclado', () => {
+    const scale = { id: 's1', date: getFutureDate(), eventName: { name: 'Focus Event' } };
+    mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    const eventBtn = screen.getAllByText('Ver detalhes')[0].closest('button');
+    expect(eventBtn).not.toBeNull();
+    eventBtn?.focus();
+    expect(document.activeElement).toBe(eventBtn);
+  });
+
+  it('16. ações possuem texto', () => {
+    const scale = { id: 's1', date: getFutureDate(), eventName: { name: 'Focus Event' } };
+    mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    const viewDetails = screen.getAllByText('Ver detalhes')[0];
+    expect(viewDetails).toBeInTheDocument();
+    expect(viewDetails.textContent?.length).toBeGreaterThan(0);
+  });
+
+  it('17. criação usa openScaleForm', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.scales.manage' });
+    renderWithRouter(<DashboardPage />);
+    const createBtn = screen.getByText('Criar próxima escala');
+    fireEvent.click(createBtn);
+    expect(mockOpenScaleForm).toHaveBeenCalled();
+  });
+
+  it('18. PT funciona', () => {
+    renderWithRouter(<DashboardPage />, 'pt-BR');
+    expect(screen.getByText('Agenda livre')).toBeInTheDocument();
+  });
+
+  it('19. EN funciona', () => {
+    renderWithRouter(<DashboardPage />, 'en-US');
+    expect(screen.getByText('Clear agenda')).toBeInTheDocument();
+  });
+
+  it('20. ES funciona', () => {
+    renderWithRouter(<DashboardPage />, 'es-ES');
+    expect(screen.getByText('Agenda libre')).toBeInTheDocument();
+  });
+
+  it('21. não existe "Nova Escala" fixa em EN ou ES', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.scales.manage' });
+    renderWithRouter(<DashboardPage />, 'en-US');
+    expect(screen.queryByText('Nova Escala')).not.toBeInTheDocument();
+    renderWithRouter(<DashboardPage />, 'es-ES');
+    expect(screen.queryByText('Nova Escala')).not.toBeInTheDocument();
+  });
+
+  it('22. SupportRuntimeInspector fica oculto', () => {
+    renderWithRouter(<DashboardPage />);
+    expect(screen.queryByText('Inspect Support')).not.toBeInTheDocument();
+  });
+
+  it('23. AssignmentResponseActions recebe musicScaleId correto, 24. recebe assignments reais, 25. eventStart Date, 26. não recebe isBandScale', () => {
+    const scale = {
+      id: 's1', date: getFutureDate(), time: '19:00', eventName: { name: 'Sunday Service' },
+      eventAssignments: [{ userId: 'u1', functionName: 'Vocal', active: true }]
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    expect(mockAssignmentResponseActions).toHaveBeenCalled();
+    const props = mockAssignmentResponseActions.mock.calls[0][0];
+    expect(props.musicScaleId).toBe('s1');
+    expect(props.assignments).toEqual([{ userId: 'u1', functionName: 'Vocal', active: true }]);
+    expect(props.eventStart).toBeInstanceOf(Date);
+    expect(props.eventStart.toISOString()).toContain('19:00:00');
+    expect(props.isBandScale).toBeUndefined();
+  });
+
+  it('27. Performance usa openSongDetail', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.performance.use' });
+    const scale = {
+      id: 's1', date: getFutureDate(), eventName: { name: 'Service' },
+      eventAssignments: [{ userId: 'u1', active: true }], songs: [{ id: 'song1' }]
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    const perfBtn = screen.getByText('Performance Mode');
+    fireEvent.click(perfBtn);
+    expect(mockOpenSongDetail).toHaveBeenCalledWith(
+      { id: 'song1' }, true, { songs: [{ id: 'song1' }], currentIndex: 0 }, true
+    );
+  });
+
+  it('28. criar escala não navega para /scales/new', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.scales.manage' });
+    renderWithRouter(<DashboardPage />);
+    const createBtn = screen.getByText('Criar próxima escala');
+    fireEvent.click(createBtn);
+    expect(mockNavigate).not.toHaveBeenCalledWith('/scales/new');
+  });
+
+  it('29. repetir leva à lista /scales sem query falsa', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.scales.manage' });
+    renderWithRouter(<DashboardPage />);
+    const repeatBtn = screen.getByText('Escolher escala para repetir');
+    fireEvent.click(repeatBtn);
+    expect(mockNavigate).toHaveBeenCalledWith('/scales');
+    expect(mockNavigate).not.toHaveBeenCalledWith('/scales?action=clone');
+  });
+
+  it('30. próximos eventos usam upcomingEvents retornado separadamente', () => {
+    const scales = [
+      { id: 's1', date: getFutureDate(), eventName: { name: 'Event 1' } },
+      { id: 's2', date: getFutureDate(), eventName: { name: 'Event 2' } }
+    ];
+    mockUseMusic.mockReturnValue({ populatedScales: scales, populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByText('Event 2')).toBeInTheDocument();
   });
 });

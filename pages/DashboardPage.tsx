@@ -1,61 +1,57 @@
-import React, { useState, useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import { useMusic } from "../contexts/MusicDataContext";
-import { useSuggestionsContext } from "../contexts/SuggestionContext";
-import { useHomeExperience } from "../hooks/useHomeExperience";
-import { FirstScaleJourneyCard } from "../components/onboarding/FirstScaleJourneyCard";
-import { HomeFocusCard } from "../components/dashboard/HomeFocusCard";
-import { HomeUpcomingEvents } from "../components/dashboard/HomeUpcomingEvents";
-import { HomeSecondaryContent } from "../components/dashboard/HomeSecondaryContent";
-import { PlanUsageCompactCard } from "../components/billing/PlanUsageCompactCard";
-import Spinner from "../components/common/Spinner";
-import { ArrowRight, PlusSquare, RefreshCcw, Search, Calendar } from "lucide-react";
-import { SuggestionIcon } from "../components/icons/SuggestionIcon";
-import { useModals } from "../contexts/ModalContext";
+import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
+import { useMusic } from '../contexts/MusicDataContext';
+import { useHomeExperience } from '../hooks/useHomeExperience';
+import { useCapability } from '../hooks/useCapability';
+import { useModals } from '../contexts/ModalContext';
+import { useSuggestionsContext } from '../contexts/SuggestionContext';
+import { HomeFocusCard } from '../components/dashboard/HomeFocusCard';
+import { HomeUpcomingEvents } from '../components/dashboard/HomeUpcomingEvents';
+import { HomeSecondaryContent } from '../components/dashboard/HomeSecondaryContent';
+import { FirstScaleJourneyCard } from '../components/onboarding/FirstScaleJourneyCard';
+import { PlanUsageCompactCard } from '../components/billing/PlanUsageCompactCard';
+import AssignmentResponseActions from '../components/scales/AssignmentResponseActions';
+import { Calendar, ArrowRight, MessageSquare as SuggestionIcon, PlusSquare, RefreshCcw } from 'lucide-react';
+import type { HomeEventSummary } from '../utils/homeExperience';
+import type { EventAssignment, PopulatedScale, PopulatedBandScale } from '../types';
 
-export const SupportRuntimeInspector = () => {
-  const { user, userProfile, organization, permissions, isSupportMode } = useAuth();
-  const [isOpen, setIsOpen] = useState(false);
 
+const SupportRuntimeInspector = () => {
+  const { user, organization, isSupportMode } = useAuth();
+  const [isOpen, setIsOpen] = React.useState(false);
+  const { permissions } = useAuth();
+  const ecoContext = (window as any).__ECOSYSTEM_CONTEXT__;
+  
   if (!isSupportMode) return null;
-
+  
   return (
-    <div className="fixed bottom-24 right-4 z-[9999]">
+    <div className="fixed bottom-4 right-4 z-50">
       {isOpen ? (
-        <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl shadow-2xl max-w-sm max-h-[60vh] overflow-y-auto text-xs font-mono">
-          <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-            <span className="font-bold text-white text-sm">🕵️ Runtime Inspector</span>
-            <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white px-2 py-1 bg-slate-800 rounded">X</button>
+        <div className="bg-slate-900 text-white p-4 rounded-xl shadow-2xl max-w-sm w-[90vw] overflow-auto max-h-[80vh]">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-amber-500 flex items-center gap-2">
+              <span>🛠️ Support Inspector</span>
+            </h3>
+            <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white">✕</button>
           </div>
-          
-          {organization?.slug === 'support-mode-slug' && (
-            <div className="mb-4 bg-amber-500/10 border border-amber-500/50 rounded-lg p-3 text-amber-500">
-               <p className="font-bold flex items-center gap-2 mb-1">
-                 <span className="text-lg">⚠️</span> ATENÇÃO: DADOS INCOMPLETOS
-               </p>
-               <p className="leading-relaxed">
-                 O documento real desta organização está ausente ou incompleto no Firestore. 
-                 Um Tenant Virtual (fallback in-memory) foi criado para evitar a tela quebrada. 
-                 <br/><br/>
-                 O plano "Pro" exibido aqui não foi salvo no servidor e não afeta o billing do cliente.
-               </p>
+          <div className="space-y-4 text-xs font-mono">
+            <div>
+              <p className="text-slate-400 font-bold mb-1">Ecosystem Context:</p>
+              <pre className="whitespace-pre-wrap break-all text-amber-400 bg-slate-950 p-2 rounded">{JSON.stringify(ecoContext, null, 2)}</pre>
             </div>
-          )}
-
-          <div className="space-y-4">
             <div>
               <p className="text-slate-400 font-bold mb-1">Organization:</p>
-              <pre className="whitespace-pre-wrap break-all text-green-400 bg-slate-950 p-2 rounded">{JSON.stringify(organization, null, 2)}</pre>
+              <pre className="whitespace-pre-wrap break-all text-blue-400 bg-slate-950 p-2 rounded">{JSON.stringify(organization, null, 2)}</pre>
             </div>
             <div>
-              <p className="text-slate-400 font-bold mb-1">Permissions (Extracted Keys):</p>
-              <pre className="whitespace-pre-wrap break-all text-green-400 bg-slate-950 p-2 rounded">{JSON.stringify(permissions ? Object.keys(permissions).filter(k => !!(permissions as any)[k]) : "none", null, 2)}</pre>
+              <p className="text-slate-400 font-bold mb-1">Permissions:</p>
+              <pre className="whitespace-pre-wrap break-all text-purple-400 bg-slate-950 p-2 rounded">{JSON.stringify(permissions ? Object.keys(permissions).filter(k => !!(permissions as any)[k]) : "none", null, 2)}</pre>
             </div>
             <div>
               <p className="text-slate-400 font-bold mb-1">User Profile:</p>
-              <pre className="whitespace-pre-wrap break-all text-green-400 bg-slate-950 p-2 rounded">{JSON.stringify(userProfile, null, 2)}</pre>
+              <pre className="whitespace-pre-wrap break-all text-green-400 bg-slate-950 p-2 rounded">{JSON.stringify(user, null, 2)}</pre>
             </div>
           </div>
         </div>
@@ -72,17 +68,19 @@ export const SupportRuntimeInspector = () => {
   );
 };
 
-const DashboardPage: React.FC = () => {
-  const { t, i18n } = useTranslation();
+export const DashboardPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, organization, isSupportMode, isOwner } = useAuth();
-  const { songs, populatedScales, loading: musicLoading } = useMusic();
+  const { user, organization, isOwner } = useAuth();
+  const { populatedScales, populatedBandScales, songs, loading: musicLoading } = useMusic();
   const { suggestions, loading: suggestionsLoading } = useSuggestionsContext();
-  const { openSongDetail } = useModals();
+  const { openSongDetail, openScaleDetail, openBandScaleDetail, openScaleForm } = useModals();
+  const { hasCapability } = useCapability();
+  const canUsePerformance = hasCapability('musicscale.performance.use');
+  
+  const { experience, upcomingEvents, isLoading: experienceLoading } = useHomeExperience();
 
-  const { experience, isLoading: experienceLoading } = useHomeExperience();
-
-  // Secondary content calculations
+  // Secondary content calculations (kept as before)
   const unreadSuggestions = useMemo(() => {
     if (!suggestions) return [];
     return suggestions.filter((s) => !s.isRead && !s.isArchived);
@@ -106,8 +104,6 @@ const DashboardPage: React.FC = () => {
 
   const suggestedForRehearsal = useMemo(() => {
     if (!songs || !populatedScales) return [];
-    
-    // count plays
     const counts: Record<string, number> = {};
     populatedScales.forEach((scale) => {
       if (scale.status === 'cancelled') return;
@@ -115,12 +111,10 @@ const DashboardPage: React.FC = () => {
         counts[song.id] = (counts[song.id] || 0) + 1;
       });
     });
-
     const withPlayCount = songs.map(s => ({
       ...s,
       playCount: counts[s.id] || 0
     }));
-
     const result = [];
     const activeSongs = withPlayCount.filter(s => s.status === 'active');
     
@@ -135,7 +129,6 @@ const DashboardPage: React.FC = () => {
         });
       }
     }
-
     const recent = recentlyAddedSongs[0];
     if (recent && !result.find(s => s.id === recent.id)) {
       result.push({
@@ -145,7 +138,6 @@ const DashboardPage: React.FC = () => {
         tagColor: "text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
       });
     }
-
     const toReview = activeSongs.find(s => s.playCount > 10 && !result.find(r => r.id === s.id));
     if (toReview) {
       result.push({
@@ -155,14 +147,22 @@ const DashboardPage: React.FC = () => {
         tagColor: "text-amber-600 dark:text-amber-400 border-amber-500/20"
       });
     }
-
     return result.slice(0, 3);
   }, [songs, populatedScales, recentlyAddedSongs]);
 
   if (experienceLoading || musicLoading || suggestionsLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Spinner />
+      <div className="relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 animate-fade-in" aria-busy="true" aria-label={t('dashboard.loading', 'Carregando...')}>
+        <header className="space-y-2">
+          <div className="h-8 w-48 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
+          <div className="h-4 w-64 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
+        </header>
+        <div className="h-48 w-full bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse"></div>
+        <div className="space-y-4 pt-2">
+          <div className="h-6 w-40 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
+          <div className="h-24 w-full bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse"></div>
+          <div className="h-24 w-full bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse"></div>
+        </div>
       </div>
     );
   }
@@ -174,14 +174,58 @@ const DashboardPage: React.FC = () => {
           <Calendar className="w-8 h-8 text-slate-400" />
         </div>
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-          {t('dashboard.noOrgTitle', 'Nenhuma organização conectada')}
+          {t('dashboard.noOrgTitle')}
         </h2>
         <p className="text-slate-600 dark:text-slate-400 max-w-md">
-          {t('dashboard.noOrgDesc', 'As organizações e acessos são administrados pelo MillionsNest. Verifique seus convites ou faça login novamente.')}
+          {t('dashboard.noOrgDesc')}
         </p>
       </div>
     );
   }
+
+  const handleOpenEvent = (eventSummary: HomeEventSummary) => {
+    if (eventSummary.type === 'music') {
+      const scale = populatedScales?.find(s => s.id === eventSummary.id);
+      if (scale) openScaleDetail(scale as PopulatedScale);
+    } else {
+      const scale = populatedBandScales?.find(s => s.id === eventSummary.id);
+      if (scale) openBandScaleDetail(scale as PopulatedBandScale);
+    }
+  };
+
+  const handleOpenPerformance = (eventSummary: HomeEventSummary) => {
+    if (eventSummary.type === 'music') {
+      const scale = populatedScales?.find(s => s.id === eventSummary.id);
+      if (scale && scale.songs && scale.songs.length > 0) {
+        openSongDetail(
+          scale.songs[0],
+          true,
+          { songs: scale.songs, currentIndex: 0 },
+          true
+        );
+      }
+    }
+  };
+
+  const getResponseActions = (eventSummary: HomeEventSummary | null) => {
+    if (!eventSummary || eventSummary.type !== 'music') return null;
+    const scale = populatedScales?.find(s => s.id === eventSummary.id);
+    if (!scale) return null;
+
+    const userAssignments = ((scale as any).eventAssignments || []).filter((a: EventAssignment) => a.userId === user?.uid && a.active !== false);
+    if (userAssignments.length === 0) return null;
+
+    const eventStart = new Date(`${eventSummary.date}T${eventSummary.time || '00:00'}:00`);
+
+    return (
+      <AssignmentResponseActions
+        musicScaleId={scale.id}
+        assignments={userAssignments}
+        eventStart={eventStart}
+        compact={true}
+      />
+    );
+  };
 
   const firstName = user?.displayName?.split(' ')[0] || '';
 
@@ -189,22 +233,30 @@ const DashboardPage: React.FC = () => {
     <div className="relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 animate-fade-in touch-manipulation">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-          {t('dashboard.greeting', 'Olá, {{name}}', { name: firstName })}
+          {t('dashboard.greeting', { name: firstName })}
         </h1>
         <p className="text-slate-600 dark:text-slate-400 text-sm">
-          {t('dashboard.subtitle', 'Veja o que precisa da sua atenção hoje.')}
+          {t('dashboard.subtitle')}
         </p>
       </header>
 
       {experience.mode === 'first-value' ? (
         <FirstScaleJourneyCard />
       ) : (
-        <HomeFocusCard experience={experience} />
+        <HomeFocusCard 
+          experience={experience} 
+          canUsePerformance={canUsePerformance}
+          responseActions={getResponseActions(experience.event)}
+          onOpenEvent={handleOpenEvent}
+          onOpenPerformance={handleOpenPerformance}
+          onCreateScale={() => openScaleForm()}
+          onChooseScaleToRepeat={() => navigate('/scales')}
+        />
       )}
 
       {experience.mode !== 'first-value' && experience.mode !== 'no-upcoming-event' && experience.mode !== 'create-next-event' && (
         <div className="pt-2">
-          <HomeUpcomingEvents events={experience.upcomingEvents} />
+          <HomeUpcomingEvents events={upcomingEvents} onOpenEvent={handleOpenEvent} />
         </div>
       )}
 
@@ -214,13 +266,13 @@ const DashboardPage: React.FC = () => {
             <div className="space-y-3">
               <div className="flex justify-between items-center px-1">
                 <h4 className="text-sm font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest">
-                  {t("dashboard.pending_suggestions_section", "Sugestões pendentes")}
+                  {t("dashboard.secondaryContent.pending_suggestions_section")}
                 </h4>
                 <button
                   onClick={() => navigate("/suggestions")}
                   className="text-amber-600 dark:text-amber-500 font-medium text-sm flex items-center gap-1 hover:underline"
                 >
-                  {t("dashboard.view_all", "Ver todas")} <ArrowRight className="w-4 h-4" />
+                  {t("dashboard.viewAll")} <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
               <div className="space-y-2">
@@ -237,10 +289,10 @@ const DashboardPage: React.FC = () => {
                       <p className="font-semibold text-slate-900 dark:text-white truncate text-sm">
                         {suggestion.songs.length === 1
                           ? suggestion.songs[0].title
-                          : t("dashboard.songs_suggested_other", "{{count}} músicas sugeridas", { count: suggestion.songs.length })}
+                          : t("dashboard.secondaryContent.songs_suggested_other", { count: suggestion.songs.length })}
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                        {t("dashboard.by_author_suggestion", "Por {{name}}", { name: suggestion.createdBy.name })}
+                        {t("dashboard.secondaryContent.by_author_suggestion", { name: suggestion.createdBy.name })}
                       </p>
                     </div>
                   </button>
@@ -254,7 +306,7 @@ const DashboardPage: React.FC = () => {
               <div className="flex items-center gap-2 px-1">
                 <PlusSquare className="w-4 h-4 text-blue-600 dark:text-blue-500" />
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
-                  {t("dashboard.new_songs_section", "Recém adicionadas")}
+                  {t("dashboard.secondaryContent.new_songs_section")}
                 </h4>
               </div>
               <div className="space-y-2">
@@ -277,7 +329,7 @@ const DashboardPage: React.FC = () => {
               <div className="flex items-center gap-2 px-1">
                 <RefreshCcw className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
-                  {t("dashboard.suggested_rehearsal_section", "Sugeridas para ensaio")}
+                  {t("dashboard.secondaryContent.suggested_rehearsal_section")}
                 </h4>
               </div>
               <div className="space-y-2">
@@ -293,11 +345,11 @@ const DashboardPage: React.FC = () => {
                     </div>
                     <span className={`self-start sm:self-auto px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${song.tagBg} ${song.tagColor} border`}>
                       {song.reasonCode === "least-played"
-                        ? t("dashboard.least_played_reason", "Pouco tocada")
+                        ? t("dashboard.secondaryContent.least_played_reason")
                         : song.reasonCode === "newly-added"
-                          ? t("dashboard.newly_added_reason", "Recém-adicionada")
+                          ? t("dashboard.secondaryContent.newly_added_reason")
                           : song.reasonCode === "review"
-                            ? t("dashboard.review_reason", "Revisar")
+                            ? t("dashboard.secondaryContent.review_reason")
                             : song.reasonCode}
                     </span>
                   </button>

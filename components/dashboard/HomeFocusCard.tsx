@@ -1,27 +1,36 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Card from '../common/Card';
 import Button from '../common/Button';
-import { HomeExperience, HomeAttentionItem } from '../../utils/homeExperience';
-import { Calendar, Play, AlertCircle, CheckCircle2, ChevronRight, Copy, Plus } from 'lucide-react';
-import AssignmentResponseActions from '../scales/AssignmentResponseActions';
-import { useCapability } from '../../hooks/useCapability';
+import { HomeExperience, HomeAttentionItem, HomeEventSummary } from '../../utils/homeExperience';
+import { Calendar, Play, AlertCircle, CheckCircle2, Copy, Plus } from 'lucide-react';
 
 interface HomeFocusCardProps {
   experience: HomeExperience;
+  canUsePerformance: boolean;
+  responseActions?: React.ReactNode;
+  onOpenEvent: (event: HomeEventSummary) => void;
+  onOpenPerformance: (event: HomeEventSummary) => void;
+  onCreateScale: () => void;
+  onChooseScaleToRepeat: () => void;
 }
 
-export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ experience }) => {
+export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ 
+  experience, 
+  canUsePerformance, 
+  responseActions, 
+  onOpenEvent, 
+  onOpenPerformance, 
+  onCreateScale, 
+  onChooseScaleToRepeat 
+}) => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { hasCapability } = useCapability();
-  const canUsePerformance = hasCapability('musicscale.performance.use');
-
+  
   const { mode, event, draftEvent, attentionItems } = experience;
 
   const renderAttentionList = (items: HomeAttentionItem[]) => {
     if (!items || items.length === 0) return null;
+
     return (
       <ul className="mt-4 space-y-2">
         {items.map((item, idx) => {
@@ -31,15 +40,15 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ experience }) => {
           
           let text = '';
           switch (item.code) {
-            case 'draft': text = t('dashboard.attention.draft', 'Rascunho ainda não publicado'); break;
-            case 'missing-repertoire': text = t('dashboard.attention.missingRepertoire', 'Repertório vazio'); break;
-            case 'missing-team': text = t('dashboard.attention.missingTeam', 'Equipe vazia'); break;
-            case 'missing-time': text = t('dashboard.attention.missingTime', 'Horário não informado'); break;
-            case 'missing-location': text = t('dashboard.attention.missingLocation', 'Local não informado'); break;
+            case 'draft': text = t('dashboard.attention.draft'); break;
+            case 'missing-repertoire': text = t('dashboard.attention.missingRepertoire'); break;
+            case 'missing-team': text = t('dashboard.attention.missingTeam'); break;
+            case 'missing-time': text = t('dashboard.attention.missingTime'); break;
+            case 'missing-location': text = t('dashboard.attention.missingLocation'); break;
           }
-
+          
           return (
-            <li key={idx} className="flex items-center text-sm text-slate-700 dark:text-slate-300 gap-2">
+            <li key={idx} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
               {icon}
               <span>{text}</span>
             </li>
@@ -49,49 +58,51 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ experience }) => {
     );
   };
 
-  const getEventPath = (e: any) => {
-    return e.type === 'band' ? `/band-scales/${e.id}` : `/scales/${e.id}`;
-  };
-
   const renderAssignedEvent = () => {
     if (!event) return null;
+    
+    const IntlList = new Intl.ListFormat(t('locale', 'pt-BR'), { style: 'long', type: 'conjunction' });
+    const formattedFunctions = event.userFunctionNames.length > 0 ? IntlList.format(event.userFunctionNames) : '';
+
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
           <Calendar className="w-4 h-4" />
-          {t('dashboard.focus.assignedEyebrow', 'Você está escalado')}
+          {t('dashboard.focus.assignedEyebrow')}
         </div>
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{event.title}</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
             {event.date} {event.time ? `• ${event.time}` : ''} {event.locationName ? `• ${event.locationName}` : ''}
           </p>
-          <div className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-            {t('dashboard.focus.functionLabel', 'Função:')} <span className="text-indigo-600 dark:text-indigo-400">{event.userFunctionNames.join(', ')}</span>
-          </div>
-          <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-            {t('dashboard.focus.songsCount', '{{count}} músicas', { count: event.songCount })}
+          <div className="mt-2 text-sm text-slate-600 dark:text-slate-400 space-x-2">
+            <span>{t('dashboard.focus.songsCount_' + (event.songCount === 1 ? 'one' : 'other'), { count: event.songCount })}</span>
+            <span>•</span>
+            {formattedFunctions && (
+              <span>
+                <span className="font-medium text-slate-900 dark:text-white">{t('dashboard.focus.functionLabel')}</span> {formattedFunctions}
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="pt-2">
-          <AssignmentResponseActions 
-            musicScaleId={event.id}
-            isBandScale={event.type === 'band'}
-            eventStart={`${event.date}T${event.time || '00:00'}`}
-          />
-        </div>
+        {responseActions && (
+          <div className="pt-2">
+            {responseActions}
+          </div>
+        )}
 
         {renderAttentionList(attentionItems)}
 
         <div className="pt-4 flex flex-col sm:flex-row gap-3">
-          <Button onClick={() => navigate(getEventPath(event))} className="w-full sm:w-auto" variant="primary">
-            {t('dashboard.focus.openRepertoire', 'Abrir repertório')}
+          <Button onClick={() => onOpenEvent(event)} className="w-full sm:w-auto" variant="primary">
+            {t('dashboard.focus.openRepertoire')}
           </Button>
+          
           {event.songCount > 0 && canUsePerformance && (
-             <Button onClick={() => navigate(`${getEventPath(event)}/performance`)} className="w-full sm:w-auto" variant="outline">
+             <Button onClick={() => onOpenPerformance(event)} className="w-full sm:w-auto" variant="secondary">
                <Play className="w-4 h-4 mr-2" />
-               Performance Mode
+               {t('dashboard.focus.performanceMode')}
              </Button>
           )}
         </div>
@@ -101,14 +112,15 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ experience }) => {
 
   const renderLeaderAttention = () => {
     if (!event) return null;
+
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
           <AlertCircle className="w-4 h-4" />
-          {t('dashboard.focus.attentionEyebrow', 'Requer atenção')}
+          {t('dashboard.focus.attentionEyebrow')}
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.attentionTitle', 'O próximo culto precisa de atenção')}</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.attentionTitle')}</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
             {event.title} • {event.date}
           </p>
@@ -116,9 +128,9 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ experience }) => {
 
         {renderAttentionList(attentionItems)}
 
-        <div className="pt-4">
-          <Button onClick={() => navigate(getEventPath(event))} className="w-full sm:w-auto" variant="primary">
-            {t('dashboard.focus.resolveIssues', 'Resolver pendências')}
+        <div className="pt-4 flex flex-col sm:flex-row gap-3">
+          <Button onClick={() => onOpenEvent(event)} className="w-full sm:w-auto" variant="primary">
+            {t('dashboard.focus.resolveIssues')}
           </Button>
         </div>
       </div>
@@ -127,14 +139,15 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ experience }) => {
 
   const renderContinueDraft = () => {
     if (!draftEvent) return null;
+
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
           <Copy className="w-4 h-4" />
-          {t('dashboard.focus.draftEyebrow', 'Rascunho salvo')}
+          {t('dashboard.focus.draftEyebrow')}
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.continueDraft', 'Continue preparando')}</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.continueDraft')}</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
             {draftEvent.title} • {draftEvent.date}
           </p>
@@ -142,9 +155,9 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ experience }) => {
         
         {renderAttentionList(attentionItems)}
 
-        <div className="pt-4">
-          <Button onClick={() => navigate(getEventPath(draftEvent))} className="w-full sm:w-auto" variant="primary">
-            {t('dashboard.focus.continuePreparing', 'Continuar preparando')}
+        <div className="pt-4 flex flex-col sm:flex-row gap-3">
+          <Button onClick={() => onOpenEvent(draftEvent)} className="w-full sm:w-auto" variant="primary">
+            {t('dashboard.focus.continuePreparing')}
           </Button>
         </div>
       </div>
@@ -153,30 +166,32 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ experience }) => {
 
   const renderLeaderPrepared = () => {
     if (!event) return null;
+
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
           <CheckCircle2 className="w-4 h-4" />
-          {t('dashboard.focus.preparedEyebrow', 'Escala publicada')}
+          {t('dashboard.focus.preparedEyebrow')}
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.preparedTitle', 'Tudo organizado até aqui')}</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.preparedTitle')}</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
             {event.title} • {event.date} {event.time ? `• ${event.time}` : ''}
           </p>
           <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            {t('dashboard.focus.songsCount', '{{count}} músicas', { count: event.songCount })} • {t('dashboard.focus.teamCount', '{{count}} pessoas', { count: event.teamCount })}
+            {t('dashboard.focus.songsCount_' + (event.songCount === 1 ? 'one' : 'other'), { count: event.songCount })} • {t('dashboard.focus.teamCount_' + (event.teamCount === 1 ? 'one' : 'other'), { count: event.teamCount })}
           </div>
         </div>
 
         <div className="pt-4 flex flex-col sm:flex-row gap-3">
-          <Button onClick={() => navigate(getEventPath(event))} className="w-full sm:w-auto" variant="primary">
-            {t('dashboard.focus.openScale', 'Abrir escala')}
+          <Button onClick={() => onOpenEvent(event)} className="w-full sm:w-auto" variant="primary">
+            {t('dashboard.focus.openScale')}
           </Button>
+          
           {event.songCount > 0 && canUsePerformance && (
-             <Button onClick={() => navigate(`${getEventPath(event)}/performance`)} className="w-full sm:w-auto" variant="outline">
+             <Button onClick={() => onOpenPerformance(event)} className="w-full sm:w-auto" variant="secondary">
                <Play className="w-4 h-4 mr-2" />
-               Performance Mode
+               {t('dashboard.focus.performanceMode')}
              </Button>
           )}
         </div>
@@ -186,25 +201,26 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ experience }) => {
 
   const renderObserverEvent = () => {
     if (!event) return null;
+
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wider">
           <Calendar className="w-4 h-4" />
-          {t('dashboard.focus.observerEyebrow', 'Próximo evento')}
+          {t('dashboard.focus.observerEyebrow')}
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{event.title}</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{event.title || t('dashboard.focus.untitledEvent')}</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
             {event.date} {event.time ? `• ${event.time}` : ''} {event.locationName ? `• ${event.locationName}` : ''}
           </p>
           <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            {t('dashboard.focus.songsCount', '{{count}} músicas', { count: event.songCount })}
+            {t('dashboard.focus.songsCount_' + (event.songCount === 1 ? 'one' : 'other'), { count: event.songCount })}
           </div>
         </div>
 
         <div className="pt-4 flex flex-col sm:flex-row gap-3">
-          <Button onClick={() => navigate(getEventPath(event))} className="w-full sm:w-auto" variant="primary">
-            {t('dashboard.focus.viewDetails', 'Ver detalhes')}
+          <Button onClick={() => onOpenEvent(event)} className="w-full sm:w-auto" variant="primary">
+            {t('dashboard.focus.viewDetails')}
           </Button>
         </div>
       </div>
@@ -216,22 +232,21 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ experience }) => {
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm font-medium text-slate-500 uppercase tracking-wider">
           <Calendar className="w-4 h-4" />
-          {t('dashboard.focus.noEventsEyebrow', 'Agenda livre')}
+          {t('dashboard.focus.noEventsEyebrow')}
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.createNextTitle', 'Vamos preparar o próximo culto?')}</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.createNextTitle')}</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {t('dashboard.focus.createNextDesc', 'Você não tem compromissos próximos.')}
+            {t('dashboard.focus.createNextDesc')}
           </p>
         </div>
-
         <div className="pt-4 flex flex-col sm:flex-row gap-3">
-          <Button onClick={() => navigate('/scales/new')} className="w-full sm:w-auto" variant="primary">
+          <Button onClick={onCreateScale} className="w-full sm:w-auto" variant="primary">
             <Plus className="w-4 h-4 mr-2" />
-            {t('dashboard.focus.createNextEvent', 'Criar próxima escala')}
+            {t('dashboard.focus.createNextEvent')}
           </Button>
-          <Button onClick={() => navigate('/scales?action=clone')} className="w-full sm:w-auto" variant="outline">
-            {t('dashboard.focus.repeatScale', 'Repetir uma escala')}
+          <Button onClick={onChooseScaleToRepeat} className="w-full sm:w-auto" variant="secondary">
+            {t('dashboard.focus.chooseScaleToRepeat')}
           </Button>
         </div>
       </div>
@@ -243,12 +258,12 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ experience }) => {
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm font-medium text-slate-500 uppercase tracking-wider">
           <Calendar className="w-4 h-4" />
-          {t('dashboard.focus.noEventsEyebrow', 'Agenda livre')}
+          {t('dashboard.focus.noEventsEyebrow')}
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.noEventsTitle', 'Você não tem compromissos próximos.')}</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.noEventsTitle')}</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {t('dashboard.focus.noEventsDesc', 'Avisaremos quando uma nova escala for publicada.')}
+            {t('dashboard.focus.noEventsDesc')}
           </p>
         </div>
       </div>
@@ -258,7 +273,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ experience }) => {
   let content = null;
   switch (mode) {
     case 'first-value':
-      return null; // Handled outside in DashboardPage
+      return null;
     case 'assigned-event':
       content = renderAssignedEvent();
       break;
