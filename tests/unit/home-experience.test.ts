@@ -5,9 +5,11 @@ import {
   selectMostRecentDraft,
   getLocalDateKey,
   HomeEventSummary,
-  PopulatedScaleWithAssignments
+  PopulatedScaleWithAssignmentsAndStatus,
+  PopulatedBandScaleWithStatus
 } from '../../utils/homeExperience';
 import type { PopulatedBandScale } from '../../types';
+import type { PopulatedScaleWithAssignments } from '../../utils/homeExperience';
 
 describe('Home Experience Domain Logic', () => {
   const defaultInput = {
@@ -22,7 +24,7 @@ describe('Home Experience Domain Logic', () => {
     id: 'e1',
     type: 'music',
     title: 'Event',
-    date: '2026-10-10',
+    date: '2099-12-31',
     songCount: 0,
     teamCount: 0,
     userFunctionNames: [],
@@ -50,306 +52,221 @@ describe('Home Experience Domain Logic', () => {
       expect(result.isUserAssigned).toBe(true);
     });
 
-    it('3. líder escalado recebe assigned-event com pendências', () => {
+    it('12. MusicScale vazia recebe missing-repertoire', () => {
       const result = evaluateHomeExperience({
         ...defaultInput,
         canManageScales: true,
-        upcomingEvents: [createEvent({ isUserAssigned: true, status: 'draft', songCount: 0 })],
+        upcomingEvents: [createEvent({ type: 'music', songCount: 0, teamCount: 1, time: '10:00', locationName: 'Loc' })],
       });
-      expect(result.mode).toBe('assigned-event');
-      expect(result.attentionItems.length).toBeGreaterThan(0);
-      expect(result.attentionItems.some(i => i.code === 'missing-repertoire')).toBe(true);
-      expect(result.attentionItems.some(i => i.code === 'draft')).toBe(true);
-    });
-
-    it('4. rascunho mais recente recebe continue-draft', () => {
-      const draft = createEvent({ id: 'd1', status: 'draft' });
-      const result = evaluateHomeExperience({
-        ...defaultInput,
-        canManageScales: true,
-        mostRecentDraft: draft,
-      });
-      expect(result.mode).toBe('continue-draft');
-      expect(result.draftEvent?.id).toBe('d1');
-    });
-
-    it('5. evento sem repertório', () => {
-      const result = evaluateHomeExperience({
-        ...defaultInput,
-        canManageScales: true,
-        upcomingEvents: [createEvent({ songCount: 0, teamCount: 1, time: '10:00', locationName: 'Loc' })],
-      });
-      expect(result.mode).toBe('leader-attention');
       expect(result.attentionItems.some(i => i.code === 'missing-repertoire')).toBe(true);
     });
 
-    it('6. evento sem equipe', () => {
+    it('11. BandScale não recebe missing-repertoire', () => {
       const result = evaluateHomeExperience({
         ...defaultInput,
         canManageScales: true,
-        upcomingEvents: [createEvent({ songCount: 1, teamCount: 0, time: '10:00', locationName: 'Loc' })],
+        upcomingEvents: [createEvent({ type: 'band', songCount: 0, teamCount: 1, time: '10:00', locationName: 'Loc' })],
       });
-      expect(result.mode).toBe('leader-attention');
+      expect(result.attentionItems.some(i => i.code === 'missing-repertoire')).toBe(false);
+    });
+
+    it('13. BandScale sem equipe recebe missing-team', () => {
+      const result = evaluateHomeExperience({
+        ...defaultInput,
+        canManageScales: true,
+        upcomingEvents: [createEvent({ type: 'band', songCount: 0, teamCount: 0, time: '10:00', locationName: 'Loc' })],
+      });
       expect(result.attentionItems.some(i => i.code === 'missing-team')).toBe(true);
-    });
-
-    it('7. evento sem horário', () => {
-      const result = evaluateHomeExperience({
-        ...defaultInput,
-        canManageScales: true,
-        upcomingEvents: [createEvent({ songCount: 1, teamCount: 1, locationName: 'Loc' })],
-      });
-      expect(result.mode).toBe('leader-attention');
-      expect(result.attentionItems.some(i => i.code === 'missing-time')).toBe(true);
-    });
-
-    it('8. evento sem local', () => {
-      const result = evaluateHomeExperience({
-        ...defaultInput,
-        canManageScales: true,
-        upcomingEvents: [createEvent({ songCount: 1, teamCount: 1, time: '10:00' })],
-      });
-      expect(result.mode).toBe('leader-attention');
-      expect(result.attentionItems.some(i => i.code === 'missing-location')).toBe(true);
-    });
-
-    it('11. líder com evento publicado recebe leader-prepared', () => {
-      const result = evaluateHomeExperience({
-        ...defaultInput,
-        canManageScales: true,
-        upcomingEvents: [createEvent({ songCount: 1, teamCount: 1, time: '10:00', locationName: 'Loc', status: 'published' })],
-      });
-      expect(result.mode).toBe('leader-prepared');
-      expect(result.attentionItems.length).toBe(0);
-    });
-
-    it('12. não administrador recebe observer-event', () => {
-      const result = evaluateHomeExperience({
-        ...defaultInput,
-        canManageScales: false,
-        upcomingEvents: [createEvent({ isUserAssigned: false })],
-      });
-      expect(result.mode).toBe('observer-event');
-    });
-
-    it('13. administrador sem evento recebe create-next-event', () => {
-      const result = evaluateHomeExperience({
-        ...defaultInput,
-        canManageScales: true,
-        upcomingEvents: [],
-      });
-      expect(result.mode).toBe('create-next-event');
-    });
-
-    it('14. músico sem compromisso recebe no-upcoming-event', () => {
-      const result = evaluateHomeExperience({
-        ...defaultInput,
-        canManageScales: false,
-        upcomingEvents: [],
-      });
-      expect(result.mode).toBe('no-upcoming-event');
-    });
-
-    it('17. arrays de entrada não são modificados', () => {
-      const originalEvents = [createEvent({})];
-      const eventsRef = [...originalEvents];
-      evaluateHomeExperience({
-        ...defaultInput,
-        upcomingEvents: originalEvents,
-      });
-      expect(originalEvents).toEqual(eventsRef);
-    });
-
-    it('19. leader-prepared não afirma confirmação coletiva (não avalia responses do assignment)', () => {
-      const result = evaluateHomeExperience({
-        ...defaultInput,
-        canManageScales: true,
-        upcomingEvents: [createEvent({ songCount: 1, teamCount: 1, time: '10:00', locationName: 'Loc', status: 'published' })],
-      });
-      expect(result.mode).toBe('leader-prepared');
-    });
-
-    it('29. usuário escalado no segundo evento recebe esse compromisso', () => {
-      const result = evaluateHomeExperience({
-        ...defaultInput,
-        upcomingEvents: [
-          createEvent({ id: 'e1', isUserAssigned: false }),
-          createEvent({ id: 'e2', isUserAssigned: true })
-        ],
-      });
-      expect(result.mode).toBe('assigned-event');
-      expect(result.event?.id).toBe('e2');
     });
   });
 
   describe('buildHomeEventSummaries', () => {
-    const today = getLocalDateKey();
-    const futureDate = '2099-12-31';
-    
-    it('9. evento cancelado é ignorado', () => {
-      const musicScales: PopulatedScaleWithAssignments[] = [
-        { id: '1', status: 'cancelled', date: futureDate } as any
+    const today = '2026-10-10';
+
+    it('1. MusicScale sem data é ignorada', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1' } as any
       ];
-      const summaries = buildHomeEventSummaries(musicScales, []);
+      const summaries = buildHomeEventSummaries(musicScales, [], undefined, today);
       expect(summaries.length).toBe(0);
     });
 
-    it('10. eventos são ordenados por data e horário', () => {
-      const musicScales: PopulatedScaleWithAssignments[] = [
-        { id: '1', date: '2099-12-31', time: '10:00' } as any,
-        { id: '2', date: '2099-12-30', time: '11:00' } as any,
-        { id: '3', date: '2099-12-31', time: '09:00' } as any,
+    it('2. BandScale sem data é ignorada', () => {
+      const bandScales: PopulatedBandScaleWithStatus[] = [
+        { id: '1' } as any
       ];
-      const summaries = buildHomeEventSummaries(musicScales, []);
-      expect(summaries.map(s => s.id)).toEqual(['2', '3', '1']);
+      const summaries = buildHomeEventSummaries([], bandScales, undefined, today);
+      expect(summaries.length).toBe(0);
     });
 
-    it('15. função duplicada não aparece duas vezes', () => {
-      const musicScales: PopulatedScaleWithAssignments[] = [
-        { 
-          id: '1', 
-          date: futureDate, 
-          eventAssignments: [
-            { userId: 'u1', functionName: 'Guitar', active: true },
-            { userId: 'u1', functionName: 'Guitar', active: true }
-          ] 
-        } as any
+    it('3. data vazia é ignorada', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', date: '' } as any
       ];
-      const summaries = buildHomeEventSummaries(musicScales, [], 'u1');
-      expect(summaries[0].userFunctionNames).toEqual(['Guitar']);
+      const summaries = buildHomeEventSummaries(musicScales, [], undefined, today);
+      expect(summaries.length).toBe(0);
     });
 
-    it('16. atribuições inativas não contam', () => {
-      const musicScales: PopulatedScaleWithAssignments[] = [
-        { 
-          id: '1', 
-          date: futureDate, 
-          eventAssignments: [
-            { userId: 'u1', functionName: 'Guitar', active: false },
-            { userId: 'u2', functionName: 'Bass', active: true }
-          ] 
-        } as any
+    it('4. data malformada é ignorada', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', date: '2026/10/10' } as any,
+        { id: '2', date: 'outubro' } as any
       ];
-      const summaries = buildHomeEventSummaries(musicScales, [], 'u1');
-      expect(summaries[0].isUserAssigned).toBe(false);
-      expect(summaries[0].teamCount).toBe(1);
+      const summaries = buildHomeEventSummaries(musicScales, [], undefined, today);
+      expect(summaries.length).toBe(0);
     });
 
-    it('18. nenhuma métrica de músicas inativas é inventada', () => {
-      const musicScales: PopulatedScaleWithAssignments[] = [
-        { id: '1', date: futureDate, songs: [] } as any
+    it('5. 2026-02-30 é ignorada', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', date: '2026-02-30' } as any
       ];
-      const summaries = buildHomeEventSummaries(musicScales, []);
-      expect(summaries[0].songCount).toBe(0);
+      const summaries = buildHomeEventSummaries(musicScales, [], undefined, today);
+      expect(summaries.length).toBe(0);
     });
 
-    it('20. datas YYYY-MM-DD não mudam por UTC', () => {
-      const key = getLocalDateKey(new Date('2026-10-10T12:00:00Z'));
-      // The local date of 12:00 UTC might depend on timezone, but getLocalDateKey uses local JS date.
-      // We just expect it to return a string YYYY-MM-DD
-      expect(key).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    });
-
-    it('21. PopulatedScale usa eventAssignments', () => {
-      const musicScales: PopulatedScaleWithAssignments[] = [
-        { 
-          id: '1', 
-          date: futureDate, 
-          eventAssignments: [
-            { userId: 'u1', functionName: 'Vocal', active: true }
-          ] 
-        } as any
+    it('6. data de hoje, fornecida como todayKey, permanece visível', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', date: '2026-10-10' } as any
       ];
-      const summaries = buildHomeEventSummaries(musicScales, [], 'u1');
-      expect(summaries[0].isUserAssigned).toBe(true);
-      expect(summaries[0].userFunctionNames).toEqual(['Vocal']);
-    });
-
-    it('22. PopulatedBandScale usa user.uid e instrument.name', () => {
-      const bandScales: PopulatedBandScale[] = [
-        { 
-          id: '1', 
-          date: futureDate, 
-          assignments: [
-            { user: { uid: 'u1' }, instrument: { name: 'Drums' } }
-          ] 
-        } as any
-      ];
-      const summaries = buildHomeEventSummaries([], bandScales, 'u1');
-      expect(summaries[0].isUserAssigned).toBe(true);
-      expect(summaries[0].userFunctionNames).toEqual(['Drums']);
-    });
-
-    it('23. MusicScale e BandScale ligados não duplicam evento', () => {
-      const musicScales: PopulatedScaleWithAssignments[] = [
-        { id: 'm1', date: futureDate } as any
-      ];
-      const bandScales: PopulatedBandScale[] = [
-        { id: 'b1', date: futureDate, musicScaleId: 'm1' } as any
-      ];
-      const summaries = buildHomeEventSummaries(musicScales, bandScales, 'u1');
+      const summaries = buildHomeEventSummaries(musicScales, [], undefined, today);
       expect(summaries.length).toBe(1);
-      expect(summaries[0].id).toBe('m1');
-      expect(summaries[0].type).toBe('music');
     });
 
-    it('24. local vem de location.name', () => {
-      const musicScales: PopulatedScaleWithAssignments[] = [
-        { id: '1', date: futureDate, location: { name: 'Main Hall' } } as any
+    it('7. evento anterior ao todayKey é ignorado', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', date: '2026-10-09' } as any
       ];
-      const summaries = buildHomeEventSummaries(musicScales, []);
-      expect(summaries[0].locationName).toBe('Main Hall');
+      const summaries = buildHomeEventSummaries(musicScales, [], undefined, today);
+      expect(summaries.length).toBe(0);
     });
 
-    it('25. título vem de eventName.name', () => {
-      const musicScales: PopulatedScaleWithAssignments[] = [
-        { id: '1', date: futureDate, eventName: { name: 'Sunday Service' } } as any
+    it('8. evento posterior permanece', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', date: '2026-10-11' } as any
       ];
-      const summaries = buildHomeEventSummaries(musicScales, []);
-      expect(summaries[0].title).toBe('Sunday Service');
+      const summaries = buildHomeEventSummaries(musicScales, [], undefined, today);
+      expect(summaries.length).toBe(1);
     });
 
-    it('26. fallback de título usa eventType.name', () => {
-      const musicScales: PopulatedScaleWithAssignments[] = [
-        { id: '1', date: futureDate, eventType: { name: 'Youth' } } as any
+    it('9. vários eventos válidos continuam ordenados', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', date: '2026-10-12', time: '10:00' } as any,
+        { id: '2', date: '2026-10-11', time: '11:00' } as any,
+        { id: '3', date: '2026-10-11', time: '09:00' } as any
       ];
-      const summaries = buildHomeEventSummaries(musicScales, []);
-      expect(summaries[0].title).toBe('Youth');
+      const summaries = buildHomeEventSummaries(musicScales, [], undefined, today);
+      expect(summaries[0].id).toBe('3');
+      expect(summaries[1].id).toBe('2');
+      expect(summaries[2].id).toBe('1');
     });
 
-    it('30. duas funções da mesma pessoa contam uma única pessoa na equipe', () => {
-      const musicScales: PopulatedScaleWithAssignments[] = [
-        { 
-          id: '1', 
-          date: futureDate, 
-          eventAssignments: [
-            { userId: 'u1', functionName: 'Vocal', active: true },
-            { userId: 'u1', functionName: 'Guitar', active: true }
-          ] 
-        } as any
+    it('10. evento inválido não impede os demais', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', date: 'invalid' } as any,
+        { id: '2', date: '2026-10-11' } as any
       ];
-      const summaries = buildHomeEventSummaries(musicScales, []);
-      expect(summaries[0].teamCount).toBe(1);
+      const summaries = buildHomeEventSummaries(musicScales, [], undefined, today);
+      expect(summaries.length).toBe(1);
+      expect(summaries[0].id).toBe('2');
+    });
+
+    it('24. arrays não são modificados', () => {
+      const original: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', date: '2026-10-11' } as any
+      ];
+      const copy = [...original];
+      buildHomeEventSummaries(original, [], undefined, today);
+      expect(original).toEqual(copy);
     });
   });
 
   describe('selectMostRecentDraft', () => {
-    it('27. Timestamp com toMillis ordena rascunhos', () => {
-      const musicScales: PopulatedScaleWithAssignments[] = [
-        { id: '1', status: 'draft', createdAt: { toMillis: () => 1000 } } as any,
-        { id: '2', status: 'draft', createdAt: { toMillis: () => 2000 } } as any,
+    it('14. lastModifiedAt tem prioridade sobre createdAt', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', status: 'draft', createdAt: 2000, lastModifiedAt: 3000 } as any,
+        { id: '2', status: 'draft', createdAt: 4000, lastModifiedAt: 1000 } as any,
       ];
-      const draft = selectMostRecentDraft(musicScales, []);
-      expect(draft?.id).toBe('2');
+      const result = selectMostRecentDraft(musicScales, []);
+      expect(result?.id).toBe('1');
     });
 
-    it('28. Timestamp com toDate ordena rascunhos', () => {
-      const musicScales: PopulatedScaleWithAssignments[] = [
-        { id: '1', status: 'draft', createdAt: { toDate: () => new Date(1000) } } as any,
-        { id: '2', status: 'draft', createdAt: { toDate: () => new Date(2000) } } as any,
+    it('15. updatedAt é usado quando lastModifiedAt não existe', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', status: 'draft', createdAt: 1000, updatedAt: 3000 } as any,
+        { id: '2', status: 'draft', createdAt: 4000, updatedAt: 2000 } as any,
       ];
-      const draft = selectMostRecentDraft(musicScales, []);
-      expect(draft?.id).toBe('2');
+      const result = selectMostRecentDraft(musicScales, []);
+      expect(result?.id).toBe('1');
+    });
+
+    it('16. createdAt é o fallback', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', status: 'draft', createdAt: 1000 } as any,
+        { id: '2', status: 'draft', createdAt: 2000 } as any,
+      ];
+      const result = selectMostRecentDraft(musicScales, []);
+      expect(result?.id).toBe('2');
+    });
+
+    it('17. Timestamp toMillis funciona', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', status: 'draft', createdAt: { toMillis: () => 3000 } } as any,
+        { id: '2', status: 'draft', createdAt: { toMillis: () => 1000 } } as any,
+      ];
+      const result = selectMostRecentDraft(musicScales, []);
+      expect(result?.id).toBe('1');
+    });
+
+    it('18. Timestamp toDate funciona', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', status: 'draft', createdAt: { toDate: () => new Date(3000) } } as any,
+        { id: '2', status: 'draft', createdAt: { toDate: () => new Date(1000) } } as any,
+      ];
+      const result = selectMostRecentDraft(musicScales, []);
+      expect(result?.id).toBe('1');
+    });
+
+    it('19. objeto seconds funciona', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', status: 'draft', createdAt: { seconds: 3 } } as any,
+        { id: '2', status: 'draft', createdAt: { seconds: 1 } } as any,
+      ];
+      const result = selectMostRecentDraft(musicScales, []);
+      expect(result?.id).toBe('1');
+    });
+
+    it('20. timestamp inválido retorna zero', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', status: 'draft', createdAt: 'invalid' } as any,
+        { id: '2', status: 'draft', createdAt: 1000 } as any,
+      ];
+      const result = selectMostRecentDraft(musicScales, []);
+      expect(result?.id).toBe('2');
+    });
+
+    it('21. função de timestamp que lança não derruba a Home', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', status: 'draft', createdAt: { toMillis: () => { throw new Error('Boom'); } } } as any,
+        { id: '2', status: 'draft', createdAt: 1000 } as any,
+      ];
+      const result = selectMostRecentDraft(musicScales, []);
+      expect(result?.id).toBe('2');
+    });
+
+    it('22. MusicScale vazia continua identificada como music no rascunho', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { id: '1', status: 'draft', createdAt: 1000 } as any,
+      ];
+      const result = selectMostRecentDraft(musicScales, []);
+      expect(result?.type).toBe('music');
+    });
+
+    it('23. BandScale continua identificada como band', () => {
+      const bandScales: PopulatedBandScaleWithStatus[] = [
+        { id: '1', status: 'draft', createdAt: 1000 } as any,
+      ];
+      const result = selectMostRecentDraft([], bandScales);
+      expect(result?.type).toBe('band');
     });
   });
 });

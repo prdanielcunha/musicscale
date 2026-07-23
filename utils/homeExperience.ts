@@ -1,8 +1,27 @@
-import type { PopulatedScale, PopulatedBandScale, EventAssignment } from '../types';
+import type { PopulatedScale, PopulatedBandScale, EventAssignment, UserProfile, Instrument } from '../types';
 
 export type PopulatedScaleWithAssignments = PopulatedScale & {
   eventAssignments?: EventAssignment[];
 };
+
+export type PopulatedBandScaleWithStatus = PopulatedBandScale & {
+  status?: string | null;
+  updatedAt?: any;
+  createdAt?: any;
+  lastModifiedAt?: any;
+  assignments?: { user?: UserProfile; instrument?: Instrument }[];
+};
+
+export type PopulatedScaleWithAssignmentsAndStatus = PopulatedScaleWithAssignments & {
+  status?: string | null;
+  updatedAt?: any;
+  createdAt?: any;
+  lastModifiedAt?: any;
+};
+
+export type DraftCandidate =
+  | { type: 'music'; value: PopulatedScaleWithAssignmentsAndStatus }
+  | { type: 'band'; value: PopulatedBandScaleWithStatus };
 
 export type HomeExperienceMode =
   | 'first-value'
@@ -65,19 +84,90 @@ export function getLocalDateKey(date: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+export function isValidDateOnlyKey(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+
+  const [yearStr, monthStr, dayStr] = value.split('-');
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const day = parseInt(dayStr, 10);
+
+  const date = new Date(year, month - 1, day);
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+}
+
+export function toEpochMillis(value: unknown): number {
+  if (!value) return 0;
+  try {
+    if (typeof (value as any).toMillis === 'function') {
+      const ms = (value as any).toMillis();
+      if (typeof ms === 'number' && Number.isFinite(ms)) return ms;
+    }
+    if (typeof (value as any).toDate === 'function') {
+      const ms = (value as any).toDate().getTime();
+      if (typeof ms === 'number' && Number.isFinite(ms)) return ms;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const ms = new Date(value).getTime();
+      return isNaN(ms) ? 0 : ms;
+    }
+    if (value instanceof Date) {
+      const ms = value.getTime();
+      return isNaN(ms) ? 0 : ms;
+    }
+    if (typeof value === 'object' && value !== null && 'seconds' in value) {
+      const sec = (value as any).seconds;
+      if (typeof sec === 'number' && Number.isFinite(sec)) return sec * 1000;
+    }
+  } catch {
+    return 0;
+  }
+  return 0;
+}
+
+export function getHomeAttentionItems(
+  event: HomeEventSummary,
+  canManageScales: boolean
+): HomeAttentionItem[] {
+  if (!canManageScales) return [];
+  const attentionItems: HomeAttentionItem[] = [];
+
+  if (event.status === 'draft') {
+    attentionItems.push({ code: 'draft', severity: 'important' });
+  }
+
+  if (event.type === 'music' && event.songCount === 0) {
+    attentionItems.push({ code: 'missing-repertoire', severity: 'important' });
+  }
+
+  if (event.teamCount === 0) attentionItems.push({ code: 'missing-team', severity: 'warning' });
+  if (!event.time) attentionItems.push({ code: 'missing-time', severity: 'info' });
+  if (!event.locationName) attentionItems.push({ code: 'missing-location', severity: 'info' });
+
+  return attentionItems;
+}
+
 export function buildHomeEventSummaries(
-  musicScales: PopulatedScaleWithAssignments[],
-  bandScales: PopulatedBandScale[],
-  currentUserId?: string
+  musicScales: PopulatedScaleWithAssignmentsAndStatus[],
+  bandScales: PopulatedBandScaleWithStatus[],
+  currentUserId?: string,
+  todayKey: string = getLocalDateKey()
 ): HomeEventSummary[] {
   const summaries: HomeEventSummary[] = [];
-  const todayKey = getLocalDateKey();
+  const validTodayKey = isValidDateOnlyKey(todayKey) ? todayKey : getLocalDateKey();
 
-  const activeMusicScales = musicScales.filter((s) => (s as any).status !== 'cancelled');
+  const activeMusicScales = musicScales.filter((s) => s.status !== 'cancelled');
   const musicScaleIds = new Set(activeMusicScales.map((s) => s.id));
 
   activeMusicScales.forEach((scale) => {
-    if (scale.date < todayKey) return;
+    if (!isValidDateOnlyKey(scale.date)) return;
+    if (scale.date < validTodayKey) return;
 
     const title = scale.eventName?.name || scale.eventType?.name || '';
     const locationName = scale.location?.name;
@@ -89,7 +179,9 @@ export function buildHomeEventSummaries(
 
     const userAssignments = activeAssignments.filter((a) => a.userId === currentUserId);
     const isUserAssigned = userAssignments.length > 0;
-    const userFunctionNames = Array.from(new Set(userAssignments.map((a) => a.functionName).filter(Boolean))) as string[];
+    const userFunctionNames = Array.from(
+      new Set(userAssignments.map((a) => a.functionName).filter(Boolean))
+    ) as string[];
 
     summaries.push({
       id: scale.id,
@@ -100,31 +192,34 @@ export function buildHomeEventSummaries(
       locationName,
       songCount,
       teamCount,
-      status: (scale as any).status,
+      status: scale.status,
       userFunctionNames,
       isUserAssigned,
     });
   });
 
-  const activeBandScales = bandScales.filter((s) => (s as any).status !== 'cancelled');
-  
+  const activeBandScales = bandScales.filter((s) => s.status !== 'cancelled');
+
   activeBandScales.forEach((scale) => {
-    if (scale.date < todayKey) return;
+    if (!isValidDateOnlyKey(scale.date)) return;
+    if (scale.date < validTodayKey) return;
     if (scale.musicScaleId && musicScaleIds.has(scale.musicScaleId)) return;
 
     const title = scale.eventName?.name || scale.eventType?.name || '';
     const locationName = scale.location?.name;
-    const songCount = 0; 
-    
-    const assignments = (scale as any).assignments || [];
+    const songCount = 0;
+
+    const assignments = scale.assignments || [];
     const uniqueUserIds = new Set(
-      assignments.map((a: any) => a.user?.uid).filter(Boolean)
+      assignments.map((a) => a.user?.uid).filter(Boolean)
     );
     const teamCount = uniqueUserIds.size;
 
-    const userAssignments = assignments.filter((a: any) => a.user?.uid === currentUserId);
+    const userAssignments = assignments.filter((a) => a.user?.uid === currentUserId);
     const isUserAssigned = userAssignments.length > 0;
-    const userFunctionNames = Array.from(new Set(userAssignments.map((a: any) => a.instrument?.name).filter(Boolean))) as string[];
+    const userFunctionNames = Array.from(
+      new Set(userAssignments.map((a) => a.instrument?.name).filter(Boolean))
+    ) as string[];
 
     summaries.push({
       id: scale.id,
@@ -135,7 +230,7 @@ export function buildHomeEventSummaries(
       locationName,
       songCount,
       teamCount,
-      status: (scale as any).status,
+      status: scale.status,
       userFunctionNames,
       isUserAssigned,
     });
@@ -151,83 +246,80 @@ export function buildHomeEventSummaries(
   });
 }
 
-// Helper to convert any raw event into HomeEventSummary to use for drafts
-function rawToSummary(raw: any, currentUserId?: string): HomeEventSummary {
-  const isMusic = raw.songs !== undefined || raw.eventAssignments !== undefined;
-  const title = raw.eventName?.name || raw.eventType?.name || '';
-  const locationName = raw.location?.name;
-  
-  if (isMusic) {
-    const activeAssignments = (raw.eventAssignments || []).filter((a: any) => a.active !== false);
-    const uniqueUserIds = new Set(activeAssignments.map((a: any) => a.userId));
-    const userAssignments = activeAssignments.filter((a: any) => a.userId === currentUserId);
+function rawToSummary(candidate: DraftCandidate, currentUserId?: string): HomeEventSummary {
+  if (candidate.type === 'music') {
+    const raw = candidate.value;
+    const title = raw.eventName?.name || raw.eventType?.name || '';
+    const locationName = raw.location?.name;
+    const activeAssignments = (raw.eventAssignments || []).filter((a) => a.active !== false);
+    const uniqueUserIds = new Set(activeAssignments.map((a) => a.userId));
+    const userAssignments = activeAssignments.filter((a) => a.userId === currentUserId);
+    
     return {
       id: raw.id,
       type: 'music',
       title,
-      date: raw.date,
+      date: raw.date || '',
       time: raw.time,
       locationName,
       songCount: raw.songs ? raw.songs.length : 0,
       teamCount: uniqueUserIds.size,
       status: raw.status,
-      userFunctionNames: Array.from(new Set(userAssignments.map((a: any) => a.functionName).filter(Boolean))) as string[],
+      userFunctionNames: Array.from(new Set(userAssignments.map((a) => a.functionName).filter(Boolean))) as string[],
       isUserAssigned: userAssignments.length > 0,
     };
   } else {
+    const raw = candidate.value;
+    const title = raw.eventName?.name || raw.eventType?.name || '';
+    const locationName = raw.location?.name;
     const assignments = raw.assignments || [];
-    const uniqueUserIds = new Set(assignments.map((a: any) => a.user?.uid).filter(Boolean));
-    const userAssignments = assignments.filter((a: any) => a.user?.uid === currentUserId);
+    const uniqueUserIds = new Set(assignments.map((a) => a.user?.uid).filter(Boolean));
+    const userAssignments = assignments.filter((a) => a.user?.uid === currentUserId);
+    
     return {
       id: raw.id,
       type: 'band',
       title,
-      date: raw.date,
+      date: raw.date || '',
       time: raw.time,
       locationName,
       songCount: 0,
       teamCount: uniqueUserIds.size,
       status: raw.status,
-      userFunctionNames: Array.from(new Set(userAssignments.map((a: any) => a.instrument?.name).filter(Boolean))) as string[],
+      userFunctionNames: Array.from(new Set(userAssignments.map((a) => a.instrument?.name).filter(Boolean))) as string[],
       isUserAssigned: userAssignments.length > 0,
     };
   }
 }
 
 export function selectMostRecentDraft(
-  musicScales: PopulatedScaleWithAssignments[],
-  bandScales: PopulatedBandScale[],
+  musicScales: PopulatedScaleWithAssignmentsAndStatus[],
+  bandScales: PopulatedBandScaleWithStatus[],
   currentUserId?: string
 ): HomeEventSummary | null {
-  const allEvents = [...musicScales, ...bandScales];
-  const drafts = allEvents.filter((s) => (s as any).status === 'draft');
+  const allEvents: DraftCandidate[] = [
+    ...musicScales.map(s => ({ type: 'music' as const, value: s })),
+    ...bandScales.map(s => ({ type: 'band' as const, value: s }))
+  ];
+
+  const drafts = allEvents.filter((c) => c.value.status === 'draft');
   if (drafts.length === 0) return null;
-  
+
   const sorted = [...drafts].sort((a, b) => {
-    const getMs = (val: any) => {
-      if (!val) return 0;
-      if (typeof val.toMillis === 'function') return val.toMillis();
-      if (typeof val.toDate === 'function') return val.toDate().getTime();
-      if (typeof val === 'string') return new Date(val).getTime();
-      if (typeof val === 'number') return val;
-      if (val.seconds) return val.seconds * 1000;
-      if (val instanceof Date) return val.getTime();
-      return 0;
-    };
+    const getMs = (val: any) => toEpochMillis(val);
     
-    // Check fields in order of preference
-    const timeA = getMs((a as any).updatedAt) || getMs(a.createdAt) || 0;
-    const timeB = getMs((b as any).updatedAt) || getMs(b.createdAt) || 0;
+    const timeA = getMs(a.value.lastModifiedAt) || getMs(a.value.updatedAt) || getMs(a.value.createdAt) || 0;
+    const timeB = getMs(b.value.lastModifiedAt) || getMs(b.value.updatedAt) || getMs(b.value.createdAt) || 0;
     
     return timeB - timeA;
   });
-  
+
   return rawToSummary(sorted[0], currentUserId);
 }
 
 export function evaluateHomeExperience(input: EvaluateHomeInput): HomeExperience {
   const { isFirstValueJourneyActive, canManageScales, upcomingEvents, mostRecentDraft } = input;
-  
+
   if (isFirstValueJourneyActive) {
     return {
       mode: 'first-value',
@@ -239,22 +331,14 @@ export function evaluateHomeExperience(input: EvaluateHomeInput): HomeExperience
     };
   }
 
-  // REQUISITO 8: const nextAssignedEvent = upcomingEvents.find(event => event.isUserAssigned);
   const nextAssignedEvent = upcomingEvents.find(event => event.isUserAssigned);
   const nextEvent = upcomingEvents[0] || null;
 
   if (nextAssignedEvent) {
-    const attentionItems: HomeAttentionItem[] = [];
-    if (canManageScales) {
-      if (nextAssignedEvent.status === 'draft') attentionItems.push({ code: 'draft', severity: 'important' });
-      if (nextAssignedEvent.songCount === 0) attentionItems.push({ code: 'missing-repertoire', severity: 'important' });
-      if (nextAssignedEvent.teamCount === 0) attentionItems.push({ code: 'missing-team', severity: 'warning' });
-      if (!nextAssignedEvent.time) attentionItems.push({ code: 'missing-time', severity: 'info' });
-      if (!nextAssignedEvent.locationName) attentionItems.push({ code: 'missing-location', severity: 'info' });
-    }
+    const attentionItems = getHomeAttentionItems(nextAssignedEvent, canManageScales);
     return {
       mode: 'assigned-event',
-      event: nextAssignedEvent, // Wait, if the user is a leader, should they see pending on the nextAssignedEvent or the first general event? The requirement says: "Para líderes escalados: assigned-event continua prioritário; pendências administrativas pertencem ao evento atribuído exibido."
+      event: nextAssignedEvent,
       draftEvent: mostRecentDraft,
       attentionItems,
       canManageScales,
@@ -274,12 +358,7 @@ export function evaluateHomeExperience(input: EvaluateHomeInput): HomeExperience
   }
 
   if (nextEvent && canManageScales) {
-    const attentionItems: HomeAttentionItem[] = [];
-    if (nextEvent.status === 'draft') attentionItems.push({ code: 'draft', severity: 'important' });
-    if (nextEvent.songCount === 0) attentionItems.push({ code: 'missing-repertoire', severity: 'important' });
-    if (nextEvent.teamCount === 0) attentionItems.push({ code: 'missing-team', severity: 'warning' });
-    if (!nextEvent.time) attentionItems.push({ code: 'missing-time', severity: 'info' });
-    if (!nextEvent.locationName) attentionItems.push({ code: 'missing-location', severity: 'info' });
+    const attentionItems = getHomeAttentionItems(nextEvent, canManageScales);
     
     if (attentionItems.length > 0) {
       return {

@@ -24,13 +24,15 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   onCreateScale, 
   onChooseScaleToRepeat 
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   
+  const locale = i18n.resolvedLanguage || i18n.language || 'pt-BR';
+  const standardLocale = locale.startsWith('pt') ? 'pt-BR' : locale.startsWith('en') ? 'en-US' : locale.startsWith('es') ? 'es-ES' : 'pt-BR';
+
   const { mode, event, draftEvent, attentionItems } = experience;
 
   const renderAttentionList = (items: HomeAttentionItem[]) => {
     if (!items || items.length === 0) return null;
-
     return (
       <ul className="mt-4 space-y-2">
         {items.map((item, idx) => {
@@ -61,8 +63,9 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   const renderAssignedEvent = () => {
     if (!event) return null;
     
-    const IntlList = new Intl.ListFormat(t('locale', 'pt-BR'), { style: 'long', type: 'conjunction' });
-    const formattedFunctions = event.userFunctionNames.length > 0 ? IntlList.format(event.userFunctionNames) : '';
+    const IntlList = new Intl.ListFormat(standardLocale, { style: 'long', type: 'conjunction' });
+    const uniqueFunctions = Array.from(new Set(event.userFunctionNames.filter(Boolean))) as string[];
+    const formattedFunctions = uniqueFunctions.length > 0 ? IntlList.format(uniqueFunctions) : '';
 
     return (
       <div className="space-y-4">
@@ -71,29 +74,28 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
           {t('dashboard.focus.assignedEyebrow')}
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{event.title}</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{event.title || t('dashboard.focus.untitledEvent')}</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
             {event.date} {event.time ? `• ${event.time}` : ''} {event.locationName ? `• ${event.locationName}` : ''}
           </p>
           <div className="mt-2 text-sm text-slate-600 dark:text-slate-400 space-x-2">
             <span>{t('dashboard.focus.songsCount_' + (event.songCount === 1 ? 'one' : 'other'), { count: event.songCount })}</span>
-            <span>•</span>
             {formattedFunctions && (
-              <span>
-                <span className="font-medium text-slate-900 dark:text-white">{t('dashboard.focus.functionLabel')}</span> {formattedFunctions}
-              </span>
+              <>
+                <span>•</span>
+                <span>
+                  <span className="font-medium text-slate-900 dark:text-white">{t('dashboard.focus.functionLabel')}</span> {formattedFunctions}
+                </span>
+              </>
             )}
           </div>
         </div>
-
         {responseActions && (
           <div className="pt-2">
             {responseActions}
           </div>
         )}
-
         {renderAttentionList(attentionItems)}
-
         <div className="pt-4 flex flex-col sm:flex-row gap-3">
           <Button onClick={() => onOpenEvent(event)} className="w-full sm:w-auto" variant="primary">
             {t('dashboard.focus.openRepertoire')}
@@ -112,7 +114,6 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
   const renderLeaderAttention = () => {
     if (!event) return null;
-
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
@@ -122,12 +123,10 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.attentionTitle')}</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {event.title} • {event.date}
+            {event.title || t('dashboard.focus.untitledEvent')} • {event.date}
           </p>
         </div>
-
         {renderAttentionList(attentionItems)}
-
         <div className="pt-4 flex flex-col sm:flex-row gap-3">
           <Button onClick={() => onOpenEvent(event)} className="w-full sm:w-auto" variant="primary">
             {t('dashboard.focus.resolveIssues')}
@@ -139,7 +138,6 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
   const renderContinueDraft = () => {
     if (!draftEvent) return null;
-
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
@@ -149,12 +147,11 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.continueDraft')}</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {draftEvent.title} • {draftEvent.date}
+            {draftEvent.title || t('dashboard.focus.untitledEvent')} • {draftEvent.date}
           </p>
         </div>
         
         {renderAttentionList(attentionItems)}
-
         <div className="pt-4 flex flex-col sm:flex-row gap-3">
           <Button onClick={() => onOpenEvent(draftEvent)} className="w-full sm:w-auto" variant="primary">
             {t('dashboard.focus.continuePreparing')}
@@ -166,7 +163,6 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
   const renderLeaderPrepared = () => {
     if (!event) return null;
-
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
@@ -176,13 +172,12 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.preparedTitle')}</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {event.title} • {event.date} {event.time ? `• ${event.time}` : ''}
+            {event.title || t('dashboard.focus.untitledEvent')} • {event.date} {event.time ? `• ${event.time}` : ''}
           </p>
           <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
             {t('dashboard.focus.songsCount_' + (event.songCount === 1 ? 'one' : 'other'), { count: event.songCount })} • {t('dashboard.focus.teamCount_' + (event.teamCount === 1 ? 'one' : 'other'), { count: event.teamCount })}
           </div>
         </div>
-
         <div className="pt-4 flex flex-col sm:flex-row gap-3">
           <Button onClick={() => onOpenEvent(event)} className="w-full sm:w-auto" variant="primary">
             {t('dashboard.focus.openScale')}
@@ -201,7 +196,6 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
   const renderObserverEvent = () => {
     if (!event) return null;
-
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wider">
@@ -217,7 +211,6 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
             {t('dashboard.focus.songsCount_' + (event.songCount === 1 ? 'one' : 'other'), { count: event.songCount })}
           </div>
         </div>
-
         <div className="pt-4 flex flex-col sm:flex-row gap-3">
           <Button onClick={() => onOpenEvent(event)} className="w-full sm:w-auto" variant="primary">
             {t('dashboard.focus.viewDetails')}

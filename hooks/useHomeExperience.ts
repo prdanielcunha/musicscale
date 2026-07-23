@@ -9,7 +9,7 @@ import {
   selectMostRecentDraft, 
   HomeEventSummary 
 } from '../utils/homeExperience';
-import type { PopulatedScaleWithAssignments } from '../utils/homeExperience';
+import type { PopulatedScaleWithAssignmentsAndStatus, PopulatedBandScaleWithStatus } from '../utils/homeExperience';
 
 export function useHomeExperience() {
   const { user } = useAuth();
@@ -29,8 +29,8 @@ export function useHomeExperience() {
     // REQUISITO 11: Não adicionar upcomingEvents ao modelo HomeExperience. Retornar no hook.
     // REQUISITO 5, 7, 9, 10: Usa os helpers puros
     
-    const musicScales = (populatedScales || []) as PopulatedScaleWithAssignments[];
-    const bandScales = populatedBandScales || [];
+    const musicScales = (populatedScales || []) as PopulatedScaleWithAssignmentsAndStatus[];
+    const bandScales = (populatedBandScales || []) as PopulatedBandScaleWithStatus[];
     
     const upcomingEvents = buildHomeEventSummaries(musicScales, bandScales, user?.uid);
     const mostRecentDraft = selectMostRecentDraft(musicScales, bandScales, user?.uid);
