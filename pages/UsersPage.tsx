@@ -1618,11 +1618,6 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  const { usage, limits: musicScaleLimits } = useMusicScaleUsage();
-  const currentMembersCount = usage?.users ?? allUsers.length;
-  const maxMembers = musicScaleLimits?.users !== undefined ? musicScaleLimits.users : -1;
-  const isOverLimit = maxMembers !== -1 && currentMembersCount >= maxMembers;
-
   const teamSummary = useMemo(() => evaluateTeamSetup(allUsers, currentUser?.uid), [allUsers, currentUser?.uid]);
   const canManageMembers = roles.some(r => r.permissions?.canManageUsers) || isGlobal;
 

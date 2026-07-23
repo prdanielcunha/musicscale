@@ -1,7 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import Button from "../common/Button";
-import Card from "../common/Card";
+import { Button } from "../ui/Button";
+import { Card } from "../ui/Card";
 import { TeamSetupSummary } from "../../utils/teamSetup";
 import { CheckCircle2, ChevronRight, Settings } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
@@ -44,7 +44,7 @@ export const TeamSetupProgressCard: React.FC<TeamSetupProgressCardProps> = ({ su
                 ? t("teamSetup.progress.membersAdded_zero", "Nenhuma pessoa adicionada")
                 : summary.additionalMembers === 1
                   ? t("teamSetup.progress.membersAdded_one", "1 pessoa adicionada")
-                  : t("teamSetup.progress.membersAdded", { count: summary.additionalMembers, defaultValue: "{{count}} pessoas adicionadas" })}
+                  : t("teamSetup.progress.membersAdded", { count: summary.additionalMembers }, "{{count}} pessoas adicionadas")}
               {hasPeople && summary.incompleteMemberIds.length > 0 && (
                 <>
                   <span className="mx-2">•</span>
@@ -52,10 +52,10 @@ export const TeamSetupProgressCard: React.FC<TeamSetupProgressCardProps> = ({ su
                     {summary.additionalMembers - summary.membersWithAccessProfile > 0
                       ? summary.additionalMembers - summary.membersWithAccessProfile === 1
                         ? t("teamSetup.progress.missingAccess_one", "1 ainda precisa de um perfil de acesso")
-                        : t("teamSetup.progress.missingAccess", { count: summary.additionalMembers - summary.membersWithAccessProfile, defaultValue: "{{count}} ainda precisa de um perfil de acesso" })
+                        : t("teamSetup.progress.missingAccess", { count: summary.additionalMembers - summary.membersWithAccessProfile }, "{{count}} ainda precisa de um perfil de acesso")
                       : summary.additionalMembers - summary.membersWithMinistryFunctions === 1
                         ? t("teamSetup.progress.missingFunctions_one", "1 ainda precisa de uma função na equipe")
-                        : t("teamSetup.progress.missingFunctions", { count: summary.additionalMembers - summary.membersWithMinistryFunctions, defaultValue: "{{count}} ainda precisa de uma função na equipe" })}
+                        : t("teamSetup.progress.missingFunctions", { count: summary.additionalMembers - summary.membersWithMinistryFunctions }, "{{count}} ainda precisa de uma função na equipe")}
                   </span>
                 </>
               )}

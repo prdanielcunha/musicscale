@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { UserProfile, Role, Instrument } from "../../types";
-import Button from "../common/Button";
-import Card from "../common/Card";
+import { Button } from "../ui/Button";
+import { Card } from "../ui/Card";
 import { evaluateTeamSetup, groupMinistryFunctions } from "../../utils/teamSetup";
 import { AccessProfileSelector } from "./AccessProfileSelector";
 import { MinistryFunctionSelector } from "./MinistryFunctionSelector";
@@ -13,10 +13,10 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useEcosystem } from "../../contexts/EcosystemContext";
 import { getRoleKeyFromId, getRoleKeyFromName, canChangeOrganizationRole } from "../../utils/roleHierarchy";
 import { useApi } from "../../contexts/ApiContext";
-import { useToast } from "../../contexts/ToastContext";
-import Spinner from "../common/Spinner";
+import { toastSuccess, toastError } from "../../utils/toast";
+import { Spinner } from "../ui/Spinner";
 import { ArrowLeft, UserPlus, CheckCircle2, ChevronRight, Check } from "lucide-react";
-import { UpgradePlanModal } from "../premium/EntitlementGates";
+import { UpgradePlanModal } from "../UpgradePlanModal";
 
 interface TeamSetupGuideProps {
   users: UserProfile[];
@@ -41,7 +41,6 @@ export const TeamSetupGuide: React.FC<TeamSetupGuideProps> = ({
   const { user: currentUser, userProfile } = useAuth();
   const { isGlobal } = useEcosystem();
   const api = useApi();
-  const { error: toastError, success: toastSuccess } = useToast();
   const [, setSearchParams] = useSearchParams();
   
   const [step, setStep] = useState<SetupStep>(1);
@@ -142,7 +141,7 @@ export const TeamSetupGuide: React.FC<TeamSetupGuideProps> = ({
       actorOrganizationRole: actorRoleKey,
       targetOrganizationRole: oldTargetRoleKey,
       isSelfChange: targetUser.uid === currentUser?.uid,
-      otherOwnersActiveCount: users.filter(u => u.uid !== targetUser.uid && (u.role === 'owner' || u.role === 'Dono' || u.musicscaleRole === 'owner')).length
+      otherOwnersActiveCount: users.filter(u => u.organizationId === userProfile?.organizationId && u.uid !== targetUser.uid && (u.role === 'owner' || u.role === 'Dono' || u.uid === userProfile?.ownerUserId)).length
     };
 
     if (targetUser.uid === currentUser?.uid && oldTargetRoleKey !== newTargetRoleKey) {
@@ -211,7 +210,7 @@ export const TeamSetupGuide: React.FC<TeamSetupGuideProps> = ({
           {t("teamSetup.steps.back", "Voltar")}
         </Button>
         <div className="text-sm font-medium text-slate-500">
-          {step <= 5 ? t("teamSetup.steps.stepIndicator", `Etapa ${step} de 5`, { current: step, total: 5 }) : ""}
+          {step <= 5 ? t("teamSetup.steps.stepIndicator", { current: step, total: 5 }, `Etapa ${step} de 5`) : ""}
         </div>
       </header>
 

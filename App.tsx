@@ -46,7 +46,6 @@ const UpdatesPage = lazy(() => import('./pages/UpdatesPage'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const DebugSessionPage = lazy(() => import('./pages/DebugSessionPage'));
 const FinOpsDiagnosticsPage = lazy(() => import('./pages/FinOpsDiagnosticsPage'));
-const LandingPage = lazy(() => import('./pages/LandingPage'));
 
 import { PerformanceRecovery } from './components/common/PerformanceRecovery';
 import { SyncConfidenceLayer } from './components/common/SyncConfidenceLayer';
@@ -414,7 +413,6 @@ function Gatekeeper({ children }: { children: React.ReactNode }) {
 const AppContent: React.FC = () => {
     return (
         <Routes>
-            <Route path="/landing" element={<Suspense fallback={<Spinner size="lg" />}><LandingPage /></Suspense>} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/join" element={<JoinPage />} />
             <Route path="/start" element={<StartGateway />} />
