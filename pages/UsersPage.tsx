@@ -3,7 +3,7 @@ import { logger } from "../lib/logger";
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { getPrimaryDisplayRole, getRoleBadgeStyles } from '../utils/roleResolver';
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { doc, updateDoc, deleteDoc, collection, setDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { sendResetEmail } from "../services/authService";
@@ -11,9 +11,6 @@ import type { UserProfile, Role, Instrument } from "../types";
 import { useAuth, useLimits } from "../contexts/AuthContext";
 import { useApi } from "../contexts/ApiContext";
 import { useMusic } from "../contexts/MusicDataContext";
-import { TeamSetupGuide } from "../components/team/TeamSetupGuide";
-import { TeamSetupProgressCard } from "../components/team/TeamSetupProgressCard";
-import { evaluateTeamSetup } from "../utils/teamSetup";
 import Spinner from "../components/common/Spinner";
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
@@ -1412,8 +1409,6 @@ const UsersPage: React.FC = () => {
   const { user: currentUser, userProfile } = useAuth();
   const { roles, instruments } = useMusic();
   const api = useApi();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const isSetupTeam = searchParams.get("setup") === "team";
   
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1618,21 +1613,10 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  const teamSummary = useMemo(() => evaluateTeamSetup(allUsers, currentUser?.uid), [allUsers, currentUser?.uid]);
   const canManageMembers = roles.some(r => r.permissions?.canManageUsers) || isGlobal;
 
   return (
     <div className="space-y-8">
-      {isSetupTeam && (
-        <TeamSetupGuide
-          users={allUsers}
-          roles={roles}
-          instruments={instruments}
-          isOverLimit={isOverLimit}
-          onRefreshUsers={fetchUsers}
-          onClose={() => {}}
-        />
-      )}
 
       <div>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -1640,15 +1624,6 @@ const UsersPage: React.FC = () => {
             {t("users.management_title", "Equipe e Permissões")}
           </h1>
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => {
-              setSearchParams(prev => {
-                const next = new URLSearchParams(prev);
-                next.set("setup", "team");
-                return next;
-              });
-            }}>
-              Configurar equipe passo a passo
-            </Button>
             {isGlobal && (
                <Button variant="outline" size="sm" onClick={handleMigrateRoles} disabled={migrating}>
                  {migrating ? <Spinner size="sm" /> : "Migrar Estrutura de Papéis (Admin)"}
@@ -1659,7 +1634,6 @@ const UsersPage: React.FC = () => {
         <UserUsageBanner />
       </div>
       
-      {canManageMembers && <TeamSetupProgressCard summary={teamSummary} />}
 
       {joinRequests.length > 0 && (
         <Card padding="none" className="overflow-hidden mb-8 border-amber-200 dark:border-amber-900/50">
