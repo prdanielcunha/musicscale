@@ -9,7 +9,7 @@ export type PopulatedBandScaleWithStatus = PopulatedBandScale & {
   updatedAt?: any;
   createdAt?: any;
   lastModifiedAt?: any;
-  assignments?: { user?: UserProfile; instrument?: Instrument; active?: boolean }[];
+  assignments?: { user?: UserProfile; instrument?: Instrument }[];
 };
 
 export type PopulatedScaleWithAssignmentsAndStatus = PopulatedScaleWithAssignments & {
@@ -103,30 +103,26 @@ export function isValidDateOnlyKey(value: unknown): value is string {
 
 export function toEpochMillis(value: unknown): number {
   if (!value) return 0;
-  if (typeof value === 'number') {
-    if (Number.isFinite(value) && !Number.isNaN(value)) return value;
-    return 0;
-  }
-  if (typeof value === 'string') {
-    const ms = new Date(value).getTime();
-    return Number.isNaN(ms) ? 0 : ms;
-  }
-  if (value instanceof Date) {
-    const ms = value.getTime();
-    return Number.isNaN(ms) ? 0 : ms;
-  }
   try {
-    const obj = value as Record<string, any>;
-    if (typeof obj.toMillis === 'function') {
-      const ms = obj.toMillis();
+    if (typeof (value as any).toMillis === 'function') {
+      const ms = (value as any).toMillis();
       if (typeof ms === 'number' && Number.isFinite(ms)) return ms;
     }
-    if (typeof obj.toDate === 'function') {
-      const ms = obj.toDate().getTime();
+    if (typeof (value as any).toDate === 'function') {
+      const ms = (value as any).toDate().getTime();
       if (typeof ms === 'number' && Number.isFinite(ms)) return ms;
     }
-    if ('seconds' in obj) {
-      const sec = obj.seconds;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const ms = new Date(value).getTime();
+      return isNaN(ms) ? 0 : ms;
+    }
+    if (value instanceof Date) {
+      const ms = value.getTime();
+      return isNaN(ms) ? 0 : ms;
+    }
+    if (typeof value === 'object' && value !== null && 'seconds' in value) {
+      const sec = (value as any).seconds;
       if (typeof sec === 'number' && Number.isFinite(sec)) return sec * 1000;
     }
   } catch {
@@ -169,9 +165,9 @@ export function buildHomeEventSummaries(
   const activeMusicScales = musicScales.filter((s) => s.status !== 'cancelled');
   const musicScaleIds = new Set(activeMusicScales.map((s) => s.id));
 
-  for (const scale of activeMusicScales) {
-    if (!isValidDateOnlyKey(scale.date)) continue;
-    if (scale.date < validTodayKey) continue;
+  activeMusicScales.forEach((scale) => {
+    if (!isValidDateOnlyKey(scale.date)) return;
+    if (scale.date < validTodayKey) return;
 
     const title = scale.eventName?.name || scale.eventType?.name || '';
     const locationName = scale.location?.name;
@@ -200,27 +196,26 @@ export function buildHomeEventSummaries(
       userFunctionNames,
       isUserAssigned,
     });
-  }
+  });
 
   const activeBandScales = bandScales.filter((s) => s.status !== 'cancelled');
 
-  for (const scale of activeBandScales) {
-    if (!isValidDateOnlyKey(scale.date)) continue;
-    if (scale.date < validTodayKey) continue;
-    if (scale.musicScaleId && musicScaleIds.has(scale.musicScaleId)) continue;
+  activeBandScales.forEach((scale) => {
+    if (!isValidDateOnlyKey(scale.date)) return;
+    if (scale.date < validTodayKey) return;
+    if (scale.musicScaleId && musicScaleIds.has(scale.musicScaleId)) return;
 
     const title = scale.eventName?.name || scale.eventType?.name || '';
     const locationName = scale.location?.name;
     const songCount = 0;
 
     const assignments = scale.assignments || [];
-    const activeAssignments = assignments.filter((a: any) => a.active !== false);
     const uniqueUserIds = new Set(
-      activeAssignments.map((a) => a.user?.uid).filter(Boolean)
+      assignments.map((a) => a.user?.uid).filter(Boolean)
     );
     const teamCount = uniqueUserIds.size;
 
-    const userAssignments = activeAssignments.filter((a) => a.user?.uid === currentUserId);
+    const userAssignments = assignments.filter((a) => a.user?.uid === currentUserId);
     const isUserAssigned = userAssignments.length > 0;
     const userFunctionNames = Array.from(
       new Set(userAssignments.map((a) => a.instrument?.name).filter(Boolean))
@@ -239,9 +234,9 @@ export function buildHomeEventSummaries(
       userFunctionNames,
       isUserAssigned,
     });
-  }
+  });
 
-  return summaries.sort((a, b) => {
+  return [...summaries].sort((a, b) => {
     if (a.date !== b.date) {
       return a.date.localeCompare(b.date);
     }
@@ -278,9 +273,8 @@ function rawToSummary(candidate: DraftCandidate, currentUserId?: string): HomeEv
     const title = raw.eventName?.name || raw.eventType?.name || '';
     const locationName = raw.location?.name;
     const assignments = raw.assignments || [];
-    const activeAssignments = assignments.filter((a: any) => a.active !== false);
-    const uniqueUserIds = new Set(activeAssignments.map((a) => a.user?.uid).filter(Boolean));
-    const userAssignments = activeAssignments.filter((a) => a.user?.uid === currentUserId);
+    const uniqueUserIds = new Set(assignments.map((a) => a.user?.uid).filter(Boolean));
+    const userAssignments = assignments.filter((a) => a.user?.uid === currentUserId);
     
     return {
       id: raw.id,
@@ -304,14 +298,14 @@ export function selectMostRecentDraft(
   currentUserId?: string
 ): HomeEventSummary | null {
   const allEvents: DraftCandidate[] = [
-    ...musicScales.map((s): DraftCandidate => ({ type: 'music', value: s })),
-    ...bandScales.map((s): DraftCandidate => ({ type: 'band', value: s }))
+    ...musicScales.map(s => ({ type: 'music' as const, value: s })),
+    ...bandScales.map(s => ({ type: 'band' as const, value: s }))
   ];
 
   const drafts = allEvents.filter((c) => c.value.status === 'draft');
   if (drafts.length === 0) return null;
 
-  const sorted = drafts.sort((a, b) => {
+  const sorted = [...drafts].sort((a, b) => {
     const getMs = (val: any) => toEpochMillis(val);
     
     const timeA = getMs(a.value.lastModifiedAt) || getMs(a.value.updatedAt) || getMs(a.value.createdAt) || 0;
