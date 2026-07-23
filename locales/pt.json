@@ -1083,5 +1083,103 @@
     "unavailableTitle": "Pacote inicial temporariamente indisponível",
     "unavailableDescription": "Não foi possível consultar suas músicas iniciais agora.",
     "retryAction": "Tentar novamente"
+  },
+  "teamSetup": {
+    "progress": {
+      "title": "Configure sua equipe",
+      "membersAdded": "{{count}} pessoas adicionadas",
+      "membersAdded_one": "1 pessoa adicionada",
+      "membersAdded_zero": "Nenhuma pessoa adicionada",
+      "missingAccess": "{{count}} ainda precisa de um perfil de acesso",
+      "missingAccess_one": "1 ainda precisa de um perfil de acesso",
+      "missingFunctions": "{{count}} ainda precisa de uma função na equipe",
+      "missingFunctions_one": "1 ainda precisa de uma função na equipe",
+      "configured": "Todos os integrantes estão configurados",
+      "continueAction": "Continuar configuração",
+      "reviewAction": "Revisar equipe"
+    },
+    "steps": {
+      "stepIndicator": "Etapa {{current}} de {{total}}",
+      "understand": "ENTENDER",
+      "choosePerson": "ESCOLHER PESSOA",
+      "accessProfile": "PERFIL DE ACESSO",
+      "functions": "FUNÇÕES NA EQUIPE",
+      "review": "REVISAR",
+      "back": "Voltar"
+    },
+    "access": {
+      "title": "O que esta pessoa poderá fazer no MusicScale?",
+      "description": "Escolha o que essa pessoa poderá fazer.",
+      "permissions": {
+        "canManageUsers": "Administrar pessoas da equipe",
+        "canManageRoles": "Configurar perfis de acesso",
+        "canManageRepertoire": "Adicionar e editar músicas",
+        "canManageScales": "Criar e editar escalas",
+        "canManageChords": "Editar cifras",
+        "canViewContent": "Consultar conteúdo e compromissos"
+      }
+    },
+    "functions": {
+      "title": "Como esta pessoa poderá servir na equipe?",
+      "description": "Agora escolha como ela poderá participar das escalas.",
+      "hints": [
+        "Você pode marcar mais de uma opção.",
+        "Uma pessoa pode servir como vocal e violonista."
+      ],
+      "categories": {
+        "Ministro": "Ministro e liderança musical",
+        "Voz": "Vozes",
+        "Instrumento": "Instrumentos e funções técnicas"
+      },
+      "defer": "Definir depois"
+    },
+    "review": {
+      "title": "Está tudo certo?",
+      "access": "Perfil de acesso",
+      "functions": "Funções ministeriais",
+      "deferredFunctions": "Serão definidas depois",
+      "save": "Salvar configuração",
+      "fix": "Voltar e corrigir"
+    },
+    "invite": {
+      "action": "Convidar nova pessoa",
+      "successTitle": "Convite criado",
+      "successMessage": "Quando a pessoa aceitar, ela aparecerá nesta lista para você definir suas funções na equipe.",
+      "copy": "Copiar convite",
+      "configureAnother": "Configurar outra pessoa",
+      "backToTeam": "Voltar para equipe",
+      "ownerRestricted": "Não é possível convidar proprietários da organização.",
+      "limitReached": "O limite de usuários do seu plano foi atingido."
+    },
+    "completion": {
+      "title": "Pessoa configurada",
+      "message": "Agora o MusicScale sabe o que essa pessoa pode fazer e em quais funções ela pode ser escalada.",
+      "configureNext": "Configurar próxima pessoa",
+      "backToTeam": "Voltar para equipe",
+      "goToNextEvent": "Ir para o próximo culto"
+    },
+    "errors": {
+      "cannotChangeSelfAccess": "Você não pode alterar seu próprio perfil de acesso.",
+      "saveFailed": "Erro ao salvar a configuração.",
+      "tryAgain": "Tentar novamente"
+    },
+    "understand": {
+      "title1": "Vínculo com a organização",
+      "text1": "Define de qual organização a pessoa faz parte. Essa configuração vem da MillionsNest.",
+      "badge1": "Administrado pela MillionsNest",
+      "title2": "Perfil de acesso",
+      "text2": "Define o que a pessoa poderá fazer dentro do MusicScale.",
+      "example2": "Criar escalas, organizar repertório ou apenas consultar compromissos.",
+      "title3": "Funções na equipe",
+      "text3": "Define como a pessoa poderá participar das escalas.",
+      "example3": "Vocal, teclado, bateria, som ou ministro.",
+      "action": "Começar configuração"
+    },
+    "choose": {
+      "incompleteStatus": "Configuração incompleta",
+      "missingAccess": "Falta perfil de acesso",
+      "missingFunctions": "Falta função na equipe",
+      "completeStatus": "Configuração completa"
+    }
   }
 }

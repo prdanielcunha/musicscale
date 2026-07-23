@@ -1081,5 +1081,103 @@
     "unavailableTitle": "Paquete inicial temporalmente no disponible",
     "unavailableDescription": "No pudimos consultar tus canciones iniciales en este momento.",
     "retryAction": "Intentar nuevamente"
+  },
+  "teamSetup": {
+    "progress": {
+      "title": "Configura tu equipo",
+      "membersAdded": "{{count}} personas agregadas",
+      "membersAdded_one": "1 persona agregada",
+      "membersAdded_zero": "Ninguna persona agregada",
+      "missingAccess": "{{count}} aún necesita un perfil de acceso",
+      "missingAccess_one": "1 aún necesita un perfil de acceso",
+      "missingFunctions": "{{count}} aún necesita una función en el equipo",
+      "missingFunctions_one": "1 aún necesita una función en el equipo",
+      "configured": "Todos los integrantes están configurados",
+      "continueAction": "Continuar configuración",
+      "reviewAction": "Revisar equipo"
+    },
+    "steps": {
+      "stepIndicator": "Paso {{current}} de {{total}}",
+      "understand": "ENTENDER",
+      "choosePerson": "ELEGIR PERSONA",
+      "accessProfile": "PERFIL DE ACCESO",
+      "functions": "FUNCIONES EN EL EQUIPO",
+      "review": "REVISAR",
+      "back": "Volver"
+    },
+    "access": {
+      "title": "¿Qué podrá hacer esta persona en MusicScale?",
+      "description": "Elige lo que esta persona podrá hacer.",
+      "permissions": {
+        "canManageUsers": "Administrar personas del equipo",
+        "canManageRoles": "Configurar perfiles de acceso",
+        "canManageRepertoire": "Añadir y editar canciones",
+        "canManageScales": "Crear y editar programaciones",
+        "canManageChords": "Editar acordes",
+        "canViewContent": "Consultar contenido y programaciones"
+      }
+    },
+    "functions": {
+      "title": "¿Cómo podrá servir esta persona en el equipo?",
+      "description": "Ahora elige cómo podrá participar en las programaciones.",
+      "hints": [
+        "Puedes marcar más de una opción.",
+        "Una persona puede servir como vocal y guitarrista."
+      ],
+      "categories": {
+        "Ministro": "Ministro y liderazgo musical",
+        "Voz": "Voces",
+        "Instrumento": "Instrumentos y funciones técnicas"
+      },
+      "defer": "Definir después"
+    },
+    "review": {
+      "title": "¿Está todo correcto?",
+      "access": "Perfil de acceso",
+      "functions": "Funciones ministeriales",
+      "deferredFunctions": "Se definirán después",
+      "save": "Guardar configuración",
+      "fix": "Volver y corregir"
+    },
+    "invite": {
+      "action": "Invitar a nueva persona",
+      "successTitle": "Invitación creada",
+      "successMessage": "Cuando la persona acepte, aparecerá en esta lista para que definas sus funciones en el equipo.",
+      "copy": "Copiar invitación",
+      "configureAnother": "Configurar a otra persona",
+      "backToTeam": "Volver al equipo",
+      "ownerRestricted": "No es posible invitar a los propietarios de la organización.",
+      "limitReached": "Se ha alcanzado el límite de usuarios de tu plan."
+    },
+    "completion": {
+      "title": "Persona configurada",
+      "message": "Ahora MusicScale sabe lo que esta persona puede hacer y en qué funciones puede ser programada.",
+      "configureNext": "Configurar siguiente persona",
+      "backToTeam": "Volver al equipo",
+      "goToNextEvent": "Ir a la próxima reunión"
+    },
+    "errors": {
+      "cannotChangeSelfAccess": "No puedes cambiar tu propio perfil de acceso.",
+      "saveFailed": "Error al guardar la configuración.",
+      "tryAgain": "Intentar nuevamente"
+    },
+    "understand": {
+      "title1": "Vínculo con la organización",
+      "text1": "Define a qué organización pertenece la persona. Esta configuración proviene de MillionsNest.",
+      "badge1": "Administrado por MillionsNest",
+      "title2": "Perfil de acceso",
+      "text2": "Define lo que la persona podrá hacer dentro de MusicScale.",
+      "example2": "Crear programaciones, organizar repertorio o solo consultar compromisos.",
+      "title3": "Funciones en el equipo",
+      "text3": "Define cómo la persona podrá participar en las programaciones.",
+      "example3": "Vocal, teclado, batería, sonido o ministro.",
+      "action": "Comenzar configuración"
+    },
+    "choose": {
+      "incompleteStatus": "Configuración incompleta",
+      "missingAccess": "Falta perfil de acceso",
+      "missingFunctions": "Falta función en el equipo",
+      "completeStatus": "Configuración completa"
+    }
   }
 }

@@ -7,6 +7,20 @@ export const ORG_ROLE_RANK: Record<string, number> = {
   owner: 100,
 };
 
+export function getRoleKeyFromName(roleName: string): string {
+  const name = (roleName || "").toLowerCase();
+  if (name.includes("dono") || name === "owner" || name === "ceo" || name.includes("founder")) return "owner";
+  if (name.includes("administrador") || name === "admin") return "admin";
+  if (name.includes("líder") || name.includes("lider") || name.includes("ministro") || name === "leader") return "leader";
+  if (name.includes("músico") || name.includes("musico") || name.includes("vocal") || name === "musician") return "musician";
+  return "viewer";
+}
+
+export function getRoleKeyFromId(roleId: string, availableRoles: any[]): string {
+  const roleName = availableRoles.find(r => r.id === roleId)?.name || "";
+  return getRoleKeyFromName(roleName);
+}
+
 export interface RoleChangeContext {
   isGlobalPrivilegedUser: boolean;
   actorSystemRole?: string;

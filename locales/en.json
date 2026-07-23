@@ -1084,5 +1084,103 @@
     "unavailableTitle": "Starter pack temporarily unavailable",
     "unavailableDescription": "We couldn't check your initial songs right now.",
     "retryAction": "Try again"
+  },
+  "teamSetup": {
+    "progress": {
+      "title": "Configure your team",
+      "membersAdded": "{{count}} people added",
+      "membersAdded_one": "1 person added",
+      "membersAdded_zero": "No people added",
+      "missingAccess": "{{count}} still need an access profile",
+      "missingAccess_one": "1 still needs an access profile",
+      "missingFunctions": "{{count}} still need a team function",
+      "missingFunctions_one": "1 still needs a team function",
+      "configured": "All members are configured",
+      "continueAction": "Continue setup",
+      "reviewAction": "Review team"
+    },
+    "steps": {
+      "stepIndicator": "Step {{current}} of {{total}}",
+      "understand": "UNDERSTAND",
+      "choosePerson": "CHOOSE PERSON",
+      "accessProfile": "ACCESS PROFILE",
+      "functions": "TEAM FUNCTIONS",
+      "review": "REVIEW",
+      "back": "Back"
+    },
+    "access": {
+      "title": "What will this person be able to do in MusicScale?",
+      "description": "Choose what this person will be able to do.",
+      "permissions": {
+        "canManageUsers": "Manage team members",
+        "canManageRoles": "Configure access profiles",
+        "canManageRepertoire": "Add and edit songs",
+        "canManageScales": "Create and edit schedules",
+        "canManageChords": "Edit chords",
+        "canViewContent": "View content and schedules"
+      }
+    },
+    "functions": {
+      "title": "How can this person serve on the team?",
+      "description": "Now choose how they can participate in the schedules.",
+      "hints": [
+        "You can select more than one option.",
+        "A person can serve as vocal and guitarist."
+      ],
+      "categories": {
+        "Ministro": "Minister and musical leadership",
+        "Voz": "Vocals",
+        "Instrumento": "Instruments and technical functions"
+      },
+      "defer": "Define later"
+    },
+    "review": {
+      "title": "Is everything correct?",
+      "access": "Access profile",
+      "functions": "Ministry functions",
+      "deferredFunctions": "Will be defined later",
+      "save": "Save configuration",
+      "fix": "Go back and fix"
+    },
+    "invite": {
+      "action": "Invite new person",
+      "successTitle": "Invite created",
+      "successMessage": "When the person accepts, they will appear in this list for you to define their team functions.",
+      "copy": "Copy invite",
+      "configureAnother": "Configure another person",
+      "backToTeam": "Back to team",
+      "ownerRestricted": "It is not possible to invite organization owners.",
+      "limitReached": "Your plan's user limit has been reached."
+    },
+    "completion": {
+      "title": "Person configured",
+      "message": "Now MusicScale knows what this person can do and in what functions they can be scheduled.",
+      "configureNext": "Configure next person",
+      "backToTeam": "Back to team",
+      "goToNextEvent": "Go to next event"
+    },
+    "errors": {
+      "cannotChangeSelfAccess": "You cannot change your own access profile.",
+      "saveFailed": "Error saving the configuration.",
+      "tryAgain": "Try again"
+    },
+    "understand": {
+      "title1": "Organization link",
+      "text1": "Defines which organization the person belongs to. This setup comes from MillionsNest.",
+      "badge1": "Managed by MillionsNest",
+      "title2": "Access profile",
+      "text2": "Defines what the person can do within MusicScale.",
+      "example2": "Create schedules, organize repertoire, or just view commitments.",
+      "title3": "Team functions",
+      "text3": "Defines how the person can participate in the schedules.",
+      "example3": "Vocal, keyboard, drums, sound, or minister.",
+      "action": "Start setup"
+    },
+    "choose": {
+      "incompleteStatus": "Incomplete setup",
+      "missingAccess": "Missing access profile",
+      "missingFunctions": "Missing team function",
+      "completeStatus": "Setup complete"
+    }
   }
 }
