@@ -1613,23 +1613,24 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  const canManageMembers = roles.some(r => r.permissions?.canManageUsers) || isGlobal;
-
   return (
     <div className="space-y-8">
 
       <div>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
             {t("users.management_title", "Equipe e Permissões")}
           </h1>
-          <div className="flex items-center gap-2">
-            {isGlobal && (
-               <Button variant="outline" size="sm" onClick={handleMigrateRoles} disabled={migrating}>
-                 {migrating ? <Spinner size="sm" /> : "Migrar Estrutura de Papéis (Admin)"}
-               </Button>
-            )}
-          </div>
+          {isGlobal && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleMigrateRoles}
+              disabled={migrating}
+            >
+              {migrating ? <Spinner size="sm" /> : "Migrar Estrutura de Papéis (Admin)"}
+            </Button>
+          )}
         </div>
         <UserUsageBanner />
       </div>
