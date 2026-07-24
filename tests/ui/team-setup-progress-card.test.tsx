@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -47,9 +48,9 @@ describe('TeamSetupProgressCard', () => {
   it('1. estado sem integrantes', () => {
     const onReview = vi.fn();
     render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} />);
-    expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeDefined();
-    expect(screen.getByText(pt.teamSetup.progress.emptyDescription)).toBeDefined();
-    expect(screen.getByText(pt.teamSetup.progress.noMembers)).toBeDefined();
+    expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeInTheDocument();
+    expect(screen.getByText(pt.teamSetup.progress.emptyDescription)).toBeInTheDocument();
+    expect(screen.getByText(pt.teamSetup.progress.noMembers)).toBeInTheDocument();
   });
 
   it('2. estado incompleto', () => {
@@ -61,12 +62,12 @@ describe('TeamSetupProgressCard', () => {
       membersWithMinistryFunctions: 2
     });
     render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
-    expect(screen.getByText(pt.teamSetup.progress.incompleteTitle)).toBeDefined();
+    expect(screen.getByText(pt.teamSetup.progress.incompleteTitle)).toBeInTheDocument();
     
     // Test count interpolation
     const accessText = pt.teamSetup.progress.missingAccess_one;
     const resolvedText = accessText.replace('{{count}}', '1');
-    expect(screen.getByText(new RegExp(resolvedText))).toBeDefined();
+    expect(screen.getByText(new RegExp(resolvedText))).toBeInTheDocument();
   });
 
   it('3. estado completamente configurado', () => {
@@ -78,8 +79,8 @@ describe('TeamSetupProgressCard', () => {
       membersWithMinistryFunctions: 2
     });
     render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
-    expect(screen.getByText(pt.teamSetup.progress.completeTitle)).toBeDefined();
-    expect(screen.getByText(pt.teamSetup.progress.completeDescription)).toBeDefined();
+    expect(screen.getByText(pt.teamSetup.progress.completeTitle)).toBeInTheDocument();
+    expect(screen.getByText(pt.teamSetup.progress.completeDescription)).toBeInTheDocument();
   });
 
   it('4. contagem singular em português', () => {
@@ -92,7 +93,7 @@ describe('TeamSetupProgressCard', () => {
     });
     render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
     const expected = pt.teamSetup.progress.missingAccess_one.replace('{{count}}', '1');
-    expect(screen.getByText(new RegExp(expected))).toBeDefined();
+    expect(screen.getByText(new RegExp(expected))).toBeInTheDocument();
   });
 
   it('5. contagem plural em português', () => {
@@ -105,7 +106,7 @@ describe('TeamSetupProgressCard', () => {
     });
     render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
     const expected = pt.teamSetup.progress.missingAccess_other.replace('{{count}}', '2');
-    expect(screen.getByText(new RegExp(expected))).toBeDefined();
+    expect(screen.getByText(new RegExp(expected))).toBeInTheDocument();
   });
 
   it('6. pessoa sem acesso e sem função aparece nas duas métricas', () => {
@@ -121,8 +122,8 @@ describe('TeamSetupProgressCard', () => {
     const missingAccessText = pt.teamSetup.progress.missingAccess_one.replace('{{count}}', '1');
     const missingFuncText = pt.teamSetup.progress.missingFunctions_one.replace('{{count}}', '1');
     
-    expect(screen.getByText(new RegExp(missingAccessText))).toBeDefined();
-    expect(screen.getByText(new RegExp(missingFuncText))).toBeDefined();
+    expect(screen.getByText(new RegExp(missingAccessText))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(missingFuncText))).toBeInTheDocument();
   });
 
   it('7. não aparece porcentagem', () => {
@@ -149,29 +150,30 @@ describe('TeamSetupProgressCard', () => {
   it('10. botão é acessível por teclado', () => {
     const onReview = vi.fn();
     render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} />);
-    const button = screen.getByRole('button');
+    const button = screen.getByRole('button', { name: pt.teamSetup.progress.reviewAction });
     button.focus();
     expect(button).toHaveFocus();
+    expect(button).toHaveAccessibleName(pt.teamSetup.progress.reviewAction);
   });
 
   it('11. PT resolve as chaves', () => {
     const onReview = vi.fn();
     render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} />);
-    expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeDefined();
+    expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeInTheDocument();
   });
 
   it('12. EN resolve as chaves', () => {
     i18n.changeLanguage('en');
     const onReview = vi.fn();
     render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} />);
-    expect(screen.getByText(en.teamSetup.progress.emptyTitle)).toBeDefined();
+    expect(screen.getByText(en.teamSetup.progress.emptyTitle)).toBeInTheDocument();
   });
 
   it('13. ES resolve as chaves', () => {
     i18n.changeLanguage('es');
     const onReview = vi.fn();
     render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} />);
-    expect(screen.getByText(es.teamSetup.progress.emptyTitle)).toBeDefined();
+    expect(screen.getByText(es.teamSetup.progress.emptyTitle)).toBeInTheDocument();
   });
 
   it('14. nenhuma chave retorna seu próprio caminho', () => {
@@ -193,14 +195,14 @@ describe('TeamSetupProgressCard', () => {
     const onReview = vi.fn();
     render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} />);
     const card = screen.getByLabelText(pt.teamSetup.progress.emptyTitle);
-    expect(card).toBeDefined();
+    expect(card).toBeInTheDocument();
   });
 
   it('17. métricas são renderizadas em lista semântica', () => {
     const onReview = vi.fn();
     const summary = createSummary({ additionalMembers: 1 });
     render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
-    expect(screen.getByRole('list')).toBeDefined();
+    expect(screen.getByRole('list')).toBeInTheDocument();
     expect(screen.getAllByRole('listitem').length).toBeGreaterThan(0);
   });
 });

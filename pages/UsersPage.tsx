@@ -1534,6 +1534,25 @@ const UsersPage: React.FC = () => {
 
   const sortedRoles = useMemo(() => sortRolesByHierarchy(roles), [roles]);
 
+  const teamSetupSummary = useMemo(
+    () => evaluateTeamSetup(allUsers, currentUser?.uid),
+    [allUsers, currentUser?.uid]
+  );
+  
+  const canManageTeamSetup = hasCapability("musicscale.members.manage");
+
+  const handleReviewTeamSetup = () => {
+    const section = managementSectionRef.current;
+    if (!section) return;
+    section.scrollIntoView?.({
+      behavior: "smooth",
+      block: "start"
+    });
+    section.focus({
+      preventScroll: true
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full">
@@ -1618,13 +1637,6 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  const teamSetupSummary = useMemo(
-    () => evaluateTeamSetup(allUsers, currentUser?.uid),
-    [allUsers, currentUser?.uid]
-  );
-  
-  const canManageTeamSetup = hasCapability("musicscale.members.manage");
-
   return (
     <div className="space-y-8">
 
@@ -1646,6 +1658,13 @@ const UsersPage: React.FC = () => {
         </div>
         <UserUsageBanner />
       </div>
+
+      {!loading && canManageTeamSetup && (
+        <TeamSetupProgressCard
+          summary={teamSetupSummary}
+          onReview={handleReviewTeamSetup}
+        />
+      )}
       
 
       {joinRequests.length > 0 && (
@@ -1689,14 +1708,13 @@ const UsersPage: React.FC = () => {
       <div
         ref={managementSectionRef}
         tabIndex={-1}
-        aria-label={t('teamSetup.progress.sectionLabel', 'Equipe')}
+        aria-label={t("teamSetup.progress.sectionLabel")}
         className="outline-none"
       >
         <p className="text-slate-500 dark:text-gray-400 mb-4">
           {t("users.management_subtitle", "Clique em uma função para gerenciar os usuários associados.")}
         </p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {sortedRoles.map((role) => (
           <RoleCard
             key={role.id}
@@ -1705,6 +1723,7 @@ const UsersPage: React.FC = () => {
             onSelect={setSelectedRole}
           />
         ))}
+        </div>
       </div>
     </div>
   );
