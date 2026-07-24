@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { getPrimaryDisplayRole, getRoleBadgeStyles } from '../utils/roleResolver';
 import { useNavigate } from "react-router-dom";
@@ -11,6 +11,9 @@ import type { UserProfile, Role, Instrument } from "../types";
 import { useAuth, useLimits } from "../contexts/AuthContext";
 import { useApi } from "../contexts/ApiContext";
 import { useMusic } from "../contexts/MusicDataContext";
+import { useCapability } from "../hooks/useCapability";
+import { evaluateTeamSetup } from "../utils/teamSetup";
+import { TeamSetupProgressCard } from "../components/team/TeamSetupProgressCard";
 import Spinner from "../components/common/Spinner";
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
@@ -1409,6 +1412,8 @@ const UsersPage: React.FC = () => {
   const { user: currentUser, userProfile } = useAuth();
   const { roles, instruments } = useMusic();
   const api = useApi();
+  const { hasCapability } = useCapability();
+  const managementSectionRef = useRef<HTMLDivElement>(null);
   
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1613,6 +1618,13 @@ const UsersPage: React.FC = () => {
     }
   };
 
+  const teamSetupSummary = useMemo(
+    () => evaluateTeamSetup(allUsers, currentUser?.uid),
+    [allUsers, currentUser?.uid]
+  );
+  
+  const canManageTeamSetup = hasCapability("musicscale.members.manage");
+
   return (
     <div className="space-y-8">
 
@@ -1674,7 +1686,12 @@ const UsersPage: React.FC = () => {
         </Card>
       )}
 
-      <div>
+      <div
+        ref={managementSectionRef}
+        tabIndex={-1}
+        aria-label={t('teamSetup.progress.sectionLabel', 'Equipe')}
+        className="outline-none"
+      >
         <p className="text-slate-500 dark:text-gray-400 mb-4">
           {t("users.management_subtitle", "Clique em uma função para gerenciar os usuários associados.")}
         </p>

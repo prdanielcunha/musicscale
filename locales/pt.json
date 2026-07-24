@@ -1083,5 +1083,26 @@
     "unavailableTitle": "Pacote inicial temporariamente indisponível",
     "unavailableDescription": "Não foi possível consultar suas músicas iniciais agora.",
     "retryAction": "Tentar novamente"
+  },
+  "teamSetup": {
+    "progress": {
+      "emptyTitle": "Sua equipe começa aqui",
+      "emptyDescription": "Adicione pessoas e depois defina o acesso e as funções de cada uma.",
+      "incompleteTitle": "Complete a configuração da equipe",
+      "completeTitle": "Equipe configurada",
+      "completeDescription": "Todos os integrantes possuem perfil de acesso e função na equipe.",
+      "noMembers": "Nenhuma pessoa adicionada",
+      "membersAdded_one": "pessoa adicionada",
+      "membersAdded_other": "pessoas adicionadas",
+      "configured_one": "pessoa configurada",
+      "configured_other": "pessoas configuradas",
+      "missingAccess_one": "pessoa sem perfil de acesso",
+      "missingAccess_other": "pessoas sem perfil de acesso",
+      "missingFunctions_one": "pessoa sem função na equipe",
+      "missingFunctions_other": "pessoas sem função na equipe",
+      "reviewAction": "Ver integrantes",
+      "reviewCompletedAction": "Revisar integrantes",
+      "sectionLabel": "Equipe"
+    }
   }
 }

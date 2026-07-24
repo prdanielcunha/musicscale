@@ -1084,5 +1084,26 @@
     "unavailableTitle": "Starter pack temporarily unavailable",
     "unavailableDescription": "We couldn't check your initial songs right now.",
     "retryAction": "Try again"
+  },
+  "teamSetup": {
+    "progress": {
+      "emptyTitle": "Your team starts here",
+      "emptyDescription": "Add people and then set access and functions for each.",
+      "incompleteTitle": "Complete team setup",
+      "completeTitle": "Team configured",
+      "completeDescription": "All members have an access profile and team role.",
+      "noMembers": "No members added",
+      "membersAdded_one": "member added",
+      "membersAdded_other": "members added",
+      "configured_one": "member configured",
+      "configured_other": "members configured",
+      "missingAccess_one": "member without access profile",
+      "missingAccess_other": "members without access profile",
+      "missingFunctions_one": "member without team role",
+      "missingFunctions_other": "members without team role",
+      "reviewAction": "View members",
+      "reviewCompletedAction": "Review members",
+      "sectionLabel": "Team"
+    }
   }
 }
