@@ -11,7 +11,6 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
 vi.unmock('react-i18next');
-
 i18n
   .use(initReactI18next)
   .init({
@@ -23,26 +22,69 @@ i18n
     interpolation: { escapeValue: false }
   });
 
+interface JoinRequestFixture {
+  id: string;
+  status: "pending";
+  uid: string;
+  organizationId: string;
+  displayName: string;
+  email: string;
+  photoURL?: string | null;
+}
+
+let mockJoinRequests: JoinRequestFixture[] = [];
+
+function createProfile(overrides: Partial<UserProfile> = {}): UserProfile {
+  return {
+    uid: "user-id",
+    email: "user@example.com",
+    displayName: "User Name",
+    photoURL: null,
+    roleId: "",
+    ...overrides
+  };
+}
+
+const adminRole: Role = {
+  id: "admin",
+  name: "Admin",
+  description: "Admin role",
+  permissions: {
+    canManageUsers: true,
+    canManageRoles: true,
+    canManageRepertoire: true,
+    canManageScales: true,
+    canViewContent: true,
+    canManageChords: true
+  }
+};
+
+let mockUsers: UserProfile[] = [];
+
 // Setup Mocks
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate
 }));
 
-const mockApiCall = vi.fn();
+const mockUsersList = vi.fn<() => Promise<UserProfile[]>>();
+const mockUsersUpdate = vi.fn();
+const mockUsersUpdateMany = vi.fn();
+
 vi.mock('../../contexts/ApiContext', () => ({
   useApi: () => ({
-    users: { list: async () => { console.log("mockUsers:", mockUsers); return mockUsers; } },
-    updateUserRole: async () => {}
+    users: {
+      list: mockUsersList,
+      update: mockUsersUpdate,
+      updateMany: mockUsersUpdateMany
+    }
   })
 }));
 
 let mockHasCapability = vi.fn().mockReturnValue(true);
-let capabilityCheckedWith = '';
 vi.mock('../../hooks/useCapability', () => ({
   useCapability: () => ({
     hasCapability: (cap: string) => {
-      capabilityCheckedWith = cap;
       return mockHasCapability(cap);
     }
   })
@@ -52,8 +94,6 @@ const mockCurrentUser: Partial<UserProfile> = {
   uid: 'current-user-123',
   displayName: 'Current User'
 };
-
-let mockUsers: UserProfile[] = [];
 
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({
@@ -66,9 +106,7 @@ vi.mock('../../contexts/AuthContext', () => ({
 
 vi.mock('../../contexts/MusicDataContext', () => ({
   useMusic: () => ({
-    roles: [
-      { id: 'admin', name: 'Admin', description: 'desc', permissions: { canManageUsers: true, canManageRoles: true, canManageRepertoire: true, canManageScales: true } }
-    ] as Role[],
+    roles: [adminRole],
     instruments: []
   })
 }));
@@ -107,17 +145,13 @@ vi.mock('../../hooks/useEcosystemAdmin', () => ({
   isGlobalPrivilegedUser: () => false
 }));
 
-let mockJoinRequests: any[] = [];
-
-function createProfile(overrides: Partial<UserProfile> = {}): UserProfile {
-  return {
-    uid: 'user-id',
-    email: 'user@example.com',
-    displayName: 'User Name',
-    photoURL: 'https://example.com/photo.png',
-    ...overrides
-  } as unknown as UserProfile;
-}
+vi.mock("../../components/billing/UserUsageBanner", () => ({
+  UserUsageBanner: () => (
+    <div data-testid="user-usage-banner">
+      Usage banner
+    </div>
+  )
+}));
 
 describe('UsersPage Team Setup Integration', () => {
   beforeEach(() => {
@@ -126,8 +160,11 @@ describe('UsersPage Team Setup Integration', () => {
     mockUsers = [
       createProfile({ uid: 'current-user-123' })
     ];
+    mockUsersList.mockImplementation(async () => mockUsers);
+    mockUsersUpdate.mockResolvedValue(undefined);
+    mockUsersUpdateMany.mockResolvedValue(undefined);
     mockHasCapability.mockImplementation((cap: string) => cap === 'musicscale.members.manage');
-    capabilityCheckedWith = '';
+    mockNavigate.mockClear();
   });
 
   afterEach(() => {
@@ -150,34 +187,38 @@ describe('UsersPage Team Setup Integration', () => {
   });
 
   it('3. cartão aparece depois do UserUsageBanner', async () => {
-    const { container } = render(<UsersPage />);
+    render(<UsersPage />);
     await waitFor(() => {
       expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeInTheDocument();
     });
-    // Find the banner and the card
-    // The banner contains "Sua assinatura atual permite até" or similar, wait, the mock doesn't render it maybe.
-    // Let's rely on DOM structure.
-    const bannerContainer = container.querySelector('.bg-slate-50.dark\\:bg-slate-800\\/50.border.rounded-xl.p-5'); // UserUsageBanner typically renders this or something, but it's not mocked so it renders real one.
-    const titleText = pt.teamSetup.progress.emptyTitle;
-    const card = screen.getByText(titleText).closest('div.mb-8')!;
+    const banner = screen.getByTestId("user-usage-banner");
+    const card = screen.getByLabelText(pt.teamSetup.progress.emptyTitle);
     
-    // We can just verify position with node order. UserUsageBanner should have an H2 or text.
-    // Actually, we can find elements by role or text.
-    // In UserUsageBanner: text 'Uso de Membros'
-    const title = screen.getByText('Equipe e Permissões');
-    expect(title.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      banner.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it('4. cartão aparece antes das solicitações pendentes quando elas existem', async () => {
-    mockJoinRequests = [{ id: 'req1', status: 'pending', displayName: 'John', email: 'john@example.com' }];
+    mockJoinRequests = [{
+      id: "req-1",
+      status: "pending",
+      uid: "invited-user",
+      organizationId: "org-1",
+      displayName: "John",
+      email: "john@example.com",
+      photoURL: null
+    }];
     render(<UsersPage />);
     await waitFor(() => {
       expect(screen.getByText('Solicitações Pendentes')).toBeInTheDocument();
       expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeInTheDocument();
     });
-    const card = screen.getByText(pt.teamSetup.progress.emptyTitle).closest('div.mb-8')!;
+    const card = screen.getByLabelText(pt.teamSetup.progress.emptyTitle);
     const pending = screen.getByText('Solicitações Pendentes');
-    expect(card.compareDocumentPosition(pending) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      card.compareDocumentPosition(pending) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it('5. usuário atual não aparece na contagem de integrantes adicionais', async () => {
@@ -214,20 +255,32 @@ describe('UsersPage Team Setup Integration', () => {
   });
 
   it('8. clique em "Ver integrantes" chama scrollIntoView', async () => {
-    const scrollIntoViewMock = vi.fn();
-    HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
-    
-    render(<UsersPage />);
-    await waitFor(() => {
-      expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeInTheDocument();
+    const originalDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: () => undefined
     });
+    const scrollSpy = vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => undefined);
     
-    const btn = screen.getByRole('button', { name: pt.teamSetup.progress.reviewAction });
-    fireEvent.click(btn);
-    
-    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
-    
-    delete (HTMLElement.prototype as any).scrollIntoView;
+    try {
+      render(<UsersPage />);
+      await waitFor(() => {
+        expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeInTheDocument();
+      });
+      
+      const btn = screen.getByRole('button', { name: pt.teamSetup.progress.reviewAction });
+      fireEvent.click(btn);
+      
+      expect(scrollSpy).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+    } finally {
+      scrollSpy.mockRestore();
+      if (originalDescriptor) {
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalDescriptor);
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+      }
+    }
   });
 
   it('9. clique em "Ver integrantes" move foco para a seção', async () => {
@@ -246,7 +299,7 @@ describe('UsersPage Team Setup Integration', () => {
   it('10. a seção focada contém o subtítulo de gestão', async () => {
     render(<UsersPage />);
     await waitFor(() => {
-      expect(screen.getByLabelText(pt.teamSetup.progress.sectionLabel)).toBeInTheDocument();
+      expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeInTheDocument();
     });
     const section = screen.getByLabelText(pt.teamSetup.progress.sectionLabel);
     expect(within(section).getByText(/Clique em uma função para gerenciar/i)).toBeInTheDocument();
@@ -255,10 +308,9 @@ describe('UsersPage Team Setup Integration', () => {
   it('11. a mesma seção contém a grade de papéis', async () => {
     render(<UsersPage />);
     await waitFor(() => {
-      expect(screen.getByLabelText(pt.teamSetup.progress.sectionLabel)).toBeInTheDocument();
+      expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeInTheDocument();
     });
     const section = screen.getByLabelText(pt.teamSetup.progress.sectionLabel);
-    // the grid contains roles like "Admin", which is returned by MusicDataContext mock
     expect(within(section).getByText('Admin')).toBeInTheDocument();
   });
 
@@ -273,15 +325,17 @@ describe('UsersPage Team Setup Integration', () => {
   });
 
   it('13. o clique não abre modal', async () => {
-    // Usually modals have dialog role
     render(<UsersPage />);
     await waitFor(() => {
       expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeInTheDocument();
     });
+    
+    const dialogsBefore = screen.queryAllByRole("dialog").length;
+    
     const btn = screen.getByRole('button', { name: pt.teamSetup.progress.reviewAction });
     fireEvent.click(btn);
-    // Check there is no modal added
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    
+    expect(screen.queryAllByRole("dialog")).toHaveLength(dialogsBefore);
   });
 
   it('14. o clique não chama API de atualização', async () => {
@@ -289,30 +343,49 @@ describe('UsersPage Team Setup Integration', () => {
     await waitFor(() => {
       expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeInTheDocument();
     });
+    
+    mockUsersUpdate.mockClear();
+    mockUsersUpdateMany.mockClear();
+
     const btn = screen.getByRole('button', { name: pt.teamSetup.progress.reviewAction });
     fireEvent.click(btn);
-    expect(mockApiCall).not.toHaveBeenCalled();
+    
+    expect(mockUsersList).toHaveBeenCalled();
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(mockUsersUpdateMany).not.toHaveBeenCalled();
   });
 
   it('15. "Revisar integrantes" usa a mesma ação quando todos estão completos', async () => {
-    const scrollIntoViewMock = vi.fn();
-    HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
-    
-    mockUsers = [
-      createProfile({ uid: 'current-user-123' }),
-      createProfile({ uid: 'other', roleId: 'admin', specialtyIds: ['vocals'] })
-    ];
-    render(<UsersPage />);
-    await waitFor(() => {
-      expect(screen.getByText(pt.teamSetup.progress.completeTitle)).toBeInTheDocument();
+    const originalDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: () => undefined
     });
+    const scrollSpy = vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => undefined);
     
-    const btn = screen.getByRole('button', { name: pt.teamSetup.progress.reviewCompletedAction });
-    fireEvent.click(btn);
-    
-    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
-    
-    delete (HTMLElement.prototype as any).scrollIntoView;
+    try {
+      mockUsers = [
+        createProfile({ uid: 'current-user-123' }),
+        createProfile({ uid: 'other', roleId: 'admin', specialtyIds: ['vocals'] })
+      ];
+      render(<UsersPage />);
+      await waitFor(() => {
+        expect(screen.getByText(pt.teamSetup.progress.completeTitle)).toBeInTheDocument();
+      });
+      
+      const btn = screen.getByRole('button', { name: pt.teamSetup.progress.reviewCompletedAction });
+      fireEvent.click(btn);
+      
+      expect(scrollSpy).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+    } finally {
+      scrollSpy.mockRestore();
+      if (originalDescriptor) {
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalDescriptor);
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+      }
+    }
   });
 
   it('16. a capacidade é consultada com exatamente: musicscale.members.manage', async () => {
@@ -320,6 +393,6 @@ describe('UsersPage Team Setup Integration', () => {
     await waitFor(() => {
       expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeInTheDocument();
     });
-    expect(capabilityCheckedWith).toBe('musicscale.members.manage');
+    expect(mockHasCapability).toHaveBeenCalledWith('musicscale.members.manage');
   });
 });
