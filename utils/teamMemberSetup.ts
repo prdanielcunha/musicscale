@@ -9,8 +9,11 @@ export interface ExistingMemberSetupItem {
   isConfigured: boolean;
 }
 
+export type AccessLockReason = "owner" | "self" | "hierarchy" | null;
+
 export interface TeamMemberAccessPolicy {
   canEditAccess: boolean;
+  lockReason: AccessLockReason;
   reason?: string;
   allowedRoleIds: string[];
 }
@@ -25,6 +28,28 @@ export interface TeamMemberSetupPayload {
   roleId?: string;
   musicscaleRole?: string;
   specialtyIds: string[];
+}
+
+export function isTeamMemberDraftDirty(
+  initialDraft: TeamMemberSetupDraft | null,
+  currentDraft: TeamMemberSetupDraft | null
+): boolean {
+  if (!initialDraft && !currentDraft) return false;
+  if (!initialDraft || !currentDraft) return true;
+
+  if (initialDraft.userId !== currentDraft.userId) return true;
+  if (initialDraft.roleId !== currentDraft.roleId) return true;
+
+  const initialSpecialties = normalizeSpecialtyIds(initialDraft.specialtyIds).sort();
+  const currentSpecialties = normalizeSpecialtyIds(currentDraft.specialtyIds).sort();
+
+  if (initialSpecialties.length !== currentSpecialties.length) return true;
+
+  for (let i = 0; i < initialSpecialties.length; i++) {
+    if (initialSpecialties[i] !== currentSpecialties[i]) return true;
+  }
+
+  return false;
 }
 
 export function buildExistingMemberSetupItems(

@@ -1417,6 +1417,7 @@ const UsersPage: React.FC = () => {
   const { roles, instruments } = useMusic();
   const api = useApi();
   const { hasCapability } = useCapability();
+  const { success: toastSuccess } = useToast();
   const managementSectionRef = useRef<HTMLDivElement>(null);
   
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
@@ -1431,41 +1432,61 @@ const UsersPage: React.FC = () => {
 
   const resolveAccessPolicy = (member: UserProfile): TeamMemberAccessPolicy => {
     const isCurrentUser = member.uid === currentUser?.uid;
-    const isMemberOwner = member.organizationRole === 'owner' || member.uid === organization?.ownerUserId;
-    const isGlobal = isGlobalPrivilegedUser(currentUser, userProfile);
-
-    const memberRoleToEval = member.organizationRole || member.role || member.musicscaleRole || "";
+    const isMemberOwner = member.uid === organization?.ownerUserId || getRoleKeyFromId(member.roleId || "", roles) === "owner" || member.role === "Dono";
+    
     const actorRoleKey = isGlobal ? "owner" : getRoleKeyFromName(userProfile?.role || "");
-    const canChange = isGlobal || canChangeOrganizationRole(actorRoleKey, getRoleKeyFromName(memberRoleToEval), getRoleKeyFromName(memberRoleToEval), { 
-      isGlobalPrivilegedUser: isGlobal, 
-      actorOrganizationRole: userProfile?.organizationRole, isSelfChange: false, otherOwnersActiveCount: 2
-    });
+    const currentTargetRoleKey = getRoleKeyFromId(member.roleId || "", roles);
+    
+    const otherOwnersActiveCount = allUsers.filter(u => u.organizationId === userProfile?.organizationId && u.uid !== member.uid && (getRoleKeyFromId(u.roleId || "", roles) === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
+
+    const roleCtx = {
+      isGlobalPrivilegedUser: isGlobal,
+      actorSystemRole: userProfile?.systemRole,
+      actorOrganizationRole: actorRoleKey,
+      targetOrganizationRole: currentTargetRoleKey,
+      isSelfChange: false,
+      otherOwnersActiveCount
+    };
+
+    const changeDecision = canChangeOrganizationRole(actorRoleKey, currentTargetRoleKey, currentTargetRoleKey, roleCtx);
+    const canEditByHierarchy = changeDecision.canChange;
 
     let canEditAccess = true;
+    let lockReason: "owner" | "self" | "hierarchy" | null = null;
     let reason = '';
 
     if (isCurrentUser) {
       canEditAccess = false;
+      lockReason = "self";
       reason = t('teamSetup.existingMember.access.currentUserExplanation', 'Você pode ajustar suas funções na equipe, mas não pode alterar seu próprio acesso por aqui.');
     } else if (isMemberOwner) {
       canEditAccess = false;
+      lockReason = "owner";
       reason = t('teamSetup.existingMember.access.ownerExplanation', 'O proprietário da organização possui acesso irrestrito administrado pela MillionsNest.');
-    } else if (!canChange) {
+    } else if (!canEditByHierarchy) {
       canEditAccess = false;
-      reason = t('roles.cannot_manage_role', 'Você não tem permissão para alterar o acesso desta pessoa.');
+      lockReason = "hierarchy";
+      reason = changeDecision.error || t('roles.cannot_manage_role', 'Você não tem permissão para alterar o acesso desta pessoa.');
+    } else {
+      lockReason = null;
     }
 
     const allowedRoleIds = roles.filter(r => {
       const targetRoleKey = getRoleKeyFromId(r.id, roles);
-      if (targetRoleKey === 'owner') return false;
-      return isGlobal || canAssignOrganizationRole(actorRoleKey, targetRoleKey, { 
-        isGlobalPrivilegedUser: isGlobal, 
-        actorOrganizationRole: userProfile?.organizationRole, isSelfChange: false, otherOwnersActiveCount: 2 
-      });
+      if (targetRoleKey === 'owner' || r.name === 'Dono' || r.name === 'Owner' || r.name === 'CEO') return false;
+      
+      const assignCtx = {
+        ...roleCtx,
+        newOrganizationRole: targetRoleKey
+      };
+      
+      const assignDecision = canAssignOrganizationRole(actorRoleKey, targetRoleKey, assignCtx);
+      return assignDecision.canAssign;
     }).map(r => r.id);
 
     return {
       canEditAccess,
+      lockReason,
       reason,
       allowedRoleIds
     };
@@ -1475,8 +1496,19 @@ const UsersPage: React.FC = () => {
     const member = allUsers.find(u => u.uid === draft.userId);
     if (!member) throw new Error("Membro não encontrado");
 
-    const specialtyIds = draft.specialtyIds || [];
-    const payload: any = { specialtyIds };
+    if (draft.roleId && draft.roleId !== member.roleId) {
+      const policy = resolveAccessPolicy(member);
+      const isRoleAllowed = policy.allowedRoleIds.includes(draft.roleId);
+      const isTryingToAssignOwner = getRoleKeyFromId(draft.roleId, roles) === "owner";
+
+      if (!policy.canEditAccess || policy.lockReason !== null || !isRoleAllowed || isTryingToAssignOwner) {
+        throw new Error("TEAM_ACCESS_POLICY_CHANGED");
+      }
+    }
+
+    const payload: { roleId?: string; musicscaleRole?: string; specialtyIds: string[] } = { 
+      specialtyIds: Array.from(new Set((draft.specialtyIds || []).map(id => id.trim()).filter(Boolean)))
+    };
 
     if (draft.roleId && draft.roleId !== member.roleId) {
       payload.roleId = draft.roleId;
@@ -1485,6 +1517,7 @@ const UsersPage: React.FC = () => {
 
     await api.users.update(draft.userId, payload);
     await fetchUsers();
+    toastSuccess(t('teamSetup.existingMember.successToast', 'Pessoa configurada com sucesso.'));
   };
 
 

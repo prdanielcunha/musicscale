@@ -6,9 +6,10 @@ import Button from '../common/Button';
 import { UserProfile, Role, Instrument } from '../../types';
 import { 
   TeamMemberAccessPolicy, 
-  TeamMemberSetupDraft, 
-  buildExistingMemberSetupItems, 
-  groupTeamFunctions 
+  TeamMemberSetupDraft,
+  buildExistingMemberSetupItems,
+  groupTeamFunctions,
+  isTeamMemberDraftDirty
 } from '../../utils/teamMemberSetup';
 import { AccessProfileSelector } from './AccessProfileSelector';
 import { MinistryFunctionSelector } from './MinistryFunctionSelector';
@@ -61,18 +62,42 @@ export function ExistingMemberSetupGuide({
     }
   }, [isOpen]);
 
+  // Global Escape key handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isOpen && e.key === 'Escape' && !showDiscardConfirm) {
+        handleCloseAttempt();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, showDiscardConfirm, draft, step]);
+
   // Focus management
   useEffect(() => {
     if (isOpen && titleRef.current) {
       titleRef.current.focus();
     }
-  }, [isOpen, step]);
+  }, [isOpen, step, saveError]);
 
   const items = buildExistingMemberSetupItems(members, currentUserId);
   const groups = groupTeamFunctions(instruments);
+  
+  const selectedUser = members.find(m => m.uid === draft.userId);
+  const isOwner = selectedUser?.organizationRole === 'owner' || selectedUser?.role === 'Dono';
+  const isCurrentUser = selectedUser?.uid === currentUserId;
+  const policy = selectedUser ? resolveAccessPolicy(selectedUser) : null;
 
   const handleCloseAttempt = () => {
-    if (isCompleted || Object.keys(draft).length === 0) {
+    if (isCompleted || !selectedUser) {
+      onClose();
+      return;
+    }
+    const isDirty = isTeamMemberDraftDirty(
+      { userId: selectedUser.uid, roleId: selectedUser.roleId || '', specialtyIds: selectedUser.specialtyIds || [] },
+      draft as TeamMemberSetupDraft
+    );
+    if (!isDirty) {
       onClose();
     } else {
       setShowDiscardConfirm(true);
@@ -83,11 +108,6 @@ export function ExistingMemberSetupGuide({
     setShowDiscardConfirm(false);
     onClose();
   };
-
-  const selectedUser = members.find(m => m.uid === draft.userId);
-  const isOwner = selectedUser?.organizationRole === 'owner';
-  const isCurrentUser = selectedUser?.uid === currentUserId;
-  const policy = selectedUser ? resolveAccessPolicy(selectedUser) : null;
 
   const handlePersonSelect = (userId: string) => {
     const user = members.find(m => m.uid === userId);
@@ -140,7 +160,7 @@ export function ExistingMemberSetupGuide({
       }
       
       const roleObj = roles.find(r => r.id === draft.roleId);
-      if (roleObj?.name?.toLowerCase() === 'owner' || roleObj?.name?.toLowerCase() === 'dono') {
+      if (roleObj?.name?.toLowerCase() === 'owner' || roleObj?.name?.toLowerCase() === 'dono' || roleObj?.name?.toLowerCase() === 'ceo') {
         setSaveError(t('teamSetup.existingMember.errors.policyChanged'));
         setIsSaving(false);
         return;
@@ -154,9 +174,14 @@ export function ExistingMemberSetupGuide({
         specialtyIds: draft.specialtyIds || []
       });
       setIsCompleted(true);
-    } catch (err: any) {
-      console.error(err);
-      setSaveError(t('teamSetup.existingMember.errors.saveFailed'));
+    } catch (error: unknown) {
+      console.error(error);
+      const e = error as Error;
+      if (e.message === "TEAM_ACCESS_POLICY_CHANGED") {
+         setSaveError(t('teamSetup.existingMember.errors.policyChanged', 'A política de acesso mudou.'));
+      } else {
+         setSaveError(t('teamSetup.existingMember.errors.saveFailed', 'Falha ao salvar.'));
+      }
     } finally {
       setIsSaving(false);
     }
@@ -362,7 +387,8 @@ export function ExistingMemberSetupGuide({
       <Modal 
         isOpen={isOpen} 
         onClose={handleCloseAttempt}
-        size="md"
+        maxWidth="max-w-md"
+        title={t('teamSetup.existingMember.modalTitle', 'Configurar Integrante')}
       >
         {step === 1 && renderStep1()}
         {step === 2 && renderStep2()}
@@ -373,12 +399,11 @@ export function ExistingMemberSetupGuide({
       <ConfirmationModal
         isOpen={showDiscardConfirm}
         title={t('teamSetup.existingMember.discard.title')}
-        description={t('teamSetup.existingMember.discard.description')}
-        confirmLabel={t('teamSetup.existingMember.discard.discardAction')}
-        cancelLabel={t('teamSetup.existingMember.discard.continueAction')}
+        message={t('teamSetup.existingMember.discard.description')}
+        confirmText={t('teamSetup.existingMember.discard.discardAction')}
+        cancelText={t('teamSetup.existingMember.discard.continueAction')}
         onConfirm={handleDiscard}
-        onCancel={() => setShowDiscardConfirm(false)}
-        variant="danger"
+        onClose={() => setShowDiscardConfirm(false)}
       />
     </>
   );

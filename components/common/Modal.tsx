@@ -83,7 +83,6 @@ const Modal = forwardRef<HTMLDivElement, ModalProps>(
           <div
             className="w-full flex justify-center md:hidden pt-4 pb-2"
             onClick={onClose}
-                aria-label="Close"
           >
             <div className="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-white/10"></div>
           </div>

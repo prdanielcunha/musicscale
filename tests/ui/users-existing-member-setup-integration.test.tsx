@@ -9,6 +9,7 @@ import pt from '../../locales/pt.json';
 import { MemoryRouter } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
+import { ToastProvider } from "../../contexts/ToastContext";
 vi.unmock('react-i18next');
 i18n
   .use(initReactI18next)
@@ -89,7 +90,7 @@ describe('UsersPage Integration ExistingMemberSetup', () => {
 
     return render(
       <MemoryRouter>
-        <UsersPage />
+        <ToastProvider><UsersPage /></ToastProvider>
       </MemoryRouter>
     );
   };

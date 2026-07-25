@@ -44,7 +44,7 @@ describe('ExistingMemberSetupGuide', () => {
     members: mockUsers,
     roles: mockRoles,
     instruments: mockInstruments,
-    resolveAccessPolicy: () => ({ canEditAccess: true, allowedRoleIds: ['r1', 'r2'] }),
+    resolveAccessPolicy: () => ({ canEditAccess: true, lockReason: null, allowedRoleIds: ['r1', 'r2'] }),
     onClose: vi.fn(),
     onSave: vi.fn().mockResolvedValue(undefined)
   };
@@ -87,7 +87,7 @@ describe('ExistingMemberSetupGuide', () => {
   });
 
   it('7. mostra somente papéis permitidos;', () => {
-    render(<ExistingMemberSetupGuide {...defaultProps} resolveAccessPolicy={() => ({ canEditAccess: true, allowedRoleIds: ['r2'], reason: '' })} />);
+    render(<ExistingMemberSetupGuide {...defaultProps} resolveAccessPolicy={() => ({ canEditAccess: true, lockReason: null, allowedRoleIds: ['r2'], reason: '' })} />);
     fireEvent.click(screen.getByText('User 2'));
     expect(screen.getByText('Member')).toBeInTheDocument();
     expect(screen.queryByText('Admin')).not.toBeInTheDocument();
@@ -95,7 +95,7 @@ describe('ExistingMemberSetupGuide', () => {
 
   it('8. não oferece owner;', () => {
     const rolesWithOwner = [...mockRoles, { id: 'r3', name: 'Owner', description: '', permissions: {} as any }];
-    render(<ExistingMemberSetupGuide {...defaultProps} roles={rolesWithOwner} resolveAccessPolicy={() => ({ canEditAccess: true, allowedRoleIds: ['r1', 'r2'], reason: '' })} />);
+    render(<ExistingMemberSetupGuide {...defaultProps} roles={rolesWithOwner} resolveAccessPolicy={() => ({ canEditAccess: true, lockReason: null, allowedRoleIds: ['r1', 'r2'], reason: '' })} />);
     fireEvent.click(screen.getByText('User 2'));
     expect(screen.queryByText('Owner')).not.toBeInTheDocument();
   });
@@ -113,19 +113,19 @@ describe('ExistingMemberSetupGuide', () => {
   });
 
   it('11. acesso bloqueado aparece somente leitura;', () => {
-    render(<ExistingMemberSetupGuide {...defaultProps} resolveAccessPolicy={() => ({ canEditAccess: false, allowedRoleIds: ['r2'], reason: 'Blocked' })} />);
+    render(<ExistingMemberSetupGuide {...defaultProps} resolveAccessPolicy={() => ({ canEditAccess: false, lockReason: 'hierarchy', allowedRoleIds: ['r2'], reason: 'Blocked' })} />);
     fireEvent.click(screen.getByText('User 1'));
     expect(screen.getByText('Blocked')).toBeInTheDocument();
   });
 
   it('12. usuário atual não altera o próprio acesso;', () => {
-    render(<ExistingMemberSetupGuide {...defaultProps} currentUserId="u1" resolveAccessPolicy={() => ({ canEditAccess: false, allowedRoleIds: [], reason: pt.teamSetup.existingMember.access.currentUserExplanation })} />);
+    render(<ExistingMemberSetupGuide {...defaultProps} currentUserId="u1" resolveAccessPolicy={() => ({ canEditAccess: false, lockReason: 'hierarchy', allowedRoleIds: [], reason: pt.teamSetup.existingMember.access.currentUserExplanation })} />);
     fireEvent.click(screen.getByText('User 1'));
     expect(screen.getByText(pt.teamSetup.existingMember.access.currentUserExplanation)).toBeInTheDocument();
   });
 
   it('13. usuário atual pode escolher funções;', () => {
-    render(<ExistingMemberSetupGuide {...defaultProps} currentUserId="u1" resolveAccessPolicy={() => ({ canEditAccess: false, allowedRoleIds: [], reason: '' })} />);
+    render(<ExistingMemberSetupGuide {...defaultProps} currentUserId="u1" resolveAccessPolicy={() => ({ canEditAccess: false, lockReason: 'hierarchy', allowedRoleIds: [], reason: '' })} />);
     fireEvent.click(screen.getByText('User 1'));
     const btns = screen.getAllByRole('button', { name: pt.teamSetup.existingMember.access.continueAction });
     fireEvent.click(btns[btns.length - 1]);
@@ -303,7 +303,8 @@ describe('ExistingMemberSetupGuide', () => {
     const onClose = vi.fn();
     render(<ExistingMemberSetupGuide {...defaultProps} onClose={onClose} />);
     fireEvent.click(screen.getByText('User 2'));
-    fireEvent.click(screen.getByLabelText('Close'));
+    fireEvent.click(screen.getByText('Admin'));
+    fireEvent.click(screen.getByText('Close modal'));
     expect(screen.getByText(pt.teamSetup.existingMember.discard.title)).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -311,7 +312,7 @@ describe('ExistingMemberSetupGuide', () => {
   it('30. fechamento limpo não pede confirmação;', () => {
     const onClose = vi.fn();
     render(<ExistingMemberSetupGuide {...defaultProps} onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText('Close'));
+    fireEvent.click(screen.getByText('Close modal'));
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -319,7 +320,8 @@ describe('ExistingMemberSetupGuide', () => {
     const onClose = vi.fn();
     render(<ExistingMemberSetupGuide {...defaultProps} onClose={onClose} />);
     fireEvent.click(screen.getByText('User 2'));
-    fireEvent.click(screen.getByLabelText('Close'));
+    fireEvent.click(screen.getByText('Admin'));
+    fireEvent.click(screen.getByText('Close modal'));
     expect(screen.getByText(pt.teamSetup.existingMember.discard.title)).toBeInTheDocument();
   });
 
