@@ -8,9 +8,10 @@ import { CheckCircle2, AlertCircle, Users } from 'lucide-react';
 interface TeamSetupProgressCardProps {
   summary: TeamSetupSummary;
   onReview: () => void;
+  onConfigure: () => void;
 }
 
-export function TeamSetupProgressCard({ summary, onReview }: TeamSetupProgressCardProps) {
+export function TeamSetupProgressCard({ summary, onReview, onConfigure }: TeamSetupProgressCardProps) {
   const { t } = useTranslation();
 
   const {
@@ -22,6 +23,8 @@ export function TeamSetupProgressCard({ summary, onReview }: TeamSetupProgressCa
 
   const noMembers = additionalMembers === 0;
   const isComplete = additionalMembers > 0 && configuredMembers === additionalMembers;
+  const isIncomplete = additionalMembers > 0 && !isComplete;
+
   const missingAccess = additionalMembers - membersWithAccessProfile;
   const missingFunctions = additionalMembers - membersWithMinistryFunctions;
 
@@ -108,12 +111,14 @@ export function TeamSetupProgressCard({ summary, onReview }: TeamSetupProgressCa
         <div className="w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
           <Button 
             variant="secondary" 
-            onClick={onReview}
+            onClick={isIncomplete ? onConfigure : onReview}
             className="w-full sm:w-auto min-h-[44px]"
           >
-            {isComplete 
-              ? t('teamSetup.progress.reviewCompletedAction')
-              : t('teamSetup.progress.reviewAction')
+            {isIncomplete 
+              ? t('teamSetup.progress.configureAction')
+              : isComplete 
+                ? t('teamSetup.progress.reviewCompletedAction')
+                : t('teamSetup.progress.reviewAction')
             }
           </Button>
         </div>

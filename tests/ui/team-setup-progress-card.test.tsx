@@ -47,7 +47,7 @@ describe('TeamSetupProgressCard', () => {
 
   it('1. estado sem integrantes', () => {
     const onReview = vi.fn();
-    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} onConfigure={vi.fn()} />);
     expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeInTheDocument();
     expect(screen.getByText(pt.teamSetup.progress.emptyDescription)).toBeInTheDocument();
     expect(screen.getByText(pt.teamSetup.progress.noMembers)).toBeInTheDocument();
@@ -61,7 +61,7 @@ describe('TeamSetupProgressCard', () => {
       membersWithAccessProfile: 1,
       membersWithMinistryFunctions: 2
     });
-    render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={summary} onReview={onReview} onConfigure={vi.fn()} />);
     expect(screen.getByText(pt.teamSetup.progress.incompleteTitle)).toBeInTheDocument();
     
     // Test count interpolation
@@ -78,7 +78,7 @@ describe('TeamSetupProgressCard', () => {
       membersWithAccessProfile: 2,
       membersWithMinistryFunctions: 2
     });
-    render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={summary} onReview={onReview} onConfigure={vi.fn()} />);
     expect(screen.getByText(pt.teamSetup.progress.completeTitle)).toBeInTheDocument();
     expect(screen.getByText(pt.teamSetup.progress.completeDescription)).toBeInTheDocument();
   });
@@ -91,7 +91,7 @@ describe('TeamSetupProgressCard', () => {
       membersWithAccessProfile: 0,
       membersWithMinistryFunctions: 0
     });
-    render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={summary} onReview={onReview} onConfigure={vi.fn()} />);
     const expected = pt.teamSetup.progress.missingAccess_one.replace('{{count}}', '1');
     expect(screen.getByText(new RegExp(expected))).toBeInTheDocument();
   });
@@ -104,7 +104,7 @@ describe('TeamSetupProgressCard', () => {
       membersWithAccessProfile: 0,
       membersWithMinistryFunctions: 0
     });
-    render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={summary} onReview={onReview} onConfigure={vi.fn()} />);
     const expected = pt.teamSetup.progress.missingAccess_other.replace('{{count}}', '2');
     expect(screen.getByText(new RegExp(expected))).toBeInTheDocument();
   });
@@ -117,7 +117,7 @@ describe('TeamSetupProgressCard', () => {
       membersWithAccessProfile: 0,
       membersWithMinistryFunctions: 0
     });
-    render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={summary} onReview={onReview} onConfigure={vi.fn()} />);
     
     const missingAccessText = pt.teamSetup.progress.missingAccess_one.replace('{{count}}', '1');
     const missingFuncText = pt.teamSetup.progress.missingFunctions_one.replace('{{count}}', '1');
@@ -129,27 +129,27 @@ describe('TeamSetupProgressCard', () => {
   it('7. não aparece porcentagem', () => {
     const onReview = vi.fn();
     const summary = createSummary({ additionalMembers: 2, configuredMembers: 1 });
-    const { container } = render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
+    const { container } = render(<TeamSetupProgressCard summary={summary} onReview={onReview} onConfigure={vi.fn()} />);
     expect(container.textContent).not.toMatch(/%/);
   });
 
   it('8. não aparece progressbar', () => {
     const onReview = vi.fn();
     const summary = createSummary({ additionalMembers: 2, configuredMembers: 1 });
-    render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={summary} onReview={onReview} onConfigure={vi.fn()} />);
     expect(screen.queryByRole('progressbar')).toBeNull();
   });
 
   it('9. botão chama onReview uma vez', () => {
     const onReview = vi.fn();
-    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} onConfigure={vi.fn()} />);
     fireEvent.click(screen.getByRole('button'));
     expect(onReview).toHaveBeenCalledTimes(1);
   });
 
   it('10. botão é acessível por teclado', () => {
     const onReview = vi.fn();
-    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} onConfigure={vi.fn()} />);
     const button = screen.getByRole('button', { name: pt.teamSetup.progress.reviewAction });
     button.focus();
     expect(button).toHaveFocus();
@@ -158,28 +158,28 @@ describe('TeamSetupProgressCard', () => {
 
   it('11. PT resolve as chaves', () => {
     const onReview = vi.fn();
-    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} onConfigure={vi.fn()} />);
     expect(screen.getByText(pt.teamSetup.progress.emptyTitle)).toBeInTheDocument();
   });
 
   it('12. EN resolve as chaves', () => {
     i18n.changeLanguage('en');
     const onReview = vi.fn();
-    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} onConfigure={vi.fn()} />);
     expect(screen.getByText(en.teamSetup.progress.emptyTitle)).toBeInTheDocument();
   });
 
   it('13. ES resolve as chaves', () => {
     i18n.changeLanguage('es');
     const onReview = vi.fn();
-    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} onConfigure={vi.fn()} />);
     expect(screen.getByText(es.teamSetup.progress.emptyTitle)).toBeInTheDocument();
   });
 
   it('14. nenhuma chave retorna seu próprio caminho', () => {
     const onReview = vi.fn();
     const summary = createSummary({ additionalMembers: 1 });
-    const { container } = render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
+    const { container } = render(<TeamSetupProgressCard summary={summary} onReview={onReview} onConfigure={vi.fn()} />);
     expect(container.textContent).not.toMatch(/teamSetup\.progress\./);
   });
 
@@ -193,7 +193,7 @@ describe('TeamSetupProgressCard', () => {
 
   it('16. título está ligado ao cartão por aria-labelledby', () => {
     const onReview = vi.fn();
-    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} onConfigure={vi.fn()} />);
     const card = screen.getByLabelText(pt.teamSetup.progress.emptyTitle);
     expect(card).toBeInTheDocument();
   });
@@ -201,8 +201,62 @@ describe('TeamSetupProgressCard', () => {
   it('17. métricas são renderizadas em lista semântica', () => {
     const onReview = vi.fn();
     const summary = createSummary({ additionalMembers: 1 });
-    render(<TeamSetupProgressCard summary={summary} onReview={onReview} />);
+    render(<TeamSetupProgressCard summary={summary} onReview={onReview} onConfigure={vi.fn()} />);
     expect(screen.getByRole('list')).toBeInTheDocument();
     expect(screen.getAllByRole('listitem').length).toBeGreaterThan(0);
+  });
+
+  it('18. estado incompleto chama onConfigure e não onReview', () => {
+    const onReview = vi.fn();
+    const onConfigure = vi.fn();
+    const summary = createSummary({
+      additionalMembers: 2,
+      configuredMembers: 1,
+      membersWithAccessProfile: 1,
+      membersWithMinistryFunctions: 2
+    });
+    render(<TeamSetupProgressCard summary={summary} onReview={onReview} onConfigure={onConfigure} />);
+    fireEvent.click(screen.getByRole('button'));
+    expect(onConfigure).toHaveBeenCalledTimes(1);
+    expect(onReview).not.toHaveBeenCalled();
+  });
+
+  it('19. estado vazio chama onReview', () => {
+    const onReview = vi.fn();
+    const onConfigure = vi.fn();
+    render(<TeamSetupProgressCard summary={createSummary()} onReview={onReview} onConfigure={onConfigure} />);
+    fireEvent.click(screen.getByRole('button'));
+    expect(onReview).toHaveBeenCalledTimes(1);
+    expect(onConfigure).not.toHaveBeenCalled();
+  });
+
+  it('20. estado completo chama onReview', () => {
+    const onReview = vi.fn();
+    const onConfigure = vi.fn();
+    const summary = createSummary({
+      additionalMembers: 2,
+      configuredMembers: 2,
+      membersWithAccessProfile: 2,
+      membersWithMinistryFunctions: 2
+    });
+    render(<TeamSetupProgressCard summary={summary} onReview={onReview} onConfigure={onConfigure} />);
+    fireEvent.click(screen.getByRole('button'));
+    expect(onReview).toHaveBeenCalledTimes(1);
+    expect(onConfigure).not.toHaveBeenCalled();
+  });
+
+  it('21. texto "Configurar pessoa" resolve em PT, EN e ES', () => {
+    const onReview = vi.fn();
+    const onConfigure = vi.fn();
+    const summary = createSummary({ additionalMembers: 2, configuredMembers: 1 });
+    
+    i18n.changeLanguage('pt');
+    const { unmount } = render(<TeamSetupProgressCard summary={summary} onReview={onReview} onConfigure={onConfigure} />);
+    expect(screen.getByText(pt.teamSetup.progress.configureAction)).toBeInTheDocument();
+    unmount();
+    
+    i18n.changeLanguage('en');
+    render(<TeamSetupProgressCard summary={summary} onReview={onReview} onConfigure={onConfigure} />);
+    expect(screen.getByText(en.teamSetup.progress.configureAction)).toBeInTheDocument();
   });
 });

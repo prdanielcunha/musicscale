@@ -1102,7 +1102,75 @@
       "missingFunctions_other": "pessoas sem função na equipe",
       "reviewAction": "Ver integrantes",
       "reviewCompletedAction": "Revisar integrantes",
-      "sectionLabel": "Equipe"
+      "sectionLabel": "Equipe",
+      "configureAction": "Configurar pessoa"
+    },
+    "existingMember": {
+      "steps": {
+        "stepIndicator": "Etapa {{current}} de {{total}}",
+        "choosePerson": "Quem você deseja configurar?",
+        "accessProfile": "O que esta pessoa poderá fazer no MusicScale?",
+        "ministryFunctions": "Como esta pessoa poderá servir na equipe?",
+        "review": "Está tudo certo?"
+      },
+      "members": {
+        "emptyTitle": "Nenhuma pessoa disponível",
+        "emptyDescription": "Adicione ou convide alguém antes de configurar a equipe.",
+        "closeAction": "Fechar",
+        "missingAccess": "Falta perfil de acesso",
+        "missingFunctions": "Falta função na equipe",
+        "missingBoth": "Falta perfil de acesso e função",
+        "configured": "Configuração completa",
+        "youIndicator": "Você"
+      },
+      "access": {
+        "permissionsMap": {
+          "canManageUsers": "Administrar pessoas da equipe",
+          "canManageRoles": "Configurar perfis de acesso",
+          "canManageRepertoire": "Adicionar e editar músicas",
+          "canManageScales": "Criar e editar escalas",
+          "canManageChords": "Editar cifras",
+          "canViewContent": "Consultar conteúdo e compromissos"
+        },
+        "ownerExplanation": "O proprietário da organização possui acesso irrestrito administrado pela MillionsNest.",
+        "currentUserExplanation": "Você pode ajustar suas funções na equipe, mas não pode alterar seu próprio acesso por aqui.",
+        "continueAction": "Continuar"
+      },
+      "functions": {
+        "subtitle": "Você pode marcar mais de uma opção.",
+        "groups": {
+          "ministers": "Ministro e liderança musical",
+          "vocals": "Vozes",
+          "instruments": "Instrumentos e funções técnicas"
+        },
+        "defineLaterAction": "Definir depois",
+        "continueAction": "Continuar",
+        "incompleteWarning": "A configuração permanecerá incompleta."
+      },
+      "review": {
+        "saveAction": "Salvar configuração",
+        "backAction": "Voltar e corrigir",
+        "noFunctionsWarning": "Nenhuma função foi escolhida.",
+        "accessLabel": "Acesso:",
+        "functionsLabel": "Funções:"
+      },
+      "completion": {
+        "title": "Pessoa configurada",
+        "description": "Agora o MusicScale sabe o que essa pessoa pode fazer e como ela poderá servir na equipe.",
+        "nextAction": "Configurar próxima pessoa",
+        "closeAction": "Fechar",
+        "successToast": "Pessoa configurada com sucesso."
+      },
+      "discard": {
+        "title": "Descartar alterações?",
+        "description": "As escolhas feitas para esta pessoa ainda não foram salvas.",
+        "continueAction": "Continuar configurando",
+        "discardAction": "Descartar alterações"
+      },
+      "errors": {
+        "policyChanged": "Seu acesso mudou enquanto esta tela estava aberta. Revise as opções e tente novamente.",
+        "saveFailed": "Não foi possível salvar a configuração."
+      }
     }
   }
 }

@@ -1103,7 +1103,75 @@
       "missingFunctions_other": "members without team role",
       "reviewAction": "View members",
       "reviewCompletedAction": "Review members",
-      "sectionLabel": "Team"
+      "sectionLabel": "Team",
+      "configureAction": "Configure person"
+    },
+    "existingMember": {
+      "steps": {
+        "stepIndicator": "Step {{current}} of {{total}}",
+        "choosePerson": "Who do you want to configure?",
+        "accessProfile": "What can this person do in MusicScale?",
+        "ministryFunctions": "How can this person serve on the team?",
+        "review": "Is everything correct?"
+      },
+      "members": {
+        "emptyTitle": "No person available",
+        "emptyDescription": "Add or invite someone before configuring the team.",
+        "closeAction": "Close",
+        "missingAccess": "Missing access profile",
+        "missingFunctions": "Missing team function",
+        "missingBoth": "Missing access profile and function",
+        "configured": "Configuration complete",
+        "youIndicator": "You"
+      },
+      "access": {
+        "permissionsMap": {
+          "canManageUsers": "Manage team members",
+          "canManageRoles": "Configure access profiles",
+          "canManageRepertoire": "Add and edit songs",
+          "canManageScales": "Create and edit schedules",
+          "canManageChords": "Edit chords",
+          "canViewContent": "View content and appointments"
+        },
+        "ownerExplanation": "The organization owner has unrestricted access managed by MillionsNest.",
+        "currentUserExplanation": "You can adjust your team functions, but you cannot change your own access here.",
+        "continueAction": "Continue"
+      },
+      "functions": {
+        "subtitle": "You can select more than one option.",
+        "groups": {
+          "ministers": "Minister and musical leadership",
+          "vocals": "Vocals",
+          "instruments": "Instruments and technical functions"
+        },
+        "defineLaterAction": "Define later",
+        "continueAction": "Continue",
+        "incompleteWarning": "The configuration will remain incomplete."
+      },
+      "review": {
+        "saveAction": "Save configuration",
+        "backAction": "Go back and correct",
+        "noFunctionsWarning": "No function was chosen.",
+        "accessLabel": "Access:",
+        "functionsLabel": "Functions:"
+      },
+      "completion": {
+        "title": "Person configured",
+        "description": "Now MusicScale knows what this person can do and how they will serve on the team.",
+        "nextAction": "Configure next person",
+        "closeAction": "Close",
+        "successToast": "Person configured successfully."
+      },
+      "discard": {
+        "title": "Discard changes?",
+        "description": "The choices made for this person have not been saved yet.",
+        "continueAction": "Continue configuring",
+        "discardAction": "Discard changes"
+      },
+      "errors": {
+        "policyChanged": "Your access changed while this screen was open. Please review the options and try again.",
+        "saveFailed": "Could not save the configuration."
+      }
     }
   }
 }

@@ -13,6 +13,10 @@ import { useApi } from "../contexts/ApiContext";
 import { useMusic } from "../contexts/MusicDataContext";
 import { useCapability } from "../hooks/useCapability";
 import { evaluateTeamSetup } from "../utils/teamSetup";
+
+import { TeamMemberAccessPolicy, TeamMemberSetupDraft } from '../utils/teamMemberSetup';
+import { ExistingMemberSetupGuide } from '../components/team/ExistingMemberSetupGuide';
+
 import { TeamSetupProgressCard } from "../components/team/TeamSetupProgressCard";
 import Spinner from "../components/common/Spinner";
 import Card from "../components/common/Card";
@@ -1409,7 +1413,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
 
 const UsersPage: React.FC = () => {
   const { t } = useTranslation();
-  const { user: currentUser, userProfile } = useAuth();
+  const { user: currentUser, userProfile, organization } = useAuth();
   const { roles, instruments } = useMusic();
   const api = useApi();
   const { hasCapability } = useCapability();
@@ -1422,6 +1426,67 @@ const UsersPage: React.FC = () => {
   const [joinRequests, setJoinRequests] = useState<any[]>([]);
   const isGlobal = isGlobalPrivilegedUser(currentUser, userProfile);
   const [migrating, setMigrating] = useState(false);
+
+  const [isExistingMemberSetupOpen, setIsExistingMemberSetupOpen] = useState(false);
+
+  const resolveAccessPolicy = (member: UserProfile): TeamMemberAccessPolicy => {
+    const isCurrentUser = member.uid === currentUser?.uid;
+    const isMemberOwner = member.organizationRole === 'owner' || member.uid === organization?.ownerUserId;
+    const isGlobal = isGlobalPrivilegedUser(currentUser, userProfile);
+
+    const memberRoleToEval = member.organizationRole || member.role || member.musicscaleRole || "";
+    const actorRoleKey = isGlobal ? "owner" : getRoleKeyFromName(userProfile?.role || "");
+    const canChange = isGlobal || canChangeOrganizationRole(actorRoleKey, getRoleKeyFromName(memberRoleToEval), getRoleKeyFromName(memberRoleToEval), { 
+      isGlobalPrivilegedUser: isGlobal, 
+      actorOrganizationRole: userProfile?.organizationRole, isSelfChange: false, otherOwnersActiveCount: 2
+    });
+
+    let canEditAccess = true;
+    let reason = '';
+
+    if (isCurrentUser) {
+      canEditAccess = false;
+      reason = t('teamSetup.existingMember.access.currentUserExplanation', 'Você pode ajustar suas funções na equipe, mas não pode alterar seu próprio acesso por aqui.');
+    } else if (isMemberOwner) {
+      canEditAccess = false;
+      reason = t('teamSetup.existingMember.access.ownerExplanation', 'O proprietário da organização possui acesso irrestrito administrado pela MillionsNest.');
+    } else if (!canChange) {
+      canEditAccess = false;
+      reason = t('roles.cannot_manage_role', 'Você não tem permissão para alterar o acesso desta pessoa.');
+    }
+
+    const allowedRoleIds = roles.filter(r => {
+      const targetRoleKey = getRoleKeyFromId(r.id, roles);
+      if (targetRoleKey === 'owner') return false;
+      return isGlobal || canAssignOrganizationRole(actorRoleKey, targetRoleKey, { 
+        isGlobalPrivilegedUser: isGlobal, 
+        actorOrganizationRole: userProfile?.organizationRole, isSelfChange: false, otherOwnersActiveCount: 2 
+      });
+    }).map(r => r.id);
+
+    return {
+      canEditAccess,
+      reason,
+      allowedRoleIds
+    };
+  };
+
+  const handleSaveTeamSetup = async (draft: TeamMemberSetupDraft) => {
+    const member = allUsers.find(u => u.uid === draft.userId);
+    if (!member) throw new Error("Membro não encontrado");
+
+    const specialtyIds = draft.specialtyIds || [];
+    const payload: any = { specialtyIds };
+
+    if (draft.roleId && draft.roleId !== member.roleId) {
+      payload.roleId = draft.roleId;
+      payload.musicscaleRole = getRoleKeyFromId(draft.roleId, roles);
+    }
+
+    await api.users.update(draft.userId, payload);
+    await fetchUsers();
+  };
+
 
   const fetchJoinRequests = async () => {
     if (!userProfile?.organizationId) return;
@@ -1663,6 +1728,7 @@ const UsersPage: React.FC = () => {
         <TeamSetupProgressCard
           summary={teamSetupSummary}
           onReview={handleReviewTeamSetup}
+          onConfigure={() => setIsExistingMemberSetupOpen(true)}
         />
       )}
       
@@ -1704,6 +1770,20 @@ const UsersPage: React.FC = () => {
           </div>
         </Card>
       )}
+
+      {canManageTeamSetup && !loading && teamSetupSummary.additionalMembers > 0 && isExistingMemberSetupOpen && (
+        <ExistingMemberSetupGuide
+          isOpen={isExistingMemberSetupOpen}
+          members={allUsers}
+          roles={roles}
+          instruments={instruments}
+          currentUserId={currentUser?.uid}
+          resolveAccessPolicy={resolveAccessPolicy}
+          onClose={() => setIsExistingMemberSetupOpen(false)}
+          onSave={handleSaveTeamSetup}
+        />
+      )}
+
 
       <div
         ref={managementSectionRef}

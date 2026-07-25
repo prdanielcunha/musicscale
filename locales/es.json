@@ -1100,7 +1100,75 @@
       "missingFunctions_other": "personas sin función en el equipo",
       "reviewAction": "Ver integrantes",
       "reviewCompletedAction": "Revisar integrantes",
-      "sectionLabel": "Equipo"
+      "sectionLabel": "Equipo",
+      "configureAction": "Configurar persona"
+    },
+    "existingMember": {
+      "steps": {
+        "stepIndicator": "Paso {{current}} de {{total}}",
+        "choosePerson": "¿A quién deseas configurar?",
+        "accessProfile": "¿Qué podrá hacer esta persona en MusicScale?",
+        "ministryFunctions": "¿Cómo podrá servir esta persona en el equipo?",
+        "review": "¿Está todo correcto?"
+      },
+      "members": {
+        "emptyTitle": "Ninguna persona disponible",
+        "emptyDescription": "Agrega o invita a alguien antes de configurar el equipo.",
+        "closeAction": "Cerrar",
+        "missingAccess": "Falta perfil de acceso",
+        "missingFunctions": "Falta función en el equipo",
+        "missingBoth": "Faltan perfil de acceso y función",
+        "configured": "Configuración completa",
+        "youIndicator": "Tú"
+      },
+      "access": {
+        "permissionsMap": {
+          "canManageUsers": "Administrar miembros del equipo",
+          "canManageRoles": "Configurar perfiles de acceso",
+          "canManageRepertoire": "Agregar y editar canciones",
+          "canManageScales": "Crear y editar programaciones",
+          "canManageChords": "Editar cifrados",
+          "canViewContent": "Consultar contenido y compromisos"
+        },
+        "ownerExplanation": "El propietario de la organización tiene acceso sin restricciones administrado por MillionsNest.",
+        "currentUserExplanation": "Puedes ajustar tus funciones en el equipo, pero no puedes cambiar tu propio acceso por aquí.",
+        "continueAction": "Continuar"
+      },
+      "functions": {
+        "subtitle": "Puedes marcar más de una opción.",
+        "groups": {
+          "ministers": "Ministro y liderazgo musical",
+          "vocals": "Voces",
+          "instruments": "Instrumentos y funciones técnicas"
+        },
+        "defineLaterAction": "Definir después",
+        "continueAction": "Continuar",
+        "incompleteWarning": "La configuración permanecerá incompleta."
+      },
+      "review": {
+        "saveAction": "Guardar configuración",
+        "backAction": "Volver y corregir",
+        "noFunctionsWarning": "No se eligió ninguna función.",
+        "accessLabel": "Acceso:",
+        "functionsLabel": "Funciones:"
+      },
+      "completion": {
+        "title": "Persona configurada",
+        "description": "Ahora MusicScale sabe qué puede hacer esta persona y cómo servirá en el equipo.",
+        "nextAction": "Configurar próxima persona",
+        "closeAction": "Cerrar",
+        "successToast": "Persona configurada con éxito."
+      },
+      "discard": {
+        "title": "¿Descartar cambios?",
+        "description": "Las elecciones hechas para esta persona aún no se han guardado.",
+        "continueAction": "Continuar configurando",
+        "discardAction": "Descartar cambios"
+      },
+      "errors": {
+        "policyChanged": "Tu acceso cambió mientras esta pantalla estaba abierta. Revisa las opciones e inténtalo de nuevo.",
+        "saveFailed": "No se pudo guardar la configuración."
+      }
     }
   }
 }
