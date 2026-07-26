@@ -1,39 +1,682 @@
-import { describe, it, expect } from 'vitest';
+import React from 'react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import UsersPage from '../../pages/UsersPage';
+import { UserProfile, Role, Instrument } from '../../types';
+import pt from '../../locales/pt.json';
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import * as roleHierarchy from '../../utils/roleHierarchy';
+
+vi.unmock('react-i18next');
+i18n
+  .use(initReactI18next)
+  .init({
+    resources: { pt: { translation: pt } },
+    lng: 'pt',
+    fallbackLng: 'pt',
+    interpolation: { escapeValue: false }
+  });
+
+function createProfile(overrides: Partial<UserProfile> = {}): UserProfile {
+  return {
+    uid: "user-id",
+    email: "user@example.com",
+    displayName: "User Name",
+    photoURL: null,
+    roleId: "",
+    specialtyIds: [],
+    ...overrides
+  } as UserProfile;
+}
+
+const mockRoles: Role[] = [
+  { id: "r_member", name: "Member", description: "", permissions: {} } as Role,
+  { id: "r_admin", name: "Admin", description: "", permissions: { canManageUsers: true } } as Role,
+  { id: "r_owner", name: "Owner", description: "", permissions: {} } as Role
+];
+
+const mockInstruments: Instrument[] = [
+  { id: "i_vox", name: "Vocal", category: "Voz" } as Instrument,
+  { id: "i_gtr", name: "Guitar", category: "Instrumento" } as Instrument
+];
+
+let mockUsers: UserProfile[] = [];
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => mockNavigate
+}));
+
+const mockUsersList = vi.fn<() => Promise<UserProfile[]>>();
+const mockUsersUpdate = vi.fn();
+const mockUsersUpdateMany = vi.fn();
+
+vi.mock('../../contexts/ApiContext', () => ({
+  useApi: () => ({
+    users: {
+      list: mockUsersList,
+      update: mockUsersUpdate,
+      updateMany: mockUsersUpdateMany
+    }
+  })
+}));
+
+let mockHasCapability = vi.fn().mockReturnValue(true);
+vi.mock('../../hooks/useCapability', () => ({
+  useCapability: () => ({
+    hasCapability: (cap: string) => mockHasCapability(cap)
+  })
+}));
+
+let mockCurrentUser: Partial<UserProfile> = { uid: 'current-user-123', displayName: 'Current User' };
+let mockOrgOwnerId = 'owner-123';
+
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: mockCurrentUser,
+    userProfile: { organizationId: 'org-1' }, organization: { ownerUserId: mockOrgOwnerId },
+    loading: false
+  }),
+  useLimits: () => ({ limits: {}, usage: {} })
+}));
+
+vi.mock('../../contexts/MusicDataContext', () => ({
+  useMusic: () => ({
+    roles: mockRoles,
+    instruments: mockInstruments
+  })
+}));
+
+vi.mock('firebase/firestore', () => ({
+  getDocs: async () => ({ docs: [] }),
+  query: () => ({}),
+  where: () => ({}),
+  collection: () => ({}),
+  doc: () => ({}),
+  updateDoc: async () => {},
+  deleteDoc: async () => {},
+  setDoc: async () => {},
+  serverTimestamp: () => 'timestamp',
+  writeBatch: () => ({ commit: async () => {} })
+}));
+
+vi.mock('../../services/firebase', () => ({ db: {} }));
+vi.mock('../../services/authService', () => ({ sendResetEmail: async () => {} }));
+vi.mock('../../hooks/useMusicScaleEntitlements', () => ({
+  useMusicScaleUsage: () => ({ limits: {}, usage: {}, loading: false }),
+  useMusicScalePlan: () => ({ plan: { id: "free" }, loading: false })
+}));
+
+const mockAddToast = vi.fn();
+vi.mock('../../contexts/ToastContext', () => ({
+  useToast: () => ({ addToast: mockAddToast })
+}));
+
+vi.mock('../../hooks/useEcosystemAdmin', () => ({
+  isGlobalPrivilegedUser: () => false
+}));
+
+vi.mock("../../components/billing/UserUsageBanner", () => ({
+  UserUsageBanner: () => <div data-testid="user-usage-banner">Usage banner</div>
+}));
+
+// We mock roleResolver to identify owner
+vi.mock('../../utils/roleResolver', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/roleResolver')>();
+  return {
+    ...actual,
+    getPrimaryDisplayRole: (user: any) => {
+      if (user.uid === mockOrgOwnerId) return { name: "Owner", isSystemRole: true };
+      if (user.roleId === "r_owner") return { name: "Owner", isSystemRole: false };
+      return { name: "Member", isSystemRole: false };
+    }
+  };
+});
 
 describe('UsersPage Integration ExistingMemberSetup', () => {
-  it('1. integrante incompleto mostra Configurar pessoa;', () => { expect(true).toBe(true); });
-  it('2. clique abre guia;', () => { expect(true).toBe(true); });
-  it('3. equipe vazia mantém Ver integrantes;', () => { expect(true).toBe(true); });
-  it('4. equipe vazia não abre guia;', () => { expect(true).toBe(true); });
-  it('5. equipe completa mantém Revisar integrantes;', () => { expect(true).toBe(true); });
-  it('6. equipe completa não abre guia;', () => { expect(true).toBe(true); });
-  it('7. sem capability não vê cartão;', () => { expect(true).toBe(true); });
-  it('8. capability exata consultada;', () => { expect(true).toBe(true); });
-  it('9. usuário atual recebe lockReason self;', () => { expect(true).toBe(true); });
-  it('10. owner por ownerUserId recebe owner;', () => { expect(true).toBe(true); });
-  it('11. owner por roleId resolvido recebe owner;', () => { expect(true).toBe(true); });
-  it('12. organizationRole isolado não substitui perfil MusicScale;', () => { expect(true).toBe(true); });
-  it('13. canChange false bloqueia;', () => { expect(true).toBe(true); });
-  it('14. canAssign false remove opção;', () => { expect(true).toBe(true); });
-  it('15. owner nunca aparece;', () => { expect(true).toBe(true); });
-  it('16. selecionar papel não chama API;', () => { expect(true).toBe(true); });
-  it('17. selecionar função não chama API;', () => { expect(true).toBe(true); });
-  it('18. papel alterado envia três campos;', () => { expect(true).toBe(true); });
-  it('19. papel inalterado envia somente specialtyIds;', () => { expect(true).toBe(true); });
-  it('20. usuário atual envia somente specialtyIds;', () => { expect(true).toBe(true); });
-  it('21. owner envia somente specialtyIds;', () => { expect(true).toBe(true); });
-  it('22. specialtyIds normalizados;', () => { expect(true).toBe(true); });
-  it('23. payload sem organizationRole;', () => { expect(true).toBe(true); });
-  it('24. payload sem systemRole;', () => { expect(true).toBe(true); });
-  it('25. payload sem organizationId;', () => { expect(true).toBe(true); });
-  it('26. usa users.update;', () => { expect(true).toBe(true); });
-  it('27. não usa updateMany;', () => { expect(true).toBe(true); });
-  it('28. chama users.list após sucesso;', () => { expect(true).toBe(true); });
-  it('29. política alterada bloqueia API;', () => { expect(true).toBe(true); });
-  it('30. falha mantém guia aberto;', () => { expect(true).toBe(true); });
-  it('31. falha preserva escolhas;', () => { expect(true).toBe(true); });
-  it('32. toast aparece;', () => { expect(true).toBe(true); });
-  it('33. não navega;', () => { expect(true).toBe(true); });
-  it('34. convite não abre;', () => { expect(true).toBe(true); });
-  it('35. cartão atualiza após recarga;', () => { expect(true).toBe(true); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUsers = [
+      createProfile({ uid: 'current-user-123', roleId: 'r_admin' })
+    ];
+    mockUsersList.mockImplementation(async () => mockUsers);
+    mockUsersUpdate.mockResolvedValue(undefined);
+    mockUsersUpdateMany.mockResolvedValue(undefined);
+    mockHasCapability.mockImplementation(() => true);
+    mockNavigate.mockClear();
+    
+    // Spies on roleHierarchy to preserve original contract
+    vi.spyOn(roleHierarchy, 'canChangeOrganizationRole').mockReturnValue({ canChange: true });
+    vi.spyOn(roleHierarchy, 'canAssignOrganizationRole').mockReturnValue({ canAssign: true });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const renderPage = async () => {
+    render(<UsersPage />);
+    await waitFor(() => expect(screen.getByText(/Equipe e Permissões/i)).toBeInTheDocument());
+  };
+
+  it('1. integrante incompleto mostra a ação Configurar pessoa', async () => {
+    mockUsers = [createProfile({ uid: 'u_inc', displayName: 'Incomplete User', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    expect(screen.getByText(pt.teamSetup.progress.configureAction)).toBeInTheDocument();
+  });
+
+  it('2. clicar na ação abre o guia real', async () => {
+    mockUsers = [createProfile({ uid: 'u_inc', displayName: 'Incomplete User', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    await waitFor(() => {
+      expect(screen.getByText(pt.teamSetup.existingMember.steps.choosePerson)).toBeInTheDocument();
+    });
+  });
+
+  it('3. equipe vazia mantém Ver integrantes', async () => {
+    mockUsers = [];
+    await renderPage();
+    // In progress card for empty
+    expect(screen.getByText(pt.teamSetup.progress.reviewAction)).toBeInTheDocument();
+  });
+
+  it('4. equipe vazia não abre o guia', async () => {
+    mockUsers = [];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.reviewAction));
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
+  });
+
+  it('5. equipe completa mantém Revisar integrantes', async () => {
+    mockUsers = [createProfile({ uid: 'u_comp', displayName: 'Complete User', roleId: 'r_member', specialtyIds: ['i_vox'] })];
+    await renderPage();
+    expect(screen.getByText(pt.teamSetup.progress.reviewCompletedAction)).toBeInTheDocument();
+  });
+
+  it('6. equipe completa não abre o guia', async () => {
+    mockUsers = [createProfile({ uid: 'u_comp', displayName: 'Complete User', roleId: 'r_member', specialtyIds: ['i_vox'] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.reviewCompletedAction));
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
+  });
+
+  it('7. usuário sem musicscale.members.manage não vê o cartão', async () => {
+    mockHasCapability.mockImplementation(() => false);
+    await renderPage();
+    expect(screen.queryByText(pt.teamSetup.progress.emptyTitle)).not.toBeInTheDocument();
+    expect(screen.queryByText(pt.teamSetup.progress.completeTitle)).not.toBeInTheDocument();
+  });
+
+  it('8. capability é consultada exatamente com musicscale.members.manage', async () => {
+    await renderPage();
+    expect(mockHasCapability).toHaveBeenCalledWith('musicscale.members.manage');
+  });
+
+  it('9. usuário atual recebe acesso em modo somente leitura', async () => {
+    mockUsers = [createProfile({ uid: 'current-user-123', displayName: 'Current', roleId: 'r_member', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Current'));
+    // Read only means the roles are disabled or missing (handled in AccessProfileSelector)
+    expect(screen.getByText(pt.teamSetup.existingMember.access.currentUserExplanation)).toBeInTheDocument();
+  });
+
+  it('10. usuário atual consegue avançar para funções', async () => {
+    mockUsers = [createProfile({ uid: 'current-user-123', displayName: 'Current', roleId: 'r_member', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Current'));
+    fireEvent.click(screen.getByText('Continuar'));
+    await waitFor(() => {
+      expect(screen.getByText(pt.teamSetup.existingMember.steps.ministryFunctions)).toBeInTheDocument();
+    });
+  });
+
+  it('11. owner identificado por ownerUserId recebe somente leitura', async () => {
+    mockOrgOwnerId = 'owner-id';
+    mockUsers = [
+      createProfile({ uid: 'owner-id', displayName: 'Owner User', roleId: 'r_member', specialtyIds: [] }),
+      createProfile({ uid: 'other', displayName: 'Other', roleId: '', specialtyIds: [] })
+    ];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Owner User'));
+    expect(screen.getByText(pt.teamSetup.existingMember.access.ownerExplanation)).toBeInTheDocument();
+  });
+
+  it('12. owner identificado pelo roleId resolvido recebe somente leitura', async () => {
+    mockOrgOwnerId = 'another';
+    mockUsers = [createProfile({ uid: 'u_owner2', displayName: 'Owner By Role', roleId: 'r_owner', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Owner By Role'));
+    expect(screen.getByText(pt.teamSetup.existingMember.access.ownerExplanation)).toBeInTheDocument();
+  });
+
+  it('13. organizationRole: "owner" isolado não substitui o perfil de acesso do MusicScale, conforme contrato atual definido pela política', async () => {
+    // This is tested by the policy resolution logic which doesn't check organizationRole: "owner" straight, but uses roleResolver.
+    mockOrgOwnerId = 'another';
+    // User has systemRole='owner' but no roleId, so it's not musicscale owner.
+    mockUsers = [createProfile({ uid: 'u_sys', displayName: 'Sys', roleId: '', specialtyIds: [], systemRole: 'owner' })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Sys'));
+    // Since it's not resolved as owner by the MusicScale resolver, it doesn't get owner lock
+    expect(screen.queryByText(pt.teamSetup.existingMember.access.ownerExplanation)).not.toBeInTheDocument();
+  });
+
+  it('14. decisão canChange: false bloqueia edição', async () => {
+    vi.spyOn(roleHierarchy, 'canChangeOrganizationRole').mockReturnValue({ canChange: false, error: "Blocked by hierarchy" });
+    mockUsers = [createProfile({ uid: 'u_blocked', displayName: 'Blocked User', roleId: 'r_admin', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Blocked User'));
+    expect(screen.getByText("Blocked by hierarchy")).toBeInTheDocument();
+  });
+
+  it('15. decisão canAssign: false remove o papel das opções', async () => {
+    vi.spyOn(roleHierarchy, 'canAssignOrganizationRole').mockImplementation((context: any) => {
+      if (context.targetOrganizationRole === 'r_admin') return { canAssign: false, error: "Cannot assign Admin" };
+      return { canAssign: true };
+    });
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    expect(screen.queryByRole('radio', { name: /Admin/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Member/i })).toBeInTheDocument();
+  });
+  it('16. papel resolvido como owner nunca aparece', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    expect(screen.queryByRole('radio', { name: /Owner/i })).not.toBeInTheDocument();
+  });
+
+  it('17. selecionar papel não chama API', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+  });
+
+  it('18. selecionar função não chama API', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Vocal'));
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+  });
+
+  it('19. papel alterado chama users.update uma única vez', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersUpdate).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('20. papel alterado envia exatamente: { roleId, musicscaleRole, specialtyIds }', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Vocal'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersUpdate).toHaveBeenCalledWith('u_target', expect.objectContaining({ roleId: 'r_member', musicscaleRole: 'viewer', specialtyIds: ['i_vox'] }));
+    });
+  });
+
+  it('21. papel inalterado envia exatamente: { specialtyIds }', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: 'r_member', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    // Do not change role
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Vocal'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersUpdate).toHaveBeenCalledWith(
+        'u_target',
+        { specialtyIds: ['i_vox'] }
+      );
+    });
+  });
+
+  it('22. usuário atual envia somente specialtyIds', async () => {
+    mockUsers = [
+      createProfile({ uid: 'current-user-123', displayName: 'Current', roleId: 'r_member', specialtyIds: [] }),
+      createProfile({ uid: 'other', displayName: 'Other', roleId: '', specialtyIds: [] })
+    ];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Current'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Vocal'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersUpdate).toHaveBeenCalledWith(
+        'current-user-123',
+        { specialtyIds: ['i_vox'] }
+      );
+    });
+  });
+
+  it('23. owner envia somente specialtyIds', async () => {
+    mockOrgOwnerId = 'owner-id';
+    mockUsers = [
+      createProfile({ uid: 'owner-id', displayName: 'Owner User', roleId: 'r_member', specialtyIds: [] }),
+      createProfile({ uid: 'other', displayName: 'Other', roleId: '', specialtyIds: [] })
+    ];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Owner User'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Vocal'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersUpdate).toHaveBeenCalledWith(
+        'owner-id',
+        { specialtyIds: ['i_vox'] }
+      );
+    });
+  });
+
+  it('24. specialtyIds são normalizados', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [' i_vox ', '', 'i_gtr'] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i })); // Change role so it becomes dirty
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersUpdate).toHaveBeenCalledWith(
+        'u_target',
+        expect.objectContaining({ specialtyIds: ['i_vox', 'i_gtr'] })
+      );
+    });
+  });
+
+  it('25. duplicidades são removidas', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: ['i_vox', 'i_vox'] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i })); // Change role
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersUpdate).toHaveBeenCalledWith(
+        'u_target',
+        expect.objectContaining({ specialtyIds: ['i_vox'] })
+      );
+    });
+  });
+
+  it('26. espaços vazios são removidos', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [' '] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i })); // Change role
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersUpdate).toHaveBeenCalledWith(
+        'u_target',
+        expect.objectContaining({ specialtyIds: [] })
+      );
+    });
+  });
+
+  it('27. payload não contém organizationRole', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersUpdate).toHaveBeenCalledWith(
+        'u_target',
+        expect.not.objectContaining({ organizationRole: expect.anything() })
+      );
+    });
+  });
+
+  it('28. payload não contém systemRole', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersUpdate).toHaveBeenCalledWith(
+        'u_target',
+        expect.not.objectContaining({ systemRole: expect.anything() })
+      );
+    });
+  });
+
+  it('29. payload não contém organizationId', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersUpdate).toHaveBeenCalledWith(
+        'u_target',
+        expect.not.objectContaining({ organizationId: expect.anything() })
+      );
+    });
+  });
+
+  it('30. usa users.update', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersUpdate).toHaveBeenCalled();
+    });
+  });
+
+  it('31. não usa users.updateMany', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersUpdateMany).not.toHaveBeenCalled();
+    });
+  });
+  it('32. chama users.list novamente após sucesso', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    mockUsersList.mockClear();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockUsersList).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('33. alteração da política antes do salvamento impede users.update', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    
+    vi.spyOn(roleHierarchy, 'canChangeOrganizationRole').mockReturnValue({ canChange: false, error: "Changed mind" });
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    
+    await waitFor(() => {
+      expect(mockUsersUpdate).not.toHaveBeenCalled();
+      expect(screen.getByText(pt.teamSetup.existingMember.errors.policyChanged)).toBeInTheDocument();
+    });
+  });
+
+  it('34. falha de users.update mantém o guia aberto', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    mockUsersUpdate.mockRejectedValue(new Error('Network error'));
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(screen.getByText(pt.teamSetup.existingMember.errors.saveFailed)).toBeInTheDocument();
+      expect(screen.queryByText(pt.teamSetup.existingMember.completion.title)).not.toBeInTheDocument(); // not success
+    });
+  });
+
+  it('35. falha preserva o papel escolhido', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    mockUsersUpdate.mockRejectedValue(new Error('Network error'));
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(screen.getByText(pt.teamSetup.existingMember.errors.saveFailed)).toBeInTheDocument();
+    });
+    expect(screen.getAllByText('Member').length).toBeGreaterThan(0);
+  });
+    // Go back to review role
+    fireEvent.click(screen.getByText(pt.teamSetup.existingMember.steps.accessProfile));
+    expect(screen.getByRole('radio', { name: /Member/i })).toBeChecked();
+
+  it('36. falha preserva as funções escolhidas', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    mockUsersUpdate.mockRejectedValue(new Error('Network error'));
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Vocal'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(screen.getByText(pt.teamSetup.existingMember.errors.saveFailed)).toBeInTheDocument();
+    });
+    expect(screen.getByText('Vocal')).toBeInTheDocument();
+  });
+    // Go back to review functions
+    fireEvent.click(screen.getByText(pt.teamSetup.existingMember.steps.ministryFunctions));
+    expect(screen.getByText('Vocal').closest('button')).toHaveAttribute('data-selected', 'true');
+
+  it('37. sucesso mostra toast traduzido', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith(pt.teamSetup.existingMember.completion.successToast, 'success');
+    });
+  });
+
+  it('38. fluxo não navega para outra rota', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    await waitFor(() => {
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('39. fluxo não abre convite', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    expect(screen.queryByText(/Convidar pessoa/i)).not.toBeInTheDocument();
+  });
+
+  it('40. cartão atualiza após a resposta recarregada de users.list', async () => {
+    mockUsers = [createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
+    await renderPage();
+    expect(screen.getByText(pt.teamSetup.progress.configureAction)).toBeInTheDocument();
+    
+    // Simulate API update returning complete profile
+    mockUsersList.mockImplementationOnce(async () => [
+      createProfile({ uid: 'u_target', displayName: 'Target', roleId: 'r_member', specialtyIds: ['i_vox'] })
+    ]);
+    
+    fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
+    fireEvent.click(screen.getByText('Target'));
+    fireEvent.click(screen.getByRole('radio', { name: /Member/i }));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Continuar'));
+    fireEvent.click(screen.getByText('Salvar configuração'));
+    
+    await waitFor(() => {
+      // Progress card should update to "Revisar integrantes" since user is now complete
+      expect(screen.getByText(pt.teamSetup.progress.reviewCompletedAction)).toBeInTheDocument();
+    });
+  });
+
 });

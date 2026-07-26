@@ -1,10 +1,7 @@
-const { execSync } = require('child_process');
-try {
-  const output = execSync('npx vitest run tests/ui/users-existing-member-setup-integration.test.tsx', { encoding: 'utf8' });
-  console.log(output);
-} catch (e) {
-  const lines = e.stdout.split('\n');
-  lines.forEach(l => {
-    if (l.includes('×')) console.log(l);
-  });
-}
+const fs = require('fs');
+const lines = fs.readFileSync('/tmp/.19effefaffdef43c-00000000.hm', 'utf8').split('\n');
+lines.forEach(l => {
+  if (l.includes('tests/ui/users-existing-member-setup-integration.test.tsx:')) {
+    console.log(l.trim());
+  }
+});

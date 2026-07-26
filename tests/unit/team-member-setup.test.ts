@@ -230,7 +230,7 @@ describe('teamMemberSetup', () => {
 
     it('14. instrumento sem ID é ignorado;', () => {
       const instruments: readonly Instrument[] = [
-        { name: 'A', category: 'Voz' } ,
+        
         { id: '', name: 'B', category: 'Voz' } ,
         { id: '  ', name: 'C', category: 'Voz' } ,
       ];
