@@ -1,12 +1,87 @@
 import { describe, it, expect } from 'vitest';
 import { 
+  isTeamMemberDraftDirty,
   buildExistingMemberSetupItems, 
   groupTeamFunctions, 
   normalizeSpecialtyIds 
 } from '../../utils/teamMemberSetup';
 import { UserProfile, Instrument } from '../../types';
 
+const createMockUser = (partial: Partial<UserProfile>): UserProfile => ({ uid: 'mock_uid', email: null, displayName: null, photoURL: null, roleId: '', ...partial });
+
 describe('teamMemberSetup', () => {
+  
+  describe('isTeamMemberDraftDirty', () => {
+    it('1. dois drafts nulos;', () => {
+      expect(isTeamMemberDraftDirty(null, null)).toBe(false);
+    });
+    
+    it('2. initial nulo e current existente;', () => {
+      expect(isTeamMemberDraftDirty(null, { userId: 'u1', roleId: 'r1', specialtyIds: [] })).toBe(true);
+    });
+
+    it('3. initial existente e current nulo;', () => {
+      expect(isTeamMemberDraftDirty({ userId: 'u1', roleId: 'r1', specialtyIds: [] }, null)).toBe(true);
+    });
+
+    it('4. seleção sem alteração;', () => {
+      const draft = { userId: 'u1', roleId: 'r1', specialtyIds: ['i1'] };
+      expect(isTeamMemberDraftDirty(draft, draft)).toBe(false);
+      expect(isTeamMemberDraftDirty(draft, { ...draft })).toBe(false);
+    });
+
+    it('5. papel alterado;', () => {
+      const draft1 = { userId: 'u1', roleId: 'r1', specialtyIds: ['i1'] };
+      const draft2 = { userId: 'u1', roleId: 'r2', specialtyIds: ['i1'] };
+      expect(isTeamMemberDraftDirty(draft1, draft2)).toBe(true);
+    });
+
+    it('6. função adicionada;', () => {
+      const draft1 = { userId: 'u1', roleId: 'r1', specialtyIds: ['i1'] };
+      const draft2 = { userId: 'u1', roleId: 'r1', specialtyIds: ['i1', 'i2'] };
+      expect(isTeamMemberDraftDirty(draft1, draft2)).toBe(true);
+    });
+
+    it('7. função removida;', () => {
+      const draft1 = { userId: 'u1', roleId: 'r1', specialtyIds: ['i1', 'i2'] };
+      const draft2 = { userId: 'u1', roleId: 'r1', specialtyIds: ['i1'] };
+      expect(isTeamMemberDraftDirty(draft1, draft2)).toBe(true);
+    });
+
+    it('8. ordem diferente equivalente;', () => {
+      const draft1 = { userId: 'u1', roleId: 'r1', specialtyIds: ['i1', 'i2'] };
+      const draft2 = { userId: 'u1', roleId: 'r1', specialtyIds: ['i2', 'i1'] };
+      expect(isTeamMemberDraftDirty(draft1, draft2)).toBe(false);
+    });
+
+    it('9. espaços equivalentes;', () => {
+      const draft1 = { userId: 'u1', roleId: 'r1', specialtyIds: ['i1 '] };
+      const draft2 = { userId: 'u1', roleId: 'r1', specialtyIds: [' i1'] };
+      expect(isTeamMemberDraftDirty(draft1, draft2)).toBe(false);
+    });
+
+    it('10. duplicidades equivalentes;', () => {
+      const draft1 = { userId: 'u1', roleId: 'r1', specialtyIds: ['i1', 'i1'] };
+      const draft2 = { userId: 'u1', roleId: 'r1', specialtyIds: ['i1'] };
+      expect(isTeamMemberDraftDirty(draft1, draft2)).toBe(false);
+    });
+
+    it('11. retorno ao valor original;', () => {
+      const draft1 = { userId: 'u1', roleId: 'r1', specialtyIds: ['i1'] };
+      const draft2 = { userId: 'u1', roleId: 'r2', specialtyIds: ['i1'] }; // Changed
+      expect(isTeamMemberDraftDirty(draft1, draft2)).toBe(true);
+      const draft3 = { userId: 'u1', roleId: 'r1', specialtyIds: ['i1'] }; // Returned to original
+      expect(isTeamMemberDraftDirty(draft1, draft3)).toBe(false);
+    });
+
+    it('12. objetos não modificados;', () => {
+      const draft1 = { userId: 'u1', roleId: 'r1', specialtyIds: ['i1'] };
+      const res = isTeamMemberDraftDirty(draft1, draft1);
+      expect(draft1).toEqual({ userId: 'u1', roleId: 'r1', specialtyIds: ['i1'] });
+      expect(res).toBe(false);
+    });
+  });
+
   describe('buildExistingMemberSetupItems', () => {
     it('1. lista vazia;', () => {
       const items = buildExistingMemberSetupItems([]);
@@ -15,16 +90,16 @@ describe('teamMemberSetup', () => {
 
     it('2. UID vazio ignorado;', () => {
       const items = buildExistingMemberSetupItems([
-        { uid: '' } as UserProfile,
-        { uid: '   ' } as UserProfile,
+        createMockUser({ uid: '' }),
+        createMockUser({ uid: '   ' }),
       ]);
       expect(items).toEqual([]);
     });
 
     it('3. duplicidade preserva primeira ocorrência;', () => {
       const users: readonly UserProfile[] = [
-        { uid: 'user1', email: 'first@test.com' } as UserProfile,
-        { uid: 'user1', email: 'second@test.com' } as UserProfile,
+        createMockUser({ uid: 'user1', email: 'first@test.com' }),
+        createMockUser({ uid: 'user1', email: 'second@test.com' }),
       ];
       const result = buildExistingMemberSetupItems(users);
       expect(result.length).toBe(1);
@@ -33,7 +108,7 @@ describe('teamMemberSetup', () => {
 
     it('4. usuário atual é marcado;', () => {
       const users: readonly UserProfile[] = [
-        { uid: 'user1' } as UserProfile,
+        createMockUser({ uid: 'user1' }),
       ];
       const result = buildExistingMemberSetupItems(users, 'user1');
       expect(result[0].isCurrentUser).toBe(true);
@@ -41,8 +116,8 @@ describe('teamMemberSetup', () => {
 
     it('5. incompletos precedem completos;', () => {
       const users: readonly UserProfile[] = [
-        { uid: 'comp1', roleId: 'r', specialtyIds: ['s'] } as UserProfile,
-        { uid: 'incomp1' } as UserProfile,
+        createMockUser({ uid: 'comp1', roleId: 'r', specialtyIds: ['s'] }),
+        createMockUser({ uid: 'incomp1' }),
       ];
       const result = buildExistingMemberSetupItems(users);
       expect(result[0].user.uid).toBe('incomp1');
@@ -51,10 +126,10 @@ describe('teamMemberSetup', () => {
 
     it('6. ordem original é preservada dentro dos grupos;', () => {
       const users: readonly UserProfile[] = [
-        { uid: 'incomp1', email: '1' } as UserProfile,
-        { uid: 'incomp2', email: '2' } as UserProfile,
-        { uid: 'comp1', email: '3', roleId: 'r', specialtyIds: ['s'] } as UserProfile,
-        { uid: 'comp2', email: '4', roleId: 'r', specialtyIds: ['s'] } as UserProfile,
+        createMockUser({ uid: 'incomp1', email: '1' }),
+        createMockUser({ uid: 'incomp2', email: '2' }),
+        createMockUser({ uid: 'comp1', email: '3', roleId: 'r', specialtyIds: ['s'] }),
+        createMockUser({ uid: 'comp2', email: '4', roleId: 'r', specialtyIds: ['s'] }),
       ];
       const result = buildExistingMemberSetupItems(users);
       expect(result.map(r => r.user.uid)).toEqual(['incomp1', 'incomp2', 'comp1', 'comp2']);
@@ -62,8 +137,8 @@ describe('teamMemberSetup', () => {
 
     it('7. usuário atual incompleto vem depois dos adicionais incompletos;', () => {
       const users: readonly UserProfile[] = [
-        { uid: 'current' } as UserProfile,
-        { uid: 'add1' } as UserProfile,
+        createMockUser({ uid: 'current' }),
+        createMockUser({ uid: 'add1' }),
       ];
       const result = buildExistingMemberSetupItems(users, 'current');
       expect(result[0].user.uid).toBe('add1');
@@ -72,8 +147,8 @@ describe('teamMemberSetup', () => {
 
     it('8. usuário atual completo vem depois dos adicionais completos;', () => {
       const users: readonly UserProfile[] = [
-        { uid: 'current', roleId: 'r', specialtyIds: ['s'] } as UserProfile,
-        { uid: 'add1', roleId: 'r', specialtyIds: ['s'] } as UserProfile,
+        createMockUser({ uid: 'current', roleId: 'r', specialtyIds: ['s'] }),
+        createMockUser({ uid: 'add1', roleId: 'r', specialtyIds: ['s'] }),
       ];
       const result = buildExistingMemberSetupItems(users, 'current');
       expect(result[0].user.uid).toBe('add1');
@@ -82,7 +157,7 @@ describe('teamMemberSetup', () => {
 
     it('9. avaliação reutiliza estados compatíveis com evaluateTeamSetup;', () => {
       const users: readonly UserProfile[] = [
-        { uid: 'u1', roleId: 'r', specialtyIds: ['s'] } as UserProfile,
+        createMockUser({ uid: 'u1', roleId: 'r', specialtyIds: ['s'] }),
       ];
       const result = buildExistingMemberSetupItems(users);
       expect(result[0].hasAccessProfile).toBe(true);
@@ -92,7 +167,7 @@ describe('teamMemberSetup', () => {
 
     it('10. organizationRole não cria acesso;', () => {
       const users: readonly UserProfile[] = [
-        { uid: 'u1', organizationRole: 'admin', specialtyIds: ['s'] } as UserProfile,
+        createMockUser({ uid: 'u1', organizationRole: 'admin', specialtyIds: ['s'] }),
       ];
       const result = buildExistingMemberSetupItems(users);
       expect(result[0].hasAccessProfile).toBe(false);
@@ -101,9 +176,9 @@ describe('teamMemberSetup', () => {
 
     it('11. specialtyIds determina função;', () => {
       const users: readonly UserProfile[] = [
-        { uid: 'u1', roleId: 'r' } as UserProfile,
-        { uid: 'u2', roleId: 'r', specialtyIds: [] } as UserProfile,
-        { uid: 'u3', roleId: 'r', specialtyIds: ['s'] } as UserProfile,
+        createMockUser({ uid: 'u1', roleId: 'r' }),
+        createMockUser({ uid: 'u2', roleId: 'r', specialtyIds: [] }),
+        createMockUser({ uid: 'u3', roleId: 'r', specialtyIds: ['s'] }),
       ];
       const result = buildExistingMemberSetupItems(users);
       const u1 = result.find(r => r.user.uid === 'u1')!;
@@ -116,14 +191,14 @@ describe('teamMemberSetup', () => {
     });
 
     it('21. arrays recebidos não são modificados;', () => {
-      const users: readonly UserProfile[] = [{ uid: '1' } as UserProfile];
+      const users: readonly UserProfile[] = [createMockUser({ uid: '1' })];
       const original = [...users];
       buildExistingMemberSetupItems(users);
       expect(users).toEqual(original);
     });
 
     it('22. objetos recebidos não são modificados.', () => {
-      const user = { uid: '1', roleId: 'r' } as UserProfile;
+      const user = createMockUser({ uid: '1', roleId: 'r' });
       const original = { ...user };
       buildExistingMemberSetupItems([user]);
       expect(user).toEqual(original);
@@ -133,9 +208,9 @@ describe('teamMemberSetup', () => {
   describe('groupTeamFunctions', () => {
     it('12. categorias são agrupadas;', () => {
       const instruments: readonly Instrument[] = [
-        { id: '1', name: 'Z', category: 'Ministro' } as Instrument,
-        { id: '2', name: 'A', category: 'Voz' } as Instrument,
-        { id: '3', name: 'B', category: 'Instrumento' } as Instrument,
+        { id: '1', name: 'Z', category: 'Ministro' } ,
+        { id: '2', name: 'A', category: 'Voz' } ,
+        { id: '3', name: 'B', category: 'Instrumento' } ,
       ];
       const result = groupTeamFunctions(instruments);
       expect(result.ministers.length).toBe(1);
@@ -145,8 +220,8 @@ describe('teamMemberSetup', () => {
 
     it('13. grupos são ordenados alfabeticamente;', () => {
       const instruments: readonly Instrument[] = [
-        { id: '2', name: 'B', category: 'Voz' } as Instrument,
-        { id: '1', name: 'A', category: 'Voz' } as Instrument,
+        { id: '2', name: 'B', category: 'Voz' } ,
+        { id: '1', name: 'A', category: 'Voz' } ,
       ];
       const result = groupTeamFunctions(instruments);
       expect(result.vocals[0].name).toBe('A');
@@ -155,9 +230,9 @@ describe('teamMemberSetup', () => {
 
     it('14. instrumento sem ID é ignorado;', () => {
       const instruments: readonly Instrument[] = [
-        { name: 'A', category: 'Voz' } as Instrument,
-        { id: '', name: 'B', category: 'Voz' } as Instrument,
-        { id: '  ', name: 'C', category: 'Voz' } as Instrument,
+        { name: 'A', category: 'Voz' } ,
+        { id: '', name: 'B', category: 'Voz' } ,
+        { id: '  ', name: 'C', category: 'Voz' } ,
       ];
       const result = groupTeamFunctions(instruments);
       expect(result.ministers.length).toBe(0);
@@ -167,8 +242,8 @@ describe('teamMemberSetup', () => {
 
     it('15. instrumento duplicado é ignorado;', () => {
       const instruments: readonly Instrument[] = [
-        { id: '1', name: 'A', category: 'Voz' } as Instrument,
-        { id: '1', name: 'B', category: 'Voz' } as Instrument,
+        { id: '1', name: 'A', category: 'Voz' } ,
+        { id: '1', name: 'B', category: 'Voz' } ,
       ];
       const result = groupTeamFunctions(instruments);
       expect(result.vocals.length).toBe(1);
@@ -177,8 +252,8 @@ describe('teamMemberSetup', () => {
 
     it('16. array de instrumentos não é modificado;', () => {
       const instruments: readonly Instrument[] = [
-        { id: '1', name: 'B', category: 'Voz' } as Instrument,
-        { id: '2', name: 'A', category: 'Voz' } as Instrument,
+        { id: '1', name: 'B', category: 'Voz' } ,
+        { id: '2', name: 'A', category: 'Voz' } ,
       ];
       const original = [...instruments];
       groupTeamFunctions(instruments);

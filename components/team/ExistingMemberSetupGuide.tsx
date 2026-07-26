@@ -9,7 +9,8 @@ import {
   TeamMemberSetupDraft,
   buildExistingMemberSetupItems,
   groupTeamFunctions,
-  isTeamMemberDraftDirty
+  isTeamMemberDraftDirty,
+  normalizeSpecialtyIds
 } from '../../utils/teamMemberSetup';
 import { AccessProfileSelector } from './AccessProfileSelector';
 import { MinistryFunctionSelector } from './MinistryFunctionSelector';
@@ -23,6 +24,7 @@ interface ExistingMemberSetupGuideProps {
   instruments: readonly Instrument[];
   currentUserId?: string;
   resolveAccessPolicy: (member: UserProfile) => TeamMemberAccessPolicy;
+  resolveRoleKey: (roleId: string) => string;
   onClose: () => void;
   onSave: (draft: TeamMemberSetupDraft) => Promise<void>;
 }
@@ -36,13 +38,15 @@ export function ExistingMemberSetupGuide({
   instruments,
   currentUserId,
   resolveAccessPolicy,
+  resolveRoleKey,
   onClose,
   onSave
 }: ExistingMemberSetupGuideProps) {
   const { t } = useTranslation();
 
   const [step, setStep] = useState<Step>(1);
-  const [draft, setDraft] = useState<Partial<TeamMemberSetupDraft>>({});
+  const [initialDraft, setInitialDraft] = useState<TeamMemberSetupDraft | null>(null);
+  const [draft, setDraft] = useState<TeamMemberSetupDraft | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -54,7 +58,8 @@ export function ExistingMemberSetupGuide({
   useEffect(() => {
     if (isOpen) {
       setStep(1);
-      setDraft({});
+      setInitialDraft(null);
+      setDraft(null);
       setIsSaving(false);
       setSaveError(null);
       setIsCompleted(false);
@@ -64,39 +69,48 @@ export function ExistingMemberSetupGuide({
 
   // Global Escape key handler
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isOpen && e.key === 'Escape' && !showDiscardConfirm) {
-        handleCloseAttempt();
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (showDiscardConfirm) {
+        setShowDiscardConfirm(false);
+        return;
       }
+      handleCloseAttempt();
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, showDiscardConfirm, draft, step]);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, showDiscardConfirm, initialDraft, draft]);
+
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (saveError) {
+      errorRef.current?.focus();
+    }
+  }, [saveError]);
 
   // Focus management
   useEffect(() => {
     if (isOpen && titleRef.current) {
       titleRef.current.focus();
     }
-  }, [isOpen, step, saveError]);
+  }, [isOpen, step]);
 
   const items = buildExistingMemberSetupItems(members, currentUserId);
   const groups = groupTeamFunctions(instruments);
   
-  const selectedUser = members.find(m => m.uid === draft.userId);
-  const isOwner = selectedUser?.organizationRole === 'owner' || selectedUser?.role === 'Dono';
-  const isCurrentUser = selectedUser?.uid === currentUserId;
+  const selectedUser = members.find(m => m.uid === draft?.userId);
   const policy = selectedUser ? resolveAccessPolicy(selectedUser) : null;
 
   const handleCloseAttempt = () => {
-    if (isCompleted || !selectedUser) {
+    if (isCompleted || !selectedUser || !initialDraft || !draft) {
       onClose();
       return;
     }
-    const isDirty = isTeamMemberDraftDirty(
-      { userId: selectedUser.uid, roleId: selectedUser.roleId || '', specialtyIds: selectedUser.specialtyIds || [] },
-      draft as TeamMemberSetupDraft
-    );
+    const isDirty = isTeamMemberDraftDirty(initialDraft, draft);
     if (!isDirty) {
       onClose();
     } else {
@@ -113,37 +127,47 @@ export function ExistingMemberSetupGuide({
     const user = members.find(m => m.uid === userId);
     if (!user) return;
     
-    // Initialize draft with existing user values
+    const nextDraft: TeamMemberSetupDraft = {
+      userId: user.uid,
+      roleId: user.roleId || "",
+      specialtyIds: normalizeSpecialtyIds(user.specialtyIds || [])
+    };
+    setInitialDraft({
+      ...nextDraft,
+      specialtyIds: [...nextDraft.specialtyIds]
+    });
     setDraft({
-      userId,
-      roleId: user.roleId || '',
-      specialtyIds: user.specialtyIds || []
+      ...nextDraft,
+      specialtyIds: [...nextDraft.specialtyIds]
     });
     setStep(2);
   };
 
   const handleAccessSelect = (roleId: string) => {
-    setDraft(prev => ({ ...prev, roleId }));
+    setDraft(prev => prev ? ({ ...prev, roleId }) : null);
   };
 
   const handleFunctionToggle = (id: string) => {
     setDraft(prev => {
+      if (!prev) return null;
       const current = prev.specialtyIds || [];
+      let newSpecialties;
       if (current.includes(id)) {
-        return { ...prev, specialtyIds: current.filter(x => x !== id) };
+        newSpecialties = current.filter(x => x !== id);
       } else {
-        return { ...prev, specialtyIds: [...current, id] };
+        newSpecialties = [...current, id];
       }
+      return { ...prev, specialtyIds: normalizeSpecialtyIds(newSpecialties) };
     });
   };
 
   const handleDefineLater = () => {
-    setDraft(prev => ({ ...prev, specialtyIds: [] }));
+    setDraft(prev => prev ? ({ ...prev, specialtyIds: [] }) : null);
     setStep(4);
   };
 
   const handleSave = async () => {
-    if (!draft.userId || !selectedUser || !policy) return;
+    if (!draft?.userId || !selectedUser || !policy) return;
 
     setIsSaving(true);
     setSaveError(null);
@@ -159,8 +183,7 @@ export function ExistingMemberSetupGuide({
         return;
       }
       
-      const roleObj = roles.find(r => r.id === draft.roleId);
-      if (roleObj?.name?.toLowerCase() === 'owner' || roleObj?.name?.toLowerCase() === 'dono' || roleObj?.name?.toLowerCase() === 'ceo') {
+      if (resolveRoleKey(draft.roleId || "") === "owner") {
         setSaveError(t('teamSetup.existingMember.errors.policyChanged'));
         setIsSaving(false);
         return;
@@ -171,17 +194,16 @@ export function ExistingMemberSetupGuide({
       await onSave({
         userId: draft.userId,
         roleId: draft.roleId || '',
-        specialtyIds: draft.specialtyIds || []
+        specialtyIds: normalizeSpecialtyIds(draft.specialtyIds || [])
       });
       setIsCompleted(true);
     } catch (error: unknown) {
-      console.error(error);
-      const e = error as Error;
-      if (e.message === "TEAM_ACCESS_POLICY_CHANGED") {
-         setSaveError(t('teamSetup.existingMember.errors.policyChanged', 'A política de acesso mudou.'));
-      } else {
-         setSaveError(t('teamSetup.existingMember.errors.saveFailed', 'Falha ao salvar.'));
-      }
+      const message = error instanceof Error ? error.message : "";
+      setSaveError(
+        message === "TEAM_ACCESS_POLICY_CHANGED"
+          ? t("teamSetup.existingMember.errors.policyChanged")
+          : t("teamSetup.existingMember.errors.saveFailed")
+      );
     } finally {
       setIsSaving(false);
     }
@@ -189,7 +211,8 @@ export function ExistingMemberSetupGuide({
 
   const handleNextPerson = () => {
     setStep(1);
-    setDraft({});
+    setInitialDraft(null);
+    setDraft(null);
     setIsCompleted(false);
     setSaveError(null);
   };
@@ -291,9 +314,7 @@ export function ExistingMemberSetupGuide({
         <AccessProfileSelector
           roles={roles}
           policy={policy}
-          selectedRoleId={draft.roleId}
-          isOwner={isOwner}
-          isCurrentUser={isCurrentUser}
+          selectedRoleId={draft?.roleId}
           onSelect={handleAccessSelect}
           onNext={() => setStep(3)}
         />
@@ -311,7 +332,7 @@ export function ExistingMemberSetupGuide({
         ministers={groups.ministers}
         vocals={groups.vocals}
         instruments={groups.instruments}
-        selectedIds={draft.specialtyIds || []}
+        selectedIds={draft?.specialtyIds || []}
         onToggle={handleFunctionToggle}
         onNext={() => setStep(4)}
         onDefineLater={handleDefineLater}
@@ -346,8 +367,8 @@ export function ExistingMemberSetupGuide({
 
     if (!selectedUser) return null;
 
-    const selectedRole = roles.find(r => r.id === draft.roleId);
-    const selectedSpecialties = instruments.filter(i => draft.specialtyIds?.includes(i.id));
+    const selectedRole = roles.find(r => r.id === draft?.roleId);
+    const selectedSpecialties = instruments.filter(i => draft?.specialtyIds?.includes(i.id));
 
     return (
       <div>
@@ -357,7 +378,7 @@ export function ExistingMemberSetupGuide({
         </h2>
         
         {saveError && (
-          <div aria-live="assertive" className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-3">
+          <div ref={errorRef} role="alert" aria-live="assertive" tabIndex={-1} className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-3 outline-none">
             <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
             <p className="text-sm text-red-800 dark:text-red-200">
               {saveError}
@@ -369,8 +390,6 @@ export function ExistingMemberSetupGuide({
           user={selectedUser}
           role={selectedRole}
           specialties={selectedSpecialties}
-          isOwner={isOwner}
-          isCurrentUser={isCurrentUser}
           isSaving={isSaving}
           onSave={handleSave}
           onBack={() => {
@@ -388,7 +407,7 @@ export function ExistingMemberSetupGuide({
         isOpen={isOpen} 
         onClose={handleCloseAttempt}
         maxWidth="max-w-md"
-        title={t('teamSetup.existingMember.modalTitle', 'Configurar Integrante')}
+        title={t('teamSetup.existingMember.modalTitle')}
       >
         {step === 1 && renderStep1()}
         {step === 2 && renderStep2()}

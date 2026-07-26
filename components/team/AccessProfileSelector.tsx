@@ -9,8 +9,6 @@ interface AccessProfileSelectorProps {
   roles: readonly Role[];
   policy: TeamMemberAccessPolicy;
   selectedRoleId: string | undefined;
-  isOwner: boolean;
-  isCurrentUser: boolean;
   onSelect: (roleId: string) => void;
   onNext: () => void;
 }
@@ -19,8 +17,6 @@ export function AccessProfileSelector({
   roles,
   policy,
   selectedRoleId,
-  isOwner,
-  isCurrentUser,
   onSelect,
   onNext
 }: AccessProfileSelectorProps) {
@@ -35,7 +31,7 @@ export function AccessProfileSelector({
     'canViewContent'
   ] as const;
 
-  if (isOwner || !policy.canEditAccess) {
+  if (!policy.canEditAccess) {
     const roleToShow = roles.find(r => r.id === selectedRoleId);
     
     return (
@@ -72,15 +68,13 @@ export function AccessProfileSelector({
           )}
         </div>
 
-        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg">
-          <p className="text-sm text-indigo-700 dark:text-indigo-300">
-            {isOwner 
-              ? t('teamSetup.existingMember.access.ownerExplanation')
-              : isCurrentUser
-                ? t('teamSetup.existingMember.access.currentUserExplanation')
-                : policy.reason}
-          </p>
-        </div>
+        {policy.reason && (
+          <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg">
+            <p className="text-sm text-indigo-700 dark:text-indigo-300">
+              {policy.reason}
+            </p>
+          </div>
+        )}
 
         <div className="pt-4 flex justify-end">
           <Button onClick={onNext} className="min-h-[44px]">

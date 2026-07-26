@@ -14,7 +14,7 @@ import { useMusic } from "../contexts/MusicDataContext";
 import { useCapability } from "../hooks/useCapability";
 import { evaluateTeamSetup } from "../utils/teamSetup";
 
-import { TeamMemberAccessPolicy, TeamMemberSetupDraft } from '../utils/teamMemberSetup';
+import { TeamMemberAccessPolicy, TeamMemberSetupDraft, normalizeSpecialtyIds, TeamMemberSetupPayload } from '../utils/teamMemberSetup';
 import { ExistingMemberSetupGuide } from '../components/team/ExistingMemberSetupGuide';
 
 import { TeamSetupProgressCard } from "../components/team/TeamSetupProgressCard";
@@ -1458,15 +1458,15 @@ const UsersPage: React.FC = () => {
     if (isCurrentUser) {
       canEditAccess = false;
       lockReason = "self";
-      reason = t('teamSetup.existingMember.access.currentUserExplanation', 'Você pode ajustar suas funções na equipe, mas não pode alterar seu próprio acesso por aqui.');
+      reason = t('teamSetup.existingMember.access.currentUserExplanation');
     } else if (isMemberOwner) {
       canEditAccess = false;
       lockReason = "owner";
-      reason = t('teamSetup.existingMember.access.ownerExplanation', 'O proprietário da organização possui acesso irrestrito administrado pela MillionsNest.');
+      reason = t('teamSetup.existingMember.access.ownerExplanation');
     } else if (!canEditByHierarchy) {
       canEditAccess = false;
       lockReason = "hierarchy";
-      reason = changeDecision.error || t('roles.cannot_manage_role', 'Você não tem permissão para alterar o acesso desta pessoa.');
+      reason = changeDecision.error || t('roles.cannot_manage_role');
     } else {
       lockReason = null;
     }
@@ -1506,9 +1506,8 @@ const UsersPage: React.FC = () => {
       }
     }
 
-    const payload: { roleId?: string; musicscaleRole?: string; specialtyIds: string[] } = { 
-      specialtyIds: Array.from(new Set((draft.specialtyIds || []).map(id => id.trim()).filter(Boolean)))
-    };
+    const specialtyIds = normalizeSpecialtyIds(draft.specialtyIds || []);
+    const payload: TeamMemberSetupPayload = { specialtyIds };
 
     if (draft.roleId && draft.roleId !== member.roleId) {
       payload.roleId = draft.roleId;
@@ -1517,7 +1516,7 @@ const UsersPage: React.FC = () => {
 
     await api.users.update(draft.userId, payload);
     await fetchUsers();
-    toastSuccess(t('teamSetup.existingMember.successToast', 'Pessoa configurada com sucesso.'));
+    toastSuccess(t('teamSetup.existingMember.successToast'));
   };
 
 
@@ -1804,9 +1803,10 @@ const UsersPage: React.FC = () => {
         </Card>
       )}
 
-      {canManageTeamSetup && !loading && teamSetupSummary.additionalMembers > 0 && isExistingMemberSetupOpen && (
+      {canManageTeamSetup && !loading && isExistingMemberSetupOpen && (
         <ExistingMemberSetupGuide
           isOpen={isExistingMemberSetupOpen}
+          resolveRoleKey={(roleId) => getRoleKeyFromId(roleId, roles)}
           members={allUsers}
           roles={roles}
           instruments={instruments}

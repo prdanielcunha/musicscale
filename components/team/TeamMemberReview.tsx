@@ -8,8 +8,6 @@ interface TeamMemberReviewProps {
   user: UserProfile;
   role: Role | undefined;
   specialties: Instrument[];
-  isOwner: boolean;
-  isCurrentUser: boolean;
   isSaving: boolean;
   onSave: () => void;
   onBack: () => void;
@@ -19,8 +17,6 @@ export function TeamMemberReview({
   user,
   role,
   specialties,
-  isOwner,
-  isCurrentUser,
   isSaving,
   onSave,
   onBack
@@ -80,10 +76,6 @@ export function TeamMemberReview({
                 })}
               </ul>
             </div>
-          ) : isOwner ? (
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              {t('teamSetup.existingMember.access.ownerExplanation')}
-            </p>
           ) : (
             <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" />
