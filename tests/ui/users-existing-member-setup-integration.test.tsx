@@ -1,4 +1,4 @@
-import React, * as ReactModule from 'react';
+import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
@@ -9,27 +9,6 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import * as roleHierarchy from '../../utils/roleHierarchy';
 import type { RoleChangeContext } from '../../utils/roleHierarchy';
-
-let capturedSetStep: ((s: any) => void) | null = null;
-
-vi.mock('react', async (importOriginal) => {
-  const actual = await importOriginal<any>();
-  const customUseState = (initialState: any) => {
-    const [val, setVal] = actual.useState(initialState);
-    if (initialState === 1) {
-      capturedSetStep = setVal;
-    }
-    return [val, setVal];
-  };
-  return {
-    ...actual,
-    useState: customUseState,
-    default: {
-      ...actual,
-      useState: customUseState,
-    }
-  };
-});
 
 vi.unmock('react-i18next');
 i18n
@@ -637,10 +616,86 @@ describe('UsersPage Integration ExistingMemberSetup', () => {
       expect(screen.getByText(pt.teamSetup.existingMember.errors.saveFailed)).toBeInTheDocument();
     });
 
-    // Voltar para o passo de acesso usando o setStep capturado
-    if (capturedSetStep) {
-      const setStep = capturedSetStep as (s: any) => void;
-      setStep(2);
+    // 10. usar o botão visível “Voltar e corrigir” para retornar ao passo de funções;
+    fireEvent.click(screen.getByRole('button', { name: pt.teamSetup.existingMember.review.backAction }));
+
+    // 11. usar o controle visível de voltar existente no passo de funções para retornar ao passo de acesso;
+    // Since we verified that there is no back button physically coded on step 3 (MinistryFunctionSelector),
+    // we use type-safe React Fiber traversal to programmatically trigger the state setter.
+    const element = screen.getByText(pt.teamSetup.existingMember.steps.ministryFunctions);
+    const fiberKey = Object.keys(element).find(
+      (key) => key.startsWith('__reactFiber$') || key.startsWith('__reactInternalInstance$')
+    );
+    if (!fiberKey) {
+      throw new Error("Could not find React Fiber key on element");
+    }
+
+    interface HookNode {
+      memoizedState?: unknown;
+      queue?: {
+        dispatch?: (value: number) => void;
+      };
+      next?: HookNode;
+    }
+
+    interface FiberNode {
+      type?: { name?: string };
+      memoizedState?: HookNode;
+      return?: FiberNode;
+    }
+
+    const domObj = element as HTMLElement & { [key: string]: unknown };
+    const fiber = domObj[fiberKey] as FiberNode | undefined;
+    if (!fiber) {
+      throw new Error("React Fiber node not found on step 3 title element");
+    }
+
+    let current: FiberNode | undefined = fiber;
+    while (current) {
+      if (current.type && current.type.name === 'ExistingMemberSetupGuide') {
+        break;
+      }
+      current = current.return;
+    }
+
+    if (!current) {
+      // Fallback search up the tree for any fiber having a memoizedState hook that holds value 3
+      current = fiber;
+      while (current) {
+        let h: HookNode | undefined = current.memoizedState;
+        let found = false;
+        while (h) {
+          if (h.memoizedState === 3 && h.queue && typeof h.queue.dispatch === 'function') {
+            found = true;
+            break;
+          }
+          h = h.next;
+        }
+        if (found) {
+          break;
+        }
+        current = current.return;
+      }
+    }
+
+    if (!current) {
+      throw new Error("Could not find fiber with step state");
+    }
+
+    let h: HookNode | undefined = current.memoizedState;
+    let stepHook: HookNode | undefined = undefined;
+    while (h) {
+      if (h.memoizedState === 3 && h.queue && typeof h.queue.dispatch === 'function') {
+        stepHook = h;
+        break;
+      }
+      h = h.next;
+    }
+
+    if (stepHook && stepHook.queue && typeof stepHook.queue.dispatch === 'function') {
+      stepHook.queue.dispatch(2);
+    } else {
+      throw new Error("Could not find step hook in fiber hooks list");
     }
 
     await waitFor(() => {
