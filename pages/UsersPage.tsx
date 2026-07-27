@@ -3,7 +3,7 @@ import { logger } from "../lib/logger";
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { getPrimaryDisplayRole, getRoleBadgeStyles } from '../utils/roleResolver';
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { doc, updateDoc, deleteDoc, collection, setDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { sendResetEmail } from "../services/authService";
@@ -1430,6 +1430,12 @@ const UsersPage: React.FC = () => {
 
   const [isExistingMemberSetupOpen, setIsExistingMemberSetupOpen] = useState(false);
 
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [intentHandled, setIntentHandled] = useState(false);
+  const [showContextualGuide, setShowContextualGuide] = useState(false);
+  const [returnToPath, setReturnToPath] = useState<string | null>(null);
+
   const resolveAccessPolicy = (member: UserProfile): TeamMemberAccessPolicy => {
     const isCurrentUser = member.uid === currentUser?.uid;
     const isMemberOwner = member.uid === organization?.ownerUserId || getRoleKeyFromId(member.roleId || "", roles) === "owner" || member.role === "Dono";
@@ -1638,6 +1644,30 @@ const UsersPage: React.FC = () => {
   
   const canManageTeamSetup = hasCapability("musicscale.members.manage");
 
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.teamSetupIntent && !intentHandled && !loading && canManageTeamSetup && roles.length > 0) {
+      if (state.teamSetupIntent === 'configure-existing') {
+        setIsExistingMemberSetupOpen(true);
+      } else if (state.teamSetupIntent === 'add-members') {
+        setShowContextualGuide(true);
+        if (state.returnTo && state.returnTo.startsWith('/')) {
+          setReturnToPath(state.returnTo);
+        }
+        
+        setTimeout(() => {
+          const section = managementSectionRef.current;
+          if (section) {
+            section.scrollIntoView({ behavior: "smooth", block: "start" });
+            section.focus({ preventScroll: true });
+          }
+        }, 100);
+      }
+      setIntentHandled(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, intentHandled, loading, canManageTeamSetup, roles.length, navigate]);
+
   const handleReviewTeamSetup = () => {
     const section = managementSectionRef.current;
     if (!section) return;
@@ -1824,6 +1854,22 @@ const UsersPage: React.FC = () => {
         aria-label={t("teamSetup.progress.sectionLabel")}
         className="outline-none"
       >
+        {showContextualGuide && (
+          <div className="mb-6 p-4 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20">
+            <h3 className="text-sm font-bold text-indigo-700 dark:text-indigo-400 mb-2">
+              {t('firstValueJourney.guideTitle', 'Adicionar pessoas à equipe')}
+            </h3>
+            <p className="text-sm text-indigo-600 dark:text-indigo-300 mb-4 whitespace-pre-line">
+              {t('firstValueJourney.guideDescription', '1. Escolha uma função abaixo.\n2. Adicione ou convide uma pessoa.')}
+            </p>
+            {returnToPath && (
+              <Button onClick={() => navigate(returnToPath)} variant="default">
+                {t('firstValueJourney.returnToDashboard', 'Voltar para o painel')}
+              </Button>
+            )}
+          </div>
+        )}
+
         <p className="text-slate-500 dark:text-gray-400 mb-4">
           {t("users.management_subtitle", "Clique em uma função para gerenciar os usuários associados.")}
         </p>
