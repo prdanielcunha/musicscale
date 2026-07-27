@@ -336,6 +336,7 @@ export function ExistingMemberSetupGuide({
         onToggle={handleFunctionToggle}
         onNext={() => setStep(4)}
         onDefineLater={handleDefineLater}
+        onBack={() => setStep(2)}
       />
     </div>
   );

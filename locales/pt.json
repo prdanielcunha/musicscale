@@ -1171,6 +1171,9 @@
         "policyChanged": "Seu acesso mudou enquanto esta tela estava aberta. Revise as opções e tente novamente.",
         "saveFailed": "Não foi possível salvar a configuração."
       },
+      "actions": {
+        "backToAccess": "Voltar ao acesso"
+      },
       "modalTitle": "Configurar Integrante",
       "successToast": "Pessoa configurada com sucesso."
     }

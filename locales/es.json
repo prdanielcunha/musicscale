@@ -1169,6 +1169,9 @@
         "policyChanged": "Tu acceso cambió mientras esta pantalla estaba abierta. Revisa las opciones e inténtalo de nuevo.",
         "saveFailed": "No se pudo guardar la configuración."
       },
+      "actions": {
+        "backToAccess": "Volver al acceso"
+      },
       "modalTitle": "Configurar Miembro",
       "successToast": "Persona configurada con éxito."
     }

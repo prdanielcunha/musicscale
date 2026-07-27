@@ -12,6 +12,7 @@ interface MinistryFunctionSelectorProps {
   onToggle: (id: string) => void;
   onNext: () => void;
   onDefineLater: () => void;
+  onBack: () => void;
 }
 
 export function MinistryFunctionSelector({
@@ -21,7 +22,8 @@ export function MinistryFunctionSelector({
   selectedIds,
   onToggle,
   onNext,
-  onDefineLater
+  onDefineLater,
+  onBack
 }: MinistryFunctionSelectorProps) {
   const { t } = useTranslation();
 
@@ -78,19 +80,29 @@ export function MinistryFunctionSelector({
       {renderGroup(t('teamSetup.existingMember.functions.groups.instruments'), instruments)}
 
       <div className="pt-6 mt-6 border-t border-slate-200 dark:border-slate-700 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
-        <Button 
-          variant="ghost" 
-          onClick={onDefineLater}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onBack}
           className="w-full sm:w-auto min-h-[44px]"
         >
-          {t('teamSetup.existingMember.functions.defineLaterAction')}
+          {t('teamSetup.existingMember.actions.backToAccess')}
         </Button>
-        <Button 
-          onClick={onNext}
-          className="w-full sm:w-auto min-h-[44px]"
-        >
-          {t('teamSetup.existingMember.functions.continueAction')}
-        </Button>
+        <div className="flex flex-col-reverse sm:flex-row items-center gap-4 w-full sm:w-auto">
+          <Button 
+            variant="ghost" 
+            onClick={onDefineLater}
+            className="w-full sm:w-auto min-h-[44px]"
+          >
+            {t('teamSetup.existingMember.functions.defineLaterAction')}
+          </Button>
+          <Button 
+            onClick={onNext}
+            className="w-full sm:w-auto min-h-[44px]"
+          >
+            {t('teamSetup.existingMember.functions.continueAction')}
+          </Button>
+        </div>
       </div>
     </div>
   );

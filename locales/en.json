@@ -1172,6 +1172,9 @@
         "policyChanged": "Your access changed while this screen was open. Please review the options and try again.",
         "saveFailed": "Could not save the configuration."
       },
+      "actions": {
+        "backToAccess": "Back to access"
+      },
       "modalTitle": "Configure Member",
       "successToast": "Person configured successfully."
     }

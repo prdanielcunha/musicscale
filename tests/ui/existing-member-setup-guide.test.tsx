@@ -519,4 +519,40 @@ describe('ExistingMemberSetupGuide', () => {
     expect(screen.queryByText(/initialDraft/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/isDirty/i)).not.toBeInTheDocument();
   });
+
+  it('52. fluxo de voltar ao acesso a partir de funções', async () => {
+    render(<ExistingMemberSetupGuide {...defaultProps} />);
+    
+    // Select user
+    fireEvent.click(screen.getByText('User 1'));
+    
+    // Select role and continue
+    fireEvent.click(screen.getByText('Member'));
+    fireEvent.click(screen.getByRole('button', { name: pt.teamSetup.existingMember.access.continueAction }));
+    
+    // We are in functions step. Toggle vocal function
+    fireEvent.click(screen.getByText('Vocal'));
+    
+    // Check back button is visible and has accessible translated name
+    const backBtn = screen.getByRole('button', { name: pt.teamSetup.existingMember.actions.backToAccess });
+    expect(backBtn).toBeInTheDocument();
+    
+    // Click back button
+    fireEvent.click(backBtn);
+    
+    // Confirm we are back in access profile selector step
+    expect(screen.getByText(pt.teamSetup.existingMember.steps.accessProfile)).toBeInTheDocument();
+    
+    // Confirm selected role is still checked
+    expect(screen.getByRole('radio', { name: /Member/i })).toBeChecked();
+    
+    // Go forward again
+    fireEvent.click(screen.getByRole('button', { name: pt.teamSetup.existingMember.access.continueAction }));
+    
+    // Confirm we are in functions step and Vocal is still checked
+    expect(screen.getByText('Vocal').closest('button')).toHaveAttribute('aria-pressed', 'true');
+    
+    // Verify no save was performed
+    expect(defaultProps.onSave).not.toHaveBeenCalled();
+  });
 });
