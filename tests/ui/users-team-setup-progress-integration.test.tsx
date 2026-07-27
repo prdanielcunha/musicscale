@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { useLocation } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import UsersPage from '../../pages/UsersPage';
 import { UserProfile, Role } from '../../types';
@@ -66,9 +67,9 @@ const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
-    ...actual as any,
+    ...actual as typeof import('react-router-dom'),
     useNavigate: () => mockNavigate,
-    useLocation: () => ({ state: {}, pathname: '/users' })
+    useLocation: vi.fn().mockReturnValue({ state: {}, pathname: '/users' })
   };
 });
 
@@ -142,8 +143,9 @@ vi.mock('../../hooks/useMusicScaleEntitlements', () => ({
   useMusicScalePlan: () => ({ plan: { id: "free" }, loading: false })
 }));
 
+const mockToastError = vi.fn();
 vi.mock('../../contexts/ToastContext', () => ({
-  useToast: () => ({ addToast: vi.fn() })
+  useToast: () => ({ addToast: vi.fn(), error: mockToastError, success: vi.fn() })
 }));
 
 vi.mock('../../hooks/useEcosystemAdmin', () => ({
@@ -400,4 +402,68 @@ describe('UsersPage Team Setup Integration', () => {
     });
     expect(mockHasCapability).toHaveBeenCalledWith('musicscale.members.manage');
   });
+  it('17. intent configure-existing abre modal de membro existente e limpa state', async () => {
+    const mockUseLocation = { state: { teamSetupIntent: 'configure-existing', origin: 'first-value-journey', returnTo: '/' }, pathname: '/users', key: 'default', search: '', hash: '' } as unknown as ReturnType<typeof useLocation>;
+    vi.mocked(useLocation).mockReturnValue(mockUseLocation);
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(screen.getByText(pt.teamSetup.existingMember.steps.choosePerson)).toBeInTheDocument();
+    });
+    
+    expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+  });
+
+  it('18. intent add-members abre modo contextual e limpa state', async () => {
+    const mockUseLocation = { state: { teamSetupIntent: 'add-members', origin: 'first-value-journey', returnTo: '/' }, pathname: '/users', key: 'default', search: '', hash: '' } as unknown as ReturnType<typeof useLocation>;
+    vi.mocked(useLocation).mockReturnValue(mockUseLocation);
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(screen.getByText("Configurar Equipe")).toBeInTheDocument();
+    });
+    
+    expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+  });
+
+  it('19. intent add-members rejeitado por falta de permissão limpa state e mostra toast', async () => {
+    mockHasCapability.mockReturnValue(false);
+    const mockUseLocation = { state: { teamSetupIntent: 'add-members', origin: 'first-value-journey', returnTo: '/' }, pathname: '/users', key: 'default', search: '', hash: '' } as unknown as ReturnType<typeof useLocation>;
+    vi.mocked(useLocation).mockReturnValue(mockUseLocation);
+    // mockToast error is checked using a spy
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("Você não tem permissão para gerenciar a equipe.");
+    });
+    
+    expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+    expect(screen.queryByText("Adicionar pessoas à equipe")).not.toBeInTheDocument();
+  });
+
+  it('20. intent desconhecido não altera o estado do componente (navigation state é ignorado)', async () => {
+    const mockUseLocation = { state: { teamSetupIntent: 'unknown', origin: 'first-value-journey', returnTo: '/' }, pathname: '/users', key: 'default', search: '', hash: '' } as unknown as ReturnType<typeof useLocation>;
+    vi.mocked(useLocation).mockReturnValue(mockUseLocation);
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      // O texto de "Sua equipe começa aqui" deve continuar visível (ou o estado vazio), mas nenhum modal abre
+      expect(screen.getByText('Sua equipe começa aqui')).toBeInTheDocument();
+    });
+    
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('21. navigation state vazio é ignorado', async () => {
+    const mockUseLocation = { state: null, pathname: '/users', key: 'default', search: '', hash: '' } as unknown as ReturnType<typeof useLocation>;
+    vi.mocked(useLocation).mockReturnValue(mockUseLocation);
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Sua equipe começa aqui')).toBeInTheDocument();
+    });
+    
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
 });

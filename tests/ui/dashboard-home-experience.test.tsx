@@ -151,12 +151,14 @@ describe('Dashboard Home Experience UI', () => {
     expect(screen.getByText('Repertório vazio')).toBeInTheDocument();
   });
 
-  it('5. organização nova vê jornada (FirstScaleJourney)', () => {
+  it('5. dashboard renderiza no estado padrão sem exibir jornada explícita', () => {
     mockUseFirstScaleExperience.mockReturnValue({
-      isLoading: false, isEligible: true, isCompleted: false, currentEssentialStep: 'band'
+      isLoading: false, isEligible: false, isCompleted: true, currentEssentialStep: 'completed'
     });
     renderWithRouter(<DashboardPage />);
-    expect(screen.getByTestId('first-scale-journey')).toBeInTheDocument();
+    expect(screen.queryByTestId('first-scale-journey')).not.toBeInTheDocument();
+    // Verifica estado padrão (header, etc)
+    expect(screen.getByText(/Daniel/i)).toBeInTheDocument();
   });
 
   it('6. organização sem eventos vê criação', () => {

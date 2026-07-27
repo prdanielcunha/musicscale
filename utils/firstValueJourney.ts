@@ -85,28 +85,66 @@ export interface FirstValueJourneyOutput {
 export function getJourneyTimestampValue(
   value: JourneyTimestamp | null | undefined
 ): number {
-  if (value === null || value === undefined) return 0;
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (value instanceof Date) return value.getTime();
-  
-  if (typeof value === 'object') {
-    try {
-      if (typeof value.toMillis === 'function') return value.toMillis();
-    } catch {}
-    try {
-      if (typeof value.toDate === 'function') return value.toDate().getTime();
-    } catch {}
-    try {
-      if (typeof value.seconds === 'number') return value.seconds * 1000;
-    } catch {}
+  if (value === null || value === undefined) {
+    return 0;
   }
-  
-  if (typeof value === 'string') {
-    const parsed = new Date(value).getTime();
-    if (!isNaN(parsed)) return parsed;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+  if (value instanceof Date) {
+    const timestamp = value.getTime();
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  }
+  if (typeof value === "object") {
+    try {
+      if (typeof value.toMillis === "function") {
+        const timestamp = value.toMillis();
+        if (Number.isFinite(timestamp)) {
+          return timestamp;
+        }
+      }
+    } catch {
+      // formato externo inválido
+    }
+    try {
+      if (typeof value.toDate === "function") {
+        const date = value.toDate();
+        if (date instanceof Date) {
+          const timestamp = date.getTime();
+          if (Number.isFinite(timestamp)) {
+            return timestamp;
+          }
+        }
+      }
+    } catch {
+      // formato externo inválido
+    }
+    if (typeof value.seconds === "number" && Number.isFinite(value.seconds)) {
+      return value.seconds * 1000;
+    }
+  }
+  if (typeof value === "string") {
+    const timestamp = new Date(value).getTime();
+    return Number.isFinite(timestamp) ? timestamp : 0;
   }
   return 0;
 }
+
+const getScaleTimestamp = (
+  scale: MinimalJourneyScale
+): number =>
+  getJourneyTimestampValue(
+    scale.lastModifiedAt
+  ) ||
+  getJourneyTimestampValue(
+    scale.updatedAt
+  ) ||
+  getJourneyTimestampValue(
+    scale.createdAt
+  ) ||
+  getJourneyTimestampValue(
+    scale.date
+  );
 
 export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstValueJourneyOutput {
   const { songs, scales, allUsers, canEditScales, canCreateSongs, canManageMembers, organizationId, loading, currentUserId } = input;
@@ -157,9 +195,7 @@ export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstV
   
   const drafts = validScales.filter(s => s.status === 'draft');
   const sortedDrafts = [...drafts].sort((a, b) => {
-    const timeA = getJourneyTimestampValue(a.updatedAt) || getJourneyTimestampValue(a.createdAt) || (a.date ? new Date(a.date).getTime() : 0);
-    const timeB = getJourneyTimestampValue(b.updatedAt) || getJourneyTimestampValue(b.createdAt) || (b.date ? new Date(b.date).getTime() : 0);
-    return timeB - timeA;
+    return getScaleTimestamp(b) - getScaleTimestamp(a);
   });
 
   const mostRecentDraft = sortedDrafts[0] || null;

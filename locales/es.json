@@ -1049,6 +1049,7 @@
     "draftNote": "Borrador creado exitosamente.",
     "teamTitle": "Equipo",
     "teamOptional": "Opcional",
+    "optional": "Opcional",
     "teamOptionalDescription": "Puedes agregar personas al equipo más tarde.",
     "teamCompleted": "Listo",
     "starterModalTitle": "Elige tu repertorio inicial",

@@ -1052,6 +1052,7 @@
     "draftNote": "Draft created successfully.",
     "teamTitle": "Team",
     "teamOptional": "Optional",
+    "optional": "Optional",
     "teamOptionalDescription": "You can add people to the team later.",
     "teamCompleted": "Ready",
     "starterModalTitle": "Choose your starter repertoire",

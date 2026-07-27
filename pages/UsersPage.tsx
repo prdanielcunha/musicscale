@@ -1439,7 +1439,7 @@ const UsersPage: React.FC = () => {
   const { roles, instruments } = useMusic();
   const api = useApi();
   const { hasCapability } = useCapability();
-  const { success: toastSuccess } = useToast();
+  const { success: toastSuccess, error: toastError } = useToast();
   const managementSectionRef = useRef<HTMLDivElement>(null);
   
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
@@ -1669,7 +1669,8 @@ const UsersPage: React.FC = () => {
   useEffect(() => {
     const parsedState = parseTeamSetupNavigationState(location.state);
     
-    if (parsedState && !intentHandled && !loading && canManageTeamSetup && roles.length > 0) {
+    if (parsedState && !intentHandled && !loading && roles.length > 0) {
+      if (canManageTeamSetup) {
       if (parsedState.teamSetupIntent === 'configure-existing') {
         setIsExistingMemberSetupOpen(true);
       } else if (parsedState.teamSetupIntent === 'add-members') {
@@ -1689,6 +1690,11 @@ const UsersPage: React.FC = () => {
       
       setIntentHandled(true);
       navigate(location.pathname, { replace: true, state: null });
+    } else {
+        toastError(t("users.unauthorizedIntent", "Você não tem permissão para gerenciar a equipe."));
+        setIntentHandled(true);
+        navigate(location.pathname, { replace: true, state: null });
+    }
     }
   }, [location.state, location.pathname, intentHandled, loading, canManageTeamSetup, roles.length, navigate]);
 

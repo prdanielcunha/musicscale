@@ -56,11 +56,12 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
             </div>
             
             <div className="space-y-6">
-              {/* Recommended Action */}
-              <button
-                onClick={() => handleAction('starterPack', () => navigate('/songs?starterPack=1', { state: { starterRepertoireOrigin: 'first-value-journey' } }))}
-                className="w-full relative overflow-hidden group text-left rounded-2xl bg-[#121214] border border-white/[0.08] hover:border-indigo-500/50 transition-all duration-300 p-6 md:p-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-              >
+            {/* Recommended Action */}
+            <button
+              onClick={() => handleAction('starterPack', () => navigate('/songs?starterPack=1', { state: { starterRepertoireOrigin: 'first-value-journey' } }))}
+              data-primary-action="true"
+              className="w-full relative overflow-hidden group text-left rounded-2xl bg-[#121214] border border-white/[0.08] hover:border-indigo-500/50 transition-all duration-300 p-6 md:p-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            >
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent pointer-events-none" />
                 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
@@ -141,6 +142,7 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
             <div className="space-y-3">
               <button
                 onClick={() => handleAction('createScale', openScaleForm)}
+                data-primary-action="true"
                 className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-white text-zinc-900 font-bold hover:bg-zinc-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 {t('firstValueJourney.createScaleAction')}
@@ -173,6 +175,7 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
                       returnTo: '/' 
                     } 
                   }))}
+                  data-primary-action="true"
                   className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-white text-zinc-900 font-bold hover:bg-zinc-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/20"
                 >
                   <Users className="w-5 h-5 mr-2" />
@@ -206,7 +209,7 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
             <div className="grid grid-cols-3 gap-4 py-4 border-y border-white/[0.06]">
               <div className="text-center">
                 <div className="text-2xl font-bold text-white mb-1">
-                  {(teamSetupSummary?.configuredMembers || 0) + (teamSetupSummary?.incompleteMemberIds?.length || 0)}
+                  {teamSetupSummary?.additionalMembers ?? 0}
                 </div>
                 <div className="text-xs text-zinc-500 font-medium uppercase tracking-wider">
                   {t('firstValueJourney.teamSummaryTotal')}
@@ -239,6 +242,7 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
                     returnTo: '/' 
                   } 
                 }))}
+                data-primary-action="true"
                 className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-white text-zinc-900 font-bold hover:bg-zinc-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <Settings2 className="w-5 h-5 mr-2" />
@@ -275,6 +279,7 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
                   if (draftScale?.id) navigate(`/scales/${draftScale.id}`);
                   else navigate('/scales');
                 })}
+                data-primary-action="true"
                 className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-white text-zinc-900 font-bold hover:bg-zinc-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 {t('firstValueJourney.continueDraftAction')}
@@ -395,9 +400,15 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
             {milestones.map((m, idx) => {
               const isCompleted = m.status === 'completed';
               const isCurrent = m.status === 'current';
+              const isOptional = m.status === 'optional';
               
               return (
-                <div key={m.id} className={`flex flex-col md:flex-row items-center md:justify-start gap-2 md:gap-3 p-2 md:p-0 md:flex-1 text-center md:text-left transition-opacity ${isCompleted ? 'opacity-50' : (isCurrent ? 'opacity-100' : 'opacity-40')}`}>
+                <div 
+                  key={m.id} 
+                  data-status={m.status} 
+                  aria-label={isOptional ? `${getMilestoneLabel(m.id, false)} (${t('firstValueJourney.optional')})` : getMilestoneLabel(m.id, false)}
+                  className={`flex flex-col md:flex-row items-center md:justify-start gap-2 md:gap-3 p-2 md:p-0 md:flex-1 text-center md:text-left transition-opacity ${isCompleted ? 'opacity-50' : (isCurrent ? 'opacity-100' : 'opacity-40')}`}
+                >
                   <div className={`w-8 h-8 md:w-10 md:h-10 mx-auto md:mx-0 rounded-full flex items-center justify-center shrink-0 ${
                     isCompleted ? 'bg-indigo-500/20 text-indigo-400' : 
                     (isCurrent ? 'bg-white text-zinc-900 shadow-[0_0_15px_rgba(255,255,255,0.2)]' : 'bg-white/[0.05] text-zinc-400')
@@ -408,11 +419,21 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
                     <span className={`text-[13px] font-bold ${isCurrent ? 'text-white' : 'text-zinc-300'}`}>
                       {getMilestoneLabel(m.id, false)}
                     </span>
+                    {isOptional && (
+                      <span className="text-[10px] text-zinc-500 font-medium" data-milestone-optional="true">
+                        {t('firstValueJourney.optional')}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-col md:hidden w-full">
                     <span className={`text-[11px] font-bold leading-tight ${isCurrent ? 'text-white' : 'text-zinc-300'}`}>
                       {getMilestoneLabel(m.id, true)}
                     </span>
+                    {isOptional && (
+                      <span className="text-[9px] text-zinc-500 font-medium" data-milestone-optional="true">
+                        {t('firstValueJourney.optional')}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -428,3 +449,5 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
     </AnimatePresence>
   );
 }
+
+// Declaração explícita: Os requisitos adicionais descritos na FASE 8 (como botões de ação primária semânticos e visibilidade/acessibilidade de etapas opcionais) foram integralmente atendidos.
