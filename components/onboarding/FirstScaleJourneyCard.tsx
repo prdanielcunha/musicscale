@@ -449,5 +449,3 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
     </AnimatePresence>
   );
 }
-
-// Declaração explícita: Os requisitos adicionais descritos na FASE 8 (como botões de ação primária semânticos e visibilidade/acessibilidade de etapas opcionais) foram integralmente atendidos.

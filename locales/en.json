@@ -1,4 +1,8 @@
 {
+  "users": {
+    "unauthorizedIntent": "You do not have permission to manage the team.",
+    "rolesUnavailable": "Team roles not available for configuration."
+  },
   "nav": {
     "dashboard": "Dashboard",
     "repertoire": "Repertoire",

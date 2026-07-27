@@ -49,18 +49,51 @@ interface TeamSetupNavigationState {
   returnTo: "/";
 }
 
-function parseTeamSetupNavigationState(state: unknown): TeamSetupNavigationState | null {
-  if (!state || typeof state !== 'object') return null;
+type TeamSetupIntentDecision =
+  | {
+      status: "absent";
+    }
+  | {
+      status: "invalid";
+    }
+  | {
+      status: "valid";
+      value: TeamSetupNavigationState;
+    };
+
+function parseTeamSetupNavigationState(state: unknown): TeamSetupIntentDecision {
+  if (state === null || state === undefined) {
+    return { status: "absent" };
+  }
+  if (typeof state !== 'object') {
+    return { status: "invalid" };
+  }
   const s = state as Record<string, unknown>;
   
-  if (s.teamSetupIntent !== 'add-members' && s.teamSetupIntent !== 'configure-existing') return null;
-  if (s.origin !== 'first-value-journey') return null;
-  if (s.returnTo !== '/') return null;
+  const intent = s.teamSetupIntent;
+  const origin = s.origin;
+  const returnTo = s.returnTo;
+
+  if (intent !== 'add-members' && intent !== 'configure-existing') {
+    return { status: "invalid" };
+  }
+  if (origin !== 'first-value-journey') {
+    return { status: "invalid" };
+  }
+  if (returnTo !== '/') {
+    return { status: "invalid" };
+  }
+  if (typeof intent !== 'string' || typeof origin !== 'string' || typeof returnTo !== 'string') {
+    return { status: "invalid" };
+  }
   
   return {
-    teamSetupIntent: s.teamSetupIntent,
-    origin: s.origin,
-    returnTo: s.returnTo
+    status: "valid",
+    value: {
+      teamSetupIntent: intent as "add-members" | "configure-existing",
+      origin: origin as "first-value-journey",
+      returnTo: returnTo as "/"
+    }
   };
 }
 
@@ -1441,6 +1474,7 @@ const UsersPage: React.FC = () => {
   const { hasCapability } = useCapability();
   const { success: toastSuccess, error: toastError } = useToast();
   const managementSectionRef = useRef<HTMLDivElement>(null);
+  const consumedIntentRef = useRef<unknown>(null);
   
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1667,18 +1701,44 @@ const UsersPage: React.FC = () => {
   const canManageTeamSetup = hasCapability("musicscale.members.manage");
 
   useEffect(() => {
+    if (loading) return;
+
     const parsedState = parseTeamSetupNavigationState(location.state);
-    
-    if (parsedState && !intentHandled && !loading && roles.length > 0) {
-      if (canManageTeamSetup) {
-      if (parsedState.teamSetupIntent === 'configure-existing') {
-        setIsExistingMemberSetupOpen(true);
-      } else if (parsedState.teamSetupIntent === 'add-members') {
+
+    if (parsedState.status === "absent") {
+      consumedIntentRef.current = null;
+      return;
+    }
+
+    if (consumedIntentRef.current === location.state) {
+      return;
+    }
+    consumedIntentRef.current = location.state;
+
+    if (parsedState.status === "invalid") {
+      return;
+    }
+
+    if (parsedState.status === "valid") {
+      if (!canManageTeamSetup) {
+        toastError(t("users.unauthorizedIntent"));
+        navigate(location.pathname, { replace: true, state: null });
+        return;
+      }
+
+      if (roles.length === 0) {
+        toastError(t("users.rolesUnavailable"));
+        navigate(location.pathname, { replace: true, state: null });
+        return;
+      }
+
+      const intent = parsedState.value.teamSetupIntent;
+      const returnTo = parsedState.value.returnTo;
+
+      if (intent === "add-members") {
         setShowContextualGuide(true);
-        if (parsedState.returnTo) {
-          setReturnToPath(parsedState.returnTo);
-        }
-        
+        setReturnToPath(returnTo);
+
         setTimeout(() => {
           const section = managementSectionRef.current;
           if (section) {
@@ -1686,17 +1746,30 @@ const UsersPage: React.FC = () => {
             section.focus({ preventScroll: true });
           }
         }, 100);
+      } else if (intent === "configure-existing") {
+        setReturnToPath(returnTo);
+        if (teamSetupSummary.additionalMembers > 0) {
+          setIsExistingMemberSetupOpen(true);
+          setShowContextualGuide(true);
+        } else {
+          setShowContextualGuide(true);
+          toastError(t("teamSetup.existingMember.members.emptyDescription"));
+        }
       }
-      
-      setIntentHandled(true);
+
       navigate(location.pathname, { replace: true, state: null });
-    } else {
-        toastError(t("users.unauthorizedIntent", "Você não tem permissão para gerenciar a equipe."));
-        setIntentHandled(true);
-        navigate(location.pathname, { replace: true, state: null });
     }
-    }
-  }, [location.state, location.pathname, intentHandled, loading, canManageTeamSetup, roles.length, navigate]);
+  }, [
+    location.state,
+    location.pathname,
+    loading,
+    canManageTeamSetup,
+    roles.length,
+    teamSetupSummary.additionalMembers,
+    navigate,
+    t,
+    toastError
+  ]);
 
   const handleReviewTeamSetup = () => {
     const section = managementSectionRef.current;

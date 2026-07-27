@@ -403,6 +403,11 @@ describe('UsersPage Team Setup Integration', () => {
     expect(mockHasCapability).toHaveBeenCalledWith('musicscale.members.manage');
   });
   it('17. intent configure-existing abre modal de membro existente e limpa state', async () => {
+    mockUsers = [
+      createProfile({ uid: 'current-user-123' }),
+      createProfile({ uid: 'another-user-456' })
+    ];
+    mockUsersList.mockImplementation(async () => mockUsers);
     const mockUseLocation = { state: { teamSetupIntent: 'configure-existing', origin: 'first-value-journey', returnTo: '/' }, pathname: '/users', key: 'default', search: '', hash: '' } as unknown as ReturnType<typeof useLocation>;
     vi.mocked(useLocation).mockReturnValue(mockUseLocation);
 

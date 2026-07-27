@@ -1,4 +1,8 @@
 {
+  "users": {
+    "unauthorizedIntent": "No tienes permiso para gestionar el equipo.",
+    "rolesUnavailable": "Funciones de equipo no disponibles para la configuración."
+  },
   "nav": {
     "dashboard": "Tablero",
     "repertoire": "Repertorio",

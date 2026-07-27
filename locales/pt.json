@@ -1,4 +1,8 @@
 {
+  "users": {
+    "unauthorizedIntent": "Você não tem permissão para gerenciar a equipe.",
+    "rolesUnavailable": "Funções de equipe não disponíveis para configuração."
+  },
   "nav": {
     "dashboard": "Painel",
     "repertoire": "Repertório",
