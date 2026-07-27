@@ -43,6 +43,28 @@ import { canAssignOrganizationRole, canChangeOrganizationRole } from "../utils/r
 import { useToast } from "../contexts/ToastContext";
 import { isGlobalPrivilegedUser } from "../hooks/useEcosystemAdmin";
 
+interface TeamSetupNavigationState {
+  teamSetupIntent: "add-members" | "configure-existing";
+  origin: "first-value-journey";
+  returnTo: "/";
+}
+
+function parseTeamSetupNavigationState(state: unknown): TeamSetupNavigationState | null {
+  if (!state || typeof state !== 'object') return null;
+  const s = state as Record<string, unknown>;
+  
+  if (s.teamSetupIntent !== 'add-members' && s.teamSetupIntent !== 'configure-existing') return null;
+  if (s.origin !== 'first-value-journey') return null;
+  if (s.returnTo !== '/') return null;
+  
+  return {
+    teamSetupIntent: s.teamSetupIntent,
+    origin: s.origin,
+    returnTo: s.returnTo
+  };
+}
+
+
 const MailIconComp: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -1645,14 +1667,15 @@ const UsersPage: React.FC = () => {
   const canManageTeamSetup = hasCapability("musicscale.members.manage");
 
   useEffect(() => {
-    const state = location.state as any;
-    if (state?.teamSetupIntent && !intentHandled && !loading && canManageTeamSetup && roles.length > 0) {
-      if (state.teamSetupIntent === 'configure-existing') {
+    const parsedState = parseTeamSetupNavigationState(location.state);
+    
+    if (parsedState && !intentHandled && !loading && canManageTeamSetup && roles.length > 0) {
+      if (parsedState.teamSetupIntent === 'configure-existing') {
         setIsExistingMemberSetupOpen(true);
-      } else if (state.teamSetupIntent === 'add-members') {
+      } else if (parsedState.teamSetupIntent === 'add-members') {
         setShowContextualGuide(true);
-        if (state.returnTo && state.returnTo.startsWith('/')) {
-          setReturnToPath(state.returnTo);
+        if (parsedState.returnTo) {
+          setReturnToPath(parsedState.returnTo);
         }
         
         setTimeout(() => {
@@ -1663,8 +1686,9 @@ const UsersPage: React.FC = () => {
           }
         }, 100);
       }
+      
       setIntentHandled(true);
-      navigate(location.pathname, { replace: true, state: {} });
+      navigate(location.pathname, { replace: true, state: null });
     }
   }, [location.state, location.pathname, intentHandled, loading, canManageTeamSetup, roles.length, navigate]);
 
@@ -1860,7 +1884,7 @@ const UsersPage: React.FC = () => {
               {t('firstValueJourney.guideTitle', 'Adicionar pessoas à equipe')}
             </h3>
             <p className="text-sm text-indigo-600 dark:text-indigo-300 mb-4 whitespace-pre-line">
-              {t('firstValueJourney.guideDescription', '1. Escolha uma função abaixo.\n2. Adicione ou convide uma pessoa.')}
+              {t('firstValueJourney.guideDescription', 'Escolha uma função e use Adicionar Usuário para incluir ou convidar alguém.')}
             </p>
             {returnToPath && (
               <Button onClick={() => navigate(returnToPath)} variant="default">

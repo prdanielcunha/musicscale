@@ -46,9 +46,14 @@ const mockInstruments: Instrument[] = [
 
 let mockUsers: UserProfile[] = [];
 const mockNavigate = vi.fn();
-vi.mock('react-router-dom', () => ({
-  useNavigate: () => mockNavigate
-}));
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual as any,
+    useNavigate: () => mockNavigate,
+    useLocation: () => ({ state: {}, pathname: '/users' })
+  };
+});
 
 const mockUsersList = vi.fn<() => Promise<UserProfile[]>>();
 const mockUsersUpdate = vi.fn();

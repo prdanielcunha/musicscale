@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModals } from '../../contexts/ModalContext';
 import { useCapability } from '../../hooks/useCapability';
-import { Music, Calendar, Users, CheckCircle2, Lock, Wand2, Library, Plus, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Music, Calendar, Users, CheckCircle2, Lock, Wand2, Library, Plus, ChevronRight, AlertTriangle, Settings2, AlertCircle } from 'lucide-react';
 import { LockedActionButton } from '../billing/LockedActionButton';
 
 import { FirstValueJourneyOutput } from '../../utils/firstValueJourney';
@@ -151,15 +151,121 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
             </div>
           </div>
         );
-      case 'publish':
+      case 'team':
+        if (teamState === 'empty') {
+          return (
+            <div className="flex flex-col gap-6">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-black text-white mb-3 tracking-tight">
+                  {t('firstValueJourney.teamEmptyTitle')}
+                </h2>
+                <p className="text-sm text-zinc-400 max-w-xl leading-relaxed">
+                  {t('firstValueJourney.teamEmptyDescription')}
+                </p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  onClick={() => handleAction('addTeam', () => navigate('/users', { 
+                    state: { 
+                      teamSetupIntent: 'add-members', 
+                      origin: 'first-value-journey', 
+                      returnTo: '/' 
+                    } 
+                  }))}
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-white text-zinc-900 font-bold hover:bg-zinc-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/20"
+                >
+                  <Users className="w-5 h-5 mr-2" />
+                  {t('firstValueJourney.addTeamAction')}
+                </button>
+                <button
+                  onClick={() => handleAction('continueDraft', () => {
+                    if (draftScale?.id) navigate(`/scales/${draftScale.id}`);
+                    else navigate('/scales');
+                  })}
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 rounded-xl border-2 border-white/10 text-white font-bold hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-white/20"
+                >
+                  {t('firstValueJourney.continueWithoutTeamAction')}
+                </button>
+              </div>
+            </div>
+          );
+        }
+
         return (
-          <div className="space-y-6">
-            <div className="space-y-1.5">
-              <h2 className="text-xl md:text-2xl font-semibold tracking-tight text-white">
-                {t('firstValueJourney.publishTitle')}
+          <div className="flex flex-col gap-6">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-black text-white mb-3 tracking-tight">
+                {t('firstValueJourney.teamIncompleteTitle')}
               </h2>
               <p className="text-sm text-zinc-400 max-w-xl leading-relaxed">
-                {t('firstValueJourney.publishDescription')}
+                {t('firstValueJourney.teamIncompleteDescription', { count: teamSetupSummary?.incompleteMemberIds?.length || 0 })}
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 py-4 border-y border-white/[0.06]">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-white mb-1">
+                  {(teamSetupSummary?.configuredMembers || 0) + (teamSetupSummary?.incompleteMemberIds?.length || 0)}
+                </div>
+                <div className="text-xs text-zinc-500 font-medium uppercase tracking-wider">
+                  {t('firstValueJourney.teamSummaryTotal')}
+                </div>
+              </div>
+              <div className="text-center border-l border-white/[0.06]">
+                <div className="text-2xl font-bold text-emerald-400 mb-1">
+                  {teamSetupSummary?.configuredMembers || 0}
+                </div>
+                <div className="text-xs text-zinc-500 font-medium uppercase tracking-wider">
+                  {t('firstValueJourney.teamSummaryReady')}
+                </div>
+              </div>
+              <div className="text-center border-l border-white/[0.06]">
+                <div className="text-2xl font-bold text-amber-400 mb-1">
+                  {teamSetupSummary?.incompleteMemberIds?.length || 0}
+                </div>
+                <div className="text-xs text-zinc-500 font-medium uppercase tracking-wider">
+                  {t('firstValueJourney.teamSummaryPending')}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <button
+                onClick={() => handleAction('configureTeam', () => navigate('/users', { 
+                  state: { 
+                    teamSetupIntent: 'configure-existing', 
+                    origin: 'first-value-journey', 
+                    returnTo: '/' 
+                  } 
+                }))}
+                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-white text-zinc-900 font-bold hover:bg-zinc-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/20"
+              >
+                <Settings2 className="w-5 h-5 mr-2" />
+                {t('firstValueJourney.configureTeamAction')}
+              </button>
+              <button
+                onClick={() => handleAction('continueDraft', () => {
+                  if (draftScale?.id) navigate(`/scales/${draftScale.id}`);
+                  else navigate('/scales');
+                })}
+                className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 rounded-xl border-2 border-white/10 text-white font-bold hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-white/20"
+              >
+                {t('firstValueJourney.continueWithoutTeamAction')}
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'publish':
+        return (
+          <div className="flex flex-col gap-6">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-black text-white mb-3 tracking-tight">
+                {teamState === 'unavailable' ? t('firstValueJourney.teamUnavailableTitle') : t('firstValueJourney.publishTitle')}
+              </h2>
+              <p className="text-sm text-zinc-400 max-w-xl leading-relaxed">
+                {teamState === 'unavailable' ? t('firstValueJourney.teamUnavailableDescription') : t('firstValueJourney.publishDescription')}
               </p>
             </div>
             
@@ -175,27 +281,52 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
               </button>
             </div>
 
-            {/* Warning when publishing without a configured team */}
-            {teamSetupSummary?.isTeamConfigured === false && (
+            {(teamSetupSummary?.configuredMembers === 0 && teamState !== 'unavailable') && (
               <div className="mt-8 pt-6 border-t border-white/[0.06]">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-400" />
-                      <h3 className="text-sm font-bold text-amber-400">{t('firstValueJourney.publishWithoutTeamWarning')}</h3>
-                    </div>
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                  <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-zinc-300">
+                      {t('firstValueJourney.publishWithoutTeamWarning')}
+                    </p>
                   </div>
-                  
                   {canManageMembers && (
                     <button
-                      onClick={() => handleAction('addTeam', () => navigate('/users', { 
+                      onClick={() => handleAction('prepareTeam', () => navigate('/users', { 
                         state: { 
-                          teamSetupIntent: teamState === 'empty' ? 'add-members' : 'configure-existing',
-                          origin: 'first-value-journey',
-                          returnTo: '/'
-                        } 
+                           teamSetupIntent: teamState === 'empty' ? 'add-members' : 'configure-existing',
+                           origin: 'first-value-journey',
+                           returnTo: '/'
+                         } 
                       }))}
-                      className="shrink-0 px-4 py-2 text-sm font-semibold text-amber-400 hover:text-amber-300 bg-amber-500/[0.04] hover:bg-amber-500/[0.08] rounded-lg transition-colors border border-amber-500/[0.1]"
+                      className="shrink-0 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-colors"
+                    >
+                      {t('firstValueJourney.prepareTeamAction')}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {(teamSetupSummary?.configuredMembers || 0) > 0 && (teamSetupSummary?.incompleteMemberIds?.length || 0) > 0 && teamState !== 'unavailable' && (
+              <div className="mt-8 pt-6 border-t border-white/[0.06]">
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                  <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-zinc-300">
+                      {t('firstValueJourney.publishWithPendingWarning')}
+                    </p>
+                  </div>
+                  {canManageMembers && (
+                    <button
+                      onClick={() => handleAction('prepareTeam', () => navigate('/users', { 
+                        state: { 
+                           teamSetupIntent: 'configure-existing',
+                           origin: 'first-value-journey',
+                           returnTo: '/'
+                         } 
+                      }))}
+                      className="shrink-0 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-colors"
                     >
                       {t('firstValueJourney.prepareTeamAction')}
                     </button>
@@ -205,128 +336,6 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
             )}
           </div>
         );
-      case 'team':
-        if (teamState === 'empty') {
-          return (
-            <div className="space-y-6">
-              <div className="space-y-1.5">
-                <h2 className="text-xl md:text-2xl font-semibold tracking-tight text-white">
-                  {t('firstValueJourney.teamEmptyTitle')}
-                </h2>
-                <p className="text-sm text-zinc-400 max-w-xl leading-relaxed">
-                  {t('firstValueJourney.teamEmptyDescription')}
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <button
-                  onClick={() => handleAction('addTeam', () => navigate('/users', { 
-                    state: { 
-                      teamSetupIntent: 'add-members',
-                      origin: 'first-value-journey',
-                      returnTo: '/'
-                    } 
-                  }))}
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-indigo-500 text-white font-bold hover:bg-indigo-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                >
-                  {t('firstValueJourney.addTeamAction')}
-                </button>
-                <button
-                  onClick={() => handleAction('continueWithoutTeam', () => {
-                    if (draftScale?.id) navigate(`/scales/${draftScale.id}`);
-                    else navigate('/scales');
-                  })}
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-white/[0.04] text-zinc-300 font-bold hover:bg-white/[0.08] hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/20"
-                >
-                  {t('firstValueJourney.continueWithoutTeamAction')}
-                </button>
-              </div>
-            </div>
-          );
-        }
-
-        if (teamState === 'incomplete') {
-          return (
-            <div className="space-y-6">
-              <div className="space-y-1.5">
-                <h2 className="text-xl md:text-2xl font-semibold tracking-tight text-white">
-                  {t('firstValueJourney.teamIncompleteTitle')}
-                </h2>
-                <p className="text-sm text-zinc-400 max-w-xl leading-relaxed">
-                  {t('firstValueJourney.teamIncompleteDescription', { count: teamSetupSummary?.incompleteMemberIds?.length || 0 })}
-                </p>
-              </div>
-              
-              <div className="flex gap-4 items-center text-xs font-semibold text-zinc-400">
-                <div className="flex flex-col">
-                  <span className="text-white text-lg">{teamSetupSummary?.additionalMembers || 0}</span>
-                  {t('firstValueJourney.teamSummaryTotal')}
-                </div>
-                <div className="w-px h-8 bg-white/[0.1]"></div>
-                <div className="flex flex-col">
-                  <span className="text-emerald-400 text-lg">{teamSetupSummary?.configuredMembers || 0}</span>
-                  {t('firstValueJourney.teamSummaryReady')}
-                </div>
-                <div className="w-px h-8 bg-white/[0.1]"></div>
-                <div className="flex flex-col">
-                  <span className="text-amber-400 text-lg">{teamSetupSummary?.incompleteMemberIds?.length || 0}</span>
-                  {t('firstValueJourney.teamSummaryPending')}
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <button
-                  onClick={() => handleAction('configureTeam', () => navigate('/users', { 
-                    state: { 
-                      teamSetupIntent: 'configure-existing',
-                      origin: 'first-value-journey',
-                      returnTo: '/'
-                    } 
-                  }))}
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-amber-500 text-white font-bold hover:bg-amber-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                >
-                  {t('firstValueJourney.configureTeamAction')}
-                </button>
-                <button
-                  onClick={() => handleAction('continueWithoutTeam', () => {
-                    if (draftScale?.id) navigate(`/scales/${draftScale.id}`);
-                    else navigate('/scales');
-                  })}
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-white/[0.04] text-zinc-300 font-bold hover:bg-white/[0.08] hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/20"
-                >
-                  {t('firstValueJourney.continueWithoutTeamAction')}
-                </button>
-              </div>
-            </div>
-          );
-        }
-
-        if (teamState === 'unavailable') {
-          return (
-            <div className="space-y-6">
-              <div className="space-y-1.5">
-                <h2 className="text-xl md:text-2xl font-semibold tracking-tight text-white">
-                  {t('firstValueJourney.teamUnavailableTitle')}
-                </h2>
-                <p className="text-sm text-zinc-400 max-w-xl leading-relaxed">
-                  {t('firstValueJourney.teamUnavailableDescription')}
-                </p>
-              </div>
-              <div className="pt-2">
-                <button
-                  onClick={() => handleAction('continueDraft', () => {
-                    if (draftScale?.id) navigate(`/scales/${draftScale.id}`);
-                    else navigate('/scales');
-                  })}
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-white text-zinc-900 font-bold hover:bg-zinc-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/20"
-                >
-                  {t('firstValueJourney.continueDraftAction')}
-                </button>
-              </div>
-            </div>
-          );
-        }
-
-        return null;
       default:
         return null;
     }

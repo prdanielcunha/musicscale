@@ -1,15 +1,50 @@
-import { UserProfile, Scale, Song } from '../types';
+import { UserProfile, Song } from '../types';
 import { evaluateTeamSetup, TeamSetupSummary } from './teamSetup';
 
-export type FirstValueJourneyTeamState = "empty" | "incomplete" | "ready" | "unavailable";
+export type FirstValueJourneyStep =
+  | "repertoire"
+  | "firstScale"
+  | "team"
+  | "publish";
+
+export type FirstValueJourneyTeamState =
+  | "empty"
+  | "incomplete"
+  | "ready"
+  | "unavailable";
+
+export type FirstValueJourneyMilestoneId =
+  | "repertoire"
+  | "firstScale"
+  | "team"
+  | "publish";
+
+export interface FirstValueJourneyMilestone {
+  id: FirstValueJourneyMilestoneId;
+  status:
+    | "completed"
+    | "current"
+    | "pending"
+    | "optional";
+}
+
+export type JourneyTimestamp =
+  | number
+  | string
+  | Date
+  | {
+      toMillis?: () => number;
+      toDate?: () => Date;
+      seconds?: number;
+    };
 
 export interface MinimalJourneyScale {
   id: string;
-  status?: 'draft' | 'published' | 'cancelled' | 'completed' | string;
+  status?: string;
   date?: string;
-  createdAt?: string | number | { toMillis?: () => number };
-  updatedAt?: string | number | { toMillis?: () => number };
-  lastModifiedAt?: string | number | { toMillis?: () => number };
+  createdAt?: JourneyTimestamp;
+  updatedAt?: JourneyTimestamp;
+  lastModifiedAt?: JourneyTimestamp;
 }
 
 export interface FirstValueJourneyInput {
@@ -24,24 +59,19 @@ export interface FirstValueJourneyInput {
   currentUserId?: string;
 }
 
-export interface FirstValueJourneyMilestone {
-  id: string;
-  status: 'completed' | 'current' | 'pending' | 'optional';
-}
-
 export interface MinimalDraftScale {
   id: string;
   status?: string;
   date?: string;
-  createdAt?: string | number | { toMillis?: () => number };
-  updatedAt?: string | number | { toMillis?: () => number };
+  createdAt?: JourneyTimestamp;
+  updatedAt?: JourneyTimestamp;
 }
 
 export interface FirstValueJourneyOutput {
   isEligible: boolean;
   isLoading: boolean;
   isCompleted: boolean;
-  currentEssentialStep: 'repertoire' | 'firstScale' | 'team' | 'publish' | null;
+  currentEssentialStep: FirstValueJourneyStep | null;
   completedEssentialSteps: number;
   totalEssentialSteps: number;
   milestones: FirstValueJourneyMilestone[];
@@ -50,6 +80,32 @@ export interface FirstValueJourneyOutput {
   teamState: FirstValueJourneyTeamState;
   teamSetupSummary: TeamSetupSummary | null;
   canManageMembers: boolean;
+}
+
+export function getJourneyTimestampValue(
+  value: JourneyTimestamp | null | undefined
+): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (value instanceof Date) return value.getTime();
+  
+  if (typeof value === 'object') {
+    try {
+      if (typeof value.toMillis === 'function') return value.toMillis();
+    } catch {}
+    try {
+      if (typeof value.toDate === 'function') return value.toDate().getTime();
+    } catch {}
+    try {
+      if (typeof value.seconds === 'number') return value.seconds * 1000;
+    } catch {}
+  }
+  
+  if (typeof value === 'string') {
+    const parsed = new Date(value).getTime();
+    if (!isNaN(parsed)) return parsed;
+  }
+  return 0;
 }
 
 export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstValueJourneyOutput {
@@ -100,16 +156,16 @@ export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstV
   const hasPublishedScale = validScales.some(s => s.status === 'published' || !s.status);
   
   const drafts = validScales.filter(s => s.status === 'draft');
-  const sortedDrafts = drafts.sort((a, b) => {
-    const getTime = (val: any) => val && typeof val.toMillis === 'function' ? val.toMillis() : (val ? new Date(val).getTime() : 0);
-    const timeA = getTime(a.updatedAt) || getTime(a.createdAt) || (a.date ? new Date(a.date).getTime() : 0);
-    const timeB = getTime(b.updatedAt) || getTime(b.createdAt) || (b.date ? new Date(b.date).getTime() : 0);
+  const sortedDrafts = [...drafts].sort((a, b) => {
+    const timeA = getJourneyTimestampValue(a.updatedAt) || getJourneyTimestampValue(a.createdAt) || (a.date ? new Date(a.date).getTime() : 0);
+    const timeB = getJourneyTimestampValue(b.updatedAt) || getJourneyTimestampValue(b.createdAt) || (b.date ? new Date(b.date).getTime() : 0);
     return timeB - timeA;
   });
 
   const mostRecentDraft = sortedDrafts[0] || null;
 
   const usersArray = Array.isArray(allUsers) ? allUsers : [];
+  // Usa evaluateTeamSetup para derivar estado da equipe
   const teamSetupSummary = evaluateTeamSetup(usersArray, currentUserId);
   
   const hasTeam = teamSetupSummary.additionalMembers > 0;
@@ -121,11 +177,8 @@ export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstV
     teamState = "ready";
   } else if (teamSetupSummary.additionalMembers > 0 && teamSetupSummary.configuredMembers === 0) {
     teamState = "incomplete";
-  } else if (teamSetupSummary.additionalMembers > 0 && teamSetupSummary.configuredMembers > 0) {
-    // There's at least one configured member (so isTeamConfigured is true), but the else-if logic
-    // actually already matched `isTeamConfigured` above! Wait... evaluateTeamSetup sets isTeamConfigured = true
-    // if configuredMembers > 0. So if additionalMembers > 0 and configuredMembers === 0, it's incomplete.
-    // If it reaches this block, it must be something else... but it's logically exhausted.
+  } else if (teamSetupSummary.additionalMembers === 0) {
+    teamState = "empty";
   }
 
   if (hasPublishedScale) {
@@ -145,7 +198,7 @@ export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstV
     };
   }
 
-  let currentEssentialStep: 'repertoire' | 'firstScale' | 'team' | 'publish' = 'repertoire';
+  let currentEssentialStep: FirstValueJourneyStep = 'repertoire';
   let completedEssentialSteps = 0;
 
   if (!hasSongs) {
@@ -154,7 +207,10 @@ export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstV
   } else if (!hasValidScales) {
     currentEssentialStep = 'firstScale';
     completedEssentialSteps = 1;
-  } else if (canManageMembers && !teamSetupSummary.isTeamConfigured) {
+  } else if (!canManageMembers) {
+    currentEssentialStep = 'publish';
+    completedEssentialSteps = 2;
+  } else if (!teamSetupSummary.isTeamConfigured) {
     currentEssentialStep = 'team';
     completedEssentialSteps = 2;
   } else {
