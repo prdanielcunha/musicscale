@@ -270,6 +270,16 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
              >
                <ChevronDown className="w-4 h-4"/>
              </button>
+             {onToggle && (
+               <button 
+                 type="button" 
+                 onClick={onToggle} 
+                 aria-label={t('scaleModal.removeSong', { song: song.title })}
+                 className="flex items-center justify-center min-w-[44px] min-h-[44px] text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg ml-1"
+               >
+                 <XCircleIcon className="w-5 h-5"/>
+               </button>
+             )}
           </div>
         )}
       </div>
