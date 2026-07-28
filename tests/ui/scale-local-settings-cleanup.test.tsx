@@ -261,7 +261,7 @@ describe('Scale Local Settings Cleanup Integration & Unit Tests', () => {
       expect(onSaveMock).toHaveBeenCalled();
     });
     
-    const savedPayload = onSaveMock.mock.calls[0][0];
+    const savedPayload = onSaveMock.mock.calls[0][0].data;
     expect(savedPayload.songIds).toEqual(['song-target', 'song-other']);
     expect(savedPayload.songSettings['song-target']).toEqual({ bpm: 85 });
     expect(savedPayload.songSettings['song-target'].key).toBeUndefined();
@@ -320,7 +320,7 @@ describe('Scale Local Settings Cleanup Integration & Unit Tests', () => {
       expect(onSaveMock).toHaveBeenCalled();
     });
     
-    const savedPayload = onSaveMock.mock.calls[0][0];
+    const savedPayload = onSaveMock.mock.calls[0][0].data;
     expect(savedPayload.songIds).toEqual(['song-target', 'song-other']);
     expect(savedPayload.songSettings['song-target']).toEqual({ key: 'A' });
     expect(savedPayload.songSettings['song-target'].bpm).toBeUndefined();

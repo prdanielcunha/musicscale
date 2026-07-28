@@ -18,9 +18,15 @@ export const HomeUpcomingEvents: React.FC<HomeUpcomingEventsProps> = ({ events, 
     return null;
   }
 
+  const nonDraftEvents = events.filter(e => e.status !== 'draft');
+
+  if (nonDraftEvents.length === 0) {
+    return null;
+  }
+
   // REQUISITO 13: limit to 3
-  const displayedEvents = events.slice(0, 3);
-  const hasMore = events.length > 3;
+  const displayedEvents = nonDraftEvents.slice(0, 3);
+  const hasMore = nonDraftEvents.length > 3;
 
   const getMonthName = (dateStr: string) => {
     try {

@@ -93,25 +93,21 @@ const ArrowDownIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
+import { MusicScaleSaveRequest, MusicScaleSaveResult, BandScaleWritableData, MusicScaleWritableData, MusicScaleSaveIntent } from "../../contexts/ModalContext";
+import { useFeatureFlag } from "../../hooks/useFeatureFlag";
+
 interface ModernScaleFormProps {
   isOpen: boolean;
   scaleType: "music" | "band";
   scaleToEdit: Partial<Scale | BandScale> | null;
   preselectedSongIds: string[];
   onSave: (
-    scaleData:
-      | Omit<Scale, "id" | "createdBy" | "createdAt">
-      | Scale
-      | Omit<BandScale, "id" | "createdBy" | "createdAt">
-      | BandScale,
-    idempotencyKey?: string
-  ) => Promise<void>;
+    req: MusicScaleSaveRequest | { data: BandScaleWritableData; idempotencyKey?: string }
+  ) => Promise<MusicScaleSaveResult | void>;
   onClose: () => void;
   isSubmitting: boolean;
   zIndexClass?: string;
 }
-
-import { useFeatureFlag } from "../../hooks/useFeatureFlag";
 
 const formInputClass = "mt-1 input-base";
 const formOptionClass = "bg-white dark:bg-[#151515] text-slate-900 dark:text-white";
@@ -153,6 +149,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     error: showErrorToast,
   } = useToast();
   const isCommandApiV1Enabled = useFeatureFlag('musicscale.bandScaleCommandApiV1');
+  const isMusicScalePublishCommandEnabled = useFeatureFlag('musicscale.musicScalePublishCommandV1');
 
   const [formData, setFormData] = useState<Partial<Scale & BandScale>>({});
 
@@ -465,7 +462,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         songSettings: normalizeScaleSongSettings(selectedSongs, formData.songSettings || {}),
         bandScaleId: formData.bandScaleId || null,
         durationMinutes: duration,
-        status: forcedStatus || (scaleToEdit as any)?.status || 'draft',
+        status: "draft", // Always persist as draft via repository
       };
     } else {
       const validAssignments = formData.assignments ? formData.assignments.filter(
@@ -488,10 +485,14 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       lastPayloadFingerprintRef.current = payloadFingerprint;
     }
 
-    if (scaleToEdit && "id" in scaleToEdit && scaleToEdit.id !== "CLONE") {
-      await onSave({ ...(scaleToEdit as Scale | BandScale), ...finalData }, idempotencyKeyRef.current);
+    if (scaleType === "music") {
+      const scaleData = { ...(scaleToEdit && "id" in scaleToEdit && scaleToEdit.id !== "CLONE" ? scaleToEdit : {}), ...finalData } as MusicScaleWritableData;
+      const intent: MusicScaleSaveIntent = forcedStatus === 'published' ? 'publish' : 'save-draft';
+      
+      await onSave({ data: scaleData, intent, idempotencyKey: idempotencyKeyRef.current });
     } else {
-      await onSave(finalData as any, idempotencyKeyRef.current);
+      const scaleData = { ...(scaleToEdit && "id" in scaleToEdit && scaleToEdit.id !== "CLONE" ? scaleToEdit : {}), ...finalData } as BandScaleWritableData;
+      await onSave({ data: scaleData, idempotencyKey: idempotencyKeyRef.current });
     }
   };
 
@@ -640,18 +641,26 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                   >
                     {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.saveDraft', 'Salvar Rascunho')}
                   </Button>
-                  <Button 
-                    key="btn-publish"
-                    type="button" 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleSubmit(e as any, 'published');
-                    }}
-                    disabled={isSubmitting} 
-                    className="w-full lg:w-auto h-12 rounded-xl text-[12px] sm:text-[14px] bg-indigo-600 text-white hover:bg-indigo-500 shadow-[0_0_25px_rgba(99,102,241,0.45)] border-none font-bold min-w-0"
-                  >
-                    {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.publishScale', 'Publicar Escala')}
-                  </Button>
+                  <div className="w-full lg:w-auto flex flex-col items-center">
+                    <Button 
+                      key="btn-publish"
+                      type="button" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleSubmit(e as any, 'published');
+                      }}
+                      disabled={isSubmitting || !isMusicScalePublishCommandEnabled} 
+                      className="w-full lg:w-auto h-12 rounded-xl text-[12px] sm:text-[14px] bg-indigo-600 text-white hover:bg-indigo-500 shadow-[0_0_25px_rgba(99,102,241,0.45)] border-none font-bold min-w-0"
+                      aria-describedby={!isMusicScalePublishCommandEnabled ? "publish-blocked-desc" : undefined}
+                    >
+                      {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.publishScale', 'Publicar Escala')}
+                    </Button>
+                    {!isMusicScalePublishCommandEnabled && (
+                      <p id="publish-blocked-desc" className="text-xs text-red-500 font-medium mt-1 text-center">
+                        {t('scaleModal.publishUnavailable', 'A publicação ainda não está habilitada para esta organização.')}
+                      </p>
+                    )}
+                  </div>
                 </>
               ) : (
                 <div className="col-span-2 sm:col-span-1 lg:w-auto flex">

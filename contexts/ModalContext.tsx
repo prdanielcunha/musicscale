@@ -15,6 +15,24 @@ import { useSuggestionsContext } from './SuggestionContext';
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 
+export type MusicScaleSaveIntent = "save-draft" | "publish";
+
+export type MusicScaleWritableData = Omit<Scale, "id" | "createdBy" | "createdAt"> | Scale;
+export type BandScaleWritableData = Omit<BandScale, "id" | "createdBy" | "createdAt"> | BandScale;
+
+export interface MusicScaleSaveRequest {
+  data: MusicScaleWritableData;
+  intent: MusicScaleSaveIntent;
+  idempotencyKey: string;
+}
+
+export type MusicScaleSaveResult =
+  | { status: "draft-saved"; scaleId: string }
+  | { status: "published"; scaleId: string; version?: number }
+  | { status: "publish-unavailable" }
+  | { status: "publish-failed"; scaleId?: string; draftPreserved: boolean; correlationId?: string };
+
+
 // Keep essential components eager or very light
 import Modal from '../components/common/Modal';
 import ConfirmationModal from '../components/common/ConfirmationModal';
@@ -414,15 +432,37 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const isCommandApiV1Enabled = organization?.featureFlags?.['musicscale.bandScaleCommandApiV1'] === true || organization?.features?.['musicscale.bandScaleCommandApiV1'] === true;
   const isMusicScalePublishCommandEnabled = organization?.featureFlags?.['musicscale.musicScalePublishCommandV1'] === true || organization?.features?.['musicscale.musicScalePublishCommandV1'] === true;
 
-  const handleSaveScale = useCallback(async (scaleData: Omit<Scale, 'id' | 'createdBy' | 'createdAt'> | Scale | Omit<BandScale, 'id' | 'createdBy' | 'createdAt'> | BandScale, idempotencyKey?: string) => {
+  const scaleSaveInFlightRef = React.useRef(false);
+
+  const handleSaveScale = useCallback(async (
+    req: MusicScaleSaveRequest | { data: BandScaleWritableData; idempotencyKey?: string }
+  ): Promise<MusicScaleSaveResult | void> => {
+    if (scaleSaveInFlightRef.current) return;
+    
     if (!user || !userProfile || !api) {
         logger.error("Cannot save scale: user, userProfile or api is missing", { user: !!user, userProfile: !!userProfile, api: !!api });
         return;
     }
+    
+    scaleSaveInFlightRef.current = true;
     setIsSubmitting(true);
+    
     try {
         if (scaleType === 'music') {
+            const musicReq = req as MusicScaleSaveRequest;
             const orgId = organization?.id || "";
+            const isPublishIntent = musicReq.intent === 'publish';
+            const scaleData = musicReq.data as MusicScaleWritableData;
+            let idempotencyKey = musicReq.idempotencyKey;
+
+            if (isPublishIntent && !isMusicScalePublishCommandEnabled) {
+                toast({
+                    title: t("scaleModal.publishUnavailable", "Publicação indisponível"),
+                    description: t("scaleModal.publishUnavailableDescription", "A publicação ainda não está disponível para esta organização. Salve como rascunho para continuar depois."),
+                    variant: "destructive"
+                });
+                return { status: "publish-unavailable" };
+            }
 
             // Check if we need to bootstrap taxonomy implicitly
             if (eventTypes.length === 0 || locations.length === 0) {
@@ -449,11 +489,16 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             }
 
             let musicScaleId: string;
-            if ('id' in scaleData && scaleData.id && scaleData.id !== 'CLONE') {
-                await api.scales.update(scaleData.id, scaleData as Scale);
-                musicScaleId = scaleData.id;
+            const isUpdate = 'id' in scaleData && !!scaleData.id && scaleData.id !== 'CLONE';
+            
+            const draftData = { ...scaleData, status: "draft" };
+            
+            if (isUpdate) {
+                musicScaleId = scaleData.id as string;
+                await api.scales.update(musicScaleId, draftData as Scale);
             } else {
-                musicScaleId = await api.scales.create(scaleData as Omit<Scale, 'id' | 'createdBy' | 'createdAt'>);
+                musicScaleId = await api.scales.create(draftData as Omit<Scale, 'id' | 'createdBy' | 'createdAt'>);
+                setScaleToEdit({ ...draftData, id: musicScaleId } as Scale);
             }
 
             const bandScaleId = (scaleData as any).bandScaleId || null;
@@ -461,18 +506,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 await api.linkScales(musicScaleId, bandScaleId);
             }
 
-            const currentStatus = (scaleData as any).status || "draft";
-            if (currentStatus === 'published') {
-                if (!isMusicScalePublishCommandEnabled) {
-                    const errMsg = "A publicação ainda não está habilitada para esta organização.";
-                    toast({
-                        title: "Publicação Bloqueada",
-                        description: errMsg,
-                        variant: "destructive"
-                    });
-                    throw new Error(errMsg);
-                }
-
+            if (isPublishIntent) {
                 if (!idempotencyKey) {
                     idempotencyKey = crypto.randomUUID();
                 }
@@ -481,40 +515,68 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                     organizationId: orgId,
                     musicScaleId,
                     musicScalePublishCommandEnabled: isMusicScalePublishCommandEnabled,
-                    currentStatus,
                     selectedAction: "publish_command_api"
                 }));
 
-                const publishResult = await api.musicScaleCommands.publish(
-                    musicScaleId,
-                    { bandScaleId },
-                    idempotencyKey
-                );
+                try {
+                    const publishResult = await api.musicScaleCommands.publish(
+                        musicScaleId,
+                        { bandScaleId },
+                        idempotencyKey
+                    );
 
-                console.log('[MusicScale Publish Result] => ' + JSON.stringify({
-                    organizationId: orgId,
-                    musicScaleId,
-                    status: "published",
-                    publishRevision: publishResult.version,
-                    eventAssignmentCount: publishResult.eventAssignmentCount || publishResult.createdResponseCount || 0,
-                    createdResponseCount: publishResult.createdResponseCount || 0,
-                    createdNotificationCount: publishResult.createdNotificationCount || 0,
-                    recipientCount: publishResult.createdNotificationCount || 0,
-                    fromCache: !!publishResult.fromCache,
-                    correlationId: publishResult.correlationId || idempotencyKey
-                }));
+                    console.log('[MusicScale Publish Result] => ' + JSON.stringify({
+                        organizationId: orgId,
+                        musicScaleId,
+                        status: "published",
+                        publishRevision: publishResult.version,
+                        eventAssignmentCount: publishResult.eventAssignmentCount || publishResult.createdResponseCount || 0,
+                        createdResponseCount: publishResult.createdResponseCount || 0,
+                        createdNotificationCount: publishResult.createdNotificationCount || 0,
+                        recipientCount: publishResult.createdNotificationCount || 0,
+                        fromCache: !!publishResult.fromCache,
+                        correlationId: publishResult.correlationId || idempotencyKey
+                    }));
 
-                toast({
-                    title: "Sucesso",
-                    description: `Escala de músicas publicada com sucesso (Revisão: ${publishResult.version}).`,
-                });
+                    toast({
+                        title: t('scaleModal.publishSuccess', "Escala publicada"),
+                        description: t('scaleModal.publishSuccessDescription', "Escala de músicas publicada com sucesso."),
+                    });
+                    
+                    closeAllModals();
+                    await refreshData();
+                    return { status: "published", scaleId: musicScaleId, version: publishResult.version };
+                } catch (publishErr: any) {
+                    logger.error("Failed to publish scale via command", publishErr);
+                    toast({
+                        title: t('scaleModal.publishFailed', "Não foi possível publicar"),
+                        description: t('scaleModal.draftPreserved', "Seu rascunho foi preservado. Tente novamente sem precisar criar outra escala."),
+                        variant: "destructive"
+                    });
+                    
+                    await refreshData();
+                    return { 
+                        status: "publish-failed", 
+                        scaleId: musicScaleId, 
+                        draftPreserved: true, 
+                        correlationId: publishErr.correlationId 
+                    };
+                }
             } else {
                 toast({
-                    title: "Rascunho Salvo",
-                    description: "Escala salva como rascunho com sucesso. Ela permanece oculta para os voluntários.",
+                    title: t('scaleModal.draftSaved', "Rascunho Salvo"),
+                    description: t('scaleModal.draftSavedDescription', "Escala salva como rascunho com sucesso. Ela permanece oculta para os voluntários."),
                 });
+                
+                closeAllModals();
+                await refreshData();
+                return { status: "draft-saved", scaleId: musicScaleId };
             }
         } else if (scaleType === 'band') {
+             const bandReq = req as { data: BandScaleWritableData; idempotencyKey?: string };
+             const scaleData = bandReq.data;
+             let idempotencyKey = bandReq.idempotencyKey;
+             
              let bandScaleId: string;
              const isUpdate = 'id' in scaleData && scaleData.id && scaleData.id !== 'CLONE';
              const oldScale = isUpdate ? bandScales.find(b => b.id === (scaleData as any).id) : null;
@@ -552,9 +614,10 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             if (bandScaleId && linkingOptions?.linkToMusicScaleId) {
                 await api.linkScales(linkingOptions.linkToMusicScaleId, bandScaleId);
             }
+            
+            closeAllModals();
+            await refreshData();
         }
-        closeAllModals();
-        await refreshData();
     } catch(e: any) {
         logger.error("Failed to save scale", e);
         
@@ -575,8 +638,9 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         toast({ type: 'error', message: t('common.errorSaving', "Erro ao salvar"), description: desc });
     } finally {
         setIsSubmitting(false);
+        scaleSaveInFlightRef.current = false;
     }
-  }, [user, userProfile, scaleType, linkingOptions, refreshData, closeAllModals, api, bandScales, instruments, isCommandApiV1Enabled, isMusicScalePublishCommandEnabled, organization?.id, eventTypes, locations]);
+  }, [user, userProfile, scaleType, linkingOptions, refreshData, closeAllModals, api, bandScales, instruments, isCommandApiV1Enabled, isMusicScalePublishCommandEnabled, organization?.id, eventTypes, locations, t, toast]);
 
   const handleDeleteScale = useCallback(async () => {
       if (!scaleToDelete || !api || !user || !userProfile) {
