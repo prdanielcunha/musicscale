@@ -319,4 +319,83 @@ describe('MusicScaleCommandService', () => {
       expect.objectContaining({ musicScaleId: 'scale-1' })
     );
   });
+
+  it('throws validation error if payload.bandScaleId and scalePatch.bandScaleId diverge', async () => {
+    await expect(MusicScaleCommandService.publishMusicScale({
+      authUid: 'u1',
+      orgId: 'org-1',
+      musicScaleId: 'scale-1',
+      idempotencyKey: 'test-idemp',
+      payload: {
+        bandScaleId: 'band-1',
+        scalePatch: {
+          bandScaleId: 'band-2'
+        }
+      } as any,
+      correlationId: 'test-idemp'
+    })).rejects.toThrow("Divergência entre payload.bandScaleId e scalePatch.bandScaleId.");
+  });
+
+  it('preserves existing bandScaleId when omitted (undefined) in patch and payload', async () => {
+    const idempotencyDoc = { exists: false };
+    const membershipDoc = { exists: true, data: () => ({ name: 'Membro Teste' }) };
+    const scaleDoc = {
+      exists: true,
+      data: () => ({
+        organizationId: 'org-1',
+        status: 'draft',
+        publishRevision: 0,
+        date: '2026-07-28',
+        songIds: ['song-1'],
+        bandScaleId: 'existing-band-scale-id'
+      })
+    };
+
+    const bandScaleDoc = {
+      exists: true,
+      data: () => ({
+        organizationId: 'org-1',
+        assignments: [],
+        musicScaleId: null
+      })
+    };
+
+    const instrumentSnap = { docs: [] };
+    const membersSnap = { docs: [] };
+    const crossMembersSnap = { docs: [] };
+    const orgSnap = { exists: true, data: () => ({ ownerUid: 'owner-1' }) };
+
+    mockTransaction.get
+      .mockResolvedValueOnce(idempotencyDoc)
+      .mockResolvedValueOnce(membershipDoc)
+      .mockResolvedValueOnce(scaleDoc)
+      .mockResolvedValueOnce(bandScaleDoc) // for existing band scale loaded via previousBandScaleId
+      .mockResolvedValueOnce(instrumentSnap)
+      .mockResolvedValueOnce(membersSnap)
+      .mockResolvedValueOnce(crossMembersSnap)
+      .mockResolvedValueOnce(orgSnap);
+
+    const result = await MusicScaleCommandService.publishMusicScale({
+      authUid: 'u1',
+      orgId: 'org-1',
+      musicScaleId: 'scale-1',
+      idempotencyKey: 'preserve-idemp-key',
+      payload: {
+        scalePatch: {
+          time: '19:00'
+        }
+      },
+      correlationId: 'preserve-correlation'
+    });
+
+    expect(result.version).toBe(1);
+    // The final update payload should have bandScaleId as 'existing-band-scale-id' (preserved)
+    expect(mockTransaction.update).toHaveBeenCalledWith(
+      mockScaleDocRef,
+      expect.objectContaining({
+        bandScaleId: 'existing-band-scale-id',
+        time: '19:00'
+      })
+    );
+  });
 });

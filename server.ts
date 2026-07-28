@@ -1266,7 +1266,16 @@ app.use((err: any, req: any, res: any, next: any) => {
 
       return res.status(200).json(result);
     } catch (error: any) {
-      const status = error.status || (error.message?.includes("Permissão") ? 403 : error.message?.includes("idempotência") ? 409 : 400);
+      let status = error.status;
+      if (!status) {
+        if (error.code === 'IDEMPOTENCY_CONFLICT' || error.code === 'BAND_SCALE_ALREADY_LINKED') {
+          status = 409;
+        } else if (error.code === 'TENANT_SCOPE_MISMATCH' || error.message?.includes("Permissão")) {
+          status = 403;
+        } else {
+          status = 400;
+        }
+      }
       console.log(`[MusicScale Publish Command Failed] => ${JSON.stringify({
         correlationId,
         codigo: error.code || status,

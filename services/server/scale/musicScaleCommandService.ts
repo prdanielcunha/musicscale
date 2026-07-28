@@ -50,6 +50,13 @@ export class MusicScaleCommandService {
       throw new ValidationError("O campo bandScaleId deve ser string ou null.");
     }
 
+    if (payloadObj.bandScaleId !== undefined && payloadObj.scalePatch !== undefined) {
+      const patchObj = payloadObj.scalePatch as Record<string, unknown>;
+      if (patchObj.bandScaleId !== undefined && payloadObj.bandScaleId !== patchObj.bandScaleId) {
+        throw new ValidationError("Divergência entre payload.bandScaleId e scalePatch.bandScaleId.");
+      }
+    }
+
     if (payloadObj.scalePatch !== undefined) {
       const patch = payloadObj.scalePatch;
       if (!patch || typeof patch !== 'object') {
@@ -278,11 +285,11 @@ export class MusicScaleCommandService {
       let resolvedBandScaleId = currentScale.bandScaleId ?? null;
       let hasBandScalePatch = false;
 
-      if (scalePatch && Object.prototype.hasOwnProperty.call(scalePatch, 'bandScaleId')) {
-        resolvedBandScaleId = scalePatch.bandScaleId ?? null;
+      if (scalePatch && scalePatch.bandScaleId !== undefined) {
+        resolvedBandScaleId = scalePatch.bandScaleId;
         hasBandScalePatch = true;
-      } else if (Object.prototype.hasOwnProperty.call(payload, 'bandScaleId')) {
-        resolvedBandScaleId = payload.bandScaleId ?? null;
+      } else if (payload.bandScaleId !== undefined) {
+        resolvedBandScaleId = payload.bandScaleId;
         hasBandScalePatch = true;
       }
 

@@ -510,19 +510,30 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                     idempotencyKey = crypto.randomUUID();
                 }
 
-                const bandScaleId = 'bandScaleId' in scaleData ? scaleData.bandScaleId || null : null;
-                const scalePatch = {
+                const bandScaleId = 'bandScaleId' in scaleData && scaleData.bandScaleId !== undefined ? scaleData.bandScaleId : undefined;
+                const scalePatch: any = {
                     date: scaleData.date,
-                    time: scaleData.time || null,
+                    time: scaleData.time !== undefined ? scaleData.time : null,
                     eventTypeId: scaleData.eventTypeId,
                     locationId: scaleData.locationId,
-                    eventNameId: scaleData.eventNameId || null,
-                    observations: scaleData.observations || "",
+                    eventNameId: scaleData.eventNameId !== undefined ? scaleData.eventNameId : null,
+                    observations: scaleData.observations !== undefined ? scaleData.observations : "",
                     songIds: scaleData.songIds,
-                    songSettings: scaleData.songSettings || {},
-                    durationMinutes: scaleData.durationMinutes || null,
-                    bandScaleId
+                    songSettings: scaleData.songSettings !== undefined ? scaleData.songSettings : {},
                 };
+                if (scaleData.durationMinutes !== undefined && scaleData.durationMinutes !== null) {
+                    scalePatch.durationMinutes = Number(scaleData.durationMinutes);
+                }
+                if (bandScaleId !== undefined) {
+                    scalePatch.bandScaleId = bandScaleId;
+                }
+
+                const payload: any = {
+                    scalePatch
+                };
+                if (bandScaleId !== undefined) {
+                    payload.bandScaleId = bandScaleId;
+                }
 
                 console.log('[MusicScale Publish Path] => ' + JSON.stringify({
                     organizationId: orgId,
@@ -534,7 +545,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 try {
                     const publishResult = await api.musicScaleCommands.publish(
                         musicScaleId,
-                        { bandScaleId, scalePatch },
+                        payload,
                         idempotencyKey
                     );
 
