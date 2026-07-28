@@ -30,7 +30,8 @@ export type MusicScaleSaveResult =
   | { status: "draft-saved"; scaleId: string }
   | { status: "published"; scaleId: string; version?: number }
   | { status: "publish-unavailable" }
-  | { status: "publish-failed"; scaleId?: string; draftPreserved: boolean; correlationId?: string };
+  | { status: "publish-failed"; scaleId?: string; draftPreserved: boolean; correlationId?: string }
+  | { status: "republish-failed"; scaleId?: string; publishedPreserved: boolean; correlationId?: string };
 
 
 // Keep essential components eager or very light
@@ -457,8 +458,8 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
             if (isPublishIntent && !isMusicScalePublishCommandEnabled) {
                 toast({
-                    title: t("scaleModal.publishUnavailable", "Publicação indisponível"),
-                    description: t("scaleModal.publishUnavailableDescription", "A publicação ainda não está disponível para esta organização. Salve como rascunho para continuar depois."),
+                    title: t("scaleModal.publishUnavailable"),
+                    description: t("scaleModal.publishUnavailableDescription"),
                     variant: "destructive"
                 });
                 return { status: "publish-unavailable" };
@@ -491,14 +492,17 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             let musicScaleId: string;
             const isUpdate = 'id' in scaleData && !!scaleData.id && scaleData.id !== 'CLONE';
             
-            const draftData = { ...scaleData, status: "draft" };
+            // Preserve the original status so we don't accidentally downgrade published scales to draft
+            // Warning: Non-atomic edit. Editable data is saved via repository, and publish revision is handled by command.
+            const currentStatus = isUpdate ? (scaleToEdit as any)?.status || "draft" : "draft";
+            const updateData = { ...scaleData, status: currentStatus };
             
             if (isUpdate) {
                 musicScaleId = scaleData.id as string;
-                await api.scales.update(musicScaleId, draftData as Scale);
+                await api.scales.update(musicScaleId, updateData as Scale);
             } else {
-                musicScaleId = await api.scales.create(draftData as Omit<Scale, 'id' | 'createdBy' | 'createdAt'>);
-                setScaleToEdit({ ...draftData, id: musicScaleId } as Scale);
+                musicScaleId = await api.scales.create(updateData as Omit<Scale, 'id' | 'createdBy' | 'createdAt'>);
+                setScaleToEdit({ ...updateData, id: musicScaleId } as Scale);
             }
 
             const bandScaleId = (scaleData as any).bandScaleId || null;
@@ -539,8 +543,8 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                     }));
 
                     toast({
-                        title: t('scaleModal.publishSuccess', "Escala publicada"),
-                        description: t('scaleModal.publishSuccessDescription', "Escala de músicas publicada com sucesso."),
+                        title: t('scaleModal.publishSuccess'),
+                        description: t('scaleModal.publishSuccessDescription'),
                     });
                     
                     closeAllModals();
@@ -548,24 +552,40 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                     return { status: "published", scaleId: musicScaleId, version: publishResult.version };
                 } catch (publishErr: any) {
                     logger.error("Failed to publish scale via command", publishErr);
+                    
+                    const isPublishedPreserved = currentStatus === "published";
+                    const errorDescription = isPublishedPreserved 
+                        ? t('scaleModal.publishedPreserved') 
+                        : t('scaleModal.draftPreserved');
+
                     toast({
-                        title: t('scaleModal.publishFailed', "Não foi possível publicar"),
-                        description: t('scaleModal.draftPreserved', "Seu rascunho foi preservado. Tente novamente sem precisar criar outra escala."),
+                        title: t('scaleModal.publishFailed'),
+                        description: errorDescription,
                         variant: "destructive"
                     });
                     
                     await refreshData();
-                    return { 
-                        status: "publish-failed", 
-                        scaleId: musicScaleId, 
-                        draftPreserved: true, 
-                        correlationId: publishErr.correlationId 
-                    };
+                    
+                    if (isPublishedPreserved) {
+                        return { 
+                            status: "republish-failed", 
+                            scaleId: musicScaleId, 
+                            publishedPreserved: true, 
+                            correlationId: publishErr.correlationId 
+                        };
+                    } else {
+                        return { 
+                            status: "publish-failed", 
+                            scaleId: musicScaleId, 
+                            draftPreserved: true, 
+                            correlationId: publishErr.correlationId 
+                        };
+                    }
                 }
             } else {
                 toast({
-                    title: t('scaleModal.draftSaved', "Rascunho Salvo"),
-                    description: t('scaleModal.draftSavedDescription', "Escala salva como rascunho com sucesso. Ela permanece oculta para os voluntários."),
+                    title: t('scaleModal.draftSaved'),
+                    description: t('scaleModal.draftSavedDescription'),
                 });
                 
                 closeAllModals();

@@ -462,7 +462,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         songSettings: normalizeScaleSongSettings(selectedSongs, formData.songSettings || {}),
         bandScaleId: formData.bandScaleId || null,
         durationMinutes: duration,
-        status: "draft", // Always persist as draft via repository
+        status: (scaleToEdit as any)?.status || "draft",
       };
     } else {
       const validAssignments = formData.assignments ? formData.assignments.filter(

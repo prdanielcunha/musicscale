@@ -657,7 +657,16 @@
     "reorderSong": "Reordenar {{song}}",
     "moveSongUp": "Mover {{song}} hacia arriba",
     "moveSongDown": "Mover {{song}} hacia abajo",
-    "reviewInstruction": "Arrastra las canciones o usa las flechas para definir el orden del culto."
+    "reviewInstruction": "Arrastra las canciones o usa las flechas para definir el orden del culto.",
+    "publishUnavailable": "Publicación no disponible",
+    "publishUnavailableDescription": "La publicación aún no está disponible para esta organización. Guarde como borrador para continuar después.",
+    "publishSuccess": "Escala publicada",
+    "publishSuccessDescription": "La escala de canciones fue publicada con éxito.",
+    "publishFailed": "No se pudo publicar",
+    "draftPreserved": "Su borrador fue preservado. Intente de nuevo sin necesidad de crear otra escala.",
+    "publishedPreserved": "La escala publicada fue preservada sin cambios de estado.",
+    "draftSaved": "Borrador guardado",
+    "draftSavedDescription": "La escala fue guardada como borrador y permanece oculta para los voluntarios."
   },
   "bandScaleModal": {
     "titleCreate": "Nueva Escala de Banda",

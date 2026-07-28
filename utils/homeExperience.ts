@@ -162,7 +162,7 @@ export function buildHomeEventSummaries(
   const summaries: HomeEventSummary[] = [];
   const validTodayKey = isValidDateOnlyKey(todayKey) ? todayKey : getLocalDateKey();
 
-  const activeMusicScales = musicScales.filter((s) => s.status !== 'cancelled');
+  const activeMusicScales = musicScales.filter((s) => s.status !== 'cancelled' && s.status !== 'draft');
   const musicScaleIds = new Set(activeMusicScales.map((s) => s.id));
 
   activeMusicScales.forEach((scale) => {
@@ -198,7 +198,7 @@ export function buildHomeEventSummaries(
     });
   });
 
-  const activeBandScales = bandScales.filter((s) => s.status !== 'cancelled');
+  const activeBandScales = bandScales.filter((s) => s.status !== 'cancelled' && s.status !== 'draft');
 
   activeBandScales.forEach((scale) => {
     if (!isValidDateOnlyKey(scale.date)) return;

@@ -658,7 +658,16 @@
     "reorderSong": "Reorder {{song}}",
     "moveSongUp": "Move {{song}} up",
     "moveSongDown": "Move {{song}} down",
-    "reviewInstruction": "Drag the songs or use the arrows to set the worship order."
+    "reviewInstruction": "Drag the songs or use the arrows to set the worship order.",
+    "publishUnavailable": "Publish unavailable",
+    "publishUnavailableDescription": "Publishing is not yet available for this organization. Save as draft to continue later.",
+    "publishSuccess": "Scale published",
+    "publishSuccessDescription": "The music scale was successfully published.",
+    "publishFailed": "Could not publish",
+    "draftPreserved": "Your draft was preserved. Try again without needing to create another scale.",
+    "publishedPreserved": "The published scale was preserved without status changes.",
+    "draftSaved": "Draft saved",
+    "draftSavedDescription": "The scale was saved as a draft and remains hidden from volunteers."
   },
   "bandScaleModal": {
     "titleCreate": "New Band Scale",
