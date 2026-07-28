@@ -493,27 +493,36 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             const isUpdate = 'id' in scaleData && !!scaleData.id && scaleData.id !== 'CLONE';
             
             // Preserve the original status so we don't accidentally downgrade published scales to draft
-            // Warning: Non-atomic edit. Editable data is saved via repository, and publish revision is handled by command.
             const currentStatus = isUpdate ? (scaleToEdit as any)?.status || "draft" : "draft";
             const updateData = { ...scaleData, status: currentStatus };
             
-            if (isUpdate) {
-                musicScaleId = scaleData.id as string;
-                await api.scales.update(musicScaleId, updateData as Scale);
-            } else {
-                musicScaleId = await api.scales.create(updateData as Omit<Scale, 'id' | 'createdBy' | 'createdAt'>);
-                setScaleToEdit({ ...updateData, id: musicScaleId } as Scale);
-            }
-
-            const bandScaleId = (scaleData as any).bandScaleId || null;
-            if (bandScaleId) {
-                await api.linkScales(musicScaleId, bandScaleId);
-            }
-
             if (isPublishIntent) {
+                // For publishing, if it is a new scale, we MUST create it as a draft first to get a valid musicScaleId
+                if (!isUpdate) {
+                    const initialDraftData = { ...scaleData, status: "draft" as const };
+                    musicScaleId = await api.scales.create(initialDraftData as Omit<Scale, 'id' | 'createdBy' | 'createdAt'>);
+                    setScaleToEdit({ ...initialDraftData, id: musicScaleId } as Scale);
+                } else {
+                    musicScaleId = scaleData.id as string;
+                }
+
                 if (!idempotencyKey) {
                     idempotencyKey = crypto.randomUUID();
                 }
+
+                const bandScaleId = (scaleData as any).bandScaleId || null;
+                const scalePatch = {
+                    date: scaleData.date,
+                    time: scaleData.time || null,
+                    eventTypeId: scaleData.eventTypeId,
+                    locationId: scaleData.locationId,
+                    eventNameId: scaleData.eventNameId || null,
+                    observations: scaleData.observations || "",
+                    songIds: scaleData.songIds,
+                    songSettings: scaleData.songSettings || {},
+                    durationMinutes: scaleData.durationMinutes || null,
+                    bandScaleId
+                };
 
                 console.log('[MusicScale Publish Path] => ' + JSON.stringify({
                     organizationId: orgId,
@@ -525,7 +534,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 try {
                     const publishResult = await api.musicScaleCommands.publish(
                         musicScaleId,
-                        { bandScaleId },
+                        { bandScaleId, scalePatch },
                         idempotencyKey
                     );
 
@@ -583,6 +592,19 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                     }
                 }
             } else {
+                if (isUpdate) {
+                    musicScaleId = scaleData.id as string;
+                    await api.scales.update(musicScaleId, updateData as Scale);
+                } else {
+                    musicScaleId = await api.scales.create(updateData as Omit<Scale, 'id' | 'createdBy' | 'createdAt'>);
+                    setScaleToEdit({ ...updateData, id: musicScaleId } as Scale);
+                }
+
+                const bandScaleId = (scaleData as any).bandScaleId || null;
+                if (bandScaleId) {
+                    await api.linkScales(musicScaleId, bandScaleId);
+                }
+
                 toast({
                     title: t('scaleModal.draftSaved'),
                     description: t('scaleModal.draftSavedDescription'),

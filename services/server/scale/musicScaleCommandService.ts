@@ -67,14 +67,45 @@ export class MusicScaleCommandService {
         (error as any).code = 'TENANT_SCOPE_MISMATCH';
         throw error;
       }
-      const nextRevision = (currentScale.publishRevision || 0) + 1;
+
+      // 3.1. Process scalePatch if present in payload (Atomic Update)
+      let patchedScaleData = { ...currentScale };
+      let patchToApply: any = {};
+
+      if (payload.scalePatch && typeof payload.scalePatch === 'object') {
+        const allowedKeys = [
+          'date', 'time', 'eventTypeId', 'locationId', 
+          'eventNameId', 'observations', 'songIds', 
+          'songSettings', 'durationMinutes', 'bandScaleId'
+        ];
+        for (const key of allowedKeys) {
+          if (payload.scalePatch[key] !== undefined) {
+            patchToApply[key] = payload.scalePatch[key];
+            (patchedScaleData as any)[key] = payload.scalePatch[key];
+          }
+        }
+      }
+
+      const nextRevision = (patchedScaleData.publishRevision || 0) + 1;
       let notificationCount = 0;
       let createdResponseCount = 0;
       let newEventAssignments: EventAssignment[] = [];
 
       // 4. Process BandScale if it exists
-      const bandScaleId = payload.bandScaleId || currentScale.bandScaleId;
+      const bandScaleId = payload.bandScaleId || patchedScaleData.bandScaleId;
       let hasBand = false;
+
+      // 4.1. If republication (nextRevision > 1 or status is already published), deactivate old active responses
+      if (nextRevision > 1 || currentScale.status === 'published') {
+        const responsesQueryRef = scaleRef.collection("responses").where("active", "==", true);
+        const responsesSnap = await transaction.get(responsesQueryRef);
+        for (const doc of responsesSnap.docs) {
+          transaction.update(doc.ref, {
+            active: false,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
+      }
 
       if (bandScaleId) {
         const bandScaleRef = db.collection('bandScales').doc(bandScaleId);
@@ -149,8 +180,6 @@ export class MusicScaleCommandService {
           // Group by user for notifications
           const userFunctions = new Map<string, { id: string; name: string; category: string }[]>();
 
-
-
           for (const assign of activeAssignments) {
             const evId = crypto.randomUUID();
             const instData = instrumentMap.get(assign.instrumentId) || {};
@@ -164,7 +193,7 @@ export class MusicScaleCommandService {
               userId: assign.userId,
               functionId: assign.instrumentId,
               functionName: instName,
-              functionCategory: category,
+              functionCategory: category as any,
               active: true,
               assignmentRevision: 1
             });
@@ -200,9 +229,9 @@ export class MusicScaleCommandService {
             const funcNames = funcs.map(f => f.name).join(', ');
             const notifTitle = AssignmentNotificationFormatter.formatTitle(funcs);
 
-            let eventDate = currentScale.date || 'Data não definida';
-            if (currentScale.time) {
-              eventDate += ` às ${currentScale.time}`;
+            let eventDate = patchedScaleData.date || 'Data não definida';
+            if (patchedScaleData.time) {
+              eventDate += ` às ${patchedScaleData.time}`;
             }
             const message = `No evento do dia ${eventDate}.`;
 
@@ -242,9 +271,9 @@ export class MusicScaleCommandService {
         const membersSnap = await db.collection('organizations').doc(orgId).collection('members').where('status', '==', 'active').get();
         for (const memberDoc of membersSnap.docs) {
           const userId = memberDoc.id;
-          let eventDate = currentScale.date || 'Data não definida';
-          if (currentScale.time) {
-            eventDate += ` às ${currentScale.time}`;
+          let eventDate = patchedScaleData.date || 'Data não definida';
+          if (patchedScaleData.time) {
+            eventDate += ` às ${patchedScaleData.time}`;
           }
 
           const notifId = NotificationFactory.getNotificationId(orgId, commandId, "broadcast" as any, userId);
@@ -276,7 +305,7 @@ export class MusicScaleCommandService {
       }
 
       // 6. Update MusicScale Document
-      transaction.update(scaleRef, {
+      const finalUpdatePayload: any = {
         status: 'published',
         publishRevision: nextRevision,
         eventAssignments: newEventAssignments,
@@ -285,7 +314,9 @@ export class MusicScaleCommandService {
           name: modifierName
         },
         lastModifiedAt: FieldValue.serverTimestamp(),
-      });
+        ...patchToApply
+      };
+      transaction.update(scaleRef, finalUpdatePayload);
 
       // 7. Write Idempotency Receipt
       IdempotencyService.writeReceiptInTransaction(transaction, orgId, receiptId, {
