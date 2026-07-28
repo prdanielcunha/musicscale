@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import DashboardPage from '../../pages/DashboardPage';
+import { FirstValueJourneyOutput } from '../../utils/firstValueJourney';
 
 // Mock Modules
 
@@ -79,9 +80,66 @@ vi.mock('../../components/support/SupportRuntimeInspector', () => ({
   SupportRuntimeInspector: () => <div data-testid="support-inspector" style={{ display: 'none' }} />
 }));
 
+export let receivedJourney: FirstValueJourneyOutput | null = null;
+
 vi.mock('../../components/onboarding/FirstScaleJourneyCard', () => ({
-  FirstScaleJourneyCard: () => <div data-testid="first-scale-journey">Journey</div>
+  FirstScaleJourneyCard: ({
+    journey
+  }: {
+    journey?: FirstValueJourneyOutput;
+  }) => {
+    receivedJourney = journey || mockUseFirstScaleExperience();
+    return <div data-testid="first-scale-journey">Journey</div>;
+  }
 }));
+
+export function createJourneyOutput(
+  overrides: Partial<FirstValueJourneyOutput> = {}
+): FirstValueJourneyOutput {
+  return {
+    isLoading: false,
+    isEligible: true,
+    isCompleted: false,
+    currentEssentialStep: "team",
+    completedEssentialSteps: 2,
+    totalEssentialSteps: 4,
+    milestones: [
+      {
+        id: "repertoire",
+        status: "completed"
+      },
+      {
+        id: "firstScale",
+        status: "completed"
+      },
+      {
+        id: "team",
+        status: "current"
+      },
+      {
+        id: "publish",
+        status: "pending"
+      }
+    ],
+    draftScale: {
+      id: "draft-1"
+    },
+    hasTeam: false,
+    teamState: "empty",
+    teamSetupSummary: {
+      totalMembers: 1,
+      additionalMembers: 0,
+      membersWithAccessProfile: 0,
+      membersWithMinistryFunctions: 0,
+      configuredMembers: 0,
+      incompleteMemberIds: [],
+      memberStatuses: [],
+      isTeamConfigured: false
+    },
+    canManageMembers: true,
+    ...overrides
+  };
+}
 
 // Default Mocks
 const defaultUser = { uid: 'u1', displayName: 'Daniel' };
@@ -102,6 +160,7 @@ const renderWithRouter = (ui: React.ReactElement, lang = 'pt-BR') => {
 describe('Dashboard Home Experience UI', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    receivedJourney = null;
     mockUseAuth.mockReturnValue({ user: defaultUser, organization: defaultOrg, isOwner: false, isSupportMode: false });
     mockUseCapability.mockReturnValue({ hasCapability: () => false });
     mockUseFirstScaleExperience.mockReturnValue({
@@ -371,5 +430,138 @@ describe('Dashboard Home Experience UI', () => {
     });
     renderWithRouter(<DashboardPage />);
     expect(screen.queryByTestId('first-scale-journey')).not.toBeInTheDocument();
+  });
+
+  it('33. jornada elegível com currentEssentialStep: "team" aparece', () => {
+    const journey = createJourneyOutput({
+      isEligible: true,
+      isCompleted: false,
+      currentEssentialStep: "team"
+    });
+    mockUseFirstScaleExperience.mockReturnValue(journey);
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByTestId('first-scale-journey')).toBeInTheDocument();
+  });
+
+  it('34. receivedJourney.currentEssentialStep é "team"', () => {
+    const journey = createJourneyOutput({
+      isEligible: true,
+      isCompleted: false,
+      currentEssentialStep: "team"
+    });
+    mockUseFirstScaleExperience.mockReturnValue(journey);
+    renderWithRouter(<DashboardPage />);
+    expect(receivedJourney).not.toBeNull();
+    expect(receivedJourney?.currentEssentialStep).toBe("team");
+  });
+
+  it('35. jornada elegível com currentEssentialStep: "publish" aparece', () => {
+    const journey = createJourneyOutput({
+      isEligible: true,
+      isCompleted: false,
+      currentEssentialStep: "publish"
+    });
+    mockUseFirstScaleExperience.mockReturnValue(journey);
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByTestId('first-scale-journey')).toBeInTheDocument();
+  });
+
+  it('36. receivedJourney.currentEssentialStep é "publish"', () => {
+    const journey = createJourneyOutput({
+      isEligible: true,
+      isCompleted: false,
+      currentEssentialStep: "publish"
+    });
+    mockUseFirstScaleExperience.mockReturnValue(journey);
+    renderWithRouter(<DashboardPage />);
+    expect(receivedJourney).not.toBeNull();
+    expect(receivedJourney?.currentEssentialStep).toBe("publish");
+  });
+
+  it('37. output entregue possui exatamente quatro milestones', () => {
+    const journey = createJourneyOutput({
+      isEligible: true,
+      isCompleted: false,
+      currentEssentialStep: "team"
+    });
+    mockUseFirstScaleExperience.mockReturnValue(journey);
+    renderWithRouter(<DashboardPage />);
+    expect(receivedJourney?.milestones).toHaveLength(4);
+  });
+
+  it('38. ordem dos milestones é repertoire, firstScale, team, publish', () => {
+    const journey = createJourneyOutput({
+      isEligible: true,
+      isCompleted: false,
+      currentEssentialStep: "team"
+    });
+    mockUseFirstScaleExperience.mockReturnValue(journey);
+    renderWithRouter(<DashboardPage />);
+    const ids = receivedJourney?.milestones.map(m => m.id);
+    expect(ids).toEqual(["repertoire", "firstScale", "team", "publish"]);
+  });
+
+  it('39. milestone Team com status optional chega intacto ao card', () => {
+    const journey = createJourneyOutput({
+      isEligible: true,
+      isCompleted: false,
+      currentEssentialStep: "team",
+      milestones: [
+        { id: "repertoire", status: "completed" },
+        { id: "firstScale", status: "completed" },
+        { id: "team", status: "optional" },
+        { id: "publish", status: "pending" }
+      ]
+    });
+    mockUseFirstScaleExperience.mockReturnValue(journey);
+    renderWithRouter(<DashboardPage />);
+    const teamMilestone = receivedJourney?.milestones.find(m => m.id === "team");
+    expect(teamMilestone?.status).toBe("optional");
+  });
+
+  it('40. usuário sem members.manage recebe output em publish, não em team', () => {
+    const journey = createJourneyOutput({
+      isEligible: true,
+      isCompleted: false,
+      currentEssentialStep: "publish",
+      canManageMembers: false
+    });
+    mockUseFirstScaleExperience.mockReturnValue(journey);
+    renderWithRouter(<DashboardPage />);
+    expect(receivedJourney?.canManageMembers).toBe(false);
+    expect(receivedJourney?.currentEssentialStep).toBe("publish");
+  });
+
+  it('41. jornada concluída com currentEssentialStep: null não aparece', () => {
+    const journey = createJourneyOutput({
+      isEligible: true,
+      isCompleted: true,
+      currentEssentialStep: null
+    });
+    mockUseFirstScaleExperience.mockReturnValue(journey);
+    renderWithRouter(<DashboardPage />);
+    expect(screen.queryByTestId('first-scale-journey')).not.toBeInTheDocument();
+  });
+
+  it('42. usuário não elegível não recebe jornada', () => {
+    const journey = createJourneyOutput({
+      isEligible: false,
+      isCompleted: false,
+      currentEssentialStep: "team"
+    });
+    mockUseFirstScaleExperience.mockReturnValue(journey);
+    renderWithRouter(<DashboardPage />);
+    expect(screen.queryByTestId('first-scale-journey')).not.toBeInTheDocument();
+  });
+
+  it('43. experiência normal do Dashboard continua renderizando', () => {
+    const journey = createJourneyOutput({
+      isEligible: true,
+      isCompleted: false,
+      currentEssentialStep: "team"
+    });
+    mockUseFirstScaleExperience.mockReturnValue(journey);
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByText(/Daniel/i)).toBeInTheDocument();
   });
 });

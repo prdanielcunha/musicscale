@@ -46,12 +46,30 @@ const mockInstruments: Instrument[] = [
 
 let mockUsers: UserProfile[] = [];
 const mockNavigate = vi.fn();
+let mockLocation: ReturnType<typeof import('react-router-dom').useLocation> | null = null;
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
+  const actual = await vi.importActual<
+    typeof import(
+      "react-router-dom"
+    )
+  >(
+    "react-router-dom"
+  );
   return {
-    ...actual as typeof import('react-router-dom'),
+    ...actual,
     useNavigate: () => mockNavigate,
-    useLocation: () => ({ state: {}, pathname: '/users' })
+    useLocation: (): ReturnType<typeof import('react-router-dom').useLocation> => mockLocation || ({
+      pathname: "/users",
+      search: "",
+      hash: "",
+      state: null,
+      key: "existing-member-default",
+      unstable_mask: {
+        pathname: "/users",
+        search: "",
+        hash: ""
+      }
+    })
   };
 });
 
@@ -144,6 +162,7 @@ vi.mock('../../utils/roleResolver', async (importOriginal) => {
 describe('UsersPage Integration ExistingMemberSetup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLocation = null;
     mockUsers = [
       createProfile({ uid: 'current-user-123', roleId: 'r_admin' })
     ];
@@ -171,6 +190,13 @@ describe('UsersPage Integration ExistingMemberSetup', () => {
     mockUsers = [createProfile({ uid: 'u_inc', displayName: 'Incomplete User', roleId: '', specialtyIds: [] })];
     await renderPage();
     expect(screen.getByText(pt.teamSetup.progress.configureAction)).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalledWith(
+      "/users",
+      {
+        replace: true,
+        state: null
+      }
+    );
   });
 
   it('2. clicar na ação abre o guia real', async () => {
@@ -727,6 +753,96 @@ describe('UsersPage Integration ExistingMemberSetup', () => {
       // Progress card should update to "Revisar integrantes" since user is now complete
       expect(screen.getByText(pt.teamSetup.progress.reviewCompletedAction)).toBeInTheDocument();
     });
+  });
+
+  it('41. intent configure-existing é consumida apenas uma vez', async () => {
+    const createLocation = (state: any, key: string) => ({
+      pathname: "/users",
+      search: "",
+      hash: "",
+      state,
+      key,
+      unstable_mask: {
+        pathname: "/users",
+        search: "",
+        hash: ""
+      }
+    });
+
+    mockUsers = [
+      createProfile({ uid: 'current-user-123', displayName: 'Current', roleId: 'r_member' }),
+      createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })
+    ];
+
+    mockLocation = createLocation({
+      teamSetupIntent: 'configure-existing',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-consume-once') as any;
+
+    const { rerender } = render(<UsersPage />);
+    await waitFor(() => expect(screen.getByText(/Equipe e Permissões/i)).toBeInTheDocument());
+
+    expect(screen.getByText(pt.teamSetup.existingMember.steps.choosePerson)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Close modal'));
+
+    await waitFor(() => {
+      expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
+    });
+
+    mockLocation = createLocation(null, 'key-consume-once') as any;
+
+    rerender(<UsersPage />);
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
+  });
+
+  it('42. estados inválidos ou sem permissão limpam state e não realizam mutações', async () => {
+    const createLocation = (state: any, key: string) => ({
+      pathname: "/users",
+      search: "",
+      hash: "",
+      state,
+      key,
+      unstable_mask: {
+        pathname: "/users",
+        search: "",
+        hash: ""
+      }
+    });
+
+    mockLocation = createLocation({
+      teamSetupIntent: 'invalid-intent-999' as any,
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-invalid') as any;
+
+    const { rerender } = render(<UsersPage />);
+    await waitFor(() => expect(screen.getByText(/Equipe e Permissões/i)).toBeInTheDocument());
+
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
+    expect(mockNavigate).toHaveBeenCalledWith("/users", { replace: true, state: null });
+
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(mockUsersUpdateMany).not.toHaveBeenCalled();
+
+    mockNavigate.mockClear();
+    mockLocation = createLocation({
+      teamSetupIntent: 'configure-existing',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-unauthorized') as any;
+
+    mockHasCapability.mockImplementation((c) => c !== 'musicscale.members.manage');
+
+    rerender(<UsersPage />);
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/users", { replace: true, state: null });
+    });
+
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(mockUsersUpdateMany).not.toHaveBeenCalled();
   });
 
 });

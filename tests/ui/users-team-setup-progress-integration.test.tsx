@@ -501,7 +501,10 @@ describe('UsersPage Team Setup Integration', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
     });
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(mockUsersUpdateMany).not.toHaveBeenCalled();
     expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
     expect(mockToastError).not.toHaveBeenCalled();
   });
 
@@ -516,7 +519,10 @@ describe('UsersPage Team Setup Integration', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
     });
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(mockUsersUpdateMany).not.toHaveBeenCalled();
     expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
   });
 
   it('22. returnTo externo consome o state', async () => {
@@ -530,7 +536,10 @@ describe('UsersPage Team Setup Integration', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
     });
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(mockUsersUpdateMany).not.toHaveBeenCalled();
     expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
   });
 
   it('23. objeto de state incompleto consome o state', async () => {
@@ -542,7 +551,23 @@ describe('UsersPage Team Setup Integration', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
     });
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(mockUsersUpdateMany).not.toHaveBeenCalled();
     expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
+  });
+
+  it('23.1. objeto de state vazio consome o state', async () => {
+    mockLocation = createLocation({}, 'key-23-1');
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+    });
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(mockUsersUpdateMany).not.toHaveBeenCalled();
+    expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
   });
 
   it('24. state com tipo string consome o state', async () => {
@@ -552,7 +577,10 @@ describe('UsersPage Team Setup Integration', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
     });
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(mockUsersUpdateMany).not.toHaveBeenCalled();
     expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
   });
 
   it('25. state com tipos de campos errados consome o state', async () => {
@@ -566,7 +594,10 @@ describe('UsersPage Team Setup Integration', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
     });
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(mockUsersUpdateMany).not.toHaveBeenCalled();
     expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
   });
 
   it('26. intent válido mas sem capability consome imediatamente com toast', async () => {
@@ -672,6 +703,17 @@ describe('UsersPage Team Setup Integration', () => {
       expect(scrollSpy).toHaveBeenCalled();
     });
 
+    await waitFor(() => {
+      const managementSection = screen.getByLabelText("Equipe");
+      expect(managementSection).toHaveFocus();
+    });
+
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(mockUsersUpdateMany).not.toHaveBeenCalled();
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
+    expect(screen.getByText(/Clique em uma função/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Voltar$/ })).not.toBeInTheDocument();
+
     const backBtn = screen.getByRole('button', { name: "Voltar para o painel" });
     expect(backBtn).toBeInTheDocument();
     fireEvent.click(backBtn);
@@ -683,6 +725,168 @@ describe('UsersPage Team Setup Integration', () => {
     } else {
       Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
     }
+  });
+
+  it('30.1. cleanup do timer cancela scroll/focus no unmount', async () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: () => undefined
+    });
+    const scrollSpy = vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => undefined);
+
+    vi.useFakeTimers();
+    try {
+      mockLocation = createLocation({
+        teamSetupIntent: 'add-members',
+        origin: 'first-value-journey',
+        returnTo: '/'
+      }, 'key-30-1');
+
+      const { unmount } = render(<UsersPage />);
+      
+      // Permitir que as promessas de montagem executem
+      await vi.advanceTimersByTimeAsync(10);
+
+      // Desmontar imediatamente (antes de 100ms)
+      unmount();
+
+      // Avançar timers
+      await vi.advanceTimersByTimeAsync(200);
+
+      // Confirmar que scroll e focus não foram executados
+      expect(scrollSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+      scrollSpy.mockRestore();
+      if (originalDescriptor) {
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalDescriptor);
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+      }
+    }
+  });
+
+  it('30.2. transição entre intents antes do timer limpa timer anterior', async () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: () => undefined
+    });
+    const scrollSpy = vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => undefined);
+
+    // Simular integrante adicional desde o início para que configure-existing seja elegível
+    mockUsers = [
+      createProfile({ uid: 'current-user-123', roleId: 'r_admin' }),
+      createProfile({ uid: 'another-user-456', roleId: '' }) // additional member
+    ];
+    mockUsersList.mockImplementation(async () => mockUsers);
+
+    vi.useFakeTimers();
+    try {
+      mockLocation = createLocation({
+        teamSetupIntent: 'add-members',
+        origin: 'first-value-journey',
+        returnTo: '/'
+      }, 'key-A');
+
+      const { rerender } = render(<UsersPage />);
+
+      // Avançar o tempo o suficiente para resolver fetchUsers (loading=false)
+      // mas menos que os 100ms do temporizador de scroll
+      await vi.advanceTimersByTimeAsync(20);
+
+      // Agora mudamos para configure-existing com key B
+      mockLocation = createLocation({
+        teamSetupIntent: 'configure-existing',
+        origin: 'first-value-journey',
+        returnTo: '/'
+      }, 'key-B');
+
+      rerender(<UsersPage />);
+
+      // Avançar tempo total para o fetchUsers do rerender e do temporizador
+      await vi.advanceTimersByTimeAsync(200);
+
+      // Confirmar que o guia de membro existente abriu
+      expect(screen.getByText(pt.teamSetup.existingMember.steps.choosePerson)).toBeInTheDocument();
+
+      // Confirmar que o timer antigo NÃO executou scroll/focus depois
+      expect(scrollSpy).not.toHaveBeenCalled();
+      
+      // Nenhuma mutação deve ocorrer
+      expect(mockUsersUpdate).not.toHaveBeenCalled();
+      expect(mockUsersUpdateMany).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+      scrollSpy.mockRestore();
+      if (originalDescriptor) {
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalDescriptor);
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+      }
+    }
+  });
+
+  it('30.3. configure-existing com integrante adicional abre o guia de acordo com as regras de consumo de key', async () => {
+    // 1. configure-existing com integrante adicional abre o guia uma vez
+    mockLocation = createLocation({
+      teamSetupIntent: 'configure-existing',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-fase8');
+
+    mockUsers = [
+      createProfile({ uid: 'current-user-123', roleId: 'r_admin' }),
+      createProfile({ uid: 'another-user-456', roleId: '' }) // additional member
+    ];
+    mockUsersList.mockImplementation(async () => mockUsers);
+
+    const { rerender } = render(<UsersPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(pt.teamSetup.existingMember.steps.choosePerson)).toBeInTheDocument();
+    });
+
+    // 5. nenhuma API é chamada apenas por abrir ou fechar
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(mockUsersUpdateMany).not.toHaveBeenCalled();
+
+    // 8. o state é consumido com replace em cada navegação válida.
+    expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+    mockNavigate.mockClear();
+
+    // 2. fechar o guia usando interação pública
+    const closeBtn = screen.getByRole('button', { name: "Close modal" });
+    fireEvent.click(closeBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
+    });
+
+    // 3. rerender com a mesma location.key
+    rerender(<UsersPage />);
+
+    // 4. o guia não reabre
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    // 6. alterar para a mesma intenção com nova location.key
+    mockLocation = createLocation({
+      teamSetupIntent: 'configure-existing',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-fase8-new');
+
+    rerender(<UsersPage />);
+
+    // 7. o guia pode abrir novamente
+    await waitFor(() => {
+      expect(screen.getByText(pt.teamSetup.existingMember.steps.choosePerson)).toBeInTheDocument();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
   });
 
   it('31. intent configure-existing sem integrantes adicionais não abre o guia e mostra orientação', async () => {

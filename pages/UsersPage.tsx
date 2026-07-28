@@ -1758,14 +1758,14 @@ const UsersPage: React.FC = () => {
     const intent = parsedState.value.teamSetupIntent;
     const returnTo = parsedState.value.returnTo;
 
+    if (activeScrollTimerRef.current !== null) {
+      clearTimeout(activeScrollTimerRef.current);
+      activeScrollTimerRef.current = null;
+    }
+
     if (intent === "add-members") {
       setShowContextualGuide(true);
       setReturnToPath(returnTo);
-
-      if (activeScrollTimerRef.current !== null) {
-        clearTimeout(activeScrollTimerRef.current);
-        activeScrollTimerRef.current = null;
-      }
 
       activeScrollTimerRef.current = setTimeout(() => {
         const section = managementSectionRef.current;
