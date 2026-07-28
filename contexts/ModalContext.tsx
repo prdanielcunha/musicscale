@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, ReactNode, useCallback, use
 import { useTranslation } from 'react-i18next';
 import { useToast } from './ToastContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import type { PopulatedSong, Song, Scale, PopulatedScale, BandScale, PopulatedBandScale } from '../types';
+import type { PopulatedSong, Song, Scale, PopulatedScale, BandScale, PopulatedBandScale, MusicScalePublishPayload, MusicScalePublishPatch } from '../types';
 import { useMusic } from './MusicDataContext';
 import { useAuth } from './AuthContext';
 import { DuplicateMatch } from '../components/songs/DuplicateSongModal';
@@ -114,6 +114,45 @@ interface ModalContextType {
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
+
+export function buildMusicScalePublishPayload(
+    scaleData: MusicScaleWritableData
+): MusicScalePublishPayload {
+    const scalePatch: MusicScalePublishPatch = {};
+
+    if (scaleData.date !== undefined) {
+        scalePatch.date = scaleData.date;
+    }
+    if (scaleData.time !== undefined) {
+        scalePatch.time = scaleData.time;
+    }
+    if (scaleData.eventTypeId !== undefined) {
+        scalePatch.eventTypeId = scaleData.eventTypeId;
+    }
+    if (scaleData.locationId !== undefined) {
+        scalePatch.locationId = scaleData.locationId;
+    }
+    if (scaleData.eventNameId !== undefined) {
+        scalePatch.eventNameId = scaleData.eventNameId;
+    }
+    if (scaleData.observations !== undefined) {
+        scalePatch.observations = scaleData.observations;
+    }
+    if (scaleData.songIds !== undefined) {
+        scalePatch.songIds = scaleData.songIds;
+    }
+    if (scaleData.songSettings !== undefined) {
+        scalePatch.songSettings = scaleData.songSettings;
+    }
+    if (scaleData.durationMinutes !== undefined && scaleData.durationMinutes !== null) {
+        scalePatch.durationMinutes = Number(scaleData.durationMinutes);
+    }
+    if ('bandScaleId' in scaleData && scaleData.bandScaleId !== undefined) {
+        scalePatch.bandScaleId = scaleData.bandScaleId;
+    }
+
+    return { scalePatch };
+}
 
 export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { t } = useTranslation();
@@ -510,30 +549,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                     idempotencyKey = crypto.randomUUID();
                 }
 
-                const bandScaleId = 'bandScaleId' in scaleData && scaleData.bandScaleId !== undefined ? scaleData.bandScaleId : undefined;
-                const scalePatch: any = {
-                    date: scaleData.date,
-                    time: scaleData.time !== undefined ? scaleData.time : null,
-                    eventTypeId: scaleData.eventTypeId,
-                    locationId: scaleData.locationId,
-                    eventNameId: scaleData.eventNameId !== undefined ? scaleData.eventNameId : null,
-                    observations: scaleData.observations !== undefined ? scaleData.observations : "",
-                    songIds: scaleData.songIds,
-                    songSettings: scaleData.songSettings !== undefined ? scaleData.songSettings : {},
-                };
-                if (scaleData.durationMinutes !== undefined && scaleData.durationMinutes !== null) {
-                    scalePatch.durationMinutes = Number(scaleData.durationMinutes);
-                }
-                if (bandScaleId !== undefined) {
-                    scalePatch.bandScaleId = bandScaleId;
-                }
-
-                const payload: any = {
-                    scalePatch
-                };
-                if (bandScaleId !== undefined) {
-                    payload.bandScaleId = bandScaleId;
-                }
+                const payload = buildMusicScalePublishPayload(scaleData);
 
                 console.log('[MusicScale Publish Path] => ' + JSON.stringify({
                     organizationId: orgId,

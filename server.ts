@@ -1252,15 +1252,16 @@ app.use((err: any, req: any, res: any, next: any) => {
       });
 
       const durationMs = Date.now() - startTime;
+      const anyResult = result as any;
       console.log(`[MusicScale Publish Command Completed] => ${JSON.stringify({
         correlationId,
         musicScaleId,
-        publishRevision: result.version,
-        eventAssignmentCount: result.eventAssignmentCount,
-        createdResponseCount: result.createdResponseCount,
-        createdNotificationCount: result.createdNotificationCount,
-        broadcastRecipientCount: result.broadcastRecipientCount,
-        fromCache: !!result.fromCache,
+        publishRevision: anyResult.version,
+        eventAssignmentCount: anyResult.eventAssignmentCount,
+        createdResponseCount: anyResult.createdResponseCount,
+        createdNotificationCount: anyResult.createdNotificationCount,
+        broadcastRecipientCount: anyResult.broadcastRecipientCount,
+        fromCache: !!anyResult.fromCache,
         durationMs
       })}`);
 
@@ -1272,6 +1273,10 @@ app.use((err: any, req: any, res: any, next: any) => {
           status = 409;
         } else if (error.code === 'TENANT_SCOPE_MISMATCH' || error.message?.includes("Permissão")) {
           status = 403;
+        } else if (error.code === 'VALIDATION_ERROR' || error.code === 'PAYLOAD_CONFLICT') {
+          status = 400;
+        } else if (error.message?.includes("não encontrada")) {
+          status = 404;
         } else {
           status = 400;
         }
@@ -1284,7 +1289,11 @@ app.use((err: any, req: any, res: any, next: any) => {
       })}`);
       
       logger.error(`[MusicScale Command] Publish failed | Correlation ID: ${correlationId}`, error);
-      return res.status(status).json({ error: error.message || String(error), correlationId });
+      return res.status(status).json({
+        error: error.message || String(error),
+        code: error.code || 'UNKNOWN_ERROR',
+        correlationId
+      });
     }
   });
 

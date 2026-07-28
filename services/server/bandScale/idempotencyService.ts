@@ -1,5 +1,8 @@
 import crypto from "crypto";
 import { adminDb as db, admin } from "../../firebaseAdmin.js";
+import type { FirebaseFirestore } from "@firebase/firestore-types";
+
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue | undefined };
 
 export interface CommandReceiptResult {
   [key: string]: any;
@@ -15,7 +18,7 @@ export interface CommandReceipt {
   requestFingerprint: string;
   correlationId?: string;
   result: CommandReceiptResult;
-  completedAt: any; // firestore Timestamp
+  completedAt: unknown; // firestore Timestamp
 }
 
 export class IdempotencyService {
@@ -33,21 +36,21 @@ export class IdempotencyService {
    * Generates a request fingerprint to ensure that if the same key is used with different payloads,
    * a conflict is returned.
    */
-  static getDeterministicString(obj: any): string {
+  static getDeterministicString(obj: unknown): string {
     if (obj === null) return "null";
     if (obj === undefined) return "undefined";
     if (Array.isArray(obj)) {
       return "[" + obj.map(item => IdempotencyService.getDeterministicString(item)).join(",") + "]";
     }
     if (typeof obj === "object") {
-      const keys = Object.keys(obj).sort();
-      const parts = keys.map(k => `"${k}":${IdempotencyService.getDeterministicString(obj[k])}`);
+      const keys = Object.keys(obj as Record<string, unknown>).sort();
+      const parts = keys.map(k => `"${k}":${IdempotencyService.getDeterministicString((obj as Record<string, unknown>)[k])}`);
       return "{" + parts.join(",") + "}";
     }
     return JSON.stringify(obj);
   }
 
-  static getRequestFingerprint(payload: any): string {
+  static getRequestFingerprint(payload: unknown): string {
     const serialized = IdempotencyService.getDeterministicString(payload);
     return crypto.createHash("sha256").update(serialized).digest("hex");
   }
