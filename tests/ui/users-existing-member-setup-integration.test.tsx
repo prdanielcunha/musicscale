@@ -691,7 +691,11 @@ describe('UsersPage Integration ExistingMemberSetup', () => {
     fireEvent.click(screen.getByText('Continuar'));
     fireEvent.click(screen.getByText('Salvar configuração'));
     await waitFor(() => {
-      expect(mockNavigate).not.toHaveBeenCalled();
+      const otherPageCalls = mockNavigate.mock.calls.filter(call => {
+        const dest = call[0];
+        return typeof dest === 'string' && dest !== '/users';
+      });
+      expect(otherPageCalls).toHaveLength(0);
     });
   });
 

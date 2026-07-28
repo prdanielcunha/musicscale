@@ -28,7 +28,7 @@ i18n
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal<any>();
+  const actual = await importOriginal<typeof import('react-router-dom')>();
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
@@ -60,9 +60,16 @@ vi.mock('../../contexts/ModalContext', () => ({
   })
 }));
 
+interface MockResponseActionsProps {
+  musicScaleId: string;
+  assignments: { userId: string; functionName: string; active: boolean }[];
+  eventStart: Date;
+  isBandScale?: boolean;
+}
+
 const mockAssignmentResponseActions = vi.fn();
 vi.mock('../../components/scales/AssignmentResponseActions', () => ({
-  default: (props: any) => {
+  default: (props: MockResponseActionsProps) => {
     mockAssignmentResponseActions(props);
     return <div data-testid="mock-response-actions">Response Actions</div>;
   }
@@ -348,5 +355,21 @@ describe('Dashboard Home Experience UI', () => {
     mockUseMusic.mockReturnValue({ populatedScales: scales, populatedBandScales: [], songs: [], loading: false });
     renderWithRouter(<DashboardPage />);
     expect(screen.getByText('Event 2')).toBeInTheDocument();
+  });
+
+  it('31. renderiza FirstScaleJourneyCard quando elegível', () => {
+    mockUseFirstScaleExperience.mockReturnValue({
+      isLoading: false, isEligible: true, isCompleted: false, currentEssentialStep: 'team'
+    });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByTestId('first-scale-journey')).toBeInTheDocument();
+  });
+
+  it('32. não renderiza FirstScaleJourneyCard quando não elegível', () => {
+    mockUseFirstScaleExperience.mockReturnValue({
+      isLoading: false, isEligible: false, isCompleted: false, currentEssentialStep: null
+    });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.queryByTestId('first-scale-journey')).not.toBeInTheDocument();
   });
 });

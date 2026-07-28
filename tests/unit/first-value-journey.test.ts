@@ -181,6 +181,14 @@ describe('evaluateFirstValueJourney', () => {
     expect(res.draftScale?.id).toBe('sc2');
   });
 
+  it('prova discriminatoria lastModifiedAt prioridade absoluta sobre createdAt e updatedAt', () => {
+    const song = createSong();
+    const scaleA: MinimalJourneyScale = { id: 'scaleA', status: 'draft', lastModifiedAt: 5000, createdAt: 1000, updatedAt: 1000 };
+    const scaleB: MinimalJourneyScale = { id: 'scaleB', status: 'draft', lastModifiedAt: 2000, createdAt: 9000, updatedAt: 9000 };
+    const res = evaluateFirstValueJourney({ ...baseInput, songs: [song], scales: [scaleA, scaleB] });
+    expect(res.draftScale?.id).toBe('scaleA');
+  });
+
   it('fallback para updatedAt', () => {
     const song = createSong();
     const scale1: MinimalJourneyScale = { id: 'sc1', status: 'draft', updatedAt: 3000 };
@@ -225,6 +233,11 @@ describe('evaluateFirstValueJourney', () => {
   it('Firestore toDate válido é suportado', () => {
     const ts = getJourneyTimestampValue({ toDate: () => new Date(6000) });
     expect(ts).toBe(6000);
+  });
+
+  it('toDate que retorna Date inválida resulta 0', () => {
+    const ts = getJourneyTimestampValue({ toDate: () => new Date('invalid') });
+    expect(ts).toBe(0);
   });
 
   it('toDate que lança resulta 0', () => {

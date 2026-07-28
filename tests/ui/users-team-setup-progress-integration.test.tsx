@@ -68,17 +68,22 @@ function createLocation(state: unknown, key = "location-1"): ReturnType<typeof u
     search: "",
     hash: "",
     state,
-    key
-  } as unknown as ReturnType<typeof useLocation>;
+    key,
+    unstable_mask: {
+      pathname: "/users",
+      search: "",
+      hash: ""
+    }
+  };
 }
 let mockLocation: ReturnType<typeof useLocation> = createLocation(null);
 
 // Setup Mocks
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
-    ...actual as typeof import('react-router-dom'),
+    ...actual,
     useNavigate: () => mockNavigate,
     useLocation: () => mockLocation
   };
@@ -697,6 +702,32 @@ describe('UsersPage Team Setup Integration', () => {
 
     expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
     expect(mockToastError).toHaveBeenCalledWith(pt.teamSetup.existingMember.members.emptyDescription);
+  });
+
+  it('32. state vazio é inválido e consumido', async () => {
+    mockLocation = createLocation({}, "empty-state-key");
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/users", { replace: true, state: null });
+    });
+
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
+    expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+    expect(mockToastError).not.toHaveBeenCalled();
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(screen.getByText("Sua equipe começa aqui")).toBeInTheDocument();
+  });
+
+  it('33. state null é ausente', async () => {
+    mockLocation = createLocation(null, "null-state-key");
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(screen.getByText("Sua equipe começa aqui")).toBeInTheDocument();
+    });
+
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
 });

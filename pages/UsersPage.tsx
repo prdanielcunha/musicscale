@@ -73,10 +73,6 @@ function parseTeamSetupNavigationState(state: unknown): TeamSetupIntentDecision 
   const origin = Reflect.get(state, "origin");
   const returnTo = Reflect.get(state, "returnTo");
 
-  if (intent === undefined && origin === undefined && returnTo === undefined) {
-    return { status: "absent" };
-  }
-
   if (intent !== 'add-members' && intent !== 'configure-existing') {
     return { status: "invalid" };
   }
@@ -1475,7 +1471,7 @@ const UsersPage: React.FC = () => {
   const { success: toastSuccess, error: toastError } = useToast();
   const managementSectionRef = useRef<HTMLDivElement>(null);
   const consumedIntentLocationKeyRef = useRef<string | null>(null);
-  const activeScrollTimerRef = useRef<any>(null);
+  const activeScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1715,8 +1711,9 @@ const UsersPage: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      if (activeScrollTimerRef.current) {
+      if (activeScrollTimerRef.current !== null) {
         clearTimeout(activeScrollTimerRef.current);
+        activeScrollTimerRef.current = null;
       }
     };
   }, []);
@@ -1765,8 +1762,9 @@ const UsersPage: React.FC = () => {
       setShowContextualGuide(true);
       setReturnToPath(returnTo);
 
-      if (activeScrollTimerRef.current) {
+      if (activeScrollTimerRef.current !== null) {
         clearTimeout(activeScrollTimerRef.current);
+        activeScrollTimerRef.current = null;
       }
 
       activeScrollTimerRef.current = setTimeout(() => {
@@ -1775,6 +1773,7 @@ const UsersPage: React.FC = () => {
           section.scrollIntoView({ behavior: "smooth", block: "start" });
           section.focus({ preventScroll: true });
         }
+        activeScrollTimerRef.current = null;
       }, 100);
     } else if (intent === "configure-existing") {
       setReturnToPath(returnTo);

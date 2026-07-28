@@ -8,6 +8,10 @@ import { BrowserRouter } from 'react-router-dom';
 import pt from '../../locales/pt.json';
 import en from '../../locales/en.json';
 import es from '../../locales/es.json';
+import { createInstance } from 'i18next';
+import { I18nextProvider, initReactI18next } from 'react-i18next';
+
+vi.unmock('react-i18next');
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -18,15 +22,30 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+const mockOpenModal = vi.fn();
+const mockCloseModal = vi.fn();
 vi.mock('../../contexts/ModalContext', () => ({
-  useModals: () => ({ openModal: vi.fn(), closeModal: vi.fn() })
+  useModals: () => ({ openModal: mockOpenModal, closeModal: mockCloseModal })
 }));
+
+type MotionDivProps = React.PropsWithChildren<
+  Pick<
+    React.HTMLAttributes<HTMLDivElement>,
+    | "className"
+    | "style"
+    | "onClick"
+  >
+>;
 
 vi.mock('motion/react', () => ({
   motion: {
-    div: ({ children, className, style, onClick }: React.PropsWithChildren<any>) => <div className={className} style={style} onClick={onClick}>{children}</div>
+    div: ({ children, className, style, onClick }: MotionDivProps) => (
+      <div className={className} style={style} onClick={onClick}>
+        {children}
+      </div>
+    )
   },
-  AnimatePresence: ({ children }: React.PropsWithChildren<any>) => <>{children}</>
+  AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>
 }));
 
 vi.mock('../../contexts/AuthContext', () => ({
@@ -47,9 +66,13 @@ vi.mock('../../contexts/MusicDataContext', () => ({
   useMusic: () => ({ songs: [], scales: [] })
 }));
 
+const mockHandleAction = vi.fn((action: string, fallback?: () => void) => {
+  if (fallback) fallback();
+});
+
 vi.mock('../../hooks/useFirstScaleExperience', () => ({
   useFirstScaleExperience: () => ({
-    handleAction: (action: string, fallback?: () => void) => { fallback && fallback(); },
+    handleAction: mockHandleAction,
     isLoading: false,
     error: null
   })
@@ -59,29 +82,33 @@ vi.mock('../../hooks/useCapability', () => ({
   useCapability: () => ({ hasCapability: () => true })
 }));
 
-let currentLang = 'pt';
-vi.mock('react-i18next', () => ({
-  useTranslation: () => {
-    return {
-      t: (key: string, variables: any) => {
-        const parts = key.split('.');
-        let obj: any = currentLang === 'pt' ? pt : currentLang === 'en' ? en : es;
-        for (const p of parts) {
-          if (obj) obj = obj[p];
-        }
-        
-        let val = obj || key;
-        if (typeof val === 'string' && variables) {
-           for (const k in variables) {
-              val = val.replace(`{{${k}}}`, variables[k]);
-           }
-        }
-        return val;
-      },
-      i18n: { language: currentLang }
-    };
-  }
-}));
+function renderWithI18n(ui: React.ReactElement, lang = 'pt') {
+  const i18nInstance = createInstance();
+  i18nInstance.use(initReactI18next).init({
+    lng: lang,
+    fallbackLng: 'pt',
+    resources: {
+      pt: { translation: pt },
+      en: { translation: en },
+      es: { translation: es }
+    },
+    interpolation: { escapeValue: false }
+  });
+  return {
+    ...render(
+      <BrowserRouter>
+        <I18nextProvider i18n={i18nInstance}>
+          {ui}
+        </I18nextProvider>
+      </BrowserRouter>
+    ),
+    i18n: i18nInstance
+  };
+}
+
+const renderWithRouter = (ui: React.ReactElement, lang = 'pt') => {
+  return renderWithI18n(ui, lang);
+};
 
 function createBaseOutput(overrides: Partial<FirstValueJourneyOutput> = {}): FirstValueJourneyOutput {
   return {
@@ -115,19 +142,13 @@ function createBaseOutput(overrides: Partial<FirstValueJourneyOutput> = {}): Fir
   };
 }
 
-const renderWithRouter = (ui: React.ReactElement) => {
-  return render(<BrowserRouter>{ui}</BrowserRouter>);
-};
-
 describe('FirstScaleJourneyCard - Team Step', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    currentLang = 'pt';
   });
 
   it('quatro marcos em PT', () => {
-    currentLang = 'pt';
-    renderWithRouter(<FirstScaleJourneyCard journey={createBaseOutput()} />);
+    renderWithRouter(<FirstScaleJourneyCard journey={createBaseOutput()} />, 'pt');
     expect(screen.getAllByText(pt.firstValueJourney.milestoneRepertoire).length).toBeGreaterThan(0);
     expect(screen.getAllByText(pt.firstValueJourney.milestoneFirstScale).length).toBeGreaterThan(0);
     expect(screen.getAllByText(pt.firstValueJourney.milestoneTeam).length).toBeGreaterThan(0);
@@ -135,8 +156,7 @@ describe('FirstScaleJourneyCard - Team Step', () => {
   });
 
   it('quatro marcos em EN', () => {
-    currentLang = 'en';
-    renderWithRouter(<FirstScaleJourneyCard journey={createBaseOutput()} />);
+    renderWithRouter(<FirstScaleJourneyCard journey={createBaseOutput()} />, 'en');
     expect(screen.getAllByText(en.firstValueJourney.milestoneRepertoire).length).toBeGreaterThan(0);
     expect(screen.getAllByText(en.firstValueJourney.milestoneFirstScale).length).toBeGreaterThan(0);
     expect(screen.getAllByText(en.firstValueJourney.milestoneTeam).length).toBeGreaterThan(0);
@@ -144,8 +164,7 @@ describe('FirstScaleJourneyCard - Team Step', () => {
   });
 
   it('quatro marcos em ES', () => {
-    currentLang = 'es';
-    renderWithRouter(<FirstScaleJourneyCard journey={createBaseOutput()} />);
+    renderWithRouter(<FirstScaleJourneyCard journey={createBaseOutput()} />, 'es');
     expect(screen.getAllByText(es.firstValueJourney.milestoneRepertoire).length).toBeGreaterThan(0);
     expect(screen.getAllByText(es.firstValueJourney.milestoneFirstScale).length).toBeGreaterThan(0);
     expect(screen.getAllByText(es.firstValueJourney.milestoneTeam).length).toBeGreaterThan(0);
@@ -205,7 +224,7 @@ describe('FirstScaleJourneyCard - Team Step', () => {
     expect(screen.queryByText(pt.firstValueJourney.prepareTeamAction)).not.toBeInTheDocument();
   });
 
-  it('milestone Team aparece optional', () => {
+  it('milestone Team aparece optional em PT', () => {
     const milestones: FirstValueJourneyMilestone[] = [
       { id: 'repertoire', status: 'completed' },
       { id: 'firstScale', status: 'completed' },
@@ -213,12 +232,53 @@ describe('FirstScaleJourneyCard - Team Step', () => {
       { id: 'publish', status: 'current' }
     ];
     const output = createBaseOutput({ milestones });
-    const { container } = renderWithRouter(<FirstScaleJourneyCard journey={output} />);
+    const { container } = renderWithRouter(<FirstScaleJourneyCard journey={output} />, 'pt');
     
     const teamMilestone = container.querySelector('[data-status="optional"]');
     expect(teamMilestone).toBeInTheDocument();
+    expect(teamMilestone?.getAttribute('aria-label')).toBe('Equipe (Opcional)');
     
-    expect(screen.getAllByText(pt.firstValueJourney.milestoneTeam).length).toBeGreaterThan(0);
+    const optionalLabels = container.querySelectorAll('[data-milestone-optional="true"]');
+    expect(optionalLabels.length).toBeGreaterThan(0);
+    expect(optionalLabels[0]).toHaveTextContent('Opcional');
+  });
+
+  it('milestone Team aparece optional em EN', () => {
+    const milestones: FirstValueJourneyMilestone[] = [
+      { id: 'repertoire', status: 'completed' },
+      { id: 'firstScale', status: 'completed' },
+      { id: 'team', status: 'optional' },
+      { id: 'publish', status: 'current' }
+    ];
+    const output = createBaseOutput({ milestones });
+    const { container } = renderWithRouter(<FirstScaleJourneyCard journey={output} />, 'en');
+    
+    const teamMilestone = container.querySelector('[data-status="optional"]');
+    expect(teamMilestone).toBeInTheDocument();
+    expect(teamMilestone?.getAttribute('aria-label')).toBe('Team (Optional)');
+    
+    const optionalLabels = container.querySelectorAll('[data-milestone-optional="true"]');
+    expect(optionalLabels.length).toBeGreaterThan(0);
+    expect(optionalLabels[0]).toHaveTextContent('Optional');
+  });
+
+  it('milestone Team aparece optional em ES', () => {
+    const milestones: FirstValueJourneyMilestone[] = [
+      { id: 'repertoire', status: 'completed' },
+      { id: 'firstScale', status: 'completed' },
+      { id: 'team', status: 'optional' },
+      { id: 'publish', status: 'current' }
+    ];
+    const output = createBaseOutput({ milestones });
+    const { container } = renderWithRouter(<FirstScaleJourneyCard journey={output} />, 'es');
+    
+    const teamMilestone = container.querySelector('[data-status="optional"]');
+    expect(teamMilestone).toBeInTheDocument();
+    expect(teamMilestone?.getAttribute('aria-label')).toBe('Equipo (Opcional)');
+    
+    const optionalLabels = container.querySelectorAll('[data-milestone-optional="true"]');
+    expect(optionalLabels.length).toBeGreaterThan(0);
+    expect(optionalLabels[0]).toHaveTextContent('Opcional');
   });
 
   it('adicionar pessoas envia state correto', () => {
@@ -264,13 +324,19 @@ describe('FirstScaleJourneyCard - Team Step', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/scales');
   });
 
-  it('continuar sem equipe não chama API', () => {
+  it('continuar sem equipe tem um único efeito público (abrir fluxo da escala)', () => {
+    mockNavigate.mockClear();
+    mockOpenModal.mockClear();
+    mockCloseModal.mockClear();
+
     renderWithRouter(<FirstScaleJourneyCard journey={createBaseOutput({ teamState: 'empty' })} />);
+    
     fireEvent.click(screen.getByText(pt.firstValueJourney.continueWithoutTeamAction));
     
-    expect(mockNavigate).toHaveBeenCalled();
-    expect(mockApi.updateUser).not.toHaveBeenCalled();
-    expect(mockApi.updateScale).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledOnce();
+    expect(mockNavigate).toHaveBeenCalledWith('/scales/draft-1');
+    expect(mockOpenModal).not.toHaveBeenCalled();
+    expect(mockCloseModal).not.toHaveBeenCalled();
   });
 
   it('publicação sem equipe mostra aviso', () => {
@@ -307,15 +373,34 @@ describe('FirstScaleJourneyCard - Team Step', () => {
     expect(screen.queryByText(pt.firstValueJourney.publishWithPendingWarning)).not.toBeInTheDocument();
   });
 
-  it('somente uma ação principal', () => {
-    renderWithRouter(<FirstScaleJourneyCard journey={createBaseOutput({ teamState: 'empty' })} />);
-    
-    const primaryBtn = screen.getByText(pt.firstValueJourney.addTeamAction);
-    expect(primaryBtn.className).toContain('bg-white');
-    expect(primaryBtn.className).toContain('text-zinc-900');
-    
-    const secondaryBtn = screen.getByText(pt.firstValueJourney.continueWithoutTeamAction);
-    expect(secondaryBtn.className).not.toContain('bg-white text-zinc-900');
+  it('exatamente uma ação principal para cada estado relevante', () => {
+    const states = [
+      { currentEssentialStep: 'repertoire' as const, teamState: 'empty' as const },
+      { currentEssentialStep: 'firstScale' as const, teamState: 'empty' as const },
+      { currentEssentialStep: 'team' as const, teamState: 'empty' as const },
+      { currentEssentialStep: 'team' as const, teamState: 'incomplete' as const },
+      { currentEssentialStep: 'publish' as const, teamState: 'empty' as const }
+    ];
+
+    for (const s of states) {
+      const output = createBaseOutput({
+        currentEssentialStep: s.currentEssentialStep,
+        teamState: s.teamState
+      });
+      const { container } = renderWithRouter(<FirstScaleJourneyCard journey={output} />);
+      const primaryActions = container.querySelectorAll('[data-primary-action="true"]');
+      expect(primaryActions).toHaveLength(1);
+
+      const action = primaryActions[0];
+      expect(action.tagName.toLowerCase()).toBe('button');
+      
+      expect(action).toHaveAccessibleName();
+
+      if (s.currentEssentialStep === 'team' && s.teamState === 'empty') {
+        const secondary = screen.getByText(pt.firstValueJourney.continueWithoutTeamAction);
+        expect(secondary.getAttribute('data-primary-action')).toBeNull();
+      }
+    }
   });
 
   it('nomes acessíveis', () => {
@@ -324,17 +409,58 @@ describe('FirstScaleJourneyCard - Team Step', () => {
     expect(btn).toBeInTheDocument();
   });
 
-  it('navegação por teclado', async () => {
+  it('navegação por teclado com Enter na ação principal', async () => {
     const user = userEvent.setup();
     renderWithRouter(<FirstScaleJourneyCard journey={createBaseOutput({ teamState: 'empty' })} />);
     
     const primaryBtn = screen.getByRole('button', { name: pt.firstValueJourney.addTeamAction });
     
-    primaryBtn.focus();
+    let focused = false;
+    for (let i = 0; i < 15; i++) {
+      await user.tab();
+      if (document.activeElement === primaryBtn) {
+        focused = true;
+        break;
+      }
+    }
+    expect(focused).toBe(true);
     expect(primaryBtn).toHaveFocus();
     
     await user.keyboard('{Enter}');
-    expect(mockNavigate).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('/users', {
+      state: {
+        teamSetupIntent: 'add-members',
+        origin: 'first-value-journey',
+        returnTo: '/'
+      }
+    });
+  });
+
+  it('navegação por teclado com Space na ação principal', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<FirstScaleJourneyCard journey={createBaseOutput({ teamState: 'empty' })} />);
+    
+    const primaryBtn = screen.getByRole('button', { name: pt.firstValueJourney.addTeamAction });
+    
+    let focused = false;
+    for (let i = 0; i < 15; i++) {
+      await user.tab();
+      if (document.activeElement === primaryBtn) {
+        focused = true;
+        break;
+      }
+    }
+    expect(focused).toBe(true);
+    expect(primaryBtn).toHaveFocus();
+    
+    await user.keyboard(' ');
+    expect(mockNavigate).toHaveBeenCalledWith('/users', {
+      state: {
+        teamSetupIntent: 'add-members',
+        origin: 'first-value-journey',
+        returnTo: '/'
+      }
+    });
   });
 
   it('quatro colunas não eliminam labels', () => {
