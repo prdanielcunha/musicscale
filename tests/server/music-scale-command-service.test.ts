@@ -2,10 +2,28 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MusicScaleCommandService } from '../../services/server/scale/musicScaleCommandService';
 import { IdempotencyService } from '../../services/server/bandScale/idempotencyService';
 
+// Strict Two-Phase Transaction Emulator
+let writeHappened = false;
+
 const mockTransaction = {
-  get: vi.fn(),
-  set: vi.fn(),
-  update: vi.fn()
+  get: vi.fn().mockImplementation((ref) => {
+    if (writeHappened) {
+      throw new Error("Firestore read-after-write violation: Cannot read after a write has been performed in a transaction.");
+    }
+    return Promise.resolve({ exists: false });
+  }),
+  set: vi.fn().mockImplementation((ref, data) => {
+    writeHappened = true;
+    return mockTransaction;
+  }),
+  update: vi.fn().mockImplementation((ref, data) => {
+    writeHappened = true;
+    return mockTransaction;
+  }),
+  delete: vi.fn().mockImplementation((ref) => {
+    writeHappened = true;
+    return mockTransaction;
+  })
 };
 
 const makeMockDoc = () => {
@@ -28,7 +46,8 @@ const makeMockDoc = () => {
 };
 
 const mockResponsesQuery = {
-  where: vi.fn().mockReturnThis()
+  where: vi.fn().mockReturnThis(),
+  doc: vi.fn().mockImplementation(makeMockDoc)
 };
 
 const mockScaleDocRef = makeMockDoc();
@@ -68,14 +87,15 @@ vi.mock('firebase-admin/firestore', () => ({
 describe('MusicScaleCommandService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    writeHappened = false; // Reset the transaction tracker for each test
   });
 
   it('re-uses idempotency key', async () => {
-    
     const idempotencyDoc = {
       exists: true,
       data: () => ({ 
         status: 'completed', 
+        entityId: 'scale-1',
         requestFingerprint: IdempotencyService.getRequestFingerprint({ bandScaleId: null }),
         result: { version: 1, fromCache: true } 
       })
@@ -98,16 +118,11 @@ describe('MusicScaleCommandService', () => {
   });
 
   it('atomically deactivates previous active responses and applies patch on republish', async () => {
-    // 1. First get is the idempotency key check (does not exist)
     const idempotencyDoc = { exists: false };
-    
-    // 2. Second get is the caller membership check
     const membershipDoc = {
       exists: true,
       data: () => ({ name: 'Membro Teste' })
     };
-
-    // 3. Third get is the scale document
     const scaleDoc = {
       exists: true,
       data: () => ({
@@ -119,17 +134,9 @@ describe('MusicScaleCommandService', () => {
         songIds: ['song-1']
       })
     };
-
-    // 4. Fourth get inside republication is responses query
-    const oldResponseDoc1 = {
-      ref: { id: 'resp-1' }
-    };
-    const oldResponseDoc2 = {
-      ref: { id: 'resp-2' }
-    };
-    const responsesSnap = {
-      docs: [oldResponseDoc1, oldResponseDoc2]
-    };
+    const oldResponseDoc1 = { ref: { id: 'resp-1' } };
+    const oldResponseDoc2 = { ref: { id: 'resp-2' } };
+    const responsesSnap = { docs: [oldResponseDoc1, oldResponseDoc2] };
 
     mockTransaction.get
       .mockResolvedValueOnce(idempotencyDoc) // idempotency check
@@ -156,10 +163,8 @@ describe('MusicScaleCommandService', () => {
     expect(result.fromCache).toBe(false);
     expect(result.version).toBe(2);
 
-    // Verify that the responses were queried
     expect(mockResponsesQuery.where).toHaveBeenCalledWith('active', '==', true);
 
-    // Verify that both old responses were deactivated
     expect(mockTransaction.update).toHaveBeenCalledWith(oldResponseDoc1.ref, {
       active: false,
       updatedAt: 'server-timestamp'
@@ -169,12 +174,149 @@ describe('MusicScaleCommandService', () => {
       updatedAt: 'server-timestamp'
     });
 
-    // Verify that the scale document was updated with the patch
     expect(mockTransaction.update).toHaveBeenCalledWith(mockScaleDocRef, expect.objectContaining({
       status: 'published',
       publishRevision: 2,
       time: '20:00',
       observations: 'Mudança de horário'
     }));
+  });
+
+  it('rejects idempotency key if entityId is different', async () => {
+    const idempotencyDoc = {
+      exists: true,
+      data: () => ({ 
+        status: 'completed', 
+        entityId: 'another-scale-id',
+        requestFingerprint: IdempotencyService.getRequestFingerprint({ bandScaleId: null }),
+        result: { version: 1 } 
+      })
+    };
+    
+    mockTransaction.get.mockResolvedValueOnce(idempotencyDoc);
+
+    await expect(MusicScaleCommandService.publishMusicScale({
+      authUid: 'u1',
+      orgId: 'org-1',
+      musicScaleId: 'scale-1',
+      idempotencyKey: 'test-idemp',
+      payload: { bandScaleId: null },
+      correlationId: 'test-idemp'
+    })).rejects.toThrow("Este recibo pertence à outra escala (another-scale-id).");
+  });
+
+  it('throws validation error if scalePatch contains unauthorized keys', async () => {
+    await expect(MusicScaleCommandService.publishMusicScale({
+      authUid: 'u1',
+      orgId: 'org-1',
+      musicScaleId: 'scale-1',
+      idempotencyKey: 'test-idemp',
+      payload: {
+        scalePatch: {
+          organizationId: 'malicious-org-inject',
+          status: 'completed'
+        }
+      } as any,
+      correlationId: 'test-idemp'
+    })).rejects.toThrow("Campo não permitido no scalePatch: organizationId");
+  });
+
+  it('throws tenant scope mismatch error if scale belongs to another organization', async () => {
+    const idempotencyDoc = { exists: false };
+    const membershipDoc = { exists: true, data: () => ({ name: 'Membro Teste' }) };
+    const scaleDoc = {
+      exists: true,
+      data: () => ({
+        organizationId: 'different-org-id',
+        status: 'draft',
+        publishRevision: 0,
+        date: '2026-07-28',
+        songIds: ['song-1']
+      })
+    };
+
+    mockTransaction.get
+      .mockResolvedValueOnce(idempotencyDoc)
+      .mockResolvedValueOnce(membershipDoc)
+      .mockResolvedValueOnce(scaleDoc);
+
+    await expect(MusicScaleCommandService.publishMusicScale({
+      authUid: 'u1',
+      orgId: 'my-real-org',
+      musicScaleId: 'scale-1',
+      idempotencyKey: 'test-idemp',
+      payload: { bandScaleId: null },
+      correlationId: 'test-idemp'
+    })).rejects.toThrow("Acesso negado: a escala não pertence a esta organização.");
+  });
+
+  it('successfully binds bandScale and updates bidirectional links atomically', async () => {
+    const idempotencyDoc = { exists: false };
+    const membershipDoc = { exists: true, data: () => ({ name: 'Membro Teste' }) };
+    const scaleDoc = {
+      exists: true,
+      data: () => ({
+        organizationId: 'org-1',
+        status: 'draft',
+        publishRevision: 0,
+        date: '2026-07-28',
+        songIds: ['song-1'],
+        bandScaleId: null
+      })
+    };
+
+    const bandScaleDoc = {
+      exists: true,
+      data: () => ({
+        organizationId: 'org-1',
+        assignments: [
+          { userId: 'user-1', instrumentId: 'inst-1', active: true, assignmentId: 'assign-1' }
+        ],
+        musicScaleId: null
+      })
+    };
+
+    const instrumentSnap = {
+      docs: [
+        { id: 'inst-1', data: () => ({ name: 'Guitarra', category: 'Instrumento', organizationId: 'org-1' }) }
+      ]
+    };
+
+    const membersSnap = {
+      docs: [
+        { id: 'user-1', data: () => ({ name: 'Guitarrista', status: 'active' }) }
+      ]
+    };
+
+    const crossMembersSnap = { docs: [] };
+    const orgSnap = { exists: true, data: () => ({ ownerUid: 'owner-1' }) };
+
+    mockTransaction.get
+      .mockResolvedValueOnce(idempotencyDoc)
+      .mockResolvedValueOnce(membershipDoc)
+      .mockResolvedValueOnce(scaleDoc)
+      .mockResolvedValueOnce(bandScaleDoc) // for resolvedBandScaleId
+      .mockResolvedValueOnce(instrumentSnap)
+      .mockResolvedValueOnce(membersSnap)
+      .mockResolvedValueOnce(crossMembersSnap)
+      .mockResolvedValueOnce(orgSnap);
+
+    const result = await MusicScaleCommandService.publishMusicScale({
+      authUid: 'u1',
+      orgId: 'org-1',
+      musicScaleId: 'scale-1',
+      idempotencyKey: 'new-idemp-key',
+      payload: { bandScaleId: 'band-scale-1' },
+      correlationId: 'new-correlation'
+    });
+
+    expect(result.version).toBe(1);
+    expect(result.eventAssignmentCount).toBe(1);
+
+    // Verify bidirectional link updates are in progress atomically
+    expect(mockTransaction.update).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'test-doc-id' }), // represents bandScaleRef doc
+      expect.objectContaining({ musicScaleId: 'scale-1' })
+    );
   });
 });

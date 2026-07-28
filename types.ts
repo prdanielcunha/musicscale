@@ -391,6 +391,7 @@ export interface ScaleSongSettings {
 
 export interface Scale {
   id: string;
+  organizationId?: string;
   date: string; // ISO date string YYYY-MM-DD
   time?: string; // Optional time string HH:mm
   arrivalDate?: string;
@@ -414,6 +415,24 @@ export interface Scale {
   lastModifiedAt?: string | null;
 }
 
+export interface MusicScalePublishPatch {
+  date?: string;
+  time?: string | null;
+  eventTypeId?: string;
+  locationId?: string;
+  eventNameId?: string | null;
+  observations?: string;
+  songIds?: string[];
+  songSettings?: Record<string, ScaleSongSettings>;
+  durationMinutes?: number;
+  bandScaleId?: string | null;
+}
+
+export interface MusicScalePublishPayload {
+  bandScaleId?: string | null;
+  scalePatch?: MusicScalePublishPatch;
+}
+
 export interface BandMember {
   userId: string;
   instrumentId: string;
@@ -421,6 +440,7 @@ export interface BandMember {
 
 export interface BandScale {
   id: string;
+  organizationId?: string;
   date?: string; // ISO date string YYYY-MM-DD
   time?: string; // Optional time string HH:mm
   observations?: string;

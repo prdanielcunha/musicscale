@@ -33,8 +33,22 @@ export class IdempotencyService {
    * Generates a request fingerprint to ensure that if the same key is used with different payloads,
    * a conflict is returned.
    */
+  static getDeterministicString(obj: any): string {
+    if (obj === null) return "null";
+    if (obj === undefined) return "undefined";
+    if (Array.isArray(obj)) {
+      return "[" + obj.map(item => IdempotencyService.getDeterministicString(item)).join(",") + "]";
+    }
+    if (typeof obj === "object") {
+      const keys = Object.keys(obj).sort();
+      const parts = keys.map(k => `"${k}":${IdempotencyService.getDeterministicString(obj[k])}`);
+      return "{" + parts.join(",") + "}";
+    }
+    return JSON.stringify(obj);
+  }
+
   static getRequestFingerprint(payload: any): string {
-    const serialized = JSON.stringify(payload);
+    const serialized = IdempotencyService.getDeterministicString(payload);
     return crypto.createHash("sha256").update(serialized).digest("hex");
   }
 

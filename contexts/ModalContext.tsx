@@ -493,7 +493,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             const isUpdate = 'id' in scaleData && !!scaleData.id && scaleData.id !== 'CLONE';
             
             // Preserve the original status so we don't accidentally downgrade published scales to draft
-            const currentStatus = isUpdate ? (scaleToEdit as any)?.status || "draft" : "draft";
+            const currentStatus = isUpdate && scaleToEdit && 'status' in scaleToEdit ? (scaleToEdit as Scale).status || "draft" : "draft";
             const updateData = { ...scaleData, status: currentStatus };
             
             if (isPublishIntent) {
@@ -510,7 +510,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                     idempotencyKey = crypto.randomUUID();
                 }
 
-                const bandScaleId = (scaleData as any).bandScaleId || null;
+                const bandScaleId = 'bandScaleId' in scaleData ? scaleData.bandScaleId || null : null;
                 const scalePatch = {
                     date: scaleData.date,
                     time: scaleData.time || null,
@@ -559,8 +559,11 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                     closeAllModals();
                     await refreshData();
                     return { status: "published", scaleId: musicScaleId, version: publishResult.version };
-                } catch (publishErr: any) {
+                } catch (publishErr: unknown) {
                     logger.error("Failed to publish scale via command", publishErr);
+                    
+                    const errorObj = publishErr as Record<string, unknown> | null;
+                    const correlationId = errorObj && typeof errorObj.correlationId === 'string' ? errorObj.correlationId : undefined;
                     
                     const isPublishedPreserved = currentStatus === "published";
                     const errorDescription = isPublishedPreserved 
@@ -580,14 +583,14 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                             status: "republish-failed", 
                             scaleId: musicScaleId, 
                             publishedPreserved: true, 
-                            correlationId: publishErr.correlationId 
+                            correlationId: correlationId 
                         };
                     } else {
                         return { 
                             status: "publish-failed", 
                             scaleId: musicScaleId, 
                             draftPreserved: true, 
-                            correlationId: publishErr.correlationId 
+                            correlationId: correlationId 
                         };
                     }
                 }
@@ -600,7 +603,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                     setScaleToEdit({ ...updateData, id: musicScaleId } as Scale);
                 }
 
-                const bandScaleId = (scaleData as any).bandScaleId || null;
+                const bandScaleId = 'bandScaleId' in scaleData ? scaleData.bandScaleId || null : null;
                 if (bandScaleId) {
                     await api.linkScales(musicScaleId, bandScaleId);
                 }
@@ -621,7 +624,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
              
              let bandScaleId: string;
              const isUpdate = 'id' in scaleData && scaleData.id && scaleData.id !== 'CLONE';
-             const oldScale = isUpdate ? bandScales.find(b => b.id === (scaleData as any).id) : null;
+             const oldScale = isUpdate && 'id' in scaleData ? bandScales.find(b => b.id === scaleData.id) : null;
              
              console.info('[BandScale Save Path] => ' + JSON.stringify({
                  organizationId: organization?.id,
@@ -634,7 +637,9 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                      idempotencyKey = crypto.randomUUID(); // Fallback if not provided
                  }
                  if (isUpdate && oldScale) {
-                     const expectedVersion = (oldScale as any).version || 1;
+                     const expectedVersion = typeof (oldScale as unknown as Record<string, unknown>).version === 'number' 
+                         ? ((oldScale as unknown as Record<string, unknown>).version as number) 
+                         : 1;
                      const result = await api.bandScaleCommands.update(scaleData.id as string, expectedVersion, scaleData, idempotencyKey);
                      bandScaleId = result.scaleId || scaleData.id;
                  } else {
