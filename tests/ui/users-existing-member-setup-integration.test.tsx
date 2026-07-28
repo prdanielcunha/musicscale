@@ -9,6 +9,25 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import * as roleHierarchy from '../../utils/roleHierarchy';
 import type { RoleChangeContext } from '../../utils/roleHierarchy';
+import { useLocation } from 'react-router-dom';
+
+function createLocation(
+  state: unknown,
+  key: string
+): ReturnType<typeof useLocation> {
+  return {
+    pathname: "/users",
+    search: "",
+    hash: "",
+    state,
+    key,
+    unstable_mask: {
+      pathname: "/users",
+      search: "",
+      hash: ""
+    }
+  };
+}
 
 vi.unmock('react-i18next');
 i18n
@@ -46,7 +65,7 @@ const mockInstruments: Instrument[] = [
 
 let mockUsers: UserProfile[] = [];
 const mockNavigate = vi.fn();
-let mockLocation: ReturnType<typeof import('react-router-dom').useLocation> | null = null;
+let mockLocation: ReturnType<typeof useLocation> | null = null;
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<
     typeof import(
@@ -58,7 +77,7 @@ vi.mock('react-router-dom', async () => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
-    useLocation: (): ReturnType<typeof import('react-router-dom').useLocation> => mockLocation || ({
+    useLocation: (): ReturnType<typeof useLocation> => mockLocation || ({
       pathname: "/users",
       search: "",
       hash: "",
@@ -135,7 +154,7 @@ vi.mock('../../hooks/useMusicScaleEntitlements', () => ({
 
 const mockAddToast = vi.fn();
 vi.mock('../../contexts/ToastContext', () => ({
-  useToast: () => ({ success: mockAddToast, error: vi.fn(), toast: vi.fn() })
+  useToast: () => ({ success: mockAddToast, error: mockAddToast, toast: vi.fn() })
 }));
 
 vi.mock('../../hooks/useEcosystemAdmin', () => ({
@@ -756,86 +775,71 @@ describe('UsersPage Integration ExistingMemberSetup', () => {
   });
 
   it('41. intent configure-existing é consumida apenas uma vez', async () => {
-    const createLocation = (state: any, key: string) => ({
-      pathname: "/users",
-      search: "",
-      hash: "",
-      state,
-      key,
-      unstable_mask: {
-        pathname: "/users",
-        search: "",
-        hash: ""
-      }
-    });
-
     mockUsers = [
       createProfile({ uid: 'current-user-123', displayName: 'Current', roleId: 'r_member' }),
       createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })
     ];
 
-    mockLocation = createLocation({
+    const intent = {
       teamSetupIntent: 'configure-existing',
       origin: 'first-value-journey',
       returnTo: '/'
-    }, 'key-consume-once') as any;
+    };
+
+    mockLocation = createLocation(intent, 'configure-key-a');
 
     const { rerender } = render(<UsersPage />);
-    await waitFor(() => expect(screen.getByText(/Equipe e Permissões/i)).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByText(pt.teamSetup.existingMember.steps.choosePerson)).toBeInTheDocument();
+    });
 
-    expect(screen.getByText(pt.teamSetup.existingMember.steps.choosePerson)).toBeInTheDocument();
+    expect(mockNavigate).toHaveBeenCalledWith("/users", { replace: true, state: null });
+    mockNavigate.mockClear();
 
-    fireEvent.click(screen.getByText('Close modal'));
+    const closeBtn = screen.getByRole('button', { name: "Close modal" });
+    fireEvent.click(closeBtn);
 
     await waitFor(() => {
       expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
     });
 
-    mockLocation = createLocation(null, 'key-consume-once') as any;
+    mockLocation = createLocation(intent, 'configure-key-a');
 
     rerender(<UsersPage />);
     expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
-  });
+    expect(mockNavigate).not.toHaveBeenCalled();
 
-  it('42. estados inválidos ou sem permissão limpam state e não realizam mutações', async () => {
-    const createLocation = (state: any, key: string) => ({
-      pathname: "/users",
-      search: "",
-      hash: "",
-      state,
-      key,
-      unstable_mask: {
-        pathname: "/users",
-        search: "",
-        hash: ""
-      }
+    mockLocation = createLocation(intent, 'configure-key-b');
+
+    rerender(<UsersPage />);
+    await waitFor(() => {
+      expect(screen.getByText(pt.teamSetup.existingMember.steps.choosePerson)).toBeInTheDocument();
     });
 
-    mockLocation = createLocation({
-      teamSetupIntent: 'invalid-intent-999' as any,
-      origin: 'first-value-journey',
-      returnTo: '/'
-    }, 'key-invalid') as any;
-
-    const { rerender } = render(<UsersPage />);
-    await waitFor(() => expect(screen.getByText(/Equipe e Permissões/i)).toBeInTheDocument());
-
-    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
     expect(mockNavigate).toHaveBeenCalledWith("/users", { replace: true, state: null });
-
     expect(mockUsersUpdate).not.toHaveBeenCalled();
     expect(mockUsersUpdateMany).not.toHaveBeenCalled();
+  });
 
+  it('42. intent inválido limpa state e não realiza mutações', async () => {
+    mockUsers = [
+      createProfile({ uid: 'current-user-123', displayName: 'Current', roleId: 'r_member' })
+    ];
     mockNavigate.mockClear();
-    mockLocation = createLocation({
-      teamSetupIntent: 'configure-existing',
-      origin: 'first-value-journey',
-      returnTo: '/'
-    }, 'key-unauthorized') as any;
+    mockUsersUpdate.mockClear();
+    mockUsersUpdateMany.mockClear();
+    mockAddToast.mockClear();
 
-    mockHasCapability.mockImplementation((c) => c !== 'musicscale.members.manage');
+    const intent = {
+      teamSetupIntent: "invalid-intent-999",
+      origin: "first-value-journey",
+      returnTo: "/"
+    };
 
-    rerender(<UsersPage />);
+    mockLocation = createLocation(intent, 'key-invalid');
+
+    render(<UsersPage />);
+
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith("/users", { replace: true, state: null });
     });
@@ -843,6 +847,59 @@ describe('UsersPage Integration ExistingMemberSetup', () => {
     expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
     expect(mockUsersUpdate).not.toHaveBeenCalled();
     expect(mockUsersUpdateMany).not.toHaveBeenCalled();
+    expect(mockAddToast).not.toHaveBeenCalled();
+  });
+
+  it('43. intent válido sem capability limpa state e não realiza mutações', async () => {
+    mockUsers = [
+      createProfile({ uid: 'current-user-123', displayName: 'Current', roleId: 'r_member' })
+    ];
+    mockNavigate.mockClear();
+    mockUsersUpdate.mockClear();
+    mockUsersUpdateMany.mockClear();
+    mockAddToast.mockClear();
+
+    mockHasCapability.mockImplementation((c) => c !== 'musicscale.members.manage');
+
+    const intent = {
+      teamSetupIntent: 'configure-existing',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    };
+
+    mockLocation = createLocation(intent, 'key-unauthorized');
+
+    render(<UsersPage />);
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/users", { replace: true, state: null });
+    });
+
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
+    expect(mockUsersUpdate).not.toHaveBeenCalled();
+    expect(mockUsersUpdateMany).not.toHaveBeenCalled();
+    expect(mockAddToast).toHaveBeenCalledWith(pt.users.unauthorizedIntent);
+
+    mockHasCapability.mockImplementation(() => true);
+  });
+
+  it('44. montagem padrão sem intent mantém state intacto e não força abertura', async () => {
+    mockUsers = [
+      createProfile({ uid: 'current-user-123', displayName: 'Current', roleId: 'r_member' })
+    ];
+    mockNavigate.mockClear();
+    mockUsersUpdate.mockClear();
+    mockUsersUpdateMany.mockClear();
+    mockAddToast.mockClear();
+
+    mockLocation = null;
+
+    render(<UsersPage />);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
   });
 
 });
