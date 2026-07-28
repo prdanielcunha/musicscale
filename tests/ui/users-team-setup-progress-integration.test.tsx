@@ -62,6 +62,17 @@ const adminRole: Role = {
 
 let mockUsers: UserProfile[] = [];
 
+function createLocation(state: unknown, key = "location-1"): ReturnType<typeof useLocation> {
+  return {
+    pathname: "/users",
+    search: "",
+    hash: "",
+    state,
+    key
+  } as unknown as ReturnType<typeof useLocation>;
+}
+let mockLocation: ReturnType<typeof useLocation> = createLocation(null);
+
 // Setup Mocks
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -69,7 +80,7 @@ vi.mock('react-router-dom', async () => {
   return {
     ...actual as typeof import('react-router-dom'),
     useNavigate: () => mockNavigate,
-    useLocation: vi.fn().mockReturnValue({ state: {}, pathname: '/users' })
+    useLocation: () => mockLocation
   };
 });
 
@@ -110,10 +121,27 @@ vi.mock('../../contexts/AuthContext', () => ({
   useLimits: () => ({ limits: {}, usage: {} })
 }));
 
+let mockMusicRoles: Role[] = [adminRole];
+let mockMusicLoading = false;
+
 vi.mock('../../contexts/MusicDataContext', () => ({
   useMusic: () => ({
-    roles: [adminRole],
-    instruments: []
+    songs: [],
+    scales: [],
+    populatedScales: [],
+    bandScales: [],
+    populatedBandScales: [],
+    eventTypes: [],
+    locations: [],
+    eventNames: [],
+    tags: [],
+    roles: mockMusicRoles,
+    instruments: [],
+    allUsers: [],
+    fixedBandScales: [],
+    loading: mockMusicLoading,
+    error: null,
+    refreshData: async () => {}
   })
 }));
 
@@ -164,6 +192,9 @@ describe('UsersPage Team Setup Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockJoinRequests = [];
+    mockLocation = createLocation(null);
+    mockMusicRoles = [adminRole];
+    mockMusicLoading = false;
     mockUsers = [
       createProfile({ uid: 'current-user-123' })
     ];
@@ -408,8 +439,11 @@ describe('UsersPage Team Setup Integration', () => {
       createProfile({ uid: 'another-user-456' })
     ];
     mockUsersList.mockImplementation(async () => mockUsers);
-    const mockUseLocation = { state: { teamSetupIntent: 'configure-existing', origin: 'first-value-journey', returnTo: '/' }, pathname: '/users', key: 'default', search: '', hash: '' } as unknown as ReturnType<typeof useLocation>;
-    vi.mocked(useLocation).mockReturnValue(mockUseLocation);
+    mockLocation = createLocation({
+      teamSetupIntent: 'configure-existing',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-17');
 
     render(<UsersPage />);
     await waitFor(() => {
@@ -420,8 +454,11 @@ describe('UsersPage Team Setup Integration', () => {
   });
 
   it('18. intent add-members abre modo contextual e limpa state', async () => {
-    const mockUseLocation = { state: { teamSetupIntent: 'add-members', origin: 'first-value-journey', returnTo: '/' }, pathname: '/users', key: 'default', search: '', hash: '' } as unknown as ReturnType<typeof useLocation>;
-    vi.mocked(useLocation).mockReturnValue(mockUseLocation);
+    mockLocation = createLocation({
+      teamSetupIntent: 'add-members',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-18');
 
     render(<UsersPage />);
     await waitFor(() => {
@@ -433,9 +470,11 @@ describe('UsersPage Team Setup Integration', () => {
 
   it('19. intent add-members rejeitado por falta de permissão limpa state e mostra toast', async () => {
     mockHasCapability.mockReturnValue(false);
-    const mockUseLocation = { state: { teamSetupIntent: 'add-members', origin: 'first-value-journey', returnTo: '/' }, pathname: '/users', key: 'default', search: '', hash: '' } as unknown as ReturnType<typeof useLocation>;
-    vi.mocked(useLocation).mockReturnValue(mockUseLocation);
-    // mockToast error is checked using a spy
+    mockLocation = createLocation({
+      teamSetupIntent: 'add-members',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-19');
 
     render(<UsersPage />);
     await waitFor(() => {
@@ -446,29 +485,218 @@ describe('UsersPage Team Setup Integration', () => {
     expect(screen.queryByText("Adicionar pessoas à equipe")).not.toBeInTheDocument();
   });
 
-  it('20. intent desconhecido não altera o estado do componente (navigation state é ignorado)', async () => {
-    const mockUseLocation = { state: { teamSetupIntent: 'unknown', origin: 'first-value-journey', returnTo: '/' }, pathname: '/users', key: 'default', search: '', hash: '' } as unknown as ReturnType<typeof useLocation>;
-    vi.mocked(useLocation).mockReturnValue(mockUseLocation);
+  it('20. intent desconhecido consome o state', async () => {
+    mockLocation = createLocation({
+      teamSetupIntent: 'unknown',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-20');
 
     render(<UsersPage />);
     await waitFor(() => {
-      // O texto de "Sua equipe começa aqui" deve continuar visível (ou o estado vazio), mas nenhum modal abre
-      expect(screen.getByText('Sua equipe começa aqui')).toBeInTheDocument();
+      expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
     });
-    
+    expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it('21. origin desconhecido consome o state', async () => {
+    mockLocation = createLocation({
+      teamSetupIntent: 'add-members',
+      origin: 'unknown',
+      returnTo: '/'
+    }, 'key-21');
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+    });
+    expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+  });
+
+  it('22. returnTo externo consome o state', async () => {
+    mockLocation = createLocation({
+      teamSetupIntent: 'add-members',
+      origin: 'first-value-journey',
+      returnTo: 'https://external-site.com'
+    }, 'key-22');
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+    });
+    expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+  });
+
+  it('23. objeto de state incompleto consome o state', async () => {
+    mockLocation = createLocation({
+      teamSetupIntent: 'add-members'
+    }, 'key-23');
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+    });
+    expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+  });
+
+  it('24. state com tipo string consome o state', async () => {
+    mockLocation = createLocation("invalid-state-string", 'key-24');
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+    });
+    expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+  });
+
+  it('25. state com tipos de campos errados consome o state', async () => {
+    mockLocation = createLocation({
+      teamSetupIntent: 123,
+      origin: true,
+      returnTo: []
+    }, 'key-25');
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+    });
+    expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+  });
+
+  it('26. intent válido mas sem capability consome imediatamente com toast', async () => {
+    mockHasCapability.mockReturnValue(false);
+    mockLocation = createLocation({
+      teamSetupIntent: 'add-members',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-26');
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("Você não tem permissão para gerenciar a equipe.");
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+    expect(screen.queryByText("Configurar Equipe")).not.toBeInTheDocument();
+  });
+
+  it('27. intent válido aguarda se carregando música, e consome com erro se papéis indisponíveis', async () => {
+    mockMusicLoading = true;
+    mockMusicRoles = [];
+    mockLocation = createLocation({
+      teamSetupIntent: 'add-members',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-27');
+
+    const { rerender } = render(<UsersPage />);
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    mockMusicLoading = false;
+    rerender(<UsersPage />);
+
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("Funções de equipe não disponíveis para configuração.");
+      expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+    });
+  });
+
+  it('28. mesmo location.key e rerender não processa duas vezes', async () => {
+    mockLocation = createLocation({
+      teamSetupIntent: 'add-members',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-28');
+
+    const { rerender } = render(<UsersPage />);
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+    });
+    mockNavigate.mockClear();
+
+    rerender(<UsersPage />);
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('21. navigation state vazio é ignorado', async () => {
-    const mockUseLocation = { state: null, pathname: '/users', key: 'default', search: '', hash: '' } as unknown as ReturnType<typeof useLocation>;
-    vi.mocked(useLocation).mockReturnValue(mockUseLocation);
+  it('29. nova navegação com nova key e valores iguais é reprocessada', async () => {
+    mockLocation = createLocation({
+      teamSetupIntent: 'add-members',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-29-a');
+
+    const { rerender } = render(<UsersPage />);
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+    });
+    mockNavigate.mockClear();
+
+    mockLocation = createLocation({
+      teamSetupIntent: 'add-members',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-29-b');
+
+    rerender(<UsersPage />);
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/users', { replace: true, state: null });
+    });
+  });
+
+  it('30. intent add-members foca a seção, realiza scroll e exibe botão para voltar ao painel', async () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: () => undefined
+    });
+    const scrollSpy = vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => undefined);
+
+    mockLocation = createLocation({
+      teamSetupIntent: 'add-members',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-30');
 
     render(<UsersPage />);
     await waitFor(() => {
-      expect(screen.getByText('Sua equipe começa aqui')).toBeInTheDocument();
+      expect(screen.getByText("Configurar Equipe")).toBeInTheDocument();
     });
-    
-    expect(mockNavigate).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(scrollSpy).toHaveBeenCalled();
+    });
+
+    const backBtn = screen.getByRole('button', { name: "Voltar para o painel" });
+    expect(backBtn).toBeInTheDocument();
+    fireEvent.click(backBtn);
+    expect(mockNavigate).toHaveBeenCalledWith('/');
+
+    scrollSpy.mockRestore();
+    if (originalDescriptor) {
+      Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalDescriptor);
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+    }
+  });
+
+  it('31. intent configure-existing sem integrantes adicionais não abre o guia e mostra orientação', async () => {
+    mockUsers = [createProfile({ uid: 'current-user-123' })];
+    mockUsersList.mockImplementation(async () => mockUsers);
+
+    mockLocation = createLocation({
+      teamSetupIntent: 'configure-existing',
+      origin: 'first-value-journey',
+      returnTo: '/'
+    }, 'key-31');
+
+    render(<UsersPage />);
+    await waitFor(() => {
+      expect(screen.getByText("Configurar Equipe")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(pt.teamSetup.existingMember.steps.choosePerson)).not.toBeInTheDocument();
+    expect(mockToastError).toHaveBeenCalledWith(pt.teamSetup.existingMember.members.emptyDescription);
   });
 
 });
