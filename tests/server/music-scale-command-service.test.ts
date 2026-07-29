@@ -1,3 +1,4 @@
+import { CommandReceipt } from "../../services/server/bandScale/idempotencyService";
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MusicScaleCommandService, PublishCommandError, ValidationError } from '../../services/server/scale/musicScaleCommandService.js';
 import { IdempotencyService } from '../../services/server/bandScale/idempotencyService.js';
@@ -98,7 +99,7 @@ describe('MusicScaleCommandService', () => {
     });
 
     expect(result.fromCache).toBe(true);
-    expect((result as any).version).toBe(1);
+    expect((result as unknown as { version: number, eventAssignmentCount: number }).version).toBe(1);
     expect(writesOccurred).toBe(false);
   });
 
@@ -128,7 +129,7 @@ describe('MusicScaleCommandService', () => {
     });
 
     expect(result.fromCache).toBe(false);
-    expect((result as any).version).toBe(2);
+    expect((result as unknown as { version: number, eventAssignmentCount: number }).version).toBe(2);
     expect(mockTransactionUpdate).toHaveBeenCalledWith({ path: 'resp-1' }, expect.objectContaining({ active: false }));
     expect(mockTransactionUpdate).toHaveBeenCalledWith({ path: 'resp-2' }, expect.objectContaining({ active: false }));
     expect(mockTransactionUpdate).toHaveBeenCalledWith(expect.objectContaining({ path: 'scales/scale-1' }), expect.objectContaining({
@@ -216,8 +217,8 @@ describe('MusicScaleCommandService', () => {
       correlationId: 'new-correlation'
     });
 
-    expect((result as any).version).toBe(1);
-    expect((result as any).eventAssignmentCount).toBe(1);
+    expect((result as unknown as { version: number, eventAssignmentCount: number }).version).toBe(1);
+    expect((result as unknown as { version: number, eventAssignmentCount: number }).eventAssignmentCount).toBe(1);
     expect(mockTransactionUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ path: 'bandScales/band-scale-1' }),
       expect.objectContaining({ musicScaleId: 'scale-1' })
@@ -259,7 +260,7 @@ describe('MusicScaleCommandService', () => {
       correlationId: 'preserve-correlation'
     });
 
-    expect((result as any).version).toBe(1);
+    expect((result as unknown as { version: number, eventAssignmentCount: number }).version).toBe(1);
     expect(mockTransactionUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ path: 'scales/scale-1' }),
       expect.objectContaining({ bandScaleId: 'existing-band-scale-id', time: '19:00' })
@@ -357,12 +358,12 @@ describe('MusicScaleCommandService', () => {
     });
 
     expect(res1.fromCache).toBe(false);
-    expect((res1 as any).version).toBe(1);
+    expect((res1 as unknown as { version: number, eventAssignmentCount: number }).version).toBe(1);
 
     expect(res2.fromCache).toBe(true);
-    expect((res2 as any).version).toBe(1);
+    expect((res2 as unknown as { version: number, eventAssignmentCount: number }).version).toBe(1);
 
     expect(res3.fromCache).toBe(true);
-    expect((res3 as any).version).toBe(1);
+    expect((res3 as unknown as { version: number, eventAssignmentCount: number }).version).toBe(1);
   });
 });

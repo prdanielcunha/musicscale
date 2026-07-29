@@ -694,12 +694,11 @@ export class MusicScaleCommandService {
     });
 
     const duration = Date.now() - startTime;
-    const anyResult = result as any;
     logger.info(`[MusicScalePublishCommand] Processed command ${commandId} in ${duration}ms`, {
       musicScaleId,
       orgId,
       correlationId,
-      version: anyResult.version
+      version: (result as { version: number }).version
     });
 
     return {
@@ -707,7 +706,7 @@ export class MusicScaleCommandService {
       organizationId: orgId,
       authenticatedUserId: authUid,
       ...result,
-      fromCache: anyResult.fromCache || false
+      fromCache: (result as { fromCache?: boolean }).fromCache || false
     };
   }
 }
