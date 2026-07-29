@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import * as crypto from "crypto";
 import { adminDb as db, admin } from "../../firebaseAdmin.js";
 import type { FirebaseFirestore } from "@firebase/firestore-types";
 
@@ -65,7 +65,7 @@ export class IdempotencyService {
       .doc(orgId)
       .collection("_commandReceipts")
       .doc(receiptId);
-    const docSnap = await transaction.get(receiptRef);
+    const docSnap = await transaction.get(receiptRef as FirebaseFirestore.DocumentReference<FirebaseFirestore.DocumentData>);
     if (docSnap.exists) {
       return docSnap.data() as CommandReceipt<TResult>;
     }

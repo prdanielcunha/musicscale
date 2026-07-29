@@ -244,7 +244,7 @@ params: {
     orgId: string;
     musicScaleId: string;
     idempotencyKey: string;
-    payload: MusicScalePublishPayload;
+    payload: unknown;
     correlationId: string;
   }) {
     const { authUid, orgId, musicScaleId, idempotencyKey, payload, correlationId } = params;

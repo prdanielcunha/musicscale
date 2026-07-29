@@ -7,6 +7,50 @@ import { AssignmentDiffService } from "./assignmentDiffService.js";
 import { NotificationFactory } from "./notificationFactory.js";
 import { logger } from "../../../lib/logger.js";
 
+export interface BandScaleAssignmentDTO {
+  userId: string;
+  instrumentId: string;
+  assignmentId?: string;
+}
+
+export interface BandScaleCreateDTO {
+  date?: string | null;
+  time?: string | null;
+  observations?: string | null;
+  eventTypeId?: string | null;
+  locationId?: string | null;
+  eventNameId?: string | null;
+  musicScaleId?: string | null;
+  assignments?: BandScaleAssignmentDTO[];
+}
+
+export interface BandScaleUpdateDTO {
+  date?: string | null;
+  time?: string | null;
+  observations?: string | null;
+  eventTypeId?: string | null;
+  locationId?: string | null;
+  eventNameId?: string | null;
+  musicScaleId?: string | null;
+  assignments?: BandScaleAssignmentDTO[];
+}
+
+interface CreateTransactionResult {
+  scaleId: string;
+  version: number;
+  createdNotificationCount: number;
+  fromCache: boolean;
+}
+
+interface UpdateTransactionResult {
+  scaleId: string;
+  version: number;
+  createdNotificationCount: number;
+  reconciledCount: number;
+  createdCount: number;
+  fromCache: boolean;
+}
+
 export interface BandScaleCommandResult {
   scaleId: string;
   version: number;
@@ -80,7 +124,7 @@ export class BandScaleCommandService {
     authUid: string;
     orgId: string;
     idempotencyKey: string;
-    payload: Record<string, unknown>;
+    payload: BandScaleCreateDTO;
     correlationId: string;
   }): Promise<BandScaleCommandResult> {
     const startTime = Date.now();
@@ -106,7 +150,7 @@ export class BandScaleCommandService {
     }
 
     // 3. Normalize & Validate Assignments
-    const rawAssignments: any[] = Array.isArray(payload.assignments) ? payload.assignments : [];
+    const rawAssignments: unknown[] = Array.isArray(payload.assignments) ? payload.assignments : [];
     const scaleId = crypto
       .createHash("sha256")
       .update(`scale:${orgId}:${idempotencyKey}`)
@@ -131,7 +175,7 @@ export class BandScaleCommandService {
     }
 
     // 6. Run Atomic Transaction
-    const result = await db.runTransaction(async (transaction) => {
+    const result = await db.runTransaction<CreateTransactionResult>(async (transaction) => {
       // Check existing idempotency receipt
       const existingReceipt = await IdempotencyService.getReceiptInTransaction<{ scaleId: string; version: number; createdNotificationCount: number }>(transaction, orgId, receiptId);
       if (existingReceipt) {
@@ -208,7 +252,7 @@ export class BandScaleCommandService {
       createdResponseCount: reconciledAssignments.length,
       createdNotificationCount: result.createdNotificationCount,
       durationMs,
-      fromCache: !!(result as Record<string, unknown>).fromCache,
+      fromCache: result.fromCache,
     });
 
     return {
@@ -228,7 +272,7 @@ export class BandScaleCommandService {
     scaleId: string;
     expectedVersion: number;
     idempotencyKey: string;
-    payload: Record<string, unknown>;
+    payload: BandScaleUpdateDTO;
     correlationId: string;
   }): Promise<BandScaleCommandResult> {
     const startTime = Date.now();
@@ -254,7 +298,7 @@ export class BandScaleCommandService {
     }
 
     // 3. Pre-read users and instruments (parallelized)
-    const rawAssignments: any[] = Array.isArray(payload.assignments) ? payload.assignments : [];
+    const rawAssignments: unknown[] = Array.isArray(payload.assignments) ? payload.assignments : [];
     const userIds = (rawAssignments as {userId: string}[]).map(a => a.userId);
     const [instrumentNames] = await Promise.all([
       this.getInstrumentNames(orgId),
@@ -262,7 +306,7 @@ export class BandScaleCommandService {
     ]);
 
     // 4. Run Transaction
-    const result = await db.runTransaction(async (transaction) => {
+    const result = await db.runTransaction<UpdateTransactionResult>(async (transaction) => {
       // Check existing idempotency receipt
       const existingReceipt = await IdempotencyService.getReceiptInTransaction<{ scaleId: string; version: number; createdNotificationCount: number }>(transaction, orgId, receiptId);
       if (existingReceipt) {
@@ -301,7 +345,7 @@ export class BandScaleCommandService {
       }
 
       // Reconcile assignments
-      const existingAssignments: any[] = Array.isArray(currentScale.assignments) ? currentScale.assignments : [];
+      const existingAssignments: unknown[] = Array.isArray(currentScale.assignments) ? currentScale.assignments : [];
       const reconciled = AssignmentNormalizer.reconcile(existingAssignments, rawAssignments, scaleId);
 
       // Perform Diff
@@ -386,11 +430,11 @@ export class BandScaleCommandService {
       action: "update",
       previousVersion: expectedVersion,
       newVersion: result.version,
-      assignmentCount: (result as Record<string, unknown>).reconciledCount || 0,
-      createdResponseCount: (result as Record<string, unknown>).createdCount || 0,
+      assignmentCount: result.reconciledCount,
+      createdResponseCount: result.createdCount,
       createdNotificationCount: result.createdNotificationCount,
       durationMs,
-      fromCache: !!(result as Record<string, unknown>).fromCache,
+      fromCache: result.fromCache,
     });
 
     return {

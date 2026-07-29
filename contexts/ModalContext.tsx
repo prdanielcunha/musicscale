@@ -61,7 +61,7 @@ const createClientNotification = async (
   title: string,
   message: string,
   link: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ) => {
   try {
     const notificationsRef = collection(db, `organizations/${orgId}/notifications`);
@@ -106,7 +106,7 @@ interface ModalContextType {
   openSupportModal: () => void;
   saveChord: (data: { songId: string, chords: string }) => Promise<void>;
   isSubmitting: boolean;
-  handleSaveScale: (req: any) => Promise<any>;
+  handleSaveScale: (req: MusicScaleSaveRequest | { data: BandScaleWritableData; idempotencyKey?: string }) => Promise<MusicScaleSaveResult | void>;
   // Feedback Modal
   isFeedbackOpen: boolean;
   feedbackType: 'bug' | 'suggestion' | 'feedback';
@@ -115,6 +115,37 @@ interface ModalContextType {
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
+
+
+interface ErrorLike {
+  message?: unknown;
+  code?: unknown;
+  status?: unknown;
+  correlationId?: unknown;
+}
+
+export function extractErrorDetails(error: unknown): { message?: string; code?: string; status?: number; correlationId?: string } {
+    const result: { message?: string; code?: string; status?: number; correlationId?: string } = {};
+    if (error instanceof Error) {
+        result.message = error.message;
+    }
+    if (typeof error === 'object' && error !== null) {
+        const errObj = error as ErrorLike;
+        if (typeof errObj.message === 'string') {
+            result.message = errObj.message;
+        }
+        if (typeof errObj.code === 'string') {
+            result.code = errObj.code;
+        }
+        if (typeof errObj.status === 'number') {
+            result.status = errObj.status;
+        }
+        if (typeof errObj.correlationId === 'string') {
+            result.correlationId = errObj.correlationId;
+        }
+    }
+    return result;
+}
 
 export function buildMusicScalePublishPayload(
     scaleData: MusicScaleWritableData
@@ -145,9 +176,14 @@ export function buildMusicScalePublishPayload(
     if (scaleData.songSettings !== undefined) {
         scalePatch.songSettings = scaleData.songSettings;
     }
+    
     if (scaleData.durationMinutes !== undefined && scaleData.durationMinutes !== null) {
-        scalePatch.durationMinutes = Number(scaleData.durationMinutes);
+        if (typeof scaleData.durationMinutes !== 'number' || !Number.isInteger(scaleData.durationMinutes) || scaleData.durationMinutes <= 0 || !Number.isFinite(scaleData.durationMinutes)) {
+            throw new Error("Invalid durationMinutes");
+        }
+        scalePatch.durationMinutes = scaleData.durationMinutes;
     }
+
     if ('bandScaleId' in scaleData && scaleData.bandScaleId !== undefined) {
         scalePatch.bandScaleId = scaleData.bandScaleId;
     }
@@ -362,9 +398,10 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await refreshData();
     } catch (error) {
       logger.error("Failed to save song", error);
-      let errorMsg = (error as any)?.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
-      if ((error as any)?.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
-      toast({ type: 'error', message: t('common.errorSavingSong', "Erro ao salvar música"), description: `${t('common.details', 'Detalhes')}: ${errorMsg} (${(error as any)?.code || ''})` });
+      const errDetails = extractErrorDetails(error);
+      let errorMsg = errDetails.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
+      if (errDetails.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
+      toast({ type: 'error', message: t('common.errorSavingSong', "Erro ao salvar música"), description: `${t('common.details', 'Detalhes')}: ${errorMsg} (${errDetails.code || ''})` });
     } finally {
       setIsSubmitting(false);
     }
@@ -403,8 +440,9 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await refreshData();
     } catch (error) {
         logger.error("Failed to save duplicate song", error);
-        let errorMsg = (error as any)?.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
-        if ((error as any)?.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
+        const errDetails = extractErrorDetails(error);
+        let errorMsg = errDetails.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
+        if (errDetails.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
         toast({ type: 'error', message: t('common.error', "Erro"), description: `${t('common.details', 'Detalhes')}: ${errorMsg}` });
     } finally {
         setIsSubmitting(false);
@@ -420,8 +458,9 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await refreshData();
     } catch (error) {
       logger.error("Failed to delete song", error);
-      let errorMsg = (error as any)?.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
-      if ((error as any)?.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
+      const errDetails = extractErrorDetails(error);
+        let errorMsg = errDetails.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
+        if (errDetails.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
       toast({ type: 'error', message: t('common.error', "Erro"), description: `${t('common.details', 'Detalhes')}: ${errorMsg}` });
     } finally {
       setIsSubmitting(false);
@@ -665,8 +704,8 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                      idempotencyKey = crypto.randomUUID(); // Fallback if not provided
                  }
                  if (isUpdate && oldScale) {
-                     const expectedVersion = typeof (oldScale as unknown as Record<string, unknown>).version === 'number' 
-                         ? ((oldScale as unknown as Record<string, unknown>).version as number) 
+                     const expectedVersion = oldScale && 'version' in oldScale && typeof oldScale.version === 'number' 
+                         ? oldScale.version 
                          : 1;
                      const result = await api.bandScaleCommands.update(scaleData.id as string, expectedVersion, scaleData, idempotencyKey);
                      bandScaleId = result.scaleId || scaleData.id;
@@ -676,15 +715,17 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                  }
              } else {
                  if (isUpdate) {
-                    await api.bandScales.update((scaleData as any).id, scaleData as BandScale);
-                    bandScaleId = (scaleData as any).id;
+                    const bandScaleData = scaleData as BandScale;
+                    await api.bandScales.update(bandScaleData.id, bandScaleData);
+                    bandScaleId = bandScaleData.id;
                 } else {
                     bandScaleId = await api.bandScales.create(scaleData as Omit<BandScale, 'id' | 'createdBy' | 'createdAt'>);
                 }
              }
              
-            if ((scaleData as any).musicScaleId) {
-                await api.linkScales((scaleData as any).musicScaleId, bandScaleId);
+            const bandScaleData = scaleData as BandScale & { musicScaleId?: string };
+            if (bandScaleData.musicScaleId) {
+                await api.linkScales(bandScaleData.musicScaleId, bandScaleId);
             }
             if (bandScaleId && linkingOptions?.linkToMusicScaleId) {
                 await api.linkScales(linkingOptions.linkToMusicScaleId, bandScaleId);
@@ -693,22 +734,25 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             closeAllModals();
             await refreshData();
         }
-    } catch(e: any) {
+    } catch(e: unknown) {
         logger.error("Failed to save scale", e);
         
-        let errorMsg = e?.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
-        if (e?.status === 409) {
+        
+        const errDetails = extractErrorDetails(e);
+        let errorMsg = errDetails.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
+        if (errDetails.status === 409) {
              errorMsg = t('common.concurrencyError', "Esta escala foi alterada por outra pessoa. Atualize os dados antes de salvar novamente.");
-        } else if (e?.code === 'permission-denied') {
+        } else if (errDetails.code === 'permission-denied') {
              errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
         }
         
         let desc = errorMsg;
-        if (e?.correlationId) {
-            desc += ` (${t('common.correlation', 'Correlação')}: ${e.correlationId})`;
-        } else if (e?.code) {
-            desc += ` (${e.code})`;
+        if (errDetails.correlationId) {
+            desc += ` (${t('common.correlation', 'Correlação')}: ${errDetails.correlationId})`;
+        } else if (errDetails.code) {
+            desc += ` (${errDetails.code})`;
         }
+
         
         toast({ type: 'error', message: t('common.errorSaving', "Erro ao salvar"), description: desc });
     } finally {
@@ -742,8 +786,9 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           await refreshData();
       } catch(e) {
           logger.error("Failed to delete scale", e);
-          let errorMsg = (e as any)?.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
-          if ((e as any)?.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
+          const errDetails = extractErrorDetails(e);
+          let errorMsg = errDetails.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
+          if (errDetails.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
           toast({ type: 'error', message: t('common.errorDeleting', "Erro ao excluir"), description: `${t('common.details', 'Detalhes')}: ${errorMsg}` });
       } finally {
           setIsSubmitting(false);
@@ -901,9 +946,13 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                   
                   setScaleToView(null);
                   if (rawScale) {
-                      const clonedScale = { ...rawScale, id: 'CLONE', date: '' } as any;
-                      if (scaleType === 'music') openScaleForm(clonedScale);
-                      else openBandScaleForm(clonedScale);
+                      if (scaleType === 'music') {
+                          const clonedScale: Scale = { ...rawScale, id: 'CLONE', date: '' } as Scale;
+                          openScaleForm(clonedScale);
+                      } else {
+                          const clonedScale: BandScale = { ...rawScale, id: 'CLONE', date: '' } as BandScale;
+                          openBandScaleForm(clonedScale);
+                      }
                   }
               }}
               onDelete={(s) => { 
