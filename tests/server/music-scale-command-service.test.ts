@@ -97,25 +97,26 @@ const mockDb = {
             attempts++;
             const t = new TestTransactionEmulator(dbState);
             
+            const result = await callback(t);
+            
             if (mockRetryCount > 0) {
               mockRetryCount--;
-              const res = await callback(t);
-              throw new Error("TRANSIENT_ERROR");
+              throw new Error("TRANSIENT_ERROR"); // Simulate a transaction conflict
             }
 
-            const result = await callback(t);
             t.commit();
             resolve(result);
             return;
-          } catch (e) {
-            if (e.message !== "TRANSIENT_ERROR") {
-              reject(e);
-              return;
+          } catch (e: any) {
+            if (e.message === "TRANSIENT_ERROR") {
+                continue;
             }
+            reject(e);
+            return;
           }
         }
         reject(new Error("Max retries exceeded"));
-      });
+      }).catch(reject);
     });
   }),
   collection: (path) => collectionMock(path),

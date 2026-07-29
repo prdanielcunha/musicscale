@@ -80,7 +80,7 @@ export class BandScaleCommandService {
     authUid: string;
     orgId: string;
     idempotencyKey: string;
-    payload: any;
+    payload: Record<string, unknown>;
     correlationId: string;
   }): Promise<BandScaleCommandResult> {
     const startTime = Date.now();
@@ -106,7 +106,7 @@ export class BandScaleCommandService {
     }
 
     // 3. Normalize & Validate Assignments
-    const rawAssignments = payload.assignments || [];
+    const rawAssignments: any[] = Array.isArray(payload.assignments) ? payload.assignments : [];
     const scaleId = crypto
       .createHash("sha256")
       .update(`scale:${orgId}:${idempotencyKey}`)
@@ -208,7 +208,7 @@ export class BandScaleCommandService {
       createdResponseCount: reconciledAssignments.length,
       createdNotificationCount: result.createdNotificationCount,
       durationMs,
-      fromCache: !!(result as any).fromCache,
+      fromCache: !!(result as Record<string, unknown>).fromCache,
     });
 
     return {
@@ -228,7 +228,7 @@ export class BandScaleCommandService {
     scaleId: string;
     expectedVersion: number;
     idempotencyKey: string;
-    payload: any;
+    payload: Record<string, unknown>;
     correlationId: string;
   }): Promise<BandScaleCommandResult> {
     const startTime = Date.now();
@@ -254,8 +254,8 @@ export class BandScaleCommandService {
     }
 
     // 3. Pre-read users and instruments (parallelized)
-    const rawAssignments = payload.assignments || [];
-    const userIds = rawAssignments.map((a: any) => a.userId);
+    const rawAssignments: any[] = Array.isArray(payload.assignments) ? payload.assignments : [];
+    const userIds = (rawAssignments as {userId: string}[]).map(a => a.userId);
     const [instrumentNames] = await Promise.all([
       this.getInstrumentNames(orgId),
       this.validateUsersOrganization(userIds, orgId),
@@ -301,19 +301,19 @@ export class BandScaleCommandService {
       }
 
       // Reconcile assignments
-      const existingAssignments = currentScale.assignments || [];
+      const existingAssignments: any[] = Array.isArray(currentScale.assignments) ? currentScale.assignments : [];
       const reconciled = AssignmentNormalizer.reconcile(existingAssignments, rawAssignments, scaleId);
 
       // Perform Diff
       const diff = AssignmentDiffService.diff(existingAssignments, reconciled);
 
       // PRE-READ: Fetch existing response documents inside transaction BEFORE doing any writes (Firestore restriction)
-      const existingResponseDataMap = new Map<string, any>();
-      const assignmentsToRead = diff.updated.map((a: any) => a.assignmentId).filter(Boolean);
+      const existingResponseDataMap = new Map<string, Record<string, unknown>>();
+      const assignmentsToRead = diff.updated.map(a => a.assignmentId).filter(Boolean);
       if (assignmentsToRead.length > 0) {
         const refs = assignmentsToRead.map((id: string) => bandScaleRef.collection("responses").doc(id));
-        const snaps = await Promise.all(refs.map((ref: any) => transaction.get(ref)));
-        snaps.forEach((snap: any, idx: number) => {
+        const snaps = await Promise.all(refs.map(ref => transaction.get(ref as FirebaseFirestore.DocumentReference)));
+        snaps.forEach((snap: FirebaseFirestore.DocumentSnapshot, idx: number) => {
           if (snap.exists) {
             existingResponseDataMap.set(assignmentsToRead[idx], snap.data());
           }
@@ -386,11 +386,11 @@ export class BandScaleCommandService {
       action: "update",
       previousVersion: expectedVersion,
       newVersion: result.version,
-      assignmentCount: (result as any).reconciledCount || 0,
-      createdResponseCount: (result as any).createdCount || 0,
+      assignmentCount: (result as Record<string, unknown>).reconciledCount || 0,
+      createdResponseCount: (result as Record<string, unknown>).createdCount || 0,
       createdNotificationCount: result.createdNotificationCount,
       durationMs,
-      fromCache: !!(result as any).fromCache,
+      fromCache: !!(result as Record<string, unknown>).fromCache,
     });
 
     return {

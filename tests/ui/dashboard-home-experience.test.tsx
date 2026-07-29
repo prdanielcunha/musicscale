@@ -346,11 +346,13 @@ describe('Dashboard Home Experience UI', () => {
     expect(screen.getByText('Agenda libre')).toBeInTheDocument();
   });
 
-  it('21. não existe "Nova Escala" fixa em EN ou ES', () => {
+  it('21. não existe "Nova Escala" fixa em EN ou ES', async () => {
     mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.scales.manage' });
     renderWithRouter(<DashboardPage />, 'en-US');
+    
     expect(screen.queryByText('Nova Escala')).not.toBeInTheDocument();
     renderWithRouter(<DashboardPage />, 'es-ES');
+    
     expect(screen.queryByText('Nova Escala')).not.toBeInTheDocument();
   });
 

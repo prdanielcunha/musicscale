@@ -106,6 +106,7 @@ interface ModalContextType {
   openSupportModal: () => void;
   saveChord: (data: { songId: string, chords: string }) => Promise<void>;
   isSubmitting: boolean;
+  handleSaveScale: (req: any) => Promise<any>;
   // Feedback Modal
   isFeedbackOpen: boolean;
   feedbackType: 'bug' | 'suggestion' | 'feedback';
@@ -851,11 +852,13 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       feedbackType,
       openFeedback,
       closeFeedback,
+      handleSaveScale
   }), [
       isAiSongImportOpen, openAiSongImport, closeAiSongImport, isWhatsNewOpen, openWhatsNew, closeWhatsNew,
       openSongForm, openSongDetail, openDeleteSongConfirmation, openScaleForm, openScaleDetail,
       openBandScaleForm, openBandScaleDetail, openAddChordModal, openSuggestionForm, openHelpModal,
-      openSupportModal, saveChord, isSubmitting, isFeedbackOpen, feedbackType, openFeedback, closeFeedback
+      openSupportModal, saveChord, isSubmitting, isFeedbackOpen, feedbackType, openFeedback, closeFeedback,
+      handleSaveScale
   ]);
 
   return (

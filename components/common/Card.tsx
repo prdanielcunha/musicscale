@@ -5,6 +5,7 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
   onClick?: () => void;
   padding?: "none" | "normal" | "large";
+  interactive?: boolean | string; // Temporary fix for test warning
 }
 
 const Card: React.FC<CardProps> = ({
