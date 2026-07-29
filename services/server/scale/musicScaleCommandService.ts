@@ -55,6 +55,21 @@ interface BandAssignmentDocument {
   active?: boolean;
 }
 
+
+export interface MusicScalePublishResult {
+  correlationId?: string;
+  organizationId: string;
+  authenticatedUserId: string;
+  musicScaleId: string;
+  version: number;
+  createdNotificationCount: number;
+  createdResponseCount: number;
+  eventAssignmentCount: number;
+  fromCache: boolean;
+}
+
+export type MusicScalePublishTransactionResult = Omit<MusicScalePublishResult, 'correlationId' | 'organizationId' | 'authenticatedUserId' | 'fromCache'> & { fromCache?: boolean };
+
 export class MusicScaleCommandService {
   static validatePayload(payload: unknown): asserts payload is MusicScalePublishPayload {
     if (!payload || typeof payload !== 'object') {
@@ -223,7 +238,8 @@ export class MusicScaleCommandService {
     }
   }
 
-  static async publishMusicScale(params: {
+  static async publishMusicScale(
+params: {
     authUid: string;
     orgId: string;
     musicScaleId: string;
@@ -254,13 +270,13 @@ export class MusicScaleCommandService {
     const receiptId = IdempotencyService.getReceiptId(orgId, idempotencyKey);
     const fingerprint = IdempotencyService.getRequestFingerprint(normalizedPayload);
 
-    const result = await db.runTransaction(async (transaction) => {
+    const result = await db.runTransaction<MusicScalePublishTransactionResult>(async (transaction: FirebaseFirestore.Transaction) => {
       // -------------------------------------------------------------
       // PHASE 1: READS & VALIDATIONS
       // -------------------------------------------------------------
 
       // 1. Idempotency Check
-      const existingReceipt = await IdempotencyService.getReceiptInTransaction(transaction, orgId, receiptId);
+      const existingReceipt = await IdempotencyService.getReceiptInTransaction<Omit<MusicScalePublishTransactionResult, "fromCache">>(transaction, orgId, receiptId);
       if (existingReceipt) {
         if (existingReceipt.entityId !== musicScaleId) {
           throw new PublishCommandError(`Este recibo pertence à outra escala (${existingReceipt.entityId}).`, 'IDEMPOTENCY_CONFLICT');
@@ -354,7 +370,7 @@ export class MusicScaleCommandService {
         }
       }
       if (patchedScaleData.durationMinutes !== undefined && patchedScaleData.durationMinutes !== null) {
-        if (typeof patchedScaleData.durationMinutes !== 'number' || patchedScaleData.durationMinutes < 1) {
+        if (typeof patchedScaleData.durationMinutes !== 'number' || !Number.isFinite(patchedScaleData.durationMinutes) || !Number.isInteger(patchedScaleData.durationMinutes) || patchedScaleData.durationMinutes < 1) {
           throw new ValidationError("Estado final inválido: durationMinutes inválido.");
         }
       }
@@ -680,7 +696,7 @@ export class MusicScaleCommandService {
         eventAssignmentCount: newEventAssignments.length,
       };
 
-      IdempotencyService.writeReceiptInTransaction(transaction, orgId, receiptId, {
+      IdempotencyService.writeReceiptInTransaction<Omit<MusicScalePublishTransactionResult, "fromCache">>(transaction, orgId, receiptId, {
         commandType: "musicScale.publish",
         organizationId: orgId,
         authenticatedUserId: authUid,
@@ -698,7 +714,7 @@ export class MusicScaleCommandService {
       musicScaleId,
       orgId,
       correlationId,
-      version: (result as { version: number }).version
+      version: result.version
     });
 
     return {
@@ -706,7 +722,7 @@ export class MusicScaleCommandService {
       organizationId: orgId,
       authenticatedUserId: authUid,
       ...result,
-      fromCache: (result as { fromCache?: boolean }).fromCache || false
+      fromCache: result.fromCache || false
     };
   }
 }

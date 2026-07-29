@@ -133,7 +133,7 @@ export class BandScaleCommandService {
     // 6. Run Atomic Transaction
     const result = await db.runTransaction(async (transaction) => {
       // Check existing idempotency receipt
-      const existingReceipt = await IdempotencyService.getReceiptInTransaction(transaction, orgId, receiptId);
+      const existingReceipt = await IdempotencyService.getReceiptInTransaction<{ scaleId: string; version: number; createdNotificationCount: number }>(transaction, orgId, receiptId);
       if (existingReceipt) {
         if (existingReceipt.requestFingerprint !== fingerprint) {
           throw new Error("Esta chave de idempotência já foi utilizada com um payload diferente.");
@@ -173,7 +173,7 @@ export class BandScaleCommandService {
       const notificationCount = 0;
 
       // Write Idempotency Receipt
-      IdempotencyService.writeReceiptInTransaction(transaction, orgId, receiptId, {
+      IdempotencyService.writeReceiptInTransaction<{ scaleId: string; version: number; createdNotificationCount: number }>(transaction, orgId, receiptId, {
         commandType: "bandScale.create",
         organizationId: orgId,
         userId: authUid,
@@ -264,7 +264,7 @@ export class BandScaleCommandService {
     // 4. Run Transaction
     const result = await db.runTransaction(async (transaction) => {
       // Check existing idempotency receipt
-      const existingReceipt = await IdempotencyService.getReceiptInTransaction(transaction, orgId, receiptId);
+      const existingReceipt = await IdempotencyService.getReceiptInTransaction<{ scaleId: string; version: number; createdNotificationCount: number }>(transaction, orgId, receiptId);
       if (existingReceipt) {
         if (existingReceipt.requestFingerprint !== fingerprint) {
           throw new Error("Esta chave de idempotência já foi utilizada com um payload diferente.");
@@ -353,7 +353,7 @@ export class BandScaleCommandService {
       const notificationCount = 0;
 
       // Write Idempotency Receipt
-      IdempotencyService.writeReceiptInTransaction(transaction, orgId, receiptId, {
+      IdempotencyService.writeReceiptInTransaction<{ scaleId: string; version: number; createdNotificationCount: number }>(transaction, orgId, receiptId, {
         commandType: "bandScale.update",
         organizationId: orgId,
         userId: authUid,

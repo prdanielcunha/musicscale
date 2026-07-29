@@ -4,11 +4,7 @@ import type { FirebaseFirestore } from "@firebase/firestore-types";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue | undefined };
 
-export interface CommandReceiptResult {
-  [key: string]: any;
-}
-
-export interface CommandReceipt {
+export interface CommandReceipt<TResult = unknown> {
   commandType: "bandScale.create" | "bandScale.update" | "musicScale.publish" | "musicScale.respondOwn";
   organizationId: string;
   userId?: string;
@@ -17,7 +13,7 @@ export interface CommandReceipt {
   entityId?: string;
   requestFingerprint: string;
   correlationId?: string;
-  result: CommandReceiptResult;
+  result: TResult;
   completedAt: unknown; // firestore Timestamp
 }
 
@@ -58,11 +54,11 @@ export class IdempotencyService {
   /**
    * Retrieves a command receipt from a Firestore transaction.
    */
-  static async getReceiptInTransaction(
-    transaction: any,
+  static async getReceiptInTransaction<TResult = unknown>(
+    transaction: FirebaseFirestore.Transaction,
     orgId: string,
     receiptId: string
-  ): Promise<CommandReceipt | null> {
+  ): Promise<CommandReceipt<TResult> | null> {
     if (!db) return null;
     const receiptRef = db
       .collection("organizations")
@@ -71,7 +67,7 @@ export class IdempotencyService {
       .doc(receiptId);
     const docSnap = await transaction.get(receiptRef);
     if (docSnap.exists) {
-      return docSnap.data() as CommandReceipt;
+      return docSnap.data() as CommandReceipt<TResult>;
     }
     return null;
   }
@@ -79,11 +75,11 @@ export class IdempotencyService {
   /**
    * Writes the command receipt in a Firestore transaction.
    */
-  static writeReceiptInTransaction(
-    transaction: any,
+  static writeReceiptInTransaction<TResult = unknown>(
+    transaction: FirebaseFirestore.Transaction,
     orgId: string,
     receiptId: string,
-    receipt: Omit<CommandReceipt, "completedAt">
+    receipt: Omit<CommandReceipt<TResult>, "completedAt">
   ): void {
     if (!db) return;
     const receiptRef = db
