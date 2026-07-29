@@ -68,7 +68,7 @@ export interface MusicScalePublishResult {
   fromCache: boolean;
 }
 
-export type MusicScalePublishTransactionResult = Omit<MusicScalePublishResult, 'correlationId' | 'organizationId' | 'authenticatedUserId' | 'fromCache'> & { fromCache?: boolean };
+export type MusicScalePublishTransactionResult = Omit<MusicScalePublishResult, 'correlationId' | 'organizationId' | 'authenticatedUserId'>;
 
 export class MusicScaleCommandService {
   static validatePayload(payload: unknown): asserts payload is MusicScalePublishPayload {
@@ -706,7 +706,10 @@ params: {
         result: successResult,
       });
 
-      return successResult;
+      return {
+        ...successResult,
+        fromCache: false,
+      };
     });
 
     const duration = Date.now() - startTime;
@@ -722,7 +725,7 @@ params: {
       organizationId: orgId,
       authenticatedUserId: authUid,
       ...result,
-      fromCache: result.fromCache || false
+      fromCache: result.fromCache
     };
   }
 }
