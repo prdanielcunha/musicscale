@@ -40,78 +40,47 @@ interface TestPayloadPatch {
   [key: string]: unknown;
 }
 
-class TestTransactionEmulator {
-  reads: Set<string> = new Set<string>();
-  readVersions: Map<string, number> = new Map<string, number>();
-  writes: Array<{ type: 'set' | 'update' | 'delete', path: string, data?: Record<string, unknown> }> = [];
-  
-  constructor(private state: Map<string, DocumentState>) {}
-
-  async get(ref: TestDocumentRef | TestQueryRef): Promise<TestDocumentSnapshot | TestQuerySnapshot> {
-    if (this.writes.length > 0) {
-      throw new Error("READ_AFTER_WRITE");
-    }
-    
-    if ('get' in ref && typeof ref.get === 'function') {
-      return (ref.get as () => Promise<TestQuerySnapshot>)();
-    }
-    
-    const docRef = ref as TestDocumentRef;
-    const path = docRef.path || docRef.id;
-    if (!path) throw new Error("Invalid ref");
-    this.reads.add(path);
-    const docState = this.state.get(path);
-    const version = docState ? docState.version : 0;
-    this.readVersions.set(path, version);
-    if (docState !== undefined) {
-      return { exists: true, data: () => docState.data, id: docRef.id || path.split('/').pop() || '', ref: docRef };
-    }
-    return { exists: false, data: () => undefined, id: docRef.id || path.split('/').pop() || '', ref: docRef };
-  }
-
-  set(ref: TestDocumentRef, data: Record<string, unknown>): this {
-    const path = ref.path || ref.id;
-    if (!path) throw new Error("Invalid ref");
-    this.writes.push({ type: 'set', path, data });
-    return this;
-  }
-
-  update(ref: TestDocumentRef, data: Record<string, unknown>): this {
-    const path = ref.path || ref.id;
-    if (!path) throw new Error("Invalid ref");
-    this.writes.push({ type: 'update', path, data });
-    return this;
-  }
-
-  delete(ref: TestDocumentRef): this {
-    const path = ref.path || ref.id;
-    if (!path) throw new Error("Invalid ref");
-    this.writes.push({ type: 'delete', path });
-    return this;
-  }
-
-  commit(): void {
-    for (const write of this.writes) {
-      if (write.type === 'set') {
-        this.state.set(write.path, { data: write.data!, version: (this.readVersions.get(write.path) || 0) + 1 });
-      } else if (write.type === 'update') {
-        const existing = this.state.get(write.path);
-        const existingData = existing ? existing.data : {};
-        const existingVersion = existing ? existing.version : 0;
-        this.state.set(write.path, { data: { ...existingData, ...write.data! }, version: existingVersion + 1 });
-      } else if (write.type === 'delete') {
-        this.state.delete(write.path);
-      }
-    }
-  }
-}
-
 interface CollectionMockResult {
   path: string;
   id: string;
   doc: (id?: string) => TestDocumentRef;
   get: () => Promise<TestQuerySnapshot>;
   where: (field: string, op: string, value: unknown) => TestQueryRef;
+}
+
+interface TestTransaction {
+  reads: Set<string>;
+  readVersions: Map<string, number>;
+  writes: Array<{ type: 'set' | 'update' | 'delete', path: string, data?: Record<string, unknown> }>;
+  get(ref: TestDocumentRef | TestQueryRef | CollectionMockResult): Promise<TestDocumentSnapshot | TestQuerySnapshot>;
+  set(ref: TestDocumentRef, data: Record<string, unknown>): this;
+  update(ref: TestDocumentRef, data: Record<string, unknown>): this;
+  delete(ref: TestDocumentRef): this;
+  commit(): void;
+}
+
+interface TestFirestore {
+  runTransaction<T>(callback: (transaction: TestTransaction) => Promise<T>): Promise<T>;
+  collection(path: string): CollectionMockResult;
+}
+
+function isQueryOrCollection(ref: TestDocumentRef | TestQueryRef | CollectionMockResult): ref is TestQueryRef | CollectionMockResult {
+  return ref && 'get' in ref && typeof ref.get === 'function';
+}
+
+declare global {
+  var dbState: Map<string, DocumentState>;
+  var txStats: {
+    callbackExecutions: number;
+    commitAttempts: number;
+    successfulCommits: number;
+    conflicts: number;
+  };
+  var mockDb: TestFirestore;
+  var setConflictPath: (path: string | null) => void;
+  var getConflictPath: () => string | null;
+  var resetMocks: () => void;
+  var TestTransactionEmulatorClass: new (state: Map<string, DocumentState>) => TestTransaction;
 }
 
 // -----------------------------------------------------------------------------
@@ -122,18 +91,18 @@ vi.mock('firebase-admin', () => {
   let autoIdCounter = 0;
   let conflictPathToInjectOnce: string | null = null;
 
-  class TestTransactionEmulatorLocal {
+  class TestTransactionEmulator implements TestTransaction {
     reads = new Set<string>();
     readVersions = new Map<string, number>();
     writes: { type: 'set' | 'update' | 'delete', path: string, data?: Record<string, unknown> }[] = [];
     
     constructor(private state: Map<string, { data: Record<string, unknown>; version: number }>) {}
 
-    async get(ref: { path: string; id: string; get?: () => Promise<unknown> }): Promise<any> {
+    async get(ref: TestDocumentRef | TestQueryRef | CollectionMockResult): Promise<TestDocumentSnapshot | TestQuerySnapshot> {
       if (this.writes.length > 0) {
         throw new Error("READ_AFTER_WRITE");
       }
-      if (ref && 'get' in ref && typeof ref.get === 'function') {
+      if (isQueryOrCollection(ref)) {
         return ref.get();
       }
       const path = ref.path || ref.id;
@@ -148,21 +117,21 @@ vi.mock('firebase-admin', () => {
       return { exists: false, data: () => undefined, id: ref.id || path.split('/').pop() || '', ref };
     }
 
-    set(ref: { path: string; id: string }, data: Record<string, unknown>) {
+    set(ref: TestDocumentRef, data: Record<string, unknown>) {
       const path = ref.path || ref.id;
       if (!path) throw new Error("Invalid ref");
       this.writes.push({ type: 'set', path, data });
       return this;
     }
 
-    update(ref: { path: string; id: string }, data: Record<string, unknown>) {
+    update(ref: TestDocumentRef, data: Record<string, unknown>) {
       const path = ref.path || ref.id;
       if (!path) throw new Error("Invalid ref");
       this.writes.push({ type: 'update', path, data });
       return this;
     }
 
-    delete(ref: { path: string; id: string }) {
+    delete(ref: TestDocumentRef) {
       const path = ref.path || ref.id;
       if (!path) throw new Error("Invalid ref");
       this.writes.push({ type: 'delete', path });
@@ -185,7 +154,7 @@ vi.mock('firebase-admin', () => {
     }
   }
 
-  const collectionMock = (basePath: string): any => ({
+  const collectionMock = (basePath: string): CollectionMockResult => ({
     path: basePath,
     id: basePath.split("/").pop() || '',
     doc: (id?: string) => {
@@ -199,7 +168,7 @@ vi.mock('firebase-admin', () => {
       };
     },
     get: async () => {
-      const docs: { exists: boolean; id: string; data: () => Record<string, unknown>; ref: { id: string; path: string } }[] = [];
+      const docs: TestDocumentSnapshot[] = [];
       dbState.forEach((val, key) => {
         if (key.startsWith(basePath)) {
           docs.push({ 
@@ -212,10 +181,10 @@ vi.mock('firebase-admin', () => {
       });
       return { docs };
     },
-    where: (field: string, op: string, value: unknown) => ({
+    where: (field: string, op: string, value: unknown): TestQueryRef => ({
       _isQuery: true,
       get: async () => {
-        const docs: { exists: boolean; id: string; data: () => Record<string, unknown>; ref: { id: string; path: string } }[] = [];
+        const docs: TestDocumentSnapshot[] = [];
         dbState.forEach((val, key) => {
           let match = true;
           if (field === 'status' && val.data.status !== value) {
@@ -248,13 +217,13 @@ vi.mock('firebase-admin', () => {
     conflicts: 0
   };
 
-  const mockDb = {
-    runTransaction: async <T>(callback: (transaction: TestTransactionEmulatorLocal) => Promise<T>): Promise<T> => {
+  const mockDb: TestFirestore = {
+    runTransaction: async <T>(callback: (transaction: TestTransaction) => Promise<T>): Promise<T> => {
       let attempts = 0;
       while (attempts < 5) {
         attempts++;
         txStats.callbackExecutions++;
-        const t = new TestTransactionEmulatorLocal(dbState);
+        const t = new TestTransactionEmulator(dbState);
         
         const result = await callback(t);
         
@@ -310,16 +279,16 @@ vi.mock('firebase-admin', () => {
     initializeApp: () => {}
   };
 
-  const g = globalThis as Record<string, unknown>;
-  g.dbState = dbState;
-  g.txStats = txStats;
-  g.mockDb = mockDb;
-  g.setConflictPath = (path: string | null) => { conflictPathToInjectOnce = path; };
-  g.getConflictPath = () => conflictPathToInjectOnce;
-  g.resetMocks = () => {
+  globalThis.dbState = dbState;
+  globalThis.txStats = txStats;
+  globalThis.mockDb = mockDb;
+  globalThis.setConflictPath = (path: string | null) => { conflictPathToInjectOnce = path; };
+  globalThis.getConflictPath = () => conflictPathToInjectOnce;
+  globalThis.resetMocks = () => {
     autoIdCounter = 0;
     conflictPathToInjectOnce = null;
   };
+  globalThis.TestTransactionEmulatorClass = TestTransactionEmulator;
 
   return {
     default: mockAdmin,
@@ -328,27 +297,20 @@ vi.mock('firebase-admin', () => {
 });
 
 vi.mock('firebase-admin/firestore', () => ({
-  getFirestore: () => (globalThis as Record<string, unknown>).mockDb,
+  getFirestore: () => globalThis.mockDb,
   FieldValue: {
     serverTimestamp: () => 'server-timestamp'
   }
 }));
 
 // Expose type-safe bindings for the test cases
-const dbState = (globalThis as Record<string, unknown>).dbState as Map<string, DocumentState>;
-export const txStats = (globalThis as Record<string, unknown>).txStats as {
-  callbackExecutions: number;
-  commitAttempts: number;
-  successfulCommits: number;
-  conflicts: number;
-};
-const mockDb = (globalThis as Record<string, unknown>).mockDb as {
-  runTransaction: <T>(callback: (transaction: TestTransactionEmulator) => Promise<T>) => Promise<T>;
-  collection: (path: string) => CollectionMockResult;
-};
+const dbState = globalThis.dbState;
+export const txStats = globalThis.txStats;
+const mockDb = globalThis.mockDb;
+const TestTransactionEmulator = globalThis.TestTransactionEmulatorClass;
 
 export function injectConflictBeforeCommitOnce(path: string): void {
-  ((globalThis as Record<string, unknown>).setConflictPath as (path: string | null) => void)(path);
+  globalThis.setConflictPath(path);
 }
 
 describe('MusicScaleCommandService (Backend)', () => {
@@ -455,7 +417,7 @@ describe('MusicScaleCommandService (Backend)', () => {
 
     const originalRunTransaction = mockDb.runTransaction;
     
-    mockDb.runTransaction = async <T>(callback: (transaction: TestTransactionEmulator) => Promise<T>): Promise<T> => {
+    mockDb.runTransaction = async <T>(callback: (transaction: TestTransaction) => Promise<T>): Promise<T> => {
       let attempts = 0;
       while (attempts < 5) {
         attempts++;
