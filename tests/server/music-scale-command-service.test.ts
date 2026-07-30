@@ -898,7 +898,7 @@ describe('MusicScaleCommandService (Backend)', () => {
 
     let notifications: Record<string, unknown>[] = [];
     dbState.forEach((val, key) => {
-      if (key.startsWith('users/user-escalado/notifications/')) {
+      if (key.startsWith('organizations/org-1/notifications/')) {
         notifications.push(val.data);
       }
     });

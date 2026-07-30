@@ -578,21 +578,89 @@ params: {
           createdResponseCount++;
         }
 
-        // Create notifications for each user
-        for (const [userId, funcs] of Array.from(userFunctions.entries())) {
-          if (userId !== authUid) { // Optional: Don't notify the modifier
-            const notifId = crypto.randomUUID();
-            const funcNames = funcs.map(f => f.name);
-            const bodyStr = funcNames.length > 1 
+        // Create notifications for each user with reconciliation
+        const previousUserAssignments = new Map<string, string[]>();
+        if (currentScale.status === 'published') {
+          const previousAssignments = currentScale.eventAssignments || [];
+          for (const a of previousAssignments) {
+            if (a.active) {
+              const list = previousUserAssignments.get(a.userId) || [];
+              list.push(a.functionId);
+              previousUserAssignments.set(a.userId, list);
+            }
+          }
+        }
+
+        const currentUserAssignments = new Map<string, string[]>();
+        for (const assign of activeAssignments) {
+          const list = currentUserAssignments.get(assign.userId!) || [];
+          list.push(assign.instrumentId!);
+          currentUserAssignments.set(assign.userId!, list);
+        }
+
+        const allUserIds = new Set([
+          ...previousUserAssignments.keys(),
+          ...currentUserAssignments.keys()
+        ]);
+
+        for (const userId of Array.from(allUserIds)) {
+          if (userId === authUid) continue;
+
+          const wasAssigned = previousUserAssignments.has(userId);
+          const isAssignedNow = currentUserAssignments.has(userId);
+
+          let notifType: 'music_scale_assignment' | 'music_scale_changed' | 'music_scale_cancelled' | 'music_scale_published' | null = null;
+          let title = '';
+          let bodyStr = '';
+
+          const prevFuncIds = previousUserAssignments.get(userId) || [];
+          const currFuncIds = currentUserAssignments.get(userId) || [];
+
+          if (!wasAssigned && isAssignedNow) {
+            notifType = 'music_scale_assignment';
+            title = 'Você foi escalado!';
+            const funcNames = currFuncIds.map(fid => instrumentMap.get(fid)?.name || fid);
+            bodyStr = funcNames.length > 1
               ? `Você foi escalado(a) como ${funcNames.slice(0, -1).join(', ')} e ${funcNames[funcNames.length - 1]}.`
               : `Você foi escalado(a) como ${funcNames[0]}.`;
+          } else if (wasAssigned && !isAssignedNow) {
+            notifType = 'music_scale_cancelled';
+            title = 'Escala Cancelada';
+            bodyStr = `Você foi removido(a) da escala de música do dia ${NotificationFactory.formatDate(patchedScaleData.date || currentScale.date)}.`;
+          } else if (wasAssigned && isAssignedNow) {
+            const functionsChanged = prevFuncIds.length !== currFuncIds.length ||
+              !prevFuncIds.every(fid => currFuncIds.includes(fid)) ||
+              !currFuncIds.every(fid => prevFuncIds.includes(fid));
 
+            const scaleDetailsChanged = 
+              patchedScaleData.date !== currentScale.date ||
+              patchedScaleData.time !== currentScale.time ||
+              patchedScaleData.eventTypeId !== currentScale.eventTypeId ||
+              patchedScaleData.locationId !== currentScale.locationId;
+
+            if (functionsChanged || scaleDetailsChanged) {
+              notifType = 'music_scale_changed';
+              title = 'Escala de Músicas Atualizada';
+              const funcNames = currFuncIds.map(fid => instrumentMap.get(fid)?.name || fid);
+              bodyStr = funcNames.length > 1
+                ? `Sua escala foi atualizada. Você está escalado(a) como ${funcNames.slice(0, -1).join(', ')} e ${funcNames[funcNames.length - 1]}.`
+                : `Sua escala foi atualizada. Você está escalado(a) como ${funcNames[0]}.`;
+            } else {
+              notifType = 'music_scale_published';
+              title = 'Escala de Músicas Publicada';
+              bodyStr = `A escala de música para o dia ${NotificationFactory.formatDate(patchedScaleData.date || currentScale.date)} foi publicada.`;
+            }
+          }
+
+          if (notifType) {
+            const notifId = `${orgId}_${musicScaleId}_rev${nextRevision}_${userId}_${notifType}`;
+            const funcNames = currFuncIds.map(fid => instrumentMap.get(fid)?.name || fid);
             const notification = {
               id: notifId,
               organizationId: orgId,
-              userId: userId,
-              type: 'assignment',
-              title: 'Nova Escala',
+              recipientId: userId,
+              type: notifType,
+              title,
               message: bodyStr,
               link: `/scales/${musicScaleId}`,
               metadata: {
@@ -603,9 +671,15 @@ params: {
                 action: 'published'
               },
               isRead: false,
-              createdAt: FieldValue.serverTimestamp()
+              isArchived: false,
+              createdAt: FieldValue.serverTimestamp(),
+              source: "musicScale",
+              sourceEventId: musicScaleId,
+              idempotencyKey: receiptId,
+              publishRevision: nextRevision
             };
-            const notifRef = db.collection("users").doc(userId).collection("notifications").doc(notifId);
+
+            const notifRef = db.collection("organizations").doc(orgId).collection("notifications").doc(notifId);
             transaction.set(notifRef, notification);
             notificationCount++;
           }
@@ -616,14 +690,15 @@ params: {
           const mData = doc.data();
           const userId = mData.userId || doc.id;
           if (userId && userId !== authUid) {
-            const notifId = crypto.randomUUID();
+            const notifType = 'music_scale_published';
+            const notifId = `${orgId}_${musicScaleId}_rev${nextRevision}_${userId}_${notifType}`;
             const notification = {
               id: notifId,
               organizationId: orgId,
-              userId: userId,
-              type: 'system_alert',
-              title: 'Escala Publicada',
-              message: `Uma nova escala de música foi publicada.`,
+              recipientId: userId,
+              type: notifType,
+              title: 'Escala de Músicas Publicada',
+              message: `Uma nova escala de música foi publicada para o dia ${NotificationFactory.formatDate(patchedScaleData.date || currentScale.date)}.`,
               link: `/scales/${musicScaleId}`,
               metadata: {
                 musicScaleId,
@@ -631,9 +706,15 @@ params: {
                 action: 'published'
               },
               isRead: false,
-              createdAt: FieldValue.serverTimestamp()
+              isArchived: false,
+              createdAt: FieldValue.serverTimestamp(),
+              source: "musicScale",
+              sourceEventId: musicScaleId,
+              idempotencyKey: receiptId,
+              publishRevision: nextRevision
             };
-            const notifRef = db.collection("users").doc(userId).collection("notifications").doc(notifId);
+
+            const notifRef = db.collection("organizations").doc(orgId).collection("notifications").doc(notifId);
             transaction.set(notifRef, notification);
             notificationCount++;
           }

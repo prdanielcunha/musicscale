@@ -40,10 +40,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const isFirstLoadRef = useRef(true);
 
   useEffect(() => {
+    setNotifications([]);
+    setInitialLoadComplete(false);
+    isFirstLoadRef.current = true;
+
     if (!user || !organization?.id) {
-      setNotifications([]);
-      setInitialLoadComplete(false);
-      isFirstLoadRef.current = true;
       return;
     }
 
