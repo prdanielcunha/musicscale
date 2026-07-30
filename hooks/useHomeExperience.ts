@@ -35,7 +35,7 @@ export function useHomeExperience() {
     const upcomingEvents = buildHomeEventSummaries(musicScales, bandScales, user?.uid);
     const mostRecentDraft = selectMostRecentDraft(musicScales, bandScales, user?.uid);
 
-    const homeExperience = evaluateHomeExperience({
+    console.log("Upcoming events built:", upcomingEvents); const homeExperience = evaluateHomeExperience({
       isFirstValueJourneyActive: !!isFirstValueJourneyActive,
       canManageScales,
       upcomingEvents,

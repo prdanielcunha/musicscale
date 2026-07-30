@@ -14,14 +14,16 @@
     "test:song-discovery": "tsx run_song_discovery_tests.ts",
     "test:starter-pack-ui": "vitest run tests/ui/starter-pack-visibility.test.tsx",
     "test:curation-approval": "vitest run tests/server/curation-approval-service.test.ts",
+    "test:scale-cycle": "vitest run tests/server/music-scale-cycle-release.test.ts",
+    "test:scale-notifications": "vitest run tests/ui/music-scale-notification-contract.test.tsx",
     "test:scale-presence": "vitest run tests/server/music-scale-presence-release.test.ts",
     "test:scale-calendar": "vitest run tests/unit/music-scale-calendar-release.test.ts",
     "test:scale-dashboard": "vitest run tests/ui/music-scale-dashboard-release.test.tsx",
     "test:scale-security": "vitest run tests/server/music-scale-security-rules.test.ts",
-    "test:scale": "npm run test:scale-presence && npm run test:scale-calendar && npm run test:scale-dashboard && npm run test:scale-security",
+    "test:scale-release": "npm run test:scale-cycle && npm run test:scale-notifications && npm run test:scale-presence && npm run test:scale-calendar && npm run test:scale-dashboard && npm run test:scale-security",
     "test:release:core": "tsx test_handoff.ts && tsx test_ms_perf_2.ts && tsx test_ms_perf_3.ts && tsx test_ms_perf_4b.ts && tsx test_ms_perf_5.ts && tsx test_ms_perf_6.ts && tsx test_tenant_boundaries.ts && tsx test_onboarding_experience.ts",
     "test:release:scale-review": "tsx scripts/test_ms_first_value_01c.ts && tsx scripts/test_ms_scale_review_02.ts",
-    "test:release": "npm run test:release:core && npm run test:release:scale-review && npm run test:starter-pack-ui && npm run test:ui && npm run test:functions && npm run test:song-discovery && npm run test:curation-approval && npm run test:scale && npm run lint && npm run build"
+    "test:release": "npm run test:release:core && npm run test:release:scale-review && npm run test:starter-pack-ui && npm run test:ui && npm run test:functions && npm run test:song-discovery && npm run test:curation-approval && npm run test:scale-release && npm run lint && npm run build"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",
@@ -52,6 +54,7 @@
   },
   "devDependencies": {
     "@firebase/eslint-plugin-security-rules": "^0.0.2",
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@tailwindcss/vite": "^4.3.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

@@ -72,7 +72,7 @@ export const DashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, organization, isOwner } = useAuth();
-  const { populatedScales, populatedBandScales, songs, loading: musicLoading } = useMusic();
+  const { populatedScales, populatedBandScales, songs, loading: musicLoading, error: musicError } = useMusic();
   const { suggestions, loading: suggestionsLoading } = useSuggestionsContext();
   const { openSongDetail, openScaleDetail, openBandScaleDetail, openScaleForm } = useModals();
   const { hasCapability } = useCapability();
@@ -150,6 +150,7 @@ export const DashboardPage: React.FC = () => {
     return result.slice(0, 3);
   }, [songs, populatedScales, recentlyAddedSongs]);
 
+  console.log("experienceLoading:", experienceLoading, "musicLoading:", musicLoading, "suggestionsLoading:", suggestionsLoading);
   if (experienceLoading || musicLoading || suggestionsLoading) {
     return (
       <div className="relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 animate-fade-in" aria-busy="true" aria-label={t('dashboard.loading', 'Carregando...')}>
@@ -167,6 +168,7 @@ export const DashboardPage: React.FC = () => {
     );
   }
 
+  if (musicError) return <div>{t('updates.error', 'Ocorreu um erro')}</div>;
   if (!organization) {
     return (
       <div className="relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex flex-col items-center justify-center text-center space-y-4">

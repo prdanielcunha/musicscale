@@ -41,29 +41,39 @@ function getStableId(str: string): string {
   return Math.abs(hash).toString(36);
 }
 
-export function downloadCalendarICS(event: CalendarEventData) {
+export function generateCalendarICS(event: CalendarEventData | CalendarEventData[]): string {
+  const events = Array.isArray(event) ? event : [event];
   const formatDate = (date: Date) => {
     return date.toISOString().replace(/-|:|\.\d\d\d/g, "");
   };
   
-  const stableId = event.id ? event.id : getStableId(`${event.title}_${event.start.getTime()}`);
-  
-  const icsContent = [
+  const icsLines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//MusicScale//Calendar Event//PT",
-    "BEGIN:VEVENT",
-    `UID:scale_${stableId}@musicscale.com`,
-    `DTSTAMP:${formatDate(new Date())}`,
-    `DTSTART:${formatDate(event.start)}`,
-    `DTEND:${formatDate(event.end)}`,
-    `SUMMARY:${escapeIcsText(event.title)}`,
-    `DESCRIPTION:${escapeIcsText(event.description)}`,
-    `LOCATION:${escapeIcsText(event.location)}`,
-    "END:VEVENT",
-    "END:VCALENDAR"
-  ].join("\r\n");
+    "PRODID:-//MusicScale//Calendar Event//PT"
+  ];
+  
+  events.forEach((evt) => {
+    const stableId = evt.id ? evt.id : getStableId(`${evt.title}_${evt.start.getTime()}`);
+    icsLines.push(
+      "BEGIN:VEVENT",
+      `UID:scale_${stableId}@musicscale.com`,
+      `DTSTAMP:${formatDate(new Date())}`,
+      `DTSTART:${formatDate(evt.start)}`,
+      `DTEND:${formatDate(evt.end)}`,
+      `SUMMARY:${escapeIcsText(evt.title)}`,
+      `DESCRIPTION:${escapeIcsText(evt.description)}`,
+      `LOCATION:${escapeIcsText(evt.location)}`,
+      "END:VEVENT"
+    );
+  });
+  
+  icsLines.push("END:VCALENDAR");
+  return icsLines.join("\r\n");
+}
 
+export function downloadCalendarICS(event: CalendarEventData) {
+  const icsContent = generateCalendarICS(event);
   const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -93,7 +103,43 @@ export function resolveScaleDurationMinutes(value: unknown): number {
   return num;
 }
 
-export function convertScaleToCalendarEvent(scale: any): CalendarEventData | null {
+export interface CalendarScaleSong {
+  title: string;
+  artist?: string | null;
+}
+
+export interface CalendarScaleAssignment {
+  user?: {
+    displayName?: string | null;
+    name?: string | null;
+  } | null;
+  instrument?: {
+    name?: string | null;
+  } | null;
+}
+
+export interface CalendarScaleData {
+  id?: string;
+  organizationId?: string;
+  date?: string;
+  time?: string | null;
+  durationMinutes?: unknown;
+  eventType?: { name: string } | string | null;
+  eventName?: { name: string } | string | null;
+  eventTypeName?: string | null;
+  eventNameName?: string | null;
+  location?: { name?: string | null } | null;
+  locationName?: string | null;
+  observations?: string | null;
+  songs?: CalendarScaleSong[] | null;
+  songIds?: string[] | null;
+  bandScale?: {
+    assignments?: CalendarScaleAssignment[] | null;
+  } | null;
+  assignments?: CalendarScaleAssignment[] | null;
+}
+
+export function convertScaleToCalendarEvent(scale: CalendarScaleData): CalendarEventData | null {
   if (!scale) return null;
   
   const dateStr = scale.date;
@@ -113,7 +159,7 @@ export function convertScaleToCalendarEvent(scale: any): CalendarEventData | nul
   const title = getScaleTitle(scale);
   
   // Build Location
-  const locationName = scale.location?.name || scale.locationName || scale.location || "Não especificado";
+  const locationName = scale.location?.name || scale.locationName || "Não especificado";
   
   // Build Description
   let description = `Escala do Ministério de Música.\n\nLocal: ${locationName}`;
@@ -122,15 +168,15 @@ export function convertScaleToCalendarEvent(scale: any): CalendarEventData | nul
   }
   
   if (scale.songs && Array.isArray(scale.songs) && scale.songs.length > 0) {
-    description += `\n\nMúsicas agendadas:\n` + scale.songs.map((s: any, idx: number) => `${idx + 1}. ${s.title} (${s.artist || "Artista desconhecido"})`).join("\n");
+    description += `\n\nMúsicas agendadas:\n` + scale.songs.map((s: CalendarScaleSong, idx: number) => `${idx + 1}. ${s.title} (${s.artist || "Artista desconhecido"})`).join("\n");
   } else if (scale.songIds && Array.isArray(scale.songIds) && scale.songIds.length > 0) {
     description += `\n\n${scale.songIds.length} música(s) agendada(s).`;
   }
   
   if (scale.bandScale?.assignments && Array.isArray(scale.bandScale.assignments)) {
-    description += `\n\nIntegrantes da Banda:\n` + scale.bandScale.assignments.map((a: any) => `- ${a.user?.displayName || a.user?.name || "Integrante"}: ${a.instrument?.name || "Instrumento"}`).join("\n");
+    description += `\n\nIntegrantes da Banda:\n` + scale.bandScale.assignments.map((a: CalendarScaleAssignment) => `- ${a.user?.displayName || a.user?.name || "Integrante"}: ${a.instrument?.name || "Instrumento"}`).join("\n");
   } else if (scale.assignments && Array.isArray(scale.assignments)) {
-    description += `\n\nIntegrantes da Banda:\n` + scale.assignments.map((a: any) => `- ${a.user?.displayName || a.user?.name || "Integrante"}: ${a.instrument?.name || "Instrumento"}`).join("\n");
+    description += `\n\nIntegrantes da Banda:\n` + scale.assignments.map((a: CalendarScaleAssignment) => `- ${a.user?.displayName || a.user?.name || "Integrante"}: ${a.instrument?.name || "Instrumento"}`).join("\n");
   }
   
   return {

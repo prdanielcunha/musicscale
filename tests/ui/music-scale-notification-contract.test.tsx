@@ -2,30 +2,45 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import ptJson from '../../locales/pt.json';
+import enJson from '../../locales/en.json';
+import esJson from '../../locales/es.json';
+
+const locales: Record<string, Record<string, unknown>> = {
+  pt: ptJson as Record<string, unknown>,
+  en: enJson as Record<string, unknown>,
+  es: esJson as Record<string, unknown>,
+};
+
+let currentLanguage = 'pt';
+let currentMockSnapshot: unknown = null;
 
 // Mocks for firebase/firestore
 const mockUnsubscribe = vi.fn();
-let currentSnapshotCallback: any = null;
-const mockOnSnapshot = vi.fn((q, callback) => {
+let currentSnapshotCallback: ((snapshot: unknown) => void) | null = null;
+const mockOnSnapshot = vi.fn((_q: unknown, callback: (snapshot: unknown) => void) => {
   currentSnapshotCallback = callback;
+  if (currentMockSnapshot) {
+    callback(currentMockSnapshot);
+  }
   return mockUnsubscribe;
 });
 
-const mockCollection = vi.fn((dbInstance, path) => ({ type: 'collection', path }));
-const mockQuery = vi.fn((colRef, ...wheres) => ({ type: 'query', colRef, wheres }));
-const mockWhere = vi.fn((field, op, value) => ({ type: 'where', field, op, value }));
-const mockDoc = vi.fn((dbInstance, path, id) => ({ type: 'doc', path, id }));
+const mockCollection = vi.fn((_dbInstance: unknown, path: string) => ({ type: 'collection', path }));
+const mockQuery = vi.fn((colRef: unknown, ...wheres: unknown[]) => ({ type: 'query', colRef, wheres }));
+const mockWhere = vi.fn((field: string, op: string, value: unknown) => ({ type: 'where', field, op, value }));
+const mockDoc = vi.fn((_dbInstance: unknown, path: string, id: string) => ({ type: 'doc', path, id }));
 const mockUpdateDoc = vi.fn().mockResolvedValue(undefined);
 const mockDeleteDoc = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('firebase/firestore', () => ({
-  collection: (...args: any[]) => (mockCollection as any)(...args),
-  query: (...args: any[]) => (mockQuery as any)(...args),
-  where: (...args: any[]) => (mockWhere as any)(...args),
-  onSnapshot: (...args: any[]) => (mockOnSnapshot as any)(...args),
-  doc: (...args: any[]) => (mockDoc as any)(...args),
-  updateDoc: (...args: any[]) => (mockUpdateDoc as any)(...args),
-  deleteDoc: (...args: any[]) => (mockDeleteDoc as any)(...args),
+  collection: (...args: unknown[]) => (mockCollection as (...args: unknown[]) => unknown)(...args),
+  query: (...args: unknown[]) => (mockQuery as (...args: unknown[]) => unknown)(...args),
+  where: (...args: unknown[]) => (mockWhere as (...args: unknown[]) => unknown)(...args),
+  onSnapshot: (...args: unknown[]) => (mockOnSnapshot as (...args: unknown[]) => unknown)(...args),
+  doc: (...args: unknown[]) => (mockDoc as (...args: unknown[]) => unknown)(...args),
+  updateDoc: (...args: unknown[]) => (mockUpdateDoc as (...args: unknown[]) => unknown)(...args),
+  deleteDoc: (...args: unknown[]) => (mockDeleteDoc as (...args: unknown[]) => unknown)(...args),
   orderBy: vi.fn(),
 }));
 
@@ -35,24 +50,60 @@ vi.mock('../../services/firebase', () => ({
   auth: { mockAuth: true },
 }));
 
-// Mock react-i18next
+// Mock react-i18next with actual translations
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, defaultValue?: string | any, options?: any) => {
-      if (typeof defaultValue === 'string') {
-        if (options && options.count !== undefined) {
-          return defaultValue.replace('{{count}}', String(options.count));
+    t: (key: string, defaultValue?: string, options?: { count?: number }) => {
+      const keys = key.split('.');
+      let val: unknown = locales[currentLanguage];
+      for (const k of keys) {
+        if (val && typeof val === 'object') {
+          val = (val as Record<string, unknown>)[k];
+        } else {
+          val = undefined;
+          break;
         }
-        return defaultValue;
       }
-      return key;
+      if (typeof val === 'string') {
+        if (options && options.count !== undefined) {
+          // simple interpolation
+          if (options.count === 1) {
+            return val.replace('{{count}}', String(options.count));
+          } else {
+            // Check for plural key if available
+            const pluralKey = keys[keys.length - 1] + '_plural';
+            let pVal: unknown = locales[currentLanguage];
+            for (let i = 0; i < keys.length - 1; i++) {
+              pVal = (pVal as Record<string, unknown>)[keys[i]];
+            }
+            const pValString = pVal && typeof pVal === 'object' ? (pVal as Record<string, unknown>)[pluralKey] : undefined;
+            if (typeof pValString === 'string') {
+              return pValString.replace('{{count}}', String(options.count));
+            }
+            return val.replace('{{count}}', String(options.count));
+          }
+        }
+        return val;
+      }
+      return defaultValue || key;
     },
-    i18n: { language: 'pt', changeLanguage: vi.fn() },
+    i18n: {
+      language: currentLanguage,
+      changeLanguage: vi.fn((lng: string) => {
+        currentLanguage = lng;
+        return Promise.resolve();
+      }),
+    },
   }),
 }));
 
+interface AuthContextValue {
+  user: { uid: string } | null;
+  organization: { id: string } | null;
+}
+
 // Mock AuthContext
-let currentAuthValue = {
+let currentAuthValue: AuthContextValue = {
   user: { uid: 'u1' },
   organization: { id: 'org-1' },
 };
@@ -68,12 +119,17 @@ vi.mock('../../contexts/ToastContext', () => ({
   }),
 }));
 
+interface MusicContextValue {
+  populatedScales: Array<{ id: string; date: string; time: string; eventName: string }>;
+  populatedBandScales: Array<{ id: string; musicScaleId?: string }>;
+}
+
 // Mock MusicDataContext
-let currentMusicValue = {
+let currentMusicValue: MusicContextValue = {
   populatedScales: [
     { id: 'scale-123', date: '2026-08-10', time: '19:00', eventName: 'Culto de Domingo' }
   ],
-  populatedBandScales: [] as any[],
+  populatedBandScales: [],
 };
 vi.mock('../../contexts/MusicDataContext', () => ({
   useMusic: () => currentMusicValue,
@@ -84,9 +140,16 @@ vi.mock('../../components/common/AddToCalendarButton', () => ({
   default: () => <div data-testid="add-to-calendar">Add to Calendar</div>,
 }));
 
+interface DetailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  notification: { title: string } | null;
+  scale: { id: string } | null;
+}
+
 // Mock ScaleNotificationDetailModal to inspect props easily
 vi.mock('../../components/scales/ScaleNotificationDetailModal', () => ({
-  default: ({ isOpen, onClose, notification, scale }: any) => (
+  default: ({ isOpen, onClose, notification, scale }: DetailModalProps) => (
     isOpen ? (
       <div data-testid="scale-notification-detail-modal">
         <span data-testid="detail-modal-notif-title">{notification?.title}</span>
@@ -107,17 +170,38 @@ const TestContextConsumer: React.FC = () => {
   return (
     <div data-testid="context-consumer">
       <span data-testid="context-unread-count">{context.unreadCount}</span>
-      <button data-testid="btn-mark-read" onClick={() => context.markAsRead('notif-1')}>Read</button>
-      <button data-testid="btn-mark-unread" onClick={() => context.markAsUnread('notif-1')}>Unread</button>
-      <button data-testid="btn-archive" onClick={() => context.archiveNotification('notif-1')}>Archive</button>
-      <button data-testid="btn-delete" onClick={() => context.deleteNotification('notif-1')}>Delete</button>
+      <button data-testid="btn-mark-read" onClick={() => { context.markAsRead('notif-1').catch(() => {}); }}>Read</button>
+      <button data-testid="btn-mark-unread" onClick={() => { context.markAsUnread('notif-1').catch(() => {}); }}>Unread</button>
+      <button data-testid="btn-archive" onClick={() => { context.archiveNotification('notif-1').catch(() => {}); }}>Archive</button>
+      <button data-testid="btn-delete" onClick={() => { context.deleteNotification('notif-1').catch(() => {}); }}>Delete</button>
     </div>
   );
 };
 
+interface DocSnapshotData {
+  id: string;
+  data: () => {
+    recipientId: string;
+    type: string;
+    title: string;
+    message: string;
+    isRead: boolean;
+    isArchived: boolean;
+    metadata?: { musicScaleId?: string };
+    createdAt?: { toMillis: () => number; toDate: () => Date };
+  };
+}
+
+interface MockSnapshot {
+  docChanges: () => unknown[];
+  forEach: (cb: (doc: DocSnapshotData) => void) => void;
+}
+
 describe('NotificationContext & NotificationsPage UI Contract Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    currentLanguage = 'pt';
+    currentMockSnapshot = null;
     currentAuthValue = {
       user: { uid: 'u1' },
       organization: { id: 'org-1' },
@@ -126,7 +210,7 @@ describe('NotificationContext & NotificationsPage UI Contract Integration', () =
       populatedScales: [
         { id: 'scale-123', date: '2026-08-10', time: '19:00', eventName: 'Culto de Domingo' }
       ],
-      populatedBandScales: [] as any[],
+      populatedBandScales: [],
     };
     currentSnapshotCallback = null;
   });
@@ -171,13 +255,18 @@ describe('NotificationContext & NotificationsPage UI Contract Integration', () =
     expect(mockOnSnapshot).toHaveBeenCalledTimes(1);
 
     // Feed initial mock notifications
-    const mockSnapshot1 = {
+    const mockSnapshot1: MockSnapshot = {
       docChanges: () => [],
-      forEach: (cb: any) => {
-        cb({ id: 'notif-org1', data: () => ({ recipientId: 'u1', type: 'music_scale_published', title: 'Notif Org 1', isRead: false, isArchived: false }) });
+      forEach: (cb) => {
+        cb({
+          id: 'notif-org1',
+          data: () => ({ recipientId: 'u1', type: 'music_scale_published', title: 'Notif Org 1', message: 'Message', isRead: false, isArchived: false })
+        });
       }
     };
-    currentSnapshotCallback(mockSnapshot1);
+    if (currentSnapshotCallback) {
+      currentSnapshotCallback(mockSnapshot1);
+    }
 
     await waitFor(() => expect(screen.getByTestId('context-unread-count')).toHaveTextContent('1'));
 
@@ -209,15 +298,17 @@ describe('NotificationContext & NotificationsPage UI Contract Integration', () =
   it('6. unreadCount reflete exatamente documentos não lidos', async () => {
     renderContextAndPage();
 
-    const mockSnapshot = {
+    const mockSnapshot: MockSnapshot = {
       docChanges: () => [],
-      forEach: (cb: any) => {
-        cb({ id: 'notif-1', data: () => ({ recipientId: 'u1', type: 'music_scale_published', title: 'Notif 1', isRead: false, isArchived: false }) });
-        cb({ id: 'notif-2', data: () => ({ recipientId: 'u1', type: 'music_scale_published', title: 'Notif 2', isRead: true, isArchived: false }) });
-        cb({ id: 'notif-3', data: () => ({ recipientId: 'u1', type: 'music_scale_published', title: 'Notif 3', isRead: false, isArchived: false }) });
+      forEach: (cb) => {
+        cb({ id: 'notif-1', data: () => ({ recipientId: 'u1', type: 'music_scale_published', title: 'Notif 1', message: 'M', isRead: false, isArchived: false }) });
+        cb({ id: 'notif-2', data: () => ({ recipientId: 'u1', type: 'music_scale_published', title: 'Notif 2', message: 'M', isRead: true, isArchived: false }) });
+        cb({ id: 'notif-3', data: () => ({ recipientId: 'u1', type: 'music_scale_published', title: 'Notif 3', message: 'M', isRead: false, isArchived: false }) });
       }
     };
-    currentSnapshotCallback(mockSnapshot);
+    if (currentSnapshotCallback) {
+      currentSnapshotCallback(mockSnapshot);
+    }
 
     await waitFor(() => expect(screen.getByTestId('context-unread-count')).toHaveTextContent('2'));
   });
@@ -264,18 +355,37 @@ describe('NotificationContext & NotificationsPage UI Contract Integration', () =
     fireEvent.click(screen.getByTestId('btn-delete'));
 
     expect(mockDoc).toHaveBeenCalledWith(expect.any(Object), 'organizations/org-1/notifications', 'notif-1');
-    expect(mockDeleteDoc).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'doc', id: 'notif-1' })
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'doc', id: 'notif-1' }),
+      expect.objectContaining({ isArchived: true, archivedAt: expect.any(String) })
     );
+    expect(mockDeleteDoc).not.toHaveBeenCalled();
+  });
+
+  it('deleteNotification preserves notification in state on Firestore error', async () => {
+    mockUpdateDoc.mockRejectedValueOnce(new Error('Firestore update failed'));
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    renderContextAndPage();
+
+    fireEvent.click(screen.getByTestId('btn-delete'));
+
+    await waitFor(() => {
+      expect(mockUpdateDoc).toHaveBeenCalled();
+    });
+
+    expect(mockDeleteDoc).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Error deleting notification', expect.any(Error));
+    consoleErrorSpy.mockRestore();
   });
 
   it('11, 12, 13, 14 & 15. Tipos de notificações são renderizados e resolvem metadados corretos da escala', async () => {
     renderContextAndPage();
 
     // Trigger onSnapshot with various notification types
-    const mockSnapshot = {
+    const mockSnapshot: MockSnapshot = {
       docChanges: () => [],
-      forEach: (cb: any) => {
+      forEach: (cb) => {
         cb({
           id: 'n1',
           data: () => ({
@@ -330,7 +440,9 @@ describe('NotificationContext & NotificationsPage UI Contract Integration', () =
         });
       }
     };
-    currentSnapshotCallback(mockSnapshot);
+    if (currentSnapshotCallback) {
+      currentSnapshotCallback(mockSnapshot);
+    }
 
     // Verify they are all rendered in the list
     expect(await screen.findByText('Você foi escalado!')).toBeInTheDocument();
@@ -342,9 +454,9 @@ describe('NotificationContext & NotificationsPage UI Contract Integration', () =
   it('16. Clique abre o detalhe correto', async () => {
     renderContextAndPage();
 
-    const mockSnapshot = {
+    const mockSnapshot: MockSnapshot = {
       docChanges: () => [],
-      forEach: (cb: any) => {
+      forEach: (cb) => {
         cb({
           id: 'n1',
           data: () => ({
@@ -360,7 +472,9 @@ describe('NotificationContext & NotificationsPage UI Contract Integration', () =
         });
       }
     };
-    currentSnapshotCallback(mockSnapshot);
+    if (currentSnapshotCallback) {
+      currentSnapshotCallback(mockSnapshot);
+    }
 
     const item = await screen.findByText('Você foi escalado!');
     fireEvent.click(item);
@@ -372,11 +486,9 @@ describe('NotificationContext & NotificationsPage UI Contract Integration', () =
   });
 
   it('20. Traduções e interpoladores PT, EN e ES não apresentam chaves brutas', async () => {
-    renderContextAndPage();
-
-    const mockSnapshot = {
+    const mockSnapshot: MockSnapshot = {
       docChanges: () => [],
-      forEach: (cb: any) => {
+      forEach: (cb) => {
         cb({
           id: 'n1',
           data: () => ({
@@ -392,12 +504,42 @@ describe('NotificationContext & NotificationsPage UI Contract Integration', () =
         });
       }
     };
-    currentSnapshotCallback(mockSnapshot);
 
-    // The subtext unreadCountMsg string should be resolved nicely
-    const unreadSubtext = await screen.findByText(/Você tem/);
-    expect(unreadSubtext).toBeInTheDocument();
-    expect(unreadSubtext.textContent).not.toContain('{{');
-    expect(unreadSubtext.textContent).not.toContain('}}');
+    currentMockSnapshot = mockSnapshot;
+
+    // List of languages to cycle through
+    const languages = ['pt', 'en', 'es'];
+
+    for (const lang of languages) {
+      // Set the current language
+      currentLanguage = lang;
+
+      // Render/Rerender component to reflect translation change
+      const { rerender } = render(
+        <MemoryRouter initialEntries={['/notifications']}>
+          <NotificationProvider>
+            <Routes>
+              <Route path="/notifications" element={
+                <>
+                  <TestContextConsumer />
+                  <NotificationsPage />
+                </>
+              } />
+            </Routes>
+          </NotificationProvider>
+        </MemoryRouter>
+      );
+
+      // Fetch the unread count msg element or text using robust matcher
+      const matches = screen.getAllByText((content) => {
+        const lower = content.toLowerCase();
+        return lower.includes('notific') || lower.includes('unread') || lower.includes('lida') || lower.includes('leída');
+      });
+      expect(matches.length).toBeGreaterThan(0);
+      for (const match of matches) {
+        expect(match.textContent).not.toContain('{{');
+        expect(match.textContent).not.toContain('}}');
+      }
+    }
   });
 });

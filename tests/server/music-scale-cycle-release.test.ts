@@ -67,23 +67,23 @@ declare global {
     successfulCommits: number;
     conflicts: number;
   };
-  var mockDb: any;
+  var mockDbCycleRelease: TestFirestore;
   var setConflictPath: (path: string | null) => void;
   var getConflictPath: () => string | null;
   var resetMocks: () => void;
 }
 
 vi.mock('firebase-admin', () => {
-  const dbState = new Map<string, { data: Record<string, any>; version: number }>();
+  const dbState = new Map<string, { data: Record<string, unknown>; version: number }>();
   let autoIdCounter = 0;
   let conflictPathToInjectOnce: string | null = null;
 
   class TestTransactionEmulator implements TestTransaction {
     reads = new Set<string>();
     readVersions = new Map<string, number>();
-    writes: { type: 'set' | 'update' | 'delete', path: string, data?: Record<string, any> }[] = [];
+    writes: { type: 'set' | 'update' | 'delete', path: string, data?: Record<string, unknown> }[] = [];
     
-    constructor(private state: Map<string, { data: Record<string, any>; version: number }>) {}
+    constructor(private state: Map<string, { data: Record<string, unknown>; version: number }>) {}
 
     async get(ref: TestDocumentRef | TestQueryRef | CollectionMockResult): Promise<TestDocumentSnapshot | TestQuerySnapshot> {
       if (this.writes.length > 0) {
@@ -104,14 +104,14 @@ vi.mock('firebase-admin', () => {
       return { exists: false, data: () => undefined, id: ref.id || path.split('/').pop() || '', ref };
     }
 
-    set(ref: TestDocumentRef, data: Record<string, any>) {
+    set(ref: TestDocumentRef, data: Record<string, unknown>) {
       const path = ref.path || ref.id;
       if (!path) throw new Error("Invalid ref");
       this.writes.push({ type: 'set', path, data });
       return this;
     }
 
-    update(ref: TestDocumentRef, data: Record<string, any>) {
+    update(ref: TestDocumentRef, data: Record<string, unknown>) {
       const path = ref.path || ref.id;
       if (!path) throw new Error("Invalid ref");
       this.writes.push({ type: 'update', path, data });
@@ -275,7 +275,7 @@ vi.mock('firebase-admin', () => {
 
   globalThis.dbState = dbState;
   globalThis.txStats = txStats;
-  globalThis.mockDb = mockDb;
+  globalThis.mockDbCycleRelease = mockDb;
   globalThis.setConflictPath = (p: string | null) => { conflictPathToInjectOnce = p; };
   globalThis.getConflictPath = () => conflictPathToInjectOnce;
   globalThis.resetMocks = () => {
@@ -294,7 +294,7 @@ vi.mock('firebase-admin', () => {
 });
 
 vi.mock('firebase-admin/firestore', () => ({
-  getFirestore: () => globalThis.mockDb,
+  getFirestore: () => globalThis.mockDbCycleRelease,
   FieldValue: {
     serverTimestamp: () => 'server-timestamp'
   }
@@ -347,7 +347,7 @@ function setupBasicEntities(orgId: string) {
   });
 }
 
-function setupBasicScale(orgId: string, scaleId: string, extraData: Record<string, any> = {}) {
+function setupBasicScale(orgId: string, scaleId: string, extraData: Record<string, unknown> = {}) {
   globalThis.dbState.set(`scales/${scaleId}`, {
     data: {
       id: scaleId,
@@ -369,7 +369,7 @@ function setupBasicScale(orgId: string, scaleId: string, extraData: Record<strin
   });
 }
 
-function setupBandScale(orgId: string, bandScaleId: string, assignments: any[]) {
+function setupBandScale(orgId: string, bandScaleId: string, assignments: unknown[]) {
   globalThis.dbState.set(`bandScales/${bandScaleId}`, {
     data: {
       id: bandScaleId,
@@ -545,9 +545,9 @@ describe('MusicScale Complete Lifecycle & E2E Release Candidate Certification', 
     // - u2 was maintained, and their functions/scale didn't change (no change): receives music_scale_published
     // - u3 was removed: receives music_scale_cancelled
     // - u1 was added but is the publisher: receives NO notification
-    let u2Notif: any = null;
-    let u3Notif: any = null;
-    let u1Notif: any = null;
+    let u2Notif: Record<string, unknown> | null = null;
+    let u3Notif: Record<string, unknown> | null = null;
+    let u1Notif: Record<string, unknown> | null = null;
 
     globalThis.dbState.forEach((val, key) => {
       if (key.startsWith(`organizations/${orgId}/notifications/`)) {

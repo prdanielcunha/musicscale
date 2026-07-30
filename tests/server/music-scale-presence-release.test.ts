@@ -67,7 +67,7 @@ declare global {
     successfulCommits: number;
     conflicts: number;
   };
-  var mockDb: any;
+  var mockDbPresenceRelease: TestFirestore;
   var setConflictPath: (p: string | null) => void;
   var getConflictPath: () => string | null;
   var resetMocks: () => void;
@@ -271,7 +271,7 @@ vi.mock('firebase-admin', () => {
 
   globalThis.dbState = dbState;
   globalThis.txStats = txStats;
-  globalThis.mockDb = mockDb;
+  globalThis.mockDbPresenceRelease = mockDb;
   globalThis.setConflictPath = (p: string | null) => { conflictPathToInjectOnce = p; };
   globalThis.getConflictPath = () => conflictPathToInjectOnce;
   globalThis.resetMocks = () => {
@@ -290,7 +290,7 @@ vi.mock('firebase-admin', () => {
 });
 
 vi.mock('firebase-admin/firestore', () => ({
-  getFirestore: () => globalThis.mockDb,
+  getFirestore: () => globalThis.mockDbPresenceRelease,
   FieldValue: {
     serverTimestamp: () => 'server-timestamp'
   }
@@ -326,7 +326,7 @@ describe('MusicScale Presence Tracking (MusicScaleResponseService)', () => {
     correlationId: 'corr-1'
   });
 
-  it('1. Default pending status on publication', async () => {
+  it('1. Default unresponded state before interaction', async () => {
     const assignments = [
       { eventAssignmentId: 'assign-1', userId: 'user-1', active: true, functionId: 'inst-1', functionName: 'Guitar' }
     ];

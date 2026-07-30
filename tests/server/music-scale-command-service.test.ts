@@ -76,7 +76,7 @@ declare global {
     successfulCommits: number;
     conflicts: number;
   };
-  var mockDb: any;
+  var mockDbCommandService: TestFirestore;
   var setConflictPath: (path: string | null) => void;
   var getConflictPath: () => string | null;
   var resetMocks: () => void;
@@ -281,7 +281,7 @@ vi.mock('firebase-admin', () => {
 
   globalThis.dbState = dbState;
   globalThis.txStats = txStats;
-  globalThis.mockDb = mockDb;
+  globalThis.mockDbCommandService = mockDb;
   globalThis.setConflictPath = (path: string | null) => { conflictPathToInjectOnce = path; };
   globalThis.getConflictPath = () => conflictPathToInjectOnce;
   globalThis.resetMocks = () => {
@@ -297,7 +297,7 @@ vi.mock('firebase-admin', () => {
 });
 
 vi.mock('firebase-admin/firestore', () => ({
-  getFirestore: () => globalThis.mockDb,
+  getFirestore: () => globalThis.mockDbCommandService,
   FieldValue: {
     serverTimestamp: () => 'server-timestamp'
   }
@@ -306,7 +306,7 @@ vi.mock('firebase-admin/firestore', () => ({
 // Expose type-safe bindings for the test cases
 const dbState = globalThis.dbState;
 export const txStats = globalThis.txStats;
-const mockDb = globalThis.mockDb;
+const mockDb = globalThis.mockDbCommandService;
 const TestTransactionEmulator = globalThis.TestTransactionEmulatorClass;
 
 export function injectConflictBeforeCommitOnce(path: string): void {
