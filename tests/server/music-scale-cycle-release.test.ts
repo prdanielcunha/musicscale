@@ -67,7 +67,7 @@ declare global {
     successfulCommits: number;
     conflicts: number;
   };
-  var mockDb: TestFirestore;
+  var mockDb: any;
   var setConflictPath: (path: string | null) => void;
   var getConflictPath: () => string | null;
   var resetMocks: () => void;

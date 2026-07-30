@@ -189,8 +189,8 @@ describe('Music Scale Publish Integrity', () => {
       }
     });
 
-    mockApi.scales.create.mockResolvedValueOnce('new-draft-id-fail');
-    mockApi.musicScaleCommands.publish.mockRejectedValueOnce(new Error('Internal Server Error'));
+    mockApi.scales.create.mockResolvedValue('new-draft-id-fail');
+    mockApi.musicScaleCommands.publish.mockRejectedValue(new Error('Internal Server Error'));
 
     render(
       <BrowserRouter>
