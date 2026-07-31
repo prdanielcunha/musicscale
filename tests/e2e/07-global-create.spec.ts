@@ -15,7 +15,6 @@ test.describe('Global Create Action', () => {
     await expect(page.getByText('Escala de músicas')).toBeVisible();
     await expect(page.getByText('Escala da banda')).toBeVisible();
     await expect(page.getByText('Música')).toBeVisible();
-
     await captureFullPage(page, testInfo, 'global-create-menu-open');
     
     // Click on Music Scale
@@ -38,7 +37,8 @@ test.describe('Global Create Action', () => {
     
     const createBtn = page.getByRole('button', { name: 'Criar' });
     await expect(createBtn).toBeHidden();
-  
+  });
+
   test('Mobile trigger should be positioned correctly above bottom nav and not intersect links', async ({ page, isMobile }) => {
     if (!isMobile) test.skip();
     await loginAsLeaderA(page);

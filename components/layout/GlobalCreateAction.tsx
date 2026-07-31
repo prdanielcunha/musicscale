@@ -200,7 +200,7 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
 
   return (
     <>
-      <div className="pointer-events-auto z-[110] relative shadow-lg rounded-full">
+      <div className="pointer-events-auto z-[110] relative rounded-full">
         <button
           ref={triggerRef}
           onClick={() => setIsOpen(true)}
@@ -208,9 +208,9 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
           aria-haspopup="dialog"
           aria-controls="global-create-dialog"
           aria-label={t('globalCreate.trigger', 'Criar')}
-          className="flex items-center h-12 w-auto px-4 sm:px-5 rounded-full bg-indigo-600 text-white shadow-md active:scale-95 transition-transform duration-200 border border-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="flex items-center h-12 w-auto px-4 sm:px-5 rounded-full bg-[linear-gradient(180deg,rgba(49,46,129,0.94)_0%,rgba(30,27,75,0.94)_100%)] backdrop-blur-xl text-white shadow-[0_10px_28px_rgba(0,0,0,0.46),inset_0_1px_0_rgba(255,255,255,0.10)] active:scale-[0.98] active:bg-[linear-gradient(180deg,rgba(55,48,163,0.94)_0%,rgba(49,46,129,0.94)_100%)] transition-all duration-150 border border-[#a5b4fc]/25 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
         >
-          <Plus className="w-[18px] h-[18px] mr-[7px]" />
+          <Plus className="w-[18px] h-[18px] mr-[7px] text-[#C7D2FE]" />
           <span className="text-[13.5px] font-semibold">{t('globalCreate.trigger', 'Criar')}</span>
         </button>
       </div>
