@@ -14,7 +14,7 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report' }],
     ['json', { outputFile: 'playwright-results.json' }]
   ],
-  globalSetup: require.resolve('./tests/e2e/helpers/globalSetup.ts'),
+  globalSetup: './tests/e2e/helpers/globalSetup.ts',
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
     trace: 'retain-on-failure',

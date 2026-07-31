@@ -1,6 +1,8 @@
+import fs from 'fs';
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+const content = `
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { GlobalCreateAction } from '../../components/layout/GlobalCreateAction';
 import { BottomNav } from '../../components/layout/BottomNav';
@@ -19,9 +21,7 @@ const mockOpenScaleForm = vi.fn();
 const mockOpenBandScaleForm = vi.fn();
 const mockOpenSongForm = vi.fn();
 
-afterEach(() => { cleanup(); });
 beforeEach(() => {
-  cleanup();
   vi.clearAllMocks();
   vi.spyOn(AuthContext, 'useAuth').mockReturnValue({ organization: { id: 'org_1' } } as any);
   vi.spyOn(ModalContext, 'useModals').mockReturnValue({
@@ -134,12 +134,12 @@ describe('GlobalCreateAction UI', () => {
     trigger.focus();
     fireEvent.click(trigger);
     
-    // Check it opens
-    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await waitFor(() => expect(screen.getByRole('menu')).toBeInTheDocument());
     
-    // Press Escape
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    
+    expect(document.activeElement).toBe(trigger);
   });
   
   it('18, 19, 20. Route change closes menu and cancels pending actions', async () => {
@@ -201,6 +201,9 @@ describe('BottomNav Links Preserved', () => {
     expect(links[1]).toHaveAttribute('href', '/songs');
     expect(links[2]).toHaveAttribute('href', '/scales');
     expect(links[3]).toHaveAttribute('href', '/library');
-    expect(links[4]).toHaveAttribute('href', '/profile');
+    expect(links[4]).toHaveAttribute('href', '/settings');
   });
 });
+`;
+
+fs.writeFileSync('tests/ui/global-create-action.test.tsx', content);

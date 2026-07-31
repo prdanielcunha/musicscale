@@ -14,6 +14,7 @@ interface GlobalCreateActionProps {
 }
 
 export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant }) => {
+console.log("GlobalCreateAction rendering with variant:", variant);
   const { t } = useTranslation();
   const location = useLocation();
   const { hasCapability } = useCapability();
@@ -21,13 +22,15 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
   const { openScaleForm, openBandScaleForm, openSongForm } = useModals();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const pendingActionRef = useRef<CreateActionType | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const previousOverflow = useRef<string | null>(null);
 
   const actions = resolveAvailableCreateActions(hasCapability);
 
   useEffect(() => {
+    pendingActionRef.current = null;
     setIsOpen(false);
   }, [location.pathname, organization?.id]);
 
@@ -57,7 +60,6 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isOpen) {
         setIsOpen(false);
-        triggerRef.current?.focus();
       }
     };
 
@@ -70,29 +72,30 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
   }, [isOpen]);
 
   useEffect(() => {
-    if (variant === 'mobile' && isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else if (variant === 'mobile') {
-      document.body.style.overflow = '';
+    if (variant === 'mobile') {
+      if (isOpen) {
+        previousOverflow.current = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+      } else if (previousOverflow.current !== null) {
+        document.body.style.overflow = previousOverflow.current;
+      }
     }
     return () => {
-      if (variant === 'mobile') document.body.style.overflow = '';
+      if (variant === 'mobile' && previousOverflow.current !== null) {
+        document.body.style.overflow = previousOverflow.current;
+      }
     };
   }, [isOpen, variant]);
 
-  if (actions.length === 0) {
-    return null;
-  }
-
-  const handleActionClick = async (actionId: CreateActionType) => {
-    if (isTransitioning) return;
-    
-    setIsTransitioning(true);
+  const handleActionClick = (actionId: CreateActionType) => {
+    if (pendingActionRef.current) return;
+    pendingActionRef.current = actionId;
     setIsOpen(false);
-    
-    await new Promise(resolve => setTimeout(resolve, 150));
-    
-    try {
+  };
+
+  const handleExitComplete = () => { console.log("handleExitComplete called, pendingAction:", pendingActionRef.current);
+    const actionId = pendingActionRef.current;
+    if (actionId) {
       if (actionId === 'music-scale') {
         openScaleForm();
       } else if (actionId === 'band-scale') {
@@ -100,10 +103,15 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
       } else if (actionId === 'song') {
         openSongForm();
       }
-    } finally {
-      setIsTransitioning(false);
+      pendingActionRef.current = null;
+    } else {
+      triggerRef.current?.focus();
     }
   };
+
+  if (actions.length === 0) {
+    return null;
+  }
 
   const getIcon = (type: CreateActionType) => {
     switch (type) {
@@ -119,7 +127,7 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
   };
 
   const renderActionList = () => (
-    <ul className="flex flex-col w-full outline-none" role="menu">
+    <ul id="global-create-menu" className="flex flex-col w-full outline-none" role="menu">
       {actions.map((action, index) => (
         <li key={action.id} role="none">
           <button
@@ -153,17 +161,19 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
           onClick={() => setIsOpen(!isOpen)}
           aria-expanded={isOpen}
           aria-haspopup="menu"
+          aria-controls="global-create-menu"
           aria-label={t('globalCreate.trigger', 'Criar')}
-          className={`flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full transition-all border shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)] backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+          className={`flex items-center justify-center h-9 sm:h-10 px-3 sm:px-4 rounded-full transition-all border shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)] backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
             isOpen 
               ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
               : 'bg-[#18181b]/60 border-white/[0.06] text-slate-200 hover:bg-[#18181b] hover:text-white premium-interactive'
           }`}
         >
-          <Plus className={`w-5 h-5 transition-transform duration-300 ${isOpen ? 'rotate-45' : ''}`} />
+          <Plus className={`w-4 h-4 mr-1.5 transition-transform duration-300 ${isOpen ? 'rotate-45' : ''}`} />
+          <span className="text-[13px] sm:text-sm font-bold tracking-wide">{t('globalCreate.trigger', 'Criar')}</span>
         </button>
 
-        <AnimatePresence>
+        <AnimatePresence onExitComplete={handleExitComplete}>
           {isOpen && (
             <motion.div
               ref={popoverRef}
@@ -190,12 +200,13 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
 
   return (
     <>
-      <div className="absolute left-1/2 -translate-x-1/2 -top-[24px] pointer-events-auto">
+      <div className="pointer-events-auto flex justify-center w-full z-[110] relative">
         <button
           ref={triggerRef}
           onClick={() => setIsOpen(true)}
           aria-expanded={isOpen}
-          aria-haspopup="menu"
+          aria-haspopup="dialog"
+          aria-controls="global-create-dialog"
           aria-label={t('globalCreate.trigger', 'Criar')}
           className="flex items-center justify-center w-[52px] h-[52px] rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white shadow-[0_8px_20px_rgba(99,102,241,0.4),inset_0_1px_1px_rgba(255,255,255,0.2)] hover:scale-105 active:scale-95 transition-all duration-300 border border-indigo-400/30"
         >
@@ -204,7 +215,7 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
       </div>
 
       {typeof document !== 'undefined' && createPortal(
-        <AnimatePresence>
+        <AnimatePresence onExitComplete={handleExitComplete}>
           {isOpen && (
             <div className="fixed inset-0 z-[200] flex flex-col justify-end">
               <motion.div
@@ -218,14 +229,15 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
               />
               
               <motion.div
+                id="global-create-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="global-create-title"
                 initial={{ y: "100%" }}
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
                 className="relative w-full bg-white dark:bg-[#111115] rounded-t-[32px] border-t border-slate-200 dark:border-white/[0.08] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col pb-[env(safe-area-inset-bottom)]"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="global-create-title"
               >
                 <div className="flex items-center justify-between px-6 pt-6 pb-4">
                   <h2 id="global-create-title" className="text-[20px] font-bold text-slate-900 dark:text-white tracking-tight">
