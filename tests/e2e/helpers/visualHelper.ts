@@ -1,14 +1,14 @@
-import { Page, expect } from '@playwright/test';
+import { Page, TestInfo } from '@playwright/test';
 import * as path from 'path';
 import * as fs from 'fs';
 
-export async function captureFullPage(page: Page, testName: string, screenshotName: string) {
+export async function captureFullPage(page: Page, testInfo: TestInfo, screenshotName: string) {
   // Ensure network is idle and animations finish
-  await page.waitForLoadState('networkidle');
   await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(1000); // Give a little time for React to settle
   
   // Create test-results/visual-evidence folder if not exists
-  const evidenceDir = path.join(process.cwd(), 'test-results', 'visual-evidence', testName);
+  const evidenceDir = path.join(process.cwd(), 'test-results', 'visual-evidence', testInfo.project.name);
   fs.mkdirSync(evidenceDir, { recursive: true });
 
   const screenshotPath = path.join(evidenceDir, `${screenshotName}.png`);
@@ -17,5 +17,10 @@ export async function captureFullPage(page: Page, testName: string, screenshotNa
     path: screenshotPath, 
     fullPage: true,
     animations: 'disabled'
+  });
+
+  testInfo.attach(screenshotName, {
+    path: screenshotPath,
+    contentType: 'image/png'
   });
 }

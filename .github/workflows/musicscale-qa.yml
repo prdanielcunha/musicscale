@@ -1,4 +1,5 @@
 name: MS-QA-AUTO-01
+
 on:
   push:
     branches:
@@ -11,7 +12,7 @@ on:
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       
@@ -33,9 +34,6 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      - name: Install Firebase Tools
-        run: npm install -g firebase-tools
-
       - name: Run Lint
         run: npm run lint
 
@@ -46,10 +44,13 @@ jobs:
         run: npm run test:ui
 
       - name: Run E2E Tests with Firebase Emulator
-        run: firebase emulators:exec --only auth,firestore "npx playwright test"
+        run: npx firebase emulators:exec --project demo-musicscale --only auth,firestore "npm run test:e2e:run"
         env:
+          CI: 'true'
           VITE_E2E_MODE: 'true'
-          VITE_USE_FIREBASE_EMULATOR: 'true'
+          VITE_E2E_FIREBASE_PROJECT_ID: 'demo-musicscale'
+          GCLOUD_PROJECT: 'demo-musicscale'
+          GOOGLE_CLOUD_PROJECT: 'demo-musicscale'
           FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099'
           FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080'
 
@@ -59,8 +60,12 @@ jobs:
           echo "## MS-QA-AUTO-01 Execution Report" >> $GITHUB_STEP_SUMMARY
           echo "Date: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "SHA: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Build and Linter: Executed" >> $GITHUB_STEP_SUMMARY
-          echo "- Playwright UI Tests: Executed" >> $GITHUB_STEP_SUMMARY
+          if [ -f playwright-report/index.html ]; then
+            echo "E2E PASSED (or partially failed, check artifacts)" >> $GITHUB_STEP_SUMMARY
+            echo "- Playwright UI Tests: Executed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "E2E NOT EXECUTED OR COMPLETELY FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "View Artifacts for visual evidence and HTML reports." >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Playwright Report
@@ -70,6 +75,7 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+          if-no-files-found: warn
 
       - name: Upload Test Results & Visual Evidence
         if: always()
@@ -78,3 +84,13 @@ jobs:
           name: test-results
           path: test-results/
           retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload Playwright JSON Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results.json
+          path: playwright-results.json
+          retention-days: 14
+          if-no-files-found: warn

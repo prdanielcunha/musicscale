@@ -1,33 +1,29 @@
 import { test, expect } from './helpers/base';
 import { captureFullPage } from './helpers/visualHelper';
+import { loginAsLeaderA } from './helpers/auth';
 
 test.describe('Auxiliary Areas and Account', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.click('button:has-text("Acessar com e-mail")');
-    await page.waitForSelector('input[type="email"]');
-    await page.fill('input[type="email"]', 'leader@orga.test');
-    await page.fill('input[type="password"]', 'password');
-    await page.click('button[type="submit"]');
-    await page.waitForURL('**/dashboard**');
+    await loginAsLeaderA(page);
   });
 
-  test('Should open Notifications', async ({ page }) => {
-    // Usually a bell icon
-    await page.click('a[href="/notifications"], button[aria-label*="Notifica"]');
+  test('Should open Notifications', async ({ page }, testInfo) => {
+    await page.goto('/notifications');
     await page.waitForTimeout(500); // Allow render
-    await captureFullPage(page, test.info().project.name, 'notifications');
+    await page.waitForSelector('text=Nova notificação sintética');
+    await captureFullPage(page, testInfo, 'notifications');
   });
 
-  test('Should open Library', async ({ page }) => {
-    await page.click('a[href="/library"]');
+  test('Should open Library', async ({ page }, testInfo) => {
+    // If there's a bottom nav, click the icon, or just navigate
+    await page.goto('/library');
     await page.waitForURL('**/library**');
-    await captureFullPage(page, test.info().project.name, 'library');
+    await captureFullPage(page, testInfo, 'library');
   });
 
-  test('Should open Account Profile', async ({ page }) => {
-    await page.click('a[href="/profile"], a[href="/account"]');
+  test('Should open Account Profile', async ({ page }, testInfo) => {
+    await page.goto('/profile');
     await page.waitForTimeout(1000);
-    await captureFullPage(page, test.info().project.name, 'account');
+    await captureFullPage(page, testInfo, 'account-profile');
   });
 });

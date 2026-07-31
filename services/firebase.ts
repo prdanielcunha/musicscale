@@ -1,5 +1,4 @@
 /// <reference types="vite/client" />
-
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { 
@@ -8,19 +7,24 @@ import {
   persistentMultipleTabManager,
   getFirestore
 } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import prodFirebaseConfig from '../firebase-applet-config.json';
+
+const isLocalhost = typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+const isE2E = import.meta.env.DEV && 
+  import.meta.env.VITE_E2E_MODE === 'true' && 
+  isLocalhost;
+
+const firebaseConfig = isE2E 
+  ? { ...prodFirebaseConfig, projectId: 'demo-musicscale', authDomain: 'demo-musicscale.firebaseapp.com' }
+  : prodFirebaseConfig;
 
 // Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
 
 // Obtém as instâncias dos serviços
 const auth = getAuth(app);
-
-// Conecta aos emuladores se VITE_E2E_MODE estiver ativo (preferred option)
-if (import.meta.env.VITE_E2E_MODE === 'true' || import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
-  const { connectAuthEmulator } = await import('firebase/auth');
-  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-}
 
 // Inicializa o firestore
 let db: any;
@@ -36,10 +40,14 @@ try {
   db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 }
 
-if (import.meta.env.VITE_E2E_MODE === 'true' || import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
-  const { connectFirestoreEmulator } = await import('firebase/firestore');
-  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+if (isE2E) {
+  // Conecta aos emuladores
+  import('firebase/auth').then(({ connectAuthEmulator }) => {
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  });
+  import('firebase/firestore').then(({ connectFirestoreEmulator }) => {
+    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  });
 }
 
 export { auth, db };
-

@@ -1,6 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
-import path from 'path';
 
 dotenv.config();
 
@@ -12,7 +11,8 @@ export default defineConfig({
   workers: 1, // Deterministic tests in CI
   reporter: [
     ['list'],
-    ['html', { outputFolder: 'playwright-report' }]
+    ['html', { outputFolder: 'playwright-report' }],
+    ['json', { outputFile: 'playwright-results.json' }]
   ],
   globalSetup: require.resolve('./tests/e2e/helpers/globalSetup.ts'),
   use: {
@@ -45,7 +45,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     env: {
       VITE_E2E_MODE: 'true',
-      VITE_USE_FIREBASE_EMULATOR: 'true',
+      VITE_E2E_FIREBASE_PROJECT_ID: 'demo-musicscale',
       FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
       FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080'
     }

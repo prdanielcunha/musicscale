@@ -1,16 +1,9 @@
 import { test, expect } from './helpers/base';
+import { loginAsLeaderB } from './helpers/auth';
 
 test.describe('Isolation between organizations', () => {
   test('User from Org B should not see Org A data', async ({ page }) => {
-    await page.goto('/');
-    await page.click('button:has-text("Acessar com e-mail")');
-    await page.waitForSelector('input[type="email"]');
-    
-    // Login with leader B
-    await page.fill('input[type="email"]', 'leader@orgb.test');
-    await page.fill('input[type="password"]', 'password');
-    await page.click('button[type="submit"]');
-    await page.waitForURL('**/dashboard**');
+    await loginAsLeaderB(page);
 
     // Should see Org B name
     await page.waitForSelector('text=Família Teste B');
@@ -23,7 +16,6 @@ test.describe('Isolation between organizations', () => {
     // We seeded 'scale_future' for Org A
     await page.goto('/scales/scale_future');
     
-    // It should redirect to dashboard or show not found
     await page.waitForTimeout(1000);
     const content = await page.innerHTML('body');
     // Ensure it doesn't show the scale title "Culto de Domingo" from Org A
