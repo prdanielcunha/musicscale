@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 .env.local
 gha-creds-*.json
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+tests/e2e/artifacts/

@@ -9,6 +9,7 @@ export default defineConfig({
       ...configDefaults.exclude,
       'functions/tests/**',
       'utils/songDiscovery/tests/**',
+      '**/tests/e2e/**',
     ],
   },
 });
