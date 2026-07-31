@@ -33,27 +33,41 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
   const popoverRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion();
 
+  const canManageSongs = hasCapability('musicscale.songs.edit');
+  const canManageScales = hasCapability('musicscale.scales.manage');
+  const canUseGlobalLibrary = Boolean(canAccessGlobalLibrary());
+  const aiImportAvailability = isAiImportAllowed ? 'enabled' : 'plan-locked';
+  const libraryAvailability = canUseGlobalLibrary ? 'enabled' : 'plan-locked';
+  
   const resolvedActions = React.useMemo(() => {
-    const songCount = songs?.length || 0;
+    const songCount = songs?.length ?? 0;
     const maxSongs = limits.maxSongs;
-    const limitReached = typeof maxSongs === 'number' && maxSongs >= 0 && songCount >= maxSongs;
+    const limitReached = typeof maxSongs === 'number' && Number.isFinite(maxSongs) && maxSongs >= 0 && songCount >= maxSongs;
 
     const allActions = resolveGlobalCreateActions({
-      hasCapability,
-      aiImportAvailability: isAiImportAllowed ? 'enabled' : 'plan-locked',
-      libraryAvailability: canAccessGlobalLibrary() ? 'enabled' : 'plan-locked',
+      hasCapability: (capability) => {
+        if (capability === 'musicscale.songs.edit') return canManageSongs;
+        if (capability === 'musicscale.scales.manage') return canManageScales;
+        return false;
+      },
+      aiImportAvailability,
+      libraryAvailability,
       songLimitReached: limitReached
     });
     
     // Omit plan-locked or hidden actions from the UI in this phase
     return allActions.filter(a => a.availability === 'enabled' || a.availability === 'limit-reached');
-  }, [hasCapability, isAiImportAllowed, canAccessGlobalLibrary, songs?.length, limits.maxSongs]);
+  }, [canManageSongs, canManageScales, aiImportAvailability, libraryAvailability, songs?.length, limits.maxSongs]);
+
+  const availableActionSignature = resolvedActions
+    .map(action => `${action.id}:${action.availability}`)
+    .join('|');
 
   // Cancel pending action if context changes
   useEffect(() => {
     pendingActionRef.current = null;
     setIsOpen(false);
-  }, [organization?.id, location.pathname, hasCapability, isAiImportAllowed, canAccessGlobalLibrary]);
+  }, [organization?.id, location.pathname, availableActionSignature]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
