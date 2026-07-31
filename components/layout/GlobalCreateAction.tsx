@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Plus, Calendar, Users, Music, X, Sparkles, BookOpen, FileText } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useCapability } from '../../hooks/useCapability';
 import { useModals } from '../../contexts/ModalContext';
 import { useAuth, useFeatures, useLimits } from '../../contexts/AuthContext';
+import { useMusic } from '../../contexts/MusicDataContext';
 import { useMusicScaleFeature } from '../../hooks/useMusicScaleEntitlements';
 import { resolveGlobalCreateActions, GlobalCreateActionId, ResolvedGlobalCreateAction } from '../../utils/globalCreateActions';
 import { createPortal } from 'react-dom';
@@ -17,10 +18,12 @@ interface GlobalCreateActionProps {
 export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { hasCapability } = useCapability();
   const { organization } = useAuth();
   const { canAccessGlobalLibrary } = useFeatures();
   const { limits } = useLimits();
+  const { songs } = useMusic();
   const { openScaleForm, openBandScaleForm, openSongForm, openAiSongImport } = useModals();
   const isAiImportAllowed = useMusicScaleFeature('aiImport');
   
@@ -30,29 +33,27 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
   const popoverRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion();
 
-  // Re-evaluate actions based on current context
-  // Assume a limit state checking from AuthContext / limits
-  // In `SongsPage.tsx`, limits.maxSongs is used. Wait, what if songs is not fetched here?
-  // We might not have `songs.length` here. Let's just use `useLimits().limits.maxSongs` but wait! We don't have the song count.
-  // Actually, how does the user know the limit is reached without fetching songs?
-  // Let's assume if it is over limit, the create form or AI import would block it later, or we can just pass `false` for songLimitReached since we don't have `songs.length` in this global component without adding a subscription.
-  // I will check if `limits.maxSongs` is an issue. Actually, `useLimits()` doesn't expose `songs` array.
-  // I will just set songLimitReached to false here, and rely on the actual page or form to enforce it. The prompt says: "Caso o limite seja atingido: usar o tratamento já existente". Since we don't have the song count globally, we can just say `songLimitReached = false` and let the downstream forms handle it, OR we can fetch it? The prompt says "tratar limite atingido". I will mock songLimitReached to false for now unless I find a way to get it. 
-  // Wait, let's just pass `false` for songLimitReached.
-
   const resolvedActions = React.useMemo(() => {
-    return resolveGlobalCreateActions({
+    const songCount = songs?.length || 0;
+    const maxSongs = limits.maxSongs;
+    const limitReached = typeof maxSongs === 'number' && maxSongs >= 0 && songCount >= maxSongs;
+
+    const allActions = resolveGlobalCreateActions({
       hasCapability,
       aiImportAvailability: isAiImportAllowed ? 'enabled' : 'plan-locked',
       libraryAvailability: canAccessGlobalLibrary() ? 'enabled' : 'plan-locked',
-      songLimitReached: false // We leave enforcement to the existing forms/modals
+      songLimitReached: limitReached
     });
-  }, [hasCapability, isAiImportAllowed, canAccessGlobalLibrary]);
+    
+    // Omit plan-locked or hidden actions from the UI in this phase
+    return allActions.filter(a => a.availability === 'enabled' || a.availability === 'limit-reached');
+  }, [hasCapability, isAiImportAllowed, canAccessGlobalLibrary, songs?.length, limits.maxSongs]);
 
-  // Cancel pending action if organization changes
+  // Cancel pending action if context changes
   useEffect(() => {
     pendingActionRef.current = null;
-  }, [organization?.id]);
+    setIsOpen(false);
+  }, [organization?.id, location.pathname, hasCapability, isAiImportAllowed, canAccessGlobalLibrary]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -96,11 +97,14 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
 
   const handleActionClick = (action: ResolvedGlobalCreateAction) => {
     if (pendingActionRef.current) return;
-    
-    // We do NOT execute locked/hidden actions. Wait, if it's plan-locked, we should trigger the existing upgrade form.
-    // The existing upgrade form is triggered by calling openAiSongImport() when plan-locked!
-    // Actually, SongsPage does: `onClick={() => isAiImportAllowed ? openAiSongImport() : openSongForm()}` - wait, no, SongsPage does: `onClick={() => isAiImportAllowed ? openAiSongImport() : undefined}` and relies on `LockedActionButton`? No, SongsPage just renders it. 
-    // Wait, the prompt says: "Caso o plano não permita: abrir o gate já existente". We can just call openAiSongImport() and let it show the gate, or if the gate is elsewhere?
+    if (action.availability !== 'enabled') {
+      if (action.availability === 'limit-reached') {
+        // Just trigger standard flows so they can show the limit reached UI
+        pendingActionRef.current = action.id;
+        setIsOpen(false);
+      }
+      return;
+    }
     
     pendingActionRef.current = action.id;
     setIsOpen(false);
@@ -211,13 +215,20 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
     );
   };
 
-  const renderActionList = () => (
-    <div id="global-create-menu" role="menu">
-      {renderGroup('songs', 'globalCreate.groups.songs', 'Músicas')}
-      <div className="mx-4 my-1 border-t border-slate-200 dark:border-white/5"></div>
-      {renderGroup('scales', 'globalCreate.groups.scales', 'Escalas')}
-    </div>
-  );
+  const renderActionList = () => {
+    const hasSongs = resolvedActions.some(a => a.group === 'songs');
+    const hasScales = resolvedActions.some(a => a.group === 'scales');
+    
+    return (
+      <div id="global-create-menu" role="menu">
+        {renderGroup('scales', 'globalCreate.groups.scales', 'Escalas')}
+        {hasSongs && hasScales && (
+          <div className="mx-4 my-1 border-t border-slate-200 dark:border-white/5" role="separator"></div>
+        )}
+        {renderGroup('songs', 'globalCreate.groups.songs', 'Músicas')}
+      </div>
+    );
+  };
 
   if (variant === 'desktop') {
     return (

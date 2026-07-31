@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BottomNav } from '../../components/layout/BottomNav';
 import * as CapabilityHook from '../../hooks/useCapability';
 import * as ModalContext from '../../contexts/ModalContext';
+import * as MusicContext from '../../contexts/MusicDataContext';
 import * as AuthContext from '../../contexts/AuthContext';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -23,6 +24,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   
   vi.spyOn(AuthContext, 'useAuth').mockReturnValue({ organization: { id: 'org_1' } } as any);
+  vi.spyOn(MusicContext, 'useMusic').mockReturnValue({ songs: [] } as any);
   vi.spyOn(AuthContext, 'useFeatures').mockReturnValue({ canAccessGlobalLibrary: () => true } as any);
   vi.spyOn(AuthContext, 'useLimits').mockReturnValue({ limits: { maxSongs: 50 } } as any);
 

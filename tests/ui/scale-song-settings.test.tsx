@@ -1,6 +1,10 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('../../hooks/useCapability', () => ({
+  useCapability: vi.fn(() => ({ hasCapability: vi.fn(() => ({ hasCapability: vi.fn(() => ({ hasCapability: vi.fn(() => true) })) })) })),
+}));
+
 import { ScaleSongCard } from '../../components/scales/ScaleSongCard';
 import { PopulatedSong } from '../../types';
 
@@ -55,8 +59,8 @@ describe('ScaleSongCard Settings UI Integration Tests', () => {
     fireEvent.click(editBtn);
 
     // Editor panel should render fields for Key (Tom) and BPM
-    expect(screen.getByText('Tom')).toBeInTheDocument();
-    expect(screen.getByText('BPM')).toBeInTheDocument();
+    expect(screen.getByText(/Tom desta escala/i)).toBeInTheDocument();
+    expect(screen.getByText(/BPM desta escala/i)).toBeInTheDocument();
   });
 
   it('saves local settings immediately without global confirmation', async () => {
@@ -83,7 +87,7 @@ describe('ScaleSongCard Settings UI Integration Tests', () => {
     fireEvent.click(applyBtn);
 
     await waitFor(() => {
-      expect(onSettingsChangeMock).toHaveBeenCalledWith('A', 80, false);
+      expect(onSettingsChangeMock).toHaveBeenCalledWith('A', null, false);
     });
   });
 
@@ -106,6 +110,12 @@ describe('ScaleSongCard Settings UI Integration Tests', () => {
     expect(radios.length).toBeGreaterThanOrEqual(2);
     fireEvent.click(radios[1]);
 
+    const selectKey = container.querySelector('select');
+    fireEvent.change(selectKey!, { target: { value: 'A' } });
+
+    const inputBpm = container.querySelector('input[type="number"]');
+    fireEvent.change(inputBpm!, { target: { value: '85' } });
+
     // Apply button
     const applyBtn = screen.getByText(/Aplicar/i);
     fireEvent.click(applyBtn);
@@ -123,7 +133,7 @@ describe('ScaleSongCard Settings UI Integration Tests', () => {
     fireEvent.click(confirmBtn);
 
     await waitFor(() => {
-      expect(onSettingsChangeMock).toHaveBeenCalledWith('G', 80, true);
+      expect(onSettingsChangeMock).toHaveBeenCalledWith('A', 85, true);
     });
   });
 

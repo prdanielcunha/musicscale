@@ -644,8 +644,8 @@
     "originalKeyText": "Tom original",
     "bpmLabel": "BPM",
     "onlyThisScale": "Somente nesta escala",
-    "updateRepertoire": "Atualizar repertório",
-    "permanentChangeDescription": "Alterar o repertório afetará as próximas escalas.",
+    "updateRepertoire": "Salvar também como tom padrão",
+    "permanentChangeDescription": "A alteração será aplicada na biblioteca para todas as futuras escalas.",
     "applyAdjustment": "Aplicar ajuste",
     "customizeKeyBpmHelp": "Estes ajustes valem apenas para esta escala.",
     "confirmationTitle": "Atualizar repertório",
@@ -668,7 +668,11 @@
     "draftPreserved": "Seu rascunho foi preservado. Tente novamente sem precisar criar outra escala.",
     "publishedPreserved": "A escala publicada foi preservada sem alterações de status.",
     "draftSaved": "Rascunho salvo",
-    "draftSavedDescription": "A escala foi salva como rascunho e permanece oculta para os voluntários."
+    "draftSavedDescription": "A escala foi salva como rascunho e permanece oculta para os voluntários.",
+    "scaleSpecificKey": "Tom desta escala",
+    "scaleSpecificBpm": "BPM desta escala",
+    "useDefaultKey": "Usar tom padrão",
+    "defaultBpm": "BPM padrão:"
   },
   "bandScaleModal": {
     "titleCreate": "Nova Escala da Banda",

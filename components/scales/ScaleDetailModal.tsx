@@ -28,6 +28,7 @@ import { CloneIcon } from "../icons/CloneIcon";
 import { LocationMarkerIcon } from "../icons/LocationMarkerIcon";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { UsersIcon } from "../icons/UsersIcon";
+import { applyScaleSongSettings } from "../../utils/scaleSongSettings";
 import { UserIcon } from "../icons/UserIcon";
 import { ShareIcon } from "../icons/ShareIcon";
 import ScaleShareImage from "./ScaleShareImage";
@@ -373,7 +374,10 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
   
   useEffect(() => {
     if (scale && isMusicScale(scale)) {
-      setLocalSongs(scale.songs);
+      const songsWithSettings = scale.songs.map(song => 
+        applyScaleSongSettings(song, scale.songSettings?.[song.id])
+      );
+      setLocalSongs(songsWithSettings);
     }
   }, [scale]);
 
@@ -754,8 +758,26 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
                                            {song.artist && <p className="text-[13px] font-medium text-white/40 truncate max-w-[120px] md:max-w-[200px]">{song.artist}</p>}
                                            {song.artist && ((song.selectedKey || song.key) || song.bpm) && <div className="w-1 h-1 rounded-full bg-white/10" />}
                                            <div className="flex items-center gap-2">
-                                             {(song.selectedKey || song.key) && <span className="text-[11px] font-bold text-indigo-300/80 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 uppercase tracking-widest shadow-sm">{song.selectedKey || song.key}</span>}
-                                             {song.bpm && <span className="text-[11px] font-bold text-emerald-300/80 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm"><BpmIcon className="w-3 h-3 opacity-60"/> {song.bpm}</span>}
+                                             {(song.selectedKey || song.key) && (
+                                               <span className="text-[11px] font-bold text-indigo-300/80 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 uppercase tracking-widest shadow-sm">
+                                                 {song.selectedKey || song.key}
+                                                 {scale.songSettings?.[song.id]?.key && (
+                                                   <span className="ml-1 px-1 py-[1px] bg-indigo-500/30 text-indigo-200 text-[8px] rounded uppercase tracking-wider">
+                                                     {t('scaleModal.scaleSpecificSetting', 'Desta escala')}
+                                                   </span>
+                                                 )}
+                                               </span>
+                                             )}
+                                             {song.bpm && (
+                                               <span className="text-[11px] font-bold text-emerald-300/80 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
+                                                 <BpmIcon className="w-3 h-3 opacity-60"/> {song.bpm}
+                                                 {scale.songSettings?.[song.id]?.bpm && (
+                                                   <span className="ml-1 px-1 py-[1px] bg-emerald-500/30 text-emerald-200 text-[8px] rounded uppercase tracking-wider">
+                                                     {t('scaleModal.scaleSpecificSetting', 'Desta escala')}
+                                                   </span>
+                                                 )}
+                                               </span>
+                                             )}
                                            </div>
                                         </div>
                                      </div>

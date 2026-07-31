@@ -5,6 +5,7 @@ import * as CapabilityHook from '../../hooks/useCapability';
 import * as AuthContext from '../../contexts/AuthContext';
 import * as EntitlementsHook from '../../hooks/useMusicScaleEntitlements';
 import * as ModalContext from '../../contexts/ModalContext';
+import * as MusicContext from '../../contexts/MusicDataContext';
 import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('react-i18next', () => ({
@@ -34,6 +35,7 @@ beforeEach(() => {
   cleanup();
   vi.clearAllMocks();
   vi.spyOn(AuthContext, 'useAuth').mockReturnValue({ organization: { id: 'org_1' } } as any);
+  vi.spyOn(MusicContext, 'useMusic').mockReturnValue({ songs: [] } as any);
   vi.spyOn(AuthContext, 'useLimits').mockReturnValue({ limits: { maxSongs: 50 } } as any);
   
   vi.spyOn(ModalContext, 'useModals').mockReturnValue({
@@ -104,7 +106,7 @@ describe('GlobalCreateAction UI', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('shows locked state for plan limit', async () => {
+  it('omits locked state items for plan limit in this phase', async () => {
     vi.spyOn(CapabilityHook, 'useCapability').mockReturnValue({ hasCapability: () => true });
     vi.spyOn(AuthContext, 'useFeatures').mockReturnValue({ canAccessGlobalLibrary: () => false } as any);
     vi.spyOn(EntitlementsHook, 'useMusicScaleFeature').mockReturnValue(false);
@@ -114,7 +116,11 @@ describe('GlobalCreateAction UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Criar' }));
     
     await waitFor(() => {
-      expect(screen.getAllByText('No plano').length).toBe(2); // AI and Library
+      // Library and AI import should not be in the document
+      expect(screen.queryByText('Importar com IA')).not.toBeInTheDocument();
+      expect(screen.queryByText('Buscar na Biblioteca Viva')).not.toBeInTheDocument();
+      // Manual add should still be there
+      expect(screen.getByText('Adicionar manualmente')).toBeInTheDocument();
     });
   });
 });

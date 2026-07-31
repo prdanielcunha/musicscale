@@ -198,11 +198,11 @@ describe('resolveGlobalCreateActions', () => {
       libraryAvailability: 'enabled',
       songLimitReached: false
     });
-    expect(actions[0].id).toBe('ai-song-import');
-    expect(actions[1].id).toBe('library-song-import');
-    expect(actions[2].id).toBe('song-manual');
-    expect(actions[3].id).toBe('music-scale');
-    expect(actions[4].id).toBe('band-scale');
+    expect(actions[0].id).toBe('music-scale');
+    expect(actions[1].id).toBe('band-scale');
+    expect(actions[2].id).toBe('ai-song-import');
+    expect(actions[3].id).toBe('library-song-import');
+    expect(actions[4].id).toBe('song-manual');
   });
 
   it('18. grupos são determinísticos', () => {
@@ -213,8 +213,8 @@ describe('resolveGlobalCreateActions', () => {
       libraryAvailability: 'enabled',
       songLimitReached: false
     });
-    expect(actions[0].group).toBe('songs');
-    expect(actions[4].group).toBe('scales');
+    expect(actions[0].group).toBe('scales');
+    expect(actions[4].group).toBe('songs');
   });
 
   it('19. callbacks não existem no registry', () => {

@@ -3,6 +3,7 @@ import { PopulatedSong, Tag, ScaleSongSettingsChangeHandler } from '../../types'
 import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm } from '../../utils/scaleSongSettings';
 import { useTranslation } from 'react-i18next';
 import { GripVertical, ChevronDown, Check, X, Settings2 } from 'lucide-react';
+import { useCapability } from '../../hooks/useCapability';
 import { XCircleIcon } from '../icons/XCircleIcon';
 
 export interface ScaleSongCardProps {
@@ -51,9 +52,10 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
   onSettingsChange
 }) => {
   const { t } = useTranslation();
+  const { hasCapability } = useCapability();
   const [isEditing, setIsEditing] = useState(false);
-  const [editKey, setEditKey] = useState<string>(getEffectiveKey(song, localSettings));
-  const [editBpm, setEditBpm] = useState<number | ''>(getEffectiveBpm(song, localSettings) || '');
+  const [editKey, setEditKey] = useState<string>(localSettings?.key || '');
+  const [editBpm, setEditBpm] = useState<number | ''>(localSettings?.bpm || '');
   const [saveMode, setSaveMode] = useState<'local' | 'global'>('local');
   const [isSaving, setIsSaving] = useState(false);
   const [showGlobalConfirm, setShowGlobalConfirm] = useState(false);
@@ -105,8 +107,8 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
     if (mode === 'library' && !isSelected && onToggle) {
       onToggle();
     }
-    setEditKey(effectiveKey);
-    setEditBpm(effectiveBpm || '');
+    setEditKey(localSettings?.key || '');
+    setEditBpm(localSettings?.bpm || '');
     setSaveMode('local');
     setShowGlobalConfirm(false);
     setLocalError(null);
@@ -138,8 +140,18 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
     setLocalError(null);
 
     try {
+      // Pass null only if we explicitly want to save a null value.
+      // But since empty string in the UI means "fallback to default", 
+      // we can pass null to signal "clear this setting".
+      // Wait! In the controller, null means "clear this setting".
+      // In `applyLocalScaleSongSettingsUpdate`, we want null to mean "set to null" 
+      // OR "remove" if we want fallback. 
+      // Actually, if we pass null to `onSettingsChange`, it goes to `applyLocal...`.
+      // Let's pass `editKey === '' ? null : editKey` and same for BPM.
+      
+      const parsedKey = editKey === '' ? null : editKey;
       const parsedBpm = editBpm === '' ? null : Number(editBpm);
-      const result = await onSettingsChange?.(editKey || null, parsedBpm, saveMode === 'global');
+      const result = await onSettingsChange?.(parsedKey, parsedBpm, saveMode === 'global');
       
       if (result && result.status === 'deduplicated') {
         // Ignored by deduplication, do not post-process
@@ -374,28 +386,29 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
             <>
               <div className="grid grid-cols-2 gap-3 mb-4">
                  <div>
-                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.keyLabel', 'Tom')}</label>
+                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.scaleSpecificKey', 'Tom desta escala')}</label>
                    <select 
                      value={editKey} 
                      onChange={e => setEditKey(e.target.value)}
                      className="w-full bg-white dark:bg-[#2A2A2C] border border-slate-200 dark:border-white/10 rounded-md px-2 py-1.5 text-[12px] text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-primary"
                    >
-                     <option value="">{t('scaleModal.keyNotInformed', 'Não informado')}</option>
+                     <option value="">{t('scaleModal.useDefaultKey', 'Usar tom padrão')} ({song.selectedKey || song.key || song.originalKey || t('scaleModal.keyNotInformed', 'Não informado')})</option>
                      {MUSICAL_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
                    </select>
                    {song.originalKey && <div className="text-[9px] text-slate-400 mt-1">{t('scaleModal.originalKeyText', 'Tom original:')} {song.originalKey}</div>}
                  </div>
                  <div>
-                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.bpmLabel', 'BPM')}</label>
+                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.scaleSpecificBpm', 'BPM desta escala')}</label>
                    <input 
                      type="number"
                      min={20}
                      max={300}
                      value={editBpm}
                      onChange={e => setEditBpm(e.target.value ? Number(e.target.value) : '')}
-                     placeholder="Ex: 120"
+                     placeholder={song.bpm ? String(song.bpm) : "Ex: 120"}
                      className="w-full bg-white dark:bg-[#2A2A2C] border border-slate-200 dark:border-white/10 rounded-md px-2 py-1.5 text-[12px] text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-primary"
                    />
+                   {song.bpm && <div className="text-[9px] text-slate-400 mt-1">{t('scaleModal.defaultBpm', 'BPM padrão:')} {song.bpm}</div>}
                  </div>
               </div>
               <div className="flex flex-col gap-2 mb-4">
@@ -405,13 +418,15 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
                     <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{t('scaleModal.onlyThisScale', 'Somente nesta escala')}</span>
                   </div>
                 </label>
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input type="radio" name={`saveMode-${song.id}`} checked={saveMode === 'global'} onChange={() => setSaveMode('global')} className="mt-0.5 accent-primary" />
-                  <div className="flex flex-col">
-                    <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{t('scaleModal.updateRepertoire', 'Atualizar repertório')}</span>
-                    <span className="text-[10px] text-slate-500">{t('scaleModal.permanentChangeDescription', 'A alteração será aplicada na biblioteca para todos.')}</span>
-                  </div>
-                </label>
+                {hasCapability('MANAGE_SONGS') && (
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input type="radio" name={`saveMode-${song.id}`} checked={saveMode === 'global'} onChange={() => setSaveMode('global')} className="mt-0.5 accent-primary" />
+                    <div className="flex flex-col">
+                      <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{t('scaleModal.updateRepertoire', 'Salvar também como tom padrão')}</span>
+                      <span className="text-[10px] text-slate-500">{t('scaleModal.permanentChangeDescription', 'A alteração será aplicada na biblioteca para todas as futuras escalas.')}</span>
+                    </div>
+                  </label>
+                )}
               </div>
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={cancelEdit} className="px-3 min-h-[44px] text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-white">

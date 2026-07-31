@@ -22,6 +22,28 @@ export interface ResolvedGlobalCreateAction extends GlobalCreateAction {
 
 export const GLOBAL_CREATE_ACTIONS: GlobalCreateAction[] = [
   {
+    id: 'music-scale',
+    group: 'scales',
+    labelKey: 'globalCreate.musicScale.title',
+    defaultLabel: 'Criar escala de músicas',
+    descriptionKey: 'globalCreate.musicScale.description',
+    defaultDescription: 'Planeje repertório, data e equipe.',
+    iconType: 'music-scale',
+    capability: 'musicscale.scales.manage',
+    order: 1
+  },
+  {
+    id: 'band-scale',
+    group: 'scales',
+    labelKey: 'globalCreate.bandScale.title',
+    defaultLabel: 'Criar escala da banda',
+    descriptionKey: 'globalCreate.bandScale.description',
+    defaultDescription: 'Organize músicos, funções e instrumentos.',
+    iconType: 'band-scale',
+    capability: 'musicscale.scales.manage',
+    order: 2
+  },
+  {
     id: 'ai-song-import',
     group: 'songs',
     labelKey: 'globalCreate.aiImport.title',
@@ -30,7 +52,7 @@ export const GLOBAL_CREATE_ACTIONS: GlobalCreateAction[] = [
     defaultDescription: 'Use a IA para encontrar e preencher os dados da música.',
     iconType: 'ai-song-import',
     capability: 'musicscale.songs.edit',
-    order: 1,
+    order: 3,
     badgeKey: 'globalCreate.badges.fast',
     defaultBadge: 'Rápido'
   },
@@ -43,7 +65,7 @@ export const GLOBAL_CREATE_ACTIONS: GlobalCreateAction[] = [
     defaultDescription: 'Importe uma música pronta para o repertório.',
     iconType: 'library-song-import',
     capability: 'musicscale.songs.edit',
-    order: 2
+    order: 4
   },
   {
     id: 'song-manual',
@@ -54,28 +76,6 @@ export const GLOBAL_CREATE_ACTIONS: GlobalCreateAction[] = [
     defaultDescription: 'Cadastre a música com seus próprios dados.',
     iconType: 'song-manual',
     capability: 'musicscale.songs.edit',
-    order: 3
-  },
-  {
-    id: 'music-scale',
-    group: 'scales',
-    labelKey: 'globalCreate.musicScale.title',
-    defaultLabel: 'Criar escala de músicas',
-    descriptionKey: 'globalCreate.musicScale.description',
-    defaultDescription: 'Planeje repertório, data e equipe.',
-    iconType: 'music-scale',
-    capability: 'musicscale.scales.manage',
-    order: 4
-  },
-  {
-    id: 'band-scale',
-    group: 'scales',
-    labelKey: 'globalCreate.bandScale.title',
-    defaultLabel: 'Criar escala da banda',
-    descriptionKey: 'globalCreate.bandScale.description',
-    defaultDescription: 'Organize músicos, funções e instrumentos.',
-    iconType: 'band-scale',
-    capability: 'musicscale.scales.manage',
     order: 5
   }
 ];

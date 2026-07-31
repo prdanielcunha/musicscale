@@ -4,7 +4,7 @@
       "/usr/local/bin/node",
       "/app/applet/node_modules/.bin/playwright",
       "test",
-      "tests/e2e/09-global-create-sources.spec.ts"
+      "tests/e2e/10-scale-song-settings.spec.ts"
     ],
     "configFile": "/app/applet/playwright.config.ts",
     "rootDir": "/app/applet/tests/e2e",
@@ -132,8 +132,8 @@
     }
   ],
   "stats": {
-    "startTime": "2026-07-31T18:17:23.567Z",
-    "duration": 327.3149999999998,
+    "startTime": "2026-07-31T19:26:44.009Z",
+    "duration": 95.28999999999985,
     "expected": 0,
     "skipped": 0,
     "unexpected": 0,

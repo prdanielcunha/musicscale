@@ -219,26 +219,28 @@ export default function LibraryPage() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [pendingImportIntent, setPendingImportIntent] = useState(false);
 
   // Handle intent=import
   useEffect(() => {
     if (searchParams.get("intent") === "import" && hasAccess) {
-      // Set filter to "nao-importada"
-      setActiveFilter("nao-importada");
-      
-      // Focus search input after a short delay to allow render
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-        // Scroll to top
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 100);
-
       // Clean up the URL by removing the intent parameter but keeping others
       const newParams = new URLSearchParams(searchParams);
       newParams.delete("intent");
       setSearchParams(newParams, { replace: true });
+
+      setActiveFilter("nao-importada");
+      setPendingImportIntent(true);
     }
   }, [searchParams, hasAccess, setSearchParams]);
+
+  useEffect(() => {
+    if (pendingImportIntent && searchInputRef.current) {
+      searchInputRef.current.focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setPendingImportIntent(false);
+    }
+  }, [pendingImportIntent]);
 
   const [sortBy, setSortBy] = useState<"importCount" | "title" | "newest">(
     "importCount",

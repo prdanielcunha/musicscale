@@ -643,8 +643,8 @@
     "originalKeyText": "Original key",
     "bpmLabel": "BPM",
     "onlyThisScale": "Only this scale",
-    "updateRepertoire": "Update repertoire",
-    "permanentChangeDescription": "Updating repertoire affects future scales.",
+    "updateRepertoire": "Also save as default key",
+    "permanentChangeDescription": "This change will be applied to the library for all future scales.",
     "applyAdjustment": "Apply",
     "customizeKeyBpmHelp": "These settings apply only to this scale.",
     "confirmationTitle": "Update repertoire",
@@ -667,7 +667,11 @@
     "draftPreserved": "Your draft was preserved. Try again without needing to create another scale.",
     "publishedPreserved": "The published scale was preserved without status changes.",
     "draftSaved": "Draft saved",
-    "draftSavedDescription": "The scale was saved as a draft and remains hidden from volunteers."
+    "draftSavedDescription": "The scale was saved as a draft and remains hidden from volunteers.",
+    "scaleSpecificKey": "Key for this scale",
+    "scaleSpecificBpm": "BPM for this scale",
+    "useDefaultKey": "Use default key",
+    "defaultBpm": "Default BPM:"
   },
   "bandScaleModal": {
     "titleCreate": "New Band Scale",
