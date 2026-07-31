@@ -48,9 +48,15 @@ export const BottomNav: React.FC = () => {
   ];
 
   return (
-    <div className="md:hidden fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-3 right-3 z-[100] flex flex-col items-center pointer-events-none gap-4">
-      <GlobalCreateAction variant="mobile" />
-      <div className="pointer-events-auto flex justify-between items-center relative w-full max-w-[400px] p-[5px] bg-[#111115]/60 backdrop-blur-[32px] saturate-[180%] border border-white/[0.10] rounded-[2.25rem] shadow-[0_24px_70px_rgba(0,0,0,0.55),inset_0_1px_1px_rgba(255,255,255,0.06)]">
+    <div className="md:hidden fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-0 right-0 z-[100] flex justify-center pointer-events-none px-3">
+      <div className="relative w-full max-w-[400px]">
+        {/* Global Create Action */}
+        <div className="absolute right-2 sm:right-3 bottom-[calc(100%+12px)] pointer-events-auto">
+          <GlobalCreateAction variant="mobile" />
+        </div>
+
+        {/* Bottom Nav Bar */}
+        <div className="pointer-events-auto flex justify-between items-center relative w-full p-[5px] bg-[#111115]/60 backdrop-blur-[32px] saturate-[180%] border border-white/[0.10] rounded-[2.25rem] shadow-[0_24px_70px_rgba(0,0,0,0.55),inset_0_1px_1px_rgba(255,255,255,0.06)]">
         {navLinks.map((link) => {
           const isActive = location.pathname === link.to || (link.to !== "/" && location.pathname.startsWith(link.to));
 
@@ -102,6 +108,7 @@ export const BottomNav: React.FC = () => {
             </NavLink>
           );
         })}
+      </div>
       </div>
     </div>
   );
