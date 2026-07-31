@@ -41,10 +41,10 @@ jobs:
         run: npm run build
 
       - name: Run Existing Tests
-        run: npm run test:ui
+        run: npm run test:ui -- --watch=false
 
       - name: Run E2E Tests with Firebase Emulator
-        run: npx firebase emulators:exec --project demo-musicscale --only auth,firestore "npm run test:e2e:run"
+        run: npx firebase emulators:exec --project demo-musicscale --only auth,firestore "npm run test:scale-security && npm run test:e2e:run"
         env:
           CI: 'true'
           VITE_E2E_MODE: 'true'
@@ -56,17 +56,7 @@ jobs:
 
       - name: Generate Job Summary
         if: always()
-        run: |
-          echo "## MS-QA-AUTO-01 Execution Report" >> $GITHUB_STEP_SUMMARY
-          echo "Date: $(date)" >> $GITHUB_STEP_SUMMARY
-          echo "SHA: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          if [ -f playwright-report/index.html ]; then
-            echo "E2E PASSED (or partially failed, check artifacts)" >> $GITHUB_STEP_SUMMARY
-            echo "- Playwright UI Tests: Executed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "E2E NOT EXECUTED OR COMPLETELY FAILED" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "View Artifacts for visual evidence and HTML reports." >> $GITHUB_STEP_SUMMARY
+        run: node scripts/generate-playwright-summary.mjs
 
       - name: Upload Playwright Report
         if: always()

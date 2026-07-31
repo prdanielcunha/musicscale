@@ -1,44 +1,62 @@
 import { Page } from '@playwright/test';
 
-export async function setupNetworkMocks(page: Page) {
-  // Mock any external telemetry or analytics endpoints that shouldn't be called in E2E
-  // or that might fail.
+export async function setupNetworkMocks(page: Page, orgId: string = 'org_a', role: string = 'admin') {
   await page.route('**/*', (route) => {
     const url = route.request().url();
-    
-    // Block third-party analytics/telemetry if any exist and throw error or abort
-    if (url.includes('google-analytics.com') || url.includes('analytics')) {
-      return route.abort();
+    let urlObj;
+    try {
+      urlObj = new URL(url);
+    } catch {
+      return route.abort('blockedbyclient');
     }
     
-    // Check for internal API calls that should be mocked
-    if (url.includes('/api/v1/ecosystem/access-context')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          userId: "mocked",
-          globalRole: "member",
-          status: "active",
-          organizations: [
-            { id: "org_a", role: "admin", status: "active" },
-            { id: "org_b", role: "admin", status: "active" }
-          ]
-        })
-      });
-    }
+    const hostname = urlObj.hostname;
+    
+    // Allowlist approach
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      
+      // Mock /api/v1/ecosystem/access-context
+      if (url.includes('/api/v1/ecosystem/access-context')) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            userId: "mocked",
+            globalRole: "member",
+            status: "active",
+            organizations: [
+              { id: orgId, role, status: "active" }
+            ]
+          })
+        });
+      }
 
-    if (url.includes('/api/v1/organizations/') && url.includes('/limits')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          plan: "pro",
-          limits: { members: -1, songs: -1, storage: -1 }
-        })
-      });
-    }
+      if (url.includes('/api/v1/organizations/') && url.includes('/limits')) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            organizationId: orgId,
+            app: "musicscale",
+            plan: "pro",
+            status: "active",
+            features: {
+              maxSongs: -1,
+              maxScales: -1,
+              maxMembers: -1
+            },
+            limits: { members: -1, songs: -1, storage: -1 },
+            usage: { members: 1, songs: 2, storage: 0 },
+            entitlementsVersion: 1
+          })
+        });
+      }
 
-    route.continue();
+      return route.continue();
+    }
+    
+    // Fail external network requests explicitly
+    console.error(`Blocked external network request in E2E: ${url}`);
+    return route.abort('blockedbyclient');
   });
 }

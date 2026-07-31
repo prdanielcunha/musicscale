@@ -1,27 +1,28 @@
 /// <reference types="vite/client" />
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { 
   initializeFirestore, 
   persistentLocalCache,
   persistentMultipleTabManager,
-  getFirestore
+  getFirestore,
+  connectFirestoreEmulator
 } from 'firebase/firestore';
 import prodFirebaseConfig from '../firebase-applet-config.json';
+import { getFirebaseRuntimeConfig } from './firebaseRuntimeConfig';
 
-const isLocalhost = typeof window !== 'undefined' && 
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
 
-const isE2E = import.meta.env.DEV && 
-  import.meta.env.VITE_E2E_MODE === 'true' && 
-  isLocalhost;
-
-const firebaseConfig = isE2E 
-  ? { ...prodFirebaseConfig, projectId: 'demo-musicscale', authDomain: 'demo-musicscale.firebaseapp.com' }
-  : prodFirebaseConfig;
+const { firebaseConfig, useEmulators } = getFirebaseRuntimeConfig({
+  prodConfig: prodFirebaseConfig,
+  isDev: import.meta.env.DEV,
+  viteE2eMode: import.meta.env.VITE_E2E_MODE,
+  viteE2eProjectId: import.meta.env.VITE_E2E_FIREBASE_PROJECT_ID,
+  hostname
+});
 
 // Inicializa o Firebase
-const app = initializeApp(firebaseConfig);
+const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 // Obtém as instâncias dos serviços
 const auth = getAuth(app);
@@ -40,14 +41,18 @@ try {
   db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 }
 
-if (isE2E) {
-  // Conecta aos emuladores
-  import('firebase/auth').then(({ connectAuthEmulator }) => {
+const globalAny = globalThis as any;
+if (useEmulators && !globalAny.__FIREBASE_EMULATORS_CONNECTED__) {
+  try {
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-  });
-  import('firebase/firestore').then(({ connectFirestoreEmulator }) => {
     connectFirestoreEmulator(db, '127.0.0.1', 8080);
-  });
+    globalAny.__FIREBASE_EMULATORS_CONNECTED__ = true;
+    console.log("[MusicScale Firebase] Connected to Emulators synchronously.");
+  } catch (error: any) {
+    if (error.code !== 'auth/emulator-config-failed' && error.code !== 'failed-precondition') {
+      throw error;
+    }
+  }
 }
 
 export { auth, db };

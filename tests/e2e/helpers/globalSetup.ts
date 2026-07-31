@@ -1,13 +1,24 @@
 import admin from 'firebase-admin';
 
 export default async function globalSetup() {
-  process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
-  process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-  process.env.GCLOUD_PROJECT = 'demo-musicscale'; // Required by emulator
-
+  const reqEnvVars = [
+    'FIREBASE_AUTH_EMULATOR_HOST',
+    'FIRESTORE_EMULATOR_HOST',
+    'GCLOUD_PROJECT',
+    'GOOGLE_CLOUD_PROJECT'
+  ];
+  for (const v of reqEnvVars) {
+    if (!process.env[v]) {
+      throw new Error(`Missing required env var: ${v}`);
+    }
+  }
+  if (process.env.GCLOUD_PROJECT !== 'demo-musicscale') {
+    throw new Error('GCLOUD_PROJECT must be demo-musicscale');
+  }
+  
   if (admin.apps.length === 0) {
     admin.initializeApp({
-      projectId: 'demo-musicscale'
+      projectId: process.env.GCLOUD_PROJECT
     });
   }
 
@@ -16,33 +27,36 @@ export default async function globalSetup() {
 
   console.log('Clearing and seeding E2E database...');
 
-  // Note: For clearing, we can use the emulator hub REST API if necessary, 
-  // or simply delete known documents. We'll rely on the emulator being fresh in CI,
-  // but if needed, we'll just overwrite. We will delete collections from localhost:8080 if we can.
+  // Clear Firestore
   try {
-    await fetch(`http://127.0.0.1:8080/emulator/v1/projects/demo-musicscale/databases/(default)/documents`, {
+    const response = await fetch(`http://127.0.0.1:8080/emulator/v1/projects/${process.env.GCLOUD_PROJECT}/databases/(default)/documents`, {
       method: 'DELETE',
     });
+    if (!response.ok) throw new Error('Failed to clear firestore');
   } catch (e) {
-    console.log("Could not clear database via REST (might not be running or supported), proceeding...");
+    throw new Error(`Firestore Emulator not responding or failed to clear: ${e}`);
+  }
+
+  // Clear Auth
+  try {
+    const response = await fetch(`http://127.0.0.1:9099/emulator/v1/projects/${process.env.GCLOUD_PROJECT}/accounts`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to clear auth');
+  } catch (e) {
+    throw new Error(`Auth Emulator not responding or failed to clear: ${e}`);
   }
 
   // Create users
-  try {
-    await auth.createUser({ uid: 'user_leader_a', email: 'leader@orga.test', password: 'password', displayName: 'Líder Família A' });
-  } catch (e: any) { if (e.code !== 'auth/uid-already-exists') throw e; }
-  
-  try {
-    await auth.createUser({ uid: 'user_musician_a', email: 'musician@orga.test', password: 'password', displayName: 'Músico Família A' });
-  } catch (e: any) { if (e.code !== 'auth/uid-already-exists') throw e; }
-  
-  try {
-    await auth.createUser({ uid: 'user_observer_a', email: 'observer@orga.test', password: 'password', displayName: 'Observador Família A' });
-  } catch (e: any) { if (e.code !== 'auth/uid-already-exists') throw e; }
-    
-  try {
-    await auth.createUser({ uid: 'user_leader_b', email: 'leader@orgb.test', password: 'password', displayName: 'Líder Família B' });
-  } catch (e: any) { if (e.code !== 'auth/uid-already-exists') throw e; }
+  const usersToCreate = [
+    { uid: 'user_leader_a', email: 'leader@orga.test', password: 'password', displayName: 'Líder Família A' },
+    { uid: 'user_musician_a', email: 'musician@orga.test', password: 'password', displayName: 'Músico Família A' },
+    { uid: 'user_observer_a', email: 'observer@orga.test', password: 'password', displayName: 'Observador Família A' },
+    { uid: 'user_leader_b', email: 'leader@orgb.test', password: 'password', displayName: 'Líder Família B' }
+  ];
+  for (const u of usersToCreate) {
+    await auth.createUser(u);
+  }
 
   // Create Users collection
   await db.doc('users/user_leader_a').set({ uid: 'user_leader_a', email: 'leader@orga.test', displayName: 'Líder Família A', activeOrganizationId: 'org_a', primaryOrganizationId: 'org_a' });
@@ -102,9 +116,9 @@ export default async function globalSetup() {
   });
 
   // Members Org A
-  await db.doc('organizations/org_a/members/user_leader_a').set({ uid: 'user_leader_a', userId: 'user_leader_a', organizationId: 'org_a', status: 'active', role: 'admin', organizationRole: 'admin', email: 'leader@orga.test' });
-  await db.doc('organizations/org_a/members/user_musician_a').set({ uid: 'user_musician_a', userId: 'user_musician_a', organizationId: 'org_a', status: 'active', role: 'member', organizationRole: 'member', email: 'musician@orga.test' });
-  await db.doc('organizations/org_a/members/user_observer_a').set({ uid: 'user_observer_a', userId: 'user_observer_a', organizationId: 'org_a', status: 'active', role: 'visitor', organizationRole: 'visitor', email: 'observer@orga.test' });
+  await db.doc('organizations/org_a/members/user_leader_a').set({ uid: 'user_leader_a', userId: 'user_leader_a', organizationId: 'org_a', status: 'active', role: 'admin', organizationRole: 'admin', email: 'leader@orga.test', displayName: 'Líder A' });
+  await db.doc('organizations/org_a/members/user_musician_a').set({ uid: 'user_musician_a', userId: 'user_musician_a', organizationId: 'org_a', status: 'active', role: 'member', organizationRole: 'member', email: 'musician@orga.test', displayName: 'Musico A' });
+  await db.doc('organizations/org_a/members/user_observer_a').set({ uid: 'user_observer_a', userId: 'user_observer_a', organizationId: 'org_a', status: 'active', role: 'visitor', organizationRole: 'visitor', email: 'observer@orga.test', displayName: 'Observador A' });
 
   // Global members mapping for A
   await db.doc('organization_members/user_leader_a_org_a').set({ uid: 'user_leader_a', userId: 'user_leader_a', organizationId: 'org_a', status: 'active', role: 'admin', organizationRole: 'admin' });
@@ -112,80 +126,132 @@ export default async function globalSetup() {
   await db.doc('organization_members/user_observer_a_org_a').set({ uid: 'user_observer_a', userId: 'user_observer_a', organizationId: 'org_a', status: 'active', role: 'visitor', organizationRole: 'visitor' });
 
   // Members Org B
-  await db.doc('organizations/org_b/members/user_leader_b').set({ uid: 'user_leader_b', userId: 'user_leader_b', organizationId: 'org_b', status: 'active', role: 'admin', organizationRole: 'admin', email: 'leader@orgb.test' });
+  await db.doc('organizations/org_b/members/user_leader_b').set({ uid: 'user_leader_b', userId: 'user_leader_b', organizationId: 'org_b', status: 'active', role: 'admin', organizationRole: 'admin', email: 'leader@orgb.test', displayName: 'Líder B' });
   await db.doc('organization_members/user_leader_b_org_b').set({ uid: 'user_leader_b', userId: 'user_leader_b', organizationId: 'org_b', status: 'active', role: 'admin', organizationRole: 'admin' });
 
+  // Events/locations/etc Org A
+  await db.doc('eventTypes/type_a').set({ organizationId: 'org_a', name: 'Culto Principal', active: true });
+  await db.doc('locations/loc_a').set({ organizationId: 'org_a', name: 'Templo Sede', active: true });
+  await db.doc('eventNames/name_a').set({ organizationId: 'org_a', name: 'Evento Especial A', active: true });
 
-  // Add songs to root collection (filtered by organizationId)
-  await db.doc('songs/song_1').set({
+  // Events/locations/etc Org B
+  await db.doc('eventTypes/type_b').set({ organizationId: 'org_b', name: 'Reunião Jovem', active: true });
+  await db.doc('locations/loc_b').set({ organizationId: 'org_b', name: 'Anexo', active: true });
+
+  // Songs Org A
+  await db.doc('songs/song_a_1').set({
     organizationId: 'org_a',
     title: 'Música Sintética',
     artist: 'Artista Teste',
     tone: 'C',
+    key: 'C',
+    originalKey: 'C',
     bpm: 120,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     createdBy: 'user_leader_a'
   });
   
-  await db.doc('songs/song_2').set({
+  await db.doc('songs/song_a_2').set({
     organizationId: 'org_a',
     title: 'Outra Música',
     artist: 'Artista Teste',
     tone: 'D',
+    key: 'D',
+    originalKey: 'D',
     bpm: 90,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     createdBy: 'user_leader_a'
   });
 
-  // Add scale for Org A
+  // Song Org B
+  await db.doc('songs/song_b_1').set({
+    organizationId: 'org_b',
+    title: 'Música da Org B',
+    artist: 'Artista B',
+    tone: 'G',
+    key: 'G',
+    originalKey: 'G',
+    bpm: 100,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdBy: 'user_leader_b'
+  });
+
+  // Scales Org A
   const scaleDate = new Date();
   scaleDate.setDate(scaleDate.getDate() + 7);
-  await db.doc('scales/scale_future').set({
+  await db.doc('scales/scale_a_published').set({
     organizationId: 'org_a',
     title: 'Culto de Domingo',
     date: scaleDate.toISOString().split('T')[0],
     time: '19:00',
     startTime: '19:00',
     status: 'published',
-    songIds: ['song_1'],
+    songIds: ['song_a_1'],
+    eventTypeId: 'type_a',
+    locationId: 'loc_a',
+    eventNameId: 'name_a',
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     createdBy: 'user_leader_a'
   });
   
-  await db.doc('scales/scale_draft').set({
+  await db.doc('scales/scale_a_draft').set({
     organizationId: 'org_a',
     title: 'Culto de Terça',
     date: scaleDate.toISOString().split('T')[0],
     time: '19:30',
     startTime: '19:30',
     status: 'draft',
-    songIds: [],
+    songIds: ['song_a_2'], // Needs at least one for consistency
+    eventTypeId: 'type_a',
+    locationId: 'loc_a',
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     createdBy: 'user_leader_a'
   });
 
-  // Events/locations/etc
-  await db.doc('eventTypes/type_1').set({
-    organizationId: 'org_a',
-    name: 'Culto Principal',
-    active: true
-  });
-
-  await db.doc('locations/loc_1').set({
-    organizationId: 'org_a',
-    name: 'Templo Sede',
-    active: true
+  // Scale Org B
+  await db.doc('scales/scale_b_published').set({
+    organizationId: 'org_b',
+    title: 'Escala da Org B',
+    date: scaleDate.toISOString().split('T')[0],
+    time: '20:00',
+    startTime: '20:00',
+    status: 'published',
+    songIds: ['song_b_1'],
+    eventTypeId: 'type_b',
+    locationId: 'loc_b',
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdBy: 'user_leader_b'
   });
 
   // Notifications
-  await db.doc('notifications/notif_1').set({
-    organizationId: 'org_a',
-    userId: 'user_leader_a',
+  await db.doc('organizations/org_a/notifications/notif_a').set({
+    recipientId: 'user_leader_a',
+    type: 'scale_published',
     title: 'Nova notificação sintética',
-    body: 'Teste E2E',
-    read: false,
+    message: 'Teste E2E',
+    link: '/dashboard',
+    isRead: false,
+    isArchived: false,
     createdAt: admin.firestore.FieldValue.serverTimestamp()
   });
+
+  await db.doc('organizations/org_b/notifications/notif_b').set({
+    recipientId: 'user_leader_b',
+    type: 'scale_published',
+    title: 'Notificação Org B',
+    message: 'Teste E2E B',
+    link: '/dashboard',
+    isRead: false,
+    isArchived: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  // Validation Check
+  const scalesASnaps = await db.collection('scales').where('organizationId', '==', 'org_a').get();
+  if (scalesASnaps.size !== 2) throw new Error("Seed verification failed for scales A");
+  
+  const scalesBSnaps = await db.collection('scales').where('organizationId', '==', 'org_b').get();
+  if (scalesBSnaps.size !== 1) throw new Error("Seed verification failed for scales B");
 
   console.log('E2E database seeding complete.');
 }

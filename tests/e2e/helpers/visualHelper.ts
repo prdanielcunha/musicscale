@@ -3,9 +3,18 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 export async function captureFullPage(page: Page, testInfo: TestInfo, screenshotName: string) {
-  // Ensure network is idle and animations finish
+  // Ensure network is idle and animations finish by waiting for dom to be ready
   await page.evaluate(() => document.fonts.ready);
-  await page.waitForTimeout(1000); // Give a little time for React to settle
+  
+  // Disable animations via CSS
+  await page.addStyleTag({
+    content: `
+      *, *::before, *::after {
+        transition-duration: 0s !important;
+        animation-duration: 0s !important;
+      }
+    `
+  });
   
   // Create test-results/visual-evidence folder if not exists
   const evidenceDir = path.join(process.cwd(), 'test-results', 'visual-evidence', testInfo.project.name);
@@ -18,6 +27,10 @@ export async function captureFullPage(page: Page, testInfo: TestInfo, screenshot
     fullPage: true,
     animations: 'disabled'
   });
+
+  if (!fs.existsSync(screenshotPath)) {
+    throw new Error(`Screenshot not found at ${screenshotPath}`);
+  }
 
   testInfo.attach(screenshotName, {
     path: screenshotPath,
