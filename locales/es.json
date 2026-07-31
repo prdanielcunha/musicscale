@@ -1221,19 +1221,43 @@
   },
   "globalCreate": {
     "trigger": "Crear",
-    "title": "¿Qué quieres crear?",
+    "title": "Crear o importar",
     "close": "Cerrar",
     "musicScale": {
-      "title": "Escala de música",
-      "description": "Planifica el repertorio, fecha y equipo para el próximo culto."
+      "title": "Crear escala de canciones",
+      "description": "Planifica repertorio, fecha y equipo."
     },
     "bandScale": {
-      "title": "Escala de la banda",
+      "title": "Crear escala de banda",
       "description": "Organiza músicos, funciones e instrumentos."
     },
     "song": {
       "title": "Canción",
       "description": "Añade una canción al repertorio de tu iglesia."
+    },
+    "subtitle": "Elige el camino más rápido.",
+    "groups": {
+      "songs": "Canciones",
+      "scales": "Escalas"
+    },
+    "badges": {
+      "fast": "Rápido"
+    },
+    "states": {
+      "availableOnPlan": "En plan",
+      "limitReached": "Límite alcanzado"
+    },
+    "aiImport": {
+      "title": "Importar con IA",
+      "description": "Usa la IA para buscar y completar los datos de la canción."
+    },
+    "libraryImport": {
+      "title": "Buscar en Biblioteca Viva",
+      "description": "Importa una canción lista para usar a tu repertorio."
+    },
+    "songManual": {
+      "title": "Añadir manualmente",
+      "description": "Registra la canción con tus propios datos."
     }
   }
 }

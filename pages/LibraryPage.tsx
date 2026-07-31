@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger";
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth, useFeatures } from "../contexts/AuthContext";
 import { useMusicScaleUsage, useMusicScaleEntitlements } from "../hooks/useMusicScaleEntitlements";
 import { entitlementsService } from "../services/entitlementsService";
@@ -216,6 +216,30 @@ export default function LibraryPage() {
   const [activeFilter, setActiveFilter] = useState<
     "tudo" | "completa" | "cifra" | "letra" | "importada" | "nao-importada"
   >("tudo");
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle intent=import
+  useEffect(() => {
+    if (searchParams.get("intent") === "import" && hasAccess) {
+      // Set filter to "nao-importada"
+      setActiveFilter("nao-importada");
+      
+      // Focus search input after a short delay to allow render
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
+
+      // Clean up the URL by removing the intent parameter but keeping others
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("intent");
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, hasAccess, setSearchParams]);
+
   const [sortBy, setSortBy] = useState<"importCount" | "title" | "newest">(
     "importCount",
   );
@@ -848,6 +872,7 @@ export default function LibraryPage() {
                 />
               </div>
               <input
+                ref={searchInputRef}
                 type="text"
                 placeholder={t("library.search_placeholder", "Buscar por música, artista, trecho da letra, tom ou BPM...")}
                 value={searchTerm}

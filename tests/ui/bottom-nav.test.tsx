@@ -21,7 +21,11 @@ afterEach(() => { cleanup(); });
 beforeEach(() => {
   cleanup();
   vi.clearAllMocks();
+  
   vi.spyOn(AuthContext, 'useAuth').mockReturnValue({ organization: { id: 'org_1' } } as any);
+  vi.spyOn(AuthContext, 'useFeatures').mockReturnValue({ canAccessGlobalLibrary: () => true } as any);
+  vi.spyOn(AuthContext, 'useLimits').mockReturnValue({ limits: { maxSongs: 50 } } as any);
+
   vi.spyOn(ModalContext, 'useModals').mockReturnValue({
     openScaleForm: mockOpenScaleForm,
     openBandScaleForm: mockOpenBandScaleForm,

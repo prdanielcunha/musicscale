@@ -1224,19 +1224,43 @@
   },
   "globalCreate": {
     "trigger": "Create",
-    "title": "What do you want to create?",
+    "title": "Create or import",
     "close": "Close",
     "musicScale": {
-      "title": "Music Scale",
-      "description": "Plan repertoire, date, and team for the next service."
+      "title": "Create music scale",
+      "description": "Plan repertoire, date and team."
     },
     "bandScale": {
-      "title": "Band Scale",
-      "description": "Organize musicians, roles, and instruments."
+      "title": "Create band scale",
+      "description": "Organize musicians, roles and instruments."
     },
     "song": {
       "title": "Song",
       "description": "Add a song to your church's repertoire."
+    },
+    "subtitle": "Choose the fastest path.",
+    "groups": {
+      "songs": "Songs",
+      "scales": "Scales"
+    },
+    "badges": {
+      "fast": "Fast"
+    },
+    "states": {
+      "availableOnPlan": "On plan",
+      "limitReached": "Limit reached"
+    },
+    "aiImport": {
+      "title": "Import with AI",
+      "description": "Use AI to find and fill in the song details."
+    },
+    "libraryImport": {
+      "title": "Search in Global Library",
+      "description": "Import a ready-to-use song to your repertoire."
+    },
+    "songManual": {
+      "title": "Add manually",
+      "description": "Register the song with your own data."
     }
   }
 }
