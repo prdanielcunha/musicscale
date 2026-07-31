@@ -139,6 +139,52 @@ export interface CalendarScaleData {
   assignments?: CalendarScaleAssignment[] | null;
 }
 
+export function getUtcDateInTimezone(
+  dateStr: string,
+  timeStr: string = "00:00",
+  timeZone: string = "America/Sao_Paulo"
+): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const [hours, minutes] = (timeStr || "00:00").split(":").map(Number);
+  
+  // Construct a Date object from the target timezone representation as if it were UTC
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes || 0));
+  
+  // Format the date in the target timezone to get the timezone representation components
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: false
+  });
+  
+  const parts = formatter.formatToParts(utcDate);
+  const partVal = (type: string) => Number(parts.find(p => p.type === type)?.value);
+  
+  const tzYear = partVal("year");
+  const tzMonth = partVal("month");
+  const tzDay = partVal("day");
+  let tzHour = partVal("hour");
+  if (tzHour === 24) tzHour = 0;
+  const tzMin = partVal("minute");
+  
+  const tzAsUtc = Date.UTC(tzYear, tzMonth - 1, tzDay, tzHour, tzMin);
+  const offsetMs = tzAsUtc - utcDate.getTime();
+  
+  const localUtcTimestamp = Date.UTC(year, month - 1, day, hours, minutes || 0);
+  const correctUtcTimestamp = localUtcTimestamp - offsetMs;
+  
+  const result = new Date(correctUtcTimestamp);
+  
+  console.log(`[Timezone Logs] Organization Timezone: ${timeZone} | Local Scale Date/Time: ${dateStr} ${timeStr} | Parsed UTC Date: ${result.toISOString()} | Offset: ${offsetMs / 60000} mins`);
+  
+  return result;
+}
+
 export function convertScaleToCalendarEvent(scale: CalendarScaleData): CalendarEventData | null {
   if (!scale) return null;
   
@@ -147,11 +193,8 @@ export function convertScaleToCalendarEvent(scale: CalendarScaleData): CalendarE
   
   const timeStr = scale.time || "00:00";
   
-  // Parse date and time
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const [hours, minutes] = timeStr.split(":").map(Number);
-  
-  const start = new Date(year, month - 1, day, hours, minutes || 0);
+  // Parse date and time using explicit IANA timezone (America/Sao_Paulo by default)
+  const start = getUtcDateInTimezone(dateStr, timeStr, "America/Sao_Paulo");
   const durationMinutes = resolveScaleDurationMinutes(scale.durationMinutes);
   const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
   

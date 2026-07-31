@@ -899,6 +899,10 @@
     "local_search_hint": "Mostrando resultados locales rápidos. Borre la búsqueda y haga clic en 'Cargar más' para ampliar."
   },
   "notifications": {
+    "scale_published": "Nueva escala de música publicada",
+    "scale_updated": "La escala de música ha sido actualizada",
+    "assignment_added": "Has sido programado para un evento",
+    "role_changed": "Tu función ministerial ha sido modificada",
     "detailTitle": "Detalles de Notificación",
     "sentAt": "Enviado en",
     "scaleInfo": "Información de la Escala",

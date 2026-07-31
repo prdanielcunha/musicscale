@@ -95,7 +95,7 @@ const renderWithRouter = (ui: React.ReactElement) => {
 import { PopulatedScaleWithAssignmentsAndStatus } from '../../utils/homeExperience';
 import { EventName } from '../../types';
 
-function createMockScale(overrides: any): PopulatedScaleWithAssignmentsAndStatus {
+function createMockScale(overrides: Partial<PopulatedScaleWithAssignmentsAndStatus> & { organizationId?: string }): PopulatedScaleWithAssignmentsAndStatus {
   const eventNameObj: EventName | null = overrides.eventName === undefined ? null : overrides.eventName;
   return {
     id: overrides.id || 'mock-id',

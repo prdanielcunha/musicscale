@@ -123,12 +123,26 @@ describe('Calendar Utilities (utils/calendar.ts)', () => {
       const event = convertScaleToCalendarEvent(scale);
       expect(event).not.toBeNull();
       
-      // Assert that start date matches local hour inputs, simulating America/Sao_Paulo local parsing
-      expect(event?.start.getFullYear()).toBe(2026);
-      expect(event?.start.getMonth()).toBe(11); // December is index 11
-      expect(event?.start.getDate()).toBe(25);
-      expect(event?.start.getHours()).toBe(19);
-      expect(event?.start.getMinutes()).toBe(0);
+      // Assert that start date matches local hour inputs, formatting explicitly for America/Sao_Paulo
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false
+      });
+      const parts = formatter.formatToParts(event?.start);
+      const val = (type: string) => parts.find(p => p.type === type)?.value;
+      
+      expect(val('year')).toBe('2026');
+      expect(val('month')).toBe('12');
+      expect(val('day')).toBe('25');
+      let hourStr = val('hour');
+      if (hourStr === '24') hourStr = '00';
+      expect(Number(hourStr)).toBe(19);
+      expect(Number(val('minute'))).toBe(0);
     });
 
     it('generates stable UID when id is missing', () => {

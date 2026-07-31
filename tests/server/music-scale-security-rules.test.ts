@@ -8,11 +8,37 @@ import { readFileSync } from 'fs';
 import { describe, it, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { resolve } from 'path';
 
-let testEnv: any;
-let isFallbackMode = false;
-const fallbackStore = new Map<string, any>();
+interface DocData {
+  recipientId?: string;
+  organizationId?: string;
+  type?: string;
+  isRead?: boolean;
+  isArchived?: boolean;
+  readAt?: string | null;
+  archivedAt?: string | null;
+  [key: string]: unknown;
+}
 
-class MockDocRef {
+interface DocumentReference {
+  set(data: Record<string, unknown>): Promise<void>;
+  update(data: Record<string, unknown>): Promise<void>;
+  get(): Promise<{ exists: boolean; data(): unknown }>;
+  delete(): Promise<void>;
+}
+
+interface FirestoreInstance {
+  doc(path: string): DocumentReference;
+}
+
+interface RulesContext {
+  firestore(): FirestoreInstance;
+}
+
+let testEnv: RulesTestEnvironment | typeof mockTestEnv;
+let isFallbackMode = false;
+const fallbackStore = new Map<string, DocData>();
+
+class MockDocRef implements DocumentReference {
   constructor(
     public path: string,
     private db: MockFirestore,
@@ -41,7 +67,7 @@ class MockDocRef {
     };
   }
 
-  async set(data: Record<string, any>) {
+  async set(data: Record<string, unknown>) {
     if (!this.adminMode) {
       throw new Error('PERMISSION_DENIED: Create not allowed');
     }
@@ -55,7 +81,7 @@ class MockDocRef {
     this.db.store.delete(this.path);
   }
 
-  async update(newData: Record<string, any>) {
+  async update(newData: Record<string, unknown>) {
     const docData = this.db.store.get(this.path);
     if (!this.adminMode) {
       if (!this.auth) {
@@ -81,7 +107,7 @@ class MockDocRef {
   }
 }
 
-class MockFirestore {
+class MockFirestore implements FirestoreInstance {
   get store() {
     return fallbackStore;
   }
@@ -90,7 +116,7 @@ class MockFirestore {
     private adminMode = false
   ) {}
 
-  doc(path: string) {
+  doc(path: string): MockDocRef {
     return new MockDocRef(path, this, this.auth, this.adminMode);
   }
 }
@@ -102,7 +128,7 @@ const mockTestEnv = {
   clearFirestore: async () => {
     fallbackStore.clear();
   },
-  authenticatedContext: (uid: string, authData?: any) => {
+  authenticatedContext: (uid: string, authData?: { email?: string }) => {
     return {
       firestore: () => new MockFirestore({ uid, ...authData }, false),
     };
@@ -112,22 +138,22 @@ const mockTestEnv = {
       firestore: () => new MockFirestore(null, false),
     };
   },
-  withSecurityRulesDisabled: async (cb: (context: any) => Promise<void>) => {
-    const adminContext = {
+  withSecurityRulesDisabled: async (cb: (context: RulesContext) => Promise<void>) => {
+    const adminContext: RulesContext = {
       firestore: () => new MockFirestore(null, true),
     };
     await cb(adminContext);
   },
 };
 
-async function assertSucceeds(pr: any): Promise<any> {
+async function assertSucceeds<T>(pr: Promise<T> | T): Promise<T> {
   if (isFallbackMode) {
     return pr;
   }
-  return realAssertSucceeds(pr);
+  return realAssertSucceeds(pr as Promise<T>);
 }
 
-async function assertFails(pr: any): Promise<any> {
+async function assertFails<T>(pr: Promise<T> | T): Promise<unknown> {
   if (isFallbackMode) {
     try {
       await pr;
@@ -136,7 +162,7 @@ async function assertFails(pr: any): Promise<any> {
     }
     throw new Error('Expected promise to fail but it succeeded');
   }
-  return realAssertFails(pr);
+  return realAssertFails(pr as Promise<T>);
 }
 
 beforeAll(async () => {

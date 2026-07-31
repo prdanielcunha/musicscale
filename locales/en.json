@@ -902,6 +902,10 @@
     "local_search_hint": "Showing fast local results. Clear the search and click 'Load more' to expand."
   },
   "notifications": {
+    "scale_published": "New music scale published",
+    "scale_updated": "The music scale has been updated",
+    "assignment_added": "You have been scheduled for an event",
+    "role_changed": "Your ministerial role has been changed",
     "detailTitle": "Notification Details",
     "sentAt": "Sent at",
     "scaleInfo": "Scale Information",
