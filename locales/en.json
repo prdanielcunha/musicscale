@@ -1221,5 +1221,22 @@
       "modalTitle": "Configure Member",
       "successToast": "Person configured successfully."
     }
+  },
+  "globalCreate": {
+    "trigger": "Create",
+    "title": "What do you want to create?",
+    "close": "Close",
+    "musicScale": {
+      "title": "Music Scale",
+      "description": "Plan repertoire, date, and team for the next service."
+    },
+    "bandScale": {
+      "title": "Band Scale",
+      "description": "Organize musicians, roles, and instruments."
+    },
+    "song": {
+      "title": "Song",
+      "description": "Add a song to your church's repertoire."
+    }
   }
 }

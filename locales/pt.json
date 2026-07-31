@@ -1220,5 +1220,22 @@
       "modalTitle": "Configurar Integrante",
       "successToast": "Pessoa configurada com sucesso."
     }
+  },
+  "globalCreate": {
+    "trigger": "Criar",
+    "title": "O que você quer criar?",
+    "close": "Fechar",
+    "musicScale": {
+      "title": "Escala de músicas",
+      "description": "Planeje repertório, data e equipe para o próximo culto."
+    },
+    "bandScale": {
+      "title": "Escala da banda",
+      "description": "Organize músicos, funções e instrumentos."
+    },
+    "song": {
+      "title": "Música",
+      "description": "Adicione uma música ao repertório da sua igreja."
+    }
   }
 }

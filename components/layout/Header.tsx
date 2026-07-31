@@ -8,6 +8,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { MenuIcon } from "../icons/MenuIcon";
 import { Sparkles } from "lucide-react";
 import { OrganizationSelector } from "./OrganizationSelector";
+import { GlobalCreateAction } from "./GlobalCreateAction";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -94,6 +95,9 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="hidden md:block">
+              <GlobalCreateAction variant="desktop" />
+            </div>
             <button
               onClick={openWhatsNew}
               className="relative flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#18181b]/60 border border-indigo-500/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)] backdrop-blur-md premium-interactive hover:bg-[#18181b] hover:border-indigo-500/30"

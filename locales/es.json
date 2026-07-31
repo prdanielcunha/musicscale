@@ -1218,5 +1218,22 @@
       "modalTitle": "Configurar Miembro",
       "successToast": "Persona configurada con éxito."
     }
+  },
+  "globalCreate": {
+    "trigger": "Crear",
+    "title": "¿Qué quieres crear?",
+    "close": "Cerrar",
+    "musicScale": {
+      "title": "Escala de música",
+      "description": "Planifica el repertorio, fecha y equipo para el próximo culto."
+    },
+    "bandScale": {
+      "title": "Escala de la banda",
+      "description": "Organiza músicos, funciones e instrumentos."
+    },
+    "song": {
+      "title": "Canción",
+      "description": "Añade una canción al repertorio de tu iglesia."
+    }
   }
 }
