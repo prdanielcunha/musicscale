@@ -1149,7 +1149,12 @@ app.use((err: any, req: any, res: any, next: any) => {
         throw { status: 401, message: "Token de autorização inválido ou ausente." };
       }
       const token = authHeader.split(" ")[1];
-      const decoded = await admin.auth().verifyIdToken(token);
+      let decoded;
+      try {
+        decoded = await admin.auth().verifyIdToken(token);
+      } catch (e: any) {
+        throw { status: 401, message: "Token de autorização inválido ou expirado.", code: 'auth/invalid-token' };
+      }
       authUid = decoded.uid;
 
       orgId = req.headers["x-organization-id"] as string;

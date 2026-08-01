@@ -165,21 +165,43 @@ async function assertFails<T>(pr: Promise<T> | T): Promise<unknown> {
   return realAssertFails(pr as Promise<T>);
 }
 
+const hasEmulatorHost = !!process.env.FIRESTORE_EMULATOR_HOST;
+
+if (!hasEmulatorHost) {
+  console.log("==========================================================");
+  console.log("WARNING: FIRESTORE_EMULATOR_HOST is not defined.");
+  console.log("Real firestore security rules are NOT being executed.");
+  console.log("Running in high-fidelity Mock Fallback Mode as a Mock Contract test.");
+  console.log("This DOES NOT certify real Firebase Security Rules.");
+  console.log("==========================================================");
+}
+
 beforeAll(async () => {
   const rulesPath = resolve(process.cwd(), 'firestore.rules');
   const rules = readFileSync(rulesPath, 'utf8');
 
-  try {
+  if (hasEmulatorHost) {
+    // Must propagate error and must NOT use fallback
     testEnv = await initializeTestEnvironment({
       projectId: 'demo-musicscale-rules',
       firestore: {
         rules,
       },
     });
-  } catch (err) {
-    console.warn("Firestore Emulator not available, running in high-fidelity Mock Fallback Mode.");
-    isFallbackMode = true;
-    testEnv = mockTestEnv;
+    isFallbackMode = false;
+  } else {
+    try {
+      testEnv = await initializeTestEnvironment({
+        projectId: 'demo-musicscale-rules',
+        firestore: {
+          rules,
+        },
+      });
+    } catch (err) {
+      console.warn("Firestore Emulator not available, running in high-fidelity Mock Fallback Mode.");
+      isFallbackMode = true;
+      testEnv = mockTestEnv;
+    }
   }
 });
 
@@ -191,13 +213,23 @@ beforeEach(async () => {
   await testEnv.clearFirestore();
 });
 
-describe('Firestore Rules Security Certification (Etapa 10)', () => {
+describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' : 'Firestore Rules Mock Contract Check (Emulator Not Available - MOCK CONTRACT)', () => {
   const getAuthedFirestore = (auth?: { uid: string, email?: string }) => {
     if (auth) {
       return testEnv.authenticatedContext(auth.uid, { email: auth.email }).firestore();
     }
     return testEnv.unauthenticatedContext().firestore();
   };
+
+  describe('0. Security Rules Environment Check', () => {
+    it('com FIRESTORE_EMULATOR_HOST definido, fallback nao e usado e falhas sao propagadas', () => {
+      if (hasEmulatorHost) {
+        if (isFallbackMode) {
+          throw new Error('Fallback mode is active even though FIRESTORE_EMULATOR_HOST is defined');
+        }
+      }
+    });
+  });
 
   describe('1. Multi-Tenant Isolation', () => {
     it('destinatário lê a própria notificação', async () => {
