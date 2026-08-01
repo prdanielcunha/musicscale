@@ -20,6 +20,7 @@ import { createFixChordsHandler } from "./services/server/fixChordsHandler.js";
 import { authorizeAiRequest, InMemoryAiRateLimiter } from "./services/server/aiRequestSecurity.js";
 import { createAiFinOpsFirestoreAdapter } from "./services/server/aiFinOpsFirestoreAdapter.js";
 import { resolveAiImportFinOpsReadPath } from "./services/server/aiImportFinOpsReadPath.js";
+import { normalizePastedSongText } from "./utils/textNormalizer.js";
 import { adminDb as db, adminAuth as auth, admin } from "./services/firebaseAdmin.js";
 import { GlobalLibraryCandidateReviewLogServerInput } from './services/server/curationServerTypes.js';
 import { 
@@ -2410,7 +2411,8 @@ app.use((err: any, req: any, res: any, next: any) => {
     };
     // AI_FINOPS_SHADOW_WRITE_FINALIZE_END
 
-    const { rawText, url, title, artist, desiredKey, version, bpm, orgId, userId } = req.body;
+    let { rawText } = req.body;
+    const { url, title, artist, desiredKey, version, bpm, orgId, userId } = req.body;
     
     logInfo("1_INITIAL_PAYLOAD", "Route called with safe parameter summary:", {
       hasRawText: typeof rawText === "string" && rawText.length > 0,
@@ -2454,23 +2456,31 @@ app.use((err: any, req: any, res: any, next: any) => {
     // Validate rawText size and type
     const MAX_AI_IMPORT_RAW_TEXT_CHARS = 64000;
 
-    if (typeof rawText === "string" && rawText.length > MAX_AI_IMPORT_RAW_TEXT_CHARS) {
-      return res.status(413).json(
-        makeErrorResponse(
-          "VALIDATION",
-          "O texto informado é grande demais para importação automática.",
-          { maxChars: MAX_AI_IMPORT_RAW_TEXT_CHARS },
-          "1_INITIAL_PAYLOAD"
-        )
-      );
-    }
-
     if (rawText !== undefined && rawText !== null && typeof rawText !== "string") {
       return res.status(422).json(
         makeErrorResponse(
           "VALIDATION",
           "O texto informado é inválido para importação automática.",
           null,
+          "1_INITIAL_PAYLOAD"
+        )
+      );
+    }
+
+    if (typeof rawText === "string") {
+      const { text: normalized, wasDecoded } = normalizePastedSongText(rawText);
+      if (wasDecoded) {
+        logInfo("1_INITIAL_PAYLOAD", "Texto colado foi decodificado");
+        rawText = normalized;
+      }
+    }
+
+    if (typeof rawText === "string" && rawText.length > MAX_AI_IMPORT_RAW_TEXT_CHARS) {
+      return res.status(413).json(
+        makeErrorResponse(
+          "VALIDATION",
+          "O texto informado é grande demais para importação automática.",
+          { maxChars: MAX_AI_IMPORT_RAW_TEXT_CHARS },
           "1_INITIAL_PAYLOAD"
         )
       );

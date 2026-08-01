@@ -1280,5 +1280,11 @@
       "title": "Adicionar manualmente",
       "description": "Cadastre a música com seus próprios dados."
     }
+  },
+  "aiImport": {
+    "decodedTitle": "Conteúdo normalizado",
+    "decodedMessage": "O conteúdo colado estava codificado e foi convertido para texto normal.",
+    "clipboardEmpty": "A área de transferência está vazia.",
+    "clipboardError": "Não foi possível acessar a área de transferência. Cole manualmente no campo abaixo."
   }
 }

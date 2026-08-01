@@ -1281,5 +1281,11 @@
       "title": "Add manually",
       "description": "Register the song with your own data."
     }
+  },
+  "aiImport": {
+    "decodedTitle": "Content normalized",
+    "decodedMessage": "The pasted content was percent-encoded and has been converted to plain text.",
+    "clipboardEmpty": "The clipboard is empty.",
+    "clipboardError": "Could not access the clipboard. Please paste manually below."
   }
 }

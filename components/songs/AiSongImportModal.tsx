@@ -23,6 +23,7 @@ const formLabelClass = "block text-sm font-medium text-slate-600 dark:text-gray-
 import { useToast } from "../../contexts/ToastContext";
 import { useModals } from "../../contexts/ModalContext";
 import { submitFeedback } from "../../services/feedback";
+import { normalizePastedSongText } from "../../utils/textNormalizer";
 import { useMusicScaleFeature } from "../../hooks/useMusicScaleEntitlements";
 import { auth } from "../../services/firebase";
 import { FeatureLockedCard } from "../premium/EntitlementGates";
@@ -106,6 +107,34 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleRawTextPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    try {
+      const pastedText = e.clipboardData.getData("text/plain");
+      if (pastedText) {
+        const { text, wasDecoded } = normalizePastedSongText(pastedText);
+        if (wasDecoded) {
+          e.preventDefault();
+          const target = e.target as HTMLTextAreaElement;
+          const start = target.selectionStart;
+          const end = target.selectionEnd;
+          const currentText = formData.rawText;
+          const newText = currentText.substring(0, start) + text + currentText.substring(end);
+          setFormData(prev => ({ ...prev, rawText: newText }));
+          
+          setTimeout(() => {
+            if (target) {
+              target.selectionStart = target.selectionEnd = start + text.length;
+            }
+          }, 0);
+
+          success(t("aiImport.decodedTitle", "Conteúdo normalizado"), t("aiImport.decodedMessage", "O conteúdo colado estava codificado e foi convertido para texto normal."));
+        }
+      }
+    } catch (err) {
+      // Allow default behavior
+    }
+  };
+
   const safeJsonResponse = async (response: Response) => {
     const contentType = response.headers.get('content-type') || '';
 
@@ -139,12 +168,22 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
 
   const handleImport = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.rawText && !formData.url) {
+    let textToSend = formData.rawText;
+
+    if (textToSend && typeof textToSend === "string") {
+      const { text: normalized, wasDecoded } = normalizePastedSongText(textToSend);
+      if (wasDecoded) {
+        textToSend = normalized;
+        setFormData(prev => ({ ...prev, rawText: normalized }));
+      }
+    }
+
+    if (!textToSend && !formData.url) {
       setError("Cole a letra/cifra ou informe um link.");
       return;
     }
 
-    if (typeof formData.rawText === "string" && formData.rawText.length > AI_IMPORT_RAW_TEXT_MAX_CHARS) {
+    if (textToSend && textToSend.length > AI_IMPORT_RAW_TEXT_MAX_CHARS) {
       setError("O texto colado é grande demais para a importação automática. Reduza o conteúdo ou cole apenas a letra/cifra principal.");
       return;
     }
@@ -155,7 +194,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
     try {
       // Call the new express backend to process with Gemini
       const token = await auth.currentUser?.getIdToken() || "";
-      const payload = { ...formData, orgId: organization?.id, userId: userProfile?.uid };
+      const payload = { ...formData, rawText: textToSend, orgId: organization?.id, userId: userProfile?.uid };
       const response = await fetch("/api/ai-import", {
         method: "POST",
         headers: { 
@@ -242,7 +281,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
     const songData = {
       title: previewData.title || formData.title,
       artist: previewData.artist || formData.artist,
-      key: previewData.selectedKey || previewData.originalKey || "C",
+      key: previewData.selectedKey || previewData.originalKey || "",
       originalKey: previewData.originalKey || null,
       bpm: previewData.bpm || null,
       suggestedBpm: previewData.suggestedBpm || null,
@@ -411,9 +450,17 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
                 <Button type="button" variant="secondary" className="flex-1" onClick={async () => {
                   try {
                     const text = await navigator.clipboard.readText();
-                    setFormData(prev => ({ ...prev, rawText: text }));
+                    if (!text) {
+                        toastError(t("aiImport.clipboardEmpty", "A área de transferência está vazia."));
+                        return;
+                    }
+                    const { text: normalized, wasDecoded } = normalizePastedSongText(text);
+                    if (wasDecoded) {
+                        success(t("aiImport.decodedTitle", "Conteúdo normalizado"), t("aiImport.decodedMessage", "O conteúdo colado estava codificado e foi convertido para texto normal."));
+                    }
+                    setFormData(prev => ({ ...prev, rawText: normalized }));
                   } catch (e) {
-                     alert("Não foi possível acessar a área de transferência. Cole manualmente no campo abaixo.");
+                     toastError(t("aiImport.clipboardError", "Não foi possível acessar a área de transferência. Cole manualmente no campo abaixo."));
                   }
                 }} icon={<Clipboard className="w-4 h-4" />}>
                   Colar da área
@@ -425,6 +472,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
                   name="rawText"
                   value={formData.rawText}
                   onChange={handleChange}
+                  onPaste={handleRawTextPaste}
                   className={`${formInputClass} min-h-[200px] font-mono text-sm resize-y`}
                   placeholder="Cole a letra ou cifra aqui..."
                 />
@@ -501,7 +549,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
              
              <div>
                 <label className={formLabelClass}>Cole a Cifra ou Letra Bagunçada</label>
-                <textarea rows={6} name="rawText" value={formData.rawText} onChange={handleChange} className={`${formInputClass} font-mono text-sm leading-relaxed`} placeholder="Cole aqui o texto cheio de propagandas, cifras desestruturadas, etc. A IA vai limpar tudo!"></textarea>
+                <textarea rows={6} name="rawText" value={formData.rawText} onChange={handleChange} onPaste={handleRawTextPaste} className={`${formInputClass} font-mono text-sm leading-relaxed`} placeholder="Cole aqui o texto cheio de propagandas, cifras desestruturadas, etc. A IA vai limpar tudo!"></textarea>
              </div>
              
              <div className="flex items-center gap-4 py-2">
@@ -671,48 +719,88 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
               </div>
            </div>
            
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm">
                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3">
-                   <Music className="w-3.5 h-3.5" /> Título
+                   <Music className="w-3.5 h-3.5" /> Título e Artista
                  </div>
-                 <div className="font-black text-slate-900 dark:text-white truncate text-lg tracking-tight" title={previewData.title}>{previewData.title}</div>
-                 <div className="text-[13px] font-semibold truncate text-slate-500 mt-0.5" title={previewData.artist}>{previewData.artist}</div>
+                 <input
+                   className="w-full bg-transparent font-black text-slate-900 dark:text-white text-lg tracking-tight border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors mb-2"
+                   value={previewData.title || ''}
+                   onChange={(e) => setPreviewData({...previewData, title: e.target.value})}
+                   placeholder="Título obrigatório"
+                 />
+                 <input
+                   className="w-full bg-transparent text-[13px] font-semibold text-slate-500 border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
+                   value={previewData.artist || ''}
+                   onChange={(e) => setPreviewData({...previewData, artist: e.target.value})}
+                   placeholder="Artista"
+                 />
               </div>
                <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm">
                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3">
                    <Key className="w-3.5 h-3.5" /> Tom
                  </div>
-                 <div className="font-black text-slate-900 dark:text-white text-2xl tracking-tighter">{previewData.selectedKey || previewData.originalKey || "?"}</div>
-                 {previewData.originalKey && previewData.selectedKey && previewData.originalKey !== previewData.selectedKey && (
-                   <div className="text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 px-2 py-0.5 rounded-md inline-block mt-1">Orig: {previewData.originalKey}</div>
-                 )}
+                 <div className="flex flex-col gap-2">
+                   <div className="flex items-center justify-between">
+                     <span className="text-[10px] font-bold text-slate-400 uppercase">Tocar</span>
+                     <input
+                       className="w-16 bg-transparent font-black text-slate-900 dark:text-white text-xl tracking-tighter text-right border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
+                       value={previewData.selectedKey || ''}
+                       onChange={(e) => setPreviewData({...previewData, selectedKey: e.target.value})}
+                       placeholder="Ex: G"
+                     />
+                   </div>
+                   <div className="flex items-center justify-between">
+                     <span className="text-[10px] font-bold text-slate-400 uppercase">Orig.</span>
+                     <input
+                       className="w-16 bg-transparent font-black text-slate-900 dark:text-white text-lg tracking-tighter text-right border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
+                       value={previewData.originalKey || ''}
+                       onChange={(e) => setPreviewData({...previewData, originalKey: e.target.value})}
+                       placeholder="Ex: G"
+                     />
+                   </div>
+                 </div>
               </div>
                <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm">
                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3">
-                   <Activity className="w-3.5 h-3.5" /> Ritmo
+                   <Activity className="w-3.5 h-3.5" /> Andamento (BPM)
                  </div>
-                 {previewData.bpm ? (
-                   <div className="font-black text-slate-900 dark:text-white text-2xl tracking-tighter">{previewData.bpm} 
-                     <span className="text-[13px] font-semibold text-slate-400 ml-1 tracking-normal">BPM</span>
-                   </div>
-                 ) : previewData.suggestedBpm ? (
-                   <div className="flex flex-col gap-1 mb-2">
-                      <div className="text-[13px] font-semibold text-amber-500/80">BPM não detectado</div>
-                      <div className="text-[11px] font-medium text-slate-400">Sugestão da IA: {previewData.suggestedBpm} BPM</div>
-                   </div>
-                 ) : (
-                   <div className="text-[13px] font-semibold text-amber-500/80 mb-2">BPM não detectado</div>
-                 )}
-                 <div className="text-[13px] font-semibold truncate text-slate-500 mt-0.5">{previewData.rhythm || "Ritmo não detectado"}</div>
+                 <div className="flex items-end gap-1 mb-2">
+                   <input
+                     type="number"
+                     className="w-16 bg-transparent font-black text-slate-900 dark:text-white text-2xl tracking-tighter border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
+                     value={previewData.bpm || ''}
+                     onChange={(e) => setPreviewData({...previewData, bpm: e.target.value ? Number(e.target.value) : null})}
+                     placeholder="---"
+                   />
+                   <span className="text-[13px] font-semibold text-slate-400 tracking-normal pb-1">BPM</span>
+                 </div>
+                 <input
+                   className="w-full bg-transparent text-[13px] font-semibold text-slate-500 border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
+                   value={previewData.rhythm || ''}
+                   onChange={(e) => setPreviewData({...previewData, rhythm: e.target.value})}
+                   placeholder="Ritmo (Ex: Rock 4/4)"
+                 />
               </div>
-               <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm">
-                 <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3">
-                   <List className="w-3.5 h-3.5" /> Seções
+               <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm flex flex-col justify-between">
+                 <div>
+                   <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3">
+                     <List className="w-3.5 h-3.5" /> Metadados
+                   </div>
+                   <input
+                     className="w-full bg-transparent text-[13px] font-semibold text-slate-500 border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors mb-2"
+                     value={formData.version || previewData.version || 'Original'}
+                     onChange={(e) => {
+                         setFormData({...formData, version: e.target.value});
+                         setPreviewData({...previewData, version: e.target.value});
+                     }}
+                     placeholder="Versão (Ex: Ao Vivo)"
+                   />
                  </div>
-                 <div className="font-black text-indigo-600 dark:text-indigo-400 text-2xl tracking-tighter">{previewData.sections?.length || 0}</div>
-                 <div className="text-[11px] font-semibold text-slate-400 truncate mt-1">
-                   {previewData.sections?.slice(0, 3).join(', ')}{(previewData.sections?.length > 3) ? '...' : ''}
+                 <div className="flex justify-between items-center text-[11px] font-semibold text-slate-400 mt-2">
+                   <span>Seções:</span>
+                   <span className="text-indigo-600 dark:text-indigo-400 font-bold">{previewData.sections?.length || 0}</span>
                  </div>
               </div>
            </div>

@@ -1278,5 +1278,11 @@
       "title": "Añadir manualmente",
       "description": "Registra la canción con tus propios datos."
     }
+  },
+  "aiImport": {
+    "decodedTitle": "Contenido normalizado",
+    "decodedMessage": "El contenido pegado estaba codificado y se ha convertido a texto normal.",
+    "clipboardEmpty": "El portapapeles está vacío.",
+    "clipboardError": "No se pudo acceder al portapapeles. Pegue manualmente a continuación."
   }
 }
