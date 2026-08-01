@@ -68,19 +68,27 @@ export const applyScaleSongSettings = <T extends Song>(song: T, settings?: Scale
   // Clone the song to avoid mutating the original object
   const newSong = { ...song };
 
+  // Securely retrieve or establish stable master reference fields to prevent cumulative transpositions
+  const originalKey = (song as any)._untransposedKey || song.key || song.originalKey || "";
+  const originalChords = (song as any)._untransposedChords || song.chords || "";
+
   if (settings.key !== undefined && settings.key !== null) {
-    const sourceKey = newSong.selectedKey || newSong.key || newSong.originalKey || "";
-    const semitones = sourceKey ? getKeyDifference(sourceKey, settings.key) : 0;
+    const semitones = originalKey ? getKeyDifference(originalKey, settings.key) : 0;
     
     newSong.key = settings.key;
-    // We update selectedKey too so UI components expecting that use the effective key
     newSong.selectedKey = settings.key;
 
-    if (semitones !== 0 && newSong.chords && newSong.chords.trim().length > 0) {
-        const parsed = parseChordsAndLyrics(newSong.chords);
+    // Attach stable reference fields for subsequent renders
+    (newSong as any)._untransposedKey = originalKey;
+    (newSong as any)._untransposedChords = originalChords;
+
+    if (semitones !== 0 && originalChords && originalChords.trim().length > 0) {
+        const parsed = parseChordsAndLyrics(originalChords);
         newSong.chords = parsed.map(line => 
             line.type === 'chord' ? transposeChord(line.content, semitones) : line.content
         ).join('\n');
+    } else {
+        newSong.chords = originalChords;
     }
   }
 

@@ -13,6 +13,8 @@ export interface ScaleSongCardProps {
   index?: number;
   tags: Tag[];
   localSettings?: { key?: string | null; bpm?: number | null };
+  effectiveKey?: string;
+  effectiveBpm?: number;
   onToggle?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
@@ -37,6 +39,8 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
   index,
   tags,
   localSettings,
+  effectiveKey: propEffectiveKey,
+  effectiveBpm: propEffectiveBpm,
   onToggle,
   onMoveUp,
   onMoveDown,
@@ -65,14 +69,12 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
   const applyBtnRef = React.useRef<HTMLButtonElement>(null);
   const saveInFlightRef = React.useRef(false);
 
-  // When global confirm is shown, focus the confirm button
   React.useEffect(() => {
     if (showGlobalConfirm && confirmBtnRef.current) {
       confirmBtnRef.current.focus();
     }
   }, [showGlobalConfirm]);
 
-  // Listen for Escape key on confirmation dialog
   React.useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && showGlobalConfirm && !isSaving) {
@@ -84,8 +86,8 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
     return () => window.removeEventListener('keydown', handleEscape);
   }, [showGlobalConfirm, isSaving]);
 
-  const effectiveKey = getEffectiveKey(song, localSettings);
-  const effectiveBpm = getEffectiveBpm(song, localSettings);
+  const effectiveKey = propEffectiveKey ?? getEffectiveKey(song, localSettings);
+  const effectiveBpm = propEffectiveBpm ?? getEffectiveBpm(song, localSettings);
   const hasLocalAdjustments = !!localSettings && (localSettings.key !== undefined || localSettings.bpm !== undefined);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -103,7 +105,6 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
 
   const openEditor = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // If opening from library and song is not selected, select it first
     if (mode === 'library' && !isSelected && onToggle) {
       onToggle();
     }
@@ -140,21 +141,11 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
     setLocalError(null);
 
     try {
-      // Pass null only if we explicitly want to save a null value.
-      // But since empty string in the UI means "fallback to default", 
-      // we can pass null to signal "clear this setting".
-      // Wait! In the controller, null means "clear this setting".
-      // In `applyLocalScaleSongSettingsUpdate`, we want null to mean "set to null" 
-      // OR "remove" if we want fallback. 
-      // Actually, if we pass null to `onSettingsChange`, it goes to `applyLocal...`.
-      // Let's pass `editKey === '' ? null : editKey` and same for BPM.
-      
       const parsedKey = editKey === '' ? null : editKey;
       const parsedBpm = editBpm === '' ? null : Number(editBpm);
       const result = await onSettingsChange?.(parsedKey, parsedBpm, saveMode === 'global');
       
       if (result && result.status === 'deduplicated') {
-        // Ignored by deduplication, do not post-process
         return;
       }
       
@@ -164,9 +155,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
     } catch (error) {
       console.error(error);
       setLocalError(t('scaleModal.confirmationError', 'Erro ao atualizar música.'));
-      setTimeout(() => {
-        if (confirmBtnRef.current) confirmBtnRef.current.focus();
-      }, 0);
+      if (confirmBtnRef.current) confirmBtnRef.current.focus();
     } finally {
       saveInFlightRef.current = false;
       setIsSaving(false);
@@ -186,9 +175,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
     if (isSaving) return;
     setShowGlobalConfirm(false);
     setLocalError(null);
-    setTimeout(() => {
-        if (applyBtnRef.current) applyBtnRef.current.focus();
-    }, 0);
+    if (applyBtnRef.current) applyBtnRef.current.focus();
   };
 
   const preventProp = (e: React.MouseEvent) => e.stopPropagation();
@@ -418,7 +405,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
                     <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{t('scaleModal.onlyThisScale', 'Somente nesta escala')}</span>
                   </div>
                 </label>
-                {hasCapability('MANAGE_SONGS') && (
+                {hasCapability('musicscale.songs.edit') && (
                   <label className="flex items-start gap-2 cursor-pointer">
                     <input type="radio" name={`saveMode-${song.id}`} checked={saveMode === 'global'} onChange={() => setSaveMode('global')} className="mt-0.5 accent-primary" />
                     <div className="flex flex-col">

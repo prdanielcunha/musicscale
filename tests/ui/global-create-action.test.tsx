@@ -15,6 +15,13 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+const mockToast = vi.fn();
+vi.mock('../../contexts/ToastContext', () => ({
+  useToast: () => ({
+    toast: mockToast,
+  }),
+}));
+
 const mockNavigate = vi.fn();
 let mockPathname = '/';
 
@@ -107,19 +114,33 @@ describe('GlobalCreateAction UI', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('omits locked state items for plan limit in this phase', async () => {
+  it('shows locked state items with PRO badge and triggers plan-locked feedback on click', async () => {
     vi.spyOn(CapabilityHook, 'useCapability').mockReturnValue({ hasCapability: () => true });
     vi.spyOn(AuthContext, 'useFeatures').mockReturnValue({ canAccessGlobalLibrary: () => false } as any);
     vi.spyOn(EntitlementsHook, 'useMusicScaleFeature').mockReturnValue(false);
+    
+    const mockAlert = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    
     render(<MemoryRouter><GlobalCreateAction variant="desktop" /></MemoryRouter>);
     
     fireEvent.click(screen.getByRole('button', { name: 'Criar' }));
     
     await waitFor(() => {
-      expect(screen.queryByText('Importar com IA')).not.toBeInTheDocument();
-      expect(screen.queryByText('Buscar na Biblioteca Viva')).not.toBeInTheDocument();
+      expect(screen.getByText('Importar com IA')).toBeInTheDocument();
+      expect(screen.getByText('Buscar na Biblioteca Viva')).toBeInTheDocument();
       expect(screen.getByText('Adicionar manualmente')).toBeInTheDocument();
+      // Ensure the "PRO" badges are visible
+      expect(screen.getAllByText('PRO').length).toBeGreaterThanOrEqual(1);
     });
+    
+    // Click on a locked item
+    fireEvent.click(screen.getByText('Importar com IA'));
+    
+    await waitFor(() => {
+      expect(mockAlert).toHaveBeenCalled();
+    });
+    
+    mockAlert.mockRestore();
   });
 });
 

@@ -7,6 +7,7 @@ import { useCapability } from '../../hooks/useCapability';
 import { useModals } from '../../contexts/ModalContext';
 import { useAuth, useFeatures, useLimits } from '../../contexts/AuthContext';
 import { useMusic } from '../../contexts/MusicDataContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useMusicScaleFeature } from '../../hooks/useMusicScaleEntitlements';
 import { resolveGlobalCreateActions, GlobalCreateActionId, ResolvedGlobalCreateAction } from '../../utils/globalCreateActions';
 import { createPortal } from 'react-dom';
@@ -24,6 +25,7 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
   const { canAccessGlobalLibrary } = useFeatures();
   const { limits } = useLimits();
   const { songs } = useMusic();
+  const { toast } = useToast();
   const { openScaleForm, openBandScaleForm, openSongForm, openAiSongImport } = useModals();
   const isAiImportAllowed = useMusicScaleFeature('aiImport');
   
@@ -55,8 +57,8 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
       songLimitReached: limitReached
     });
     
-    // Omit plan-locked or hidden actions from the UI in this phase
-    return allActions.filter(a => a.availability === 'enabled' || a.availability === 'limit-reached');
+    // Include plan-locked actions directly in the UI instead of filtering them out
+    return allActions.filter(a => a.availability === 'enabled' || a.availability === 'limit-reached' || a.availability === 'plan-locked');
   }, [canManageSongs, canManageScales, aiImportAvailability, libraryAvailability, songs?.length, limits.maxSongs]);
 
   const availableActionSignature = resolvedActions
@@ -111,6 +113,16 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
 
   const handleActionClick = (action: ResolvedGlobalCreateAction) => {
     if (pendingActionRef.current) return;
+    if (action.availability === 'plan-locked') {
+      toast({
+        type: 'warning',
+        message: t('globalCreate.states.planLockedTitle', 'Recurso Premium'),
+        description: t('globalCreate.states.planLockedDesc', 'O recurso "{{resource}}" requer o plano Pro. Entre em contato com o administrador ou acesse as configurações para fazer o upgrade.', { resource: t(action.labelKey, action.defaultLabel) })
+      });
+      alert(t('globalCreate.states.planLockedAlert', 'O recurso "{{resource}}" requer o plano Pro. Por favor, faça o upgrade de sua conta nas configurações para liberar o acesso.', { resource: t(action.labelKey, action.defaultLabel) }));
+      setIsOpen(false);
+      return;
+    }
     if (action.availability !== 'enabled') {
       if (action.availability === 'limit-reached') {
         // Just trigger standard flows so they can show the limit reached UI
@@ -196,7 +208,7 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
                   <div className="flex flex-col min-w-0 pt-0.5 w-full">
                     <div className="flex items-center justify-between gap-2">
                       <span className={`text-[14px] sm:text-[15px] font-bold transition-colors leading-tight ${
-                        isLocked ? 'text-slate-400 dark:text-white/40' : 'text-slate-900 dark:text-white group-hover:text-indigo-700 dark:group-hover:text-indigo-300'
+                        isLocked ? 'text-slate-700 dark:text-white/80 group-hover:text-indigo-700 dark:group-hover:text-indigo-300' : 'text-slate-900 dark:text-white group-hover:text-indigo-700 dark:group-hover:text-indigo-300'
                       }`}>
                         {t(action.labelKey, action.defaultLabel)}
                       </span>
@@ -206,8 +218,8 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
                         </span>
                       )}
                       {isLocked && (
-                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-full">
-                          {t('globalCreate.states.availableOnPlan', 'No plano')}
+                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-amber-500 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Sparkles className="w-2.5 h-2.5" /> PRO
                         </span>
                       )}
                       {isLimit && (
