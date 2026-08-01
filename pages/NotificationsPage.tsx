@@ -280,6 +280,7 @@ const NotificationsPage: React.FC = () => {
           notifications.map((notification) => (
             <div
               key={notification.id}
+              data-testid={`notification-card-${notification.id}`}
               className={`group flex items-start gap-4 p-4 rounded-xl border transition-all ${
                 !notification.isRead
                   ? "bg-indigo-500/10 border-indigo-500/20 shadow-lg shadow-indigo-500/5"

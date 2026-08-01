@@ -632,6 +632,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                     key="btn-draft"
                     type="button" 
                     variant="secondary"
+                    data-testid="save-scale-draft"
                     onClick={(e) => {
                       e.preventDefault();
                       handleSubmit(e as any, 'draft');
@@ -645,6 +646,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                     <Button 
                       key="btn-publish"
                       type="button" 
+                      data-testid="publish-scale"
                       onClick={(e) => {
                         e.preventDefault();
                         handleSubmit(e as any, 'published');
@@ -974,7 +976,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                    return (
                       <div 
                          key={bs.id} 
-                         onClick={() => setFormData(prev => ({...prev, bandScaleId: isSelected ? null : bs.id}))}
+                         onClick={() => setFormData(prev => ({...prev, bandScaleId: isSelected ? null : bs.id}))} data-testid={`link-band-scale-${bs.id}`}
                          className={`flex cursor-pointer border rounded-xl overflow-hidden transition-all duration-300 ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-slate-200 dark:border-white/5 bg-white dark:bg-[#252528] hover:border-primary/50 hover:shadow-md"}`}
                       >
                          <div className={`w-12 flex-shrink-0 flex flex-col items-center justify-center p-2 border-r ${isSelected ? "border-primary/20 bg-primary/10" : "border-slate-200 dark:border-white/5 dark:bg-black/20"}`}>

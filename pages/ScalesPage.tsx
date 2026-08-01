@@ -235,6 +235,7 @@ const ScaleCard: React.FC<{
 
   return (
     <Card 
+      data-testid={`scale-card-${scale.id}`}
       onClick={handleView} 
       padding="none"
       className={`group relative outline-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] border rounded-[24px] sm:rounded-[32px] cursor-pointer block overflow-hidden min-h-[120px] ${
@@ -377,7 +378,7 @@ const ScaleCard: React.FC<{
                        <button
                            onClick={(e) => { e.stopPropagation(); onEdit(scale); }}
                            className="w-8 h-8 rounded-full bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-white/60 dark:hover:text-white border border-transparent dark:border-white/5 hover:border-black/5 dark:hover:border-white/10 transition-all shadow-sm"
-                           title="Editar Escala"
+                           data-testid={`edit-music-scale-${scale.id}`} title="Editar Escala"
                        >
                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                        </button>

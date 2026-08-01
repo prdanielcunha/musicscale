@@ -1,105 +1,102 @@
 import { test, expect } from './helpers/base';
 import { loginAsLeaderA } from './helpers/auth';
+import globalSetup from './helpers/globalSetup';
 
 test.describe('Scale Song Persistence', () => {
+  test.beforeEach(async () => {
+    await globalSetup();
+  });
   test('Líder ajusta tom e BPM na escala draft e verifica que não afeta o global', async ({ page }) => {
-    // 1. loginAsLeaderA
+    // 0. Confirmar os valores globais originais primeiro
     await loginAsLeaderA(page);
-    
-    // 2. abrir a escala draft conhecida ("Culto de Terça")
-    await page.goto('/scales');
-    await page.waitForURL('**/scales');
-    const cultoTerca = page.getByText('Culto de Terça').first();
-    await expect(cultoTerca).toBeVisible();
-    await cultoTerca.click();
-    await page.waitForURL('**/scales/*');
-    
-    // 3. clicar em Editar (Editar escala)
-    const btnEditScale = page.getByRole('button', { name: /Editar/i }).first();
+    await page.goto('/songs');
+    await page.waitForURL('**/songs');
+    const songItemBefore = page.locator('div[role="row"]').filter({ hasText: 'Outra Música' });
+    await expect(songItemBefore.getByText('Tom D')).toBeVisible();
+    await expect(songItemBefore.getByText('90 BPM')).toBeVisible();
+
+    // 1 & 2. abrir a escala draft conhecida ("Culto de Terça") e modo de edição
+    await page.goto('/scales/scale_a_draft');
+    await page.waitForURL('**/scales/scale_a_draft');
+    await expect(page.getByRole('heading', { name: 'Culto de Terça' })).toBeVisible();
+
+    // 3. Clicar no botão "Editar Escala" da barra do cabeçalho de título para entrar no modo edição
+    const btnEditScale = page.getByTestId('edit-scale-detail-button');
     await expect(btnEditScale).toBeVisible();
     await btnEditScale.click();
 
-    // 4. localizar uma música por título
-    const songItem = page.getByText('Outra Música').first();
-    await expect(songItem).toBeVisible();
+    // Esperar abrir modal/drawer de edição de escala
+    await expect(page.getByRole('heading', { name: /Editar Escala/i })).toBeVisible();
 
-    // 5. alterar tom específico (clicar na música ou no botão de editar ajustes)
-    // No formulário de edição de escala, podemos clicar em um ícone de "Opções" na música
-    // Ou talvez abrir o modal de configurações de música (Gear icon)
-    // Como a UI depende de ModernScaleForm, normalmente há um ícone de engrenagem ou clica-se na música
-    const gearIcon = page.getByRole('button', { name: /Ajustes da música/i }).first();
-    if (await gearIcon.isVisible()) {
-      await gearIcon.click();
-    } else {
-      // Tenta clicar no botão genérico de engrenagem
-      await page.locator('button').filter({ has: page.locator('svg.lucide-settings') }).first().click();
-    }
+    // 4. localizar música e o card respectivo. 'song_a_2' é "Outra Música".
+    const songCard = page.getByTestId('scale-song-card-song_a_2');
+    await expect(songCard).toBeVisible();
+    
+    // 5. editor de settings aberto (Ajustes da música)
+    const gearBtn = songCard.getByTestId('edit-scale-song-settings-song_a_2');
+    await expect(gearBtn).toBeVisible();
+    await gearBtn.click();
 
-    // 5 & 6 & 7: Selecionar tom, BPM e escopo
-    // O modal deve ser "Ajustes na Escala"
-    const selectKey = page.getByLabel(/Tom/i).first();
+    // 5 & 6. tom alterado para G, BPM alterado para 105
+    const selectKey = songCard.getByTestId('scale-song-key-song_a_2');
     await expect(selectKey).toBeVisible();
     await selectKey.selectOption('G');
 
-    const inputBpm = page.getByLabel(/BPM/i).first();
+    const inputBpm = songCard.getByTestId('scale-song-bpm-song_a_2');
     await expect(inputBpm).toBeVisible();
     await inputBpm.fill('105');
 
-    // Escopo: "Apenas nesta escala" (Normalmente é o default se for "Ajuste local")
-    // Vamos procurar um radio ou select.
-    const scopeOption = page.getByLabel(/Apenas nesta escala/i).first();
-    if (await scopeOption.isVisible()) {
-      await scopeOption.check();
-    }
+    // 7. escopo local selecionado
+    const scopeLocal = songCard.getByTestId('scale-song-scope-local-song_a_2');
+    await expect(scopeLocal).toBeVisible();
+    await scopeLocal.check();
 
-    // 8. salvar os ajustes
-    const saveSettingsBtn = page.getByRole('button', { name: /Aplicar/i }).first();
-    await saveSettingsBtn.click();
-
-    // 8b. Salvar a escala
-    const saveScaleBtn = page.getByRole('button', { name: /Salvar/i }).first();
+    // 8. settings aplicados
+    const applyBtn = songCard.getByTestId('save-scale-song-settings-song_a_2');
+    await expect(applyBtn).toBeVisible();
+    await applyBtn.click();
+    
+    // 9. escala salva
+    const saveScaleBtn = page.getByTestId('save-scale-draft');
+    await expect(saveScaleBtn).toBeVisible();
     await saveScaleBtn.click();
 
-    // 9. aguardar resposta real da aplicação
-    await page.waitForURL('**/scales/*');
-    await expect(page.getByText('Culto de Terça').first()).toBeVisible();
+    // 10. confirmação real de salvamento (espera modal/drawer fechar)
+    await expect(page.getByRole('heading', { name: /Editar Escala/i })).toBeHidden();
 
-    // 10. fechar (Voltar para escalas)
-    await page.goto('/scales');
+    // 11 & 12. escala reaberta (ou seja, nós voltamos pra Scale View e vemos os dados).
+    await page.waitForURL('**/scales/scale_a_draft');
+    await expect(page.getByRole('heading', { name: 'Culto de Terça' })).toBeVisible();
 
-    // 11. reabrir a mesma escala
-    await page.getByText('Culto de Terça').first().click();
-    await page.waitForURL('**/scales/*');
+    // 13 & 14 & 15. tom G exibido e BPM 105 exibido com o badge "Desta escala"
+    const detailSongCard = page.getByTestId('detail-song-card-song_a_2');
+    await expect(detailSongCard).toBeVisible();
+    await expect(detailSongCard.getByText('G')).toBeVisible();
+    await expect(detailSongCard.getByText('105')).toBeVisible();
+    await expect(detailSongCard.getByText(/Desta escala/i).first()).toBeVisible();
 
-    // 12 & 13. confirmar o tom e BPM persistidos na lista
-    await expect(page.getByText('Tom G').first()).toBeVisible();
-    await expect(page.getByText('105 BPM').first()).toBeVisible();
-
-    // 14 & 15. abrir detalhes e confirmar indicação "Desta escala"
-    // Clicar na música para ver detalhes
-    await page.getByText('Outra Música').first().click();
-    await expect(page.getByText('Ajuste desta escala').first()).toBeVisible();
-
-    // 16 & 17. abrir cifra ou Performance e confirmar tom contextual
-    // A cifra deve mostrar 'Tom: G'
-    const viewChordsBtn = page.getByRole('button', { name: /Cifra/i }).first();
+    // 16. abrir cifra contextual utilizando o botão play (Modo Performance) específico da música
+    const viewChordsBtn = detailSongCard.getByTestId('performance-mode-button-song_a_2');
     await expect(viewChordsBtn).toBeVisible();
     await viewChordsBtn.click();
-    // A interface de cifras (ChordsPage ou Performance) 
-    await expect(page.getByText('Tom: G').first()).toBeVisible();
-    
-    // Fechar cifra ou voltar
-    await page.goBack();
-    await page.goBack();
 
-    // 18. abrir a música fora da escala
+    // 17. tom G confirmado na cifra (indicador de tom na barra de controle)
+    const tomLabel = page.getByText('Tom', { exact: true });
+    await expect(tomLabel).toBeVisible();
+    await expect(page.getByText('G', { exact: true }).first()).toBeVisible();
+    
+    // Fechar cifra usando o botão de fechar determinístico
+    const closeBtn = page.getByTestId('close-chords-viewer');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+
+    // 18. música global aberta
     await page.goto('/songs');
     await page.waitForURL('**/songs');
-    await page.getByText('Outra Música').first().click();
-
-    // 19 & 20. confirmar que o tom global e BPM permaneceram inalterados 
-    // Na base inicial: tom='D', bpm=90
-    await expect(page.getByText('Tom D').first()).toBeVisible();
-    await expect(page.getByText('90 BPM').first()).toBeVisible();
+    
+    // 19 & 20. tom global D confirmado; BPM global 90 confirmado
+    const songItemAfter = page.locator('div[role="row"]').filter({ hasText: 'Outra Música' });
+    await expect(songItemAfter.getByText('Tom D')).toBeVisible();
+    await expect(songItemAfter.getByText('90 BPM')).toBeVisible();
   });
 });

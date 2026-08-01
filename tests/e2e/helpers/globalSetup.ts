@@ -229,7 +229,11 @@ export default async function globalSetup() {
     time: '19:30',
     startTime: '19:30',
     status: 'draft',
-    songIds: ['song_a_2'], // Needs at least one for consistency
+    songIds: ['song_a_1', 'song_a_2'],
+    songSettings: {
+      'song_a_1': { key: 'C', bpm: 120, scope: 'global' },
+      'song_a_2': { key: 'D', bpm: 90, scope: 'global' }
+    },
     eventTypeId: 'type_a',
     locationId: 'loc_a',
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -257,8 +261,8 @@ export default async function globalSetup() {
     date: scaleDate.toISOString().split('T')[0],
     time: '19:30',
     assignments: [
-      { userId: 'user_musician_a', instrumentId: 'instrument_vocal' },
-      { userId: 'user_musician_a2', instrumentId: 'instrument_guitar' }
+      { id: 'assign_1', userId: 'user_musician_a', instrumentId: 'instrument_vocal' },
+      { id: 'assign_2', userId: 'user_musician_a2', instrumentId: 'instrument_guitar' }
     ],
     eventTypeId: 'type_a',
     locationId: 'loc_a',

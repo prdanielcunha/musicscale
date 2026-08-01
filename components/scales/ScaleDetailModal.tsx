@@ -740,7 +740,7 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
                                 else if (hasLyrics) contentStatus = { label: "SÓ LETRA", color: "text-amber-700 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 border-amber-500/20 shadow-sm" };
 
                                 return (
-                                <div key={song.id} className="group relative flex items-center justify-between p-4 rounded-[20px] bg-[#121318]/50 border border-white/[0.04] hover:bg-[#1A1C23] hover:border-white/[0.08] transition-all backdrop-blur-xl shadow-sm">
+                                <div key={song.id} data-testid={`detail-song-card-${song.id}`} className="group relative flex items-center justify-between p-4 rounded-[20px] bg-[#121318]/50 border border-white/[0.04] hover:bg-[#1A1C23] hover:border-white/[0.08] transition-all backdrop-blur-xl shadow-sm">
                                    <div className="flex items-center gap-4 md:gap-5 overflow-hidden flex-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); openSongDetail(song, true, { songs: localSongs, currentIndex: index, scaleId: scale.id }) }}>
                                      
                                      <div className="relative w-10 h-10 rounded-full bg-[#1A1D24] shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-white/[0.03] flex items-center justify-center shrink-0 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-all">
@@ -783,7 +783,7 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
                                      </div>
                                    </div>
                                    <div className="flex items-center gap-2 shrink-0 pl-3 md:pl-4 opacity-70 group-hover:opacity-100 transition-opacity">
-                                     <button onClick={(e) => { e.stopPropagation(); openSongDetail(song, true, { songs: localSongs, currentIndex: index, scaleId: scale.id }, true) }} className="w-10 h-10 rounded-full bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 hover:text-white transition-all border border-indigo-500/20 flex items-center justify-center shadow-sm" title="Modo Performance">
+                                     <button onClick={(e) => { e.stopPropagation(); openSongDetail(song, true, { songs: localSongs, currentIndex: index, scaleId: scale.id }, true) }} data-testid={`performance-mode-button-${song.id}`} className="w-10 h-10 rounded-full bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 hover:text-white transition-all border border-indigo-500/20 flex items-center justify-center shadow-sm" title="Modo Performance">
                                        <svg className="w-4 h-4 ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                                      </button>
 
@@ -928,7 +928,7 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
            
            <div className="flex items-center gap-1.5 sm:gap-2.5">
              {canManage && (
-                <button onClick={() => onEdit(scale as any)} className="w-11 sm:w-auto px-0 sm:px-5 h-11 flex items-center justify-center gap-2 rounded-[16px] bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] text-white font-bold tracking-wide text-[13px] transition-all active:scale-95 shadow-sm" title="Editar">
+                <button onClick={() => onEdit(scale as any)} className="w-11 sm:w-auto px-0 sm:px-5 h-11 flex items-center justify-center gap-2 rounded-[16px] bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] text-white font-bold tracking-wide text-[13px] transition-all active:scale-95 shadow-sm" data-testid="edit-scale-detail-button" title="Editar">
                   <EditIcon />
                   <span className="hidden sm:inline">Editar</span>
                 </button>

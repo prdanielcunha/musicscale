@@ -148,6 +148,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
               // This is a UI trick to show all buttons again. We don't actually change status yet.
            }}
            disabled={submittingStatus !== null}
+           data-testid="change-response"
            className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium transition-colors bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 mt-1"
         >
            <RefreshCw className="w-4 h-4 text-slate-400" />
@@ -161,6 +162,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
         <button 
           onClick={() => handleRespond('accepted')}
           disabled={submittingStatus !== null}
+          data-testid="response-accepted"
           className={`relative overflow-hidden group flex items-center justify-center gap-2 h-11 px-4 text-sm font-medium rounded-xl transition-all duration-200 border ${
             currentStatus === 'accepted' 
               ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
@@ -174,6 +176,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
         <button 
           onClick={() => handleRespond('maybe')}
           disabled={submittingStatus !== null}
+          data-testid="response-maybe"
           className={`relative overflow-hidden group flex items-center justify-center gap-2 h-11 px-4 text-sm font-medium rounded-xl transition-all duration-200 border ${
             currentStatus === 'maybe' 
               ? 'bg-amber-500/20 border-amber-500/50 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]' 
@@ -187,6 +190,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
         <button 
           onClick={() => setIsDeclineModalOpen(true)}
           disabled={submittingStatus !== null}
+          data-testid="response-declined"
           className={`relative overflow-hidden group flex items-center justify-center gap-2 h-11 px-4 text-sm font-medium rounded-xl transition-all duration-200 border ${
             currentStatus === 'declined' 
               ? 'bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.15)]' 
@@ -228,6 +232,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
             <button 
                onClick={() => setIsChanging(true)}
                disabled={submittingStatus !== null}
+               data-testid="change-response"
                className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium transition-colors bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl border border-white/10"
             >
                <RefreshCw className="w-4 h-4 text-slate-400" />
@@ -339,6 +344,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
               {t('responses.optionalReason', 'Motivo opcional')}
             </label>
             <textarea
+              data-testid="response-reason"
               value={declineReason}
               onChange={(e) => setDeclineReason(e.target.value.substring(0, 300))}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
@@ -356,6 +362,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
             </Button>
             <Button 
                variant="destructive"
+               data-testid="submit-response"
                disabled={submittingStatus !== null}
                onClick={() => handleRespond('declined', declineReason)}
             >

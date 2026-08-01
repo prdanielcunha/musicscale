@@ -183,6 +183,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
   return (
     <div 
       data-song-id={(mode === 'setlist' || mode === 'review') ? song.id : undefined}
+      data-testid={`scale-song-card-${song.id}`}
       data-index={(mode === 'setlist' || mode === 'review') ? index : undefined}
       className={`group relative flex flex-col p-3 rounded-xl border bg-white dark:bg-[#1C1C1E] shadow-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-primary ${
         isDragging ? 'opacity-50 scale-[0.98]' : 'hover:border-primary/30'
@@ -325,6 +326,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
         <div className="mt-1 pb-1" onClick={preventProp}>
           <button 
             type="button" 
+            data-testid={`edit-scale-song-settings-${song.id}`}
             onClick={isEditing ? cancelEdit : openEditor} 
             className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 hover:text-primary transition-colors py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded px-1 -ml-1 min-h-[44px]"
             aria-expanded={isEditing}
@@ -373,8 +375,10 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
             <>
               <div className="grid grid-cols-2 gap-3 mb-4">
                  <div>
-                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.scaleSpecificKey', 'Tom desta escala')}</label>
+                   <label htmlFor={`key-select-${song.id}`} className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.scaleSpecificKey', 'Tom desta escala')}</label>
                    <select 
+                     id={`key-select-${song.id}`}
+                     data-testid={`scale-song-key-${song.id}`}
                      value={editKey} 
                      onChange={e => setEditKey(e.target.value)}
                      className="w-full bg-white dark:bg-[#2A2A2C] border border-slate-200 dark:border-white/10 rounded-md px-2 py-1.5 text-[12px] text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-primary"
@@ -385,8 +389,10 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
                    {song.originalKey && <div className="text-[9px] text-slate-400 mt-1">{t('scaleModal.originalKeyText', 'Tom original:')} {song.originalKey}</div>}
                  </div>
                  <div>
-                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.scaleSpecificBpm', 'BPM desta escala')}</label>
+                   <label htmlFor={`bpm-input-${song.id}`} className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('scaleModal.scaleSpecificBpm', 'BPM desta escala')}</label>
                    <input 
+                     id={`bpm-input-${song.id}`}
+                     data-testid={`scale-song-bpm-${song.id}`}
                      type="number"
                      min={20}
                      max={300}
@@ -400,14 +406,14 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
               </div>
               <div className="flex flex-col gap-2 mb-4">
                 <label className="flex items-start gap-2 cursor-pointer">
-                  <input type="radio" name={`saveMode-${song.id}`} checked={saveMode === 'local'} onChange={() => setSaveMode('local')} className="mt-0.5 accent-primary" />
+                  <input type="radio" data-testid={`scale-song-scope-local-${song.id}`} name={`saveMode-${song.id}`} checked={saveMode === 'local'} onChange={() => setSaveMode('local')} className="mt-0.5 accent-primary" />
                   <div className="flex flex-col">
                     <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{t('scaleModal.onlyThisScale', 'Somente nesta escala')}</span>
                   </div>
                 </label>
                 {hasCapability('musicscale.songs.edit') && (
                   <label className="flex items-start gap-2 cursor-pointer">
-                    <input type="radio" name={`saveMode-${song.id}`} checked={saveMode === 'global'} onChange={() => setSaveMode('global')} className="mt-0.5 accent-primary" />
+                    <input type="radio" data-testid={`scale-song-scope-global-${song.id}`} name={`saveMode-${song.id}`} checked={saveMode === 'global'} onChange={() => setSaveMode('global')} className="mt-0.5 accent-primary" />
                     <div className="flex flex-col">
                       <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{t('scaleModal.updateRepertoire', 'Salvar também como tom padrão')}</span>
                       <span className="text-[10px] text-slate-500">{t('scaleModal.permanentChangeDescription', 'A alteração será aplicada na biblioteca para todas as futuras escalas.')}</span>
@@ -422,6 +428,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
                 <button 
                   ref={applyBtnRef}
                   type="button" 
+                  data-testid={`save-scale-song-settings-${song.id}`}
                   onClick={handleSaveSettings}
                   disabled={isSaving}
                   aria-busy={isSaving}

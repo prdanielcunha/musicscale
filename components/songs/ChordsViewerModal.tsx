@@ -835,6 +835,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         <div className="flex-1">
           <button
             onClick={handleSafeClose}
+            data-testid="close-chords-viewer"
             className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 transition-all shadow-sm"
           >
             <CloseIcon className="w-5 h-5 md:w-6 md:h-6" />

@@ -148,7 +148,7 @@ const SongCard: React.FC<SongCardProps> = ({
   const freshnessStatus = getSongFreshnessStatus(song);
 
   return (
-    <div className={cardClasses} onClick={handleMainClick}>
+    <div className={cardClasses} onClick={handleMainClick} data-testid={`song-card-${song.id}`}>
       {/* Premium subtle inner glows */}
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 dark:via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-t-[28px]"></div>
       <div className="absolute -inset-[80px] bg-gradient-to-br from-primary/10 dark:from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10 rounded-full blur-[80px]"></div>
