@@ -174,6 +174,9 @@ if (!hasEmulatorHost) {
   console.log("Running in high-fidelity Mock Fallback Mode as a Mock Contract test.");
   console.log("This DOES NOT certify real Firebase Security Rules.");
   console.log("==========================================================");
+  console.log("SECURITY_RULES_MODE=MOCK_CONTRACT");
+} else {
+  console.log("SECURITY_RULES_MODE=FIREBASE_EMULATOR");
 }
 
 beforeAll(async () => {

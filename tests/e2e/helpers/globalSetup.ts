@@ -57,7 +57,15 @@ export default async function globalSetup() {
     { uid: 'user_musician_b', email: 'musician@orgb.test', password: 'password', displayName: 'Músico Família B' }
   ];
   for (const u of usersToCreate) {
-    await auth.createUser(u);
+    try {
+      await auth.createUser(u);
+    } catch (e: any) {
+      if (e.code === 'auth/uid-already-exists' || e.code === 'auth/email-already-exists') {
+        console.warn(`User ${u.uid} already exists, skipping creation.`);
+      } else {
+        throw e;
+      }
+    }
   }
 
   // Create Users collection

@@ -173,7 +173,7 @@ process.env.VERCEL = 'true';
 // Import our Express application
 import app from '../../server.js';
 
-describe('MusicScale HTTP Real Endpoints Validation', () => {
+describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
   beforeEach(() => {
     mockDbState.clear();
     mockVerifyIdToken.mockReset();
