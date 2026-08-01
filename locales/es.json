@@ -1,4 +1,17 @@
 {
+  "premium": {
+    "upgradeModal": {
+      "title": "Desbloquear Funciones Premium",
+      "description": "El ecosistema MillionsNest gestiona todas las licenças de MusicScale. Actualiza en cualquier momento y libera de inmediato a tu equipo en el altar.",
+      "checklist": {
+        "library": "Acceso a la Biblioteca Viva de acordes listos",
+        "ai": "Inteligencia Artificial para repertorio",
+        "cloning": "Clonación en un toque y mucho más"
+      },
+      "cta": "Ir al Centro de Facturación de MillionsNest",
+      "close": "Cerrar"
+    }
+  },
   "users": {
     "unauthorizedIntent": "No tienes permiso para gestionar el equipo.",
     "rolesUnavailable": "Funciones de equipo no disponibles para la configuración."
@@ -1249,7 +1262,9 @@
     },
     "states": {
       "availableOnPlan": "En plan",
-      "limitReached": "Límite alcanzado"
+      "limitReached": "Límite alcanzado",
+      "limitReachedTitle": "Límite de Uso Alcanzado",
+      "limitReachedDesc": "Has alcanzado el límite permitido por tu plan para esta acción. Por favor, actualiza tu plan para continuar."
     },
     "aiImport": {
       "title": "Importar con IA",

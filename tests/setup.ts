@@ -45,25 +45,5 @@ vi.mock('../../hooks/useCapability', () => ({
   useCapability: vi.fn(() => ({ hasCapability: vi.fn(() => true) })),
 }));
 
-// Mock ToastContext globally to prevent "useToast must be used within ToastProvider" errors in various UI tests
-vi.mock('../contexts/ToastContext', () => ({
-  ToastProvider: ({ children }: any) => children,
-  useToast: () => ({
-    toast: vi.fn(),
-  }),
-}));
 
-vi.mock('../../contexts/ToastContext', () => ({
-  ToastProvider: ({ children }: any) => children,
-  useToast: () => ({
-    toast: vi.fn(),
-  }),
-}));
-
-vi.mock('../../../contexts/ToastContext', () => ({
-  ToastProvider: ({ children }: any) => children,
-  useToast: () => ({
-    toast: vi.fn(),
-  }),
-}));
 

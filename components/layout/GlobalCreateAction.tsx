@@ -11,6 +11,8 @@ import { useToast } from '../../contexts/ToastContext';
 import { useMusicScaleFeature } from '../../hooks/useMusicScaleEntitlements';
 import { resolveGlobalCreateActions, GlobalCreateActionId, ResolvedGlobalCreateAction } from '../../utils/globalCreateActions';
 import { createPortal } from 'react-dom';
+import { UpgradePlanModal } from '../premium/EntitlementGates';
+import { MusicScaleFeatures } from '../../services/entitlementsService';
 
 interface GlobalCreateActionProps {
   variant: 'desktop' | 'mobile';
@@ -30,7 +32,9 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
   const isAiImportAllowed = useMusicScaleFeature('aiImport');
   
   const [isOpen, setIsOpen] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState<keyof MusicScaleFeatures | null>(null);
   const pendingActionRef = useRef<GlobalCreateActionId | null>(null);
+  const pendingUpgradeFeatureRef = useRef<keyof MusicScaleFeatures | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion();
@@ -112,23 +116,22 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
   }, [isOpen, variant]);
 
   const handleActionClick = (action: ResolvedGlobalCreateAction) => {
-    if (pendingActionRef.current) return;
+    if (pendingActionRef.current || pendingUpgradeFeatureRef.current) return;
+
     if (action.availability === 'plan-locked') {
-      toast({
-        type: 'warning',
-        message: t('globalCreate.states.planLockedTitle', 'Recurso Premium'),
-        description: t('globalCreate.states.planLockedDesc', 'O recurso "{{resource}}" requer o plano Pro. Entre em contato com o administrador ou acesse as configurações para fazer o upgrade.', { resource: t(action.labelKey, action.defaultLabel) })
-      });
-      alert(t('globalCreate.states.planLockedAlert', 'O recurso "{{resource}}" requer o plano Pro. Por favor, faça o upgrade de sua conta nas configurações para liberar o acesso.', { resource: t(action.labelKey, action.defaultLabel) }));
+      const fKey = action.id === 'ai-song-import' ? 'aiImport' : 'libraryAccess';
+      pendingUpgradeFeatureRef.current = fKey;
       setIsOpen(false);
       return;
     }
-    if (action.availability !== 'enabled') {
-      if (action.availability === 'limit-reached') {
-        // Just trigger standard flows so they can show the limit reached UI
-        pendingActionRef.current = action.id;
-        setIsOpen(false);
-      }
+
+    if (action.availability === 'limit-reached') {
+      toast({
+        type: 'warning',
+        message: t('globalCreate.states.limitReachedTitle', 'Limite de Uso Atingido'),
+        description: t('globalCreate.states.limitReachedDesc', 'Você atingiu o limite permitido pelo seu plano para esta ação. Faça upgrade para continuar.')
+      });
+      setIsOpen(false);
       return;
     }
     
@@ -138,7 +141,12 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
 
   const handleExitComplete = () => {
     const actionId = pendingActionRef.current;
-    if (actionId) {
+    const upgradeKey = pendingUpgradeFeatureRef.current;
+
+    if (upgradeKey) {
+      setUpgradeFeature(upgradeKey);
+      pendingUpgradeFeatureRef.current = null;
+    } else if (actionId) {
       if (actionId === 'music-scale') {
         openScaleForm();
       } else if (actionId === 'band-scale') {
@@ -188,15 +196,15 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
             {t(titleKey, defaultTitle)}
           </span>
         </div>
-        <ul className="flex flex-col w-full outline-none">
+        <ul className="flex flex-col w-full outline-none" role={variant === 'desktop' ? 'none' : undefined}>
           {groupActions.map((action, index) => {
             const isLocked = action.availability === 'plan-locked';
             const isLimit = action.availability === 'limit-reached';
             
             return (
-              <li key={action.id} role="none">
+              <li key={action.id} role={variant === 'desktop' ? 'none' : undefined}>
                 <button
-                  role="menuitem"
+                  role={variant === 'desktop' ? 'menuitem' : undefined}
                   className="w-full text-left flex items-start gap-4 px-4 py-3 sm:py-3.5 hover:bg-slate-100 dark:hover:bg-white/5 active:bg-slate-200 dark:active:bg-white/10 transition-colors focus:outline-none focus:bg-slate-100 dark:focus:bg-white/5 rounded-xl group"
                   onClick={() => handleActionClick(action)}
                 >
@@ -246,10 +254,10 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
     const hasScales = resolvedActions.some(a => a.group === 'scales');
     
     return (
-      <div id="global-create-menu" role="menu">
+      <div id={variant === 'desktop' ? 'global-create-menu' : undefined} role={variant === 'desktop' ? 'menu' : undefined}>
         {renderGroup('scales', 'globalCreate.groups.scales', 'Escalas')}
         {hasSongs && hasScales && (
-          <div className="mx-4 my-1 border-t border-slate-200 dark:border-white/5" role="separator"></div>
+          <div className="mx-4 my-1 border-t border-slate-200 dark:border-white/5" role={variant === 'desktop' ? 'separator' : undefined}></div>
         )}
         {renderGroup('songs', 'globalCreate.groups.songs', 'Músicas')}
       </div>
@@ -297,6 +305,15 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
             </motion.div>
           )}
         </AnimatePresence>
+
+        <UpgradePlanModal
+          isOpen={upgradeFeature !== null}
+          onClose={() => {
+            setUpgradeFeature(null);
+            triggerRef.current?.focus();
+          }}
+          featureKey={upgradeFeature || undefined}
+        />
       </div>
     );
   }
@@ -372,6 +389,15 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
         </AnimatePresence>,
         document.body
       )}
+
+      <UpgradePlanModal
+        isOpen={upgradeFeature !== null}
+        onClose={() => {
+          setUpgradeFeature(null);
+          triggerRef.current?.focus();
+        }}
+        featureKey={upgradeFeature || undefined}
+      />
     </>
   );
 };

@@ -119,8 +119,6 @@ describe('GlobalCreateAction UI', () => {
     vi.spyOn(AuthContext, 'useFeatures').mockReturnValue({ canAccessGlobalLibrary: () => false } as any);
     vi.spyOn(EntitlementsHook, 'useMusicScaleFeature').mockReturnValue(false);
     
-    const mockAlert = vi.spyOn(window, 'alert').mockImplementation(() => {});
-    
     render(<MemoryRouter><GlobalCreateAction variant="desktop" /></MemoryRouter>);
     
     fireEvent.click(screen.getByRole('button', { name: 'Criar' }));
@@ -137,10 +135,8 @@ describe('GlobalCreateAction UI', () => {
     fireEvent.click(screen.getByText('Importar com IA'));
     
     await waitFor(() => {
-      expect(mockAlert).toHaveBeenCalled();
+      expect(screen.getByText('Desbloquear Recursos Premium')).toBeInTheDocument();
     });
-    
-    mockAlert.mockRestore();
   });
 });
 

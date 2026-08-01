@@ -13,6 +13,12 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+vi.mock('../../contexts/ToastContext', () => ({
+  useToast: () => ({
+    toast: vi.fn(),
+  }),
+}));
+
 const mockOpenScaleForm = vi.fn();
 const mockOpenBandScaleForm = vi.fn();
 const mockOpenSongForm = vi.fn();

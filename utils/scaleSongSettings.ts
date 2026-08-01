@@ -63,32 +63,31 @@ export const normalizeScaleSongSettings = (
 };
 
 export const applyScaleSongSettings = <T extends Song>(song: T, settings?: ScaleSongSettings): T => {
-  if (!settings) return song;
-
-  // Clone the song to avoid mutating the original object
+  // Always clone the song to avoid mutating the original object
   const newSong = { ...song };
 
-  // Securely retrieve or establish stable master reference fields to prevent cumulative transpositions
-  const originalKey = (song as any)._untransposedKey || song.key || song.originalKey || "";
-  const originalChords = (song as any)._untransposedChords || song.chords || "";
+  // Explicitly delete any legacy hidden metadata fields to ensure data integrity
+  delete (newSong as any)._untransposedKey;
+  delete (newSong as any)._untransposedChords;
+
+  if (!settings) return newSong;
+
+  const baseKey = song.key || song.originalKey || "";
+  const baseChords = song.chords || "";
 
   if (settings.key !== undefined && settings.key !== null) {
-    const semitones = originalKey ? getKeyDifference(originalKey, settings.key) : 0;
+    const semitones = baseKey ? getKeyDifference(baseKey, settings.key) : 0;
     
     newSong.key = settings.key;
     newSong.selectedKey = settings.key;
 
-    // Attach stable reference fields for subsequent renders
-    (newSong as any)._untransposedKey = originalKey;
-    (newSong as any)._untransposedChords = originalChords;
-
-    if (semitones !== 0 && originalChords && originalChords.trim().length > 0) {
-        const parsed = parseChordsAndLyrics(originalChords);
+    if (semitones !== 0 && baseChords && baseChords.trim().length > 0) {
+        const parsed = parseChordsAndLyrics(baseChords);
         newSong.chords = parsed.map(line => 
             line.type === 'chord' ? transposeChord(line.content, semitones) : line.content
         ).join('\n');
     } else {
-        newSong.chords = originalChords;
+        newSong.chords = baseChords;
     }
   }
 

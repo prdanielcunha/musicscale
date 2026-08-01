@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { Crown, Lock, Sparkles, AlertTriangle, ArrowRight, Check } from 'lucide-react';
 import { useMusicScaleEntitlements, useMusicScaleFeature, useMusicScalePlan, useMusicScaleUsage } from '../../hooks/useMusicScaleEntitlements';
@@ -358,6 +359,8 @@ export const UpgradePlanModal: React.FC<{
   onClose: () => void;
   featureKey?: keyof MusicScaleFeatures;
 }> = ({ isOpen, onClose, featureKey = 'libraryAccess' }) => {
+  const { t } = useTranslation();
+
   if (!isOpen) return null;
 
   const handleRedirect = () => {
@@ -386,23 +389,25 @@ export const UpgradePlanModal: React.FC<{
           <div className="mx-auto w-12 h-12 rounded-full bg-indigo-50 dark:bg-zinc-950 text-indigo-500 border border-indigo-100/40 dark:border-indigo-900/40 flex items-center justify-center mb-4 shadow-sm animate-pulse">
             <Sparkles className="w-6 h-6 text-indigo-500" />
           </div>
-          <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 mb-2">Desbloquear Recursos Premium</h3>
+          <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 mb-2">
+            {t('premium.upgradeModal.title', 'Desbloquear Recursos Premium')}
+          </h3>
           <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed mb-6">
-            O ecossistema MillionsNest gerencia todas as licenças do MusicScale. Faça seu upgrade a qualquer momento e libere imediatamente a sua equipe no altar.
+            {t('premium.upgradeModal.description', 'O ecossistema MillionsNest gerencia todas as licenças do MusicScale. Faça seu upgrade a qualquer momento e libere imediatamente a sua equipe no altar.')}
           </p>
 
           <div className="space-y-2.5 mb-6 text-left max-w-xs mx-auto bg-zinc-50/50 dark:bg-zinc-900/30 rounded-2xl p-4 border border-zinc-100 dark:border-zinc-800/80">
             <div className="flex gap-2.5 items-center text-xs text-zinc-600 dark:text-zinc-300">
               <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>Acesso à Biblioteca de cifras prontas</span>
+              <span>{t('premium.upgradeModal.checklist.library', 'Acesso à Biblioteca de cifras prontas')}</span>
             </div>
             <div className="flex gap-2.5 items-center text-xs text-zinc-600 dark:text-zinc-300">
               <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>Inteligência Artificial de repertório</span>
+              <span>{t('premium.upgradeModal.checklist.ai', 'Inteligência Artificial de repertório')}</span>
             </div>
             <div className="flex gap-2.5 items-center text-xs text-zinc-600 dark:text-zinc-300">
               <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>Clonagem em um toque e muito mais</span>
+              <span>{t('premium.upgradeModal.checklist.cloning', 'Clonagem em um toque e muito mais')}</span>
             </div>
           </div>
 
@@ -411,13 +416,13 @@ export const UpgradePlanModal: React.FC<{
               onClick={handleRedirect}
               className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/10 transition-all text-center cursor-pointer touch-target-comfort"
             >
-              Ir para Cental de Cobrança MillionsNest
+              {t('premium.upgradeModal.cta', 'Ir para Central de Cobrança MillionsNest')}
             </button>
             <button
               onClick={onClose}
               className="w-full py-2.5 px-4 rounded-xl text-xs font-medium text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700/60 transition-all cursor-pointer touch-target-comfort"
             >
-              Fechar
+              {t('premium.upgradeModal.close', 'Fechar')}
             </button>
           </div>
         </div>

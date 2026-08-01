@@ -1,4 +1,17 @@
 {
+  "premium": {
+    "upgradeModal": {
+      "title": "Unlock Premium Features",
+      "description": "The MillionsNest ecosystem manages all licenses for MusicScale. Upgrade at any time and immediately unleash your team on the altar.",
+      "checklist": {
+        "library": "Access to the Living Library of ready-made chords",
+        "ai": "Artificial Intelligence for repertoire",
+        "cloning": "One-touch cloning and much more"
+      },
+      "cta": "Go to MillionsNest Billing Central",
+      "close": "Close"
+    }
+  },
   "users": {
     "unauthorizedIntent": "You do not have permission to manage the team.",
     "rolesUnavailable": "Team roles not available for configuration."
@@ -1252,7 +1265,9 @@
     },
     "states": {
       "availableOnPlan": "On plan",
-      "limitReached": "Limit reached"
+      "limitReached": "Limit reached",
+      "limitReachedTitle": "Usage Limit Reached",
+      "limitReachedDesc": "You have reached the limit allowed by your plan for this action. Please upgrade to continue."
     },
     "aiImport": {
       "title": "Import with AI",
