@@ -3,17 +3,36 @@ import { loginAsLeaderA, loginAsMusicianA, loginAsLeaderB } from './helpers/auth
 import {
   getScaleSnapshot,
   getScaleResponses,
+  getScaleResponseHistory,
   getOrganizationNotifications,
   countNotificationsForScale,
-  countActiveResponses
+  countActiveResponses,
+  getBandScaleSnapshot,
+  findNotification
 } from './helpers/emulatorAssertions';
 
-test.describe.serial('MusicScale full cycle', () => {
+test.describe('MusicScale full cycle', () => {
+  test.describe.configure({
+    mode: 'serial',
+    retries: 0
+  });
+
   test('A. líder publica a escala', async ({ page }, testInfo) => {
     const project = testInfo.project.name;
-    const scaleId = `scale_a_draft_${project}`;
+    const scaleId = `scale_full_cycle_${project}`;
 
-    // ETAPA 6: Validação do rascunho via Firestore Emulator antes do fluxo
+    // ETAPA 4: Validação do rascunho via Firestore Emulator antes do fluxo
+    const initialScale = await getScaleSnapshot(scaleId);
+    expect(initialScale).not.toBeNull();
+    expect(initialScale!.status).toBe('draft');
+    expect(initialScale!.publishRevision || 0).toBe(0);
+    expect(initialScale!.songIds).toHaveLength(2);
+    expect(initialScale!.eventAssignments || []).toHaveLength(0);
+
+    const bandScaleSnapshot = await getBandScaleSnapshot(`bandscale_full_cycle_${project}`);
+    expect(bandScaleSnapshot).not.toBeNull();
+    expect(bandScaleSnapshot.assignments).toHaveLength(2);
+
     const initialNotifs = await countNotificationsForScale('org_a', scaleId);
     const initialResponses = await countActiveResponses(scaleId);
     expect(initialNotifs).toBe(0);
@@ -25,7 +44,7 @@ test.describe.serial('MusicScale full cycle', () => {
     await page.goto(`/scales/${scaleId}`);
     await page.waitForURL(`**/scales/${scaleId}`);
 
-    await expect(page.getByRole('heading', { name: `Culto de Terça ${project}` })).toBeVisible();
+    await expect(page.getByRole('heading', { name: `Ciclo Completo ${project}` })).toBeVisible();
     await expect(page.getByText('19:30')).toBeVisible();
     await expect(page.getByTestId('detail-song-card-song_a_2')).toBeVisible();
 
@@ -41,7 +60,7 @@ test.describe.serial('MusicScale full cycle', () => {
     await btnNext.click();
 
     // Selecionar bandscale
-    const cardBandScale = page.getByTestId(`link-band-scale-bandscale_a_${project}`);
+    const cardBandScale = page.getByTestId(`link-band-scale-bandscale_full_cycle_${project}`);
     await expect(cardBandScale).toBeVisible();
     await cardBandScale.click();
 
@@ -108,15 +127,19 @@ test.describe.serial('MusicScale full cycle', () => {
     const finalNotifs = await countNotificationsForScale('org_a', scaleId);
     expect(finalNotifs).toBeGreaterThan(0);
 
-    const notifications = await getOrganizationNotifications('org_a');
-    const musicianNotif = notifications.find((n: any) => n.recipientId === 'user_musician_a' && n.metadata?.musicScaleId === scaleId);
-    expect(musicianNotif).toBeTruthy();
-    expect(musicianNotif.publishRevision).toBe(1);
+    const musicianNotif = await findNotification('org_a', {
+      sourceEventId: scaleId,
+      recipientId: 'user_musician_a',
+      publishRevision: 1
+    });
+    expect(musicianNotif).not.toBeNull();
+    expect(musicianNotif!.link).toBe(`/scales/${scaleId}`);
+    expect(musicianNotif!.type).toBe('music_scale_assignment');
   });
 
   test('B. músico responde presença', async ({ page }, testInfo) => {
     const project = testInfo.project.name;
-    const scaleId = `scale_a_draft_${project}`;
+    const scaleId = `scale_full_cycle_${project}`;
 
     await loginAsMusicianA(page);
 
@@ -125,7 +148,7 @@ test.describe.serial('MusicScale full cycle', () => {
     await page.waitForURL('**/notifications');
 
     // Localizar notificação gerada pela publicação por seu test-id determinístico
-    const targetNotifId = `notification-card-org_a_scale_a_draft_${project}_rev1_user_musician_a_music_scale_assignment`;
+    const targetNotifId = `notification-card-org_a_scale_full_cycle_${project}_rev1_user_musician_a_music_scale_assignment`;
     const notifItem = page.getByTestId(targetNotifId);
     await expect(notifItem).toBeVisible();
 
@@ -148,6 +171,18 @@ test.describe.serial('MusicScale full cycle', () => {
     await btnAccept.click();
     await expect(page.getByText(/Confirmo/i)).toBeVisible();
 
+    // Confirmar no Emulator após accepted (ETAPA 9)
+    const responsesAccepted = await getScaleResponses(scaleId);
+    const respAccepted = responsesAccepted.find(r => r.userId === 'user_musician_a' && r.active === true);
+    expect(respAccepted).toBeTruthy();
+    expect(respAccepted!.status).toBe('accepted');
+    expect(respAccepted!.responseRevision).toBeGreaterThan(0);
+    expect(respAccepted!.respondedAgainstRevision).toBe(1);
+
+    const historyAccepted = await getScaleResponseHistory(scaleId);
+    expect(historyAccepted.length).toBeGreaterThan(0);
+    expect(historyAccepted[historyAccepted.length - 1].newStatus).toBe('accepted');
+
     // 2. Alterar para maybe (usando botão refresh para reexibir opções)
     const btnChange = page.getByTestId('change-response');
     await expect(btnChange).toBeVisible();
@@ -157,6 +192,17 @@ test.describe.serial('MusicScale full cycle', () => {
     await expect(btnMaybe).toBeVisible();
     await btnMaybe.click();
     await expect(page.getByText(/Ainda não sei/i)).toBeVisible();
+
+    // Confirmar no Emulator após maybe (ETAPA 9)
+    const responsesMaybe = await getScaleResponses(scaleId);
+    const respMaybe = responsesMaybe.find(r => r.userId === 'user_musician_a' && r.active === true);
+    expect(respMaybe).toBeTruthy();
+    expect(respMaybe!.status).toBe('maybe');
+    expect(respMaybe!.responseRevision).toBeGreaterThan(respAccepted!.responseRevision || 0);
+
+    const historyMaybe = await getScaleResponseHistory(scaleId);
+    expect(historyMaybe.length).toBeGreaterThan(historyAccepted.length);
+    expect(historyMaybe[historyMaybe.length - 1].newStatus).toBe('maybe');
 
     // 3. Alterar para declined
     await expect(btnChange).toBeVisible();
@@ -179,17 +225,24 @@ test.describe.serial('MusicScale full cycle', () => {
     await expect(page.getByText(/Não poderei/i)).toBeVisible();
     await expect(page.getByText('Imprevisto médico')).toBeVisible();
 
-    // ETAPA 9: Comprovar resposta persistida corretamente no Firestore Emulator
-    const responses = await getScaleResponses(scaleId);
-    const activeResponse = responses.find((r: any) => r.userId === 'user_musician_a' && r.active === true);
-    expect(activeResponse).toBeTruthy();
-    expect(activeResponse.status).toBe('declined');
-    expect(activeResponse.reason).toBe('Imprevisto médico');
+    // Confirmar no Emulator após declined (ETAPA 9)
+    const responsesDeclined = await getScaleResponses(scaleId);
+    const respDeclined = responsesDeclined.find(r => r.userId === 'user_musician_a' && r.active === true);
+    expect(respDeclined).toBeTruthy();
+    expect(respDeclined!.status).toBe('declined');
+    expect(respDeclined!.reason).toBe('Imprevisto médico');
+    expect(respDeclined!.responseRevision).toBeGreaterThan(respMaybe!.responseRevision || 0);
+
+    const historyDeclined = await getScaleResponseHistory(scaleId);
+    expect(historyDeclined.length).toBeGreaterThan(historyMaybe.length);
+    const lastHist = historyDeclined[historyDeclined.length - 1];
+    expect(lastHist.newStatus).toBe('declined');
+    expect(lastHist.reasonProvided).toBe(true);
   });
 
   test('C. líder visualiza resumo', async ({ page }, testInfo) => {
     const project = testInfo.project.name;
-    const scaleId = `scale_a_draft_${project}`;
+    const scaleId = `scale_full_cycle_${project}`;
 
     await loginAsLeaderA(page);
     await page.goto(`/scales/${scaleId}`);
@@ -204,7 +257,12 @@ test.describe.serial('MusicScale full cycle', () => {
 
   test('D. líder republica e reconcilia', async ({ page }, testInfo) => {
     const project = testInfo.project.name;
-    const scaleId = `scale_a_draft_${project}`;
+    const scaleId = `scale_full_cycle_${project}`;
+
+    // 0. Antes da republicação: ler e guardar os valores do Emulator
+    const prevScale = await getScaleSnapshot(scaleId);
+    expect(prevScale).not.toBeNull();
+    const prevPublishRev = prevScale!.publishRevision || 1;
 
     await loginAsLeaderA(page);
     await page.goto(`/scales/${scaleId}`);
@@ -216,12 +274,34 @@ test.describe.serial('MusicScale full cycle', () => {
     await editBandBtn.click();
     await expect(page.getByRole('heading', { name: /Editar Escala/i })).toBeVisible();
 
+    // Estamos no Passo 1: "Banda".
+    // Vamos remover 'user_musician_a2' de 'instrument_guitar'
+    const removeBtn = page.getByTestId('remove-assignment-user_musician_a2-instrument_guitar');
+    await expect(removeBtn).toBeVisible();
+    await removeBtn.click();
+
+    // Vamos selecionar o instrumento teclado
+    const selectKeyInst = page.getByTestId('select-instrument-instrument_keyboard');
+    await expect(selectKeyInst).toBeVisible();
+    await selectKeyInst.click();
+
+    // Mostrar todos os integrantes se necessário
+    const btnShowAll = page.getByRole('button', { name: /Mostrar todos/i });
+    if (await btnShowAll.isVisible()) {
+      await btnShowAll.click();
+    }
+
+    // Adicionar user_musician_a3 como instrument_keyboard
+    const addBtn = page.getByTestId('add-assignment-user_musician_a3-instrument_keyboard');
+    await expect(addBtn).toBeVisible();
+    await addBtn.click();
+
     // Avançar até o passo de Revisão
     const btnNext = page.getByRole('button', { name: /Avançar/i });
     await expect(btnNext).toBeVisible();
-    await btnNext.click();
-    await btnNext.click();
-    await btnNext.click();
+    await btnNext.click(); // Avança para Passo 2 (Músicas)
+    await btnNext.click(); // Avança para Passo 3 (Observações/Revisão)
+    await btnNext.click(); // Avança para Passo 4 (Revisão final)
 
     // Republicar e asseverar incremento da revisão e reconciliação dos registros
     const publishPromise = page.waitForResponse(response => 
@@ -239,25 +319,29 @@ test.describe.serial('MusicScale full cycle', () => {
     await expect(page.getByRole('heading', { name: /Editar Escala/i })).toBeHidden();
     await expect(page.getByText(/Publicado/i)).toBeVisible();
 
-    // ETAPA 11: Validar no Firestore que a revisão subiu, as antigas foram inativadas e novas foram criadas
+    // ETAPA 11: Validar no Firestore que a revisão subiu para 2, as antigas foram inativadas e novas foram criadas
     const scaleSnapshot = await getScaleSnapshot(scaleId);
     expect(scaleSnapshot).not.toBeNull();
-    expect(scaleSnapshot!.publishRevision).toBe(2);
+    expect(scaleSnapshot!.publishRevision).toBe(prevPublishRev + 1);
 
     const responses = await getScaleResponses(scaleId);
-    const activeResponses = responses.filter((r: any) => r.active === true);
-    const inactiveResponses = responses.filter((r: any) => r.active === false);
+    const activeResponses = responses.filter(r => r.active === true);
+    const inactiveResponses = responses.filter(r => r.active === false);
 
-    // Deve haver exatamente 2 respostas ativas (para a nova revisão 2) e 2 inativas (antigas da revisão 1)
+    // Deve haver exatamente 2 respostas ativas (uma para user_musician_a no vocal e uma para user_musician_a3 no keyboard)
     expect(activeResponses).toHaveLength(2);
-    expect(inactiveResponses).toHaveLength(2);
-    expect(activeResponses.every((r: any) => r.assignmentRevision === 2)).toBe(true);
-    expect(inactiveResponses.every((r: any) => r.assignmentRevision === 1)).toBe(true);
+    expect(activeResponses.some(r => r.userId === 'user_musician_a')).toBe(true);
+    expect(activeResponses.some(r => r.userId === 'user_musician_a3')).toBe(true);
+    expect(activeResponses.every(r => r.assignmentRevision === prevPublishRev + 1)).toBe(true);
+
+    // E as respostas inativas devem incluir as da revisão anterior (revisão 1)
+    expect(inactiveResponses.length).toBeGreaterThan(0);
+    expect(inactiveResponses.some(r => r.userId === 'user_musician_a' && r.assignmentRevision === 1)).toBe(true);
   });
 
   test('E. agenda exporta corretamente', async ({ page }, testInfo) => {
     const project = testInfo.project.name;
-    const scaleId = `scale_a_draft_${project}`;
+    const scaleId = `scale_full_cycle_${project}`;
 
     await loginAsLeaderA(page);
     await page.goto(`/scales/${scaleId}`);
@@ -274,7 +358,7 @@ test.describe.serial('MusicScale full cycle', () => {
     const href = await linkGoogle.getAttribute('href');
     expect(href).toContain('calendar.google.com');
     // SUMMARY do Google Calendar link
-    expect(href).toContain(encodeURIComponent(`Culto de Terça ${project}`));
+    expect(href).toContain(encodeURIComponent(`Ciclo Completo ${project}`));
 
     // Gerar ICS (Download Promise)
     const btnICS = page.getByRole('button', { name: /Apple|ICS|Download/i });
@@ -292,21 +376,21 @@ test.describe.serial('MusicScale full cycle', () => {
       }
     }
     expect(content).toContain('BEGIN:VCALENDAR');
-    expect(content).toContain(`SUMMARY:Culto de Terça ${project}`);
+    expect(content).toContain(`SUMMARY:Ciclo Completo ${project}`);
     expect(content).toContain('END:VCALENDAR');
   });
 
   test('F. organização B permanece isolada', async ({ page }, testInfo) => {
     const project = testInfo.project.name;
-    const scaleId = `scale_a_draft_${project}`;
+    const scaleId = `scale_full_cycle_${project}`;
 
     await loginAsLeaderB(page);
     
     // ETAPA 13: Tentar abrir a escala da organização A e asseverar que o acesso foi negado/redirecionado com segurança
     await page.goto(`/scales/${scaleId}`);
     
-    // O título "Culto de Terça <project>" não deve estar visível
-    await expect(page.getByRole('heading', { name: `Culto de Terça ${project}` })).not.toBeVisible();
+    // O título "Ciclo Completo <project>" não deve estar visível
+    await expect(page.getByRole('heading', { name: `Ciclo Completo ${project}` })).not.toBeVisible();
 
     // Se o status da página for 200, garantir que a URL mudou ou exibe mensagem de segurança/erro
     const pageUrl = page.url();
@@ -320,6 +404,6 @@ test.describe.serial('MusicScale full cycle', () => {
     // Confirmar ausência de notificações da Org A no inbox do líder B
     await page.goto('/notifications');
     await page.waitForURL('**/notifications');
-    await expect(page.getByText(`Culto de Terça ${project}`)).not.toBeVisible();
+    await expect(page.getByText(`Ciclo Completo ${project}`)).not.toBeVisible();
   });
 });

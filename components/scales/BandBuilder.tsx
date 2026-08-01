@@ -214,6 +214,7 @@ const BandBuilder: React.FC<BandBuilderProps> = ({
                 size="sm"
                 className="w-full text-xs font-semibold py-1.5"
                 onClick={() => addAssignment(u.uid, selectedInstruments[0].id)}
+                data-testid={`add-assignment-${u.uid}-${selectedInstruments[0].id}`}
               >
                 {t('bandScaleModal.addAs')} {selectedInstruments[0].name}
               </Button>
@@ -260,6 +261,7 @@ const BandBuilder: React.FC<BandBuilderProps> = ({
                              : "bg-white dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20 border border-slate-200 dark:border-white/10"
                          }`}
                          onClick={() => addAssignment(u.uid, inst.id)}
+                         data-testid={`add-assignment-${u.uid}-${inst.id}`}
                        >
                          {inst.name}
                        </button>
@@ -350,6 +352,7 @@ const BandBuilder: React.FC<BandBuilderProps> = ({
                           ? "border-primary bg-primary/10 text-primary shadow-sm"
                           : "border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1C1E] text-slate-700 dark:text-gray-300 hover:border-primary/50"
                       }`}
+                      data-testid={`select-instrument-${inst.id}`}
                     >
                       {inst.name}
                       {addedCount > 0 && (
@@ -424,6 +427,7 @@ const BandBuilder: React.FC<BandBuilderProps> = ({
                                   variant="ghost"
                                   className="!p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
                                   onClick={() => removeAssignment(a.userId, a.instrumentId)}
+                                  data-testid={`remove-assignment-${a.userId}-${a.instrumentId}`}
                                   title="Remover"
                                 >
                                   <XCircleIcon className="w-4 h-4" />

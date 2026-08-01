@@ -52,6 +52,7 @@ export default async function globalSetup() {
     { uid: 'user_leader_a', email: 'leader@orga.test', password: 'password', displayName: 'Líder Família A' },
     { uid: 'user_musician_a', email: 'musician@orga.test', password: 'password', displayName: 'Músico Família A' },
     { uid: 'user_musician_a2', email: 'musician2@orga.test', password: 'password', displayName: 'Músico A2 Família A' },
+    { uid: 'user_musician_a3', email: 'musician3@orga.test', password: 'password', displayName: 'Músico A3 Família A' },
     { uid: 'user_observer_a', email: 'observer@orga.test', password: 'password', displayName: 'Observador Família A' },
     { uid: 'user_leader_b', email: 'leader@orgb.test', password: 'password', displayName: 'Líder Família B' },
     { uid: 'user_musician_b', email: 'musician@orgb.test', password: 'password', displayName: 'Músico Família B' }
@@ -73,6 +74,7 @@ export default async function globalSetup() {
   await db.doc('users/user_leader_b').set({ uid: 'user_leader_b', email: 'leader@orgb.test', displayName: 'Líder Família B', activeOrganizationId: 'org_b', primaryOrganizationId: 'org_b' });
   await db.doc('users/user_musician_a').set({ uid: 'user_musician_a', email: 'musician@orga.test', displayName: 'Músico Família A', activeOrganizationId: 'org_a', primaryOrganizationId: 'org_a' });
   await db.doc('users/user_musician_a2').set({ uid: 'user_musician_a2', email: 'musician2@orga.test', displayName: 'Músico A2 Família A', activeOrganizationId: 'org_a', primaryOrganizationId: 'org_a' });
+  await db.doc('users/user_musician_a3').set({ uid: 'user_musician_a3', email: 'musician3@orga.test', displayName: 'Músico A3 Família A', activeOrganizationId: 'org_a', primaryOrganizationId: 'org_a' });
   await db.doc('users/user_observer_a').set({ uid: 'user_observer_a', email: 'observer@orga.test', displayName: 'Observador Família A', activeOrganizationId: 'org_a', primaryOrganizationId: 'org_a' });
   await db.doc('users/user_musician_b').set({ uid: 'user_musician_b', email: 'musician@orgb.test', displayName: 'Músico Família B', activeOrganizationId: 'org_b', primaryOrganizationId: 'org_b' });
 
@@ -139,12 +141,14 @@ export default async function globalSetup() {
   await db.doc('organizations/org_a/members/user_leader_a').set({ uid: 'user_leader_a', userId: 'user_leader_a', organizationId: 'org_a', status: 'active', role: 'admin', organizationRole: 'admin', email: 'leader@orga.test', displayName: 'Líder A' });
   await db.doc('organizations/org_a/members/user_musician_a').set({ uid: 'user_musician_a', userId: 'user_musician_a', organizationId: 'org_a', status: 'active', role: 'member', organizationRole: 'member', email: 'musician@orga.test', displayName: 'Musico A' });
   await db.doc('organizations/org_a/members/user_musician_a2').set({ uid: 'user_musician_a2', userId: 'user_musician_a2', organizationId: 'org_a', status: 'active', role: 'member', organizationRole: 'member', email: 'musician2@orga.test', displayName: 'Musico A2' });
+  await db.doc('organizations/org_a/members/user_musician_a3').set({ uid: 'user_musician_a3', userId: 'user_musician_a3', organizationId: 'org_a', status: 'active', role: 'member', organizationRole: 'member', email: 'musician3@orga.test', displayName: 'Musico A3' });
   await db.doc('organizations/org_a/members/user_observer_a').set({ uid: 'user_observer_a', userId: 'user_observer_a', organizationId: 'org_a', status: 'active', role: 'visitor', organizationRole: 'visitor', email: 'observer@orga.test', displayName: 'Observador A' });
 
   // Global members mapping for A
   await db.doc('organization_members/user_leader_a_org_a').set({ uid: 'user_leader_a', userId: 'user_leader_a', organizationId: 'org_a', status: 'active', role: 'admin', organizationRole: 'admin' });
   await db.doc('organization_members/user_musician_a_org_a').set({ uid: 'user_musician_a', userId: 'user_musician_a', organizationId: 'org_a', status: 'active', role: 'member', organizationRole: 'member' });
   await db.doc('organization_members/user_musician_a2_org_a').set({ uid: 'user_musician_a2', userId: 'user_musician_a2', organizationId: 'org_a', status: 'active', role: 'member', organizationRole: 'member' });
+  await db.doc('organization_members/user_musician_a3_org_a').set({ uid: 'user_musician_a3', userId: 'user_musician_a3', organizationId: 'org_a', status: 'active', role: 'member', organizationRole: 'member' });
   await db.doc('organization_members/user_observer_a_org_a').set({ uid: 'user_observer_a', userId: 'user_observer_a', organizationId: 'org_a', status: 'active', role: 'visitor', organizationRole: 'visitor' });
 
   // Members Org B
@@ -161,6 +165,7 @@ export default async function globalSetup() {
   // Instruments/Functions Org A
   await db.doc('instruments/instrument_vocal').set({ organizationId: 'org_a', name: 'Vocal', category: 'Voz', active: true });
   await db.doc('instruments/instrument_guitar').set({ organizationId: 'org_a', name: 'Violão', category: 'Instrumento', active: true });
+  await db.doc('instruments/instrument_keyboard').set({ organizationId: 'org_a', name: 'Teclado', category: 'Instrumento', active: true });
 
   // Events/locations/etc Org B
   await db.doc('eventTypes/type_b').set({ organizationId: 'org_b', name: 'Reunião Jovem', active: true });
@@ -258,9 +263,10 @@ export default async function globalSetup() {
       createdBy: 'user_leader_a'
     });
 
-    await db.doc(`scales/scale_a_draft_${p}`).set({
+    // E2E 10 Draft Scale
+    await db.doc(`scales/scale_song_persistence_${p}`).set({
       organizationId: 'org_a',
-      title: `Culto de Terça ${p}`,
+      title: `Persistência de Tom ${p}`,
       date: scaleDate.toISOString().split('T')[0],
       time: '19:30',
       startTime: '19:30',
@@ -276,13 +282,33 @@ export default async function globalSetup() {
       createdBy: 'user_leader_a'
     });
 
-    await db.doc(`bandScales/bandscale_a_${p}`).set({
+    // E2E 11 Draft Scale
+    await db.doc(`scales/scale_full_cycle_${p}`).set({
+      organizationId: 'org_a',
+      title: `Ciclo Completo ${p}`,
+      date: scaleDate.toISOString().split('T')[0],
+      time: '19:30',
+      startTime: '19:30',
+      status: 'draft',
+      songIds: ['song_a_1', 'song_a_2'],
+      songSettings: {
+        'song_a_1': { key: 'C', bpm: 120, scope: 'global' },
+        'song_a_2': { key: 'D', bpm: 90, scope: 'global' }
+      },
+      eventTypeId: 'type_a',
+      locationId: 'loc_a',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdBy: 'user_leader_a'
+    });
+
+    // E2E 11 Band Scale
+    await db.doc(`bandScales/bandscale_full_cycle_${p}`).set({
       organizationId: 'org_a',
       date: scaleDate.toISOString().split('T')[0],
       time: '19:30',
       assignments: [
-        { id: `assign_1_${p}`, userId: 'user_musician_a', instrumentId: 'instrument_vocal' },
-        { id: `assign_2_${p}`, userId: 'user_musician_a2', instrumentId: 'instrument_guitar' }
+        { id: `assign_fc_1_${p}`, userId: 'user_musician_a', instrumentId: 'instrument_vocal' },
+        { id: `assign_fc_2_${p}`, userId: 'user_musician_a2', instrumentId: 'instrument_guitar' }
       ],
       eventTypeId: 'type_a',
       locationId: 'loc_a',

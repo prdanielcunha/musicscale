@@ -2,9 +2,14 @@ import { test, expect } from './helpers/base';
 import { loginAsLeaderA } from './helpers/auth';
 
 test.describe('Scale Song Persistence', () => {
+  test.describe.configure({
+    mode: 'serial',
+    retries: 0
+  });
+
   test('Líder ajusta tom e BPM na escala draft e verifica que não afeta o global', async ({ page }, testInfo) => {
     const project = testInfo.project.name;
-    const scaleId = `scale_a_draft_${project}`;
+    const scaleId = `scale_song_persistence_${project}`;
 
     // 0. Confirmar os valores globais originais primeiro
     await loginAsLeaderA(page);
@@ -18,7 +23,7 @@ test.describe('Scale Song Persistence', () => {
     // 1 & 2. abrir a escala draft conhecida ("Culto de Terça") e modo de edição
     await page.goto(`/scales/${scaleId}`);
     await page.waitForURL(`**/scales/${scaleId}`);
-    await expect(page.getByRole('heading', { name: `Culto de Terça ${project}` })).toBeVisible();
+    await expect(page.getByRole('heading', { name: `Persistência de Tom ${project}` })).toBeVisible();
 
     // 3. Clicar no botão "Editar Escala" da barra do cabeçalho de título para entrar no modo edição
     const btnEditScale = page.getByTestId('edit-scale-detail-button');
@@ -66,7 +71,7 @@ test.describe('Scale Song Persistence', () => {
 
     // 11 & 12. escala reaberta (ou seja, nós voltamos pra Scale View e vemos os dados).
     await page.waitForURL(`**/scales/${scaleId}`);
-    await expect(page.getByRole('heading', { name: `Culto de Terça ${project}` })).toBeVisible();
+    await expect(page.getByRole('heading', { name: `Persistência de Tom ${project}` })).toBeVisible();
 
     // 13 & 14 & 15. tom G exibido e BPM 105 exibido com o badge "Desta escala"
     const detailSongCard = page.getByTestId('detail-song-card-song_a_2');
