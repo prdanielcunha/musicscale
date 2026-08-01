@@ -1283,7 +1283,7 @@
     "decodedTitle": "Contenido normalizado",
     "decodedMessage": "El contenido pegado estaba codificado y se ha convertido a texto normal.",
     "clipboardEmpty": "El portapapeles está vacío.",
-    "clipboardError": "No se pudo acceder al portapapeles. Pegue manualmente a continuación.",
+    "clipboardError": "No se pudo acceder al portapapeles. Pega manualmente en el campo de abajo.",
     "titleRequired": "El título de la canción es obligatorio.",
     "titleAndArtist": "Título y Artista",
     "titleLabel": "Título",
@@ -1302,6 +1302,14 @@
     "metadataLabel": "Metadatos",
     "versionLabel": "Versión",
     "versionPlaceholder": "Versión (Ej: En vivo)",
-    "sectionsLabel": "Secciones:"
+    "sectionsLabel": "Secciones:",
+    "modalTitle": "Crear canción con IA",
+    "modalDescription": "Pega el contenido de la canción. La IA organizará el título, artista, tono, letra, acordes y secciones para que los revises antes de guardar.",
+    "inputLabel": "Pega los acordes o la letra",
+    "inputPlaceholder": "Pega la letra, los acordes o el contenido completo de la canción aquí...",
+    "errorEmpty": "Pega la letra o los acordes para continuar.",
+    "processButton": "Procesar con IA",
+    "saveDestination": "Destino de guardado",
+    "pasteClipboard": "Pegar desde el portapapeles"
   }
 }

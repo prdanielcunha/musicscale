@@ -1286,7 +1286,7 @@
     "decodedTitle": "Content normalized",
     "decodedMessage": "The pasted content was percent-encoded and has been converted to plain text.",
     "clipboardEmpty": "The clipboard is empty.",
-    "clipboardError": "Could not access the clipboard. Please paste manually below.",
+    "clipboardError": "Could not access the clipboard. Please paste manually in the field below.",
     "titleRequired": "The song title is required.",
     "titleAndArtist": "Title and Artist",
     "titleLabel": "Title",
@@ -1305,6 +1305,14 @@
     "metadataLabel": "Metadata",
     "versionLabel": "Version",
     "versionPlaceholder": "Version (e.g. Live)",
-    "sectionsLabel": "Sections:"
+    "sectionsLabel": "Sections:",
+    "modalTitle": "Create song with AI",
+    "modalDescription": "Paste the song content. The AI will organize the title, artist, key, lyrics, chords, and sections for you to review before saving.",
+    "inputLabel": "Paste chords or lyrics",
+    "inputPlaceholder": "Paste the lyrics, chords, or the full song content here...",
+    "errorEmpty": "Paste lyrics or chords to continue.",
+    "processButton": "Process with AI",
+    "saveDestination": "Save Destination",
+    "pasteClipboard": "Paste from clipboard"
   }
 }

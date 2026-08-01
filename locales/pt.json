@@ -1304,6 +1304,14 @@
     "metadataLabel": "Metadados",
     "versionLabel": "Versão",
     "versionPlaceholder": "Versão (Ex: Ao Vivo)",
-    "sectionsLabel": "Seções:"
+    "sectionsLabel": "Seções:",
+    "modalTitle": "Criar música com IA",
+    "modalDescription": "Cole o conteúdo da música. A IA organiza título, artista, tom, letra, cifra e seções para você revisar antes de salvar.",
+    "inputLabel": "Cole a cifra ou letra",
+    "inputPlaceholder": "Cole aqui a letra, a cifra ou o conteúdo completo da música...",
+    "errorEmpty": "Cole a letra ou cifra para continuar.",
+    "processButton": "Processar com IA",
+    "saveDestination": "Destino do Salvamento",
+    "pasteClipboard": "Colar da área de transferência"
   }
 }

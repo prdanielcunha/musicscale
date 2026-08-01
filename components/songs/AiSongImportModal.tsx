@@ -36,6 +36,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
   const { refreshData, songs } = useMusic();
   const { success, error: toastError, feedbackToast } = useToast();
   const { openFeedback } = useModals();
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const isAiImportAllowed = useMusicScaleFeature('aiImport');
 
   const canManageSongs = !!permissions?.manageSongs || !!permissions?.['musicScale.manageSongs'];
@@ -105,9 +106,13 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
       }
     }
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === "rawText" && error) {
+      setError(null);
+    }
   };
 
   const handleRawTextPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (error) setError(null);
     try {
       const pastedText = e.clipboardData.getData("text/plain");
       if (pastedText) {
@@ -178,8 +183,11 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
       }
     }
 
-    if (!textToSend) {
+    if (!textToSend.trim()) {
       setError(t("aiImport.errorEmpty", "Cole a letra ou cifra para continuar."));
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
       return;
     }
 
@@ -191,6 +199,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
     setStep("processing");
     setError(null);
 
+    if (error) setError(null);
     try {
       // Call the new express backend to process with Gemini
       const token = await auth.currentUser?.getIdToken() || "";
@@ -219,6 +228,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
 
   const executeSave = async (songDataToSave: any, forceSave = false) => {
     setIsSaving(true);
+    if (error) setError(null);
     try {
       if (options.saveToOrganization) {
         await api.songs.create(songDataToSave);
@@ -452,15 +462,59 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
           
           <div className="space-y-4">
              <div>
-                <label className={formLabelClass}>{t("aiImport.inputLabel", "Cole a cifra ou letra")}</label>
-                <textarea rows={10} name="rawText" value={formData.rawText} onChange={handleChange} onPaste={handleRawTextPaste} className={`${formInputClass} font-mono text-sm leading-relaxed`} placeholder={t("aiImport.inputPlaceholder", "Cole aqui a letra, a cifra ou o conteúdo completo da música...")}></textarea>
+                <div className="flex justify-between items-end mb-2">
+                   <label className={formLabelClass}>{t("aiImport.inputLabel", "Cole a cifra ou letra")}</label>
+                   {navigator.clipboard && (
+                     <button
+                        type="button"
+                        onClick={async () => {
+                           try {
+                              const text = await navigator.clipboard.readText();
+                              if (!text) {
+                                 toastError(t("aiImport.clipboardEmpty", "A área de transferência está vazia."));
+                                 return;
+                              }
+                              const { text: normalized, wasDecoded } = normalizePastedSongText(text);
+                              if (wasDecoded) {
+                                 success(t("aiImport.decodedTitle", "Conteúdo normalizado"), t("aiImport.decodedMessage", "O conteúdo colado estava codificado e foi convertido para texto normal."));
+                              }
+                              setFormData(prev => ({ ...prev, rawText: normalized }));
+                              if (error) setError(null);
+                           } catch (e) {
+                              toastError(t("aiImport.clipboardError", "Não foi possível acessar a área de transferência. Cole manualmente no campo abaixo."));
+                           }
+                        }}
+                        className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1.5 transition-colors"
+                     >
+                        <Clipboard className="w-3.5 h-3.5" />
+                        {t("aiImport.pasteClipboard", "Colar da área de transferência")}
+                     </button>
+                   )}
+                </div>
+                <textarea 
+                   ref={textareaRef}
+                   aria-label={t("aiImport.inputLabel", "Cole a cifra ou letra")}
+                   rows={10} 
+                   name="rawText" 
+                   value={formData.rawText} 
+                   onChange={handleChange} 
+                   onPaste={handleRawTextPaste} 
+                   className={`${formInputClass} font-mono text-sm leading-relaxed`} 
+                   placeholder={t("aiImport.inputPlaceholder", "Cole aqui a letra, a cifra ou o conteúdo completo da música...")}></textarea>
              </div>
+             
+             {error && (
+                <div role="alert" aria-live="polite" className="p-3 bg-red-100 dark:bg-red-500/10 flex items-center gap-3 text-red-700 dark:text-red-400 rounded-xl text-sm font-medium border border-red-200 dark:border-red-500/20">
+                   <AlertCircle className="w-5 h-5 shrink-0" />
+                   {error}
+                </div>
+             )}
           </div>
           
           <div className="flex justify-end gap-3 pt-4">
              <Button variant="secondary" onClick={onClose} type="button">{t("common.cancel", "Cancelar")}</Button>
-             <button type="submit" disabled={isSaving} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold tracking-wide shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all">
-                Processar com IA
+             <button type="submit" disabled={isSaving} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold tracking-wide shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:pointer-events-none">
+                {t("aiImport.processButton", "Processar com IA")}
              </button>
           </div>
         </motion.form>
