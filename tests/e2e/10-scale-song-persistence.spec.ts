@@ -1,24 +1,24 @@
 import { test, expect } from './helpers/base';
 import { loginAsLeaderA } from './helpers/auth';
-import globalSetup from './helpers/globalSetup';
 
 test.describe('Scale Song Persistence', () => {
-  test.beforeEach(async () => {
-    await globalSetup();
-  });
-  test('Líder ajusta tom e BPM na escala draft e verifica que não afeta o global', async ({ page }) => {
+  test('Líder ajusta tom e BPM na escala draft e verifica que não afeta o global', async ({ page }, testInfo) => {
+    const project = testInfo.project.name;
+    const scaleId = `scale_a_draft_${project}`;
+
     // 0. Confirmar os valores globais originais primeiro
     await loginAsLeaderA(page);
     await page.goto('/songs');
     await page.waitForURL('**/songs');
-    const songItemBefore = page.locator('div[role="row"]').filter({ hasText: 'Outra Música' });
-    await expect(songItemBefore.getByText('Tom D')).toBeVisible();
+    const songItemBefore = page.getByTestId('song-card-song_a_2');
+    await expect(songItemBefore).toBeVisible();
+    await expect(songItemBefore.getByText('D', { exact: true })).toBeVisible();
     await expect(songItemBefore.getByText('90 BPM')).toBeVisible();
 
     // 1 & 2. abrir a escala draft conhecida ("Culto de Terça") e modo de edição
-    await page.goto('/scales/scale_a_draft');
-    await page.waitForURL('**/scales/scale_a_draft');
-    await expect(page.getByRole('heading', { name: 'Culto de Terça' })).toBeVisible();
+    await page.goto(`/scales/${scaleId}`);
+    await page.waitForURL(`**/scales/${scaleId}`);
+    await expect(page.getByRole('heading', { name: `Culto de Terça ${project}` })).toBeVisible();
 
     // 3. Clicar no botão "Editar Escala" da barra do cabeçalho de título para entrar no modo edição
     const btnEditScale = page.getByTestId('edit-scale-detail-button');
@@ -65,15 +65,17 @@ test.describe('Scale Song Persistence', () => {
     await expect(page.getByRole('heading', { name: /Editar Escala/i })).toBeHidden();
 
     // 11 & 12. escala reaberta (ou seja, nós voltamos pra Scale View e vemos os dados).
-    await page.waitForURL('**/scales/scale_a_draft');
-    await expect(page.getByRole('heading', { name: 'Culto de Terça' })).toBeVisible();
+    await page.waitForURL(`**/scales/${scaleId}`);
+    await expect(page.getByRole('heading', { name: `Culto de Terça ${project}` })).toBeVisible();
 
     // 13 & 14 & 15. tom G exibido e BPM 105 exibido com o badge "Desta escala"
     const detailSongCard = page.getByTestId('detail-song-card-song_a_2');
     await expect(detailSongCard).toBeVisible();
-    await expect(detailSongCard.getByText('G')).toBeVisible();
-    await expect(detailSongCard.getByText('105')).toBeVisible();
-    await expect(detailSongCard.getByText(/Desta escala/i).first()).toBeVisible();
+    await expect(detailSongCard.getByText('G', { exact: true })).toBeVisible();
+    await expect(detailSongCard.getByText('105', { exact: true })).toBeVisible();
+    
+    const localBadges = detailSongCard.getByText('Desta escala');
+    await expect(localBadges).toHaveCount(2);
 
     // 16. abrir cifra contextual utilizando o botão play (Modo Performance) específico da música
     const viewChordsBtn = detailSongCard.getByTestId('performance-mode-button-song_a_2');
@@ -83,7 +85,10 @@ test.describe('Scale Song Persistence', () => {
     // 17. tom G confirmado na cifra (indicador de tom na barra de controle)
     const tomLabel = page.getByText('Tom', { exact: true });
     await expect(tomLabel).toBeVisible();
-    await expect(page.getByText('G', { exact: true }).first()).toBeVisible();
+    
+    const transposedKey = page.getByTestId('chords-viewer-transposed-key');
+    await expect(transposedKey).toBeVisible();
+    await expect(transposedKey).toHaveText('G');
     
     // Fechar cifra usando o botão de fechar determinístico
     const closeBtn = page.getByTestId('close-chords-viewer');
@@ -95,8 +100,9 @@ test.describe('Scale Song Persistence', () => {
     await page.waitForURL('**/songs');
     
     // 19 & 20. tom global D confirmado; BPM global 90 confirmado
-    const songItemAfter = page.locator('div[role="row"]').filter({ hasText: 'Outra Música' });
-    await expect(songItemAfter.getByText('Tom D')).toBeVisible();
+    const songItemAfter = page.getByTestId('song-card-song_a_2');
+    await expect(songItemAfter).toBeVisible();
+    await expect(songItemAfter.getByText('D', { exact: true })).toBeVisible();
     await expect(songItemAfter.getByText('90 BPM')).toBeVisible();
   });
 });

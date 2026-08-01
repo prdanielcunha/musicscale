@@ -1260,7 +1260,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                 <span className="text-[8px] font-bold uppercase tracking-widest text-white/40 mb-[1px]">
                   Tom
                 </span>
-                <span className="text-[15px] font-bold text-white tracking-wider leading-none">
+                <span className="text-[15px] font-bold text-white tracking-wider leading-none" data-testid="chords-viewer-transposed-key">
                   {song ? transposeChord(song.key, transpose) : ""}
                 </span>
               </div>

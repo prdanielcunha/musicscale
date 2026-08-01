@@ -240,6 +240,69 @@ export default async function globalSetup() {
     createdBy: 'user_leader_a'
   });
 
+  // Project-specific replicates for isolation
+  const projects = ['desktop-chromium', 'mobile-chromium', 'mobile-webkit', 'tablet-webkit'];
+  for (const p of projects) {
+    await db.doc(`scales/scale_a_published_${p}`).set({
+      organizationId: 'org_a',
+      title: `Culto de Domingo ${p}`,
+      date: scaleDate.toISOString().split('T')[0],
+      time: '19:00',
+      startTime: '19:00',
+      status: 'published',
+      songIds: ['song_a_1'],
+      eventTypeId: 'type_a',
+      locationId: 'loc_a',
+      eventNameId: 'name_a',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdBy: 'user_leader_a'
+    });
+
+    await db.doc(`scales/scale_a_draft_${p}`).set({
+      organizationId: 'org_a',
+      title: `Culto de Terça ${p}`,
+      date: scaleDate.toISOString().split('T')[0],
+      time: '19:30',
+      startTime: '19:30',
+      status: 'draft',
+      songIds: ['song_a_1', 'song_a_2'],
+      songSettings: {
+        'song_a_1': { key: 'C', bpm: 120, scope: 'global' },
+        'song_a_2': { key: 'D', bpm: 90, scope: 'global' }
+      },
+      eventTypeId: 'type_a',
+      locationId: 'loc_a',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdBy: 'user_leader_a'
+    });
+
+    await db.doc(`bandScales/bandscale_a_${p}`).set({
+      organizationId: 'org_a',
+      date: scaleDate.toISOString().split('T')[0],
+      time: '19:30',
+      assignments: [
+        { id: `assign_1_${p}`, userId: 'user_musician_a', instrumentId: 'instrument_vocal' },
+        { id: `assign_2_${p}`, userId: 'user_musician_a2', instrumentId: 'instrument_guitar' }
+      ],
+      eventTypeId: 'type_a',
+      locationId: 'loc_a',
+      createdBy: { uid: 'user_leader_a', displayName: 'Líder A', photoURL: null },
+      createdAt: admin.firestore.Timestamp.now().toDate().toISOString()
+    });
+
+    await db.doc(`organizations/org_a/notifications/notif_musician_a_${p}`).set({
+      recipientId: 'user_musician_a',
+      organizationId: 'org_a',
+      type: 'scale_published',
+      title: 'Nova escala publicada',
+      message: `Culto de Terça ${p}`,
+      link: `/scales/scale_a_published_${p}`,
+      isRead: false,
+      isArchived: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+  }
+
   // Scale Org B
   await db.doc('scales/scale_b_published').set({
     organizationId: 'org_b',
@@ -308,7 +371,7 @@ export default async function globalSetup() {
 
   // Validation Check
   const scalesASnaps = await db.collection('scales').where('organizationId', '==', 'org_a').get();
-  if (scalesASnaps.size !== 2) throw new Error("Seed verification failed for scales A");
+  if (scalesASnaps.size < 2) throw new Error("Seed verification failed for scales A");
   
   const scalesBSnaps = await db.collection('scales').where('organizationId', '==', 'org_b').get();
   if (scalesBSnaps.size !== 1) throw new Error("Seed verification failed for scales B");
