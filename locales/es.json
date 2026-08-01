@@ -1283,6 +1283,25 @@
     "decodedTitle": "Contenido normalizado",
     "decodedMessage": "El contenido pegado estaba codificado y se ha convertido a texto normal.",
     "clipboardEmpty": "El portapapeles está vacío.",
-    "clipboardError": "No se pudo acceder al portapapeles. Pegue manualmente a continuación."
+    "clipboardError": "No se pudo acceder al portapapeles. Pegue manualmente a continuación.",
+    "titleRequired": "El título de la canción es obligatorio.",
+    "titleAndArtist": "Título y Artista",
+    "titleLabel": "Título",
+    "titlePlaceholder": "Título obligatorio",
+    "artistLabel": "Artista",
+    "artistPlaceholder": "Artista",
+    "keyLabel": "Tono",
+    "playLabel": "Tocar",
+    "selectedKeyLabel": "Tono seleccionado",
+    "origLabel": "Orig.",
+    "originalKeyLabel": "Tono original",
+    "tempoLabel": "Tempo (BPM)",
+    "bpmLabel": "BPM",
+    "rhythmLabel": "Ritmo",
+    "rhythmPlaceholder": "Ritmo (Ej: Rock 4/4)",
+    "metadataLabel": "Metadatos",
+    "versionLabel": "Versión",
+    "versionPlaceholder": "Versión (Ej: En vivo)",
+    "sectionsLabel": "Secciones:"
   }
 }

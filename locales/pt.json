@@ -1285,6 +1285,25 @@
     "decodedTitle": "Conteúdo normalizado",
     "decodedMessage": "O conteúdo colado estava codificado e foi convertido para texto normal.",
     "clipboardEmpty": "A área de transferência está vazia.",
-    "clipboardError": "Não foi possível acessar a área de transferência. Cole manualmente no campo abaixo."
+    "clipboardError": "Não foi possível acessar a área de transferência. Cole manualmente no campo abaixo.",
+    "titleRequired": "O título da música é obrigatório.",
+    "titleAndArtist": "Título e Artista",
+    "titleLabel": "Título",
+    "titlePlaceholder": "Título obrigatório",
+    "artistLabel": "Artista",
+    "artistPlaceholder": "Artista",
+    "keyLabel": "Tom",
+    "playLabel": "Tocar",
+    "selectedKeyLabel": "Tom selecionado",
+    "origLabel": "Orig.",
+    "originalKeyLabel": "Tom original",
+    "tempoLabel": "Andamento (BPM)",
+    "bpmLabel": "BPM",
+    "rhythmLabel": "Ritmo",
+    "rhythmPlaceholder": "Ritmo (Ex: Rock 4/4)",
+    "metadataLabel": "Metadados",
+    "versionLabel": "Versão",
+    "versionPlaceholder": "Versão (Ex: Ao Vivo)",
+    "sectionsLabel": "Seções:"
   }
 }

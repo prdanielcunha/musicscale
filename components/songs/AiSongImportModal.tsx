@@ -278,16 +278,26 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
   const handleSave = async (forceSave = false) => {
     if (!api || !userProfile || !previewData) return;
 
+    const safeTitle = (previewData.title || formData.title || "").trim();
+    if (!safeTitle) {
+       toastError(t("aiImport.titleRequired", "O título da música é obrigatório."));
+       setTimeout(() => {
+           const titleInput = document.getElementById("ai-import-title-input");
+           if (titleInput) titleInput.focus();
+       }, 100);
+       return;
+    }
+
     const songData = {
-      title: previewData.title || formData.title,
-      artist: previewData.artist || formData.artist,
-      key: previewData.selectedKey || previewData.originalKey || "",
-      originalKey: previewData.originalKey || null,
+      title: safeTitle,
+      artist: (previewData.artist || formData.artist || "").trim(),
+      key: (previewData.selectedKey || previewData.originalKey || "").trim(),
+      originalKey: (previewData.originalKey || "").trim() || null,
       bpm: previewData.bpm || null,
       suggestedBpm: previewData.suggestedBpm || null,
       bpmConfidence: previewData.bpmConfidence || 'unknown',
       bpmSource: previewData.bpmSource || 'not_detected',
-      rhythm: previewData.rhythm || null,
+      rhythm: (previewData.rhythm || "").trim() || null,
       sections: previewData.sections || [],
       status: "active" as const,
       tagIds: [],
@@ -295,7 +305,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
       chords: previewData.chords || "",
       chordsUrl: formData.url,
       videoUrl: "",
-      version: formData.version || "Original",
+      version: (formData.version || previewData.version || "Original").trim(),
       aiProcessed: true,
       sourceType: formData.url ? ("url" as const) : ("text" as const),
       language: globalLanguage,
@@ -722,29 +732,33 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm">
                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3">
-                   <Music className="w-3.5 h-3.5" /> Título e Artista
+                   <Music className="w-3.5 h-3.5" /> {t("aiImport.titleAndArtist", "Título e Artista")}
                  </div>
                  <input
+                   id="ai-import-title-input"
+                   aria-label={t("aiImport.titleLabel", "Título")}
                    className="w-full bg-transparent font-black text-slate-900 dark:text-white text-lg tracking-tight border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors mb-2"
                    value={previewData.title || ''}
                    onChange={(e) => setPreviewData({...previewData, title: e.target.value})}
-                   placeholder="Título obrigatório"
+                   placeholder={t("aiImport.titlePlaceholder", "Título obrigatório")}
                  />
                  <input
+                   aria-label={t("aiImport.artistLabel", "Artista")}
                    className="w-full bg-transparent text-[13px] font-semibold text-slate-500 border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
                    value={previewData.artist || ''}
                    onChange={(e) => setPreviewData({...previewData, artist: e.target.value})}
-                   placeholder="Artista"
+                   placeholder={t("aiImport.artistPlaceholder", "Artista")}
                  />
               </div>
                <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm">
                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3">
-                   <Key className="w-3.5 h-3.5" /> Tom
+                   <Key className="w-3.5 h-3.5" /> {t("aiImport.keyLabel", "Tom")}
                  </div>
                  <div className="flex flex-col gap-2">
                    <div className="flex items-center justify-between">
-                     <span className="text-[10px] font-bold text-slate-400 uppercase">Tocar</span>
+                     <span className="text-[10px] font-bold text-slate-400 uppercase">{t("aiImport.playLabel", "Tocar")}</span>
                      <input
+                       aria-label={t("aiImport.selectedKeyLabel", "Tom selecionado")}
                        className="w-16 bg-transparent font-black text-slate-900 dark:text-white text-xl tracking-tighter text-right border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
                        value={previewData.selectedKey || ''}
                        onChange={(e) => setPreviewData({...previewData, selectedKey: e.target.value})}
@@ -752,8 +766,9 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
                      />
                    </div>
                    <div className="flex items-center justify-between">
-                     <span className="text-[10px] font-bold text-slate-400 uppercase">Orig.</span>
+                     <span className="text-[10px] font-bold text-slate-400 uppercase">{t("aiImport.origLabel", "Orig.")}</span>
                      <input
+                       aria-label={t("aiImport.originalKeyLabel", "Tom original")}
                        className="w-16 bg-transparent font-black text-slate-900 dark:text-white text-lg tracking-tighter text-right border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
                        value={previewData.originalKey || ''}
                        onChange={(e) => setPreviewData({...previewData, originalKey: e.target.value})}
@@ -764,11 +779,13 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
               </div>
                <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm">
                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3">
-                   <Activity className="w-3.5 h-3.5" /> Andamento (BPM)
+                   <Activity className="w-3.5 h-3.5" /> {t("aiImport.tempoLabel", "Andamento (BPM)")}
                  </div>
                  <div className="flex items-end gap-1 mb-2">
                    <input
                      type="number"
+                     min="0"
+                     aria-label={t("aiImport.bpmLabel", "BPM")}
                      className="w-16 bg-transparent font-black text-slate-900 dark:text-white text-2xl tracking-tighter border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
                      value={previewData.bpm || ''}
                      onChange={(e) => setPreviewData({...previewData, bpm: e.target.value ? Number(e.target.value) : null})}
@@ -777,29 +794,31 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
                    <span className="text-[13px] font-semibold text-slate-400 tracking-normal pb-1">BPM</span>
                  </div>
                  <input
+                   aria-label={t("aiImport.rhythmLabel", "Ritmo")}
                    className="w-full bg-transparent text-[13px] font-semibold text-slate-500 border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
                    value={previewData.rhythm || ''}
                    onChange={(e) => setPreviewData({...previewData, rhythm: e.target.value})}
-                   placeholder="Ritmo (Ex: Rock 4/4)"
+                   placeholder={t("aiImport.rhythmPlaceholder", "Ritmo (Ex: Rock 4/4)")}
                  />
               </div>
                <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm flex flex-col justify-between">
                  <div>
                    <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3">
-                     <List className="w-3.5 h-3.5" /> Metadados
+                     <List className="w-3.5 h-3.5" /> {t("aiImport.metadataLabel", "Metadados")}
                    </div>
                    <input
+                     aria-label={t("aiImport.versionLabel", "Versão")}
                      className="w-full bg-transparent text-[13px] font-semibold text-slate-500 border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors mb-2"
                      value={formData.version || previewData.version || 'Original'}
                      onChange={(e) => {
                          setFormData({...formData, version: e.target.value});
                          setPreviewData({...previewData, version: e.target.value});
                      }}
-                     placeholder="Versão (Ex: Ao Vivo)"
+                     placeholder={t("aiImport.versionPlaceholder", "Versão (Ex: Ao Vivo)")}
                    />
                  </div>
                  <div className="flex justify-between items-center text-[11px] font-semibold text-slate-400 mt-2">
-                   <span>Seções:</span>
+                   <span>{t("aiImport.sectionsLabel", "Seções:")}</span>
                    <span className="text-indigo-600 dark:text-indigo-400 font-bold">{previewData.sections?.length || 0}</span>
                  </div>
               </div>

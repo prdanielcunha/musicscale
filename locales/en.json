@@ -1286,6 +1286,25 @@
     "decodedTitle": "Content normalized",
     "decodedMessage": "The pasted content was percent-encoded and has been converted to plain text.",
     "clipboardEmpty": "The clipboard is empty.",
-    "clipboardError": "Could not access the clipboard. Please paste manually below."
+    "clipboardError": "Could not access the clipboard. Please paste manually below.",
+    "titleRequired": "The song title is required.",
+    "titleAndArtist": "Title and Artist",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Title required",
+    "artistLabel": "Artist",
+    "artistPlaceholder": "Artist",
+    "keyLabel": "Key",
+    "playLabel": "Play",
+    "selectedKeyLabel": "Selected key",
+    "origLabel": "Orig.",
+    "originalKeyLabel": "Original key",
+    "tempoLabel": "Tempo (BPM)",
+    "bpmLabel": "BPM",
+    "rhythmLabel": "Rhythm",
+    "rhythmPlaceholder": "Rhythm (e.g. Rock 4/4)",
+    "metadataLabel": "Metadata",
+    "versionLabel": "Version",
+    "versionPlaceholder": "Version (e.g. Live)",
+    "sectionsLabel": "Sections:"
   }
 }

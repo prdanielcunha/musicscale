@@ -37,12 +37,12 @@ describe('normalizePastedSongText', () => {
     expect(result.text).toBe(input);
   });
 
-  it('should not throw on malformed % sequences', () => {
+  it('should not throw on malformed % sequences and should decode valid parts', () => {
     const input = 'abc%2xyz%0A%20%20%20%20'; // > 2 valid ones, but 1 malformed
     const result = normalizePastedSongText(input);
-    // decodeURIComponent on this will throw URIError, but it should be caught
-    expect(result.wasDecoded).toBe(false);
-    expect(result.text).toBe(input); // Remains unchanged due to exception
+    // The valid sequences %0A and %20 should be decoded, while %2x should be kept intact
+    expect(result.wasDecoded).toBe(true);
+    expect(result.text).toBe('abc%2xyz\n    ');
   });
 
   it('should preserve C#, Bb, C/G and + chords', () => {

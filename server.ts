@@ -2468,9 +2468,15 @@ app.use((err: any, req: any, res: any, next: any) => {
     }
 
     if (typeof rawText === "string") {
-      const { text: normalized, wasDecoded } = normalizePastedSongText(rawText);
+      const { text: normalized, wasDecoded, transformations } = normalizePastedSongText(rawText);
       if (wasDecoded) {
-        logInfo("1_INITIAL_PAYLOAD", "Texto colado foi decodificado");
+        logInfo("1_INITIAL_PAYLOAD", "Texto colado foi decodificado", {
+          pasteEncodingDetected: true,
+          pasteEncodingDecoded: true,
+          decodePasses: transformations.filter(t => t.startsWith('percent_decoded')).length,
+          rawLength: rawText.length,
+          normalizedLength: normalized.length
+        });
         rawText = normalized;
       }
     }

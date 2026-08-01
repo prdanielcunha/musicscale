@@ -23,38 +23,47 @@ export function normalizePastedSongText(input: string): {
     transformations.push('normalized_line_breaks');
   }
 
-  // 3. Detect and decode percent-encoding
+  // 3. Detect and decode percent-encoding safely
   // Structural markers that indicate URL-encoded text blocks rather than just a single URL
   const structuralPatterns = /%(25)*(0A|0D|20|09|5B|5D|23|2F|3A)/i;
-  const hexMatches = text.match(/%[0-9A-Fa-f]{2}/g);
   
-  if (hexMatches && hexMatches.length >= 2 && structuralPatterns.test(text)) {
-    let decodePasses = 0;
-    const maxPasses = 2;
-    let currentText = text;
+  // URLs should be preserved as much as possible
+  const urlRegex = /(https?:\/\/[^\s]+)/gi;
 
-    while (decodePasses < maxPasses) {
-      try {
-        const decoded = decodeURIComponent(currentText);
-        if (decoded !== currentText) {
-          currentText = decoded;
-          decodePasses++;
-          wasDecoded = true;
-          if (!/(%[0-9A-Fa-f]{2})/.test(currentText)) {
-            break;
+  if (structuralPatterns.test(text)) {
+    const decodePass = (str: string): { result: string; decoded: boolean } => {
+      let changed = false;
+      const parts = str.split(urlRegex);
+      
+      const newParts = parts.map(part => {
+        if (/^https?:\/\//i.test(part)) return part; // Keep URL intact
+        
+        // Decode contiguous % sequences safely
+        return part.replace(/(?:%[0-9A-Fa-f]{2})+/g, (match) => {
+          try {
+            const dec = decodeURIComponent(match);
+            if (dec !== match) changed = true;
+            return dec;
+          } catch (e) {
+            return match; // Keep malformed intact
           }
-        } else {
-          break;
-        }
-      } catch (e) {
-        // URIError on malformed % sequences
-        break;
-      }
-    }
+        });
+      });
+      return { result: newParts.join(''), decoded: changed };
+    };
 
-    if (wasDecoded) {
-      text = currentText;
-      transformations.push(`percent_decoded_${decodePasses}_passes`);
+    const pass1 = decodePass(text);
+    if (pass1.decoded) {
+      text = pass1.result;
+      wasDecoded = true;
+      transformations.push('percent_decoded_1_pass');
+      
+      // Try second pass for double-encoded text like %2520
+      const pass2 = decodePass(text);
+      if (pass2.decoded) {
+        text = pass2.result;
+        transformations.push('percent_decoded_2_passes');
+      }
     }
   }
 
