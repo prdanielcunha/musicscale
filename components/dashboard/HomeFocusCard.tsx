@@ -2,8 +2,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import Card from '../common/Card';
 import Button from '../common/Button';
-import { HomeExperience, HomeAttentionItem, HomeEventSummary } from '../../utils/homeExperience';
-import { Calendar, Play, AlertCircle, CheckCircle2, Copy, Plus } from 'lucide-react';
+import { HomeExperience, HomeAttentionItem, HomeEventSummary, getLocalDateKey } from '../../utils/homeExperience';
+import { Calendar, Play, AlertCircle, CheckCircle2, Plus, MapPin, Clock, Users, Music } from 'lucide-react';
 
 interface HomeFocusCardProps {
   experience: HomeExperience;
@@ -31,191 +31,284 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
   const { mode, event, draftEvent, attentionItems } = experience;
 
-  const renderAttentionList = (items: HomeAttentionItem[]) => {
-    if (!items || items.length === 0) return null;
-    return (
-      <ul className="mt-4 space-y-2">
-        {items.map((item, idx) => {
-          let icon = <AlertCircle className="w-4 h-4 text-amber-500" />;
-          if (item.severity === 'important') icon = <AlertCircle className="w-4 h-4 text-rose-500" />;
-          if (item.severity === 'info') icon = <CheckCircle2 className="w-4 h-4 text-blue-500" />;
-          
-          let text = '';
-          switch (item.code) {
-            case 'draft': text = t('dashboard.attention.draft'); break;
-            case 'missing-repertoire': text = t('dashboard.attention.missingRepertoire'); break;
-            case 'missing-team': text = t('dashboard.attention.missingTeam'); break;
-            case 'missing-time': text = t('dashboard.attention.missingTime'); break;
-            case 'missing-location': text = t('dashboard.attention.missingLocation'); break;
-          }
-          
-          return (
-            <li key={idx} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-              {icon}
-              <span>{text}</span>
-            </li>
-          );
-        })}
-      </ul>
-    );
+  const getRelativeDateLabel = (dateStr: string) => {
+    if (!dateStr) return '';
+    const todayStr = getLocalDateKey();
+    if (dateStr === todayStr) {
+      return t('dashboard.focus.today', 'Hoje');
+    }
+    const today = new Date(todayStr + 'T12:00:00');
+    const target = new Date(dateStr + 'T12:00:00');
+    const diffTime = target.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays === 1) {
+      return t('dashboard.focus.tomorrow', 'Amanhã');
+    } else if (diffDays > 1 && diffDays <= 7) {
+      return t('dashboard.focus.inDays', 'Em {{count}} dias', { count: diffDays });
+    }
+    return t('dashboard.focus.nextEvent', 'Próximo evento');
   };
 
-  const renderAssignedEvent = () => {
-    if (!event) return null;
-    
-    const IntlList = new Intl.ListFormat(standardLocale, { style: 'long', type: 'conjunction' });
-    const uniqueFunctions = Array.from(new Set(event.userFunctionNames.filter(Boolean))) as string[];
-    const formattedFunctions = uniqueFunctions.length > 0 ? IntlList.format(uniqueFunctions) : '';
+  const getScaleStatusBadge = (targetEvent: HomeEventSummary, currentMode: string) => {
+    if (targetEvent.status === 'draft' || currentMode === 'continue-draft') {
+      return {
+        label: t('dashboard.focus.scaleDraft', 'Rascunho'),
+        style: 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+      };
+    }
+    if (targetEvent.type === 'music' && targetEvent.songCount === 0) {
+      return {
+        label: t('dashboard.focus.repertoireIncomplete', 'Repertório incompleto'),
+        style: 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+      };
+    }
+    if (targetEvent.teamCount === 0) {
+      return {
+        label: t('dashboard.focus.teamIncomplete', 'Equipe incompleta'),
+        style: 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+      };
+    }
+    if (attentionItems && attentionItems.length > 0) {
+      return {
+        label: t('dashboard.focus.repertoireIncomplete', 'Em preparação'),
+        style: 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+      };
+    }
+    return {
+      label: t('dashboard.focus.repertoireReady', 'Escala pronta'),
+      style: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+    };
+  };
+
+  const getEffectiveKey = (song: any) => {
+    return song.localKey || song.selectedKey || song.key || song.originalKey || '';
+  };
+
+  const renderRichEventCard = (targetEvent: HomeEventSummary | null, currentMode: string) => {
+    if (!targetEvent) return null;
+
+    const relativeLabel = getRelativeDateLabel(targetEvent.date);
+    const statusBadge = getScaleStatusBadge(targetEvent, currentMode);
+
+    const formattedDate = () => {
+      try {
+        const [year, month, day] = targetEvent.date.split('-');
+        const dateObj = new Date(Number(year), Number(month) - 1, Number(day));
+        return dateObj.toLocaleDateString(standardLocale, { day: 'numeric', month: 'long', year: 'numeric' });
+      } catch {
+        return targetEvent.date;
+      }
+    };
+
+    const showPerformance = targetEvent.type === 'music' && targetEvent.songCount > 0 && canUsePerformance && targetEvent.status === 'published';
 
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-          <Calendar className="w-4 h-4" />
-          {t('dashboard.focus.assignedEyebrow')}
+      <div className="space-y-6">
+        {/* Header Row */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-white/[0.06] pb-5">
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 text-xs font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-md">
+              {relativeLabel}
+            </span>
+            <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">•</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              {targetEvent.type === 'music' ? t('nav.my_scales', 'Escala de Música') : t('nav.band_scales', 'Escala de Banda')}
+            </span>
+          </div>
+          <div className={`px-2.5 py-1 text-xs font-bold uppercase tracking-wider rounded-md border ${statusBadge.style}`}>
+            {statusBadge.label}
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{event.title || t('dashboard.focus.untitledEvent')}</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {event.date} {event.time ? `• ${event.time}` : ''} {event.locationName ? `• ${event.locationName}` : ''}
-          </p>
-          <div className="mt-2 text-sm text-slate-600 dark:text-slate-400 space-x-2">
-            <span>{t('dashboard.focus.songsCount_' + (event.songCount === 1 ? 'one' : 'other'), { count: event.songCount })}</span>
-            {formattedFunctions && (
-              <>
-                <span>•</span>
-                <span>
-                  <span className="font-medium text-slate-900 dark:text-white">{t('dashboard.focus.functionLabel')}</span> {formattedFunctions}
-                </span>
-              </>
+
+        {/* Main Details */}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
+              {targetEvent.title || t('dashboard.focus.untitledEvent')}
+            </h2>
+            
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 text-sm text-slate-600 dark:text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-slate-400" />
+                <span className="font-semibold">{formattedDate()}</span>
+              </div>
+              {targetEvent.time && (
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-slate-400" />
+                  <span>{targetEvent.time}</span>
+                </div>
+              )}
+              {targetEvent.locationName && (
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-slate-400" />
+                  <span className="truncate">{targetEvent.locationName}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Sua função / Atribuição */}
+            {targetEvent.isUserAssigned && targetEvent.userFunctionNames.length > 0 && (
+              <div className="mt-4 p-3 bg-indigo-500/[0.04] border border-indigo-500/10 rounded-xl flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    {t('dashboard.focus.functionLabel', 'Sua Função:')}
+                  </p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+                    {targetEvent.userFunctionNames.join(' • ')}
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>
+
+        {/* Repertoire Setlist Preview */}
+        {targetEvent.type === 'music' && (
+          <div className="border-t border-slate-100 dark:border-white/[0.06] pt-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Music className="w-3.5 h-3.5" />
+                {t('dashboard.focus.songsInScale', 'Repertório • {{count}} músicas', { count: targetEvent.songCount })}
+              </h3>
+            </div>
+            
+            {targetEvent.songs && targetEvent.songs.length > 0 ? (
+              <div className="grid gap-2.5 sm:grid-cols-1 md:grid-cols-3">
+                {targetEvent.songs.slice(0, 3).map((song, idx) => {
+                  const effectiveKey = getEffectiveKey(song);
+                  return (
+                    <div key={song.id || idx} className="bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/[0.04] rounded-xl p-3 flex justify-between items-center hover:bg-slate-100/50 dark:hover:bg-white/[0.04] transition-colors">
+                      <div className="flex items-center gap-2 truncate pr-2">
+                        <span className="text-xs font-mono font-bold text-slate-400">{song.order}</span>
+                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{song.title}</span>
+                      </div>
+                      {effectiveKey && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/10 shrink-0">
+                          {effectiveKey}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+                {targetEvent.songCount > 3 && (
+                  <div className="md:col-span-3 flex items-center">
+                    <p className="text-xs font-semibold text-indigo-500 dark:text-indigo-400">
+                      + {targetEvent.songCount - 3} {t('dashboard.focus.moreSongs', 'músicas')}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-sm text-slate-500 dark:text-slate-400 italic">
+                {t('dashboard.focus.noSongs', 'Nenhuma música adicionada')}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Attention Items */}
+        {attentionItems && attentionItems.length > 0 && (
+          <div className="border-t border-slate-100 dark:border-white/[0.06] pt-5">
+            <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+              {t('dashboard.focus.attentionEyebrow', 'Requer atenção')}
+            </h3>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {attentionItems.map((item, idx) => {
+                let icon = <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />;
+                if (item.severity === 'important') icon = <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />;
+                if (item.severity === 'info') icon = <CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0" />;
+                
+                let text = '';
+                switch (item.code) {
+                  case 'draft': text = t('dashboard.attention.draft', 'Rascunho ainda não publicado'); break;
+                  case 'missing-repertoire': text = t('dashboard.attention.missingRepertoire', 'Repertório vazio'); break;
+                  case 'missing-team': text = t('dashboard.attention.missingTeam', 'Equipe vazia'); break;
+                  case 'missing-time': text = t('dashboard.attention.missingTime', 'Horário não informado'); break;
+                  case 'missing-location': text = t('dashboard.attention.missingLocation', 'Local não informado'); break;
+                }
+                
+                return (
+                  <li key={idx} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/[0.04] rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400">
+                    {icon}
+                    <span>{text}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {/* Actions Button Bar */}
+        <div className="border-t border-slate-100 dark:border-white/[0.06] pt-5 flex flex-col sm:flex-row gap-3">
+          {currentMode === 'assigned-event' && (
+            <>
+              {showPerformance ? (
+                <Button onClick={() => onOpenPerformance(targetEvent)} className="w-full sm:w-auto" variant="primary">
+                  <Play className="w-4 h-4 mr-2 fill-current" />
+                  {t('dashboard.focus.enterPerformance', 'Entrar no Modo Performance')}
+                </Button>
+              ) : (
+                <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" variant="primary">
+                  {t('dashboard.focus.openRepertoire', 'Abrir repertório')}
+                </Button>
+              )}
+              {showPerformance && (
+                <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" variant="secondary">
+                  {t('dashboard.focus.viewScaleDetails', 'Ver detalhes da escala')}
+                </Button>
+              )}
+            </>
+          )}
+
+          {currentMode === 'leader-attention' && (
+            <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" variant="primary">
+              {t('dashboard.focus.resolveIssues', 'Resolver pendências')}
+            </Button>
+          )}
+
+          {currentMode === 'leader-prepared' && (
+            <>
+              {showPerformance ? (
+                <Button onClick={() => onOpenPerformance(targetEvent)} className="w-full sm:w-auto" variant="primary">
+                  <Play className="w-4 h-4 mr-2 fill-current" />
+                  {t('dashboard.focus.enterPerformance', 'Entrar no Modo Performance')}
+                </Button>
+              ) : (
+                <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" variant="primary">
+                  {t('dashboard.focus.openScale', 'Abrir escala')}
+                </Button>
+              )}
+              {showPerformance && (
+                <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" variant="secondary">
+                  {t('dashboard.focus.viewScaleDetails', 'Ver detalhes da escala')}
+                </Button>
+              )}
+            </>
+          )}
+
+          {currentMode === 'observer-event' && (
+            <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" variant="primary">
+              {t('dashboard.focus.viewDetails', 'Ver detalhes')}
+            </Button>
+          )}
+
+          {currentMode === 'continue-draft' && (
+            <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" variant="primary">
+              {t('dashboard.focus.continuePreparing', 'Continuar preparando')}
+            </Button>
+          )}
+        </div>
+
+        {/* Response Actions Container */}
         {responseActions && (
-          <div className="pt-2">
+          <div className="border-t border-slate-100 dark:border-white/[0.06] pt-5">
             {responseActions}
           </div>
         )}
-        {renderAttentionList(attentionItems)}
-        <div className="pt-4 flex flex-col sm:flex-row gap-3">
-          <Button onClick={() => onOpenEvent(event)} className="w-full sm:w-auto" variant="primary">
-            {t('dashboard.focus.openRepertoire')}
-          </Button>
-          
-          {event.songCount > 0 && canUsePerformance && (
-             <Button onClick={() => onOpenPerformance(event)} className="w-full sm:w-auto" variant="secondary">
-               <Play className="w-4 h-4 mr-2" />
-               {t('dashboard.focus.performanceMode')}
-             </Button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderLeaderAttention = () => {
-    if (!event) return null;
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-          <AlertCircle className="w-4 h-4" />
-          {t('dashboard.focus.attentionEyebrow')}
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.attentionTitle')}</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {event.title || t('dashboard.focus.untitledEvent')} • {event.date}
-          </p>
-        </div>
-        {renderAttentionList(attentionItems)}
-        <div className="pt-4 flex flex-col sm:flex-row gap-3">
-          <Button onClick={() => onOpenEvent(event)} className="w-full sm:w-auto" variant="primary">
-            {t('dashboard.focus.resolveIssues')}
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
-  const renderContinueDraft = () => {
-    if (!draftEvent) return null;
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-          <Copy className="w-4 h-4" />
-          {t('dashboard.focus.draftEyebrow')}
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.continueDraft')}</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {draftEvent.title || t('dashboard.focus.untitledEvent')} • {draftEvent.date}
-          </p>
-        </div>
-        
-        {renderAttentionList(attentionItems)}
-        <div className="pt-4 flex flex-col sm:flex-row gap-3">
-          <Button onClick={() => onOpenEvent(draftEvent)} className="w-full sm:w-auto" variant="primary">
-            {t('dashboard.focus.continuePreparing')}
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
-  const renderLeaderPrepared = () => {
-    if (!event) return null;
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-          <CheckCircle2 className="w-4 h-4" />
-          {t('dashboard.focus.preparedEyebrow')}
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard.focus.preparedTitle')}</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {event.title || t('dashboard.focus.untitledEvent')} • {event.date} {event.time ? `• ${event.time}` : ''}
-          </p>
-          <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            {t('dashboard.focus.songsCount_' + (event.songCount === 1 ? 'one' : 'other'), { count: event.songCount })} • {t('dashboard.focus.teamCount_' + (event.teamCount === 1 ? 'one' : 'other'), { count: event.teamCount })}
-          </div>
-        </div>
-        <div className="pt-4 flex flex-col sm:flex-row gap-3">
-          <Button onClick={() => onOpenEvent(event)} className="w-full sm:w-auto" variant="primary">
-            {t('dashboard.focus.openScale')}
-          </Button>
-          
-          {event.songCount > 0 && canUsePerformance && (
-             <Button onClick={() => onOpenPerformance(event)} className="w-full sm:w-auto" variant="secondary">
-               <Play className="w-4 h-4 mr-2" />
-               {t('dashboard.focus.performanceMode')}
-             </Button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderObserverEvent = () => {
-    if (!event) return null;
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-          <Calendar className="w-4 h-4" />
-          {t('dashboard.focus.observerEyebrow')}
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{event.title || t('dashboard.focus.untitledEvent')}</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {event.date} {event.time ? `• ${event.time}` : ''} {event.locationName ? `• ${event.locationName}` : ''}
-          </p>
-          <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            {t('dashboard.focus.songsCount_' + (event.songCount === 1 ? 'one' : 'other'), { count: event.songCount })}
-          </div>
-        </div>
-        <div className="pt-4 flex flex-col sm:flex-row gap-3">
-          <Button onClick={() => onOpenEvent(event)} className="w-full sm:w-auto" variant="primary">
-            {t('dashboard.focus.viewDetails')}
-          </Button>
-        </div>
       </div>
     );
   };
@@ -268,19 +361,19 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
     case 'first-value':
       return null;
     case 'assigned-event':
-      content = renderAssignedEvent();
+      content = renderRichEventCard(event, mode);
       break;
     case 'continue-draft':
-      content = renderContinueDraft();
+      content = renderRichEventCard(draftEvent, mode);
       break;
     case 'leader-attention':
-      content = renderLeaderAttention();
+      content = renderRichEventCard(event, mode);
       break;
     case 'leader-prepared':
-      content = renderLeaderPrepared();
+      content = renderRichEventCard(event, mode);
       break;
     case 'observer-event':
-      content = renderObserverEvent();
+      content = renderRichEventCard(event, mode);
       break;
     case 'create-next-event':
       content = renderCreateNext();

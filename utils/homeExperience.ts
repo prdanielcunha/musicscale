@@ -57,6 +57,15 @@ export interface HomeEventSummary {
   status?: string | null;
   userFunctionNames: string[];
   isUserAssigned: boolean;
+  songs?: Array<{
+    id: string;
+    title: string;
+    selectedKey?: string | null;
+    key?: string | null;
+    originalKey?: string | null;
+    localKey?: string | null;
+    order: number;
+  }>;
 }
 
 export interface HomeExperience {
@@ -183,6 +192,19 @@ export function buildHomeEventSummaries(
       new Set(userAssignments.map((a) => a.functionName).filter(Boolean))
     ) as string[];
 
+    const songs = (scale.songs || []).map((song, index) => {
+      const localSettings = scale.songSettings?.[song.id];
+      return {
+        id: song.id,
+        title: song.title,
+        selectedKey: song.selectedKey || null,
+        key: song.key || null,
+        originalKey: song.originalKey || null,
+        localKey: localSettings?.key || null,
+        order: index + 1,
+      };
+    });
+
     summaries.push({
       id: scale.id,
       type: 'music',
@@ -195,6 +217,7 @@ export function buildHomeEventSummaries(
       status: scale.status,
       userFunctionNames,
       isUserAssigned,
+      songs,
     });
   });
 
@@ -255,6 +278,19 @@ function rawToSummary(candidate: DraftCandidate, currentUserId?: string): HomeEv
     const uniqueUserIds = new Set(activeAssignments.map((a) => a.userId));
     const userAssignments = activeAssignments.filter((a) => a.userId === currentUserId);
     
+    const songs = (raw.songs || []).map((song, index) => {
+      const localSettings = raw.songSettings?.[song.id];
+      return {
+        id: song.id,
+        title: song.title,
+        selectedKey: song.selectedKey || null,
+        key: song.key || null,
+        originalKey: song.originalKey || null,
+        localKey: localSettings?.key || null,
+        order: index + 1,
+      };
+    });
+
     return {
       id: raw.id,
       type: 'music',
@@ -267,6 +303,7 @@ function rawToSummary(candidate: DraftCandidate, currentUserId?: string): HomeEv
       status: raw.status,
       userFunctionNames: Array.from(new Set(userAssignments.map((a) => a.functionName).filter(Boolean))) as string[],
       isUserAssigned: userAssignments.length > 0,
+      songs,
     };
   } else {
     const raw = candidate.value;

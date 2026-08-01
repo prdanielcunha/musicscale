@@ -16,8 +16,8 @@ export async function captureFullPage(page: Page, testInfo: TestInfo, screenshot
     `
   });
   
-  // Create test-results/visual-evidence folder if not exists
-  const evidenceDir = path.join(process.cwd(), 'test-results', 'visual-evidence', testInfo.project.name);
+  // Create tests/e2e/artifacts folder if not exists
+  const evidenceDir = path.join(process.cwd(), 'tests', 'e2e', 'artifacts', testInfo.project.name);
   fs.mkdirSync(evidenceDir, { recursive: true });
 
   const screenshotPath = path.join(evidenceDir, `${screenshotName}.png`);
