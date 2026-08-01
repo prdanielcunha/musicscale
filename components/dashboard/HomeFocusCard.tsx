@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import Card from '../common/Card';
 import Button from '../common/Button';
-import { HomeExperience, HomeAttentionItem, HomeEventSummary, getLocalDateKey } from '../../utils/homeExperience';
+import { HomeExperience, HomeAttentionItem, HomeEventSummary, getLocalDateKey, HomeEventSongSummary, canUsePerformanceMode } from '../../utils/homeExperience';
 import { Calendar, Play, AlertCircle, CheckCircle2, Plus, MapPin, Clock, Users, Music } from 'lucide-react';
 
 interface HomeFocusCardProps {
@@ -31,63 +31,113 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
   const { mode, event, draftEvent, attentionItems } = experience;
 
-  const getRelativeDateLabel = (dateStr: string) => {
-    if (!dateStr) return '';
+  const getRelativeLabelElements = (dateStr: string) => {
+    if (!dateStr) return { fixed: t('dashboard.focus.nextEvent', 'Próximo evento'), relative: null };
     const todayStr = getLocalDateKey();
     if (dateStr === todayStr) {
-      return t('dashboard.focus.today', 'Hoje');
+      return {
+        fixed: t('dashboard.focus.nextEvent', 'Próximo evento'),
+        relative: t('dashboard.focus.today', 'Hoje')
+      };
     }
     const today = new Date(todayStr + 'T12:00:00');
     const target = new Date(dateStr + 'T12:00:00');
     const diffTime = target.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     if (diffDays === 1) {
-      return t('dashboard.focus.tomorrow', 'Amanhã');
+      return {
+        fixed: t('dashboard.focus.nextEvent', 'Próximo evento'),
+        relative: t('dashboard.focus.tomorrow', 'Amanhã')
+      };
     } else if (diffDays > 1 && diffDays <= 7) {
-      return t('dashboard.focus.inDays', 'Em {{count}} dias', { count: diffDays });
+      return {
+        fixed: t('dashboard.focus.nextEvent', 'Próximo evento'),
+        relative: t('dashboard.focus.inDays', 'Em {{count}} dias', { count: diffDays })
+      };
     }
-    return t('dashboard.focus.nextEvent', 'Próximo evento');
+    return {
+      fixed: t('dashboard.focus.nextEvent', 'Próximo evento'),
+      relative: null
+    };
   };
 
   const getScaleStatusBadge = (targetEvent: HomeEventSummary, currentMode: string) => {
-    if (targetEvent.status === 'draft' || currentMode === 'continue-draft') {
+    // 1. draft: Rascunho
+    if (
+      targetEvent.status === 'draft' ||
+      currentMode === 'continue-draft' ||
+      (attentionItems && attentionItems.some(i => i.code === 'draft'))
+    ) {
       return {
         label: t('dashboard.focus.scaleDraft', 'Rascunho'),
         style: 'bg-amber-500/10 text-amber-500 border-amber-500/20'
       };
     }
-    if (targetEvent.type === 'music' && targetEvent.songCount === 0) {
+
+    // 2. missing-repertoire ou songCount === 0: Repertório incompleto
+    if (
+      (targetEvent.type === 'music' && targetEvent.songCount === 0) ||
+      (attentionItems && attentionItems.some(i => i.code === 'missing-repertoire'))
+    ) {
       return {
         label: t('dashboard.focus.repertoireIncomplete', 'Repertório incompleto'),
         style: 'bg-rose-500/10 text-rose-500 border-rose-500/20'
       };
     }
-    if (targetEvent.teamCount === 0) {
+
+    // 3. missing-team: Equipe incompleta
+    if (attentionItems && attentionItems.some(i => i.code === 'missing-team')) {
       return {
         label: t('dashboard.focus.teamIncomplete', 'Equipe incompleta'),
         style: 'bg-amber-500/10 text-amber-500 border-amber-500/20'
       };
     }
+
+    // 4. missing-time ou missing-location: Dados incompletos
+    if (
+      attentionItems &&
+      attentionItems.some(i => i.code === 'missing-time' || i.code === 'missing-location')
+    ) {
+      return {
+        label: t('dashboard.focus.incompleteData', 'Dados incompletos'),
+        style: 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+      };
+    }
+
+    // 5. pending-responses: Aguardando respostas
+    if (
+      attentionItems &&
+      attentionItems.some(i => i.code === 'pending-responses')
+    ) {
+      return {
+        label: t('dashboard.focus.pendingResponses', 'Aguardando respostas'),
+        style: 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+      };
+    }
+
+    // 6. demais pendências não críticas: Em preparação
     if (attentionItems && attentionItems.length > 0) {
       return {
-        label: t('dashboard.focus.repertoireIncomplete', 'Em preparação'),
+        label: t('dashboard.focus.inPreparation', 'Em preparação'),
         style: 'bg-blue-500/10 text-blue-500 border-blue-500/20'
       };
     }
+
+    // 7. sem pendências: Escala pronta
     return {
       label: t('dashboard.focus.repertoireReady', 'Escala pronta'),
       style: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
     };
   };
 
-  const getEffectiveKey = (song: any) => {
+  const getEffectiveKey = (song: HomeEventSongSummary) => {
     return song.localKey || song.selectedKey || song.key || song.originalKey || '';
   };
 
   const renderRichEventCard = (targetEvent: HomeEventSummary | null, currentMode: string) => {
     if (!targetEvent) return null;
 
-    const relativeLabel = getRelativeDateLabel(targetEvent.date);
+    const { fixed, relative } = getRelativeLabelElements(targetEvent.date);
     const statusBadge = getScaleStatusBadge(targetEvent, currentMode);
 
     const formattedDate = () => {
@@ -100,7 +150,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
       }
     };
 
-    const showPerformance = targetEvent.type === 'music' && targetEvent.songCount > 0 && canUsePerformance && targetEvent.status === 'published';
+    const showPerformance = canUsePerformanceMode(targetEvent, canUsePerformance);
 
     return (
       <div className="space-y-6">
@@ -108,7 +158,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-white/[0.06] pb-5">
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-1 text-xs font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-md">
-              {relativeLabel}
+              {fixed}{relative ? ` • ${relative}` : ''}
             </span>
             <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">•</span>
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">

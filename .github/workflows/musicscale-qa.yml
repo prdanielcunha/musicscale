@@ -22,6 +22,21 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Lint and Type Check
+      run: npx tsc --noEmit
+
+    - name: Run Vitest Unit & UI Tests
+      run: npm run test:ui
+
+    - name: Run Critical Server Scale Release Tests
+      run: npm run test:scale-release
+
+    - name: Run Core Server Release Tests
+      run: npm run test:release:core
+
+    - name: Build Application
+      run: npm run build
+
     - name: Set up Java for Firebase Emulator
       uses: actions/setup-java@v4
       with:
@@ -50,4 +65,12 @@ jobs:
       with:
         name: e2e-artifacts
         path: tests/e2e/artifacts/
+        retention-days: 30
+
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: test-results
+        path: test-results/
         retention-days: 30

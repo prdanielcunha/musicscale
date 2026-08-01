@@ -45,6 +45,16 @@ export interface HomeAttentionItem {
   severity: 'important' | 'warning' | 'info';
 }
 
+export interface HomeEventSongSummary {
+  id: string;
+  title: string;
+  order: number;
+  localKey?: string | null;
+  selectedKey?: string | null;
+  key?: string | null;
+  originalKey?: string | null;
+}
+
 export interface HomeEventSummary {
   id: string;
   type: 'music' | 'band';
@@ -57,15 +67,7 @@ export interface HomeEventSummary {
   status?: string | null;
   userFunctionNames: string[];
   isUserAssigned: boolean;
-  songs?: Array<{
-    id: string;
-    title: string;
-    selectedKey?: string | null;
-    key?: string | null;
-    originalKey?: string | null;
-    localKey?: string | null;
-    order: number;
-  }>;
+  songs?: HomeEventSongSummary[];
 }
 
 export interface HomeExperience {
@@ -448,4 +450,23 @@ export function evaluateHomeExperience(input: EvaluateHomeInput): HomeExperience
     canManageScales,
     isUserAssigned: false,
   };
+}
+
+export function canUsePerformanceMode(
+  event: HomeEventSummary | null,
+  hasPermission: boolean
+): boolean {
+  if (!event) return false;
+  // 1. houver repertório
+  if (event.type !== 'music' || event.songCount === 0) return false;
+  // 2. o usuário tiver permissão / entitlement
+  if (!hasPermission) return false;
+  // 3. o evento estiver em estado válido
+  const status = event.status || '';
+  if (status === 'cancelled') return false;
+  
+  const validStatuses = ['published', 'draft', 'prepared'];
+  if (status && !validStatuses.includes(status)) return false;
+
+  return true;
 }

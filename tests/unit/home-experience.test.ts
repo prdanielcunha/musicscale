@@ -6,7 +6,8 @@ import {
   getLocalDateKey,
   HomeEventSummary,
   PopulatedScaleWithAssignmentsAndStatus,
-  PopulatedBandScaleWithStatus
+  PopulatedBandScaleWithStatus,
+  canUsePerformanceMode
 } from '../../utils/homeExperience';
 import type { PopulatedBandScale } from '../../types';
 import type { PopulatedScaleWithAssignments } from '../../utils/homeExperience';
@@ -267,6 +268,41 @@ describe('Home Experience Domain Logic', () => {
       ];
       const result = selectMostRecentDraft([], bandScales);
       expect(result?.type).toBe('band');
+    });
+  });
+
+  describe('canUsePerformanceMode', () => {
+    it('deve retornar verdadeiro se o evento for música, possuir músicas, status publicado, e o usuário tiver permissão', () => {
+      const event = createEvent({ type: 'music', songCount: 5, status: 'published' });
+      expect(canUsePerformanceMode(event, true)).toBe(true);
+    });
+
+    it('deve retornar verdadeiro para status draft ou prepared', () => {
+      const draftEventObj = createEvent({ type: 'music', songCount: 3, status: 'draft' });
+      expect(canUsePerformanceMode(draftEventObj, true)).toBe(true);
+
+      const preparedEventObj = createEvent({ type: 'music', songCount: 2, status: 'prepared' });
+      expect(canUsePerformanceMode(preparedEventObj, true)).toBe(true);
+    });
+
+    it('deve retornar falso se songCount for 0', () => {
+      const event = createEvent({ type: 'music', songCount: 0, status: 'published' });
+      expect(canUsePerformanceMode(event, true)).toBe(false);
+    });
+
+    it('deve retornar falso se type for band', () => {
+      const event = createEvent({ type: 'band', songCount: 4, status: 'published' });
+      expect(canUsePerformanceMode(event, true)).toBe(false);
+    });
+
+    it('deve retornar falso se o usuário não possuir permissão', () => {
+      const event = createEvent({ type: 'music', songCount: 3, status: 'published' });
+      expect(canUsePerformanceMode(event, false)).toBe(false);
+    });
+
+    it('deve retornar falso se status for cancelled', () => {
+      const event = createEvent({ type: 'music', songCount: 3, status: 'cancelled' });
+      expect(canUsePerformanceMode(event, true)).toBe(false);
     });
   });
 });
