@@ -15,9 +15,9 @@ const hostname = typeof window !== 'undefined' ? window.location.hostname : 'loc
 
 const { firebaseConfig, useEmulators } = getFirebaseRuntimeConfig({
   prodConfig: prodFirebaseConfig,
-  isDev: import.meta.env.DEV,
-  viteE2eMode: import.meta.env.VITE_E2E_MODE,
-  viteE2eProjectId: import.meta.env.VITE_E2E_FIREBASE_PROJECT_ID,
+  isDev: import.meta.env?.DEV ?? (process.env.NODE_ENV !== 'production'),
+  viteE2eMode: import.meta.env?.VITE_E2E_MODE ?? process.env.VITE_E2E_MODE,
+  viteE2eProjectId: import.meta.env?.VITE_E2E_FIREBASE_PROJECT_ID ?? process.env.VITE_E2E_FIREBASE_PROJECT_ID,
   hostname
 });
 

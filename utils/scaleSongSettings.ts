@@ -63,6 +63,8 @@ export const normalizeScaleSongSettings = (
 };
 
 export const applyScaleSongSettings = <T extends Song>(song: T, settings?: ScaleSongSettings): T => {
+  if (!settings) return song;
+
   // Always clone the song to avoid mutating the original object
   const newSong = { ...song };
 
@@ -70,9 +72,7 @@ export const applyScaleSongSettings = <T extends Song>(song: T, settings?: Scale
   delete (newSong as any)._untransposedKey;
   delete (newSong as any)._untransposedChords;
 
-  if (!settings) return newSong;
-
-  const baseKey = song.key || song.originalKey || "";
+  const baseKey = song.selectedKey || song.key || song.originalKey || "";
   const baseChords = song.chords || "";
 
   if (settings.key !== undefined && settings.key !== null) {
