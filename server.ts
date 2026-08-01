@@ -51,8 +51,6 @@ import { extractSongIdentity } from "./utils/songDiscovery/identityGenerator.js"
 import { preVerifyCandidates, bulkImportCandidates } from './services/server/bulkImportService.js';
 import { BandScaleCommandService } from './services/server/bandScale/bandScaleCommandService.js';
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
-import { createSafeExternalFetch } from "./services/server/safeExternalFetch.js";
-import { fetchAiImportHtmlSafely } from "./services/server/aiImportSafeFetchAdapter.js";
 import { beginAiImportFinOpsWritePath, finalizeAiImportFinOpsWritePath } from "./services/server/aiImportFinOpsWritePath.js";
 
 if (fs.existsSync(".env.local")) {
@@ -71,7 +69,6 @@ function deriveMusicscaleRole(roleName: string): string {
 
 const fixChordsRateLimiter = new InMemoryAiRateLimiter();
 const aiImportRateLimiter = new InMemoryAiRateLimiter();
-const aiImportSafeExternalFetch = createSafeExternalFetch();
 
 const app = express();
 const PORT = 3000;
@@ -2588,268 +2585,16 @@ app.use((err: any, req: any, res: any, next: any) => {
 
     try {
       // Step 2: URL Normalization and Domain Checking
-      if (url && !textToProcess) {
-        logInfo("2_URL_NORMALIZATION", "Normalizing and sanitizing input URL", {
-          hasUrl: !!url
-        });
-        try {
-          let cleanedUrlInput = url.trim();
-          if (cleanedUrlInput.startsWith("//")) {
-            cleanedUrlInput = "https:" + cleanedUrlInput;
-          } else if (!cleanedUrlInput.startsWith("http://") && !cleanedUrlInput.startsWith("https://")) {
-            cleanedUrlInput = "https://" + cleanedUrlInput;
-          }
-
-          const parsedUrl = new URL(cleanedUrlInput);
-          const originalDomain = parsedUrl.hostname.toLowerCase();
-          
-          logInfo("2_URL_NORMALIZATION", `Parsed domain: "${originalDomain}"`);
-
-          // Clean social and UTM parameters, keeping trace elements
-          const params = new URLSearchParams(parsedUrl.search);
-          const cleanParams = new URLSearchParams();
-          for (const [k, v] of params.entries()) {
-            const lowerK = k.toLowerCase();
-            if (
-              !lowerK.startsWith("utm_") && 
-              lowerK !== "fbclid" && 
-              lowerK !== "gclid" && 
-              lowerK !== "_ga" && 
-              lowerK !== "_gl"
-            ) {
-              cleanParams.append(k, v);
-            }
-          }
-          parsedUrl.search = cleanParams.toString();
-          parsedUrl.hash = ""; // Strip fragment hash
-
-          normalizedUrlStr = parsedUrl.toString();
-          logInfo("2_URL_NORMALIZATION", "Successfully normalized URL", {
-            hostname: parsedUrl.hostname.toLowerCase()
-          });
-        } catch (urlErr: any) {
-          logError("2_URL_NORMALIZATION", "URL normalization engine failed");
-          return res.status(200).json(
-            makeErrorResponse(
-              "VALIDATION",
-              "O link informado não é um endereço de internet válido.",
-              { hasUrl: !!url },
-              "2_URL_NORMALIZATION"
-            )
-          );
-        }
-
-        // Step 3: Network Fetch with SSRF protection via testable adapter
-        const safeHtmlResult = (await fetchAiImportHtmlSafely(normalizedUrlStr, {
-          safeExternalFetch: aiImportSafeExternalFetch,
-          makeErrorResponse,
-          logInfo,
-          logWarn
-        })) as any;
-
-        if (!safeHtmlResult.ok) {
-          return res.status(200).json(safeHtmlResult.response);
-        }
-
-        const html = safeHtmlResult.html;
-
-        // Step 4: Metadata Parsing Strategy
-        logInfo("4_METADATA_EXTRACTION", "Starting metadata extraction strategies...");
-        let crawledTitle = "";
-        let crawledArtist = "";
-        let crawledKey = "";
-
-        // Extract key specific to CifraClub
-        try {
-          const tomMatch = html.match(/(?:id=["']cifra_tom["']|class=["'][^"']*cifra_tom[^"']*["'])[^>]*>([A-G][#b]?m?)<\//i);
-          if (tomMatch && tomMatch[1]) {
-            crawledKey = tomMatch[1].trim();
-            logInfo("4_METADATA_EXTRACTION", `Success metadata extraction via Cifra Tom element. Key="${crawledKey}"`);
-          } else {
-             // fallback general text search for "Tom: X"
-             const generalTomMatch = html.match(/Tom:\s*<[^>]+>\s*([A-G][#b]?m?)\s*<\//i) || html.match(/Tom:\s*([A-G][#b]?m?)\s*</i);
-             if (generalTomMatch && generalTomMatch[1]) {
-               crawledKey = generalTomMatch[1].trim();
-               logInfo("4_METADATA_EXTRACTION", `Success metadata extraction via text match. Key="${crawledKey}"`);
-             }
-          }
-        } catch (keyErr: any) {
-          logWarn("4_METADATA_EXTRACTION", `Failed to extract chord key: ${keyErr.message}`);
-        }
-
-        // Strategy A: JSON-LD Extraction
-        try {
-          const jsonLdRegex = /<script\s+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-          let ldMatch;
-          while ((ldMatch = jsonLdRegex.exec(html)) !== null) {
-            try {
-              const ldParsed = JSON.parse(ldMatch[1]);
-              const items = Array.isArray(ldParsed) ? ldParsed : [ldParsed];
-              for (const item of items) {
-                if (item && item.name && (item["@type"] === "MusicComposition" || item["@type"] === "MusicRecording")) {
-                  crawledTitle = item.name;
-                  if (item.byArtist && item.byArtist.name) {
-                    crawledArtist = item.byArtist.name;
-                  } else if (item.author && item.author.name) {
-                    crawledArtist = item.author.name;
-                  }
-                  logInfo("4_METADATA_EXTRACTION", `Success metadata extraction via JSON-LD. Title="${crawledTitle}", Artist="${crawledArtist}"`);
-                  break;
-                }
-              }
-            } catch (jsonLdParseErr) {
-              // Ignore single block errors, proceed to scan next
-            }
-          }
-        } catch (ldErr: any) {
-          logWarn("4_METADATA_EXTRACTION", `Error on JSON-LD scanner thread: ${ldErr.message}`);
-        }
-
-        // Strategy B: OpenGraph & HTML Title tags
-        if (!crawledTitle) {
-          try {
-            const ogTitleMatch = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i);
-            const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
-            const rawTitleString = ogTitleMatch ? ogTitleMatch[1] : (titleMatch ? titleMatch[1] : "");
-            
-            logInfo("4_METADATA_EXTRACTION", `Og/Html Title scrap string extracted: "${rawTitleString}"`);
-            if (rawTitleString) {
-              const cleanedTitle = rawTitleString.replace(/\s*-\s*Cifra Club\s*/gi, "").trim();
-              const tagParts = cleanedTitle.split(/\s+-\s+/);
-              if (tagParts.length >= 2) {
-                crawledTitle = tagParts[0].trim();
-                crawledArtist = tagParts[1].trim();
-              } else {
-                crawledTitle = cleanedTitle;
-              }
-              logInfo("4_METADATA_EXTRACTION", `Success metadata extraction via OG/Title Tag parsing. Title="${crawledTitle}", Artist="${crawledArtist}"`);
-            }
-          } catch (metaErr: any) {
-            logError("4_METADATA_EXTRACTION", `Failed to extract HTML metadata properties cleanly: ${metaErr.message}`);
-          }
-        }
-
-        if (crawledTitle && !result.title) result.title = crawledTitle;
-        if (crawledArtist && !result.artist) result.artist = crawledArtist;
-        if (crawledKey) {
-            result.originalKey = crawledKey;
-            result.selectedKey = crawledKey;
-        }
-
-        // Step 5: Multi-Strategy Extractor Runner
-        logInfo("5_CONTENT_EXTRACTION", "Running content extraction heuristic pipeline...");
-        let extractedRawText = "";
-        const lowerHtml = html.toLowerCase();
-
-        // Pipeline Strategy 1: PRE block boundary extraction
-        const preIdx = lowerHtml.indexOf("<pre");
-        if (preIdx !== -1) {
-          const closeTagIdx = html.indexOf(">", preIdx);
-          if (closeTagIdx !== -1) {
-            const endPreIdx = lowerHtml.indexOf("</pre>", closeTagIdx);
-            if (endPreIdx !== -1) {
-              extractedRawText = html.substring(closeTagIdx + 1, endPreIdx);
-              if (extractedRawText.trim().length > 100) {
-                selectedStrategy = "PRE_ELEMENT_BLOCK";
-                logInfo("5_CONTENT_EXTRACTION", `Strategy match: "PRE_ELEMENT_BLOCK", size = ${extractedRawText.length}`);
-              }
-            }
-          }
-        }
-
-        // Pipeline Strategy 2: cifra_cnt container divisions
-        if (!extractedRawText || extractedRawText.trim().length < 150) {
-          const classIdentifiers = ["cifra_cnt", "js-cifra", "cifra-container", "cifra-inner"];
-          for (const selector of classIdentifiers) {
-            const index = lowerHtml.indexOf(`class="${selector}"`) !== -1 
-              ? lowerHtml.indexOf(`class="${selector}"`) 
-              : lowerHtml.indexOf(`id="${selector}"`);
-
-            if (index !== -1) {
-              const startTagIdx = html.lastIndexOf("<", index);
-              if (startTagIdx !== -1) {
-                const closeTagIdx = html.indexOf(">", startTagIdx);
-                if (closeTagIdx !== -1) {
-                  const endDivIdx = lowerHtml.indexOf("</div>", closeTagIdx);
-                  if (endDivIdx !== -1) {
-                    const blockText = html.substring(closeTagIdx + 1, endDivIdx);
-                    if (blockText.trim().length > 150) {
-                      extractedRawText = blockText;
-                      selectedStrategy = `DIV_SELECTOR_${selector.toUpperCase()}`;
-                      logInfo("5_CONTENT_EXTRACTION", `Strategy match: "${selectedStrategy}", size = ${extractedRawText.length}`);
-                      break;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        // Pipeline Strategy 3: Article tagging structure representation
-        if (!extractedRawText || extractedRawText.trim().length < 150) {
-          const articleIdx = lowerHtml.indexOf("<article");
-          if (articleIdx !== -1) {
-            const closeTagIdx = html.indexOf(">", articleIdx);
-            if (closeTagIdx !== -1) {
-              const endArticleIdx = lowerHtml.indexOf("</article>", closeTagIdx);
-              if (endArticleIdx !== -1) {
-                extractedRawText = html.substring(closeTagIdx + 1, endArticleIdx);
-                if (extractedRawText.trim().length > 150) {
-                  selectedStrategy = "ARTICLE_ELEMENT_BLOCK";
-                  logInfo("5_CONTENT_EXTRACTION", `Strategy match: "ARTICLE_ELEMENT_BLOCK", size = ${extractedRawText.length}`);
-                }
-              }
-            }
-          }
-        }
-
-        // Pipeline Strategy 4: Body tag text boundary fallback
-        if (!extractedRawText || extractedRawText.trim().length < 150) {
-          const bodyIdx = lowerHtml.indexOf("<body");
-          if (bodyIdx !== -1) {
-            const closeTagIdx = html.indexOf(">", bodyIdx);
-            if (closeTagIdx !== -1) {
-              const endBodyIdx = lowerHtml.indexOf("</body>", closeTagIdx);
-              if (endBodyIdx !== -1) {
-                extractedRawText = html.substring(closeTagIdx + 1, endBodyIdx);
-                selectedStrategy = "BODY_ELEMENT_FALLBACK";
-                logInfo("5_CONTENT_EXTRACTION", `Strategy match: "BODY_ELEMENT_FALLBACK", size = ${extractedRawText.length}`);
-              }
-            }
-          }
-        }
-
-        // Pipeline Strategy 5: Standard Raw Trace Failure
-        if (!extractedRawText) {
-          extractedRawText = html;
-          selectedStrategy = "HTML_FULL_DUMP_STRATEGY";
-          logWarn("5_CONTENT_EXTRACTION", `All targeted extraction strategies missed. Defaulted to Full html dump`);
-        }
-
-        // Clean html tags to extract readable music lines
-        logInfo("5_CONTENT_EXTRACTION", "Executing semantic filters to strip formatting and clean HTML entities");
-        const sanitizedText = extractedRawText
-          .replace(/<br\s*\/?>/gi, "\n")
-          .replace(/<\/p>/gi, "\n")
-          .replace(/<\/div>/gi, "\n")
-          .replace(/<[\/]?b[^>]*>/gi, "")       // clean bold chord wraps completely
-          .replace(/<[\/]?span[^>]*>/gi, "")   // clean spans entirely
-          .replace(/<a[^>]*>/gi, "")           // clean chord anchors
-          .replace(/<\/a>/gi, "")
-          .replace(/<[^>]+>/g, " ")            // clean other trailing elements
-          .replace(/&nbsp;/g, " ")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&amp;/g, "&")
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .trim();
-
-        textToProcess = sanitizedText;
-        logInfo("5_CONTENT_EXTRACTION", `Completed cleaning cycle. Strategy = ${selectedStrategy}, String Length = ${textToProcess.length} character(s).`);
+      if (!textToProcess) {
+        return res.status(422).json(
+          makeErrorResponse(
+            "RAW_TEXT_REQUIRED" as any,
+            "Cole a letra ou cifra para continuar.",
+            null,
+            "1_INITIAL_PAYLOAD"
+          )
+        );
       }
-
       // Step 6: Core Validation checks
       logInfo("6_PAYLOAD_VALIDATION", `Validating extracted text content character depth: ${textToProcess.trim().length}`);
       if (textToProcess.trim().length < 50) {

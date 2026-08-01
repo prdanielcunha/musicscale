@@ -40,7 +40,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
 
   const canManageSongs = !!permissions?.manageSongs || !!permissions?.['musicScale.manageSongs'];
 
-  const [step, setStep] = useState<"input" | "processing" | "preview" | "assisted_paste">("input");
+  const [step, setStep] = useState<"input" | "processing" | "preview">("input");
   const [processingStage, setProcessingStage] = useState(0);
   const [globalStatus, setGlobalStatus] = useState<'default' | 'new' | 'old'>('default');
   const [globalLanguage, setGlobalLanguage] = useState<'pt' | 'en' | 'es' | 'other' | 'unknown'>('unknown');
@@ -178,8 +178,8 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
       }
     }
 
-    if (!textToSend && !formData.url) {
-      setError("Cole a letra/cifra ou informe um link.");
+    if (!textToSend) {
+      setError(t("aiImport.errorEmpty", "Cole a letra ou cifra para continuar."));
       return;
     }
 
@@ -206,10 +206,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
       
       const data = await safeJsonResponse(response);
       
-      if (data?.ok === false && data?.reason === "SOURCE_BLOCKED") {
-        setStep("assisted_paste");
-        return;
-      }
+
 
       setPreviewData(data.song || data.result);
       setStep("preview");
@@ -372,7 +369,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
             <Sparkles className="w-5 h-5" />
          </div>
          <span className="font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300">
-            Criar música por IA
+            {t("aiImport.modalTitle", "Criar música com IA")}
          </span>
       </div>
     } maxWidth="max-w-4xl">
@@ -436,158 +433,38 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
             </motion.div>
           )}
 
-          {step === "assisted_paste" && (
-            <motion.div 
-               initial={{ opacity: 0, scale: 0.95 }}
-               animate={{ opacity: 1, scale: 1 }}
-               exit={{ opacity: 0, scale: 1.05 }}
-               className="py-10 flex flex-col items-center max-w-2xl mx-auto space-y-6"
-            >
-              <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-2">
-                <Lock className="w-8 h-8" />
-              </div>
-              <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 text-center">
-                Este site bloqueou a leitura automática
-              </h3>
-              <p className="text-slate-500 text-center text-sm mb-4 leading-relaxed">
-                Alguns sites impedem que sistemas externos leiam cifras diretamente pelo link. Mas você ainda pode importar essa música: <strong className="text-slate-900 dark:text-white">abra o link, copie a letra/cifra e cole abaixo.</strong> A IA do MusicScale organiza tudo para você de qualquer forma.
-              </p>
-              
-              <div className="flex gap-4 w-full mb-2">
-                <Button type="button" variant="secondary" className="flex-1" onClick={() => window.open(formData.url, "_blank")} icon={<ExternalLink className="w-4 h-4" />}>
-                  Abrir link
-                </Button>
-                <Button type="button" variant="secondary" className="flex-1" onClick={async () => {
-                  try {
-                    const text = await navigator.clipboard.readText();
-                    if (!text) {
-                        toastError(t("aiImport.clipboardEmpty", "A área de transferência está vazia."));
-                        return;
-                    }
-                    const { text: normalized, wasDecoded } = normalizePastedSongText(text);
-                    if (wasDecoded) {
-                        success(t("aiImport.decodedTitle", "Conteúdo normalizado"), t("aiImport.decodedMessage", "O conteúdo colado estava codificado e foi convertido para texto normal."));
-                    }
-                    setFormData(prev => ({ ...prev, rawText: normalized }));
-                  } catch (e) {
-                     toastError(t("aiImport.clipboardError", "Não foi possível acessar a área de transferência. Cole manualmente no campo abaixo."));
-                  }
-                }} icon={<Clipboard className="w-4 h-4" />}>
-                  Colar da área
-                </Button>
-              </div>
-
-              <div className="w-full">
-                <textarea
-                  name="rawText"
-                  value={formData.rawText}
-                  onChange={handleChange}
-                  onPaste={handleRawTextPaste}
-                  className={`${formInputClass} min-h-[200px] font-mono text-sm resize-y`}
-                  placeholder="Cole a letra ou cifra aqui..."
-                />
-              </div>
-              
-              <div className="flex justify-end gap-3 w-full mt-4">
-                <Button type="button" variant="secondary" onClick={() => setStep("input")}>Voltar</Button>
-                <Button 
-                  type="button"
-                  onClick={handleImport}
-                  disabled={!formData.rawText.trim()}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                  icon={<Sparkles className="w-4 h-4" />}
-                >
-                  Continuar e Organizar
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
+          
+      
       {step === "input" && (
         <motion.form 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          onSubmit={handleImport} 
-          className="space-y-6 px-1"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            className="space-y-6"
+            onSubmit={handleImport}
         >
-          {error && (
-            <div className="p-4 bg-red-100 dark:bg-red-500/10 text-red-700 dark:text-red-400 rounded-xl text-sm font-medium">
-              {error}
-            </div>
-          )}
-          
-          <div className="bg-indigo-50/50 dark:bg-indigo-500/5 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-500/10 mb-6 flex items-start gap-3">
+          <div className="bg-indigo-50/50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-2xl p-4 sm:p-5 flex gap-4 items-start shadow-sm shadow-indigo-100/50 dark:shadow-none">
              <Sparkles className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
              <p className="text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed font-medium">
-               Cole o link da música (Cifraclub, Letras, etc) ou o texto bruto da letra/cifra.
-               A nossa IA irá extrair automaticamente o <b>Título</b>, <b>Artista</b>, <b>Tom</b> e estruturar toda a música para você.
+               {t("aiImport.modalDescription", "Cole o conteúdo da música. A IA organiza título, artista, tom, letra, cifra e seções para você revisar antes de salvar.")}
              </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className={formLabelClass}>Título da Música (Opcional se houver link/texto)</label>
-              <input type="text" name="title" value={formData.title} onChange={handleChange} className={formInputClass} placeholder="Ex: Oceanos" />
-            </div>
-            <div>
-              <label className={formLabelClass}>Artista/Banda (Opcional se houver link/texto)</label>
-              <input type="text" name="artist" value={formData.artist} onChange={handleChange} className={formInputClass} placeholder="Ex: Hillsong" />
-            </div>
+          <div className="space-y-4">
+             <div>
+                <label className={formLabelClass}>{t("aiImport.inputLabel", "Cole a cifra ou letra")}</label>
+                <textarea rows={10} name="rawText" value={formData.rawText} onChange={handleChange} onPaste={handleRawTextPaste} className={`${formInputClass} font-mono text-sm leading-relaxed`} placeholder={t("aiImport.inputPlaceholder", "Cole aqui a letra, a cifra ou o conteúdo completo da música...")}></textarea>
+             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className={formLabelClass}>Tom Desejado (Opcional)</label>
-              <input type="text" name="desiredKey" value={formData.desiredKey} onChange={handleChange} className={formInputClass} placeholder="Ex: G#" />
-            </div>
-             <div>
-              <label className={formLabelClass}>Versão (Opcional)</label>
-              <input type="text" name="version" value={formData.version} onChange={handleChange} className={formInputClass} placeholder="Ex: Acústico" />
-            </div>
-             <div>
-              <label className={formLabelClass}>BPM Manual (Opcional)</label>
-              <input type="number" name="bpm" value={formData.bpm} onChange={handleChange} className={formInputClass} placeholder="Ex: 72" />
-            </div>
-          </div>
-
-          <div className="bg-slate-50 dark:bg-slate-800/20 p-5 rounded-2xl border border-slate-200 dark:border-white/5 space-y-4">
-             <div className="flex items-center gap-2 mb-2">
-                <FileText className="w-5 h-5 text-indigo-500" />
-                <h4 className="font-semibold text-slate-900 dark:text-white">Conteúdo Bruto</h4>
-             </div>
-             
-             <div>
-                <label className={formLabelClass}>Cole a Cifra ou Letra Bagunçada</label>
-                <textarea rows={6} name="rawText" value={formData.rawText} onChange={handleChange} onPaste={handleRawTextPaste} className={`${formInputClass} font-mono text-sm leading-relaxed`} placeholder="Cole aqui o texto cheio de propagandas, cifras desestruturadas, etc. A IA vai limpar tudo!"></textarea>
-             </div>
-             
-             <div className="flex items-center gap-4 py-2">
-                <div className="h-px bg-slate-200 dark:bg-white/10 flex-1"></div>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">OU</span>
-                <div className="h-px bg-slate-200 dark:bg-white/10 flex-1"></div>
-             </div>
-             
-             <div>
-                <label className={formLabelClass}>Importar via Link (Ex: Cifraclub, Letras.mus)</label>
-                <div className="relative">
-                   <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                      <Link className="w-5 h-5 text-slate-400" />
-                   </div>
-                   <input type="url" name="url" value={formData.url} onChange={handleChange} className={`${formInputClass} pl-11`} placeholder="https://" />
-                </div>
-             </div>
-          </div>
-
           <div className="flex justify-end gap-3 pt-4">
              <Button variant="secondary" onClick={onClose} type="button">{t("common.cancel", "Cancelar")}</Button>
-             <button type="submit" className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold tracking-wide shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all">
+             <button type="submit" disabled={isSaving} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold tracking-wide shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all">
                 Processar com IA
              </button>
           </div>
         </motion.form>
       )}
-
       {step === "preview" && previewData && (
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
@@ -596,151 +473,29 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
         >
            {/* Save Options */}
            <div className="p-4 bg-slate-50 dark:bg-slate-800/20 rounded-2xl border border-slate-200 dark:border-white/5 space-y-4">
-              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Destino do Salvamento</h3>
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("aiImport.saveDestination", "Destino do Salvamento")}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <label
-                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${options.saveToOrganization ? 'bg-primary/5 border-primary/20 ring-1 ring-primary/20' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10'}`}
-                >
-                  <input
-                    type="checkbox"
-                    name="saveToOrganization"
-                    checked={options.saveToOrganization}
-                    onChange={handleChange}
-                    className="h-5 w-5 rounded bg-slate-200 dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-primary focus:ring-primary-dark"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                       <ShieldCheck className={`w-4 h-4 ${options.saveToOrganization ? 'text-primary' : 'text-slate-400'}`} />
-                       <span className={`text-sm font-bold ${options.saveToOrganization ? 'text-primary' : 'text-slate-700 dark:text-gray-300'}`}>Minha Organização</span>
-                    </div>
-                  </div>
-                </label>
-
-                {isEcosystemAdmin && (
-                  <label
-                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${options.saveToGlobalLibrary ? 'bg-orange-500/5 border-orange-500/20 ring-1 ring-orange-500/20' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10'}`}
-                  >
-                    <input
-                      type="checkbox"
-                      name="saveToGlobalLibrary"
-                      checked={options.saveToGlobalLibrary}
-                      onChange={handleChange}
-                      className="h-5 w-5 rounded bg-slate-200 dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-orange-500 focus:ring-orange-500"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                         <Globe className={`w-4 h-4 ${options.saveToGlobalLibrary ? 'text-orange-500' : 'text-slate-400'}`} />
-                         <span className={`text-sm font-bold ${options.saveToGlobalLibrary ? 'text-orange-500' : 'text-slate-700 dark:text-gray-300'}`}>{t("songs.save_to_global_library", "Salvar também na Biblioteca Viva MusicScale")}</span>
-                      </div>
-                    </div>
-                  </label>
-                )}
-              </div>
-
-              {options.saveToGlobalLibrary && isEcosystemAdmin && (
-                <div className="mt-4 p-4 rounded-xl bg-orange-500/[0.03] border border-orange-500/10 space-y-4 animate-fade-in">
-                  <p className="text-[12px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider">
-                    {t("library.b_viva_settings", "Ajustes da Biblioteca Viva")}
-                  </p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
-                        {t("songs.status_label", "Status na Biblioteca Viva")}
-                      </label>
-                      <div className="flex gap-2">
-                        {[
-                          { value: 'default', label: t("songs.no_status", 'Sem status') },
-                          { value: 'new', label: t("songs.new", 'Nova') },
-                          { value: 'old', label: t("songs.old", 'Antiga') }
-                        ].map(item => (
-                          <button
-                            key={item.value}
-                            type="button"
-                            onClick={() => setGlobalStatus(item.value as any)}
-                            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
-                              globalStatus === item.value
-                                ? 'bg-orange-500 text-white border-orange-600 shadow-sm'
-                                : 'bg-white dark:bg-white/5 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/10'
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
-                        {t("songs.language_label", "Idioma na Biblioteca Viva")}
-                      </label>
-                      <select
-                        value={globalLanguage}
-                        onChange={(e) => setGlobalLanguage(e.target.value as any)}
-                        className="w-full text-xs font-bold rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-[#1E1E24] text-slate-700 dark:text-slate-200 p-2.5 outline-none focus:border-orange-500"
-                      >
-                        <option value="pt">🇧🇷 Português / BR</option>
-                        <option value="en">🇺🇸 Inglês</option>
-                        <option value="es">🇪🇸 Espanhol</option>
-                        <option value="other">🌐 Outro</option>
-                        <option value="unknown">? Desconhecido</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-           </div>
-           <div className="bg-gradient-to-tr from-indigo-50 to-purple-50 dark:from-indigo-900/10 dark:to-purple-900/10 p-6 rounded-[24px] flex flex-col md:flex-row items-center md:items-start justify-between gap-6 border border-indigo-100 dark:border-indigo-500/10">
-              <div className="flex items-center gap-4">
-                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-purple-500/30">
-                   <CheckCircle2 className="w-6 h-6" />
-                 </div>
-                 <div>
-                    <h4 className="font-black text-slate-900 dark:text-white text-lg tracking-tight">Estruturação Concluída</h4>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                      <p className="text-[13px] font-semibold text-slate-500 dark:text-slate-400">Inteligência Artificial concluída com sucesso.</p>
-                    </div>
-                 </div>
-              </div>
-              <div className="flex flex-col items-center md:items-end justify-center">
-                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1.5">Confiança da IA</span>
-                 
-                 {(!previewData.confidence || previewData.confidence === 'high') ? (
-                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/50 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                      <span className="text-xs font-black uppercase tracking-widest leading-none mt-0.5">Alta Precisão</span>
-                   </div>
-                 ) : (
-                   <div className="flex flex-col md:items-end w-full">
-                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200/50 dark:border-amber-500/20 text-amber-700 dark:text-amber-400 mb-2">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        <span className="text-xs font-black uppercase tracking-widest leading-none mt-0.5">Revisão Recomendada</span>
-                     </div>
-                     {previewData.warnings && previewData.warnings.length > 0 && (
-                       <ul className="text-[11px] text-amber-600 dark:text-amber-400/80 text-right space-y-1 list-disc list-inside">
-                          {previewData.warnings.map((w: string, i: number) => (
-                             <li key={i}>{w}</li>
-                          ))}
-                       </ul>
-                     )}
-                   </div>
-                 )}
+                 <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-500 transition-colors cursor-pointer bg-white dark:bg-white/5">
+                    <input type="checkbox" checked={options.saveToOrganization} onChange={(e) => setOptions({...options, saveToOrganization: e.target.checked})} className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("aiImport.saveToMinistry", "Salvar no Ministério")}</span>
+                 </label>
+                 <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-500 transition-colors cursor-pointer bg-white dark:bg-white/5">
+                    <input type="checkbox" checked={options.saveToGlobalLibrary} onChange={(e) => setOptions({...options, saveToGlobalLibrary: e.target.checked})} className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("aiImport.saveToLibrary", "Minha Biblioteca Pessoal")}</span>
+                 </label>
               </div>
            </div>
-           
-           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm">
-                 <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3">
-                   <Music className="w-3.5 h-3.5" /> {t("aiImport.titleAndArtist", "Título e Artista")}
-                 </div>
-                 <input
-                   id="ai-import-title-input"
-                   aria-label={t("aiImport.titleLabel", "Título")}
-                   className="w-full bg-transparent font-black text-slate-900 dark:text-white text-lg tracking-tight border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors mb-2"
-                   value={previewData.title || ''}
-                   onChange={(e) => setPreviewData({...previewData, title: e.target.value})}
-                   placeholder={t("aiImport.titlePlaceholder", "Título obrigatório")}
+
+           <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm space-y-3">
+              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
+                 <Music className="w-3.5 h-3.5" /> {t("aiImport.identification", "Identificação")}
+              </div>
+              <input
+                 aria-label={t("aiImport.titleLabel", "Título da Música")}
+                 className="w-full bg-transparent font-black text-slate-900 dark:text-white text-3xl tracking-tight border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
+                 value={previewData.title || ''}
+                 onChange={(e) => setPreviewData({...previewData, title: e.target.value})}
+                 placeholder={t("aiImport.titlePlaceholder", "Título obrigatório")}
                  />
                  <input
                    aria-label={t("aiImport.artistLabel", "Artista")}
@@ -750,6 +505,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
                    placeholder={t("aiImport.artistPlaceholder", "Artista")}
                  />
               </div>
+           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm">
                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3">
                    <Key className="w-3.5 h-3.5" /> {t("aiImport.keyLabel", "Tom")}
