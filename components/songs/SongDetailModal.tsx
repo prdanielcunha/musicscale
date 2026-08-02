@@ -253,6 +253,7 @@ interface SongDetailModalProps {
   scaleContext: { scaleId?: string, songs: PopulatedSong[]; currentIndex: number } | null;
   onNavigate: (direction: "next" | "previous" | number) => void;
   startInPerformanceMode?: boolean;
+  openMode?: "detail" | "lyrics" | "chords" | "performance";
 }
 
 const statusMap = {
@@ -292,6 +293,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
   scaleContext,
   onNavigate,
   startInPerformanceMode,
+  openMode,
 }) => {
   const { t } = useTranslation();
   const api = useApi();
@@ -330,7 +332,9 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
       const resolvedSong = scaleContext ? initialSong : (songs.find((s) => s.id === initialSong.id) || initialSong);
       setSong(resolvedSong);
 
-      if (startInPerformanceMode) {
+      const effectiveMode = openMode || (startInPerformanceMode ? "performance" : "detail");
+
+      if (effectiveMode === "performance") {
         if (!performanceStartTime) setPerformanceStartTime(Date.now());
         
         if (resolvedSong.chords) {
@@ -340,6 +344,14 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
         } else {
           setIsLyricsViewerOpen(true);
         }
+      } else if (effectiveMode === "chords") {
+        if (resolvedSong.chords) {
+          setIsChordsViewerOpen(true);
+        } else if (resolvedSong.chordsUrl) {
+          setIsWebViewerOpen(true);
+        }
+      } else if (effectiveMode === "lyrics") {
+        setIsLyricsViewerOpen(true);
       }
     } else {
       setSong(null);
@@ -347,7 +359,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
       setIsWebViewerOpen(false);
       setIsLyricsViewerOpen(false);
     }
-  }, [initialSong, songs, startInPerformanceMode, scaleContext]);
+  }, [initialSong, songs, startInPerformanceMode, openMode, scaleContext]);
 
   const handleClosePerformance = () => {
     setIsChordsViewerOpen(false);
@@ -357,8 +369,11 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
     // Clear recovery state since they explicitly exited
     clearPerformanceState().catch(e => console.error("Could not clear performance state", e));
     
+    const isDirectOpen = startInPerformanceMode || (openMode && openMode !== "detail");
+    
     // Feedback Logic: If they spent more than 8 seconds in performance mode, ask for feedback
-    if (startInPerformanceMode && performanceStartTime && Date.now() - performanceStartTime > 8000) {
+    const isPerformanceRun = startInPerformanceMode || openMode === "performance";
+    if (isPerformanceRun && performanceStartTime && Date.now() - performanceStartTime > 8000) {
        setTimeout(() => {
          feedbackToast(
            "Como foi usar o MusicScale no palco?",
@@ -373,8 +388,8 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
        }, 500);
     }
     
-    // Notify parent to close if it was started right into performance mode
-    if (startInPerformanceMode) {
+    // Notify parent to close if it was started right into performance mode or specific mode
+    if (isDirectOpen) {
       setPerformanceStartTime(null);
       onClose();
     }

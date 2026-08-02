@@ -82,6 +82,14 @@ const createClientNotification = async (
 };
 
 
+export type SongOpenMode = 'detail' | 'lyrics' | 'chords' | 'performance';
+
+export interface OpenSongDetailOptions {
+  keepCurrentOpen?: boolean;
+  scaleContext?: { scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null;
+  mode?: SongOpenMode;
+}
+
 interface ModalContextType {
   // Ai Import
   isAiSongImportOpen: boolean;
@@ -94,7 +102,12 @@ interface ModalContextType {
   closeWhatsNew: () => void;
 
   openSongForm: (song?: PopulatedSong) => void;
-  openSongDetail: (song: PopulatedSong, keepCurrentOpen?: boolean, scaleContext?: {  scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null, startInPerformanceMode?: boolean) => void;
+  openSongDetail: (
+    song: PopulatedSong,
+    options?: OpenSongDetailOptions | boolean,
+    scaleContext?: {  scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null,
+    startInPerformanceMode?: boolean
+  ) => void;
   openDeleteSongConfirmation: (song: PopulatedSong) => void;
   openScaleForm: (scale?: Scale, preselectedSongIds?: string[]) => void;
   openScaleDetail: (scale: PopulatedScale, action?: 'delete') => void;
@@ -214,6 +227,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     onSuccess?: () => void 
   } | null>(null);
   const [startInPerformanceMode, setStartInPerformanceMode] = useState<boolean>(false);
+  const [songOpenMode, setSongOpenMode] = useState<SongOpenMode | undefined>(undefined);
 
   // Scale Modals State
   const [scaleToEdit, setScaleToEdit] = useState<Scale | BandScale | null>(null);
@@ -267,6 +281,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setIsAiSongImportOpen(false);
     setIsWhatsNewOpen(false);
     setIsFeedbackOpen(false);
+    setSongOpenMode(undefined);
   }, []);
 
   const openFeedback = useCallback((type: 'bug'|'suggestion'|'feedback' = 'feedback') => {
@@ -301,13 +316,33 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // Song Handlers
   const openSongForm = useCallback((song?: PopulatedSong) => { closeAllModals(); setSongToEdit(song || {} as PopulatedSong); }, [closeAllModals]);
   
-  const openSongDetail = useCallback((song: PopulatedSong, keepCurrentOpen = false, scaleContext: { scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null = null, startInPerformanceMode = false) => {
+  const openSongDetail = useCallback((
+    song: PopulatedSong,
+    options?: OpenSongDetailOptions | boolean,
+    scaleContext: { scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null = null,
+    startInPerformanceMode = false
+  ) => {
+    let keepCurrentOpen = false;
+    let actualScaleContext = scaleContext;
+    let actualStartInPerformanceMode = startInPerformanceMode;
+    let actualOpenMode: SongOpenMode | undefined = undefined;
+
+    if (typeof options === 'boolean') {
+      keepCurrentOpen = options;
+    } else if (options && typeof options === 'object') {
+      keepCurrentOpen = !!options.keepCurrentOpen;
+      actualScaleContext = options.scaleContext !== undefined ? options.scaleContext : null;
+      actualOpenMode = options.mode;
+      actualStartInPerformanceMode = options.mode === 'performance';
+    }
+
     if (!keepCurrentOpen) {
       closeAllModals();
     }
     setSongToView(song);
-    setScaleNavigationContext(scaleContext);
-    setStartInPerformanceMode(startInPerformanceMode);
+    setScaleNavigationContext(actualScaleContext);
+    setStartInPerformanceMode(actualStartInPerformanceMode);
+    setSongOpenMode(actualOpenMode);
   }, [closeAllModals]);
 
   const openDeleteSongConfirmation = useCallback((song: PopulatedSong) => { closeAllModals(); setSongToDelete(song); }, [closeAllModals]);
@@ -969,13 +1004,14 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         {songToView && (
           <SongDetailModal
             song={songToView}
-            onClose={() => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); }}
-            onEdit={(song) => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); openSongForm(song); }}
-            onDelete={(song) => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); openDeleteSongConfirmation(song); }}
-            onCreateScale={(song) => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); navigate('/scales', { state: { preselectedSongIds: [song.id] } }); }}
+            onClose={() => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); setSongOpenMode(undefined); }}
+            onEdit={(song) => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); setSongOpenMode(undefined); openSongForm(song); }}
+            onDelete={(song) => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); setSongOpenMode(undefined); openDeleteSongConfirmation(song); }}
+            onCreateScale={(song) => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); setSongOpenMode(undefined); navigate('/scales', { state: { preselectedSongIds: [song.id] } }); }}
             scaleContext={scaleNavigationContext}
             onNavigate={navigateToSongInScale}
             startInPerformanceMode={startInPerformanceMode}
+            openMode={songOpenMode}
           />
         )}
 

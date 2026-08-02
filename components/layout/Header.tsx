@@ -100,7 +100,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             </div>
             <button
               onClick={openWhatsNew}
-              className="relative flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#18181b]/60 border border-indigo-500/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)] backdrop-blur-md premium-interactive hover:bg-[#18181b] hover:border-indigo-500/30"
+              className="hidden sm:flex relative items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#18181b]/60 border border-indigo-500/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)] backdrop-blur-md premium-interactive hover:bg-[#18181b] hover:border-indigo-500/30"
             >
               <div className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
@@ -112,7 +112,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             </button>
             <button
               onClick={() => openHelpModal("faq")}
-              className="relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-200 bg-[#18181b]/60 border border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)] backdrop-blur-md premium-interactive"
+              className="hidden sm:flex relative w-9 h-9 sm:w-10 sm:h-10 items-center justify-center rounded-full text-slate-400 hover:text-slate-200 bg-[#18181b]/60 border border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)] backdrop-blur-md premium-interactive"
               aria-label={t("nav.open_help_center", "Abrir central de ajuda")}
             >
               <HelpCircleIcon className="w-5 h-5" />
