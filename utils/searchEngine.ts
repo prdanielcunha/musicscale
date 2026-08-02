@@ -64,6 +64,89 @@ export interface SongSearchDocument<T = any> {
   originalKeyNormalized?: string;
 }
 
+export interface GlobalSongSearchFields {
+  searchVersion: number;
+  searchTokens: string[];
+  searchTitlePrefixes: string[];
+  searchArtistPrefixes: string[];
+  searchKeyTokens: string[];
+}
+
+export function buildGlobalSongSearchFields(song: any): GlobalSongSearchFields {
+  const searchVersion = 1;
+
+  const actualTitle = String(song.title || '').trim();
+  const actualArtist = String(song.artist || '').trim();
+  const actualVersion = String(song.version || '').trim();
+  const actualLyrics = getSearchableLyrics(song);
+  const actualAliases = getSearchableAliases(song);
+
+  const titleNormalized = normalizeSearchText(actualTitle);
+  const artistNormalized = normalizeSearchText(actualArtist);
+  const versionNormalized = normalizeSearchText(actualVersion);
+  const lyricsNormalized = normalizeSearchText(actualLyrics);
+  const aliasesNormalized = normalizeSearchText(actualAliases);
+
+  const keyNormalized = normalizeMusicalKey(song.key);
+  const originalKeyNormalized = normalizeMusicalKey(song.originalKey);
+  const selectedKeyNormalized = normalizeMusicalKey(song.selectedKey);
+
+  const titleTokens = titleNormalized ? titleNormalized.split(" ") : [];
+  const artistTokens = artistNormalized ? artistNormalized.split(" ") : [];
+  const lyricsTokens = lyricsNormalized ? lyricsNormalized.split(" ") : [];
+  const versionTokens = versionNormalized ? versionNormalized.split(" ") : [];
+  const aliasesTokens = aliasesNormalized ? aliasesNormalized.split(" ") : [];
+
+  const keyTokens = new Set<string>();
+  if (keyNormalized) keyTokens.add(keyNormalized);
+  if (originalKeyNormalized) keyTokens.add(originalKeyNormalized);
+  if (selectedKeyNormalized) keyTokens.add(selectedKeyNormalized);
+
+  const searchKeyTokens = Array.from(keyTokens);
+
+  const stopWords = new Set(["o", "a", "e", "é", "do", "da", "de", "no", "na", "os", "as", "um", "uns", "com", "que", "para", "por"]);
+
+  const allTokens = new Set<string>();
+  
+  titleTokens.forEach(t => allTokens.add(t));
+  artistTokens.forEach(t => allTokens.add(t));
+  versionTokens.forEach(t => allTokens.add(t));
+  aliasesTokens.forEach(t => allTokens.add(t));
+  searchKeyTokens.forEach(t => allTokens.add(t.toLowerCase()));
+
+  lyricsTokens.forEach(t => {
+    if (t.length > 2 && !stopWords.has(t)) {
+      allTokens.add(t);
+    }
+  });
+
+  const searchTokens = Array.from(allTokens).filter(t => t.length > 0).slice(0, 150);
+
+  const buildPrefixes = (tokens: string[], minLen: number, maxPrefixes: number) => {
+    const prefixes = new Set<string>();
+    for (const token of tokens) {
+      if (token.length >= minLen) {
+        for (let i = minLen; i <= token.length; i++) {
+          prefixes.add(token.substring(0, i));
+          if (prefixes.size >= maxPrefixes) return Array.from(prefixes);
+        }
+      }
+    }
+    return Array.from(prefixes);
+  };
+
+  const searchTitlePrefixes = buildPrefixes(titleTokens, 3, 25);
+  const searchArtistPrefixes = buildPrefixes(artistTokens, 3, 15);
+
+  return {
+    searchVersion,
+    searchTokens,
+    searchTitlePrefixes,
+    searchArtistPrefixes,
+    searchKeyTokens
+  };
+}
+
 export function buildSearchIndex<T extends { title?: string; artist?: string; version?: string; selectedKey?: string; key?: string; originalKey?: string; }>(songs: T[]): SongSearchDocument<T>[] {
   return songs.map((song) => {
     const anySong = song as any;

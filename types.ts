@@ -214,6 +214,11 @@ export interface GlobalSong {
   importCount: number;
   freshness?: FreshnessMetadata;
   revision?: number;
+  searchVersion?: number;
+  searchTokens?: string[];
+  searchTitlePrefixes?: string[];
+  searchArtistPrefixes?: string[];
+  searchKeyTokens?: string[];
 }
 
 export interface SongSubmission {

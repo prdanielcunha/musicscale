@@ -1,6 +1,13 @@
 import { collection, doc, query, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, where, limit, startAfter, orderBy, DocumentData, QueryDocumentSnapshot, serverTimestamp, increment, writeBatch } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import type { GlobalSong, SongSubmission, Song, FreshnessMetadata } from '../types';
+import { 
+  buildSearchIndex, 
+  searchSongs, 
+  normalizeSearchText, 
+  normalizeMusicalKey,
+  buildGlobalSongSearchFields
+} from '../utils/searchEngine';
 
 const GLOBAL_SONGS_COLLECTION = 'globalSongs';
 const SUBMISSIONS_COLLECTION = 'songSubmissions';
@@ -44,6 +51,13 @@ export const updateGlobalSong = async (songId: string, payload: Partial<GlobalSo
     };
   }
 
+  const existingDoc = await getDoc(docRef);
+  if (existingDoc.exists()) {
+    const combinedData = { ...existingDoc.data(), ...updateData };
+    const searchFields = buildGlobalSongSearchFields(combinedData);
+    Object.assign(updateData, searchFields);
+  }
+
   await updateDoc(docRef, updateData);
 };
 
@@ -56,20 +70,61 @@ export const getGlobalSongs = async (
   let q;
 
   if (searchTerm.trim()) {
-    const normalizedTerm = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-    q = query(
-      collRef,
-      where('normalizedTitle', '>=', normalizedTerm),
-      where('normalizedTitle', '<=', normalizedTerm + '\uf8ff'),
-      limit(pageSize + 10)  // fetch slightly more to allow for draft filtering
-    );
-  } else {
-    q = query(
-      collRef,
-      orderBy('importCount', 'desc'),
-      limit(pageSize + 10) // fetch slightly more to allow for draft filtering
-    );
+    const normalizedTerm = normalizeSearchText(searchTerm);
+    const keyTerm = normalizeMusicalKey(searchTerm);
+    
+    let tokensToSearch: string[] = [];
+    if (keyTerm) {
+      tokensToSearch.push(keyTerm.toLowerCase());
+    }
+    
+    if (normalizedTerm) {
+      const parts = normalizedTerm.split(" ").filter(p => p.length > 0);
+      tokensToSearch.push(...parts);
+    }
+    
+    tokensToSearch = Array.from(new Set(tokensToSearch)).slice(0, 10);
+    
+    if (tokensToSearch.length > 0) {
+      q = query(
+        collRef,
+        where('searchTokens', 'array-contains-any', tokensToSearch),
+        limit(200) 
+      );
+      
+      const snapshot = await getDocs(q);
+      const allFetched = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }) as GlobalSong);
+      
+      if (allFetched.length === 0 && normalizedTerm) {
+        const fallbackQ = query(
+          collRef,
+          where('normalizedTitle', '>=', normalizedTerm),
+          where('normalizedTitle', '<=', normalizedTerm + '\uf8ff'),
+          limit(200)
+        );
+        const fallbackSnapshot = await getDocs(fallbackQ);
+        allFetched.push(...fallbackSnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }) as GlobalSong));
+      }
+      
+      const activeCandidates = allFetched.filter(s => s.status === 'active');
+      
+      const searchDocs = buildSearchIndex(activeCandidates);
+      const rankedMatches = searchSongs(searchDocs, searchTerm);
+      
+      const songs = rankedMatches.slice(0, pageSize).map(m => m.document.song);
+      
+      return {
+        songs,
+        lastVisible: null 
+      };
+    }
   }
+
+  q = query(
+    collRef,
+    orderBy('importCount', 'desc'),
+    limit(pageSize + 10) 
+  );
 
   if (lastVisible) {
     q = query(q, startAfter(lastVisible));
@@ -243,7 +298,12 @@ export const saveToGlobalLibrary = async (payload: GlobalSongPayload & { isMilli
     }
   };
 
-  await setDoc(newGlobalSongRef, globalSongData);
+  const globalSongDataWithSearch = {
+    ...globalSongData,
+    ...buildGlobalSongSearchFields(globalSongData)
+  };
+
+  await setDoc(newGlobalSongRef, globalSongDataWithSearch);
   
   // Create audit log
   try {
