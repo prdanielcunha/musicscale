@@ -232,7 +232,7 @@ export const DashboardPage: React.FC = () => {
   const firstName = user?.displayName?.split(' ')[0] || '';
 
   return (
-    <div className="relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 animate-fade-in touch-manipulation">
+    <div className="relative isolate max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-6 animate-fade-in touch-manipulation">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
           {t('dashboard.greeting', { name: firstName })}
@@ -282,7 +282,7 @@ export const DashboardPage: React.FC = () => {
                   <button
                     key={suggestion.id}
                     onClick={() => navigate("/suggestions")}
-                    className="w-full text-left bg-white dark:bg-[#1A1A1F] border border-amber-200 dark:border-amber-500/20 rounded-xl p-3 flex items-center gap-3 hover:border-amber-300 dark:hover:border-amber-500/40 transition-colors"
+                    className="w-full text-left rounded-xl py-3 flex items-center gap-3 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.02]"
                   >
                     <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-500 flex items-center justify-center shrink-0">
                       <SuggestionIcon className="w-5 h-5" />
@@ -316,7 +316,7 @@ export const DashboardPage: React.FC = () => {
                   <button
                     key={song.id}
                     onClick={() => openSongDetail(song)}
-                    className="w-full text-left bg-slate-50 dark:bg-white/[0.02] border border-transparent hover:border-slate-200 dark:hover:border-white/[0.05] rounded-xl p-3 flex flex-col transition-colors"
+                    className="w-full text-left rounded-xl py-2 flex flex-col transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.02]"
                   >
                     <span className="font-semibold text-slate-900 dark:text-white text-sm truncate">{song.title}</span>
                     <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{song.artist}</span>
@@ -339,7 +339,7 @@ export const DashboardPage: React.FC = () => {
                   <button
                     key={`${song.id}-${i}`}
                     onClick={() => openSongDetail(song as any)}
-                    className="w-full text-left bg-slate-50 dark:bg-white/[0.02] border border-transparent hover:border-slate-200 dark:hover:border-white/[0.05] rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-colors"
+                    className="w-full text-left rounded-xl py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.02]"
                   >
                     <div className="flex flex-col min-w-0">
                       <span className="font-semibold text-slate-900 dark:text-white text-sm truncate">{song.title}</span>
