@@ -68,7 +68,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
     ) {
       return {
         label: t('dashboard.focus.scaleDraft', 'Rascunho'),
-        style: 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20'
+        style: 'bg-amber-500/[0.05] text-amber-600 dark:text-amber-400 border border-amber-500/10'
       };
     }
 
@@ -78,14 +78,14 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
     ) {
       return {
         label: t('dashboard.focus.repertoireIncomplete', 'Repertório incompleto'),
-        style: 'bg-rose-500/10 text-rose-600 dark:text-rose-500 border border-rose-500/20'
+        style: 'bg-rose-500/[0.05] text-rose-600 dark:text-rose-400 border border-rose-500/10'
       };
     }
 
     if (attentionItems && attentionItems.some(i => i.code === 'missing-team')) {
       return {
         label: t('dashboard.focus.teamIncomplete', 'Equipe incompleta'),
-        style: 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20'
+        style: 'bg-amber-500/[0.05] text-amber-600 dark:text-amber-400 border border-amber-500/10'
       };
     }
 
@@ -95,7 +95,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
     ) {
       return {
         label: t('dashboard.focus.incompleteData', 'Dados incompletos'),
-        style: 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20'
+        style: 'bg-amber-500/[0.05] text-amber-600 dark:text-amber-400 border border-amber-500/10'
       };
     }
 
@@ -105,20 +105,20 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
     ) {
       return {
         label: t('dashboard.focus.pendingResponses', 'Aguardando respostas'),
-        style: 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20'
+        style: 'bg-amber-500/[0.05] text-amber-600 dark:text-amber-400 border border-amber-500/10'
       };
     }
 
     if (attentionItems && attentionItems.length > 0) {
       return {
         label: t('dashboard.focus.inPreparation', 'Em preparação'),
-        style: 'bg-blue-500/10 text-blue-600 dark:text-blue-500 border border-blue-500/20'
+        style: 'bg-blue-500/[0.05] text-blue-600 dark:text-blue-400 border border-blue-500/10'
       };
     }
 
     return {
       label: t('dashboard.focus.repertoireReady', 'Escala pronta'),
-      style: 'bg-emerald-500/5 text-emerald-600 dark:text-emerald-500 border border-emerald-500/10'
+      style: 'bg-emerald-500/[0.03] text-emerald-600 dark:text-emerald-400 border border-emerald-500/[0.08]'
     };
   };
 
@@ -147,7 +147,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
     const showPerformance = canUsePerformanceMode(targetEvent, canUsePerformance);
 
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         
         {/* Eyebrow */}
         <div className="flex items-center gap-2">
@@ -166,7 +166,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
         {/* Title */}
         <div>
-          <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
             {targetEvent.title || t('dashboard.focus.untitledEvent')}
           </h2>
         </div>
@@ -190,7 +190,8 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
         {/* Status */}
         <div className="flex items-center">
-          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${statusBadge.style}`}>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium tracking-wide ${statusBadge.style}`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
             {statusBadge.label}
           </span>
         </div>
@@ -223,7 +224,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                         <span className="text-[15px] font-medium text-slate-800 dark:text-slate-200 truncate">{song.title}</span>
                       </div>
                       {effectiveKey && (
-                        <span className="text-[11px] font-bold text-slate-400/80 dark:text-slate-500/60 shrink-0 uppercase tracking-widest">
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[13px] font-extrabold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 shrink-0 tracking-wide border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
                           {effectiveKey}
                         </span>
                       )}
@@ -280,29 +281,29 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
           {currentMode === 'assigned-event' || currentMode === 'leader-prepared' ? (
             <>
               {showPerformance ? (
-                <Button onClick={() => onOpenPerformance(targetEvent)} className="w-full sm:w-auto" size="lg" variant="primary">
+                <Button onClick={() => onOpenPerformance(targetEvent)} className="w-full sm:w-auto rounded-full h-12 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25" size="lg" variant="primary">
                   <Play className="w-5 h-5 mr-2 fill-current" />
                   {t('dashboard.focus.enterPerformance', 'Entrar no Modo Performance')}
                 </Button>
               ) : (
-                <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" size="lg" variant="primary">
+                <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-full h-12 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25" size="lg" variant="primary">
                   {targetEvent.type === 'music' ? t('dashboard.focus.openRepertoire', 'Abrir repertório') : t('dashboard.focus.openScale', 'Abrir escala')}
                 </Button>
               )}
-              <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" size="lg" variant="ghost">
+              <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-full h-12 hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all duration-300 ease-out font-medium" size="lg" variant="ghost">
                 {t('dashboard.focus.viewScaleDetails', 'Ver detalhes')}
               </Button>
             </>
           ) : currentMode === 'leader-attention' ? (
-            <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" size="lg" variant="primary">
+            <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-full h-12 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25" size="lg" variant="primary">
               {t('dashboard.focus.resolveIssues', 'Resolver pendências')}
             </Button>
           ) : currentMode === 'observer-event' ? (
-            <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" size="lg" variant="primary">
+            <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-full h-12 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25" size="lg" variant="primary">
               {t('dashboard.focus.viewDetails', 'Ver detalhes')}
             </Button>
           ) : currentMode === 'continue-draft' ? (
-            <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" size="lg" variant="primary">
+            <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-full h-12 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25" size="lg" variant="primary">
               {t('dashboard.focus.continuePreparing', 'Continuar preparando')}
             </Button>
           ) : null}
@@ -310,7 +311,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
         {/* Response Actions Container */}
         {responseActions && (
-          <div className="pt-4">
+          <div className="pt-1">
             {responseActions}
           </div>
         )}
@@ -321,7 +322,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
   const renderCreateNext = () => {
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <div>
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
             {t('dashboard.focus.noEventsEyebrow')}
@@ -349,7 +350,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
   const renderNoEvents = () => {
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <div>
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
             {t('dashboard.focus.noEventsEyebrow')}
@@ -395,7 +396,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   }
 
   return (
-    <Card className="p-5 sm:p-8 bg-gradient-to-b from-white to-slate-50/50 dark:from-[#13131A] dark:to-[#0D0D12] border-none shadow-2xl shadow-black/5 dark:shadow-black/40 relative overflow-hidden rounded-3xl">
+    <Card className="p-4 sm:p-6 bg-gradient-to-b from-white to-slate-50/50 dark:from-[#13131A] dark:to-[#0D0D12] border-none shadow-2xl shadow-black/5 dark:shadow-black/40 relative overflow-hidden rounded-3xl">
       {/* Decorative subtle top gradient line */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500/0 via-indigo-500/20 to-indigo-500/0"></div>
       {content}
