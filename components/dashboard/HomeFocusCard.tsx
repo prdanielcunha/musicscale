@@ -68,7 +68,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
     ) {
       return {
         label: t('dashboard.focus.scaleDraft', 'Rascunho'),
-        style: 'text-amber-600 dark:text-amber-500'
+        style: 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20'
       };
     }
 
@@ -78,14 +78,14 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
     ) {
       return {
         label: t('dashboard.focus.repertoireIncomplete', 'Repertório incompleto'),
-        style: 'text-rose-600 dark:text-rose-500'
+        style: 'bg-rose-500/10 text-rose-600 dark:text-rose-500 border border-rose-500/20'
       };
     }
 
     if (attentionItems && attentionItems.some(i => i.code === 'missing-team')) {
       return {
         label: t('dashboard.focus.teamIncomplete', 'Equipe incompleta'),
-        style: 'text-amber-600 dark:text-amber-500'
+        style: 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20'
       };
     }
 
@@ -95,7 +95,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
     ) {
       return {
         label: t('dashboard.focus.incompleteData', 'Dados incompletos'),
-        style: 'text-amber-600 dark:text-amber-500'
+        style: 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20'
       };
     }
 
@@ -105,20 +105,20 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
     ) {
       return {
         label: t('dashboard.focus.pendingResponses', 'Aguardando respostas'),
-        style: 'text-amber-600 dark:text-amber-500'
+        style: 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20'
       };
     }
 
     if (attentionItems && attentionItems.length > 0) {
       return {
         label: t('dashboard.focus.inPreparation', 'Em preparação'),
-        style: 'text-blue-600 dark:text-blue-500'
+        style: 'bg-blue-500/10 text-blue-600 dark:text-blue-500 border border-blue-500/20'
       };
     }
 
     return {
       label: t('dashboard.focus.repertoireReady', 'Escala pronta'),
-      style: 'text-emerald-600 dark:text-emerald-500'
+      style: 'bg-emerald-500/5 text-emerald-600 dark:text-emerald-500 border border-emerald-500/10'
     };
   };
 
@@ -147,13 +147,21 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
     const showPerformance = canUsePerformanceMode(targetEvent, canUsePerformance);
 
     return (
-      <div className="flex flex-col gap-10">
+      <div className="flex flex-col gap-6">
         
         {/* Eyebrow */}
-        <div>
-          <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
-            {fixed}{relative ? ` • ${relative}` : ''}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-slate-800 dark:text-slate-200">
+            {fixed}
           </span>
+          {relative && (
+            <>
+              <span className="text-slate-300 dark:text-slate-600">•</span>
+              <span className="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">
+                {relative}
+              </span>
+            </>
+          )}
         </div>
 
         {/* Title */}
@@ -164,20 +172,25 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
         </div>
 
         {/* Date / Time / Location */}
-        <div className="flex flex-col gap-1">
-          <p className="text-lg font-medium text-slate-700 dark:text-slate-300">
-            {formattedDate()}{targetEvent.time ? ` • ${targetEvent.time}` : ''}
-          </p>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-medium text-slate-700 dark:text-slate-300">
+          <span>{formattedDate()}</span>
+          {targetEvent.time && (
+            <>
+              <span className="text-slate-300 dark:text-slate-600">•</span>
+              <span>{targetEvent.time}</span>
+            </>
+          )}
           {targetEvent.locationName && (
-            <p className="text-lg text-slate-500 dark:text-slate-400">
-              {targetEvent.locationName}
-            </p>
+            <>
+              <span className="text-slate-300 dark:text-slate-600">•</span>
+              <span className="text-slate-500 dark:text-slate-400">{targetEvent.locationName}</span>
+            </>
           )}
         </div>
 
         {/* Status */}
-        <div>
-          <span className={`text-sm font-semibold tracking-wide ${statusBadge.style}`}>
+        <div className="flex items-center">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${statusBadge.style}`}>
             {statusBadge.label}
           </span>
         </div>
@@ -204,13 +217,13 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                 {targetEvent.songs.slice(0, 3).map((song, idx) => {
                   const effectiveKey = getEffectiveKey(song);
                   return (
-                    <div key={song.id || idx} className="flex items-baseline justify-between group">
-                      <div className="flex items-baseline gap-4 pr-4 overflow-hidden">
-                        <span className="text-sm font-mono text-slate-400 dark:text-slate-500 w-4 shrink-0">{song.order}</span>
-                        <span className="text-lg font-medium text-slate-900 dark:text-white truncate">{song.title}</span>
+                    <div key={song.id || idx} className="flex items-center justify-between group py-0.5">
+                      <div className="flex items-center gap-3 pr-4 overflow-hidden">
+                        <span className="text-[11px] font-mono font-bold text-slate-400 dark:text-slate-500/60 w-4 shrink-0 text-right">{song.order}</span>
+                        <span className="text-[15px] font-medium text-slate-800 dark:text-slate-200 truncate">{song.title}</span>
                       </div>
                       {effectiveKey && (
-                        <span className="text-sm font-semibold text-slate-400 dark:text-slate-500 shrink-0">
+                        <span className="text-[11px] font-bold text-slate-400/80 dark:text-slate-500/60 shrink-0 uppercase tracking-widest">
                           {effectiveKey}
                         </span>
                       )}
@@ -263,7 +276,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
         )}
 
         {/* Actions Button Bar */}
-        <div className="flex flex-col gap-3 pt-2">
+        <div className="flex flex-col sm:flex-row gap-3 pt-4">
           {currentMode === 'assigned-event' || currentMode === 'leader-prepared' ? (
             <>
               {showPerformance ? (
@@ -276,9 +289,9 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                   {targetEvent.type === 'music' ? t('dashboard.focus.openRepertoire', 'Abrir repertório') : t('dashboard.focus.openScale', 'Abrir escala')}
                 </Button>
               )}
-              <button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors h-10">
+              <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" size="lg" variant="ghost">
                 {t('dashboard.focus.viewScaleDetails', 'Ver detalhes')}
-              </button>
+              </Button>
             </>
           ) : currentMode === 'leader-attention' ? (
             <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto" size="lg" variant="primary">
@@ -382,7 +395,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   }
 
   return (
-    <Card className="p-6 sm:p-10 bg-gradient-to-b from-white to-slate-50/50 dark:from-[#13131A] dark:to-[#0D0D12] border-none shadow-2xl shadow-black/5 dark:shadow-black/40 relative overflow-hidden rounded-3xl">
+    <Card className="p-5 sm:p-8 bg-gradient-to-b from-white to-slate-50/50 dark:from-[#13131A] dark:to-[#0D0D12] border-none shadow-2xl shadow-black/5 dark:shadow-black/40 relative overflow-hidden rounded-3xl">
       {/* Decorative subtle top gradient line */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500/0 via-indigo-500/20 to-indigo-500/0"></div>
       {content}
