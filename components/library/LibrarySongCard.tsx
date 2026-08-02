@@ -4,6 +4,7 @@ import { MusicNoteIcon } from '../icons/MusicNoteIcon';
 import { Download, Check, Loader2, Play, Edit, Trash2, Library, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
+import { getSearchSnippet } from '../../utils/searchEngine';
 
 interface LibrarySongCardProps {
   song: GlobalSong;
@@ -17,6 +18,8 @@ interface LibrarySongCardProps {
   selectable?: boolean;
   selected?: boolean;
   onToggleSelection?: (songId: string, e: React.MouseEvent) => void;
+  searchMatch?: import('../../utils/searchEngine').SearchMatch;
+  searchTerm?: string;
 }
 
 const getStatusBadge = (song: GlobalSong, t: any) => {
@@ -59,6 +62,8 @@ export const LibrarySongCard: React.FC<LibrarySongCardProps> = ({
   selectable = false,
   selected = false,
   onToggleSelection,
+  searchMatch,
+  searchTerm
 }) => {
   const { t } = useTranslation();
   const status = getStatusBadge(song, t);
@@ -154,11 +159,22 @@ export const LibrarySongCard: React.FC<LibrarySongCardProps> = ({
         <p className="mt-1 truncate text-sm font-medium text-slate-500 dark:text-slate-400">
            {song.artist}
         </p>
+        
+        {searchMatch?.matchOrigin === 'lyrics' && searchTerm && (
+          <div className="mt-2 text-xs italic text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-white/5 p-2 rounded-md border border-slate-100 dark:border-white/5">
+            <span className="font-semibold text-blue-600 dark:text-blue-400 mr-1">{t('library.in_lyrics', 'Na letra:')}</span>
+            "{getSearchSnippet(song.lyrics, searchTerm)}"
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3 min-w-0 max-w-full mt-5">
            <div className="flex flex-col min-w-0">
                <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500 truncate">{t("library.key_short", "Tom")}</span>
-               <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{song.key || "—"}</span>
+               {searchMatch && searchTerm ? (
+                 <span className="text-sm font-black text-blue-600 dark:text-blue-400 truncate bg-blue-50 dark:bg-blue-500/10 px-1.5 py-0.5 rounded-md inline-block w-max border border-blue-100 dark:border-blue-500/20">{song.key || "—"}</span>
+               ) : (
+                 <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{song.key || "—"}</span>
+               )}
            </div>
            <div className="flex flex-col min-w-0 border-l border-slate-200 dark:border-white/10 pl-3">
                <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500 truncate">{t("library.bpm_short", "BPM")}</span>

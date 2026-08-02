@@ -9,6 +9,7 @@ import { useSafeAction } from "../../hooks/useSafeAction";
 import { motion, AnimatePresence } from "motion/react";
 
 import { getSongFreshnessStatus } from "../../utils/songHelpers";
+import { getSearchSnippet } from "../../utils/searchEngine";
 
 const getTagColor = (tagName: string) => {
   const colors = [
@@ -36,6 +37,8 @@ interface SongCardProps {
   isSelectionMode: boolean;
   isSelected: boolean;
   onSelectToggle: (songId: string) => void;
+  searchMatch?: import("../../utils/searchEngine").SearchMatch;
+  searchTerm?: string;
 }
 
 import { useApi } from "../../contexts/ApiContext";
@@ -57,6 +60,8 @@ const SongCard: React.FC<SongCardProps> = ({
   isSelectionMode,
   isSelected,
   onSelectToggle,
+  searchMatch,
+  searchTerm
 }) => {
   const { permissions, userProfile } = useAuth();
   const canEdit = !!(permissions?.manageSongs || permissions?.['musicScale.manageSongs'] || permissions?.['musicscale.songs.edit']);
@@ -222,6 +227,13 @@ const SongCard: React.FC<SongCardProps> = ({
         >
           {song.artist}
         </p>
+        
+        {searchMatch?.matchOrigin === 'lyrics' && searchTerm && (
+          <div className="mt-2 text-xs italic text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-white/5 p-2 rounded-md border border-slate-100 dark:border-white/5">
+            <span className="font-semibold text-primary mr-1">Na letra:</span>
+            "{getSearchSnippet(song.lyrics, searchTerm)}"
+          </div>
+        )}
       </div>
 
       <div className="mt-auto">
@@ -230,7 +242,11 @@ const SongCard: React.FC<SongCardProps> = ({
            <div className="flex items-center gap-2">
              <div className="flex flex-col">
                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 mb-0.5">Tom</span>
-               <span className="text-[13px] font-bold text-slate-800 dark:text-white/90 leading-none">{song.key || "—"}</span>
+               {searchMatch && searchTerm ? (
+                 <span className="text-[13px] font-black text-primary leading-none bg-primary/10 px-1.5 py-0.5 rounded shadow-sm border border-primary/20">{song.selectedKey || song.key || song.originalKey || "—"}</span>
+               ) : (
+                 <span className="text-[13px] font-bold text-slate-800 dark:text-white/90 leading-none">{song.key || "—"}</span>
+               )}
              </div>
              <div className="w-[1px] h-6 bg-slate-200 dark:bg-white/10 mx-2"></div>
              <div className="flex flex-col">
