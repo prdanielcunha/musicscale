@@ -1,0 +1,258 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/app/applet[39m
+
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalHttpHandler[2m > [22m1. sucesso retorna 200[32m 7[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalHttpHandler[2m > [22m2. parâmetros ausentes retornam 400[32m 1[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalHttpHandler[2m > [22m3. contexto de ator ausente não retorna 200[32m 1[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalHttpHandler[2m > [22m4. acesso de curadoria negado retorna 403[32m 1[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalHttpHandler[2m > [22m5. candidata inexistente possui status estável (404)[32m 5[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalHttpHandler[2m > [22m6. idempotência válida retorna sucesso (200)[32m 1[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalHttpHandler[2m > [22m7. conflito de idempotência possui status estável (409)[32m 1[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalHttpHandler[2m > [22m8. reserva em colisão retorna 409[32m 1[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalHttpHandler[2m > [22m9. duplicata retorna 409[32m 1[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalHttpHandler[2m > [22m10. duplicateGlobalSongId é preservado[32m 3[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalHttpHandler[2m > [22m11. falha inesperada retorna 500 sem stack[32m 1[2mms[22m[39m
+ [32m✓[39m test[90mstdout[2m | tests/server/music-scale-command-service.test.ts
+[22m[39m◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+
+[90mstdout[2m | tests/server/music-scale-command-service.test.ts[2m > [22m[2mMusicScaleCommandService (Backend)[2m > [22m[2m2. Publicação normal
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command aa7f0fa2-0691-46bc-8386-c4d7f424f00a in 4ms {
+  musicScaleId: [32m'scale-1'[39m,
+  orgId: [32m'org-1'[39m,
+  correlationId: [32m'test'[39m,
+  version: [33m2[39m
+}
+
+[90mstdout[2m | tests/server/music-scale-command-service.test.ts[2m > [22m[2mMusicScaleCommandService (Backend)[2m > [22m[2m3. Três cliques simultâneos
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command 6418a851-7664-4d1f-a020-b9a5976e84ba in 1ms {
+  musicScaleId: [32m'scale-1'[39m,
+  orgId: [32m'org-1'[39m,
+  correlationId: [32m'test-correlation-cliques'[39m,
+  version: [33m2[39m
+}
+
+[90mstdout[2m | tests/server/music-scale-command-service.test.ts[2m > [22m[2mMusicScaleCommandService (Backend)[2m > [22m[2m3. Três cliques simultâneos
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command d394076f-c117-44dc-9d5f-dc32c2fd4261 in 2ms {
+  musicScaleId: [32m'scale-1'[39m,
+  orgId: [32m'org-1'[39m,
+  correlationId: [32m'test-correlation-cliques'[39m,
+  version: [33m2[39m
+}
+[INFO] [MusicScalePublishCommand] Processed command 5c526c9e-7f0e-40e2-b598-2d8c0d253970 in 2ms {
+  musicScaleId: [32m'scale-1'[39m,
+  orgId: [32m'org-1'[39m,
+  correlationId: [32m'test-correlation-cliques'[39m,
+  version: [33m2[39m
+}
+
+[90mstdout[2m | tests/server/music-scale-command-service.test.ts[2m > [22m[2mMusicScaleCommandService (Backend)[2m > [22m[2m4. Conflito otimista real && 5. Retry após conflito
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command 8a4de211-1c00-4bfe-ae36-e05effeec683 in 1ms {
+  musicScaleId: [32m'scale-1'[39m,
+  orgId: [32m'org-1'[39m,
+  correlationId: [32m'test'[39m,
+  version: [33m2[39m
+}
+
+[90mstdout[2m | tests/server/music-scale-command-service.test.ts[2m > [22m[2mMusicScaleCommandService (Backend)[2m > [22m[2m7. Um único receipt
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command f5385d6c-d6ed-4987-b85f-51cfd646b188 in 1ms {
+  musicScaleId: [32m'scale-1'[39m,
+  orgId: [32m'org-1'[39m,
+  correlationId: [32m'test'[39m,
+  version: [33m2[39m
+}
+
+[90mstdout[2m | tests/server/music-scale-command-service.test.ts[2m > [22m[2mMusicScaleCommandService (Backend)[2m > [22m[2m8. Conflito por payload diferente
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command 703495ab-79cb-4fa5-8b07-a8a52cc99299 in 0ms {
+  musicScaleId: [32m'scale-1'[39m,
+  orgId: [32m'org-1'[39m,
+  correlationId: [32m'test'[39m,
+  version: [33m2[39m
+}
+
+[90mstdout[2m | tests/server/music-scale-command-service.test.ts[2m > [22m[2mMusicScaleCommandService (Backend)[2m > [22m[2m9. Conflito por entidade diferente
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command 6f4b14e5-b2a6-4309-b9ff-8257c1e26664 in 1ms {
+  musicScaleId: [32m'scale-1'[39m,
+  orgId: [32m'org-1'[39m,
+  correlationId: [32m'test'[39m,
+  version: [33m2[39m
+}
+
+[90mstdout[2m | tests/server/music-scale-command-service.test.ts[2m > [22m[2mMusicScaleCommandService (Backend)[2m > [22m[2m14. Banda omitida
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command a76e2de7-1173-4d83-a735-d576df4a9fbf in 0ms {
+  musicScaleId: [32m'scale-1'[39m,
+  orgId: [32m'org-1'[39m,
+  correlationId: [32m'test'[39m,
+  version: [33m2[39m
+}
+
+[90mstdout[2m | tests/server/music-scale-command-service.test.ts[2m > [22m[2mMusicScaleCommandService (Backend)[2m > [22m[2m15. Banda removida com null
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command 52a05283-ed58-4651-87d3-5c517e0a3585 in 0ms {
+  musicScaleId: [32m'scale-1'[39m,
+  orgId: [32m'org-1'[39m,
+  correlationId: [32m'test'[39m,
+  version: [33m2[39m
+}
+
+[90mstdout[2m | tests/server/music-scale-command-service.test.ts[2m > [22m[2mMusicScaleCommandService (Backend)[2m > [22m[2m16. Troca de banda
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command 3a9067b6-fe8d-44bf-9fb0-42670da8e3c9 in 0ms {
+  musicScaleId: [32m'scale-1'[39m,
+  orgId: [32m'org-1'[39m,
+  correlationId: [32m'test'[39m,
+  version: [33m2[39m
+}
+
+[90mstdout[2m | tests/server/music-scale-command-service.test.ts[2m > [22m[2mMusicScaleCommandService (Backend)[2m > [22m[2m17. Assignment revision
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command d4db2573-1f62-43fd-a64a-5b2acc3ce94b in 1ms {
+  musicScaleId: [32m'scale-1'[39m,
+  orgId: [32m'org-1'[39m,
+  correlationId: [32m'test-assign-revision'[39m,
+  version: [33m2[39m
+}
+
+ [32m✓[39m tests/server/music-scale-command-service.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 104[2mms[22m[39m
+ [32m✓[39m tests/ui/existing-member-setup-guide.test.tsx [2m([22m[2m52 tests[22m[2m)[22m[33m 8304[2mms[22m[39m
+     [33m[2m✓[22m[39m 1. inicia na etapa escolher pessoa; [33m 380[2mms[22m[39m
+     [33m[2m✓[22m[39m 3. incompletos aparecem primeiro; [33m 512[2mms[22m[39m
+     [33m[2m✓[22m[39m 16. seleciona múltiplas funções; [33m 384[2mms[22m[39m
+     [33m[2m✓[22m[39m 19. definir depois deixa funções vazias; [33m 320[2mms[22m[39m
+     [33m[2m✓[22m[39m 20. revisão mostra papel escolhido; [33m 310[2mms[22m[39m
+     [33m[2m✓[22m[39m 24. salvar chama callback uma vez; [33m 392[2mms[22m[39m
+     [33m[2m✓[22m[39m 25. callback recebe somente userId, roleId e specialtyIds; [33m 308[2mms[22m[39m
+     [33m[2m✓[22m[39m 28. configurar próxima pessoa volta à etapa 1; [33m 317[2mms[22m[39m
+[90mstdout[2m | tests/server/music-scale-cycle-release.test.ts
+[22m[39m◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+[90mstdout[2m | tests/server/music-scale-cycle-release.test.ts[2m > [22m[2mMusicScale Complete Lifecycle & E2E Release Candidate Certification[2m > [22m[2mScenario 1: Primeira Publicação (Draft -> Published)
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command 0cdfaf80-edf8-48f6-a29e-aac9cbb19fa9 in 55ms {
+  musicScaleId: [32m'scale-alpha'[39m,
+  orgId: [32m'org-alpha'[39m,
+  correlationId: [32m'corr-s1'[39m,
+  version: [33m2[39m
+}
+
+[90mstdout[2m | tests/server/music-scale-cycle-release.test.ts[2m > [22m[2mMusicScale Complete Lifecycle & E2E Release Candidate Certification[2m > [22m[2mScenario 2: Republicação ou Mudança de Banda (Reconciliação)
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command 1eb16d80-31e5-4ef8-adb1-6da790fa7933 in 2ms {
+  musicScaleId: [32m'scale-beta'[39m,
+  orgId: [32m'org-beta'[39m,
+  correlationId: [32m'corr-s2'[39m,
+  version: [33m3[39m
+}
+
+[90mstdout[2m | tests/server/music-scale-cycle-release.test.ts[2m > [22m[2mMusicScale Complete Lifecycle & E2E Release Candidate Certification[2m > [22m[2mScenario 3: Líder/Modificador Excluído da Notificação
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command 62962efa-e63a-4279-bf71-0d22a0f08e44 in 2ms {
+  musicScaleId: [32m'scale-gamma'[39m,
+  orgId: [32m'org-gamma'[39m,
+  correlationId: [32m'corr-s3'[39m,
+  version: [33m2[39m
+}
+
+[90mstdout[2m | tests/server/music-scale-cycle-release.test.ts[2m > [22m[2mMusicScale Complete Lifecycle & E2E Release Candidate Certification[2m > [22m[2mScenario 4: Broadcast se nenhuma escala de banda estiver vinculada
+[22m[39m[INFO] [MusicScalePublishCommand] Processed command 62485248-d8a8-4948-a270-db46425b1010 in 0ms {
+  musicScaleId: [32m'scale-delta'[39m,
+  orgId: [32m'org-delta'[39m,
+  correlationId: [32m'corr-s4'[39m,
+  version: [33m2[39m
+}
+
+ [32m✓[39m tests/server/music-scale-cycle-release.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 158[2mms[22m[39m
+[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m36. falha em leitura não produz writes (Req 12.18)[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m37. falha de validação não produz writes (Req 12.19)[32m 1[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m38. falha transacional vira TRANSACTION_FAILED (Req 12.20)[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m39. review log contém ator e procedência (Req 12.21)[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m40. música global não recebe campos internos proibidos (Req 12.22)[32m 1[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m41. reserva contém candidateId correto (Req 12.23)[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m42. candidato recebe chave de idempotência (Req 12.24)[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m43. nenhuma leitura acontece após escrita em fluxo com músicas locais e log existente (Req 12.25)[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m12.1. uid numérico[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m12.2. uid objeto[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m12.3. uid somente com espaços[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m12.4. normalizedTitle numérico[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m12.5. normalizedTitle objeto[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m12.6. contentFingerprint objeto[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m12.7. lyricsFingerprint array[32m 1[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m12.8. snapshot.title numérico[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m12.9. source.organizationId numérico[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m12.10. source.songId objeto[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m12.11. externalReferences array[32m 0[2mms[22m[39m
+ [32m✓[39m tests/server/curation-approval-service.test.ts[2m > [22mCurationApprovalService[2m > [22m12.12. normalizedArtists não array[32m 0[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m1. integrante incompleto mostra a ação Configurar pessoa[32m 197[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m2. clicar na ação abre o guia real[32m 179[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m3. equipe vazia mantém Ver integrantes[32m 91[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m4. equipe vazia não abre o guia[32m 20[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m5. equipe completa mantém Revisar integrantes[32m 89[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m6. equipe completa não abre o guia[32m 93[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m7. usuário sem musicscale.members.manage não vê o cartão[32m 22[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m8. capability é consultada exatamente com musicscale.members.manage[32m 93[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m9. usuário atual recebe acesso em modo somente leitura[32m 179[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m10. usuário atual consegue avançar para funções[32m 119[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m11. owner identificado por ownerUserId recebe somente leitura[32m 179[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m12. owner identificado pelo roleId resolvido recebe somente leitura[32m 117[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m13. organizationRole: "owner" isolado não substitui o perfil de acesso do MusicScale, conforme contrato atual definido pela política[32m 205[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m14. decisão canChange: false bloqueia edição[32m 177[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m15. decisão canAssign: false remove o papel das opções[33m 615[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m16. papel resolvido como owner nunca aparece[32m 208[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m17. selecionar papel não chama API[32m 220[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m18. selecionar função não chama API[32m 284[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m19. papel alterado chama users.update uma única vez[33m 317[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m20. papel alterado envia exatamente: { roleId, musicscaleRole, specialtyIds }[33m 412[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m21. papel inalterado envia exatamente: { specialtyIds }[32m 261[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m22. usuário atual envia somente specialtyIds[32m 198[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m23. owner envia somente specialtyIds[32m 220[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m24. specialtyIds são normalizados[33m 375[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m25. duplicidades são removidas[32m 294[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m26. espaços vazios são removidos[33m 398[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m27. payload não contém organizationRole[33m 326[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m28. payload não contém systemRole[32m 296[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m29. payload não contém organizationId[32m 295[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m30. usa users.update[33m 402[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m31. não usa users.updateMany[32m 291[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m32. chama users.list novamente e atualiza o cartão[33m 404[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m33. alteração da política antes do salvamento impede users.update[33m 313[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m34. falha de users.update mantém o guia aberto[33m 480[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m35. falha preserva o papel escolhido[33m 615[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m36. falha preserva as funções escolhidas[33m 579[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m37. sucesso mostra toast traduzido[33m 308[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m38. fluxo não navega para outra rota[32m 217[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m39. fluxo não abre convite[32m 109[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m40. cartão atualiza após a resposta recarregada de users.list[32m 292[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m41. intent configure-existing é consumida apenas uma vez[32m 297[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m42. intent inválido limpa state e não realiza mutações[32m 86[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m43. intent válido sem capability limpa state e não realiza mutações[32m 7[2mms[22m[39m
+ [32m✓[39m tests/ui/users-existing-member-setup-integration.test.tsx[2m > [22mUsersPage Integration ExistingMemberSetup[2m > [22m44. montagem padrão sem intent mantém state intacto e não força abertura[32m 86[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m1. Verifies Subir button has dynamic aria-label interpolating first song title[33m 1070[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m2. Verifies Descer button has dynamic aria-label interpolating first song title[32m 299[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m3. Verifies reorder handle grip element has appropriate aria-label[32m 106[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m4. Disables Subir button for the first song in the list[32m 203[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m5. Disables Descer button for the last song in the list[32m 120[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m6. Enables both Subir and Descer buttons for middle songs[32m 179[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m7. Moves first song down correctly on Descer click[32m 213[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m8. Moves last song up correctly on Subir click[33m 304[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m9. Moves middle song up correctly on Subir click[32m 287[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m10. Moves middle song down correctly on Descer click[33m 302[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m11. Clicking disabled Subir on first song preserves previous state order[32m 187[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m12. Clicking disabled Descer on last song preserves previous state order[32m 115[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m13. Binds local key adjustments to correct songId after reordering down[32m 208[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m14. Binds local key adjustments to correct songId after reordering up[32m 270[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m15. Avoids duplicating settings or key leakage across cards[32m 102[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m16. Untouched songs continue displaying original database defaults[32m 104[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m17. Starts drag-and-drop successfully, calling setDragImage and signaling dragging state[32m 107[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m18. Drags over an eligible drop zone target, triggering dropTargetId state[32m 132[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m19. Drops target song successfully before target zone semantically (A solta antes de C e produz B, A, C, D)[32m 173[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m19a. D arrastada para a zona anterior a B resulta em A, D, B, C[32m 199[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m19b. A arrastada para a zona final resulta em B, C, D, A[32m 115[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m19c. Nenhuma música é perdida ou duplicada durante reordenação[32m 188[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m19d. Somente a alça possui draggable=true e o elemento raiz do card não é draggable[32m 91[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m19e. Clicar em Editar ajustes não inicia drag e o callback de mudança de ordem não é chamado[32m 201[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m19f. O card da música arrastada recebe o estado visual de arraste, dragEnd remove o estado e remove destaque da dropzone[32m 191[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m19g. Drop inválido sobre a própria música não altera a ordem[32m 96[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m20. Cleanly terminates drag states on dragEnd event, resetting draggedSongId and dropTargetId[32m 218[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m21. Dispatches touchStart gesture identifying selected card correctly, adding styling[32m 94[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m22. Tracks touchMove gesture calling preventDefault and finding target via elementFromPoint (Real DOM)[32m 117[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m23. Finishes touch reorder cleanly on touchEnd, restoring styles[32m 90[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m24. Cancels touch interaction gracefully on touchCancel, resetting styles and restoring overflow[32m 95[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m25. simulação completa touch: mover a terceira música para o topo resulta em C, A, B, D[32m 203[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m26. simulação completa touch: mover a primeira música para a última posição resulta em B, C, D, A[32m 199[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m27. simulação completa touch: múltiplos movimentos no mesmo gesto, salva a ordem[32m 209[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m28. limpa bloqueio de scroll ao desmontar componente com toque em andamento[32m 95[2mms[22m[39m
+ [32m✓[39m tests/ui/scale-review-song-order.test.tsx[2m > [22mScale Review Stage Song Reordering Integration Tests (24 scenarios)[2m > [22m29. casos de borda touch: elementFromPoint null, sem data-song-id, data-song-id inexistente, mesma posição, overflow hidden e novo gesto após cancelamento[32m 204[2mms[22m[39m
