@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "test:ui": "vitest run",
-    "test:e2e": "firebase emulators:exec --project demo-musicscale --only auth,firestore \"npm run test:e2e:run\"",
+    "test:e2e": "npx firebase emulators:exec --project demo-musicscale --only auth,firestore \"npm run test:e2e:run\"",
     "test:e2e:chromium": "firebase emulators:exec --project demo-musicscale --only auth,firestore \"npx playwright test --project=desktop-chromium\"",
     "test:e2e:mobile": "firebase emulators:exec --project demo-musicscale --only auth,firestore \"npx playwright test --project=mobile-chromium\"",
     "test:e2e:report": "npx playwright show-report",

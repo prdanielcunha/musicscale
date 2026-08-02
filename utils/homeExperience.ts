@@ -462,11 +462,10 @@ export function canUsePerformanceMode(
   // 2. o usuário tiver permissão / entitlement
   if (!hasPermission) return false;
   // 3. o evento estiver em estado válido
-  const status = event.status || '';
-  if (status === 'cancelled') return false;
-  
-  const validStatuses = ['published', 'draft', 'prepared'];
-  if (status && !validStatuses.includes(status)) return false;
+  const status = event.status;
+  if (status !== 'published' && status !== 'prepared') {
+    return false;
+  }
 
   return true;
 }

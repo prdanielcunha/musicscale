@@ -277,12 +277,18 @@ describe('Home Experience Domain Logic', () => {
       expect(canUsePerformanceMode(event, true)).toBe(true);
     });
 
-    it('deve retornar verdadeiro para status draft ou prepared', () => {
-      const draftEventObj = createEvent({ type: 'music', songCount: 3, status: 'draft' });
-      expect(canUsePerformanceMode(draftEventObj, true)).toBe(true);
-
+    it('deve retornar verdadeiro para status prepared, e falso para draft, vazio ou desconhecido', () => {
       const preparedEventObj = createEvent({ type: 'music', songCount: 2, status: 'prepared' });
       expect(canUsePerformanceMode(preparedEventObj, true)).toBe(true);
+
+      const draftEventObj = createEvent({ type: 'music', songCount: 3, status: 'draft' });
+      expect(canUsePerformanceMode(draftEventObj, true)).toBe(false);
+
+      const emptyEventObj = createEvent({ type: 'music', songCount: 3, status: '' });
+      expect(canUsePerformanceMode(emptyEventObj, true)).toBe(false);
+
+      const unknownEventObj = createEvent({ type: 'music', songCount: 3, status: 'unknown' });
+      expect(canUsePerformanceMode(unknownEventObj, true)).toBe(false);
     });
 
     it('deve retornar falso se songCount for 0', () => {
