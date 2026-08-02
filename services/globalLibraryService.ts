@@ -6,7 +6,10 @@ import {
   searchSongs, 
   normalizeSearchText, 
   normalizeMusicalKey,
-  buildGlobalSongSearchFields
+  buildGlobalSongSearchFields,
+  GLOBAL_SEARCH_VERSION,
+  isValidMusicalKeyQuery,
+  buildTrigrams
 } from '../utils/searchEngine';
 
 const GLOBAL_SONGS_COLLECTION = 'globalSongs';
@@ -61,6 +64,25 @@ export const updateGlobalSong = async (songId: string, payload: Partial<GlobalSo
   await updateDoc(docRef, updateData);
 };
 
+export function mergeGlobalSearchCandidates(candidatesList: GlobalSong[], searchTerm: string): GlobalSong[] {
+  const seenIds = new Set<string>();
+  const uniqueCandidates: GlobalSong[] = [];
+  for (const song of candidatesList) {
+    if (song && song.id && !seenIds.has(song.id)) {
+      seenIds.add(song.id);
+      uniqueCandidates.push(song);
+    }
+  }
+
+  // manual status filter to ensure only active songs are returned
+  const activeCandidates = uniqueCandidates.filter(s => s.status === 'active');
+
+  const searchDocs = buildSearchIndex(activeCandidates);
+  const rankedMatches = searchSongs(searchDocs, searchTerm);
+
+  return rankedMatches.map(m => m.document.song);
+}
+
 export const getGlobalSongs = async (
   searchTerm: string = '',
   lastVisible?: QueryDocumentSnapshot<DocumentData>,
@@ -71,53 +93,89 @@ export const getGlobalSongs = async (
 
   if (searchTerm.trim()) {
     const normalizedTerm = normalizeSearchText(searchTerm);
-    const keyTerm = normalizeMusicalKey(searchTerm);
-    
-    let tokensToSearch: string[] = [];
-    if (keyTerm) {
-      tokensToSearch.push(keyTerm.toLowerCase());
-    }
-    
-    if (normalizedTerm) {
-      const parts = normalizedTerm.split(" ").filter(p => p.length > 0);
-      tokensToSearch.push(...parts);
-    }
-    
-    tokensToSearch = Array.from(new Set(tokensToSearch)).slice(0, 10);
-    
-    if (tokensToSearch.length > 0) {
-      q = query(
+    const queryTokens = normalizedTerm ? normalizedTerm.split(" ").filter(t => t.length > 0) : [];
+    const isKey = isValidMusicalKeyQuery(searchTerm);
+    const normalizedKey = isKey ? normalizeMusicalKey(searchTerm) : "";
+
+    const queries = [];
+
+    // 1. Key token match (only if it is a valid musical key)
+    if (isKey && normalizedKey) {
+      queries.push(query(
         collRef,
-        where('searchTokens', 'array-contains-any', tokensToSearch),
-        limit(200) 
-      );
-      
-      const snapshot = await getDocs(q);
-      const allFetched = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }) as GlobalSong);
-      
-      if (allFetched.length === 0 && normalizedTerm) {
-        const fallbackQ = query(
-          collRef,
-          where('normalizedTitle', '>=', normalizedTerm),
-          where('normalizedTitle', '<=', normalizedTerm + '\uf8ff'),
-          limit(200)
-        );
-        const fallbackSnapshot = await getDocs(fallbackQ);
-        allFetched.push(...fallbackSnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }) as GlobalSong));
-      }
-      
-      const activeCandidates = allFetched.filter(s => s.status === 'active');
-      
-      const searchDocs = buildSearchIndex(activeCandidates);
-      const rankedMatches = searchSongs(searchDocs, searchTerm);
-      
-      const songs = rankedMatches.slice(0, pageSize).map(m => m.document.song);
-      
-      return {
-        songs,
-        lastVisible: null 
-      };
+        where('searchKeyTokens', 'array-contains', normalizedKey),
+        limit(200)
+      ));
     }
+
+    // 2. Exact word tokens match
+    if (queryTokens.length > 0) {
+      queries.push(query(
+        collRef,
+        where('searchTokens', 'array-contains-any', queryTokens.slice(0, 10)),
+        limit(200)
+      ));
+    }
+
+    // 3. Title prefix match
+    if (queryTokens.length > 0) {
+      queries.push(query(
+        collRef,
+        where('searchTitlePrefixes', 'array-contains-any', queryTokens.slice(0, 10)),
+        limit(200)
+      ));
+    }
+
+    // 4. Artist prefix match
+    if (queryTokens.length > 0) {
+      queries.push(query(
+        collRef,
+        where('searchArtistPrefixes', 'array-contains-any', queryTokens.slice(0, 10)),
+        limit(200)
+      ));
+    }
+
+    // 5. Trigram matches (Title and Artist)
+    const queryTrigrams = buildTrigrams(searchTerm);
+    if (queryTrigrams.length > 0) {
+      queries.push(query(
+        collRef,
+        where('searchTitleGrams', 'array-contains-any', queryTrigrams.slice(0, 10)),
+        limit(200)
+      ));
+      queries.push(query(
+        collRef,
+        where('searchArtistGrams', 'array-contains-any', queryTrigrams.slice(0, 10)),
+        limit(200)
+      ));
+    }
+
+    // 6. Legacy prefix fallback query (normalizedTitle)
+    if (normalizedTerm) {
+      queries.push(query(
+        collRef,
+        where('normalizedTitle', '>=', normalizedTerm),
+        where('normalizedTitle', '<=', normalizedTerm + '\uf8ff'),
+        limit(200)
+      ));
+    }
+
+    // Execute queries in parallel
+    const snapshots = await Promise.all(queries.map(q => getDocs(q)));
+    const allFetched: GlobalSong[] = [];
+
+    for (const snap of snapshots) {
+      snap.docs.forEach(docSnap => {
+        allFetched.push({ id: docSnap.id, ...(docSnap.data() as any) } as GlobalSong);
+      });
+    }
+
+    const songs = mergeGlobalSearchCandidates(allFetched, searchTerm);
+
+    return {
+      songs: songs.slice(0, pageSize),
+      lastVisible: null
+    };
   }
 
   q = query(
@@ -134,9 +192,15 @@ export const getGlobalSongs = async (
   // manual status filter to avoid composite index requirement
   const allFetched = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }) as GlobalSong);
   const songs = allFetched.filter(s => s.status === 'active').slice(0, pageSize);
+
+  const lastSong = songs[songs.length - 1];
+  const lastVisibleDoc = lastSong 
+    ? snapshot.docs.find(d => d.id === lastSong.id) 
+    : null;
+
   return {
     songs,
-    lastVisible: snapshot.docs[snapshot.docs.length - 1]
+    lastVisible: lastVisibleDoc || null
   };
 };
 

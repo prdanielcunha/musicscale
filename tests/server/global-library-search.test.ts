@@ -32,8 +32,8 @@ describe('Global Library Search (Emulator)', () => {
 
   beforeEach(async () => {
     await testEnv.clearFirestore();
-    // Use an unauthenticated or authenticated context that can read globalSongs
-    const context = testEnv.unauthenticatedContext();
+    // Use an authenticated admin context that has permission to write globalSongs
+    const context = testEnv.authenticatedContext('admin_user', { email: 'pastordanielpcunha@gmail.com' });
     emulatorDb = context.firestore();
   });
 
@@ -152,5 +152,46 @@ describe('Global Library Search (Emulator)', () => {
     const result = await getGlobalSongs('agua');
     expect(result.songs).toHaveLength(1);
     expect(result.songs[0].id).toBe('target1');
+  });
+
+  it('11. should find a song by title trigram (n-gram)', async () => {
+    await createSong('s1', { title: 'Grande Eu Sou', artist: 'Banda A' });
+    // "ran", "and", "nde" are trigrams of "grande"
+    const result = await getGlobalSongs('nde');
+    expect(result.songs).toHaveLength(1);
+    expect(result.songs[0].id).toBe('s1');
+  });
+
+  it('12. should find a song by artist trigram (n-gram)', async () => {
+    await createSong('s1', { title: 'Song X', artist: 'Elevation Worship' });
+    // "ele", "lev", "eva" are trigrams of "elevation"
+    const result = await getGlobalSongs('ele');
+    expect(result.songs).toHaveLength(1);
+    expect(result.songs[0].id).toBe('s1');
+  });
+
+  it('13. should handle >200 candidates gracefully and return correct top results', async () => {
+    for (let i = 0; i < 210; i++) {
+      // Create songs containing word "Noise"
+      await createSong(`n_${i}`, { title: `Noise Song ${i}`, artist: 'Banda' });
+    }
+    await createSong('best_match', { title: 'Super Unique Jesus', artist: 'Banda' });
+
+    const result = await getGlobalSongs('Jesus');
+    expect(result.songs).toHaveLength(1);
+    expect(result.songs[0].id).toBe('best_match');
+  });
+
+  it('14. should test direct call to mergeGlobalSearchCandidates', async () => {
+    const { mergeGlobalSearchCandidates } = await import('../../services/globalLibraryService');
+    const candidates = [
+      { id: 's1', title: 'Jesus Esta Aqui', artist: 'Banda A', status: 'active' },
+      { id: 's2', title: 'Alfa e Omega', artist: 'Banda B', status: 'active' },
+      { id: 's1', title: 'Jesus Esta Aqui', artist: 'Banda A', status: 'active' }, // Duplicate
+    ] as any[];
+
+    const ranked = mergeGlobalSearchCandidates(candidates, 'jesus');
+    expect(ranked).toHaveLength(1);
+    expect(ranked[0].id).toBe('s1');
   });
 });

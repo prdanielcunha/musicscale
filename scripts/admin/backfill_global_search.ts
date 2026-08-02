@@ -1,6 +1,6 @@
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { normalizeSearchText, normalizeMusicalKey } from '../../utils/searchEngine';
+import { initializeApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { buildGlobalSongSearchFields, GLOBAL_SEARCH_VERSION } from '../../utils/searchEngine';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
@@ -11,23 +11,8 @@ const db = getFirestore(app);
 
 const GLOBAL_SONGS_COLLECTION = 'globalSongs';
 
-// We duplicate the logic here to avoid importing browser-specific modules or dependencies
-// that might break the admin script
-function buildPrefixes(tokens: string[], minLen: number, maxPrefixes: number) {
-  const prefixes = new Set<string>();
-  for (const token of tokens) {
-    if (token.length >= minLen) {
-      for (let i = minLen; i <= token.length; i++) {
-        prefixes.add(token.substring(0, i));
-        if (prefixes.size >= maxPrefixes) return Array.from(prefixes);
-      }
-    }
-  }
-  return Array.from(prefixes);
-}
-
 async function runBackfill(dryRun: boolean = true) {
-  console.log(`Starting backfill for Global Search Fields... (Dry Run: ${dryRun})`);
+  console.log(`Starting backfill for Global Search Fields... (Dry Run: ${dryRun}, Target Version: ${GLOBAL_SEARCH_VERSION})`);
   
   const batchSize = 100;
   let processed = 0;
@@ -58,69 +43,16 @@ async function runBackfill(dryRun: boolean = true) {
       processed++;
       const data = doc.data();
 
-      // Skip if already version 1
-      if (data.searchVersion === 1) {
+      // Skip if already up-to-date (idempotency)
+      if (data.searchVersion === GLOBAL_SEARCH_VERSION) {
         continue;
       }
 
-      const actualTitle = String(data.title || '').trim();
-      const actualArtist = String(data.artist || '').trim();
-      const actualVersion = String(data.version || '').trim();
-      const actualLyrics = String(data.lyrics || data.cleanLyrics || '').trim();
-      const actualAliases = String(data.aliases || data.keywords || '').trim();
-
-      const titleNormalized = normalizeSearchText(actualTitle);
-      const artistNormalized = normalizeSearchText(actualArtist);
-      const versionNormalized = normalizeSearchText(actualVersion);
-      const lyricsNormalized = normalizeSearchText(actualLyrics);
-      const aliasesNormalized = normalizeSearchText(actualAliases);
-
-      const keyNormalized = normalizeMusicalKey(data.key);
-      const originalKeyNormalized = normalizeMusicalKey(data.originalKey);
-      const selectedKeyNormalized = normalizeMusicalKey(data.selectedKey);
-
-      const titleTokens = titleNormalized ? titleNormalized.split(" ") : [];
-      const artistTokens = artistNormalized ? artistNormalized.split(" ") : [];
-      const lyricsTokens = lyricsNormalized ? lyricsNormalized.split(" ") : [];
-      const versionTokens = versionNormalized ? versionNormalized.split(" ") : [];
-      const aliasesTokens = aliasesNormalized ? aliasesNormalized.split(" ") : [];
-
-      const keyTokens = new Set<string>();
-      if (keyNormalized) keyTokens.add(keyNormalized);
-      if (originalKeyNormalized) keyTokens.add(originalKeyNormalized);
-      if (selectedKeyNormalized) keyTokens.add(selectedKeyNormalized);
-
-      const searchKeyTokens = Array.from(keyTokens);
-      const stopWords = new Set(["o", "a", "e", "é", "do", "da", "de", "no", "na", "os", "as", "um", "uns", "com", "que", "para", "por"]);
-
-      const allTokens = new Set<string>();
-      
-      titleTokens.forEach(t => allTokens.add(t));
-      artistTokens.forEach(t => allTokens.add(t));
-      versionTokens.forEach(t => allTokens.add(t));
-      aliasesTokens.forEach(t => allTokens.add(t));
-      searchKeyTokens.forEach(t => allTokens.add(t.toLowerCase()));
-
-      lyricsTokens.forEach(t => {
-        if (t.length > 2 && !stopWords.has(t)) {
-          allTokens.add(t);
-        }
-      });
-
-      const searchTokens = Array.from(allTokens).filter(t => t.length > 0).slice(0, 150);
-      const searchTitlePrefixes = buildPrefixes(titleTokens, 3, 25);
-      const searchArtistPrefixes = buildPrefixes(artistTokens, 3, 15);
-
-      const updateData = {
-        searchVersion: 1,
-        searchTokens,
-        searchTitlePrefixes,
-        searchArtistPrefixes,
-        searchKeyTokens
-      };
+      // Generate exact canonical search fields
+      const searchFields = buildGlobalSongSearchFields(data);
 
       if (!dryRun) {
-        batch.update(doc.ref, updateData);
+        batch.update(doc.ref, searchFields as any);
       }
       batchUpdates++;
       updated++;

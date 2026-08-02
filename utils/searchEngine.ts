@@ -64,16 +64,42 @@ export interface SongSearchDocument<T = any> {
   originalKeyNormalized?: string;
 }
 
+export const GLOBAL_SEARCH_VERSION = 2;
+
+export function isValidMusicalKeyQuery(query: string): boolean {
+  if (!query) return false;
+  const normalized = normalizeMusicalKey(query);
+  if (!normalized) return false;
+  const keyPattern = /^[A-G]([#b])?(m|maj|min|dim|aug|sus\d?)?$/;
+  return keyPattern.test(normalized);
+}
+
+export function buildTrigrams(text: string): string[] {
+  const normalized = normalizeSearchText(text);
+  const grams = new Set<string>();
+  const tokens = normalized.split(" ").filter(t => t.length > 0);
+  for (const token of tokens) {
+    if (token.length >= 3) {
+      for (let i = 0; i <= token.length - 3; i++) {
+        grams.add(token.substring(i, i + 3));
+      }
+    }
+  }
+  return Array.from(grams);
+}
+
 export interface GlobalSongSearchFields {
   searchVersion: number;
   searchTokens: string[];
   searchTitlePrefixes: string[];
   searchArtistPrefixes: string[];
+  searchTitleGrams: string[];
+  searchArtistGrams: string[];
   searchKeyTokens: string[];
 }
 
 export function buildGlobalSongSearchFields(song: any): GlobalSongSearchFields {
-  const searchVersion = 1;
+  const searchVersion = GLOBAL_SEARCH_VERSION;
 
   const actualTitle = String(song.title || '').trim();
   const actualArtist = String(song.artist || '').trim();
@@ -138,11 +164,16 @@ export function buildGlobalSongSearchFields(song: any): GlobalSongSearchFields {
   const searchTitlePrefixes = buildPrefixes(titleTokens, 3, 25);
   const searchArtistPrefixes = buildPrefixes(artistTokens, 3, 15);
 
+  const searchTitleGrams = buildTrigrams(actualTitle);
+  const searchArtistGrams = buildTrigrams(actualArtist);
+
   return {
     searchVersion,
     searchTokens,
     searchTitlePrefixes,
     searchArtistPrefixes,
+    searchTitleGrams,
+    searchArtistGrams,
     searchKeyTokens
   };
 }
