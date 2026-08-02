@@ -4,6 +4,7 @@ import {
 } from '../types';
 import { doc, writeBatch, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { db } from './firebase';
+import { transposeChordDocument } from '../utils/chordEngine';
 
 export class MusicRepository {
     private readonly orgId: string;
@@ -299,9 +300,29 @@ export class MusicRepository {
     }
 
     async updateSongChords(songId: string, chords: string) {
+        const song = await this.songs.getById(songId);
+        if (!song || song.organizationId !== this.orgId) {
+            throw new Error("Operação negada: ID da organização ausente no contexto atual.");
+        }
         await this.songs.update(songId, { 
             chords,
             chordsLastModifiedAt: serverTimestamp() as any 
+        } as any);
+    }
+
+    async transposeSong(songId: string, targetKey: string, options?: { accidentalPreference?: 'sharp' | 'flat' | 'auto' }) {
+        const song = await this.songs.getById(songId);
+        if (!song || song.organizationId !== this.orgId) {
+            throw new Error("Operação negada: ID da organização ausente no contexto atual.");
+        }
+        
+        const currentKey = song.key || 'C';
+        const { chords: transposedChords } = transposeChordDocument(song.chords || '', currentKey, targetKey, options);
+        
+        await this.songs.update(songId, {
+            chords: transposedChords,
+            key: targetKey,
+            chordsLastModifiedAt: serverTimestamp() as any
         } as any);
     }
 

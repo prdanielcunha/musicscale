@@ -1,6 +1,188 @@
 export const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 export const FLAT_NOTES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
+export function normalizeKey(key: string): string {
+  if (!key) return '';
+  return key.replace(/♯/g, '#').replace(/♭/g, 'b');
+}
+
+export function isValidKey(key: string): boolean {
+  if (!key) return false;
+  const clean = normalizeKey(key).replace(/m$/, '');
+  return NOTES.includes(clean) || FLAT_NOTES.includes(clean);
+}
+
+export function transposeChordWithPreference(chord: string, semitones: number, useFlats: boolean, targetKey?: string): string {
+  if (semitones === 0) return chord;
+  semitones = ((semitones % 12) + 12) % 12;
+
+  const chordRegex = /^([A-G][#b]?)(.*?)(\/([A-G][#b]?))?$/;
+  const match = chord.match(chordRegex);
+
+  if (!match) return chord;
+
+  const root = match[1];
+  const extensions = match[2] || '';
+  const bass = match[4];
+
+  const transposeNote = (note: string): string => {
+    let index = NOTES.indexOf(note);
+    if (index === -1) {
+      index = FLAT_NOTES.indexOf(note);
+    }
+    if (index === -1) return note; 
+    let transposedIndex = (index + semitones) % 12;
+
+    if (targetKey) {
+      const normTarget = normalizeKey(targetKey);
+      if (normTarget.startsWith('F#') || normTarget.startsWith('D#')) {
+        if (transposedIndex === 5) return 'E#';
+        if (transposedIndex === 0) return 'B#';
+      } else if (normTarget.startsWith('C#')) {
+        if (transposedIndex === 0) return 'B#';
+        if (transposedIndex === 5) return 'E#';
+      }
+    }
+
+    return useFlats ? FLAT_NOTES[transposedIndex] : NOTES[transposedIndex]; 
+  };
+
+  let result = transposeNote(root) + extensions;
+  if (bass) {
+    result += '/' + transposeNote(bass);
+  }
+  return result;
+}
+
+export function transposeChordLinePreserveSpacingWithPreference(line: string, semitones: number, useFlats: boolean, targetKey?: string): string {
+  if (semitones === 0) return line;
+  
+  // Split keeping whitespaces
+  const parts = line.split(/(\s+|[|]+)/);
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (p.trim() !== '' && !p.match(/^[|]+$/)) {
+      let prefix = '';
+      let suffix = '';
+      let core = p;
+      
+      if (core.startsWith('(') && core.endsWith(')') && !core.substring(1, core.length - 1).includes('(')) { 
+        prefix = '('; 
+        suffix = ')'; 
+        core = core.substring(1, core.length - 1); 
+      } else if (core.startsWith('[') && core.endsWith(']')) {
+        prefix = '['; 
+        suffix = ']'; 
+        core = core.substring(1, core.length - 1); 
+      } else if (core.startsWith('|') && core.endsWith('|')) {
+        prefix = '|'; 
+        suffix = '|'; 
+        core = core.substring(1, core.length - 1); 
+      }
+
+      if (isChordToken(core)) {
+        parts[i] = prefix + transposeChordWithPreference(core, semitones, useFlats, targetKey) + suffix;
+      }
+    }
+  }
+  return parts.join('');
+}
+
+export function transposeChordDocument(
+  chords: string,
+  sourceKey: string,
+  targetKey: string,
+  options?: {
+    accidentalPreference?: 'sharp' | 'flat' | 'auto';
+  }
+): {
+  chords: string;
+  semitones: number;
+  changedChordCount: number;
+} {
+  const normSource = normalizeKey(sourceKey);
+  const normTarget = normalizeKey(targetKey);
+
+  if (!chords || chords.trim() === '') {
+    throw new Error('Conteúdo vazio');
+  }
+
+  if (!isValidKey(normSource) || !isValidKey(normTarget)) {
+    throw new Error('Tom inválido');
+  }
+
+  const cleanSource = normSource.replace(/m$/, '');
+  const cleanTarget = normTarget.replace(/m$/, '');
+
+  const sourceIndex = NOTES.indexOf(cleanSource) !== -1 ? NOTES.indexOf(cleanSource) : FLAT_NOTES.indexOf(cleanSource);
+  const targetIndex = NOTES.indexOf(cleanTarget) !== -1 ? NOTES.indexOf(cleanTarget) : FLAT_NOTES.indexOf(cleanTarget);
+
+  if (sourceIndex === -1 || targetIndex === -1) {
+    throw new Error('Tom inválido');
+  }
+
+  const semitones = (targetIndex - sourceIndex + 12) % 12;
+
+  if (semitones === 0) {
+    return {
+      chords,
+      semitones: 0,
+      changedChordCount: 0,
+    };
+  }
+
+  // Determine preference for flats vs sharps
+  let useFlats = false;
+  const pref = options?.accidentalPreference || 'auto';
+  if (pref === 'flat') {
+    useFlats = true;
+  } else if (pref === 'sharp') {
+    useFlats = false;
+  } else {
+    // auto
+    const flatKeysList = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Dm', 'Gm', 'Cm', 'Fm', 'Bbm', 'Ebm'];
+    useFlats = flatKeysList.includes(normTarget);
+  }
+
+  const lines = chords.split('\n');
+  let changedChordCount = 0;
+
+  const transposedLines = lines.map((line, idx) => {
+    const cl = classifyLine(line, idx, lines);
+    
+    let lineHasChords = false;
+    const parts = line.split(/(\s+|[|]+)/);
+    for (const part of parts) {
+      const core = part.trim().replace(/^[(|[\]]+|[(|[\]]+$/g, '');
+      if (core && isChordToken(core)) {
+        lineHasChords = true;
+        break;
+      }
+    }
+
+    if (lineHasChords && cl.type !== LineType.SITE_NOISE_LINE && cl.type !== LineType.CHORD_DICTIONARY_LINE) {
+      for (const part of parts) {
+        const core = part.trim().replace(/^[(|[\]]+|[(|[\]]+$/g, '');
+        if (core && isChordToken(core)) {
+          const transposed = transposeChordWithPreference(core, semitones, useFlats, normTarget);
+          if (transposed !== core) {
+            changedChordCount++;
+          }
+        }
+      }
+      return transposeChordLinePreserveSpacingWithPreference(line, semitones, useFlats, normTarget);
+    }
+
+    return line;
+  });
+
+  return {
+    chords: transposedLines.join('\n'),
+    semitones,
+    changedChordCount,
+  };
+}
+
 export enum LineType {
   TITLE_CANDIDATE = 'TITLE_CANDIDATE',
   ARTIST_CANDIDATE = 'ARTIST_CANDIDATE',
@@ -41,8 +223,8 @@ export function isChordToken(token: string): boolean {
        core = core.replace(/^\|+/, '').replace(/\|+$/, '');
   }
 
-  // Expanded to support pt-BR chords like C7M, F#m7(11), etc.
-  const regex = /^[A-G][#b]?(m|M|maj|min|dim|aug|sus)?\d*(m|M|maj|min|dim|aug|sus)?(\([^)]+\))?(\/[A-G][#b]?)?$/i;
+  // Expanded to support pt-BR chords like C7M, F#m7(11), Eadd9, etc.
+  const regex = /^[A-G][#b]?(m|M|maj|min|dim|aug|sus|add)?\d*(m|M|maj|min|dim|aug|sus|add)?(\([^)]+\))?(\/[A-G][#b]?)?$/i;
   return regex.test(core) && !/^[A-G][A-Z]+$/.test(core); // prevent matching ALL uppercase words if any?
 }
 
