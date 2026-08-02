@@ -145,177 +145,194 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
     };
 
     const showPerformance = canUsePerformanceMode(targetEvent, canUsePerformance);
+    const hasRole = targetEvent.isUserAssigned && targetEvent.userFunctionNames.length > 0;
 
     return (
-      <div className="flex flex-col gap-4">
-        
-        {/* Eyebrow */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-widest text-slate-800 dark:text-slate-200">
-            {fixed}
-          </span>
-          {relative && (
-            <>
-              <span className="text-slate-300 dark:text-slate-600">•</span>
-              <span className="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">
-                {relative}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 relative">
+        {/* Left Column: Event details */}
+        <div className="lg:col-span-8 flex flex-col gap-6">
+          
+          <div className="flex flex-col gap-4">
+            {/* Eyebrow */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                {fixed}
               </span>
-            </>
-          )}
-        </div>
+              {relative && (
+                <>
+                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                  <span className="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">
+                    {relative}
+                  </span>
+                </>
+              )}
+            </div>
 
-        {/* Title */}
-        <div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
-            {targetEvent.title || t('dashboard.focus.untitledEvent')}
-          </h2>
-        </div>
+            {/* Title */}
+            <div>
+              <h2 className="text-[26px] sm:text-[32px] lg:text-[40px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
+                {targetEvent.title || t('dashboard.focus.untitledEvent')}
+              </h2>
+            </div>
 
-        {/* Date / Time / Location */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-medium text-slate-700 dark:text-slate-300">
-          <span>{formattedDate()}</span>
-          {targetEvent.time && (
-            <>
-              <span className="text-slate-300 dark:text-slate-600">•</span>
-              <span>{targetEvent.time}</span>
-            </>
-          )}
-          {targetEvent.locationName && (
-            <>
-              <span className="text-slate-300 dark:text-slate-600">•</span>
-              <span className="text-slate-500 dark:text-slate-400">{targetEvent.locationName}</span>
-            </>
-          )}
-        </div>
-
-        {/* Status */}
-        <div className="flex items-center">
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium tracking-wide ${statusBadge.style}`}>
-            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
-            {statusBadge.label}
-          </span>
-        </div>
-
-        {/* Role */}
-        {targetEvent.isUserAssigned && targetEvent.userFunctionNames.length > 0 && (
-          <div>
-            <p className="text-lg font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
-              <span className="text-xl">🎹</span>
-              {t('dashboard.focus.functionLabel', 'Você servirá como')} {targetEvent.userFunctionNames.join(', ')}
-            </p>
+            {/* Date / Time / Location / Status */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm sm:text-base font-medium text-slate-700 dark:text-slate-300">
+              <span>{formattedDate()}</span>
+              {targetEvent.time && (
+                <>
+                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                  <span>{targetEvent.time}</span>
+                </>
+              )}
+              {targetEvent.locationName && (
+                <>
+                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                  <span className="text-slate-500 dark:text-slate-400">{targetEvent.locationName}</span>
+                </>
+              )}
+              <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">•</span>
+              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] sm:text-[12px] font-semibold tracking-wide ${statusBadge.style}`}>
+                <span className="w-1 h-1 rounded-full bg-current opacity-70"></span>
+                {statusBadge.label}
+              </span>
+            </div>
           </div>
-        )}
 
-        {/* Repertoire Setlist */}
-        {targetEvent.type === 'music' && (
-          <div>
-            <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">
-              {t('dashboard.focus.repertoire', 'Repertório')}
-            </h3>
-            
-            {targetEvent.songs && targetEvent.songs.length > 0 ? (
-              <div className="flex flex-col gap-3">
-                {targetEvent.songs.slice(0, 3).map((song, idx) => {
-                  const effectiveKey = getEffectiveKey(song);
-                  return (
-                    <div key={song.id || idx} className="flex items-center justify-between group py-0.5">
-                      <div className="flex items-center gap-3 pr-4 overflow-hidden">
-                        <span className="text-[11px] font-mono font-bold text-slate-400 dark:text-slate-500/60 w-4 shrink-0 text-right">{song.order}</span>
-                        <span className="text-[15px] font-medium text-slate-800 dark:text-slate-200 truncate">{song.title}</span>
+          {/* Repertoire Setlist */}
+          {targetEvent.type === 'music' && (
+            <div className="pt-2">
+              <h3 className="text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
+                {t('dashboard.focus.repertoire', 'Repertório')}
+              </h3>
+              
+              {targetEvent.songs && targetEvent.songs.length > 0 ? (
+                <div className="flex flex-col">
+                  {targetEvent.songs.slice(0, 3).map((song, idx) => {
+                    const effectiveKey = getEffectiveKey(song);
+                    return (
+                      <div key={song.id || idx} className="flex items-center justify-between group py-3 border-b border-slate-100 dark:border-slate-800/50 last:border-0 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] active:bg-slate-100 dark:active:bg-white/[0.04] transition-colors -mx-2 px-2 rounded-lg cursor-pointer" onClick={() => onOpenEvent(targetEvent)}>
+                        <div className="flex items-center gap-3 pr-4 overflow-hidden">
+                          <span className="text-[11px] sm:text-xs font-mono font-medium text-slate-400 dark:text-slate-500 w-4 shrink-0 text-right">{song.order}</span>
+                          <span className="text-sm sm:text-[15px] font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{song.title}</span>
+                        </div>
+                        {effectiveKey && (
+                          <span className="inline-flex items-center justify-center px-1.5 sm:px-2 py-0.5 rounded text-[11px] sm:text-[12px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-500/10 shrink-0 tracking-wide border border-indigo-100/50 dark:border-indigo-500/20">
+                            {effectiveKey}
+                          </span>
+                        )}
                       </div>
-                      {effectiveKey && (
-                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[13px] font-extrabold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 shrink-0 tracking-wide border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
-                          {effectiveKey}
-                        </span>
-                      )}
+                    );
+                  })}
+                  {targetEvent.songCount > 3 && (
+                    <div className="pt-3">
+                      <button onClick={() => onOpenEvent(targetEvent)} className="text-[13px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+                        + {targetEvent.songCount - 3} {t('dashboard.focus.moreSongs', 'música(s)')}
+                      </button>
                     </div>
-                  );
-                })}
-                {targetEvent.songCount > 3 && (
-                  <div className="pt-2">
-                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                      + {targetEvent.songCount - 3} {t('dashboard.focus.moreSongs', 'música(s)')}
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-slate-500 dark:text-slate-400 italic">
+                  {t('dashboard.focus.noSongs', 'Nenhuma música adicionada')}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Actions Button Bar */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-6 mt-auto">
+            {currentMode === 'assigned-event' || currentMode === 'leader-prepared' ? (
+              <>
+                {showPerformance ? (
+                  <Button onClick={() => onOpenPerformance(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
+                    <Play className="w-5 h-5 mr-2 fill-current" />
+                    {t('dashboard.focus.enterPerformance', 'Entrar no Modo Performance')}
+                  </Button>
+                ) : (
+                  <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
+                    {targetEvent.type === 'music' ? t('dashboard.focus.openRepertoire', 'Abrir repertório') : t('dashboard.focus.openScale', 'Abrir escala')}
+                  </Button>
+                )}
+                <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all duration-300 ease-out font-medium px-6" size="lg" variant="ghost">
+                  {t('dashboard.focus.viewScaleDetails', 'Ver detalhes')}
+                </Button>
+              </>
+            ) : currentMode === 'leader-attention' ? (
+              <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
+                {t('dashboard.focus.resolveIssues', 'Resolver pendências')}
+              </Button>
+            ) : currentMode === 'observer-event' ? (
+              <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
+                {t('dashboard.focus.viewDetails', 'Ver detalhes')}
+              </Button>
+            ) : currentMode === 'continue-draft' ? (
+              <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
+                {t('dashboard.focus.continuePreparing', 'Continuar preparando')}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Right Column: Participation & Attention Items */}
+        {(hasRole || responseActions || (attentionItems && attentionItems.length > 0)) && (
+          <div className="lg:col-span-4 flex flex-col gap-6 lg:border-l lg:border-slate-100 lg:dark:border-slate-800/60 lg:pl-8 pt-6 lg:pt-0 border-t border-slate-100 dark:border-slate-800/60 lg:border-t-0">
+            
+            {(hasRole || responseActions) && (
+              <div className="flex flex-col gap-4">
+                <h3 className="text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  {t('dashboard.focus.myParticipation', 'Minha Participação')}
+                </h3>
+                
+                {hasRole && (
+                  <div>
+                    <p className="text-base font-semibold text-slate-800 dark:text-slate-200">
+                      {targetEvent.userFunctionNames.join(', ')}
                     </p>
                   </div>
                 )}
+
+                {/* Response Actions Container */}
+                {responseActions && (
+                  <div className="-mx-1">
+                    {responseActions}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="text-sm text-slate-500 dark:text-slate-400 italic">
-                {t('dashboard.focus.noSongs', 'Nenhuma música adicionada')}
+            )}
+
+            {/* Attention Items */}
+            {attentionItems && attentionItems.length > 0 && (
+              <div className={`flex flex-col gap-3 ${(hasRole || responseActions) ? 'mt-auto pt-6' : ''}`}>
+                <h3 className="text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  {t('dashboard.focus.attention', 'Atenção')}
+                </h3>
+                <ul className="flex flex-col gap-2.5">
+                  {attentionItems.map((item, idx) => {
+                    let icon = <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />;
+                    if (item.severity === 'important') icon = <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />;
+                    if (item.severity === 'info') icon = <CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0" />;
+                    
+                    let text = '';
+                    switch (item.code) {
+                      case 'draft': text = t('dashboard.attention.draft', 'Rascunho ainda não publicado'); break;
+                      case 'missing-repertoire': text = t('dashboard.attention.missingRepertoire', 'Repertório vazio'); break;
+                      case 'missing-team': text = t('dashboard.attention.missingTeam', 'Equipe vazia'); break;
+                      case 'missing-time': text = t('dashboard.attention.missingTime', 'Horário não informado'); break;
+                      case 'missing-location': text = t('dashboard.attention.missingLocation', 'Local não informado'); break;
+                    }
+                    
+                    return (
+                      <li key={idx} className="flex items-start gap-2.5 text-[13px] font-medium text-slate-600 dark:text-slate-400 leading-snug">
+                        <div className="mt-0.5">{icon}</div>
+                        <span>{text}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
           </div>
         )}
-
-        {/* Attention Items (only if they exist and are important) */}
-        {attentionItems && attentionItems.length > 0 && (
-          <div className="pt-2">
-            <ul className="flex flex-col gap-2">
-              {attentionItems.map((item, idx) => {
-                let icon = <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />;
-                if (item.severity === 'important') icon = <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />;
-                if (item.severity === 'info') icon = <CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0" />;
-                
-                let text = '';
-                switch (item.code) {
-                  case 'draft': text = t('dashboard.attention.draft', 'Rascunho ainda não publicado'); break;
-                  case 'missing-repertoire': text = t('dashboard.attention.missingRepertoire', 'Repertório vazio'); break;
-                  case 'missing-team': text = t('dashboard.attention.missingTeam', 'Equipe vazia'); break;
-                  case 'missing-time': text = t('dashboard.attention.missingTime', 'Horário não informado'); break;
-                  case 'missing-location': text = t('dashboard.attention.missingLocation', 'Local não informado'); break;
-                }
-                
-                return (
-                  <li key={idx} className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400">
-                    {icon}
-                    <span>{text}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-
-        {/* Actions Button Bar */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-4">
-          {currentMode === 'assigned-event' || currentMode === 'leader-prepared' ? (
-            <>
-              {showPerformance ? (
-                <Button onClick={() => onOpenPerformance(targetEvent)} className="w-full sm:w-auto rounded-full h-12 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25" size="lg" variant="primary">
-                  <Play className="w-5 h-5 mr-2 fill-current" />
-                  {t('dashboard.focus.enterPerformance', 'Entrar no Modo Performance')}
-                </Button>
-              ) : (
-                <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-full h-12 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25" size="lg" variant="primary">
-                  {targetEvent.type === 'music' ? t('dashboard.focus.openRepertoire', 'Abrir repertório') : t('dashboard.focus.openScale', 'Abrir escala')}
-                </Button>
-              )}
-              <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-full h-12 hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all duration-300 ease-out font-medium" size="lg" variant="ghost">
-                {t('dashboard.focus.viewScaleDetails', 'Ver detalhes')}
-              </Button>
-            </>
-          ) : currentMode === 'leader-attention' ? (
-            <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-full h-12 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25" size="lg" variant="primary">
-              {t('dashboard.focus.resolveIssues', 'Resolver pendências')}
-            </Button>
-          ) : currentMode === 'observer-event' ? (
-            <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-full h-12 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25" size="lg" variant="primary">
-              {t('dashboard.focus.viewDetails', 'Ver detalhes')}
-            </Button>
-          ) : currentMode === 'continue-draft' ? (
-            <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-full h-12 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25" size="lg" variant="primary">
-              {t('dashboard.focus.continuePreparing', 'Continuar preparando')}
-            </Button>
-          ) : null}
-        </div>
-
-        {/* Response Actions Container */}
-        {responseActions && (
-          <div className="pt-1">
-            {responseActions}
-          </div>
-        )}
-
       </div>
     );
   };

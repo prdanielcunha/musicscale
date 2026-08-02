@@ -259,6 +259,20 @@
       "review_reason": "Revisar",
       "showLess": "Mostrar menos",
       "exploreMore": "Explorar mais"
+    },
+    "greetings": {
+      "assigned_today_title": "Hoje é dia de servir, {{name}}.",
+      "assigned_today_subtitle": "Confira rapidamente seu repertório.",
+      "assigned_tomorrow_title": "Tudo pronto para amanhã, {{name}}.",
+      "assigned_tomorrow_subtitle": "Você servirá no próximo culto.",
+      "assigned_future_title": "Bom {{weekday}}, {{name}}.",
+      "assigned_future_subtitle": "Sua escala para {{targetWeekday}} está pronta.",
+      "leader_today_title": "Bom dia, {{name}}.",
+      "leader_today_subtitle": "Acompanhe a escala de hoje.",
+      "leader_future_title": "Bom {{weekday}}, {{name}}.",
+      "leader_future_subtitle": "Há escalas que precisam da sua atenção.",
+      "draft_title": "Olá, {{name}}.",
+      "draft_subtitle": "Você tem um rascunho de escala para terminar."
     }
   },
   "songs": {

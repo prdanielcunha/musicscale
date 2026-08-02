@@ -258,6 +258,20 @@
       "review_reason": "Review",
       "showLess": "Show less",
       "exploreMore": "Explore more"
+    },
+    "greetings": {
+      "assigned_today_title": "Today is the day to serve, {{name}}.",
+      "assigned_today_subtitle": "Quickly check your repertoire.",
+      "assigned_tomorrow_title": "All set for tomorrow, {{name}}.",
+      "assigned_tomorrow_subtitle": "You will serve in the next service.",
+      "assigned_future_title": "Good {{weekday}}, {{name}}.",
+      "assigned_future_subtitle": "Your schedule for {{targetWeekday}} is ready.",
+      "leader_today_title": "Good morning, {{name}}.",
+      "leader_today_subtitle": "Follow up on today's schedule.",
+      "leader_future_title": "Good {{weekday}}, {{name}}.",
+      "leader_future_subtitle": "There are schedules needing your attention.",
+      "draft_title": "Hello, {{name}}.",
+      "draft_subtitle": "You have a draft schedule to finish."
     }
   },
   "songs": {

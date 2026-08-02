@@ -150,7 +150,6 @@ export const DashboardPage: React.FC = () => {
     return result.slice(0, 3);
   }, [songs, populatedScales, recentlyAddedSongs]);
 
-  console.log("experienceLoading:", experienceLoading, "musicLoading:", musicLoading, "suggestionsLoading:", suggestionsLoading);
   if (experienceLoading || musicLoading || suggestionsLoading) {
     return (
       <div className="relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 animate-fade-in" aria-busy="true" aria-label={t('dashboard.loading', 'Carregando...')}>
@@ -158,11 +157,13 @@ export const DashboardPage: React.FC = () => {
           <div className="h-8 w-48 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
           <div className="h-4 w-64 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
         </header>
-        <div className="h-48 w-full bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse"></div>
-        <div className="space-y-4 pt-2">
-          <div className="h-6 w-40 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
-          <div className="h-24 w-full bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse"></div>
-          <div className="h-24 w-full bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse"></div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 pt-2">
+          <div className="lg:col-span-8 xl:col-span-8 space-y-6">
+            <div className="h-48 w-full bg-slate-200 dark:bg-slate-800 rounded-3xl animate-pulse"></div>
+          </div>
+          <div className="lg:col-span-4 xl:col-span-4 space-y-6">
+            <div className="h-32 w-full bg-slate-200 dark:bg-slate-800 rounded-2xl animate-pulse"></div>
+          </div>
         </div>
       </div>
     );
@@ -245,8 +246,8 @@ export const DashboardPage: React.FC = () => {
       const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
       
       if (eventDateStr === todayStr) {
-         title = `Hoje é dia de servir, ${firstName}.`;
-         subtitle = 'Confira rapidamente seu repertório.';
+         title = t('dashboard.greetings.assigned_today_title', { name: firstName });
+         subtitle = t('dashboard.greetings.assigned_today_subtitle');
       } else {
          const target = new Date(eventDateStr + 'T12:00:00');
          const tomorrow = new Date(today);
@@ -254,13 +255,13 @@ export const DashboardPage: React.FC = () => {
          const tomorrowStr = tomorrow.getFullYear() + '-' + String(tomorrow.getMonth() + 1).padStart(2, '0') + '-' + String(tomorrow.getDate()).padStart(2, '0');
 
          if (eventDateStr === tomorrowStr) {
-           title = `Tudo pronto para amanhã, ${firstName}.`;
-           subtitle = 'Você servirá no próximo culto.';
+           title = t('dashboard.greetings.assigned_tomorrow_title', { name: firstName });
+           subtitle = t('dashboard.greetings.assigned_tomorrow_subtitle');
          } else {
            const weekday = target.toLocaleDateString(locale, { weekday: 'long' });
            const capitalized = weekday.charAt(0).toUpperCase() + weekday.slice(1);
-           title = `Bom ${capitalized}, ${firstName}.`;
-           subtitle = `Sua escala para ${weekday} está pronta.`;
+           title = t('dashboard.greetings.assigned_future_title', { weekday: capitalized, name: firstName });
+           subtitle = t('dashboard.greetings.assigned_future_subtitle', { targetWeekday: weekday });
          }
       }
     } else if (experience.mode === 'leader-attention' || experience.mode === 'leader-prepared') {
@@ -268,15 +269,15 @@ export const DashboardPage: React.FC = () => {
       const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
       
       if (eventDateStr === todayStr) {
-         title = `Bom dia, ${firstName}.`;
-         subtitle = 'Acompanhe a escala de hoje.';
+         title = t('dashboard.greetings.leader_today_title', { name: firstName });
+         subtitle = t('dashboard.greetings.leader_today_subtitle');
       } else {
-         title = `Bom ${capitalizedTodayWeekday}, ${firstName}.`;
-         subtitle = 'Há escalas que precisam da sua atenção.';
+         title = t('dashboard.greetings.leader_future_title', { weekday: capitalizedTodayWeekday, name: firstName });
+         subtitle = t('dashboard.greetings.leader_future_subtitle');
       }
     } else if (experience.mode === 'continue-draft') {
-      title = `Olá, ${firstName}.`;
-      subtitle = 'Você tem um rascunho de escala para terminar.';
+      title = t('dashboard.greetings.draft_title', { name: firstName });
+      subtitle = t('dashboard.greetings.draft_subtitle');
     }
 
     return { title, subtitle };
@@ -286,12 +287,12 @@ export const DashboardPage: React.FC = () => {
 
 
   return (
-    <div className="relative isolate max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 animate-fade-in touch-manipulation">
+    <div className="relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24 sm:pt-8 sm:pb-12 lg:pb-8 space-y-6 sm:space-y-8 animate-fade-in touch-manipulation">
       <header>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
           {contextualTitle}
         </h1>
-        <p className="text-slate-600 dark:text-slate-400 text-sm">
+        <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base mt-1">
           {contextualSubtitle}
         </p>
       </header>
@@ -310,114 +311,120 @@ export const DashboardPage: React.FC = () => {
         />
       )}
 
-      {experience.mode !== 'first-value' && experience.mode !== 'no-upcoming-event' && experience.mode !== 'create-next-event' && (
-        <div className="pt-2">
-          <HomeUpcomingEvents events={upcomingEvents} onOpenEvent={handleOpenEvent} />
-        </div>
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
+        {experience.mode !== 'first-value' && experience.mode !== 'no-upcoming-event' && experience.mode !== 'create-next-event' && (
+          <div className="pt-2">
+            <HomeUpcomingEvents events={upcomingEvents} onOpenEvent={handleOpenEvent} />
+          </div>
+        )}
 
-      {(unreadSuggestions.length > 0 || recentlyAddedSongs.length > 0 || suggestedForRehearsal.length > 0) && (
-        <HomeSecondaryContent>
-          {unreadSuggestions.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex justify-between items-center px-1">
-                <h4 className="text-sm font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest">
-                  {t("dashboard.secondaryContent.pending_suggestions_section")}
-                </h4>
-                <button
-                  onClick={() => navigate("/suggestions")}
-                  className="text-amber-600 dark:text-amber-500 font-medium text-sm flex items-center gap-1 hover:underline"
-                >
-                  {t("dashboard.viewAll")} <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="space-y-2">
-                {unreadSuggestions.slice(0, 3).map((suggestion) => (
-                  <button
-                    key={suggestion.id}
-                    onClick={() => navigate("/suggestions")}
-                    className="w-full text-left rounded-xl py-3 flex items-center gap-3 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.02]"
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-500 flex items-center justify-center shrink-0">
-                      <SuggestionIcon className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-900 dark:text-white truncate text-sm">
-                        {suggestion.songs.length === 1
-                          ? suggestion.songs[0].title
-                          : t("dashboard.secondaryContent.songs_suggested_other", { count: suggestion.songs.length })}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                        {t("dashboard.secondaryContent.by_author_suggestion", { name: suggestion.createdBy.name })}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+        {(unreadSuggestions.length > 0 || recentlyAddedSongs.length > 0 || suggestedForRehearsal.length > 0) && (
+          <div className="pt-2">
+            <HomeSecondaryContent>
+              {unreadSuggestions.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center px-1">
+                    <h4 className="text-sm font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest">
+                      {t("dashboard.secondaryContent.pending_suggestions_section")}
+                    </h4>
+                    <button
+                      onClick={() => navigate("/suggestions")}
+                      className="text-amber-600 dark:text-amber-500 font-medium text-sm flex items-center gap-1 hover:underline"
+                    >
+                      {t("dashboard.viewAll")} <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {unreadSuggestions.slice(0, 3).map((suggestion) => (
+                      <button
+                        key={suggestion.id}
+                        onClick={() => navigate("/suggestions")}
+                        className="w-full text-left rounded-2xl py-3 px-3 flex items-center gap-3 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03] border border-transparent hover:border-slate-100 dark:hover:border-white/5"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-500 flex items-center justify-center shrink-0">
+                          <SuggestionIcon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-900 dark:text-white truncate text-sm">
+                            {suggestion.songs.length === 1
+                              ? suggestion.songs[0].title
+                              : t("dashboard.secondaryContent.songs_suggested_other", { count: suggestion.songs.length })}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                            {t("dashboard.secondaryContent.by_author_suggestion", { name: suggestion.createdBy.name })}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          {recentlyAddedSongs.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 px-1">
-                <PlusSquare className="w-4 h-4 text-blue-600 dark:text-blue-500" />
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
-                  {t("dashboard.secondaryContent.new_songs_section")}
-                </h4>
-              </div>
-              <div className="space-y-2">
-                {recentlyAddedSongs.map((song) => (
-                  <button
-                    key={song.id}
-                    onClick={() => openSongDetail(song)}
-                    className="w-full text-left rounded-xl py-2 flex flex-col transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.02]"
-                  >
-                    <span className="font-semibold text-slate-900 dark:text-white text-sm truncate">{song.title}</span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{song.artist}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+              {recentlyAddedSongs.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 px-1">
+                    <PlusSquare className="w-4 h-4 text-blue-600 dark:text-blue-500" />
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                      {t("dashboard.secondaryContent.new_songs_section")}
+                    </h4>
+                  </div>
+                  <div className="space-y-2">
+                    {recentlyAddedSongs.map((song) => (
+                      <button
+                        key={song.id}
+                        onClick={() => openSongDetail(song)}
+                        className="w-full text-left rounded-2xl py-2 px-3 flex flex-col transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03] border border-transparent hover:border-slate-100 dark:hover:border-white/5"
+                      >
+                        <span className="font-semibold text-slate-900 dark:text-white text-sm truncate">{song.title}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{song.artist}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          {suggestedForRehearsal.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 px-1">
-                <RefreshCcw className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
-                  {t("dashboard.secondaryContent.suggested_rehearsal_section")}
-                </h4>
-              </div>
-              <div className="space-y-2">
-                {suggestedForRehearsal.map((song, i) => (
-                  <button
-                    key={`${song.id}-${i}`}
-                    onClick={() => openSongDetail(song as any)}
-                    className="w-full text-left rounded-xl py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.02]"
-                  >
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-semibold text-slate-900 dark:text-white text-sm truncate">{song.title}</span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{song.artist}</span>
-                    </div>
-                    <span className={`self-start sm:self-auto px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${song.tagBg} ${song.tagColor} border`}>
-                      {song.reasonCode === "least-played"
-                        ? t("dashboard.secondaryContent.least_played_reason")
-                        : song.reasonCode === "newly-added"
-                          ? t("dashboard.secondaryContent.newly_added_reason")
-                          : song.reasonCode === "review"
-                            ? t("dashboard.secondaryContent.review_reason")
-                            : song.reasonCode}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </HomeSecondaryContent>
-      )}
+              {suggestedForRehearsal.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 px-1">
+                    <RefreshCcw className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                      {t("dashboard.secondaryContent.suggested_rehearsal_section")}
+                    </h4>
+                  </div>
+                  <div className="space-y-2">
+                    {suggestedForRehearsal.map((song, i) => (
+                      <button
+                        key={`${song.id}-${i}`}
+                        onClick={() => openSongDetail(song as any)}
+                        className="w-full text-left rounded-2xl py-2 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03] border border-transparent hover:border-slate-100 dark:hover:border-white/5"
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-semibold text-slate-900 dark:text-white text-sm truncate">{song.title}</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{song.artist}</span>
+                        </div>
+                        <span className={`self-start sm:self-auto px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${song.tagBg} ${song.tagColor} border`}>
+                          {song.reasonCode === "least-played"
+                            ? t("dashboard.secondaryContent.least_played_reason")
+                            : song.reasonCode === "newly-added"
+                              ? t("dashboard.secondaryContent.newly_added_reason")
+                              : song.reasonCode === "review"
+                                ? t("dashboard.secondaryContent.review_reason")
+                                : song.reasonCode}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </HomeSecondaryContent>
+          </div>
+        )}
+      </div>
 
       {isOwner && (
-        <PlanUsageCompactCard />
+        <div className="pt-4">
+          <PlanUsageCompactCard />
+        </div>
       )}
       
       <SupportRuntimeInspector />

@@ -15,14 +15,16 @@ export const HomeSecondaryContent: React.FC<HomeSecondaryContentProps> = ({ chil
 
   return (
     <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-slate-900 dark:text-white hidden lg:block">
+        {t('dashboard.secondaryContent.exploreMore', 'Explorar')}
+      </h3>
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         aria-expanded={isExpanded}
         aria-controls="secondary-content"
-        className="w-full flex items-center justify-between py-4 text-left transition-colors hover:text-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-h-[44px]"
+        className="w-full flex items-center justify-between py-2 text-left transition-colors hover:text-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-h-[44px] lg:hidden"
       >
-        <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-medium">
-          <Compass className="w-5 h-5 text-indigo-500" />
+        <div className="flex items-center gap-2 text-slate-900 dark:text-white font-semibold text-lg">
           {t('dashboard.secondaryContent.exploreMore', 'Explorar mais')}
         </div>
         {isExpanded ? (
@@ -32,22 +34,29 @@ export const HomeSecondaryContent: React.FC<HomeSecondaryContentProps> = ({ chil
         )}
       </button>
 
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            id="secondary-content"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="pt-2 pb-4 space-y-6">
-              {children}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Desktop view: always visible. Mobile view: controlled by AnimatePresence */}
+      <div className="hidden lg:block pt-2 pb-4 space-y-8">
+        {children}
+      </div>
+
+      <div className="lg:hidden">
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              id="secondary-content"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="pt-2 pb-4 space-y-8">
+                {children}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };

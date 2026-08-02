@@ -158,18 +158,18 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
     }
 
     return (
-      <div className={`grid ${compact ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-3'} gap-2 mt-3`}>
+      <div className="flex flex-col gap-2 mt-3">
         <button 
           onClick={() => handleRespond('accepted')}
           disabled={submittingStatus !== null}
           data-testid="response-accepted"
-          className={`flex items-center justify-center gap-2 h-12 px-4 text-sm font-medium rounded-xl transition-all duration-300 ease-out ${
+          className={`flex items-center justify-center gap-2 h-[46px] px-4 text-sm font-semibold rounded-xl transition-all duration-300 ease-out ${
             currentStatus === 'accepted' 
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
-              : 'bg-slate-50 dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]'
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' 
+              : 'bg-slate-50 dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] border border-transparent'
           }`}
         >
-          {submittingStatus === 'accepted' ? <Spinner className="w-4 h-4" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+          {submittingStatus === 'accepted' ? <Spinner className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
           <span>{t('responses.actionConfirm', 'Confirmo')}</span>
         </button>
         
@@ -177,13 +177,13 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
           onClick={() => handleRespond('maybe')}
           disabled={submittingStatus !== null}
           data-testid="response-maybe"
-          className={`flex items-center justify-center gap-2 h-12 px-4 text-sm font-medium rounded-xl transition-all duration-300 ease-out ${
+          className={`flex items-center justify-center gap-2 h-[46px] px-4 text-sm font-semibold rounded-xl transition-all duration-300 ease-out ${
             currentStatus === 'maybe' 
-              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' 
-              : 'bg-slate-50 dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]'
+              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20' 
+              : 'bg-slate-50 dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] border border-transparent'
           }`}
         >
-          {submittingStatus === 'maybe' ? <Spinner className="w-4 h-4" /> : <HelpCircle className="w-3.5 h-3.5" />}
+          {submittingStatus === 'maybe' ? <Spinner className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
           <span>{t('responses.actionMaybe', 'Ainda não sei')}</span>
         </button>
         
@@ -191,13 +191,13 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
           onClick={() => setIsDeclineModalOpen(true)}
           disabled={submittingStatus !== null}
           data-testid="response-declined"
-          className={`flex items-center justify-center gap-2 h-12 px-4 text-sm font-medium rounded-xl transition-all duration-300 ease-out ${
+          className={`flex items-center justify-center gap-2 h-[46px] px-4 text-sm font-semibold rounded-xl transition-all duration-300 ease-out ${
             currentStatus === 'declined' 
-              ? 'bg-red-500/10 text-red-600 dark:text-red-400' 
-              : 'bg-slate-50 dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]'
+              ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' 
+              : 'bg-slate-50 dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] border border-transparent'
           }`}
         >
-          {submittingStatus === 'declined' ? <Spinner className="w-4 h-4" /> : <XCircle className="w-3.5 h-3.5" />}
+          {submittingStatus === 'declined' ? <Spinner className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
           <span>{t('responses.actionDecline', 'Não poderei')}</span>
         </button>
       </div>
@@ -218,7 +218,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
       }
       
       return (
-          <div className="flex flex-wrap gap-2 pt-2 mt-2">
+          <div className="flex flex-col gap-2 pt-2 mt-2">
             {currentStatus === 'declined' && (
                <button 
                  onClick={() => handleRespond('accepted')}

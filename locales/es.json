@@ -258,6 +258,20 @@
       "review_reason": "Revisar",
       "showLess": "Mostrar menos",
       "exploreMore": "Explorar más"
+    },
+    "greetings": {
+      "assigned_today_title": "Hoy es el día de servir, {{name}}.",
+      "assigned_today_subtitle": "Revisa rápidamente tu repertorio.",
+      "assigned_tomorrow_title": "Todo listo para mañana, {{name}}.",
+      "assigned_tomorrow_subtitle": "Servirás en el próximo servicio.",
+      "assigned_future_title": "Buen {{weekday}}, {{name}}.",
+      "assigned_future_subtitle": "Tu programación para el {{targetWeekday}} está lista.",
+      "leader_today_title": "Buenos días, {{name}}.",
+      "leader_today_subtitle": "Haz seguimiento a la programación de hoy.",
+      "leader_future_title": "Buen {{weekday}}, {{name}}.",
+      "leader_future_subtitle": "Hay programaciones que requieren tu atención.",
+      "draft_title": "Hola, {{name}}.",
+      "draft_subtitle": "Tienes un borrador de programación por terminar."
     }
   },
   "songs": {

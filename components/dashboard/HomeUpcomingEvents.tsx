@@ -63,7 +63,7 @@ export const HomeUpcomingEvents: React.FC<HomeUpcomingEventsProps> = ({ events, 
             <button
               key={event.id}
               onClick={() => onOpenEvent(event)}
-              className="w-full text-left rounded-2xl p-4 flex gap-4 items-start transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full text-left rounded-2xl p-4 flex gap-4 items-start transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-indigo-500 border border-transparent hover:border-slate-100 dark:hover:border-white/5"
             >
               <div className="flex flex-col items-center justify-center min-w-[50px] pt-1">
                 <span className="text-xs font-bold text-slate-500 uppercase">{getMonthName(event.date)}</span>

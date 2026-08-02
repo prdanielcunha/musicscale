@@ -182,7 +182,7 @@ describe('Dashboard Home Experience UI', () => {
     };
     mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
     renderWithRouter(<DashboardPage />);
-    expect(screen.getByText('Vocal')).toBeInTheDocument();
+    expect(screen.getAllByText('Vocal').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Sunday Service')[0]).toBeInTheDocument();
     expect(screen.getAllByText('Vocal')[0]).toBeInTheDocument();
     expect(screen.getByTestId('mock-response-actions')).toBeInTheDocument();
@@ -262,7 +262,7 @@ describe('Dashboard Home Experience UI', () => {
       loading: false
     });
     renderWithRouter(<DashboardPage />);
-    const exploreBtnText = screen.getByText('Explorar mais');
+    const exploreBtnText = screen.getAllByText('Explorar mais')[1];
     const exploreBtn = exploreBtnText.closest('button');
     expect(exploreBtn).not.toBeNull();
     expect(exploreBtn!.getAttribute('aria-expanded')).toBe('false');
@@ -274,7 +274,7 @@ describe('Dashboard Home Experience UI', () => {
       loading: false
     });
     renderWithRouter(<DashboardPage />);
-    const exploreBtnText = screen.getByText('Explorar mais');
+    const exploreBtnText = screen.getAllByText('Explorar mais')[1];
     const exploreBtn = exploreBtnText.closest('button');
     expect(exploreBtn).not.toBeNull();
     fireEvent.click(exploreBtn!);
@@ -491,7 +491,7 @@ describe('Dashboard Home Experience UI', () => {
     mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
 
     renderWithRouter(<DashboardPage />);
-    expect(screen.getByText('Vocal')).toBeInTheDocument();
+    expect(screen.getAllByText('Vocal').length).toBeGreaterThan(0);
     expect(screen.queryByTestId('first-scale-journey')).not.toBeInTheDocument();
   });
 
