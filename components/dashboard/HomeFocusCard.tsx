@@ -30,10 +30,17 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   const standardLocale = locale.startsWith('pt') ? 'pt-BR' : locale.startsWith('en') ? 'en-US' : locale.startsWith('es') ? 'es-ES' : 'pt-BR';
   const { mode, event, draftEvent, attentionItems } = experience;
 
-  const getRelativeLabelElements = (dateStr: string) => {
+  const getRelativeLabelElements = (targetEvent: HomeEventSummary) => {
+    const dateStr = targetEvent.date;
     if (!dateStr) return { fixed: t('dashboard.focus.nextEvent', 'Próximo evento'), relative: null };
     const todayStr = getLocalDateKey();
     if (dateStr === todayStr) {
+      if (targetEvent.eventTemporalState === 'in-progress') {
+        return {
+          fixed: t('dashboard.focus.nextEvent', 'Próximo evento'),
+          relative: t('dashboard.focus.inProgress', 'Em andamento')
+        };
+      }
       return {
         fixed: t('dashboard.focus.nextEvent', 'Próximo evento'),
         relative: t('dashboard.focus.today', 'Hoje')
@@ -129,7 +136,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   const renderRichEventCard = (targetEvent: HomeEventSummary | null, currentMode: string) => {
     if (!targetEvent) return null;
 
-    const { fixed, relative } = getRelativeLabelElements(targetEvent.date);
+    const { fixed, relative } = getRelativeLabelElements(targetEvent);
     const statusBadge = getScaleStatusBadge(targetEvent, currentMode);
 
     const formattedDate = () => {

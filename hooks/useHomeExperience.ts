@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useMusic } from '../contexts/MusicDataContext';
 import { useFirstScaleExperience } from './useFirstScaleExperience';
@@ -13,6 +13,33 @@ import type { PopulatedScaleWithAssignmentsAndStatus, PopulatedBandScaleWithStat
 
 export function useHomeExperience() {
   const { user } = useAuth();
+  const [nowMillis, setNowMillis] = useState(() => Date.now());
+
+  useEffect(() => {
+    // Atualiza o relógio a cada 60 segundos
+    const interval = setInterval(() => {
+      setNowMillis(Date.now());
+    }, 60000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setNowMillis(Date.now());
+      }
+    };
+    
+    const handleFocus = () => {
+      setNowMillis(Date.now());
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
   const { populatedScales, populatedBandScales } = useMusic();
   const firstScaleExperience = useFirstScaleExperience();
   const { hasCapability } = useCapability();
@@ -35,7 +62,7 @@ export function useHomeExperience() {
     const upcomingEvents = buildHomeEventSummaries(musicScales, bandScales, user?.uid);
     const mostRecentDraft = selectMostRecentDraft(musicScales, bandScales, user?.uid);
 
-    console.log("Upcoming events built:", upcomingEvents); const homeExperience = evaluateHomeExperience({
+    const homeExperience = evaluateHomeExperience({
       isFirstValueJourneyActive: !!isFirstValueJourneyActive,
       canManageScales,
       upcomingEvents,
@@ -48,5 +75,5 @@ export function useHomeExperience() {
       experience: homeExperience,
       isLoading: firstScaleExperience?.isLoading,
     };
-  }, [user?.uid, populatedScales, populatedBandScales, firstScaleExperience, canManageScales]);
+  }, [user?.uid, populatedScales, populatedBandScales, firstScaleExperience, canManageScales, nowMillis]);
 }

@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useHomeExperience } from '../../hooks/useHomeExperience';
 
@@ -171,5 +171,50 @@ describe('useHomeExperience hook', () => {
     
     const { result } = renderHook(() => useHomeExperience());
     expect(result.current.experience.canManageScales).toBe(true);
+  });
+
+  it('9. TESTE COM FAKE TIMERS - expiração temporal sem reload', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-02T11:29:00'));
+
+    const scales = [
+      {
+        id: 's1',
+        date: '2026-08-02',
+        time: '09:30',
+        durationMinutes: 120, // Ends at 11:30
+        status: 'published',
+        eventAssignments: [{ userId: 'user-uid', functionName: 'Vocal' }]
+      },
+      {
+        id: 's2',
+        date: '2026-08-02',
+        time: '19:00',
+        durationMinutes: 120,
+        status: 'published',
+        eventAssignments: [{ userId: 'user-uid', functionName: 'Vocal' }]
+      }
+    ];
+
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-uid', email: 'a@a.com', displayName: 'A' }, isInitialized: true, isLoading: false, currentOrganizationId: 'org1' } as any);
+    mockUseMusic.mockReturnValue({ populatedScales: scales, populatedBandScales: [], loading: false } as any);
+
+    const { result, unmount } = renderHook(() => useHomeExperience());
+
+    // Às 11:29, o evento das 09:30 ainda deve ser o principal
+    expect(result.current.experience.event?.id).toBe('s1');
+    expect(result.current.experience.event?.eventTemporalState).toBe('in-progress');
+    
+    // Avançar tempo para 11:30:00 e executar timer do hook (60s)
+    act(() => {
+      vi.advanceTimersByTime(60000);
+    });
+
+    // Às 11:30, o evento das 09:30 expirou. s2 é promovido
+    expect(result.current.experience.event?.id).toBe('s2');
+    expect(result.current.experience.event?.eventTemporalState).toBe('upcoming');
+    
+    unmount();
+    vi.useRealTimers();
   });
 });
