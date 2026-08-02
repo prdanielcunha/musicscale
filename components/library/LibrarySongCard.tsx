@@ -170,7 +170,7 @@ export const LibrarySongCard: React.FC<LibrarySongCardProps> = ({
         <div className="grid grid-cols-2 gap-3 min-w-0 max-w-full mt-5">
            <div className="flex flex-col min-w-0">
                <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500 truncate">{t("library.key_short", "Tom")}</span>
-               {searchMatch && searchTerm ? (
+               {searchMatch?.matchOrigin === 'key' ? (
                  <span className="text-sm font-black text-blue-600 dark:text-blue-400 truncate bg-blue-50 dark:bg-blue-500/10 px-1.5 py-0.5 rounded-md inline-block w-max border border-blue-100 dark:border-blue-500/20">{song.key || "—"}</span>
                ) : (
                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{song.key || "—"}</span>

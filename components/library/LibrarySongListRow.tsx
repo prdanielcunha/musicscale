@@ -158,7 +158,7 @@ export const LibrarySongListRow: React.FC<LibrarySongListRowProps> = ({
            <div className="flex flex-col items-start gap-px">
              <div className="flex items-center gap-1.5 opacity-80" title={t("library.key_short", "Tom")}>
                <span className="text-[8px] font-bold uppercase text-slate-400 w-6">{t("library.key_short", "Tom")}</span>
-               {searchMatch && searchTerm ? (
+               {searchMatch?.matchOrigin === 'key' ? (
                  <span className="text-[11px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-1 py-0.5 rounded border border-blue-100 dark:border-blue-500/20">{song.key || "—"}</span>
                ) : (
                  <span className="text-[11px] font-black text-slate-700 dark:text-slate-300">{song.key || "—"}</span>

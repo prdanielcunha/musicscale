@@ -1,4 +1,6 @@
-import { Song } from "../types";
+const fs = require('fs');
+
+const content = `import { Song } from "../types";
 
 export function getSearchableLyrics(song: any): string {
   if (!song) return "";
@@ -22,12 +24,12 @@ export function normalizeSearchText(input: unknown): string {
   }
   return input
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
+    .replace(/[\\u0300-\\u036f]/g, "") // Remove diacritics
     .toLowerCase()
-    .replace(/['"´`\u2018-\u201D]/g, " ") // Remove quotes/apostrophes
-    .replace(/[^\p{L}\p{N}]/gu, " ") // Replace punctuation with space, keep letters and numbers
-    .replace(/[\u200B-\u200D\uFEFF]/g, " ") // invisible chars
-    .replace(/\s+/g, " ") // Replace multiple spaces with single space
+    .replace(/['"´\`\\u2018-\\u201D]/g, " ") // Remove quotes/apostrophes
+    .replace(/[^\\p{L}\\p{N}]/gu, " ") // Replace punctuation with space, keep letters and numbers
+    .replace(/[\\u200B-\\u200D\\uFEFF]/g, " ") // invisible chars
+    .replace(/\\s+/g, " ") // Replace multiple spaces with single space
     .trim();
 }
 
@@ -36,7 +38,7 @@ export function normalizeMusicalKey(input: unknown): string {
     if (input == null) return "";
     input = String(input);
   }
-  let key = (input as string).trim().replace(/\s+/g, '');
+  let key = (input as string).trim().replace(/\\s+/g, '');
   key = key.replace(/♯/g, '#').replace(/♭/g, 'b');
   
   if (key.length === 0) return "";
@@ -85,7 +87,7 @@ export function buildSearchIndex<T extends { title?: string; artist?: string; ve
     const keyNormalized = normalizeMusicalKey(anySong.key);
     const originalKeyNormalized = normalizeMusicalKey(anySong.originalKey);
 
-    const combinedNormalized = `${titleNormalized} ${artistNormalized} ${versionNormalized} ${lyricsNormalized} ${aliasesNormalized}`.trim();
+    const combinedNormalized = \`\${titleNormalized} \${artistNormalized} \${versionNormalized} \${lyricsNormalized} \${aliasesNormalized}\`.trim();
     
     const titleTokens = titleNormalized ? titleNormalized.split(" ") : [];
     const artistTokens = artistNormalized ? artistNormalized.split(" ") : [];
@@ -324,7 +326,7 @@ export function getSearchSnippet(text: string | undefined, query: string, maxLen
   const queryTokens = normalizedQuery.split(" ").filter(t => t.length > 0);
   if (queryTokens.length === 0) return null;
 
-  const lines = text.split('\n');
+  const lines = text.split('\\n');
   
   for (const line of lines) {
     const normLine = normalizeSearchText(line);
@@ -356,5 +358,9 @@ function formatSnippet(line: string, maxLength: number): string | null {
   if (snippet.length > maxLength) {
      snippet = snippet.substring(0, maxLength) + "…";
   }
-  return `…${snippet}…`;
+  return \`…\${snippet}…\`;
 }
+`;
+
+fs.writeFileSync('utils/searchEngine.ts', content);
+console.log("Updated utils/searchEngine.ts");

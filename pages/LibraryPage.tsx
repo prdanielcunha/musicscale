@@ -655,7 +655,8 @@ export default function LibraryPage() {
     let results = list.map(song => ({ song, searchMatch: undefined as import("../utils/searchEngine").SearchMatch | undefined }));
 
     if (searchTerm) {
-      const documents = searchIndex.filter(doc => list.some(ps => ps.id === doc.song.id));
+      const allowedIds = new Set(list.map(song => song.id));
+      const documents = searchIndex.filter(doc => allowedIds.has(doc.song.id));
       const matches = searchSongs(documents, searchTerm);
       results = matches.map(match => ({
         song: match.document.song as GlobalSong,

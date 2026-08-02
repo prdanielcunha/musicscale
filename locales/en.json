@@ -938,7 +938,8 @@
     "import_verb": "Import",
     "loading": "Loading...",
     "load_more": "Load more songs",
-    "local_search_hint": "Showing fast local results. Clear the search and click 'Load more' to expand."
+    "local_search_hint": "Showing fast local results. Clear the search and click 'Load more' to expand.",
+    "in_lyrics": "In lyrics:"
   },
   "notifications": {
     "scale_published": "New music scale published",

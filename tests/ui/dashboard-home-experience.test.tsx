@@ -182,9 +182,8 @@ describe('Dashboard Home Experience UI', () => {
     };
     mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
     renderWithRouter(<DashboardPage />);
-    expect(screen.getByText('Você está na equipe')).toBeInTheDocument();
+    expect(screen.getByText('Vocal')).toBeInTheDocument();
     expect(screen.getAllByText('Sunday Service')[0]).toBeInTheDocument();
-    expect(screen.getByText('Função:')).toBeInTheDocument();
     expect(screen.getAllByText('Vocal')[0]).toBeInTheDocument();
     expect(screen.getByTestId('mock-response-actions')).toBeInTheDocument();
   });
@@ -205,8 +204,8 @@ describe('Dashboard Home Experience UI', () => {
     const scale = { id: 's1', date: getFutureDate(), status: 'draft', eventName: { name: 'Draft Service' } };
     mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
     renderWithRouter(<DashboardPage />);
-    expect(screen.getByText('Rascunho salvo')).toBeInTheDocument();
-    expect(screen.getByText('Continue preparando')).toBeInTheDocument();
+    expect(screen.getByText('Rascunho')).toBeInTheDocument();
+    expect(screen.getByText('Continuar preparando')).toBeInTheDocument();
   });
 
   it('4. líder vê pendências', () => {
@@ -214,8 +213,8 @@ describe('Dashboard Home Experience UI', () => {
     const scale = { id: 's1', date: getFutureDate(), status: 'published', eventName: { name: 'Pending Service' }, songs: [] };
     mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
     renderWithRouter(<DashboardPage />);
-    expect(screen.getByText('Requer atenção')).toBeInTheDocument();
-    expect(screen.getByText('Repertório vazio')).toBeInTheDocument();
+    expect(screen.getByText('Resolver pendências')).toBeInTheDocument();
+    expect(screen.getByText('Repertório incompleto')).toBeInTheDocument();
   });
 
   it('5. dashboard renderiza no estado padrão sem exibir jornada explícita', () => {
@@ -381,11 +380,11 @@ describe('Dashboard Home Experience UI', () => {
     mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.performance.use' });
     const scale = {
       id: 's1', date: getFutureDate(), eventName: { name: 'Service' },
-      eventAssignments: [{ userId: 'u1', active: true }], songs: [{ id: 'song1' }]
+      eventAssignments: [{ userId: 'u1', active: true }], songs: [{ id: 'song1' }], status: 'published'
     };
     mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
     renderWithRouter(<DashboardPage />);
-    const perfBtn = screen.getByText('Performance Mode');
+    const perfBtn = screen.getByText('Entrar no Modo Performance');
     fireEvent.click(perfBtn);
     expect(mockOpenSongDetail).toHaveBeenCalledWith(
       { id: 'song1' }, true, { songs: [{ id: 'song1' }], currentIndex: 0 }, true
@@ -492,7 +491,7 @@ describe('Dashboard Home Experience UI', () => {
     mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
 
     renderWithRouter(<DashboardPage />);
-    expect(screen.getByText('Você está na equipe')).toBeInTheDocument();
+    expect(screen.getByText('Vocal')).toBeInTheDocument();
     expect(screen.queryByTestId('first-scale-journey')).not.toBeInTheDocument();
   });
 

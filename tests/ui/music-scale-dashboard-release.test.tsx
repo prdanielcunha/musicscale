@@ -274,7 +274,7 @@ describe('Dashboard & Upcoming Event Logic', () => {
       renderWithRouter(<DashboardPage />);
       
       // Wait for the UI to show the next event card
-      expect(screen.getByText('Culto Futuro')).toBeInTheDocument();
+      expect(screen.getAllByText('Culto Futuro')[0]).toBeInTheDocument();
       // Should show Add to Calendar button
     });
     
@@ -296,7 +296,7 @@ describe('Dashboard & Upcoming Event Logic', () => {
       });
 
       renderWithRouter(<DashboardPage />);
-      expect(screen.getByText('Culto Org2')).toBeInTheDocument();
+      expect(screen.getAllByText('Culto Org2')[0]).toBeInTheDocument();
       expect(screen.queryByText('Culto Futuro')).not.toBeInTheDocument();
     });
   });

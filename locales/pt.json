@@ -937,7 +937,8 @@
     "import_verb": "Importar",
     "loading": "Carregando...",
     "load_more": "Carregar mais músicas",
-    "local_search_hint": "Exibindo resultados locais rápidos. Limpe a busca e clique em 'Carregar mais' para ampliar a base."
+    "local_search_hint": "Exibindo resultados locais rápidos. Limpe a busca e clique em 'Carregar mais' para ampliar a base.",
+    "in_lyrics": "Na letra:"
   },
   "notifications": {
     "scale_published": "Nova escala de música publicada",

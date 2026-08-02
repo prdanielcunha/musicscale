@@ -368,7 +368,8 @@ const SongsPage: React.FC = () => {
     let results = processedSongs.map(song => ({ song, searchMatch: undefined as import("../utils/searchEngine").SearchMatch | undefined }));
 
     if (searchTerm) {
-      const documents = searchIndex.filter(doc => processedSongs.some(ps => ps.id === doc.song.id));
+      const allowedIds = new Set(processedSongs.map(song => song.id));
+      const documents = searchIndex.filter(doc => allowedIds.has(doc.song.id));
       const matches = searchSongs(documents, searchTerm);
       results = matches.map(match => ({
         song: match.document.song as PopulatedSong,
