@@ -21,7 +21,25 @@
     "concurrencyError": "Concurrency conflict: The song was modified by another user. Please reload the data and try again.",
     "emptyContentError": "The chords content cannot be empty.",
     "sameKeysError": "Source key and target key cannot be the same.",
-    "selectSourceKey": "Select source key"
+    "selectSourceKey": "Select source key",
+    "selectTargetKey": "Select target key",
+    "conflictTitle": "Declared key does not match detected chords",
+    "conflictMessage": "Metadata indicates {{metadataKey}}, but chords appear to be written in {{detectedKey}}. Review source key before applying correction.",
+    "metadataKeyLabel": "Metadata key",
+    "detectedKeyLabel": "Probable key",
+    "confidenceLabel": "Confidence",
+    "confidenceHigh": "High",
+    "confidenceMedium": "Medium",
+    "confidenceLow": "Low",
+    "useDetectedKey": "Use {{detectedKey}}",
+    "confirmManualKey": "Confirm selected key",
+    "confirmOverride": "Confirm use of {{sourceChordKey}}",
+    "overrideWarning": "Warning: You are selecting a key different from the high-confidence detected key. Confirm to proceed.",
+    "analysisInconclusive": "Key analysis was inconclusive. Please select the source key manually.",
+    "sourceConfirmationRequired": "Source key confirmation is required before applying.",
+    "enharmonicEquivalent": "Enharmonically equivalent keys",
+    "previewValidationFailed": "Preview validation failed",
+    "ariaLabelClose": "Close"
   },
   "premium": {
     "upgradeModal": {

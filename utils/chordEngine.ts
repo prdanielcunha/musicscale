@@ -12,6 +12,32 @@ export function isValidKey(key: string): boolean {
   return NOTES.includes(clean) || FLAT_NOTES.includes(clean);
 }
 
+export function areKeysEnharmonicallyEquivalent(keyA: string, keyB: string): boolean {
+  if (!keyA || !keyB) return false;
+  const normA = normalizeKey(keyA).trim();
+  const normB = normalizeKey(keyB).trim();
+  if (normA === normB) return true;
+
+  const isMinorA = normA.endsWith('m');
+  const isMinorB = normB.endsWith('m');
+  if (isMinorA !== isMinorB) return false;
+
+  const rootA = normA.replace(/m$/, '');
+  const rootB = normB.replace(/m$/, '');
+
+  const getRootIndex = (root: string): number => {
+    let idx = NOTES.indexOf(root);
+    if (idx === -1) idx = FLAT_NOTES.indexOf(root);
+    return idx;
+  };
+
+  const idxA = getRootIndex(rootA);
+  const idxB = getRootIndex(rootB);
+
+  if (idxA === -1 || idxB === -1) return false;
+  return idxA === idxB;
+}
+
 export function transposeChordWithPreference(chord: string, semitones: number, useFlats: boolean, targetKey?: string): string {
   if (semitones === 0) return chord;
   semitones = ((semitones % 12) + 12) % 12;

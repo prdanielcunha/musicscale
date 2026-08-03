@@ -4,7 +4,7 @@ import {
 } from '../types';
 import { doc, writeBatch, serverTimestamp, addDoc, collection, runTransaction } from 'firebase/firestore';
 import { db } from './firebase';
-import { transposeChordDocument, normalizeKey, isValidKey, getSignedSemitones } from '../utils/chordEngine';
+import { transposeChordDocument, normalizeKey, isValidKey, getSignedSemitones, areKeysEnharmonicallyEquivalent, analyzeChordDocumentKeyCandidates, validateTransposedPreview } from '../utils/chordEngine';
 
 export class MusicRepository {
     private readonly orgId: string;
@@ -317,13 +317,19 @@ export class MusicRepository {
         organizationId,
         sourceChordKey,
         targetChordKey,
-        expectedUpdatedAt
+        expectedUpdatedAt,
+        sourceConfirmation
     }: {
         songId: string;
         organizationId: string;
         sourceChordKey: string;
         targetChordKey: string;
         expectedUpdatedAt?: string | null;
+        sourceConfirmation?: {
+            type: 'detected' | 'manual' | 'override';
+            detectedKey?: string;
+            acknowledgedConflict?: boolean;
+        };
     }) {
         // Validate active organization
         if (organizationId !== this.orgId) {
@@ -352,15 +358,12 @@ export class MusicRepository {
             throw new Error("Tom inválido");
         }
 
-        const cleanSource = normSource.replace(/m$/, '');
-        const cleanTarget = normTarget.replace(/m$/, '');
-
-        if (cleanSource === cleanTarget) {
+        if (areKeysEnharmonicallyEquivalent(normSource, normTarget)) {
             throw new Error("Origem e destino não podem ser iguais");
         }
 
         // Run as a Firestore transaction
-        return await runTransaction(db, async (transaction) => {
+        await runTransaction(db, async (transaction) => {
             const songDocRef = doc(db, `organizations/${organizationId}/songs/${songId}`);
             const songDocSnapshot = await transaction.get(songDocRef);
             if (!songDocSnapshot.exists()) {
@@ -406,13 +409,30 @@ export class MusicRepository {
             }
 
             // Prevent double correction
-            if (song.metadata?.chordContentKey === normTarget) {
+            if (song.metadata?.chordContentKey && areKeysEnharmonicallyEquivalent(song.metadata.chordContentKey, normTarget)) {
                 throw new Error("A cifra já está neste tom.");
+            }
+
+            // Analyze chords inside transaction
+            const analysis = analyzeChordDocumentKeyCandidates(song.chords);
+            const topCandidate = analysis.candidates[0];
+
+            // Compare sourceChordKey with high confidence candidate & check override
+            if (topCandidate && topCandidate.confidence === 'high' && !areKeysEnharmonicallyEquivalent(sourceChordKey, topCandidate.key)) {
+                if (!sourceConfirmation?.acknowledgedConflict && sourceConfirmation?.type !== 'override') {
+                    throw new Error("Seleção de tom de origem diverge do tom detectado de alta confiança sem confirmação de override.");
+                }
             }
 
             // Perform transposition
             const { chords: transposedChords, semitones } = transposeChordDocument(song.chords, sourceChordKey, targetChordKey);
             const { signedSemitones, normalizedSemitones } = getSignedSemitones(sourceChordKey, targetChordKey);
+
+            // Validate transposed preview inside transaction
+            const val = validateTransposedPreview(song.chords, transposedChords, sourceChordKey, targetChordKey);
+            if (!val.valid) {
+                throw new Error(val.error || "Falha na validação da prévia da transposição.");
+            }
 
             // Update metadata preserving import provenance fields (declaredKey, shapeKey, capo, transpositionSemitones)
             const existingMetadata = song.metadata || {};
@@ -427,7 +447,11 @@ export class MusicRepository {
                     signedSemitones,
                     normalizedSemitones,
                     semitones,
-                    method: "manual",
+                    method: sourceConfirmation?.type || "manual",
+                    sourceConfirmationType: sourceConfirmation?.type || "manual",
+                    detectedKey: topCandidate?.key || undefined,
+                    detectionConfidence: topCandidate?.confidence || undefined,
+                    conflictAcknowledged: !!sourceConfirmation?.acknowledgedConflict,
                     correctedAt: new Date().toISOString(),
                     correctedBy: this.userProfile?.uid || 'unknown'
                 }
@@ -440,17 +464,14 @@ export class MusicRepository {
                 chordsLastModifiedAt: serverTimestamp() as any,
                 lastModifiedAt: serverTimestamp() as any
             });
-
-            const nowIso = new Date().toISOString();
-            const updatedSong: Song = {
-                ...song,
-                chords: transposedChords,
-                metadata: updatedMetadata,
-                chordsLastModifiedAt: nowIso as any,
-                lastModifiedAt: nowIso as any
-            };
-            return updatedSong;
         });
+
+        // After transaction completes, re-read saved document from Firestore
+        const canonicalSong = await this.songs.getById(songId);
+        if (!canonicalSong) {
+            throw new Error("Erro ao reler o documento da música após a gravação.");
+        }
+        return canonicalSong;
     }
 
     async transposeSong(songId: string, targetKey: string, options?: { accidentalPreference?: 'sharp' | 'flat' | 'auto' }) {

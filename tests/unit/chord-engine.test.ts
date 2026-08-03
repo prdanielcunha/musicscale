@@ -3,8 +3,28 @@ import {
   transposeChordDocument, 
   getSignedSemitones, 
   analyzeChordDocumentKeyCandidates, 
-  validateTransposedPreview 
+  validateTransposedPreview,
+  areKeysEnharmonicallyEquivalent
 } from '../../utils/chordEngine';
+
+describe('areKeysEnharmonicallyEquivalent', () => {
+  it('1. C# equivale a Db', () => {
+    expect(areKeysEnharmonicallyEquivalent('C#', 'Db')).toBe(true);
+    expect(areKeysEnharmonicallyEquivalent('Db', 'C#')).toBe(true);
+  });
+
+  it('2. F# equivale a Gb', () => {
+    expect(areKeysEnharmonicallyEquivalent('F#', 'Gb')).toBe(true);
+  });
+
+  it('3. C#m equivale a Dbm', () => {
+    expect(areKeysEnharmonicallyEquivalent('C#m', 'Dbm')).toBe(true);
+  });
+
+  it('4. C não equivale a Cm', () => {
+    expect(areKeysEnharmonicallyEquivalent('C', 'Cm')).toBe(false);
+  });
+});
 
 describe('chordEngine - transposeChordDocument manual repair tool', () => {
   const chordsSample = `[Intro]
@@ -183,6 +203,12 @@ describe('getSignedSemitones', () => {
     expect(res.signedSemitones).toBe(-5);
     expect(res.normalizedSemitones).toBe(7);
   });
+
+  it('deve calcular C -> B como -1 semitom', () => {
+    const res = getSignedSemitones('C', 'B');
+    expect(res.signedSemitones).toBe(-1);
+    expect(res.normalizedSemitones).toBe(11);
+  });
 });
 
 describe('analyzeChordDocumentKeyCandidates', () => {
@@ -196,10 +222,16 @@ Em7   A`;
     expect(['high', 'medium']).toContain(res.candidates[0].confidence);
   });
 
-  it('deve transpor progressão C G/B Am7 D de G para F resultando em Bb F/A Gm7 C', () => {
-    const chords = 'C G/B Am7 D';
+  it('Caso Real da Captura: deve transpor C, G/B, Am7, D, D/F#, G/D de G para F resultando em Bb, F/A, Gm7, C, C/E, F/C', () => {
+    const chords = 'C G/B Am7 D D/F# G/D';
     const res = transposeChordDocument(chords, 'G', 'F');
-    expect(res.chords).toBe('Bb F/A Gm7 C');
+    expect(res.chords).toBe('Bb F/A Gm7 C C/E F/C');
+  });
+
+  it('slash chord ignora baixo na detecção do centro tonal', () => {
+    const chords = 'G/B D/F# C/E';
+    const res = analyzeChordDocumentKeyCandidates(chords);
+    expect(res.candidates.length).toBeGreaterThan(0);
   });
 });
 

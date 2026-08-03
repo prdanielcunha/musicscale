@@ -22,7 +22,20 @@ vi.mock('../../contexts/ToastContext', () => ({
 // Mock react-i18next
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, defaultValue: string) => defaultValue,
+    t: (key: string, defaultValue?: string, params?: any) => {
+      if (key === 'chordKeyRepair.semitones') {
+        const count = params?.count || 0;
+        return count === 1 ? '1 semitom' : `${count} semitons`;
+      }
+      if (params) {
+        let result = defaultValue || key;
+        Object.keys(params).forEach(p => {
+          result = result.replace(`{{${p}}}`, params[p]);
+        });
+        return result;
+      }
+      return defaultValue || key;
+    },
   }),
 }));
 
@@ -123,7 +136,7 @@ describe('ChordKeyRepairSheet', () => {
   });
 
   it('deve executar no modo persisted (com chamada de API e toast de sucesso)', async () => {
-    mockRepairOrganizationSongChordKey.mockResolvedValue(undefined);
+    mockRepairOrganizationSongChordKey.mockResolvedValue(mockSong);
 
     render(
       <ChordKeyRepairSheet
@@ -145,13 +158,18 @@ describe('ChordKeyRepairSheet', () => {
     fireEvent.click(applyBtn);
 
     await waitFor(() => {
-      // API call made
+      // API call made with sourceConfirmation
       expect(mockRepairOrganizationSongChordKey).toHaveBeenCalledWith({
         songId: 'song123',
         organizationId: 'org123',
         sourceChordKey: 'C',
         targetChordKey: 'E',
         expectedUpdatedAt: '2026-08-01T12:00:00.000Z',
+        sourceConfirmation: {
+          type: 'detected',
+          detectedKey: 'C',
+          acknowledgedConflict: false,
+        },
       });
       expect(mockToast).toHaveBeenCalled();
       expect(mockOnSuccess).toHaveBeenCalled();
@@ -174,7 +192,7 @@ describe('ChordKeyRepairSheet', () => {
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('deve exibir banner de conflito e bloquear o botão Aplicar se a metadata indica C mas os acordes estão em G', () => {
+  it('deve exibir banner de conflito e permitir confirmar tom detectado Usar G para habilitar Aplicar', async () => {
     const conflictingSong = {
       ...mockSong,
       chords: 'G D/F# Em7 A', // Detected as G with high confidence
@@ -197,22 +215,22 @@ describe('ChordKeyRepairSheet', () => {
     // Check conflict banner is rendered
     expect(screen.getByText('O tom informado não corresponde aos acordes encontrados')).toBeInTheDocument();
 
-    // Check Apply button is disabled
+    // Check Apply button is disabled due to unconfirmed conflict
     const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
     expect(applyBtn).toBeDisabled();
 
-    // Changing source key select to G resolves the conflict
-    const selects = screen.getAllByRole('combobox');
-    fireEvent.change(selects[0], { target: { value: 'G' } });
+    // Click "Usar G" button inside conflict banner
+    const useGBtn = screen.getByText('Usar G');
+    fireEvent.click(useGBtn);
 
     // Target key set to F
+    const selects = screen.getAllByRole('combobox');
     fireEvent.change(selects[1], { target: { value: 'F' } });
 
-    // Conflict banner should disappear and Apply button becomes enabled
-    expect(screen.queryByText('O tom informado não corresponde aos acordes encontrados')).not.toBeInTheDocument();
+    // Conflict banner resolves or source is confirmed, Apply button becomes enabled
     expect(applyBtn).not.toBeDisabled();
 
     // Check signed semitones label shows -2 semitons
-    expect(screen.getByText('-2 semitons')).toBeInTheDocument();
+    expect(screen.getByText(/-2 2 semitons/)).toBeInTheDocument();
   });
 });

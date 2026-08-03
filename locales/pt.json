@@ -21,7 +21,25 @@
     "concurrencyError": "Conflito de concorrência: A música foi modificada por outro usuário. Recarregue os dados e tente novamente.",
     "emptyContentError": "A cifra não pode estar vazia.",
     "sameKeysError": "O tom de origem não pode ser igual ao de destino.",
-    "selectSourceKey": "Selecione o tom de origem"
+    "selectSourceKey": "Selecione o tom de origem",
+    "selectTargetKey": "Selecione o tom de destino",
+    "conflictTitle": "O tom informado não corresponde aos acordes encontrados",
+    "conflictMessage": "A metadata indica {{metadataKey}}, mas a cifra parece estar escrita em {{detectedKey}}. Revise o tom de origem antes de aplicar a correção.",
+    "metadataKeyLabel": "Tom indicado pela metadata",
+    "detectedKeyLabel": "Tom provável da cifra",
+    "confidenceLabel": "Confiança",
+    "confidenceHigh": "Alta",
+    "confidenceMedium": "Média",
+    "confidenceLow": "Baixa",
+    "useDetectedKey": "Usar {{detectedKey}}",
+    "confirmManualKey": "Confirmar tom selecionado",
+    "confirmOverride": "Confirmar uso de {{sourceChordKey}}",
+    "overrideWarning": "Atenção: Você está selecionando um tom diferente do tom detectado com alta confiança. Confirme para prosseguir.",
+    "analysisInconclusive": "Análise do tom não foi conclusiva. Selecione o tom de origem manualmente.",
+    "sourceConfirmationRequired": "É necessário confirmar o tom de origem antes de aplicar.",
+    "enharmonicEquivalent": "Tons enarmonicamente equivalentes",
+    "previewValidationFailed": "Falha na validação da prévia",
+    "ariaLabelClose": "Fechar"
   },
   "premium": {
     "upgradeModal": {

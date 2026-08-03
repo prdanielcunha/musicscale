@@ -12,6 +12,7 @@ import {
   getSignedSemitones,
   analyzeChordDocumentKeyCandidates,
   validateTransposedPreview,
+  areKeysEnharmonicallyEquivalent,
   ChordDocumentAnalysisResult
 } from '../../utils/chordEngine';
 import Button from '../common/Button';
@@ -43,7 +44,10 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
   const { effectiveOrganizationId, permissions, userProfile } = useAuth();
 
   const [sourceChordKey, setSourceChordKey] = useState<string>('');
-  const [targetChordKey, setTargetChordKey] = useState<string>('C');
+  const [targetChordKey, setTargetChordKey] = useState<string>('');
+  const [sourceKeyConfirmation, setSourceKeyConfirmation] = useState<
+    'unconfirmed' | 'confirmed-detected' | 'confirmed-manual' | 'override-confirmed'
+  >('unconfirmed');
   const [showFullPreview, setShowFullPreview] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,24 +116,42 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
   // Analyze chord document analysis result
   const [analysisResult, setAnalysisResult] = useState<ChordDocumentAnalysisResult>({ candidates: [] });
 
-  // Setup keys from song without guessing
+  // Setup keys from song without guessing default C
   useEffect(() => {
     if (song) {
-      const tKey = song.key || 'C';
-      setTargetChordKey(tKey);
+      // Priority for target key: originalKey -> selectedKey -> key -> ''
+      let initialTarget = '';
+      if (song.originalKey && isValidKey(song.originalKey)) {
+        initialTarget = song.originalKey;
+      } else if (song.selectedKey && isValidKey(song.selectedKey)) {
+        initialTarget = song.selectedKey;
+      } else if (song.key && isValidKey(song.key)) {
+        initialTarget = song.key;
+      } else {
+        initialTarget = '';
+      }
+      setTargetChordKey(initialTarget);
 
-      const contentKey = song.metadata?.chordContentKey || song.metadata?.shapeKey || '';
+      const metadataKey = song.metadata?.chordContentKey || song.metadata?.shapeKey || '';
       const analysis = analyzeChordDocumentKeyCandidates(song.chords || '');
       setAnalysisResult(analysis);
 
       const topCandidate = analysis.candidates[0];
 
-      if (contentKey) {
-        setSourceChordKey(contentKey);
+      if (metadataKey && isValidKey(metadataKey)) {
+        setSourceChordKey(metadataKey);
+        if (topCandidate && (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium') && !areKeysEnharmonicallyEquivalent(metadataKey, topCandidate.key)) {
+          // Conflict between metadata and analysis! Requires explicit user confirmation
+          setSourceKeyConfirmation('unconfirmed');
+        } else {
+          setSourceKeyConfirmation('confirmed-detected');
+        }
       } else if (topCandidate && (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium')) {
         setSourceChordKey(topCandidate.key);
+        setSourceKeyConfirmation('unconfirmed');
       } else {
         setSourceChordKey('');
+        setSourceKeyConfirmation('unconfirmed');
       }
     }
   }, [song]);
@@ -150,8 +172,27 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
     metadataKey &&
     topCandidate &&
     (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium') &&
-    normalizeKey(metadataKey) !== normalizeKey(topCandidate.key) &&
-    normalizeKey(sourceChordKey) === normalizeKey(metadataKey)
+    !areKeysEnharmonicallyEquivalent(metadataKey, topCandidate.key)
+  );
+
+  // Is source selection divergent from high-confidence detected key?
+  const isSourceDivergentFromDetected = !!(
+    sourceChordKey &&
+    topCandidate &&
+    topCandidate.confidence === 'high' &&
+    !areKeysEnharmonicallyEquivalent(sourceChordKey, topCandidate.key)
+  );
+
+  const isSameKey = !!(
+    sourceChordKey &&
+    targetChordKey &&
+    areKeysEnharmonicallyEquivalent(sourceChordKey, targetChordKey)
+  );
+
+  const isAlreadyInTargetKey = !!(
+    song.metadata?.chordContentKey &&
+    targetChordKey &&
+    areKeysEnharmonicallyEquivalent(song.metadata.chordContentKey, targetChordKey)
   );
 
   // Compute preview in real-time
@@ -163,7 +204,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
   const { signedSemitones, normalizedSemitones } = getSignedSemitones(sourceChordKey, targetChordKey);
 
   try {
-    if (sourceChordKey && targetChordKey && sourceChordKey !== targetChordKey) {
+    if (sourceChordKey && targetChordKey && !isSameKey) {
       const result = transposeChordDocument(song.chords || '', sourceChordKey, targetChordKey);
       transposedChords = result.chords;
       semitones = result.semitones;
@@ -171,13 +212,13 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
 
       const val = validateTransposedPreview(song.chords || '', transposedChords, sourceChordKey, targetChordKey);
       if (!val.valid) {
-        previewError = val.error || 'Erro na validação da prévia';
+        previewError = val.error || t('chordKeyRepair.previewValidationFailed', 'Erro na validação da prévia');
       }
     } else {
       transposedChords = song.chords || '';
     }
   } catch (err: any) {
-    previewError = err.message || 'Erro ao gerar prévia';
+    previewError = err.message || t('chordKeyRepair.previewValidationFailed', 'Erro ao gerar prévia');
   }
 
   const beforeLines = (song.chords || '').split('\n');
@@ -193,7 +234,36 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
     low: t('chordKeyRepair.confidenceLow', 'Baixa')
   };
 
-  const isApplyDisabled = loading || !sourceChordKey || sourceChordKey === targetChordKey || hasMetadataContentConflict || !!previewError;
+  const isApplyDisabled =
+    loading ||
+    !sourceChordKey ||
+    !targetChordKey ||
+    isSameKey ||
+    isAlreadyInTargetKey ||
+    sourceKeyConfirmation === 'unconfirmed' ||
+    !!previewError;
+
+  const handleSourceKeyChange = (val: string) => {
+    setSourceChordKey(val);
+    if (!val) {
+      setSourceKeyConfirmation('unconfirmed');
+      return;
+    }
+    if (topCandidate && topCandidate.confidence === 'high' && !areKeysEnharmonicallyEquivalent(val, topCandidate.key)) {
+      setSourceKeyConfirmation('unconfirmed');
+    } else {
+      setSourceKeyConfirmation('confirmed-manual');
+    }
+  };
+
+  const handleConfirmDetected = (detectedKey: string) => {
+    setSourceChordKey(detectedKey);
+    setSourceKeyConfirmation('confirmed-detected');
+  };
+
+  const handleConfirmOverride = () => {
+    setSourceKeyConfirmation('override-confirmed');
+  };
 
   const handleApply = async () => {
     if (loading || isApplyDisabled) return;
@@ -210,13 +280,23 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
       return;
     }
 
-    if (sourceChordKey === targetChordKey) {
+    if (!targetChordKey) {
+      setError(t('chordKeyRepair.selectTargetKey', 'Selecione o tom de destino.'));
+      return;
+    }
+
+    if (isSameKey) {
       setError(t('chordKeyRepair.sameKeysError', 'O tom de origem não pode ser igual ao de destino.'));
       return;
     }
 
-    if (song.metadata?.chordContentKey === targetChordKey) {
+    if (isAlreadyInTargetKey) {
       setError(t('chordKeyRepair.alreadyInKey', 'A cifra já está neste tom.'));
+      return;
+    }
+
+    if (sourceKeyConfirmation === 'unconfirmed') {
+      setError(t('chordKeyRepair.sourceConfirmationRequired', 'É necessário confirmar o tom de origem antes de aplicar.'));
       return;
     }
 
@@ -234,7 +314,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
           signedSemitones,
           normalizedSemitones,
           semitones: normalizedSemitones,
-          method: 'manual',
+          method: sourceKeyConfirmation === 'override-confirmed' ? 'override' : sourceKeyConfirmation === 'confirmed-manual' ? 'manual' : 'detected',
           correctedAt: new Date().toISOString(),
           correctedBy: userProfile?.uid || 'unknown'
         }
@@ -257,7 +337,12 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
           organizationId: effectiveOrganizationId || '',
           sourceChordKey,
           targetChordKey,
-          expectedUpdatedAt: song.lastModifiedAt || song.chordsLastModifiedAt || (song as any).updatedAt || null
+          expectedUpdatedAt: song.lastModifiedAt || song.chordsLastModifiedAt || (song as any).updatedAt || null,
+          sourceConfirmation: {
+            type: sourceKeyConfirmation === 'override-confirmed' ? 'override' : sourceKeyConfirmation === 'confirmed-manual' ? 'manual' : 'detected',
+            detectedKey: topCandidate?.key,
+            acknowledgedConflict: sourceKeyConfirmation === 'override-confirmed'
+          }
         });
 
         // Show toast
@@ -270,8 +355,8 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
           type: 'success'
         });
 
-        if (onSuccess) {
-          onSuccess((savedSong || updatedSong) as PopulatedSong);
+        if (onSuccess && savedSong) {
+          onSuccess(savedSong as PopulatedSong);
         }
       } else {
         if (onSuccess) {
@@ -323,7 +408,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
             ref={closeBtnRef}
             onClick={onClose}
             className="p-1.5 rounded-full text-slate-400 hover:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none"
-            aria-label="Fechar"
+            aria-label={t('chordKeyRepair.ariaLabelClose', 'Fechar')}
           >
             <X className="w-5 h-5" />
           </button>
@@ -338,9 +423,17 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
             </div>
           )}
 
+          {/* Low Confidence Warning */}
+          {(!topCandidate || topCandidate.confidence === 'low') && (
+            <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 text-xs flex gap-2 items-center">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-blue-500" />
+              <span>{t('chordKeyRepair.analysisInconclusive', 'Análise do tom não foi conclusiva. Selecione o tom de origem manualmente.')}</span>
+            </div>
+          )}
+
           {/* Conflict Warning Banner */}
           {hasMetadataContentConflict && topCandidate && (
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-sm space-y-2">
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-sm space-y-3">
               <div className="flex gap-2 items-center font-bold">
                 <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400" />
                 <span>
@@ -367,6 +460,28 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
                   <strong>{confidenceTextMap[topCandidate.confidence] || topCandidate.confidence}</strong>
                 </div>
               </div>
+
+              {/* Explicit Confirmation Actions inside Conflict Banner */}
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleConfirmDetected(topCandidate.key)}
+                  className="text-xs font-bold"
+                >
+                  {t('chordKeyRepair.useDetectedKey', 'Usar {{detectedKey}}', { detectedKey: topCandidate.key })}
+                </Button>
+                {sourceChordKey && !areKeysEnharmonicallyEquivalent(sourceChordKey, topCandidate.key) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleConfirmOverride}
+                    className="text-xs font-bold"
+                  >
+                    {t('chordKeyRepair.confirmOverride', 'Confirmar uso de {{sourceChordKey}}', { sourceChordKey })}
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 
@@ -380,7 +495,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
               <div className="relative">
                 <select
                   value={sourceChordKey}
-                  onChange={(e) => setSourceChordKey(e.target.value)}
+                  onChange={(e) => handleSourceKeyChange(e.target.value)}
                   disabled={loading}
                   className="w-full min-h-[44px] px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl font-medium focus:ring-2 focus:ring-primary/20 appearance-none outline-none disabled:opacity-50"
                 >
@@ -409,6 +524,9 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
                   disabled={loading}
                   className="w-full min-h-[44px] px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl font-medium focus:ring-2 focus:ring-primary/20 appearance-none outline-none disabled:opacity-50"
                 >
+                  <option value="">
+                    {t('chordKeyRepair.selectTargetKey', 'Selecione o tom de destino')}
+                  </option>
                   {ALL_KEYS.map((k) => (
                     <option key={k} value={k}>
                       {k}
@@ -420,13 +538,36 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
             </div>
           </div>
 
+          {/* Explicit Manual/Override Confirmation Button when unconfirmed outside conflict banner */}
+          {!hasMetadataContentConflict && sourceChordKey && sourceKeyConfirmation === 'unconfirmed' && (
+            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="text-amber-800 dark:text-amber-300">
+                {isSourceDivergentFromDetected ? (
+                  <span>{t('chordKeyRepair.overrideWarning', 'Atenção: Você está selecionando um tom diferente do tom detectado. Confirme para prosseguir.')}</span>
+                ) : (
+                  <span>{t('chordKeyRepair.sourceConfirmationRequired', 'É necessário confirmar o tom de origem antes de aplicar.')}</span>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleConfirmOverride}
+                className="shrink-0 font-bold"
+              >
+                {isSourceDivergentFromDetected 
+                  ? t('chordKeyRepair.confirmOverride', 'Confirmar uso de {{sourceChordKey}}', { sourceChordKey })
+                  : t('chordKeyRepair.confirmManualKey', 'Confirmar tom selecionado')}
+              </Button>
+            </div>
+          )}
+
           {/* Real-time Summary Badge Row */}
-          {sourceChordKey && targetChordKey && sourceChordKey !== targetChordKey && !previewError && (
+          {sourceChordKey && targetChordKey && !isSameKey && !previewError && (
             <div className="flex flex-wrap gap-4 items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800/40 text-xs text-slate-600 dark:text-slate-400">
               <div>
                 <span className="font-bold">{t('chordKeyRepair.difference', 'Diferença')}:</span>{' '}
                 <span className="font-bold text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded bg-emerald-500/10">
-                  {semitonesLabel} semitons
+                  {semitonesLabel} {t('chordKeyRepair.semitones', '{{count}} semitom | {{count}} semitons', { count: Math.abs(signedSemitones) })}
                 </span>
               </div>
               {changedChordCount > 0 && (

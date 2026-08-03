@@ -21,7 +21,25 @@
     "concurrencyError": "Conflicto de concurrencia: La canción fue modificada por otro usuario. Recargue los datos e intente de nuevo.",
     "emptyContentError": "La cifra no puede estar vacía.",
     "sameKeysError": "El tono de origen no puede ser igual al de destino.",
-    "selectSourceKey": "Seleccione el tono de origen"
+    "selectSourceKey": "Seleccione el tono de origen",
+    "selectTargetKey": "Seleccione el tono de destino",
+    "conflictTitle": "El tono indicado no coincide con los acordes encontrados",
+    "conflictMessage": "La metadata indica {{metadataKey}}, pero la cifra parece estar escrita en {{detectedKey}}. Revise el tono de origen antes de aplicar la corrección.",
+    "metadataKeyLabel": "Tono de la metadata",
+    "detectedKeyLabel": "Tono probable",
+    "confidenceLabel": "Confianza",
+    "confidenceHigh": "Alta",
+    "confidenceMedium": "Media",
+    "confidenceLow": "Baja",
+    "useDetectedKey": "Usar {{detectedKey}}",
+    "confirmManualKey": "Confirmar tono seleccionado",
+    "confirmOverride": "Confirmar uso de {{sourceChordKey}}",
+    "overrideWarning": "Atención: Está seleccionando un tono diferente del tono detectado con alta confianza. Confirme para continuar.",
+    "analysisInconclusive": "El análisis de tono no fue conclusivo. Seleccione el tono de origen manualmente.",
+    "sourceConfirmationRequired": "Se requiere confirmar el tono de origen antes de aplicar.",
+    "enharmonicEquivalent": "Tonos enarmónicamente equivalentes",
+    "previewValidationFailed": "Fallo en la validación de la vista previa",
+    "ariaLabelClose": "Cerrar"
   },
   "premium": {
     "upgradeModal": {
