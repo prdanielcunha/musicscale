@@ -1,12 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, ChevronDown, Check, AlertTriangle, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import type { PopulatedSong } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApi } from '../../contexts/ApiContext';
 import { useToast } from '../../contexts/ToastContext';
-import { transposeChordDocument, normalizeKey, isValidKey } from '../../utils/chordEngine';
+import { 
+  transposeChordDocument, 
+  normalizeKey, 
+  isValidKey, 
+  getSignedSemitones,
+  analyzeChordDocumentKeyCandidates,
+  validateTransposedPreview,
+  ChordDocumentAnalysisResult
+} from '../../utils/chordEngine';
 import Button from '../common/Button';
 
 export type ChordKeyRepairMode = 'draft' | 'persisted';
@@ -102,14 +109,28 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
     return () => window.removeEventListener('keydown', handleFocusTrap);
   }, [isOpen]);
 
+  // Analyze chord document analysis result
+  const [analysisResult, setAnalysisResult] = useState<ChordDocumentAnalysisResult>({ candidates: [] });
+
   // Setup keys from song without guessing
   useEffect(() => {
     if (song) {
       const tKey = song.key || 'C';
       setTargetChordKey(tKey);
-      
+
       const contentKey = song.metadata?.chordContentKey || song.metadata?.shapeKey || '';
-      setSourceChordKey(contentKey);
+      const analysis = analyzeChordDocumentKeyCandidates(song.chords || '');
+      setAnalysisResult(analysis);
+
+      const topCandidate = analysis.candidates[0];
+
+      if (contentKey) {
+        setSourceChordKey(contentKey);
+      } else if (topCandidate && (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium')) {
+        setSourceChordKey(topCandidate.key);
+      } else {
+        setSourceChordKey('');
+      }
     }
   }, [song]);
 
@@ -121,11 +142,25 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
     permissions?.['musicScale.manageSongs']
   );
 
+  const topCandidate = analysisResult.candidates[0];
+  const metadataKey = song.metadata?.chordContentKey || song.metadata?.shapeKey || '';
+
+  // Determine if there is a conflict between metadataKey and detected chords
+  const hasMetadataContentConflict = !!(
+    metadataKey &&
+    topCandidate &&
+    (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium') &&
+    normalizeKey(metadataKey) !== normalizeKey(topCandidate.key) &&
+    normalizeKey(sourceChordKey) === normalizeKey(metadataKey)
+  );
+
   // Compute preview in real-time
   let transposedChords = '';
   let semitones = 0;
   let changedChordCount = 0;
-  let previewError = null;
+  let previewError: string | null = null;
+
+  const { signedSemitones, normalizedSemitones } = getSignedSemitones(sourceChordKey, targetChordKey);
 
   try {
     if (sourceChordKey && targetChordKey && sourceChordKey !== targetChordKey) {
@@ -133,6 +168,11 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
       transposedChords = result.chords;
       semitones = result.semitones;
       changedChordCount = result.changedChordCount;
+
+      const val = validateTransposedPreview(song.chords || '', transposedChords, sourceChordKey, targetChordKey);
+      if (!val.valid) {
+        previewError = val.error || 'Erro na validação da prévia';
+      }
     } else {
       transposedChords = song.chords || '';
     }
@@ -145,10 +185,18 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
   const visibleBefore = showFullPreview ? beforeLines : beforeLines.slice(0, 8);
   const visibleAfter = showFullPreview ? afterLines : afterLines.slice(0, 8);
 
-  const semitonesLabel = semitones > 0 ? `+${semitones}` : `${semitones}`;
+  const semitonesLabel = signedSemitones > 0 ? `+${signedSemitones}` : `${signedSemitones}`;
+
+  const confidenceTextMap: Record<string, string> = {
+    high: t('chordKeyRepair.confidenceHigh', 'Alta'),
+    medium: t('chordKeyRepair.confidenceMedium', 'Média'),
+    low: t('chordKeyRepair.confidenceLow', 'Baixa')
+  };
+
+  const isApplyDisabled = loading || !sourceChordKey || sourceChordKey === targetChordKey || hasMetadataContentConflict || !!previewError;
 
   const handleApply = async () => {
-    if (loading) return;
+    if (loading || isApplyDisabled) return;
     setError(null);
 
     // Double check capability (only in persisted mode)
@@ -179,15 +227,13 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
         ...(song.metadata || {}),
         chordContentKey: targetChordKey,
         normalizedToConcertKey: true,
-        declaredKey: targetChordKey,
-        shapeKey: targetChordKey,
-        capo: 0,
-        transpositionSemitones: 0,
         chordKeyCorrection: {
           version: 1,
           previousContentKey: sourceChordKey,
           correctedContentKey: targetChordKey,
-          semitones,
+          signedSemitones,
+          normalizedSemitones,
+          semitones: normalizedSemitones,
           method: 'manual',
           correctedAt: new Date().toISOString(),
           correctedBy: userProfile?.uid || 'unknown'
@@ -206,7 +252,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
           throw new Error('Serviço de API indisponível no momento.');
         }
 
-        await api.repairOrganizationSongChordKey({
+        const savedSong = await api.repairOrganizationSongChordKey({
           songId: song.id,
           organizationId: effectiveOrganizationId || '',
           sourceChordKey,
@@ -223,11 +269,14 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
           }),
           type: 'success'
         });
-      }
 
-      // Trigger success callback
-      if (onSuccess) {
-        onSuccess(updatedSong);
+        if (onSuccess) {
+          onSuccess((savedSong || updatedSong) as PopulatedSong);
+        }
+      } else {
+        if (onSuccess) {
+          onSuccess(updatedSong);
+        }
       }
 
       onClose();
@@ -289,6 +338,38 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
             </div>
           )}
 
+          {/* Conflict Warning Banner */}
+          {hasMetadataContentConflict && topCandidate && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-sm space-y-2">
+              <div className="flex gap-2 items-center font-bold">
+                <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>
+                  {t('chordKeyRepair.conflictTitle', 'O tom informado não corresponde aos acordes encontrados')}
+                </span>
+              </div>
+              <p className="text-xs leading-relaxed">
+                {t('chordKeyRepair.conflictMessage', 'A metadata indica {{metadataKey}}, mas a cifra parece estar escrita em {{detectedKey}}. Revise o tom de origem antes de aplicar a correção.', {
+                  metadataKey,
+                  detectedKey: topCandidate.key
+                })}
+              </p>
+              <div className="pt-2 text-xs flex flex-wrap gap-x-6 gap-y-1 font-mono text-amber-900 dark:text-amber-200 border-t border-amber-500/20">
+                <div>
+                  <span className="font-sans text-amber-700 dark:text-amber-400">{t('chordKeyRepair.metadataKeyLabel', 'Tom indicado pela metadata')}:</span>{' '}
+                  <strong>{metadataKey}</strong>
+                </div>
+                <div>
+                  <span className="font-sans text-amber-700 dark:text-amber-400">{t('chordKeyRepair.detectedKeyLabel', 'Tom provável da cifra')}:</span>{' '}
+                  <strong>{topCandidate.key}</strong>
+                </div>
+                <div>
+                  <span className="font-sans text-amber-700 dark:text-amber-400">{t('chordKeyRepair.confidenceLabel', 'Confiança')}:</span>{' '}
+                  <strong>{confidenceTextMap[topCandidate.confidence] || topCandidate.confidence}</strong>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Form Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Written in Key */}
@@ -303,7 +384,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
                   disabled={loading}
                   className="w-full min-h-[44px] px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl font-medium focus:ring-2 focus:ring-primary/20 appearance-none outline-none disabled:opacity-50"
                 >
-                  <option value="" disabled>
+                  <option value="">
                     {t('chordKeyRepair.selectSourceKey', 'Selecione o tom de origem')}
                   </option>
                   {ALL_KEYS.map((k) => (
@@ -427,7 +508,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
           <Button
             variant="primary"
             onClick={handleApply}
-            disabled={loading || !sourceChordKey || sourceChordKey === targetChordKey}
+            disabled={isApplyDisabled}
             leftIcon={loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
             className="w-full sm:w-auto font-bold"
           >

@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { transposeChordDocument } from '../../utils/chordEngine';
+import { 
+  transposeChordDocument, 
+  getSignedSemitones, 
+  analyzeChordDocumentKeyCandidates, 
+  validateTransposedPreview 
+} from '../../utils/chordEngine';
 
 describe('chordEngine - transposeChordDocument manual repair tool', () => {
   const chordsSample = `[Intro]
@@ -157,5 +162,60 @@ Saltando pelos montes`;
   it('23. deve rejeitar tom inválido', () => {
     expect(() => transposeChordDocument('E', 'InvalidKey', 'F#')).toThrow('Tom inválido');
     expect(() => transposeChordDocument('E', 'E', 'X#')).toThrow('Tom inválido');
+  });
+});
+
+describe('getSignedSemitones', () => {
+  it('deve calcular G -> F como -2 semitons', () => {
+    const res = getSignedSemitones('G', 'F');
+    expect(res.signedSemitones).toBe(-2);
+    expect(res.normalizedSemitones).toBe(10);
+  });
+
+  it('deve calcular C -> F como +5 semitons', () => {
+    const res = getSignedSemitones('C', 'F');
+    expect(res.signedSemitones).toBe(5);
+    expect(res.normalizedSemitones).toBe(5);
+  });
+
+  it('deve calcular F -> C como -5 semitons', () => {
+    const res = getSignedSemitones('F', 'C');
+    expect(res.signedSemitones).toBe(-5);
+    expect(res.normalizedSemitones).toBe(7);
+  });
+});
+
+describe('analyzeChordDocumentKeyCandidates', () => {
+  it('deve detectar G como candidato de alta confiança em cifra escrita com G, D/F#, Em7, A', () => {
+    const chords = `[Intro]
+G   D/F#
+Em7   A`;
+    const res = analyzeChordDocumentKeyCandidates(chords);
+    expect(res.candidates.length).toBeGreaterThan(0);
+    expect(res.candidates[0].key).toBe('G');
+    expect(['high', 'medium']).toContain(res.candidates[0].confidence);
+  });
+
+  it('deve transpor progressão C G/B Am7 D de G para F resultando em Bb F/A Gm7 C', () => {
+    const chords = 'C G/B Am7 D';
+    const res = transposeChordDocument(chords, 'G', 'F');
+    expect(res.chords).toBe('Bb F/A Gm7 C');
+  });
+});
+
+describe('validateTransposedPreview', () => {
+  it('deve validar transposição válida preservando letra, barras de compasso e extensão', () => {
+    const original = 'C G/B Am7 D\nSanto, Santo é o Senhor';
+    const transposed = transposeChordDocument(original, 'G', 'F').chords;
+    const val = validateTransposedPreview(original, transposed, 'G', 'F');
+    expect(val.valid).toBe(true);
+  });
+
+  it('deve rejeitar transposição se a letra for alterada', () => {
+    const original = 'C G/B Am7 D\nSanto, Santo é o Senhor';
+    const invalidTransposed = 'Bb F/A Gm7 C\nSanto, Santo é o Deus';
+    const val = validateTransposedPreview(original, invalidTransposed, 'G', 'F');
+    expect(val.valid).toBe(false);
+    expect(val.error).toContain('letra foi alterada');
   });
 });

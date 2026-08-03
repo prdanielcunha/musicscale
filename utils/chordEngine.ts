@@ -1064,3 +1064,275 @@ export function preProcessSongText(rawText: string) {
         }
     }
 }
+
+export interface ChordKeyCandidate {
+  key: string;
+  score: number;
+  confidence: 'high' | 'medium' | 'low';
+  evidence: {
+    tonicHits: number;
+    dominantHits: number;
+    diatonicHits: number;
+    totalChordTokens: number;
+  };
+}
+
+export interface ChordDocumentAnalysisResult {
+  candidates: ChordKeyCandidate[];
+}
+
+export function getSignedSemitones(sourceKey: string, targetKey: string): { signedSemitones: number; normalizedSemitones: number } {
+  const normSource = normalizeKey(sourceKey);
+  const normTarget = normalizeKey(targetKey);
+
+  const cleanSource = normSource.replace(/m$/, '');
+  const cleanTarget = normTarget.replace(/m$/, '');
+
+  const sourceIndex = NOTES.indexOf(cleanSource) !== -1 ? NOTES.indexOf(cleanSource) : FLAT_NOTES.indexOf(cleanSource);
+  const targetIndex = NOTES.indexOf(cleanTarget) !== -1 ? NOTES.indexOf(cleanTarget) : FLAT_NOTES.indexOf(cleanTarget);
+
+  if (sourceIndex === -1 || targetIndex === -1) {
+    return { signedSemitones: 0, normalizedSemitones: 0 };
+  }
+
+  const normalizedSemitones = (targetIndex - sourceIndex + 12) % 12;
+  let signedSemitones = normalizedSemitones;
+  if (normalizedSemitones > 6) {
+    signedSemitones = normalizedSemitones - 12;
+  }
+
+  return { signedSemitones, normalizedSemitones };
+}
+
+export function analyzeChordDocumentKeyCandidates(chords: string): ChordDocumentAnalysisResult {
+  if (!chords || !chords.trim()) {
+    return { candidates: [] };
+  }
+
+  const lines = chords.split('\n');
+  const chordTokens: { root: string; quality: 'Major' | 'Minor'; isSlash: boolean; raw: string }[] = [];
+  let firstTokenRoot: string | null = null;
+  let lastTokenRoot: string | null = null;
+
+  for (const line of lines) {
+    const parts = line.split(/(\s+|[|]+)/);
+    for (const part of parts) {
+      const core = part.trim().replace(/^[(|[\]]+|[(|[\]]+$/g, '');
+      if (core && isChordToken(core)) {
+        const chordRegex = /^([A-G][#b]?)(.*?)(\/([A-G][#b]?))?$/;
+        const match = core.match(chordRegex);
+        if (match) {
+          const rootNote = normalizeKey(match[1]);
+          const ext = match[2] || '';
+          const isMinor = /^m(?!aj)/.test(ext) || ext.startsWith('min');
+          const tokenObj = {
+            root: rootNote,
+            quality: (isMinor ? 'Minor' : 'Major') as 'Major' | 'Minor',
+            isSlash: !!match[4],
+            raw: core
+          };
+          chordTokens.push(tokenObj);
+          if (!firstTokenRoot) firstTokenRoot = rootNote;
+          lastTokenRoot = rootNote;
+        }
+      }
+    }
+  }
+
+  if (chordTokens.length === 0) {
+    return { candidates: [] };
+  }
+
+  const testMajorKeys = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'];
+  const testMinorKeys = testMajorKeys.map(k => `${k}m`);
+  const allTestKeys = [...testMajorKeys, ...testMinorKeys];
+
+  const getNoteIndex = (note: string) => {
+    const clean = normalizeKey(note).replace(/m$/, '');
+    let idx = NOTES.indexOf(clean);
+    if (idx === -1) idx = FLAT_NOTES.indexOf(clean);
+    return idx;
+  };
+
+  const rawCandidates: {
+    key: string;
+    score: number;
+    evidence: { tonicHits: number; dominantHits: number; diatonicHits: number; totalChordTokens: number };
+  }[] = [];
+
+  for (const keyCandidate of allTestKeys) {
+    const isMinorKey = keyCandidate.endsWith('m');
+    const rootNote = keyCandidate.replace(/m$/, '');
+    const rootIdx = getNoteIndex(rootNote);
+    if (rootIdx === -1) continue;
+
+    let tonicHits = 0;
+    let dominantHits = 0;
+    let diatonicHits = 0;
+
+    for (const token of chordTokens) {
+      const tokenIdx = getNoteIndex(token.root);
+      if (tokenIdx === -1) continue;
+
+      const semitoneOffset = (tokenIdx - rootIdx + 12) % 12;
+
+      if (!isMinorKey) {
+        if (semitoneOffset === 0 && token.quality === 'Major') {
+          tonicHits++;
+          diatonicHits++;
+        } else if (semitoneOffset === 7 && token.quality === 'Major') {
+          dominantHits++;
+          diatonicHits++;
+        } else if (
+          (semitoneOffset === 2 && token.quality === 'Minor') ||
+          (semitoneOffset === 4 && token.quality === 'Minor') ||
+          (semitoneOffset === 5 && token.quality === 'Major') ||
+          (semitoneOffset === 9 && token.quality === 'Minor') ||
+          (semitoneOffset === 11)
+        ) {
+          diatonicHits++;
+        } else if (semitoneOffset === 2 && token.quality === 'Major') {
+          diatonicHits += 0.5;
+        }
+      } else {
+        if (semitoneOffset === 0 && token.quality === 'Minor') {
+          tonicHits++;
+          diatonicHits++;
+        } else if (semitoneOffset === 7) {
+          dominantHits++;
+          diatonicHits++;
+        } else if (
+          (semitoneOffset === 2) ||
+          (semitoneOffset === 3 && token.quality === 'Major') ||
+          (semitoneOffset === 5 && token.quality === 'Minor') ||
+          (semitoneOffset === 8 && token.quality === 'Major') ||
+          (semitoneOffset === 10 && token.quality === 'Major')
+        ) {
+          diatonicHits++;
+        }
+      }
+    }
+
+    let score = tonicHits * 3.5 + dominantHits * 2.5 + Math.max(0, diatonicHits - tonicHits - dominantHits) * 1.0;
+
+    if (firstTokenRoot && getNoteIndex(firstTokenRoot) === rootIdx) {
+      score += 1.5;
+    }
+    if (lastTokenRoot && getNoteIndex(lastTokenRoot) === rootIdx) {
+      score += 1.0;
+    }
+
+    rawCandidates.push({
+      key: keyCandidate,
+      score,
+      evidence: {
+        tonicHits,
+        dominantHits,
+        diatonicHits,
+        totalChordTokens: chordTokens.length
+      }
+    });
+  }
+
+  rawCandidates.sort((a, b) => b.score - a.score);
+
+  const canonicalCandidates: typeof rawCandidates = [];
+  const seenIndices = new Set<string>();
+
+  for (const cand of rawCandidates) {
+    const isMinor = cand.key.endsWith('m');
+    const rootIdx = getNoteIndex(cand.key);
+    const keyId = `${rootIdx}_${isMinor ? 'm' : 'M'}`;
+    if (!seenIndices.has(keyId)) {
+      seenIndices.add(keyId);
+      canonicalCandidates.push(cand);
+    }
+  }
+
+  const topScore = canonicalCandidates[0]?.score || 0;
+  const secondScore = canonicalCandidates[1]?.score || 0;
+
+  const resultCandidates: ChordKeyCandidate[] = canonicalCandidates.map((cand, idx) => {
+    let confidence: 'high' | 'medium' | 'low' = 'low';
+    if (idx === 0) {
+      if (cand.score >= 3.5 && (canonicalCandidates.length === 1 || cand.score >= secondScore * 1.3 || cand.score - secondScore >= 2.0)) {
+        confidence = 'high';
+      } else if (cand.score >= 2.0) {
+        confidence = 'medium';
+      } else {
+        confidence = 'low';
+      }
+    } else {
+      confidence = 'low';
+    }
+
+    return {
+      key: cand.key,
+      score: cand.score,
+      confidence,
+      evidence: cand.evidence
+    };
+  });
+
+  return { candidates: resultCandidates };
+}
+
+export function validateTransposedPreview(
+  originalChords: string,
+  transposedChords: string,
+  sourceKey: string,
+  targetKey: string
+): { valid: boolean; error?: string } {
+  if (!originalChords || !transposedChords) {
+    return { valid: false, error: 'Conteúdo do preview está vazio' };
+  }
+
+  const { normalizedSemitones } = getSignedSemitones(sourceKey, targetKey);
+  if (normalizedSemitones === 0) {
+    return { valid: true };
+  }
+
+  const origLyrics = removeChordOnlyLinesFromLyrics(originalChords);
+  const transLyrics = removeChordOnlyLinesFromLyrics(transposedChords);
+  if (origLyrics !== transLyrics) {
+    return { valid: false, error: 'A letra foi alterada após a transposição' };
+  }
+
+  const getChordTokens = (text: string): string[] => {
+    const tokens: string[] = [];
+    const lines = text.split('\n');
+    for (const line of lines) {
+      const parts = line.split(/(\s+|[|]+)/);
+      for (const part of parts) {
+        const core = part.trim().replace(/^[(|[\]]+|[(|[\]]+$/g, '');
+        if (core && isChordToken(core)) {
+          tokens.push(core);
+        }
+      }
+    }
+    return tokens;
+  };
+
+  const origTokens = getChordTokens(originalChords);
+  const transTokens = getChordTokens(transposedChords);
+
+  if (origTokens.length !== transTokens.length) {
+    return { valid: false, error: `Quantidade de acordes diverge: ${origTokens.length} na origem vs ${transTokens.length} no resultado` };
+  }
+
+  const normTarget = normalizeKey(targetKey);
+  const flatKeysList = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Dm', 'Gm', 'Cm', 'Fm', 'Bbm', 'Ebm'];
+  const useFlats = flatKeysList.includes(normTarget);
+
+  for (let i = 0; i < origTokens.length; i++) {
+    const expected = transposeChordWithPreference(origTokens[i], normalizedSemitones, useFlats, normTarget);
+    if (transTokens[i] !== expected) {
+      return {
+        valid: false,
+        error: `Acorde inconsistente: ${origTokens[i]} deveria virar ${expected}, mas foi transformado em ${transTokens[i]}`
+      };
+    }
+  }
+
+  return { valid: true };
+}

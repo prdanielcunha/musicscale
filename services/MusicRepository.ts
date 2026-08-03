@@ -4,7 +4,7 @@ import {
 } from '../types';
 import { doc, writeBatch, serverTimestamp, addDoc, collection, runTransaction } from 'firebase/firestore';
 import { db } from './firebase';
-import { transposeChordDocument, normalizeKey, isValidKey } from '../utils/chordEngine';
+import { transposeChordDocument, normalizeKey, isValidKey, getSignedSemitones } from '../utils/chordEngine';
 
 export class MusicRepository {
     private readonly orgId: string;
@@ -360,7 +360,7 @@ export class MusicRepository {
         }
 
         // Run as a Firestore transaction
-        await runTransaction(db, async (transaction) => {
+        return await runTransaction(db, async (transaction) => {
             const songDocRef = doc(db, `organizations/${organizationId}/songs/${songId}`);
             const songDocSnapshot = await transaction.get(songDocRef);
             if (!songDocSnapshot.exists()) {
@@ -412,21 +412,20 @@ export class MusicRepository {
 
             // Perform transposition
             const { chords: transposedChords, semitones } = transposeChordDocument(song.chords, sourceChordKey, targetChordKey);
+            const { signedSemitones, normalizedSemitones } = getSignedSemitones(sourceChordKey, targetChordKey);
 
-            // Update metadata
+            // Update metadata preserving import provenance fields (declaredKey, shapeKey, capo, transpositionSemitones)
             const existingMetadata = song.metadata || {};
             const updatedMetadata = {
                 ...existingMetadata,
                 chordContentKey: normTarget,
                 normalizedToConcertKey: true,
-                declaredKey: normTarget,
-                shapeKey: normTarget,
-                capo: 0,
-                transpositionSemitones: 0,
                 chordKeyCorrection: {
                     version: 1,
                     previousContentKey: normSource,
                     correctedContentKey: normTarget,
+                    signedSemitones,
+                    normalizedSemitones,
                     semitones,
                     method: "manual",
                     correctedAt: new Date().toISOString(),
@@ -441,6 +440,16 @@ export class MusicRepository {
                 chordsLastModifiedAt: serverTimestamp() as any,
                 lastModifiedAt: serverTimestamp() as any
             });
+
+            const nowIso = new Date().toISOString();
+            const updatedSong: Song = {
+                ...song,
+                chords: transposedChords,
+                metadata: updatedMetadata,
+                chordsLastModifiedAt: nowIso as any,
+                lastModifiedAt: nowIso as any
+            };
+            return updatedSong;
         });
     }
 

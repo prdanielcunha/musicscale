@@ -173,4 +173,46 @@ describe('ChordKeyRepairSheet', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(mockOnClose).toHaveBeenCalled();
   });
+
+  it('deve exibir banner de conflito e bloquear o botão Aplicar se a metadata indica C mas os acordes estão em G', () => {
+    const conflictingSong = {
+      ...mockSong,
+      chords: 'G D/F# Em7 A', // Detected as G with high confidence
+      metadata: {
+        chordContentKey: 'C', // Contradicts G!
+        shapeKey: 'C',
+      },
+    };
+
+    render(
+      <ChordKeyRepairSheet
+        isOpen={true}
+        song={conflictingSong as any}
+        onClose={mockOnClose}
+        onSuccess={mockOnSuccess}
+        mode="draft"
+      />
+    );
+
+    // Check conflict banner is rendered
+    expect(screen.getByText('O tom informado não corresponde aos acordes encontrados')).toBeInTheDocument();
+
+    // Check Apply button is disabled
+    const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
+    expect(applyBtn).toBeDisabled();
+
+    // Changing source key select to G resolves the conflict
+    const selects = screen.getAllByRole('combobox');
+    fireEvent.change(selects[0], { target: { value: 'G' } });
+
+    // Target key set to F
+    fireEvent.change(selects[1], { target: { value: 'F' } });
+
+    // Conflict banner should disappear and Apply button becomes enabled
+    expect(screen.queryByText('O tom informado não corresponde aos acordes encontrados')).not.toBeInTheDocument();
+    expect(applyBtn).not.toBeDisabled();
+
+    // Check signed semitones label shows -2 semitons
+    expect(screen.getByText('-2 semitons')).toBeInTheDocument();
+  });
 });
