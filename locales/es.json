@@ -1,4 +1,27 @@
 {
+  "chordKeyRepair": {
+    "title": "Ajustar tonalidad de la cifra",
+    "description": "Use esta herramienta cuando los acordes estén escritos en un tono diferente del tono real de la canción.",
+    "writtenIn": "La cifra está escrita en:",
+    "convertTo": "Convertir los acordes a:",
+    "difference": "Diferencia",
+    "semitones": "{{count}} semitono | {{count}} semitonos",
+    "preview": "Vista previa",
+    "before": "ANTES",
+    "after": "DESPUÉS",
+    "warning": "Esta acción corrige permanentemente la cifra guardada en el repertorio de la organización. Para cambiar solo una escala, use el ajuste de tono del evento.",
+    "cancel": "Cancelar",
+    "apply": "Aplicar corrección",
+    "successTitle": "Cifra corregida",
+    "successMessage": "Los acordes se ajustaron de {{from}} a {{to}}.",
+    "alreadyInKey": "La cifra ya está en esta tonalidad.",
+    "viewFullPreview": "Ver vista previa completa",
+    "hideFullPreview": "Ocultar vista previa",
+    "alteredChords": "Cantidad de acordes alterados",
+    "concurrencyError": "Conflicto de concurrencia: La canción fue modificada por otro usuario. Recargue los datos e intente de nuevo.",
+    "emptyContentError": "La cifra no puede estar vacía.",
+    "sameKeysError": "El tono de origen no puede ser igual al de destino."
+  },
   "premium": {
     "upgradeModal": {
       "title": "Desbloquear Funciones Premium",

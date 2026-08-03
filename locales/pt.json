@@ -1,4 +1,27 @@
 {
+  "chordKeyRepair": {
+    "title": "Ajustar tom da cifra",
+    "description": "Use esta ferramenta quando os acordes estiverem escritos em um tom diferente do tom real da música.",
+    "writtenIn": "A cifra está escrita em:",
+    "convertTo": "Converter os acordes para:",
+    "difference": "Diferença",
+    "semitones": "{{count}} semitom | {{count}} semitons",
+    "preview": "Prévia",
+    "before": "ANTES",
+    "after": "DEPOIS",
+    "warning": "Esta ação corrige permanentemente a cifra salva no repertório da organização. Para mudar somente uma escala, use o ajuste de tom do evento.",
+    "cancel": "Cancelar",
+    "apply": "Aplicar correção",
+    "successTitle": "Cifra corrigida",
+    "successMessage": "Os acordes foram ajustados de {{from}} para {{to}}.",
+    "alreadyInKey": "A cifra já está neste tom.",
+    "viewFullPreview": "Ver prévia completa",
+    "hideFullPreview": "Ocultar prévia",
+    "alteredChords": "Quantidade de acordes alterados",
+    "concurrencyError": "Conflito de concorrência: A música foi modificada por outro usuário. Recarregue os dados e tente novamente.",
+    "emptyContentError": "A cifra não pode estar vazia.",
+    "sameKeysError": "O tom de origem não pode ser igual ao de destino."
+  },
   "premium": {
     "upgradeModal": {
       "title": "Desbloquear Recursos Premium",

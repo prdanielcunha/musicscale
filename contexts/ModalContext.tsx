@@ -38,6 +38,7 @@ export type MusicScaleSaveResult =
 import Modal from '../components/common/Modal';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import SuccessModal from '../components/common/SuccessModal';
+import { ChordKeyRepairSheet } from '../components/songs/ChordKeyRepairSheet';
 
 // Lazy load heavy modals
 const DuplicateSongModal = lazy(() => import('../components/songs/DuplicateSongModal').then(m => ({ default: m.DuplicateSongModal })));
@@ -125,6 +126,12 @@ interface ModalContextType {
   feedbackType: 'bug' | 'suggestion' | 'feedback';
   openFeedback: (type?: 'bug' | 'suggestion' | 'feedback') => void;
   closeFeedback: () => void;
+
+  // Chord Key Repair
+  isChordKeyRepairOpen: boolean;
+  songForChordKeyRepair: PopulatedSong | null;
+  openChordKeyRepair: (song: PopulatedSong, onSuccess?: (updatedSong: PopulatedSong) => void) => void;
+  closeChordKeyRepair: () => void;
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
@@ -260,6 +267,11 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const [isAiSongImportOpen, setIsAiSongImportOpen] = useState(false);
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
+
+  // Chord Key Repair State
+  const [isChordKeyRepairOpen, setIsChordKeyRepairOpen] = useState(false);
+  const [songForChordKeyRepair, setSongForChordKeyRepair] = useState<PopulatedSong | null>(null);
+  const [chordKeyRepairOnSuccess, setChordKeyRepairOnSuccess] = useState<((updatedSong: PopulatedSong) => void) | null>(null);
   
   const closeAllModals = useCallback(() => {
     setSongToEdit(null);
@@ -282,6 +294,9 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setIsWhatsNewOpen(false);
     setIsFeedbackOpen(false);
     setSongOpenMode(undefined);
+    setIsChordKeyRepairOpen(false);
+    setSongForChordKeyRepair(null);
+    setChordKeyRepairOnSuccess(null);
   }, []);
 
   const openFeedback = useCallback((type: 'bug'|'suggestion'|'feedback' = 'feedback') => {
@@ -297,6 +312,22 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const openWhatsNew = useCallback(() => { closeAllModals(); setIsWhatsNewOpen(true); }, [closeAllModals]);
   const closeWhatsNew = useCallback(() => { setIsWhatsNewOpen(false); }, []);
+
+  const openChordKeyRepair = useCallback((song: PopulatedSong, onSuccess?: (updatedSong: PopulatedSong) => void) => {
+    setSongForChordKeyRepair(song);
+    if (onSuccess) {
+      setChordKeyRepairOnSuccess(() => onSuccess);
+    } else {
+      setChordKeyRepairOnSuccess(null);
+    }
+    setIsChordKeyRepairOpen(true);
+  }, []);
+
+  const closeChordKeyRepair = useCallback(() => {
+    setIsChordKeyRepairOpen(false);
+    setSongForChordKeyRepair(null);
+    setChordKeyRepairOnSuccess(null);
+  }, []);
 
   const handleCloseScaleDetail = useCallback(() => {
     const currentPath = location.pathname;
@@ -932,13 +963,17 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       feedbackType,
       openFeedback,
       closeFeedback,
-      handleSaveScale
+      handleSaveScale,
+      isChordKeyRepairOpen,
+      songForChordKeyRepair,
+      openChordKeyRepair,
+      closeChordKeyRepair
   }), [
       isAiSongImportOpen, openAiSongImport, closeAiSongImport, isWhatsNewOpen, openWhatsNew, closeWhatsNew,
       openSongForm, openSongDetail, openDeleteSongConfirmation, openScaleForm, openScaleDetail,
       openBandScaleForm, openBandScaleDetail, openAddChordModal, openSuggestionForm, openHelpModal,
       openSupportModal, saveChord, isSubmitting, isFeedbackOpen, feedbackType, openFeedback, closeFeedback,
-      handleSaveScale
+      handleSaveScale, isChordKeyRepairOpen, songForChordKeyRepair, openChordKeyRepair, closeChordKeyRepair
   ]);
 
   return (
@@ -1128,6 +1163,15 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             isOpen={!!successConfig}
             onClose={() => setSuccessConfig(null)}
             {...successConfig}
+          />
+        )}
+
+        {isChordKeyRepairOpen && songForChordKeyRepair && (
+          <ChordKeyRepairSheet
+            isOpen={isChordKeyRepairOpen}
+            song={songForChordKeyRepair}
+            onClose={closeChordKeyRepair}
+            onSuccess={chordKeyRepairOnSuccess || undefined}
           />
         )}
       </Suspense>

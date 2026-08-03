@@ -4,10 +4,11 @@ import {
 } from '../types';
 import { doc, writeBatch, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { db } from './firebase';
-import { transposeChordDocument } from '../utils/chordEngine';
+import { transposeChordDocument, normalizeKey, isValidKey } from '../utils/chordEngine';
 
 export class MusicRepository {
     private readonly orgId: string;
+    private readonly userProfile?: UserProfile | null;
     public songs: BaseRepository<Song>;
     public scales: BaseRepository<Scale>;
     public bandScales: BaseRepository<BandScale>;
@@ -23,6 +24,7 @@ export class MusicRepository {
 
     constructor(orgId: string, userProfile?: UserProfile | null) {
         this.orgId = orgId;
+        this.userProfile = userProfile;
         this.songs = new class extends BaseRepository<Song> {
             async create(data: Omit<Song, 'id' | 'createdAt' | 'createdBy' | 'organizationId'>): Promise<string> {
                 const id = await super.create(data);
@@ -307,6 +309,128 @@ export class MusicRepository {
         await this.songs.update(songId, { 
             chords,
             chordsLastModifiedAt: serverTimestamp() as any 
+        } as any);
+    }
+
+    async repairOrganizationSongChordKey({
+        songId,
+        organizationId,
+        sourceChordKey,
+        targetChordKey,
+        expectedUpdatedAt,
+        userCapabilities
+    }: {
+        songId: string;
+        organizationId: string;
+        sourceChordKey: string;
+        targetChordKey: string;
+        expectedUpdatedAt?: string | null;
+        userCapabilities?: string[];
+    }) {
+        // Validate active organization
+        if (organizationId !== this.orgId) {
+            throw new Error("Operação negada: ID da organização ausente no contexto atual.");
+        }
+
+        // Validate capability
+        const allowedCapabilities = ['musicscale.songs.edit', 'manageSongs', 'musicScale.manageSongs'];
+        const hasPermission = userCapabilities && userCapabilities.some(cap => allowedCapabilities.includes(cap));
+        if (!hasPermission) {
+            throw new Error("Permissão negada: Usuário não possui a capability necessária para esta operação.");
+        }
+
+        // Validate keys
+        if (!sourceChordKey || !targetChordKey) {
+            throw new Error("Tons de origem e destino são obrigatórios.");
+        }
+
+        const normSource = normalizeKey(sourceChordKey);
+        const normTarget = normalizeKey(targetChordKey);
+
+        if (!isValidKey(normSource) || !isValidKey(normTarget)) {
+            throw new Error("Tom inválido");
+        }
+
+        const cleanSource = normSource.replace(/m$/, '');
+        const cleanTarget = normTarget.replace(/m$/, '');
+
+        if (cleanSource === cleanTarget) {
+            throw new Error("Origem e destino não podem ser iguais");
+        }
+
+        // Fetch the song (validates version & current tenant)
+        const song = await this.songs.getById(songId);
+        if (!song || song.organizationId !== this.orgId) {
+            throw new Error("Operação negada: ID da organização ausente no contexto atual.");
+        }
+
+        // Concurrency validation
+        if (expectedUpdatedAt) {
+            let currentUpdatedAtStr = '';
+            const lastMod = song.lastModifiedAt || song.chordsLastModifiedAt || (song as any).updatedAt;
+            if (lastMod) {
+                if (typeof lastMod === 'string') {
+                    currentUpdatedAtStr = lastMod;
+                } else if (typeof lastMod === 'object' && lastMod !== null) {
+                    if (typeof (lastMod as any).toDate === 'function') {
+                        currentUpdatedAtStr = (lastMod as any).toDate().toISOString();
+                    } else if (typeof (lastMod as any).seconds === 'number') {
+                        currentUpdatedAtStr = new Date((lastMod as any).seconds * 1000).toISOString();
+                    } else {
+                        currentUpdatedAtStr = JSON.stringify(lastMod);
+                    }
+                } else {
+                    currentUpdatedAtStr = String(lastMod);
+                }
+            }
+            if (currentUpdatedAtStr && expectedUpdatedAt) {
+                const cleanCurrent = currentUpdatedAtStr.replace(/\.\d+Z$/, 'Z');
+                const cleanExpected = expectedUpdatedAt.replace(/\.\d+Z$/, 'Z');
+                if (cleanCurrent !== cleanExpected) {
+                    throw new Error("Conflito de concorrência: A música foi modificada por outro usuário. Recarregue os dados e tente novamente.");
+                }
+            }
+        }
+
+        // Check if chords are empty
+        if (!song.chords || song.chords.trim() === '') {
+            throw new Error("Conteúdo vazio");
+        }
+
+        // Prevent double correction
+        if (song.metadata?.chordContentKey === normTarget) {
+            throw new Error("A cifra já está neste tom.");
+        }
+
+        // Perform transposition
+        const { chords: transposedChords, semitones } = transposeChordDocument(song.chords, sourceChordKey, targetChordKey);
+
+        // Update metadata
+        const existingMetadata = song.metadata || {};
+        const updatedMetadata = {
+            ...existingMetadata,
+            chordContentKey: normTarget,
+            normalizedToConcertKey: true,
+            declaredKey: normTarget,
+            shapeKey: normTarget,
+            capo: 0,
+            transpositionSemitones: 0,
+            chordKeyCorrection: {
+                version: 1,
+                previousContentKey: normSource,
+                correctedContentKey: normTarget,
+                semitones,
+                method: "manual",
+                correctedAt: new Date().toISOString(), // Use ISO string as standard representation for client consumption
+                correctedBy: this.userProfile?.uid || 'unknown'
+            }
+        };
+
+        // Persist correction (only updating chords, metadata, chordsLastModifiedAt and updatedAt/lastModifiedAt)
+        await this.songs.update(songId, {
+            chords: transposedChords,
+            metadata: updatedMetadata,
+            chordsLastModifiedAt: serverTimestamp() as any
         } as any);
     }
 

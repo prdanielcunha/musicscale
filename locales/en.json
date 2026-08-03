@@ -1,4 +1,27 @@
 {
+  "chordKeyRepair": {
+    "title": "Correct chord chart key",
+    "description": "Use this tool when the chords are written in a key different from the actual key of the song.",
+    "writtenIn": "Chords are written in:",
+    "convertTo": "Convert chords to:",
+    "difference": "Difference",
+    "semitones": "{{count}} semitone | {{count}} semitones",
+    "preview": "Preview",
+    "before": "BEFORE",
+    "after": "AFTER",
+    "warning": "This action permanently corrects the saved chord chart in the organization's repertoire. To change the key for a specific event only, use the event key setting.",
+    "cancel": "Cancel",
+    "apply": "Apply correction",
+    "successTitle": "Chord chart corrected",
+    "successMessage": "The chords were adjusted from {{from}} to {{to}}.",
+    "alreadyInKey": "The chord chart is already in this key.",
+    "viewFullPreview": "View full preview",
+    "hideFullPreview": "Hide preview",
+    "alteredChords": "Number of altered chords",
+    "concurrencyError": "Concurrency conflict: The song was modified by another user. Please reload the data and try again.",
+    "emptyContentError": "The chords content cannot be empty.",
+    "sameKeysError": "Source key and target key cannot be the same."
+  },
   "premium": {
     "upgradeModal": {
       "title": "Unlock Premium Features",

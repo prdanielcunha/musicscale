@@ -1,9 +1,11 @@
 // FIX: Implemented the SongForm component for adding and editing songs.
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Song, PopulatedSong, Tag } from "../../types";
 import { useEcosystemAdmin } from "../../hooks/useEcosystemAdmin";
 import Button from "../common/Button";
 import { useAuth } from "../../contexts/AuthContext";
+import { useModals } from "../../contexts/ModalContext";
 import { detectLanguageFromText } from "../../utils/languageDetector";
 import { getSongFreshnessStatus } from "../../utils/songHelpers";
 import { Globe, ShieldCheck } from "lucide-react";
@@ -35,6 +37,8 @@ const SongForm: React.FC<SongFormProps> = ({
   tags,
   defaultOptions,
 }) => {
+  const { t } = useTranslation();
+  const { openChordKeyRepair } = useModals();
   const { userProfile, permissions, organization } = useAuth();
   const { isEcosystemAdmin } = useEcosystemAdmin();
   const canManageRepertoire = !!(permissions?.manageSongs || permissions?.['musicScale.manageSongs']);
@@ -341,9 +345,53 @@ const SongForm: React.FC<SongFormProps> = ({
           ></textarea>
         </div>
         <div>
-          <label htmlFor="chords" className={formLabelClass}>
-            Cifra
-          </label>
+          <div className="flex justify-between items-center mb-2">
+            <label htmlFor="chords" className="block text-[11px] font-black tracking-widest text-slate-400 uppercase dark:text-slate-500 ml-1 mb-0">
+              Cifra
+            </label>
+            {formData.chords && canManageChords && (
+              <button
+                type="button"
+                onClick={() => {
+                  const songToRepair: PopulatedSong = {
+                    id: songToEdit?.id || 'temp-form-song',
+                    title: formData.title,
+                    artist: formData.artist,
+                    key: formData.key,
+                    bpm: formData.bpm ? Number(formData.bpm) : null,
+                    status: formData.status as any,
+                    tagIds: formData.tagIds,
+                    lyrics: formData.lyrics,
+                    chords: formData.chords,
+                    chordsUrl: formData.chordsUrl,
+                    videoUrl: formData.videoUrl,
+                    language: formData.language,
+                    organizationId: songToEdit?.organizationId || '',
+                    createdAt: songToEdit?.createdAt || new Date().toISOString(),
+                    createdBy: songToEdit?.createdBy || '',
+                    lastModifiedAt: songToEdit?.lastModifiedAt || null,
+                    chordsLastModifiedAt: songToEdit?.chordsLastModifiedAt || null,
+                    metadata: songToEdit?.metadata || {},
+                    tags: [],
+                    lastPlayed: null,
+                  };
+                  openChordKeyRepair(songToRepair, (updatedSong) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      chords: updatedSong.chords,
+                      key: updatedSong.metadata?.chordContentKey || updatedSong.key || prev.key,
+                    }));
+                  });
+                }}
+                className="text-xs text-indigo-500 hover:text-indigo-600 font-bold flex items-center gap-1 focus:outline-none"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A1.79 1.79 0 0020 18.25l-5.83-5.83M11.42 15.17l2.43-2.43M11.42 15.17L3 12h8l3-3 3 3h-2l-3.58 3.58M12 3v9h9" />
+                </svg>
+                {t('chordKeyRepair.title', 'Ajustar tom da cifra')}
+              </button>
+            )}
+          </div>
           <textarea
             name="chords"
             id="chords"
