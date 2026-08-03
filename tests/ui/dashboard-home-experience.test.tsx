@@ -52,12 +52,14 @@ const mockOpenScaleDetail = vi.fn();
 const mockOpenBandScaleDetail = vi.fn();
 const mockOpenSongDetail = vi.fn();
 const mockOpenScaleForm = vi.fn();
+const mockOpenBandScaleForm = vi.fn();
 vi.mock('../../contexts/ModalContext', () => ({
   useModals: () => ({
     openScaleDetail: mockOpenScaleDetail,
     openBandScaleDetail: mockOpenBandScaleDetail,
     openSongDetail: mockOpenSongDetail,
     openScaleForm: mockOpenScaleForm,
+    openBandScaleForm: mockOpenBandScaleForm,
   })
 }));
 
@@ -516,15 +518,253 @@ describe('Dashboard Home Experience UI', () => {
 });
 
 describe('Continuar Preparando (Dashboard)', () => {
-  it('1. experience.event aponta para evento publicado', () => { expect(true).toBe(true); });
-  it('2. experience.draftEvent aponta para outro ID', () => { expect(true).toBe(true); });
-  it('3. modo continue-draft', () => { expect(true).toBe(true); });
-  it('4. clicar em Continuar preparando', () => { expect(true).toBe(true); });
-  it('5. handler recebe o ID do draftEvent', () => { expect(true).toBe(true); });
-  it('6. não recebe o ID do evento publicado', () => { expect(true).toBe(true); });
-  it('7. pendência de banda abre link', () => { expect(true).toBe(true); });
-  it('8. pendência de repertório abre build', () => { expect(true).toBe(true); });
-  it('9. pendência de horário abre event', () => { expect(true).toBe(true); });
-  it('10. rascunho completo abre review', () => { expect(true).toBe(true); });
-  it('11. rascunho ausente executa fallback', () => { expect(true).toBe(true); });
+  it('1. experience.event aponta para evento publicado', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: () => true });
+    const scale = {
+      id: 'pub-1',
+      date: getFutureDate(),
+      time: '10:00',
+      status: 'published',
+      eventName: { name: 'Culto de Domingo' },
+      eventType: { name: 'Culto de Domingo' },
+      location: { name: 'Santuário' },
+      eventAssignments: []
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByText('Culto de Domingo')).toBeInTheDocument();
+  });
+
+  it('2. experience.draftEvent aponta para outro ID', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: () => true });
+    const publishedScale = {
+      id: 'pub-1',
+      date: getFutureDate(),
+      time: '10:00',
+      status: 'published',
+      eventName: { name: 'Culto de Domingo' },
+      eventType: { name: 'Culto de Domingo' },
+      location: { name: 'Santuário' },
+      eventAssignments: []
+    };
+    const draftScale = {
+      id: 'draft-1',
+      date: getFutureDate(),
+      time: '18:00',
+      status: 'draft',
+      eventName: { name: 'Culto de Jovens' },
+      eventType: { name: 'Culto de Jovens' },
+      location: { name: 'Auditório' },
+      eventAssignments: []
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [publishedScale, draftScale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByText('Culto de Jovens')).toBeInTheDocument();
+    expect(screen.getByText('Culto de Domingo')).toBeInTheDocument();
+  });
+
+  it('3. modo continue-draft', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: () => true });
+    const draftScale = {
+      id: 'draft-1',
+      date: getFutureDate(),
+      time: '18:00',
+      status: 'draft',
+      eventName: { name: 'Culto de Jovens' },
+      eventType: { name: 'Culto de Jovens' },
+      location: { name: 'Auditório' },
+      eventAssignments: []
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [draftScale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByText('Continuar preparando')).toBeInTheDocument();
+  });
+
+  it('4. clicar em Continuar preparando', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: () => true });
+    const draftScale = {
+      id: 'draft-1',
+      date: getFutureDate(),
+      time: '18:00',
+      status: 'draft',
+      eventName: { name: 'Culto de Jovens' },
+      eventType: { name: 'Culto de Jovens' },
+      location: { name: 'Auditório' },
+      eventAssignments: []
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [draftScale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    const btn = screen.getByText('Continuar preparando');
+    fireEvent.click(btn);
+    expect(mockOpenScaleForm).toHaveBeenCalled();
+  });
+
+  it('5. handler recebe o ID do draftEvent', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: () => true });
+    const publishedScale = {
+      id: 'pub-1',
+      date: getFutureDate(),
+      time: '10:00',
+      status: 'published',
+      eventName: { name: 'Culto de Domingo' },
+      eventType: { name: 'Culto de Domingo' },
+      location: { name: 'Santuário' },
+      eventAssignments: []
+    };
+    const draftScale = {
+      id: 'draft-1',
+      date: getFutureDate(),
+      time: '18:00',
+      status: 'draft',
+      eventName: { name: 'Culto de Jovens' },
+      eventType: { name: 'Culto de Jovens' },
+      location: { name: 'Auditório' },
+      eventAssignments: []
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [publishedScale, draftScale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    const btn = screen.getByText('Continuar preparando');
+    fireEvent.click(btn);
+    expect(mockOpenScaleForm).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'draft-1' }),
+      undefined,
+      expect.any(Object)
+    );
+  });
+
+  it('6. não recebe o ID do evento publicado', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: () => true });
+    const publishedScale = {
+      id: 'pub-1',
+      date: getFutureDate(),
+      time: '10:00',
+      status: 'published',
+      eventName: { name: 'Culto de Domingo' },
+      eventType: { name: 'Culto de Domingo' },
+      location: { name: 'Santuário' },
+      eventAssignments: []
+    };
+    const draftScale = {
+      id: 'draft-1',
+      date: getFutureDate(),
+      time: '18:00',
+      status: 'draft',
+      eventName: { name: 'Culto de Jovens' },
+      eventType: { name: 'Culto de Jovens' },
+      location: { name: 'Auditório' },
+      eventAssignments: []
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [publishedScale, draftScale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    const btn = screen.getByText('Continuar preparando');
+    fireEvent.click(btn);
+    expect(mockOpenScaleForm).not.toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'pub-1' }),
+      expect.any(Object),
+      expect.any(Object)
+    );
+  });
+
+  it('7. pendência de banda abre link', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: () => true });
+    const draftScale = {
+      id: 'draft-1',
+      date: getFutureDate(),
+      time: '18:00',
+      status: 'draft',
+      eventName: { name: 'Culto de Jovens' },
+      eventType: { name: 'Culto de Jovens' },
+      location: { name: 'Auditório' },
+      songs: [{ id: 'song1', title: 'Song 1' }],
+      eventAssignments: []
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [draftScale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    const btn = screen.getByText('Continuar preparando');
+    fireEvent.click(btn);
+    expect(mockOpenScaleForm).toHaveBeenCalledWith(
+      expect.any(Object),
+      undefined,
+      expect.objectContaining({ initialStep: 'link' })
+    );
+  });
+
+  it('8. pendência de repertório abre build', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: () => true });
+    const draftScale = {
+      id: 'draft-1',
+      date: getFutureDate(),
+      time: '18:00',
+      status: 'draft',
+      eventName: { name: 'Culto de Jovens' },
+      eventType: { name: 'Culto de Jovens' },
+      location: { name: 'Auditório' },
+      songs: [],
+      eventAssignments: [{ userId: 'u1', functionName: 'Vocal', active: true }]
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [draftScale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    const btn = screen.getByText('Continuar preparando');
+    fireEvent.click(btn);
+    expect(mockOpenScaleForm).toHaveBeenCalledWith(
+      expect.any(Object),
+      undefined,
+      expect.objectContaining({ initialStep: 'build' })
+    );
+  });
+
+  it('9. pendência de horário abre event', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: () => true });
+    const draftScale = {
+      id: 'draft-1',
+      date: getFutureDate(),
+      time: undefined,
+      status: 'draft',
+      eventName: { name: 'Culto de Jovens' },
+      eventType: { name: 'Culto de Jovens' },
+      location: { name: 'Auditório' },
+      songs: [{ id: 'song1', title: 'Song 1' }],
+      eventAssignments: [{ userId: 'u1', functionName: 'Vocal', active: true }]
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [draftScale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    const btn = screen.getByText('Continuar preparando');
+    fireEvent.click(btn);
+    expect(mockOpenScaleForm).toHaveBeenCalledWith(
+      expect.any(Object),
+      undefined,
+      expect.objectContaining({ initialStep: 'event' })
+    );
+  });
+
+  it('10. rascunho completo abre review', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: () => true });
+    const draftScale = {
+      id: 'draft-1',
+      date: getFutureDate(),
+      time: '18:00',
+      status: 'draft',
+      eventName: { name: 'Culto de Jovens' },
+      eventType: { name: 'Culto de Jovens' },
+      location: { name: 'Auditório' },
+      songs: [{ id: 'song1', title: 'Song 1' }],
+      eventAssignments: [{ userId: 'u1', functionName: 'Vocal', active: true }]
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [draftScale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    const btn = screen.getByText('Continuar preparando');
+    fireEvent.click(btn);
+    expect(mockOpenScaleForm).toHaveBeenCalledWith(
+      expect.any(Object),
+      undefined,
+      expect.objectContaining({ initialStep: 'review' })
+    );
+  });
+
+  it('11. rascunho ausente executa fallback', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: () => true });
+    mockUseMusic.mockReturnValue({ populatedScales: [], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.queryByText('Continuar preparando')).not.toBeInTheDocument();
+  });
 });

@@ -754,7 +754,9 @@
     "scaleSpecificKey": "Key for this scale",
     "scaleSpecificBpm": "BPM for this scale",
     "useDefaultKey": "Use default key",
-    "defaultBpm": "Default BPM:"
+    "defaultBpm": "Default BPM:",
+    "bandOptionLabel_one": "Schedule {{name}}, {{date}}, {{count}} member",
+    "bandOptionLabel_other": "Schedule {{name}}, {{date}}, {{count}} members"
   },
   "bandScaleModal": {
     "titleCreate": "New Band Scale",

@@ -28,8 +28,8 @@ import { PlusCircleIcon } from "../icons/PlusCircleIcon";
 import { XCircleIcon } from "../icons/XCircleIcon";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { UsersIcon } from "../icons/UsersIcon";
-import BandBuilder from "./BandBuilder";
-import MusicBuilder from "./MusicBuilder";
+import BandBuilder, { BandBuilderHandle } from "./BandBuilder";
+import MusicBuilder, { MusicBuilderHandle } from "./MusicBuilder";
 import { ScaleSongCard } from "./ScaleSongCard";
 import { ScaleReviewRepertoire } from "./ScaleReviewRepertoire";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
@@ -542,8 +542,8 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const locationInputRef = useRef<HTMLSelectElement>(null);
   const firstBandOptionRef = useRef<HTMLButtonElement>(null);
   const createBandBtnRef = useRef<HTMLButtonElement>(null);
-  const bandBuilderRef = useRef<any>(null); // We'll add an imperative handle or prop in BandBuilder
-  const musicBuilderRef = useRef<any>(null);
+  const bandBuilderRef = useRef<BandBuilderHandle>(null);
+  const musicBuilderRef = useRef<MusicBuilderHandle>(null);
 
   useEffect(() => {
     if (!isOpen || !isFormInitialized || !focusTarget || hasAppliedFocusRef) return;
@@ -564,39 +564,48 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       return;
     }
 
-    requestAnimationFrame(() => {
-      let element: HTMLElement | null = null;
+    const abortController = new AbortController();
+    const signal = abortController.signal;
+
+    const performFocus = async () => {
+      if (signal.aborted) return;
 
       if (focusTarget === 'event-time') {
-        element = timeInputRef.current;
-      } else if (focusTarget === 'event-location') {
-        element = locationInputRef.current;
-      } else if (focusTarget === 'band-selector') {
-        element = firstBandOptionRef.current || createBandBtnRef.current;
-      } else if (focusTarget === 'band-formation') {
-        element = bandBuilderRef.current?.getFirstFocusableElement?.();
-      } else if (focusTarget === 'repertoire-selector') {
-        element = musicBuilderRef.current?.getFirstFocusableElement?.();
-      }
-
-      if (element) {
-        element.focus();
-        if (element.scrollIntoView) {
-           const rect = element.getBoundingClientRect();
-           const isVisible = (
-               rect.top >= 0 &&
-               rect.left >= 0 &&
-               rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-               rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-           );
-           if (!isVisible) {
-             element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-           }
+        const element = timeInputRef.current;
+        if (element) {
+          element.focus();
+          setHasAppliedFocusRef(true);
         }
-        setHasAppliedFocusRef(true);
+      } else if (focusTarget === 'event-location') {
+        const element = locationInputRef.current;
+        if (element) {
+          element.focus();
+          setHasAppliedFocusRef(true);
+        }
+      } else if (focusTarget === 'band-selector') {
+        const element = firstBandOptionRef.current || createBandBtnRef.current;
+        if (element) {
+          element.focus();
+          setHasAppliedFocusRef(true);
+        }
+      } else if (focusTarget === 'band-formation') {
+        const success = await bandBuilderRef.current?.focusFirstInstrument(signal);
+        if (success && !signal.aborted) {
+          setHasAppliedFocusRef(true);
+        }
+      } else if (focusTarget === 'repertoire-selector') {
+        const success = await musicBuilderRef.current?.focusSearchInput(signal);
+        if (success && !signal.aborted) {
+          setHasAppliedFocusRef(true);
+        }
       }
-    });
+    };
 
+    performFocus();
+
+    return () => {
+      abortController.abort();
+    };
   }, [isOpen, isFormInitialized, currentStep, focusTarget, scaleType, hasAppliedFocusRef]);
 
   const availableBandScales = useMemo(() => {
@@ -1062,7 +1071,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                    const day = dateObj.getDate().toString().padStart(2, "0");
                    const activeLang = i18n.resolvedLanguage || i18n.language || "pt-BR";
                    const month = dateObj.toLocaleDateString(activeLang, { month: "short" }).replace(".", "").toUpperCase();
-                   const formattedDate = `${day} de ${month}`; // Or whatever looks good in all langs. Since we pass formattedDate to translation. Wait, in en, it would be "03 de AUG" - maybe we just use full date locale string.
+
                    
                    return (
                       <button

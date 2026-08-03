@@ -18,7 +18,7 @@ import { getGlobalSongs } from '../../services/globalLibraryService';
 
 const runEmulatorTests = !!process.env.FIRESTORE_EMULATOR_HOST;
 
-describe.runIf(runEmulatorTests)('Global Library Search (Emulator)', () => {
+describe('Global Library Search (Emulator)', () => {
   beforeAll(async () => {
     testEnv = await initializeTestEnvironment({
       projectId: 'musicscale-test-search-2',

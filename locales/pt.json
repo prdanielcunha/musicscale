@@ -755,7 +755,9 @@
     "scaleSpecificKey": "Tom desta escala",
     "scaleSpecificBpm": "BPM desta escala",
     "useDefaultKey": "Usar tom padrão",
-    "defaultBpm": "BPM padrão:"
+    "defaultBpm": "BPM padrão:",
+    "bandOptionLabel_one": "Escala {{name}}, {{date}}, {{count}} integrante",
+    "bandOptionLabel_other": "Escala {{name}}, {{date}}, {{count}} integrantes"
   },
   "bandScaleModal": {
     "titleCreate": "Nova Escala da Banda",

@@ -313,7 +313,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                 {t('dashboard.focus.viewDetails', 'Ver detalhes')}
               </Button>
             ) : currentMode === 'continue-draft' ? (() => {
-              const firstAttention = attentionItems?.[0] || { code: 'draft', severity: 'important' };
+              const firstAttention = attentionItems?.find(item => item.code !== 'draft') || { code: 'draft', severity: 'important' };
               return (
                 <Button 
                   onClick={() => {

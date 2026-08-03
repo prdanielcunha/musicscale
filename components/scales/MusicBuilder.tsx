@@ -21,7 +21,11 @@ interface MusicBuilderProps {
   onUpdateSongSettings: (songId: string, key: string | null, bpm: number | null, isGlobal: boolean) => Promise<ScaleSongSettingsUpdateResult>;
 }
 
-const MusicBuilder = forwardRef<any, MusicBuilderProps>(({
+export interface MusicBuilderHandle {
+  focusSearchInput(signal?: AbortSignal): Promise<boolean>;
+}
+
+const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
   formData,
   setFormData,
   songs,
@@ -36,13 +40,16 @@ const MusicBuilder = forwardRef<any, MusicBuilderProps>(({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useImperativeHandle(ref, () => ({
-    focusSearchInput: async (): Promise<boolean> => {
+    focusSearchInput: async (signal?: AbortSignal): Promise<boolean> => {
+       if (signal?.aborted) return false;
        if (!searchInputRef.current) return false;
        
        if (searchInputRef.current.offsetParent === null) {
           setMobileTab('library');
           await new Promise(resolve => requestAnimationFrame(resolve));
+          if (signal?.aborted) return false;
           await new Promise(resolve => requestAnimationFrame(resolve));
+          if (signal?.aborted) return false;
        }
        
        if (searchInputRef.current) {

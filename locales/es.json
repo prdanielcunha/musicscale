@@ -753,7 +753,9 @@
     "scaleSpecificKey": "Tono para esta escala",
     "scaleSpecificBpm": "BPM para esta escala",
     "useDefaultKey": "Usar tono predeterminado",
-    "defaultBpm": "BPM predeterminado:"
+    "defaultBpm": "BPM predeterminado:",
+    "bandOptionLabel_one": "Escala {{name}}, {{date}}, {{count}} integrante",
+    "bandOptionLabel_other": "Escala {{name}}, {{date}}, {{count}} integrantes"
   },
   "bandScaleModal": {
     "titleCreate": "Nueva Escala de Banda",

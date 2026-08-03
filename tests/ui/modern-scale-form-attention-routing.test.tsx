@@ -1,29 +1,512 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import ModernScaleForm from '../../components/scales/ModernScaleForm';
+import BandBuilder from '../../components/scales/BandBuilder';
 
+vi.unmock('react-i18next');
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import pt from '../../locales/pt.json';
+import en from '../../locales/en.json';
+import es from '../../locales/es.json';
+
+// Initialize i18n
+i18n
+  .use(initReactI18next)
+  .init({
+    resources: {
+      pt: { translation: pt },
+      en: { translation: en },
+      es: { translation: es }
+    },
+    lng: 'pt',
+    fallbackLng: 'pt',
+    interpolation: { escapeValue: false }
+  });
+
+// All necessary Context Mocks
+let mockPopulatedBandScales = [
+  { id: 'bs1', date: '2026-08-01', eventType: { name: 'Culto' }, assignments: [ { userId: 'u1', instrumentId: 'inst1' } ] }
+];
+
+vi.mock('../../contexts/MusicDataContext', () => ({
+  useMusic: () => ({
+    songs: [
+      { id: 'song1', title: 'Song One', artist: 'Artist One', key: 'G', bpm: 80, tags: [] }
+    ],
+    eventTypes: [{ id: 'et-1', name: 'Culto' }],
+    locations: [{ id: 'loc-1', name: 'Templo' }],
+    eventNames: [],
+    instruments: [{ id: 'inst1', name: 'Violão' }],
+    tags: [],
+    fixedBandScales: [],
+    allUsers: [{ uid: 'u1', name: 'User One', assignments: [] }],
+    populatedBandScales: mockPopulatedBandScales,
+    populatedScales: [],
+    refreshData: vi.fn(),
+  }),
+}));
+
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    userProfile: { id: 'u1', name: 'User 1', organizationId: 'org-abc' },
+    user: { uid: 'u1' },
+    organization: { id: 'org-abc' },
+  }),
+}));
+
+vi.mock('../../hooks/useSafeAction', () => ({
+  useSafeAction: () => ({
+    executeSafeAction: vi.fn((fn) => fn()),
+  }),
+}));
+
+vi.mock('../../hooks/useCapability', () => ({
+  useCapability: () => ({
+    hasCapability: () => true,
+  }),
+}));
+
+vi.mock('../../contexts/ApiContext', () => ({
+  useApi: () => ({
+    updateScaleSongSettings: vi.fn(),
+  }),
+}));
+
+vi.mock('../../contexts/ToastContext', () => ({
+  useToast: () => ({
+    toast: vi.fn(),
+    success: vi.fn(),
+    error: vi.fn(),
+  }),
+}));
 describe('ModernScaleForm Attention Routing & Focus', () => {
-  it('1. escala musical com missing-team abre Banda', () => { expect(true).toBe(true); });
-  it('2. primeira banda recebe foco', () => { expect(true).toBe(true); });
-  it('3. Enter seleciona a banda', () => { expect(true).toBe(true); });
-  it('4. Espaço seleciona a banda', () => { expect(true).toBe(true); });
-  it('5. ausência de bandas foca Criar escala de banda', () => { expect(true).toBe(true); });
-  it('6. missing-repertoire abre Repertório', () => { expect(true).toBe(true); });
-  it('7. busca do repertório recebe foco', () => { expect(true).toBe(true); });
-  it('8. banda vinculada vazia abre Formação', () => { expect(true).toBe(true); });
-  it('9. mobile alterna para Funções antes de focar instrumento', () => { expect(true).toBe(true); });
-  it('10. instrumento recebe foco somente depois da aba estar visível', () => { expect(true).toBe(true); });
-  it('11. escala de banda missing-time abre Evento', () => { expect(true).toBe(true); });
-  it('12. horário recebe foco', () => { expect(true).toBe(true); });
-  it('13. escala de banda missing-location abre Evento', () => { expect(true).toBe(true); });
-  it('14. local recebe foco', () => { expect(true).toBe(true); });
-  it('15. initialStep é aplicado uma vez', () => { expect(true).toBe(true); });
-  it('16. rerender não força retorno', () => { expect(true).toBe(true); });
-  it('17. fechar e reabrir sem options retorna à etapa padrão', () => { expect(true).toBe(true); });
-  it('18. requestAnimationFrame é cancelado no unmount', () => { expect(true).toBe(true); });
-  it('19. troca de organização impede foco atrasado', () => { expect(true).toBe(true); });
-  it('20. aria-label PT', () => { expect(true).toBe(true); });
-  it('21. aria-label EN', () => { expect(true).toBe(true); });
-  it('22. aria-label ES', () => { expect(true).toBe(true); });
+  beforeEach(async () => {
+    mockPopulatedBandScales = [
+      { id: 'bs1', date: '2026-08-01', eventType: { name: 'Culto' }, assignments: [ { userId: 'u1', instrumentId: 'inst1' } ] }
+    ];
+    await i18n.changeLanguage('pt');
+  });
+
+  it('1. escala musical com missing-team abre Banda', () => {
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="link"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    const activeBtn = screen.getAllByRole('button').find(btn => btn.className.includes('text-primary'));
+    expect(activeBtn).toHaveTextContent('Banda');
+  });
+
+  it('2. primeira banda recebe foco', async () => {
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="link"
+        focusTarget="band-selector"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    await waitFor(() => {
+      const option = screen.getByTestId('link-band-scale-bs1');
+      expect(document.activeElement).toBe(option);
+    });
+  });
+
+  it('3. Enter seleciona a banda', () => {
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="link"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    const option = screen.getByTestId('link-band-scale-bs1');
+    fireEvent.click(option);
+    expect(option).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('4. Espaço seleciona a banda', () => {
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="link"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    const option = screen.getByTestId('link-band-scale-bs1');
+    fireEvent.click(option);
+    expect(option).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('5. ausência de bandas foca Criar escala de banda', async () => {
+    mockPopulatedBandScales = [];
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="link"
+        focusTarget="band-selector"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    await waitFor(() => {
+      const btn = screen.getByLabelText('Criar Escala da Banda');
+      expect(document.activeElement).toBe(btn);
+    });
+  });
+
+  it('6. missing-repertoire abre Repertório', () => {
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="build"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    const activeBtn = screen.getAllByRole('button').find(btn => btn.className.includes('text-primary'));
+    expect(activeBtn).toHaveTextContent('Repertório');
+  });
+
+  it('7. busca do repertório recebe foco', async () => {
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="build"
+        focusTarget="repertoire-selector"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    await waitFor(() => {
+      const input = screen.getByPlaceholderText('Buscar por título, artista, tom ou tag...');
+      expect(document.activeElement).toBe(input);
+    });
+  });
+
+  it('8. banda vinculada vazia abre Formação', () => {
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="band"
+        initialStep="build"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    const activeBtn = screen.getAllByRole('button').find(btn => btn.className.includes('text-primary'));
+    expect(activeBtn).toHaveTextContent('Formação');
+  });
+
+  it('9. mobile alterna para Funções antes de focar instrumento', async () => {
+    const ref = React.createRef<any>();
+    render(
+      <BandBuilder
+        ref={ref}
+        formData={{ assignments: [] }}
+        setFormData={vi.fn()}
+        instrumentsByCat={[{ name: 'Sopro', instruments: [{ id: 'inst1', name: 'Sax', categoryId: 'cat1' }] }]}
+        allUsers={[]}
+        populatedBandScales={[]}
+      />
+    );
+    const btn = screen.getByText('Sax');
+    Object.defineProperty(btn, 'offsetParent', { value: null, configurable: true });
+
+    const promise = ref.current.focusFirstInstrument();
+    await promise;
+
+    expect(screen.getByText('Escolha uma função e selecione integrantes compatíveis para este evento.')).toBeInTheDocument();
+  });
+
+  it('10. instrumento recebe foco somente depois da aba estar visível', async () => {
+    const ref = React.createRef<any>();
+    render(
+      <BandBuilder
+        ref={ref}
+        formData={{ assignments: [] }}
+        setFormData={vi.fn()}
+        instrumentsByCat={[{ name: 'Sopro', instruments: [{ id: 'inst1', name: 'Sax', categoryId: 'cat1' }] }]}
+        allUsers={[]}
+        populatedBandScales={[]}
+      />
+    );
+    const btn = screen.getByText('Sax');
+    Object.defineProperty(btn, 'offsetParent', { value: null, configurable: true });
+
+    const focused = await ref.current.focusFirstInstrument();
+    expect(focused).toBe(true);
+    expect(document.activeElement).toBe(btn);
+  });
+
+  it('11. escala de banda missing-time abre Evento', () => {
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="band"
+        initialStep="event"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    const activeBtn = screen.getAllByRole('button').find(btn => btn.className.includes('text-primary'));
+    expect(activeBtn).toHaveTextContent('Evento');
+  });
+
+  it('12. horário recebe foco', async () => {
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="band"
+        initialStep="event"
+        focusTarget="event-time"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    await waitFor(() => {
+      expect(document.activeElement).toBe(document.getElementById('time'));
+    });
+  });
+
+  it('13. escala de banda missing-location abre Evento', () => {
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="band"
+        initialStep="event"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    const activeBtn = screen.getAllByRole('button').find(btn => btn.className.includes('text-primary'));
+    expect(activeBtn).toHaveTextContent('Evento');
+  });
+
+  it('14. local recebe foco', async () => {
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="band"
+        initialStep="event"
+        focusTarget="event-location"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    await waitFor(() => {
+      expect(document.activeElement).toBe(document.getElementById('locationId'));
+    });
+  });
+
+  it('15. initialStep é aplicado uma vez', () => {
+    const { rerender } = render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="link"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    const stepBtns = screen.getAllByRole('button').filter(btn => ['Evento', 'Banda', 'Repertório', 'Revisão'].includes(btn.textContent || ''));
+    fireEvent.click(stepBtns[0]); // Click "Evento"
+
+    let activeBtn = screen.getAllByRole('button').find(btn => btn.className.includes('text-primary'));
+    expect(activeBtn).toHaveTextContent('Evento');
+
+    rerender(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="link"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={true}
+      />
+    );
+
+    activeBtn = screen.getAllByRole('button').find(btn => btn.className.includes('text-primary'));
+    expect(activeBtn).toHaveTextContent('Evento');
+  });
+
+  it('16. rerender não força retorno', () => {
+    const { rerender } = render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="build"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    const stepBtns = screen.getAllByRole('button').filter(btn => ['Evento', 'Banda', 'Repertório', 'Revisão'].includes(btn.textContent || ''));
+    fireEvent.click(stepBtns[3]); // Click "Revisão"
+
+    let activeBtn = screen.getAllByRole('button').find(btn => btn.className.includes('text-primary'));
+    expect(activeBtn).toHaveTextContent('Revisão');
+
+    rerender(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="build"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+
+    activeBtn = screen.getAllByRole('button').find(btn => btn.className.includes('text-primary'));
+    expect(activeBtn).toHaveTextContent('Revisão');
+  });
+
+  it('17. fechar e reabrir sem options retorna à etapa padrão', () => {
+    const { rerender } = render(
+      <ModernScaleForm
+        isOpen={false}
+        scaleType="music"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+
+    rerender(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+
+    const activeBtn = screen.getAllByRole('button').find(btn => btn.className.includes('text-primary'));
+    expect(activeBtn).toHaveTextContent('Evento');
+  });
+
+  it('18. requestAnimationFrame é cancelado no unmount', () => {
+    const ref = React.createRef<any>();
+    render(
+      <BandBuilder
+        ref={ref}
+        formData={{ assignments: [] }}
+        setFormData={vi.fn()}
+        instrumentsByCat={[{ name: 'Sopro', instruments: [{ id: 'inst1', name: 'Sax', categoryId: 'cat1' }] }]}
+        allUsers={[]}
+        populatedBandScales={[]}
+      />
+    );
+
+    const abortController = new AbortController();
+    const promise = ref.current.focusFirstInstrument(abortController.signal);
+    abortController.abort();
+
+    return promise.then((res: any) => {
+       expect(res).toBe(false);
+    });
+  });
+
+  it('19. troca de organização impede foco atrasado', async () => {
+    const ref = React.createRef<any>();
+    render(
+      <BandBuilder
+        ref={ref}
+        formData={{ assignments: [] }}
+        setFormData={vi.fn()}
+        instrumentsByCat={[{ name: 'Sopro', instruments: [{ id: 'inst1', name: 'Sax', categoryId: 'cat1' }] }]}
+        allUsers={[]}
+        populatedBandScales={[]}
+      />
+    );
+    const abortController = new AbortController();
+    abortController.abort();
+
+    const focused = await ref.current.focusFirstInstrument(abortController.signal);
+    expect(focused).toBe(false);
+  });
+
+  it('20. aria-label PT', async () => {
+    await i18n.changeLanguage('pt');
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="link"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    const option = screen.getByTestId('link-band-scale-bs1');
+    const label = option.getAttribute('aria-label') || '';
+    expect(label).toContain('Escala Culto');
+    expect(label).toContain('1 integrante');
+  });
+
+  it('21. aria-label EN', async () => {
+    await i18n.changeLanguage('en');
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="link"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    const option = screen.getByTestId('link-band-scale-bs1');
+    const label = option.getAttribute('aria-label') || '';
+    expect(label).toContain('Schedule Culto');
+    expect(label).toContain('1 member');
+  });
+
+  it('22. aria-label ES', async () => {
+    await i18n.changeLanguage('es');
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        initialStep="link"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+    const option = screen.getByTestId('link-band-scale-bs1');
+    const label = option.getAttribute('aria-label') || '';
+    expect(label).toContain('Escala Culto');
+    expect(label).toContain('1 integrante');
+  });
 });

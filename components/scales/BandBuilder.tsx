@@ -17,7 +17,11 @@ interface BandBuilderProps {
   musicScales?: PopulatedScale[];
 }
 
-const BandBuilder = forwardRef<any, BandBuilderProps>(({
+export interface BandBuilderHandle {
+  focusFirstInstrument(signal?: AbortSignal): Promise<boolean>;
+}
+
+const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
   formData,
   setFormData,
   instrumentsByCat,
@@ -32,13 +36,16 @@ const BandBuilder = forwardRef<any, BandBuilderProps>(({
   const firstInstrumentRef = useRef<HTMLButtonElement>(null);
 
   useImperativeHandle(ref, () => ({
-    focusFirstInstrument: async (): Promise<boolean> => {
+    focusFirstInstrument: async (signal?: AbortSignal): Promise<boolean> => {
+       if (signal?.aborted) return false;
        if (!firstInstrumentRef.current) return false;
        
        if (firstInstrumentRef.current.offsetParent === null) {
           setMobileTab('functions');
           await new Promise(resolve => requestAnimationFrame(resolve));
+          if (signal?.aborted) return false;
           await new Promise(resolve => requestAnimationFrame(resolve));
+          if (signal?.aborted) return false;
        }
        
        if (firstInstrumentRef.current) {
