@@ -292,9 +292,9 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   
   const [selectedFixedBandScaleId, setSelectedFixedBandScaleId] = useState<string>("");
 
+  const [isFormInitialized, setIsFormInitialized] = useState<boolean>(false);
   const idempotencyKeyRef = useRef<string>("");
   const lastPayloadFingerprintRef = useRef<string>("");
-  const isInitializedRef = useRef<boolean>(false);
   const hasAppliedInitialStepRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -303,7 +303,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       lastPayloadFingerprintRef.current = "";
       setSelectedFixedBandScaleId("");
     } else {
-      isInitializedRef.current = false;
+      setIsFormInitialized(false);
       hasAppliedInitialStepRef.current = false;
     }
   }, [isOpen]);
@@ -334,7 +334,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   }, [instruments]);
 
   useEffect(() => {
-    if (!isOpen || isInitializedRef.current) {
+    if (!isOpen || isFormInitialized) {
       return;
     }
 
@@ -378,7 +378,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
     // Capture first snapshot
     initialFormDataRef.current = JSON.stringify(getComparableData(initialData));
-    isInitializedRef.current = true;
+    setIsFormInitialized(true);
   }, [isOpen, scaleToEdit, preselectedSongIds, scaleType, eventTypes, locations]);
 
   useEffect(() => {
@@ -511,6 +511,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   ];
   
   const stepsBand = [
+    { id: 'event', label: t('scaleModal.stepEvent', 'Evento') },
     { id: 'link', label: t('scaleModal.stepLinkMusic', 'Músicas') },
     { id: 'build', label: t('scaleModal.stepFormation', 'Formação') },
     { id: 'review', label: t('scaleModal.stepReview', 'Revisão') }
@@ -520,7 +521,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
-    if (isOpen && isInitializedRef.current && initialStep && !hasAppliedInitialStepRef.current) {
+    if (isOpen && isFormInitialized && initialStep && !hasAppliedInitialStepRef.current) {
       const activeSteps = scaleType === "music" ? stepsMusic : stepsBand;
       const index = activeSteps.findIndex(step => step.id === initialStep);
       if (index >= 0) {
@@ -528,10 +529,24 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       }
       hasAppliedInitialStepRef.current = true;
     }
-  }, [isOpen, isInitializedRef.current, initialStep, scaleType]);
+  }, [isOpen, isFormInitialized, initialStep, scaleType]);
+
+  const [hasAppliedFocusRef, setHasAppliedFocusRef] = useState<boolean>(false);
+  useEffect(() => {
+    if (!isOpen) {
+      setHasAppliedFocusRef(false);
+    }
+  }, [isOpen]);
+
+  const timeInputRef = useRef<HTMLInputElement>(null);
+  const locationInputRef = useRef<HTMLSelectElement>(null);
+  const firstBandOptionRef = useRef<HTMLButtonElement>(null);
+  const createBandBtnRef = useRef<HTMLButtonElement>(null);
+  const bandBuilderRef = useRef<any>(null); // We'll add an imperative handle or prop in BandBuilder
+  const musicBuilderRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!isOpen || !isInitializedRef.current || !focusTarget) return;
+    if (!isOpen || !isFormInitialized || !focusTarget || hasAppliedFocusRef) return;
 
     const activeSteps = scaleType === "music" ? stepsMusic : stepsBand;
     const currentStepId = activeSteps[currentStep]?.id;
@@ -549,28 +564,40 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       return;
     }
 
-    const timer = setTimeout(() => {
+    requestAnimationFrame(() => {
       let element: HTMLElement | null = null;
 
       if (focusTarget === 'event-time') {
-        element = document.getElementById('time');
+        element = timeInputRef.current;
       } else if (focusTarget === 'event-location') {
-        element = document.getElementById('locationId');
+        element = locationInputRef.current;
       } else if (focusTarget === 'band-selector') {
-        element = document.querySelector('[data-testid^="link-band-scale-"]') as HTMLElement;
+        element = firstBandOptionRef.current || createBandBtnRef.current;
       } else if (focusTarget === 'band-formation') {
-        element = document.querySelector('[data-testid^="select-instrument-"]') as HTMLElement;
+        element = bandBuilderRef.current?.getFirstFocusableElement?.();
       } else if (focusTarget === 'repertoire-selector') {
-        element = document.getElementById('repertoire-selector-input');
+        element = musicBuilderRef.current?.getFirstFocusableElement?.();
       }
 
       if (element) {
         element.focus();
+        if (element.scrollIntoView) {
+           const rect = element.getBoundingClientRect();
+           const isVisible = (
+               rect.top >= 0 &&
+               rect.left >= 0 &&
+               rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+               rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+           );
+           if (!isVisible) {
+             element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+           }
+        }
+        setHasAppliedFocusRef(true);
       }
-    }, 150);
+    });
 
-    return () => clearTimeout(timer);
-  }, [isOpen, isInitializedRef.current, currentStep, focusTarget, scaleType]);
+  }, [isOpen, isFormInitialized, currentStep, focusTarget, scaleType, hasAppliedFocusRef]);
 
   const availableBandScales = useMemo(() => {
     if (!populatedBandScales) return [];
@@ -838,6 +865,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                   className={formInputClass}
                 />
                 <input
+                  ref={timeInputRef}
                   type="time"
                   name="time"
                   id="time"
@@ -873,6 +901,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                 {t('scaleModal.location')} {scaleType === "band" && <span className="text-white/40 text-[11px] font-normal tracking-normal ml-1">(Opcional)</span>}
               </label>
               <select
+                ref={locationInputRef}
                 name="locationId"
                 id="locationId"
                 value={formData.locationId || ""}
@@ -1020,24 +1049,30 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                         : t('scaleModal.noBandScalesNoPerm')}
                   </p>
                   {hasCapability('musicscale.scales.manage') && (
-                      <Button type="button" variant="secondary" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCreatingNestedBandScale(true); }} className="mt-4 text-[13px]">
+                      <Button ref={createBandBtnRef} type="button" variant="secondary" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCreatingNestedBandScale(true); }} className="mt-4 text-[13px]" aria-label={t('scaleModal.createBandScaleBtn')}>
                         {t('scaleModal.createBandScaleBtn')}
                       </Button>
                   )}
                </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
-                {availableBandScales.map(bs => {
+                {availableBandScales.map((bs, i) => {
                    const isSelected = formData.bandScaleId === bs.id;
                    const dateObj = new Date(bs.date + "T00:00:00");
                    const day = dateObj.getDate().toString().padStart(2, "0");
                    const month = dateObj.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toUpperCase();
                    
                    return (
-                      <div 
+                      <button
+                         type="button"
+                         ref={i === 0 ? firstBandOptionRef : undefined}
                          key={bs.id} 
-                         onClick={() => setFormData(prev => ({...prev, bandScaleId: isSelected ? null : bs.id}))} data-testid={`link-band-scale-${bs.id}`}
-                         className={`flex cursor-pointer border rounded-xl overflow-hidden transition-all duration-300 ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-slate-200 dark:border-white/5 bg-white dark:bg-[#252528] hover:border-primary/50 hover:shadow-md"}`}
+                         onClick={() => setFormData(prev => ({...prev, bandScaleId: isSelected ? null : bs.id}))}
+                         data-testid={`link-band-scale-${bs.id}`}
+                         role="radio"
+                         aria-checked={isSelected}
+                         aria-label={`${bs.eventType.name}. ${day} de ${month}. ${bs.assignments.length} integrantes.`}
+                         className={`text-left flex cursor-pointer border rounded-xl overflow-hidden transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-slate-200 dark:border-white/5 bg-white dark:bg-[#252528] hover:border-primary/50 hover:shadow-md"}`}
                       >
                          <div className={`w-12 flex-shrink-0 flex flex-col items-center justify-center p-2 border-r ${isSelected ? "border-primary/20 bg-primary/10" : "border-slate-200 dark:border-white/5 dark:bg-black/20"}`}>
                             <span className={`text-[9px] font-black uppercase tracking-widest ${isSelected ? "text-primary": "text-slate-400"}`}>{month}</span>
@@ -1054,7 +1089,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                                  {bs.musicScaleId && !isSelected && <span className="text-amber-500 opacity-80 truncate">{t('scaleModal.alreadyLinked')}</span>}
                              </div>
                          </div>
-                      </div>
+                      </button>
                    )
                 })}
               </div>
@@ -1135,6 +1170,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         <div className={steps[currentStep]?.id === 'build' ? "flex flex-col animate-fade-in gap-4" : "hidden"}>
           {scaleType === "music" && (
             <MusicBuilder
+              ref={musicBuilderRef}
               formData={formData}
               setFormData={setFormData}
               songs={songs}
@@ -1174,6 +1210,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
               
               <div className="flex flex-col">
                 <BandBuilder
+                  ref={bandBuilderRef}
                   formData={formData}
                   setFormData={setFormData}
                   instrumentsByCat={instrumentsByCat}

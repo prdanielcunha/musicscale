@@ -275,7 +275,8 @@
         "informTime": "Resolver pendência: informar horário",
         "informLocation": "Resolver pendência: informar local",
         "publishDraft": "Resolver pendência: publicar rascunho"
-      }
+      },
+      "inProgress": "Em andamento"
     },
     "upcomingEvents": {
       "title": "Próximos compromissos",

@@ -274,7 +274,8 @@
         "informTime": "Resolve issue: provide time",
         "informLocation": "Resolve issue: provide location",
         "publishDraft": "Resolve issue: publish draft"
-      }
+      },
+      "inProgress": "In progress"
     },
     "upcomingEvents": {
       "title": "Upcoming commitments",

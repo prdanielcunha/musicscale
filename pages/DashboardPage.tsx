@@ -244,6 +244,11 @@ export const DashboardPage: React.FC = () => {
       handleOpenEvent(eventSummary);
     };
 
+    if (!hasCapability('musicscale.scales.manage')) {
+      runFallback('User lacks musicscale.scales.manage capability');
+      return;
+    }
+
     if (eventSummary.type === 'music' && !musicScale) {
       runFallback('Music scale not found in populatedScales');
       return;
@@ -405,7 +410,13 @@ export const DashboardPage: React.FC = () => {
           responseActions={getResponseActions(experience.event)}
           onOpenEvent={handleOpenEvent}
           onOpenPerformance={handleOpenPerformance}
-          onCreateScale={() => openScaleForm()}
+          onCreateScale={() => {
+            if (!hasCapability('musicscale.scales.manage')) {
+              toast({ type: 'error', message: t('dashboard.attention.fallbackMessage', 'Não foi possível abrir a edição diretamente. Revise os detalhes da escala.') });
+              return;
+            }
+            openScaleForm();
+          }}
           onChooseScaleToRepeat={() => navigate('/scales')}
           onResolveAttention={handleResolveAttention}
         />

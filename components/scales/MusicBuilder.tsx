@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { PopulatedSong, Tag, ScaleSongSettingsUpdateResult } from "../../types";
 import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm, moveSongId, moveSongBeforeTarget } from "../../utils/scaleSongSettings";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
@@ -21,18 +21,28 @@ interface MusicBuilderProps {
   onUpdateSongSettings: (songId: string, key: string | null, bpm: number | null, isGlobal: boolean) => Promise<ScaleSongSettingsUpdateResult>;
 }
 
-const MusicBuilder: React.FC<MusicBuilderProps> = ({
+const MusicBuilder = forwardRef<any, MusicBuilderProps>(({
   formData,
   setFormData,
   songs,
   tags,
   onUpdateSongSettings,
-}) => {
+}, ref) => {
   const { t } = useTranslation();
   const [songSearch, setSongSearch] = useState("");
   const [songStatusFilter, setSongStatusFilter] = useState<"all" | "active" | "new">("all");
   const [songTagFilterIds, setSongTagFilterIds] = useState<string[]>([]);
   const [mobileTab, setMobileTab] = useState<"library" | "setlist">("library");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    getFirstFocusableElement: () => {
+       if (window.innerWidth < 768 && mobileTab !== 'library') {
+          setMobileTab('library');
+       }
+       return searchInputRef.current;
+    }
+  }));
 
   // Filtering songs
   const filteredSongs = useMemo(() => {
@@ -289,6 +299,7 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
           <div className="flex flex-col space-y-3 flex-shrink-0 mb-4">
              <div className="relative">
                <input 
+                 ref={searchInputRef}
                  type="text" 
                  id="repertoire-selector-input"
                  value={songSearch} 
@@ -462,6 +473,6 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default MusicBuilder;

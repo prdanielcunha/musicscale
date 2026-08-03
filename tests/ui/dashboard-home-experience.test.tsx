@@ -61,6 +61,11 @@ vi.mock('../../contexts/ModalContext', () => ({
   })
 }));
 
+const mockUseToast = vi.fn();
+vi.mock('../../contexts/ToastContext', () => ({
+  useToast: () => ({ toast: mockUseToast })
+}));
+
 interface MockResponseActionsProps {
   musicScaleId: string;
   assignments: { userId: string; functionName: string; active: boolean }[];

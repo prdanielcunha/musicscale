@@ -274,7 +274,8 @@
         "informTime": "Resolver pendiente: informar horario",
         "informLocation": "Resolver pendiente: informar ubicación",
         "publishDraft": "Resolver pendiente: publicar borrador"
-      }
+      },
+      "inProgress": "En curso"
     },
     "upcomingEvents": {
       "title": "Próximos compromisos",

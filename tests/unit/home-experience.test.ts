@@ -179,6 +179,42 @@ describe('Home Experience Domain Logic', () => {
       buildHomeEventSummaries(original, [], undefined, today);
       expect(original).toEqual(copy);
     });
+
+    it('30. contagem da equipe para music scale considera bandScale vinculada', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { 
+          id: '1', 
+          date: '2026-10-12',
+          bandScaleId: 'band1',
+          eventAssignments: [{ userId: 'a' } as any] // Should be ignored in favor of band scale
+        } as any
+      ];
+      const bandScales: PopulatedBandScaleWithStatus[] = [
+        {
+          id: 'band1',
+          date: '2026-10-12',
+          assignments: [
+            { user: { uid: 'u1' } },
+            { user: { uid: 'u2' } },
+            { user: { uid: 'u2' } } // duplicate user
+          ]
+        } as any
+      ];
+      const summaries = buildHomeEventSummaries(musicScales, bandScales, undefined, today);
+      expect(summaries[0].teamCount).toBe(2);
+    });
+
+    it('31. contagem da equipe para music scale sem bandScale usa eventAssignments', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        { 
+          id: '1', 
+          date: '2026-10-12',
+          eventAssignments: [{ userId: 'userA' }, { userId: 'userB' }, { userId: 'userB' }] as any
+        } as any
+      ];
+      const summaries = buildHomeEventSummaries(musicScales, [], undefined, today);
+      expect(summaries[0].teamCount).toBe(2);
+    });
   });
 
   describe('selectMostRecentDraft', () => {
@@ -468,16 +504,9 @@ describe('Home Experience Domain Logic', () => {
       const now = new Date('2026-08-03T01:00:00').getTime();
       const scale = createMusicScale('23:30', 'published', 120); 
       scale.date = '2026-08-02';
-      // In buildHomeEventSummaries, events from PAST days are ignored completely.
-      // So if today is 08-03, events from 08-02 are skipped.
-      // Wait, is that true? Let's check.
-      // "if (scale.date < validTodayKey) return;"
-      // If we are at 01:00 AM on 08-03, validTodayKey is '2026-08-03'.
-      // The event from '2026-08-02' will be skipped!
-      // But the test asks for this? The event is from the past.
-      // For this phase, the rule "date < validTodayKey" was kept!
       const events = buildHomeEventSummaries([scale], [], 'u1', '2026-08-03', now);
-      expect(events).toHaveLength(0);
+      expect(events).toHaveLength(1);
+      expect(events[0].eventTemporalState).toBe('in-progress');
     });
 
     it('20. ordenação por início real', () => {

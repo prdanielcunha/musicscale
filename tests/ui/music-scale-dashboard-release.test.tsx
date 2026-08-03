@@ -69,6 +69,11 @@ vi.mock('../../contexts/ModalContext', () => ({
   })
 }));
 
+const mockUseToast = vi.fn();
+vi.mock('../../contexts/ToastContext', () => ({
+  useToast: () => ({ toast: mockUseToast })
+}));
+
 vi.mock('../../components/scales/AssignmentResponseActions', () => ({
   default: () => <div data-testid="mock-response-actions">Response Actions</div>
 }));

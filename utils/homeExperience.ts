@@ -566,11 +566,12 @@ export function evaluateHomeExperience(input: EvaluateHomeInput): HomeExperience
   }
 
   if (canManageScales && mostRecentDraft) {
+    const draftAttentionItems = getHomeAttentionItems(mostRecentDraft, canManageScales);
     return {
       mode: 'continue-draft',
       event: nextEvent,
       draftEvent: mostRecentDraft,
-      attentionItems: [{ code: 'draft', severity: 'important' }],
+      attentionItems: draftAttentionItems.length > 0 ? draftAttentionItems : [{ code: 'draft', severity: 'important' }],
       canManageScales,
       isUserAssigned: false,
     };

@@ -312,11 +312,25 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
               <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
                 {t('dashboard.focus.viewDetails', 'Ver detalhes')}
               </Button>
-            ) : currentMode === 'continue-draft' ? (
-              <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
-                {t('dashboard.focus.continuePreparing', 'Continuar preparando')}
-              </Button>
-            ) : null}
+            ) : currentMode === 'continue-draft' ? (() => {
+              const firstAttention = attentionItems?.[0] || null;
+              return (
+                <Button 
+                  onClick={() => {
+                    if (onResolveAttention && firstAttention) {
+                      onResolveAttention(targetEvent, firstAttention);
+                    } else {
+                      onOpenEvent(targetEvent);
+                    }
+                  }} 
+                  className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" 
+                  size="lg" 
+                  variant="primary"
+                >
+                  {t('dashboard.focus.continuePreparing', 'Continuar preparando')}
+                </Button>
+              );
+            })() : null}
           </div>
         </div>
 

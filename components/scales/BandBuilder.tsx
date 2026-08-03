@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, forwardRef, useImperativeHandle, useRef } from "react";
 import { UserProfile, Instrument, BandMember, PopulatedBandScale, PopulatedScale } from "../../types";
 import Button from "../common/Button";
 import { UserIcon } from "../icons/UserIcon";
@@ -17,18 +17,28 @@ interface BandBuilderProps {
   musicScales?: PopulatedScale[];
 }
 
-const BandBuilder: React.FC<BandBuilderProps> = ({
+const BandBuilder = forwardRef<any, BandBuilderProps>(({
   formData,
   setFormData,
   instrumentsByCat,
   allUsers,
   populatedBandScales,
   musicScales,
-}) => {
+}, ref) => {
   const { t } = useTranslation();
   const [selectedInstruments, setSelectedInstruments] = useState<Instrument[]>([]);
   const [showAllMembers, setShowAllMembers] = useState(false);
   const [mobileTab, setMobileTab] = useState<"functions" | "formation">("functions");
+  const firstInstrumentRef = useRef<HTMLButtonElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    getFirstFocusableElement: () => {
+       if (window.innerWidth < 768 && mobileTab !== 'functions') {
+          setMobileTab('functions');
+       }
+       return firstInstrumentRef.current;
+    }
+  }));
 
   const addAssignment = (userId: string, instrumentId: string) => {
     const currentAssignments = formData.assignments || [];
@@ -331,13 +341,15 @@ const BandBuilder: React.FC<BandBuilderProps> = ({
                 {cat.name}
               </h4>
               <div className="flex flex-wrap gap-2">
-                {cat.instruments.map((inst) => {
+                {cat.instruments.map((inst, index) => {
                   const addedCount = currentAssignments.filter((a) => a.instrumentId === inst.id).length;
                   const isSelected = selectedInstruments.some(i => i.id === inst.id);
+                  const isFirst = cat.name === instrumentsByCat[0].name && index === 0;
 
                   return (
                     <button
                       key={inst.id}
+                      ref={isFirst ? firstInstrumentRef : undefined}
                       type="button"
                       onClick={() => {
                         setSelectedInstruments(prev => {
@@ -513,6 +525,6 @@ const BandBuilder: React.FC<BandBuilderProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default BandBuilder;
