@@ -96,12 +96,12 @@ export const DEFAULT_EVENT_DURATION_MINUTES = 120;
 
 export function parseLocalEventStart(date: string, time: string | null | undefined): Date | null {
   if (!isValidDateOnlyKey(date)) return null;
-  if (!time) return null;
+  if (!time || typeof time !== 'string') return null;
+
+  if (!/^\d{2}:\d{2}$/.test(time)) return null;
 
   const [yearStr, monthStr, dayStr] = date.split('-');
   const [hourStr, minStr] = time.split(':');
-
-  if (!hourStr || !minStr) return null;
 
   const year = parseInt(yearStr, 10);
   const month = parseInt(monthStr, 10);
@@ -111,11 +111,31 @@ export function parseLocalEventStart(date: string, time: string | null | undefin
 
   if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(min)) return null;
 
-  return new Date(year, month - 1, day, hour, min, 0, 0);
+  if (hour < 0 || hour > 23) return null;
+  if (min < 0 || min > 59) return null;
+
+  const testDate = new Date(year, month - 1, day, hour, min, 0, 0);
+  if (
+    testDate.getFullYear() !== year ||
+    testDate.getMonth() !== month - 1 ||
+    testDate.getDate() !== day ||
+    testDate.getHours() !== hour ||
+    testDate.getMinutes() !== min
+  ) {
+    return null;
+  }
+
+  return testDate;
 }
 
 export function resolveEventDurationMinutes(durationMinutes: number | null | undefined): number {
-  if (typeof durationMinutes === 'number' && isFinite(durationMinutes) && durationMinutes > 0) {
+  if (
+    typeof durationMinutes === 'number' &&
+    Number.isFinite(durationMinutes) &&
+    Number.isInteger(durationMinutes) &&
+    durationMinutes > 0 &&
+    durationMinutes <= 1440
+  ) {
     return durationMinutes;
   }
   return DEFAULT_EVENT_DURATION_MINUTES;
@@ -239,26 +259,62 @@ export function buildHomeEventSummaries(
   const summaries: HomeEventSummary[] = [];
   const validTodayKey = isValidDateOnlyKey(todayKey) ? todayKey : getLocalDateKey(new Date(nowMillis));
 
+  const bandScalesMap = new Map<string, PopulatedBandScaleWithStatus>();
+  bandScales.forEach((b) => {
+    if (b.id) bandScalesMap.set(b.id, b);
+  });
+
   const activeMusicScales = musicScales.filter((s) => s.status !== 'cancelled' && s.status !== 'completed' && s.status !== 'draft');
   const musicScaleIds = new Set(activeMusicScales.map((s) => s.id));
 
   activeMusicScales.forEach((scale) => {
     if (!isValidDateOnlyKey(scale.date)) return;
-    if (scale.date < validTodayKey) return;
+
+    const startObj = parseLocalEventStart(scale.date, scale.time);
+    const startAtMillis = startObj ? startObj.getTime() : null;
+    const durationMinutes = resolveEventDurationMinutes(scale.durationMinutes);
+    const endAtMillis = getEventEndMillis(startAtMillis, durationMinutes);
+    const eventTemporalState = getEventTemporalState({ startAtMillis, endAtMillis }, nowMillis);
+
+    if (startAtMillis !== null && endAtMillis !== null) {
+      if (nowMillis >= endAtMillis) return;
+    } else {
+      if (scale.date < validTodayKey) return;
+    }
 
     const title = scale.eventName?.name || scale.eventType?.name || '';
     const locationName = scale.location?.name;
     const songCount = scale.songs ? scale.songs.length : 0;
 
-    const activeAssignments = (scale.eventAssignments || []).filter((a) => a.active !== false);
-    const uniqueUserIds = new Set(activeAssignments.map((a) => a.userId));
-    const teamCount = uniqueUserIds.size;
+    let teamCount = 0;
+    let isUserAssigned = false;
+    let userFunctionNames: string[] = [];
 
-    const userAssignments = activeAssignments.filter((a) => a.userId === currentUserId);
-    const isUserAssigned = userAssignments.length > 0;
-    const userFunctionNames = Array.from(
-      new Set(userAssignments.map((a) => a.functionName).filter(Boolean))
-    ) as string[];
+    const activeAssignments = (scale.eventAssignments || []).filter((a) => a.active !== false);
+
+    if (scale.bandScaleId && bandScalesMap.has(scale.bandScaleId)) {
+      const linkedBand = bandScalesMap.get(scale.bandScaleId)!;
+      const linkedAssignments = (linkedBand.assignments || []).filter((a) => (a as any).active !== false);
+      const uniqueBandUsers = new Set(
+        linkedAssignments.map((a) => a.user?.uid).filter(Boolean)
+      );
+      teamCount = uniqueBandUsers.size;
+
+      const userAssignments = linkedAssignments.filter((a) => a.user?.uid === currentUserId);
+      isUserAssigned = userAssignments.length > 0;
+      userFunctionNames = Array.from(
+        new Set(userAssignments.map((a) => a.instrument?.name).filter(Boolean))
+      ) as string[];
+    } else {
+      const uniqueUserIds = new Set(activeAssignments.map((a) => a.userId));
+      teamCount = uniqueUserIds.size;
+
+      const userAssignments = activeAssignments.filter((a) => a.userId === currentUserId);
+      isUserAssigned = userAssignments.length > 0;
+      userFunctionNames = Array.from(
+        new Set(userAssignments.map((a) => a.functionName).filter(Boolean))
+      ) as string[];
+    }
 
     const songs = (scale.songs || []).map((song, index) => {
       const localSettings = scale.songSettings?.[song.id];
@@ -272,14 +328,6 @@ export function buildHomeEventSummaries(
         order: index + 1,
       };
     });
-
-    const startObj = parseLocalEventStart(scale.date, scale.time);
-    const startAtMillis = startObj ? startObj.getTime() : null;
-    const durationMinutes = resolveEventDurationMinutes(scale.durationMinutes);
-    const endAtMillis = getEventEndMillis(startAtMillis, durationMinutes);
-    const eventTemporalState = getEventTemporalState({ startAtMillis, endAtMillis }, nowMillis);
-
-    if (scale.date === validTodayKey && eventTemporalState === 'ended') return;
 
     summaries.push({
       id: scale.id,
@@ -305,8 +353,20 @@ export function buildHomeEventSummaries(
 
   activeBandScales.forEach((scale) => {
     if (!isValidDateOnlyKey(scale.date)) return;
-    if (scale.date < validTodayKey) return;
+
+    const startObj = parseLocalEventStart(scale.date, scale.time);
+    const startAtMillis = startObj ? startObj.getTime() : null;
+    const durationMinutes = resolveEventDurationMinutes(undefined);
+    const endAtMillis = getEventEndMillis(startAtMillis, durationMinutes);
+    const eventTemporalState = getEventTemporalState({ startAtMillis, endAtMillis }, nowMillis);
+
     if (scale.musicScaleId && musicScaleIds.has(scale.musicScaleId)) return;
+
+    if (startAtMillis !== null && endAtMillis !== null) {
+      if (nowMillis >= endAtMillis) return;
+    } else {
+      if (scale.date < validTodayKey) return;
+    }
 
     const title = scale.eventName?.name || scale.eventType?.name || '';
     const locationName = scale.location?.name;
@@ -323,15 +383,6 @@ export function buildHomeEventSummaries(
     const userFunctionNames = Array.from(
       new Set(userAssignments.map((a) => a.instrument?.name).filter(Boolean))
     ) as string[];
-
-    const startObj = parseLocalEventStart(scale.date, scale.time);
-    const startAtMillis = startObj ? startObj.getTime() : null;
-    // BandScales usually don't have durationMinutes, so we fallback
-    const durationMinutes = resolveEventDurationMinutes(undefined);
-    const endAtMillis = getEventEndMillis(startAtMillis, durationMinutes);
-    const eventTemporalState = getEventTemporalState({ startAtMillis, endAtMillis }, nowMillis);
-
-    if (scale.date === validTodayKey && eventTemporalState === 'ended') return;
 
     summaries.push({
       id: scale.id,
@@ -356,7 +407,6 @@ export function buildHomeEventSummaries(
     if (a.date !== b.date) {
       return a.date.localeCompare(b.date);
     }
-    // REQUISITO 14.20: ordenação por início real
     if (typeof a.startAtMillis === 'number' && typeof b.startAtMillis === 'number') {
       return a.startAtMillis - b.startAtMillis;
     }
@@ -366,14 +416,49 @@ export function buildHomeEventSummaries(
   });
 }
 
-function rawToSummary(candidate: DraftCandidate, currentUserId?: string): HomeEventSummary {
+function rawToSummary(
+  candidate: DraftCandidate,
+  currentUserId?: string,
+  bandScales: PopulatedBandScaleWithStatus[] = []
+): HomeEventSummary {
+  const bandScalesMap = new Map<string, PopulatedBandScaleWithStatus>();
+  bandScales.forEach((b) => {
+    if (b.id) bandScalesMap.set(b.id, b);
+  });
+
   if (candidate.type === 'music') {
     const raw = candidate.value;
     const title = raw.eventName?.name || raw.eventType?.name || '';
     const locationName = raw.location?.name;
     const activeAssignments = (raw.eventAssignments || []).filter((a) => a.active !== false);
-    const uniqueUserIds = new Set(activeAssignments.map((a) => a.userId));
-    const userAssignments = activeAssignments.filter((a) => a.userId === currentUserId);
+
+    let teamCount = 0;
+    let isUserAssigned = false;
+    let userFunctionNames: string[] = [];
+
+    if (raw.bandScaleId && bandScalesMap.has(raw.bandScaleId)) {
+      const linkedBand = bandScalesMap.get(raw.bandScaleId)!;
+      const linkedAssignments = (linkedBand.assignments || []).filter((a) => (a as any).active !== false);
+      const uniqueBandUsers = new Set(
+        linkedAssignments.map((a) => a.user?.uid).filter(Boolean)
+      );
+      teamCount = uniqueBandUsers.size;
+
+      const userAssignments = linkedAssignments.filter((a) => a.user?.uid === currentUserId);
+      isUserAssigned = userAssignments.length > 0;
+      userFunctionNames = Array.from(
+        new Set(userAssignments.map((a) => a.instrument?.name).filter(Boolean))
+      ) as string[];
+    } else {
+      const uniqueUserIds = new Set(activeAssignments.map((a) => a.userId));
+      teamCount = uniqueUserIds.size;
+
+      const userAssignments = activeAssignments.filter((a) => a.userId === currentUserId);
+      isUserAssigned = userAssignments.length > 0;
+      userFunctionNames = Array.from(
+        new Set(userAssignments.map((a) => a.functionName).filter(Boolean))
+      ) as string[];
+    }
     
     const songs = (raw.songs || []).map((song, index) => {
       const localSettings = raw.songSettings?.[song.id];
@@ -396,10 +481,10 @@ function rawToSummary(candidate: DraftCandidate, currentUserId?: string): HomeEv
       time: raw.time,
       locationName,
       songCount: raw.songs ? raw.songs.length : 0,
-      teamCount: uniqueUserIds.size,
+      teamCount,
       status: raw.status,
-      userFunctionNames: Array.from(new Set(userAssignments.map((a) => a.functionName).filter(Boolean))) as string[],
-      isUserAssigned: userAssignments.length > 0,
+      userFunctionNames,
+      isUserAssigned,
       songs,
     };
   } else {
@@ -448,7 +533,7 @@ export function selectMostRecentDraft(
     return timeB - timeA;
   });
 
-  return rawToSummary(sorted[0], currentUserId);
+  return rawToSummary(sorted[0], currentUserId, bandScales);
 }
 
 export function evaluateHomeExperience(input: EvaluateHomeInput): HomeExperience {

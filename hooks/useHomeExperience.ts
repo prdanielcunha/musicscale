@@ -59,7 +59,7 @@ export function useHomeExperience() {
     const musicScales = (populatedScales || []) as PopulatedScaleWithAssignmentsAndStatus[];
     const bandScales = (populatedBandScales || []) as PopulatedBandScaleWithStatus[];
     
-    const upcomingEvents = buildHomeEventSummaries(musicScales, bandScales, user?.uid);
+    const upcomingEvents = buildHomeEventSummaries(musicScales, bandScales, user?.uid, undefined, nowMillis);
     const mostRecentDraft = selectMostRecentDraft(musicScales, bandScales, user?.uid);
 
     const homeExperience = evaluateHomeExperience({

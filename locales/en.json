@@ -214,7 +214,8 @@
       "missingRepertoire": "Empty repertoire",
       "missingTeam": "Empty team",
       "missingTime": "Time not set",
-      "missingLocation": "Location not set"
+      "missingLocation": "Location not set",
+      "fallbackMessage": "The edit view could not be opened directly. Review the scale details."
     },
     "focus": {
       "assignedEyebrow": "You're on the team",
@@ -265,7 +266,15 @@
       "viewScaleDetails": "View schedule details",
       "peopleAwaitingResponse": "{{count}} people have not responded yet",
       "scaleDraft": "Draft",
-      "teamIncomplete": "Team incomplete"
+      "teamIncomplete": "Team incomplete",
+      "ariaResolve": {
+        "missingRepertoire": "Resolve issue: add repertoire",
+        "chooseBand": "Resolve issue: choose band",
+        "completeFormation": "Resolve issue: complete formation",
+        "informTime": "Resolve issue: provide time",
+        "informLocation": "Resolve issue: provide location",
+        "publishDraft": "Resolve issue: publish draft"
+      }
     },
     "upcomingEvents": {
       "title": "Upcoming commitments",

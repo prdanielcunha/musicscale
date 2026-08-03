@@ -215,7 +215,8 @@
       "missingRepertoire": "Repertório vazio",
       "missingTeam": "Equipe vazia",
       "missingTime": "Horário não informado",
-      "missingLocation": "Local não informado"
+      "missingLocation": "Local não informado",
+      "fallbackMessage": "Não foi possível abrir a edição diretamente. Revise os detalhes da escala."
     },
     "focus": {
       "assignedEyebrow": "Você está na equipe",
@@ -266,7 +267,15 @@
       "viewScaleDetails": "Ver detalhes da escala",
       "peopleAwaitingResponse": "{{count}} pessoas ainda não responderam",
       "scaleDraft": "Rascunho",
-      "teamIncomplete": "Equipe incompleta"
+      "teamIncomplete": "Equipe incompleta",
+      "ariaResolve": {
+        "missingRepertoire": "Resolver pendência: adicionar repertório",
+        "chooseBand": "Resolver pendência: escolher banda",
+        "completeFormation": "Resolver pendência: completar formação",
+        "informTime": "Resolver pendência: informar horário",
+        "informLocation": "Resolver pendência: informar local",
+        "publishDraft": "Resolver pendência: publicar rascunho"
+      }
     },
     "upcomingEvents": {
       "title": "Próximos compromissos",

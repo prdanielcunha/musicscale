@@ -6,6 +6,7 @@ import { useMusic } from '../contexts/MusicDataContext';
 import { useHomeExperience } from '../hooks/useHomeExperience';
 import { useCapability } from '../hooks/useCapability';
 import { useModals } from '../contexts/ModalContext';
+import { useToast } from '../contexts/ToastContext';
 import { useSuggestionsContext } from '../contexts/SuggestionContext';
 import { HomeFocusCard } from '../components/dashboard/HomeFocusCard';
 import { HomeUpcomingEvents } from '../components/dashboard/HomeUpcomingEvents';
@@ -14,7 +15,7 @@ import { FirstScaleJourneyCard } from '../components/onboarding/FirstScaleJourne
 import { PlanUsageCompactCard } from '../components/billing/PlanUsageCompactCard';
 import AssignmentResponseActions from '../components/scales/AssignmentResponseActions';
 import { Calendar, ArrowRight, MessageSquare as SuggestionIcon, PlusSquare, RefreshCcw } from 'lucide-react';
-import type { HomeEventSummary } from '../utils/homeExperience';
+import type { HomeEventSummary, HomeAttentionItem } from '../utils/homeExperience';
 import { resolveHomeAttentionTarget } from '../utils/homeExperience';
 import type { EventAssignment, PopulatedScale, PopulatedBandScale, Scale, BandScale } from '../types';
 
@@ -76,6 +77,7 @@ export const DashboardPage: React.FC = () => {
   const { populatedScales, populatedBandScales, songs, loading: musicLoading, error: musicError } = useMusic();
   const { suggestions, loading: suggestionsLoading } = useSuggestionsContext();
   const { openSongDetail, openScaleDetail, openBandScaleDetail, openScaleForm, openBandScaleForm } = useModals();
+  const { toast } = useToast();
   const { hasCapability } = useCapability();
   const canUsePerformance = hasCapability('musicscale.performance.use');
   
@@ -211,8 +213,8 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
-  const handleResolveAttention = (eventSummary: HomeEventSummary) => {
-    const firstAttention = experience.attentionItems?.[0];
+  const handleResolveAttention = (eventSummary: HomeEventSummary, firstAttentionItem?: HomeAttentionItem) => {
+    const firstAttention = firstAttentionItem || experience.attentionItems?.[0];
     if (!firstAttention) {
       handleOpenEvent(eventSummary);
       return;
@@ -230,12 +232,38 @@ export const DashboardPage: React.FC = () => {
       linkedBandScale = populatedBandScales?.find(b => b.id === eventSummary.id);
     }
 
+    const runFallback = (reason: string) => {
+      console.warn(`[AttentionResolutionWarning] Fallback triggered. Reason: ${reason}. Event ID: ${eventSummary.id}`);
+      toast({
+        type: 'error',
+        message: t(
+          'dashboard.attention.fallbackMessage',
+          'Não foi possível abrir a edição diretamente. Revise os detalhes da escala.'
+        )
+      });
+      handleOpenEvent(eventSummary);
+    };
+
+    if (eventSummary.type === 'music' && !musicScale) {
+      runFallback('Music scale not found in populatedScales');
+      return;
+    }
+    if (eventSummary.type === 'band' && !linkedBandScale) {
+      runFallback('Band scale not found in populatedBandScales');
+      return;
+    }
+
     const target = resolveHomeAttentionTarget({
       event: eventSummary,
       attentionItem: firstAttention,
       musicScale,
       linkedBandScale,
     });
+
+    if (!target || !target.action) {
+      runFallback('Target or action could not be resolved');
+      return;
+    }
 
     switch (target.action) {
       case 'edit-music-scale': {
@@ -244,6 +272,8 @@ export const DashboardPage: React.FC = () => {
             initialStep: target.step,
             focusTarget: target.focusTarget,
           });
+        } else {
+          runFallback('Music scale missing during action edit-music-scale');
         }
         break;
       }
@@ -253,18 +283,24 @@ export const DashboardPage: React.FC = () => {
             initialStep: target.step,
             focusTarget: target.focusTarget,
           });
+        } else {
+          runFallback('Linked band scale missing during action edit-band-scale');
         }
         break;
       }
       case 'open-music-scale-details': {
         if (musicScale) {
           openScaleDetail(musicScale as PopulatedScale);
+        } else {
+          runFallback('Music scale missing during action open-music-scale-details');
         }
         break;
       }
       case 'open-band-scale-details': {
         if (linkedBandScale) {
           openBandScaleDetail(linkedBandScale as PopulatedBandScale);
+        } else {
+          runFallback('Linked band scale missing during action open-band-scale-details');
         }
         break;
       }

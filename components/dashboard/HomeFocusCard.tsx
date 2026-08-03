@@ -13,7 +13,7 @@ interface HomeFocusCardProps {
   onOpenPerformance: (event: HomeEventSummary) => void;
   onCreateScale: () => void;
   onChooseScaleToRepeat: () => void;
-  onResolveAttention?: (event: HomeEventSummary) => void;
+  onResolveAttention?: (event: HomeEventSummary, firstAttentionItem: HomeAttentionItem) => void;
 }
 
 export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ 
@@ -266,11 +266,49 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                   {t('dashboard.focus.viewScaleDetails', 'Ver detalhes')}
                 </Button>
               </>
-            ) : currentMode === 'leader-attention' ? (
-              <Button onClick={() => onResolveAttention ? onResolveAttention(targetEvent) : onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
-                {t('dashboard.focus.resolveIssues', 'Resolver pendências')}
-              </Button>
-            ) : currentMode === 'observer-event' ? (
+            ) : currentMode === 'leader-attention' ? (() => {
+              const firstAttention = attentionItems?.[0] || null;
+              const getResolveAriaLabel = (item: HomeAttentionItem | null, eventType: 'music' | 'band') => {
+                if (!item) return t('dashboard.focus.resolveIssues', 'Resolver pendências');
+                if (item.code === 'missing-repertoire') {
+                  return t('dashboard.focus.ariaResolve.missingRepertoire', 'Resolver pendência: adicionar repertório');
+                }
+                if (item.code === 'missing-team') {
+                  if (eventType === 'music') {
+                    return t('dashboard.focus.ariaResolve.chooseBand', 'Resolver pendência: escolher banda');
+                  } else {
+                    return t('dashboard.focus.ariaResolve.completeFormation', 'Resolver pendência: completar formação');
+                  }
+                }
+                if (item.code === 'missing-time') {
+                  return t('dashboard.focus.ariaResolve.informTime', 'Resolver pendência: informar horário');
+                }
+                if (item.code === 'missing-location') {
+                  return t('dashboard.focus.ariaResolve.informLocation', 'Resolver pendência: informar local');
+                }
+                if (item.code === 'draft') {
+                  return t('dashboard.focus.ariaResolve.publishDraft', 'Resolver pendência: publicar rascunho');
+                }
+                return t('dashboard.focus.resolveIssues', 'Resolver pendências');
+              };
+              return (
+                <Button 
+                  onClick={() => {
+                    if (onResolveAttention && firstAttention) {
+                      onResolveAttention(targetEvent, firstAttention);
+                    } else {
+                      onOpenEvent(targetEvent);
+                    }
+                  }} 
+                  aria-label={getResolveAriaLabel(firstAttention, targetEvent.type)}
+                  className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" 
+                  size="lg" 
+                  variant="primary"
+                >
+                  {t('dashboard.focus.resolveIssues', 'Resolver pendências')}
+                </Button>
+              );
+            })() : currentMode === 'observer-event' ? (
               <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
                 {t('dashboard.focus.viewDetails', 'Ver detalhes')}
               </Button>
