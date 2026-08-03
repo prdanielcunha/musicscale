@@ -5,6 +5,8 @@
     "writtenIn": "La cifra está escrita en:",
     "convertTo": "Convertir los acordes a:",
     "difference": "Diferencia",
+    "semitone_one": "semitono",
+    "semitone_other": "semitonos",
     "semitones": "{{count}} semitono | {{count}} semitonos",
     "preview": "Vista previa",
     "before": "ANTES",

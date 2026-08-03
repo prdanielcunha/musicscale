@@ -5,6 +5,8 @@
     "writtenIn": "Chords are written in:",
     "convertTo": "Convert chords to:",
     "difference": "Difference",
+    "semitone_one": "semitone",
+    "semitone_other": "semitones",
     "semitones": "{{count}} semitone | {{count}} semitones",
     "preview": "Preview",
     "before": "BEFORE",

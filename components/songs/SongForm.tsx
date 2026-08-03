@@ -58,6 +58,8 @@ const SongForm: React.FC<SongFormProps> = ({
     freshnessStatus: songToEdit ? getSongFreshnessStatus(songToEdit) : "new",
     language: songToEdit?.language || "unknown",
   });
+
+  const [formMetadata, setFormMetadata] = useState<Record<string, any>>(songToEdit?.metadata || {});
   
   const [manualLanguageSelected, setManualLanguageSelected] = useState(false);
 
@@ -137,6 +139,10 @@ const SongForm: React.FC<SongFormProps> = ({
         lastPlayed: songToEdit.lastPlayed,
         createdBy: songToEdit.createdBy,
         freshness: finalFreshness,
+        metadata: {
+          ...(songToEdit.metadata || {}),
+          ...formMetadata,
+        },
       };
       onSave(updatedSong, options);
     } else {
@@ -155,6 +161,7 @@ const SongForm: React.FC<SongFormProps> = ({
         language: finalLanguage,
         languageDetection: detected,
         freshness: finalFreshness,
+        metadata: { ...formMetadata },
       };
       // Type casting because the type might expect other things that are implicitly excluded or included
       onSave(songDataForNew as any, options);
@@ -354,7 +361,7 @@ const SongForm: React.FC<SongFormProps> = ({
                 type="button"
                 onClick={() => {
                   const songToRepair: PopulatedSong = {
-                    id: songToEdit?.id || 'temp-form-song',
+                    id: songToEdit?.id || '',
                     title: formData.title,
                     artist: formData.artist,
                     key: formData.key,
@@ -371,7 +378,7 @@ const SongForm: React.FC<SongFormProps> = ({
                     createdBy: songToEdit?.createdBy || '',
                     lastModifiedAt: songToEdit?.lastModifiedAt || null,
                     chordsLastModifiedAt: songToEdit?.chordsLastModifiedAt || null,
-                    metadata: songToEdit?.metadata || {},
+                    metadata: { ...(songToEdit?.metadata || {}), ...formMetadata },
                     tags: [],
                     lastPlayed: null,
                   };
@@ -379,8 +386,13 @@ const SongForm: React.FC<SongFormProps> = ({
                     setFormData((prev) => ({
                       ...prev,
                       chords: updatedSong.chords,
-                      key: updatedSong.metadata?.chordContentKey || updatedSong.key || prev.key,
                     }));
+                    if (updatedSong.metadata) {
+                      setFormMetadata((prev) => ({
+                        ...prev,
+                        ...updatedSong.metadata,
+                      }));
+                    }
                   }, 'draft');
                 }}
                 className="text-xs text-indigo-500 hover:text-indigo-600 font-bold flex items-center gap-1 focus:outline-none"

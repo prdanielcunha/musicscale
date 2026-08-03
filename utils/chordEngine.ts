@@ -1,6 +1,36 @@
 export const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 export const FLAT_NOTES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
+export function toEpochMillis(value: any): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') {
+    if (isNaN(value)) return null;
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return isNaN(parsed) ? null : parsed;
+  }
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return isNaN(time) ? null : time;
+  }
+  if (typeof value === 'object') {
+    if (typeof value.toMillis === 'function') {
+      return value.toMillis();
+    }
+    if (typeof value.toDate === 'function') {
+      return value.toDate().getTime();
+    }
+    const seconds = value.seconds ?? value._seconds;
+    const nanoseconds = value.nanoseconds ?? value._nanoseconds ?? 0;
+    if (typeof seconds === 'number') {
+      return seconds * 1000 + Math.floor(nanoseconds / 1000000);
+    }
+  }
+  return null;
+}
+
 export function normalizeKey(key: string): string {
   if (!key) return '';
   return key.replace(/♯/g, '#').replace(/♭/g, 'b');

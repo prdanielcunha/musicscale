@@ -22,19 +22,25 @@ vi.mock('../../contexts/ToastContext', () => ({
 // Mock react-i18next
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, defaultValue?: string, params?: any) => {
-      if (key === 'chordKeyRepair.semitones') {
-        const count = params?.count || 0;
+    t: (key: string, defaultValueOrOptions?: any, options?: any) => {
+      let opts = options;
+      let defVal = defaultValueOrOptions;
+      if (typeof defaultValueOrOptions === 'object') {
+        opts = defaultValueOrOptions;
+        defVal = undefined;
+      }
+      if (key === 'chordKeyRepair.semitone') {
+        const count = opts?.count || 0;
         return count === 1 ? '1 semitom' : `${count} semitons`;
       }
-      if (params) {
-        let result = defaultValue || key;
-        Object.keys(params).forEach(p => {
-          result = result.replace(`{{${p}}}`, params[p]);
+      if (opts) {
+        let result = typeof defVal === 'string' ? defVal : key;
+        Object.keys(opts).forEach(p => {
+          result = result.replace(`{{${p}}}`, opts[p]);
         });
         return result;
       }
-      return defaultValue || key;
+      return typeof defVal === 'string' ? defVal : key;
     },
   }),
 }));
@@ -166,9 +172,8 @@ describe('ChordKeyRepairSheet', () => {
         targetChordKey: 'E',
         expectedUpdatedAt: '2026-08-01T12:00:00.000Z',
         sourceConfirmation: {
-          type: 'detected',
-          detectedKey: 'C',
-          acknowledgedConflict: false,
+          type: 'metadata',
+          metadataKey: 'C',
         },
       });
       expect(mockToast).toHaveBeenCalled();
@@ -231,6 +236,8 @@ describe('ChordKeyRepairSheet', () => {
     expect(applyBtn).not.toBeDisabled();
 
     // Check signed semitones label shows -2 semitons
-    expect(screen.getByText(/-2 2 semitons/)).toBeInTheDocument();
+    expect(screen.getByText((_content, element) => {
+      return element?.tagName.toLowerCase() === 'span' && element.textContent?.includes('-2') && element.textContent?.includes('semitons') || false;
+    })).toBeInTheDocument();
   });
 });

@@ -528,6 +528,28 @@ export interface GlobalSongUpdateResult {
 
 export type ScaleSongSettingsUpdateResult = GlobalSongUpdateResult;
 
+export type ChordSourceConfirmation =
+  | {
+      type: 'metadata';
+      metadataKey: string;
+    }
+  | {
+      type: 'detected';
+      detectedKey: string;
+      detectionConfidence: 'high' | 'medium';
+    }
+  | {
+      type: 'manual';
+      selectedKey: string;
+    }
+  | {
+      type: 'override';
+      selectedKey: string;
+      detectedKey: string;
+      detectionConfidence: 'high' | 'medium';
+      acknowledgedConflict: true;
+    };
+
 export type ScaleSongSettingsChangeHandler = (
   key: string | null,
   bpm: number | null,
