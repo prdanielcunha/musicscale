@@ -95,6 +95,7 @@ const ArrowDownIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 
 import { MusicScaleSaveRequest, MusicScaleSaveResult, BandScaleWritableData, MusicScaleWritableData, MusicScaleSaveIntent } from "../../contexts/ModalContext";
 import { useFeatureFlag } from "../../hooks/useFeatureFlag";
+import type { HomeAttentionFocusTarget } from "../../utils/homeExperience";
 
 interface ModernScaleFormProps {
   isOpen: boolean;
@@ -107,6 +108,8 @@ interface ModernScaleFormProps {
   onClose: () => void;
   isSubmitting: boolean;
   zIndexClass?: string;
+  initialStep?: 'event' | 'link' | 'build' | 'review';
+  focusTarget?: HomeAttentionFocusTarget;
 }
 
 const formInputClass = "mt-1 input-base";
@@ -123,6 +126,8 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   onClose,
   isSubmitting,
   zIndexClass,
+  initialStep,
+  focusTarget,
 }) => {
   const { t, i18n } = useTranslation();
   const {
@@ -290,6 +295,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const idempotencyKeyRef = useRef<string>("");
   const lastPayloadFingerprintRef = useRef<string>("");
   const isInitializedRef = useRef<boolean>(false);
+  const hasAppliedInitialStepRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -298,6 +304,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       setSelectedFixedBandScaleId("");
     } else {
       isInitializedRef.current = false;
+      hasAppliedInitialStepRef.current = false;
     }
   }, [isOpen]);
 
@@ -511,6 +518,59 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
   const steps = scaleType === "music" ? stepsMusic : stepsBand;
   const [currentStep, setCurrentStep] = useState(0);
+
+  useEffect(() => {
+    if (isOpen && isInitializedRef.current && initialStep && !hasAppliedInitialStepRef.current) {
+      const activeSteps = scaleType === "music" ? stepsMusic : stepsBand;
+      const index = activeSteps.findIndex(step => step.id === initialStep);
+      if (index >= 0) {
+        setCurrentStep(index);
+      }
+      hasAppliedInitialStepRef.current = true;
+    }
+  }, [isOpen, isInitializedRef.current, initialStep, scaleType]);
+
+  useEffect(() => {
+    if (!isOpen || !isInitializedRef.current || !focusTarget) return;
+
+    const activeSteps = scaleType === "music" ? stepsMusic : stepsBand;
+    const currentStepId = activeSteps[currentStep]?.id;
+
+    let expectedStepId: string | null = null;
+    if (focusTarget === 'event-time' || focusTarget === 'event-location') {
+      expectedStepId = 'event';
+    } else if (focusTarget === 'band-selector') {
+      expectedStepId = 'link';
+    } else if (focusTarget === 'band-formation' || focusTarget === 'repertoire-selector') {
+      expectedStepId = 'build';
+    }
+
+    if (expectedStepId && currentStepId !== expectedStepId) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      let element: HTMLElement | null = null;
+
+      if (focusTarget === 'event-time') {
+        element = document.getElementById('time');
+      } else if (focusTarget === 'event-location') {
+        element = document.getElementById('locationId');
+      } else if (focusTarget === 'band-selector') {
+        element = document.querySelector('[data-testid^="link-band-scale-"]') as HTMLElement;
+      } else if (focusTarget === 'band-formation') {
+        element = document.querySelector('[data-testid^="select-instrument-"]') as HTMLElement;
+      } else if (focusTarget === 'repertoire-selector') {
+        element = document.getElementById('repertoire-selector-input');
+      }
+
+      if (element) {
+        element.focus();
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [isOpen, isInitializedRef.current, currentStep, focusTarget, scaleType]);
 
   const availableBandScales = useMemo(() => {
     if (!populatedBandScales) return [];

@@ -13,6 +13,7 @@ interface HomeFocusCardProps {
   onOpenPerformance: (event: HomeEventSummary) => void;
   onCreateScale: () => void;
   onChooseScaleToRepeat: () => void;
+  onResolveAttention?: (event: HomeEventSummary) => void;
 }
 
 export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ 
@@ -22,7 +23,8 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   onOpenEvent, 
   onOpenPerformance, 
   onCreateScale, 
-  onChooseScaleToRepeat 
+  onChooseScaleToRepeat,
+  onResolveAttention,
 }) => {
   const { t, i18n } = useTranslation();
   
@@ -265,7 +267,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                 </Button>
               </>
             ) : currentMode === 'leader-attention' ? (
-              <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
+              <Button onClick={() => onResolveAttention ? onResolveAttention(targetEvent) : onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
                 {t('dashboard.focus.resolveIssues', 'Resolver pendências')}
               </Button>
             ) : currentMode === 'observer-event' ? (

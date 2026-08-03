@@ -14,6 +14,13 @@ import * as suggestionApi from '../services/suggestionsService';
 import { useSuggestionsContext } from './SuggestionContext';
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
+import type { HomeAttentionFocusTarget } from '../utils/homeExperience';
+
+export interface ScaleFormOpenOptions {
+  initialStep?: 'event' | 'link' | 'build' | 'review';
+  focusTarget?: HomeAttentionFocusTarget;
+  source?: 'dashboard-attention' | 'default';
+}
 
 export type MusicScaleSaveIntent = "save-draft" | "publish";
 
@@ -112,9 +119,9 @@ interface ModalContextType {
     startInPerformanceMode?: boolean
   ) => void;
   openDeleteSongConfirmation: (song: PopulatedSong) => void;
-  openScaleForm: (scale?: Scale, preselectedSongIds?: string[]) => void;
+  openScaleForm: (scale?: Scale, preselectedSongIds?: string[], options?: ScaleFormOpenOptions) => void;
   openScaleDetail: (scale: PopulatedScale, action?: 'delete') => void;
-  openBandScaleForm: (scale?: BandScale, options?: { linkToMusicScaleId: string, prefillData?: Partial<BandScale> }) => void;
+  openBandScaleForm: (scale?: BandScale, options?: { linkToMusicScaleId: string, prefillData?: Partial<BandScale> }, formOpenOptions?: ScaleFormOpenOptions) => void;
   openBandScaleDetail: (scale: PopulatedBandScale, action?: 'delete') => void;
   openAddChordModal: () => void;
   openSuggestionForm: () => void;
@@ -276,6 +283,8 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [songForChordKeyRepair, setSongForChordKeyRepair] = useState<PopulatedSong | null>(null);
   const [chordKeyRepairOnSuccess, setChordKeyRepairOnSuccess] = useState<((updatedSong: PopulatedSong) => void) | null>(null);
   const [chordKeyRepairMode, setChordKeyRepairMode] = useState<ChordKeyRepairMode>('persisted');
+
+  const [scaleFormOptions, setScaleFormOptions] = useState<ScaleFormOpenOptions | null>(null);
   
   const closeAllModals = useCallback(() => {
     setSongToEdit(null);
@@ -302,7 +311,12 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setSongForChordKeyRepair(null);
     setChordKeyRepairOnSuccess(null);
     setChordKeyRepairMode('persisted');
+    setScaleFormOptions(null);
   }, []);
+
+  React.useEffect(() => {
+    setScaleFormOptions(null);
+  }, [userProfile?.organizationId]);
 
   const openFeedback = useCallback((type: 'bug'|'suggestion'|'feedback' = 'feedback') => {
     closeAllModals();
@@ -544,14 +558,15 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [songToDelete, refreshData, api]);
 
   // Scale Handlers
-  const openScaleForm = useCallback((scale?: Scale, preselectedIds?: string[]) => {
+  const openScaleForm = useCallback((scale?: Scale, preselectedIds?: string[], options?: ScaleFormOpenOptions) => {
     closeAllModals();
     setScaleType('music');
     setScaleToEdit(scale || null);
     setPreselectedSongIds(preselectedIds || []);
+    setScaleFormOptions(options || null);
   }, [closeAllModals]);
   
-  const openBandScaleForm = useCallback((scale?: BandScale, options?: { linkToMusicScaleId: string, prefillData?: Partial<BandScale> }) => {
+  const openBandScaleForm = useCallback((scale?: BandScale, options?: { linkToMusicScaleId: string, prefillData?: Partial<BandScale> }, formOpenOptions?: ScaleFormOpenOptions) => {
       closeAllModals();
       setScaleType('band');
       const scaleForForm = { ...(scale || {}) };
@@ -562,6 +577,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (options?.linkToMusicScaleId) {
           setLinkingOptions({ linkToMusicScaleId: options.linkToMusicScaleId });
       }
+      setScaleFormOptions(formOpenOptions || null);
   }, [closeAllModals]);
 
   const openScaleDetail = useCallback((scale: PopulatedScale, action?: 'delete') => {
@@ -1116,8 +1132,10 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             scaleToEdit={scaleToEdit}
             preselectedSongIds={preselectedSongIds}
             onSave={handleSaveScale}
-            onClose={() => { setScaleToEdit(null); setScaleType(null); }}
+            onClose={() => { setScaleToEdit(null); setScaleType(null); setScaleFormOptions(null); }}
             isSubmitting={isSubmitting}
+            initialStep={scaleFormOptions?.initialStep}
+            focusTarget={scaleFormOptions?.focusTarget}
           />
         )}
         

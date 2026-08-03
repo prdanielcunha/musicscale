@@ -564,3 +564,119 @@ export function canUsePerformanceMode(
 
   return true;
 }
+
+export type HomeAttentionFocusTarget =
+  | 'event-time'
+  | 'event-location'
+  | 'band-selector'
+  | 'band-formation'
+  | 'repertoire-selector';
+
+export type HomeAttentionTarget =
+  | {
+      action: 'edit-music-scale';
+      step: 'event' | 'link' | 'build' | 'review';
+      focusTarget?: HomeAttentionFocusTarget;
+    }
+  | {
+      action: 'edit-band-scale';
+      step: 'event' | 'link' | 'build' | 'review';
+      focusTarget?: HomeAttentionFocusTarget;
+    }
+  | {
+      action: 'open-music-scale-details';
+    }
+  | {
+      action: 'open-band-scale-details';
+    };
+
+export function resolveHomeAttentionTarget(params: {
+  event: HomeEventSummary | null;
+  attentionItem: HomeAttentionItem | null;
+  musicScale?: any | null;
+  linkedBandScale?: any | null;
+}): HomeAttentionTarget {
+  if (!params.event || !params.attentionItem) {
+    console.warn("Missing event or attentionItem in resolveHomeAttentionTarget");
+    return { action: 'open-music-scale-details' };
+  }
+
+  const { event, attentionItem, musicScale, linkedBandScale } = params;
+
+  if (event.type === 'music') {
+    switch (attentionItem.code) {
+      case 'missing-repertoire':
+        return {
+          action: 'edit-music-scale',
+          step: 'build',
+          focusTarget: 'repertoire-selector',
+        };
+      case 'missing-team': {
+        if (!musicScale || !musicScale.bandScaleId) {
+          return {
+            action: 'edit-music-scale',
+            step: 'link',
+            focusTarget: 'band-selector',
+          };
+        } else {
+          if (linkedBandScale) {
+            const assignments = linkedBandScale.assignments || [];
+            if (assignments.length === 0) {
+              return {
+                action: 'edit-band-scale',
+                step: 'build',
+                focusTarget: 'band-formation',
+              };
+            }
+          }
+          return {
+            action: 'edit-music-scale',
+            step: 'link',
+            focusTarget: 'band-selector',
+          };
+        }
+      }
+      case 'missing-time':
+        return {
+          action: 'edit-music-scale',
+          step: 'event',
+          focusTarget: 'event-time',
+        };
+      case 'missing-location':
+        return {
+          action: 'edit-music-scale',
+          step: 'event',
+          focusTarget: 'event-location',
+        };
+      default:
+        console.warn(`Unknown attention code ${attentionItem.code} for music event`);
+        return { action: 'open-music-scale-details' };
+    }
+  } else if (event.type === 'band') {
+    switch (attentionItem.code) {
+      case 'missing-team':
+        return {
+          action: 'edit-band-scale',
+          step: 'build',
+          focusTarget: 'band-formation',
+        };
+      case 'missing-time':
+        return {
+          action: 'edit-band-scale',
+          step: 'event',
+          focusTarget: 'event-time',
+        };
+      case 'missing-location':
+        return {
+          action: 'edit-band-scale',
+          step: 'event',
+          focusTarget: 'event-location',
+        };
+      default:
+        console.warn(`Unknown attention code ${attentionItem.code} for band event`);
+        return { action: 'open-band-scale-details' };
+    }
+  }
+
+  return { action: 'open-music-scale-details' };
+}

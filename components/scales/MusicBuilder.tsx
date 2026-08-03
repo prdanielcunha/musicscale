@@ -290,6 +290,7 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
              <div className="relative">
                <input 
                  type="text" 
+                 id="repertoire-selector-input"
                  value={songSearch} 
                  onChange={e => setSongSearch(e.target.value)} 
                  placeholder={t('scaleModal.searchSongs', 'Buscar músicas...')}

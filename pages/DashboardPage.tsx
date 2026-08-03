@@ -15,7 +15,8 @@ import { PlanUsageCompactCard } from '../components/billing/PlanUsageCompactCard
 import AssignmentResponseActions from '../components/scales/AssignmentResponseActions';
 import { Calendar, ArrowRight, MessageSquare as SuggestionIcon, PlusSquare, RefreshCcw } from 'lucide-react';
 import type { HomeEventSummary } from '../utils/homeExperience';
-import type { EventAssignment, PopulatedScale, PopulatedBandScale } from '../types';
+import { resolveHomeAttentionTarget } from '../utils/homeExperience';
+import type { EventAssignment, PopulatedScale, PopulatedBandScale, Scale, BandScale } from '../types';
 
 
 const SupportRuntimeInspector = () => {
@@ -74,7 +75,7 @@ export const DashboardPage: React.FC = () => {
   const { user, organization, isOwner } = useAuth();
   const { populatedScales, populatedBandScales, songs, loading: musicLoading, error: musicError } = useMusic();
   const { suggestions, loading: suggestionsLoading } = useSuggestionsContext();
-  const { openSongDetail, openScaleDetail, openBandScaleDetail, openScaleForm } = useModals();
+  const { openSongDetail, openScaleDetail, openBandScaleDetail, openScaleForm, openBandScaleForm } = useModals();
   const { hasCapability } = useCapability();
   const canUsePerformance = hasCapability('musicscale.performance.use');
   
@@ -210,6 +211,68 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  const handleResolveAttention = (eventSummary: HomeEventSummary) => {
+    const firstAttention = experience.attentionItems?.[0];
+    if (!firstAttention) {
+      handleOpenEvent(eventSummary);
+      return;
+    }
+
+    let musicScale: any = undefined;
+    let linkedBandScale: any = undefined;
+
+    if (eventSummary.type === 'music') {
+      musicScale = populatedScales?.find(s => s.id === eventSummary.id);
+      if (musicScale?.bandScaleId) {
+        linkedBandScale = populatedBandScales?.find(b => b.id === musicScale.bandScaleId);
+      }
+    } else if (eventSummary.type === 'band') {
+      linkedBandScale = populatedBandScales?.find(b => b.id === eventSummary.id);
+    }
+
+    const target = resolveHomeAttentionTarget({
+      event: eventSummary,
+      attentionItem: firstAttention,
+      musicScale,
+      linkedBandScale,
+    });
+
+    switch (target.action) {
+      case 'edit-music-scale': {
+        if (musicScale) {
+          openScaleForm(musicScale as Scale, undefined, {
+            initialStep: target.step,
+            focusTarget: target.focusTarget,
+          });
+        }
+        break;
+      }
+      case 'edit-band-scale': {
+        if (linkedBandScale) {
+          openBandScaleForm(linkedBandScale as BandScale, undefined, {
+            initialStep: target.step,
+            focusTarget: target.focusTarget,
+          });
+        }
+        break;
+      }
+      case 'open-music-scale-details': {
+        if (musicScale) {
+          openScaleDetail(musicScale as PopulatedScale);
+        }
+        break;
+      }
+      case 'open-band-scale-details': {
+        if (linkedBandScale) {
+          openBandScaleDetail(linkedBandScale as PopulatedBandScale);
+        }
+        break;
+      }
+      default:
+        handleOpenEvent(eventSummary);
+    }
+  };
+
   const getResponseActions = (eventSummary: HomeEventSummary | null) => {
     if (!eventSummary || eventSummary.type !== 'music') return null;
     const scale = populatedScales?.find(s => s.id === eventSummary.id);
@@ -308,6 +371,7 @@ export const DashboardPage: React.FC = () => {
           onOpenPerformance={handleOpenPerformance}
           onCreateScale={() => openScaleForm()}
           onChooseScaleToRepeat={() => navigate('/scales')}
+          onResolveAttention={handleResolveAttention}
         />
       )}
 
