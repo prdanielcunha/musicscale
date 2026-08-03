@@ -11,6 +11,30 @@ import pt from '../../locales/pt.json';
 import en from '../../locales/en.json';
 import es from '../../locales/es.json';
 
+// Polyfill requestAnimationFrame for jsdom test environment to prevent infinite hangs
+if (typeof window !== 'undefined') {
+  window.requestAnimationFrame = (callback) => {
+    return setTimeout(callback, 0) as any;
+  };
+  window.cancelAnimationFrame = (id) => {
+    clearTimeout(id);
+  };
+}
+
+// Polyfill crypto.randomUUID for jsdom test environment
+if (typeof window !== 'undefined' && (!window.crypto || !window.crypto.randomUUID)) {
+  const cryptoMock = {
+    randomUUID: () => 'test-uuid-' + Math.random().toString(36).substring(2)
+  };
+  (window as any).crypto = { ...window.crypto, ...cryptoMock };
+}
+if (typeof global !== 'undefined' && (!global.crypto || !(global.crypto as any).randomUUID)) {
+  const cryptoMock = {
+    randomUUID: () => 'test-uuid-' + Math.random().toString(36).substring(2)
+  };
+  (global as any).crypto = { ...global.crypto, ...cryptoMock } as any;
+}
+
 // Initialize i18n
 i18n
   .use(initReactI18next)
@@ -27,7 +51,7 @@ i18n
 
 // All necessary Context Mocks
 let mockPopulatedBandScales = [
-  { id: 'bs1', date: '2026-08-01', eventType: { name: 'Culto' }, assignments: [ { userId: 'u1', instrumentId: 'inst1' } ] }
+  { id: 'bs1', date: '2026-08-15', eventType: { name: 'Culto' }, assignments: [ { userId: 'u1', instrumentId: 'inst1' } ] }
 ];
 
 vi.mock('../../contexts/MusicDataContext', () => ({
@@ -84,7 +108,7 @@ vi.mock('../../contexts/ToastContext', () => ({
 describe('ModernScaleForm Attention Routing & Focus', () => {
   beforeEach(async () => {
     mockPopulatedBandScales = [
-      { id: 'bs1', date: '2026-08-01', eventType: { name: 'Culto' }, assignments: [ { userId: 'u1', instrumentId: 'inst1' } ] }
+      { id: 'bs1', date: '2026-08-15', eventType: { name: 'Culto' }, assignments: [ { userId: 'u1', instrumentId: 'inst1' } ] }
     ];
     await i18n.changeLanguage('pt');
   });

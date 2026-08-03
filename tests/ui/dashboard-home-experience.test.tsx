@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import DashboardPage from '../../pages/DashboardPage';
 import { FirstValueJourneyOutput } from '../../utils/firstValueJourney';
+import { HomeFocusCard } from '../../components/dashboard/HomeFocusCard';
 
 // Mock Modules
 
@@ -519,252 +520,296 @@ describe('Dashboard Home Experience UI', () => {
 
 describe('Continuar Preparando (Dashboard)', () => {
   it('1. experience.event aponta para evento publicado', () => {
-    mockUseCapability.mockReturnValue({ hasCapability: () => true });
-    const scale = {
-      id: 'pub-1',
-      date: getFutureDate(),
-      time: '10:00',
-      status: 'published',
-      eventName: { name: 'Culto de Domingo' },
-      eventType: { name: 'Culto de Domingo' },
-      location: { name: 'Santuário' },
-      eventAssignments: []
+    const experience = {
+      mode: 'continue-draft',
+      event: { id: 'published-event', date: '2026-08-10', title: 'Culto Publicado', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      draftEvent: { id: 'draft-event', date: '2026-08-10', title: 'Culto Rascunho', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      attentionItems: [{ code: 'missing-team', severity: 'important' }]
     };
-    mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
-    renderWithRouter(<DashboardPage />);
-    expect(screen.getByText('Culto de Domingo')).toBeInTheDocument();
+    const onResolveAttention = vi.fn();
+
+    renderWithRouter(
+      <HomeFocusCard
+        experience={experience as any}
+        canUsePerformance={false}
+        onOpenEvent={vi.fn()}
+        onOpenPerformance={vi.fn()}
+        onCreateScale={vi.fn()}
+        onChooseScaleToRepeat={vi.fn()}
+        onResolveAttention={onResolveAttention}
+      />
+    );
+
+    const btn = screen.getByText('Continuar preparando');
+    fireEvent.click(btn);
+    expect(onResolveAttention).toHaveBeenCalledTimes(1);
   });
 
   it('2. experience.draftEvent aponta para outro ID', () => {
-    mockUseCapability.mockReturnValue({ hasCapability: () => true });
-    const publishedScale = {
-      id: 'pub-1',
-      date: getFutureDate(),
-      time: '10:00',
-      status: 'published',
-      eventName: { name: 'Culto de Domingo' },
-      eventType: { name: 'Culto de Domingo' },
-      location: { name: 'Santuário' },
-      eventAssignments: []
+    const experience = {
+      mode: 'continue-draft',
+      event: { id: 'published-event', date: '2026-08-10', title: 'Culto Publicado', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      draftEvent: { id: 'draft-event', date: '2026-08-10', title: 'Culto Rascunho', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      attentionItems: [{ code: 'missing-team', severity: 'important' }]
     };
-    const draftScale = {
-      id: 'draft-1',
-      date: getFutureDate(),
-      time: '18:00',
-      status: 'draft',
-      eventName: { name: 'Culto de Jovens' },
-      eventType: { name: 'Culto de Jovens' },
-      location: { name: 'Auditório' },
-      eventAssignments: []
-    };
-    mockUseMusic.mockReturnValue({ populatedScales: [publishedScale, draftScale], populatedBandScales: [], songs: [], loading: false });
-    renderWithRouter(<DashboardPage />);
-    expect(screen.getByText('Culto de Jovens')).toBeInTheDocument();
-    expect(screen.getByText('Culto de Domingo')).toBeInTheDocument();
+    const onResolveAttention = vi.fn();
+
+    renderWithRouter(
+      <HomeFocusCard
+        experience={experience as any}
+        canUsePerformance={false}
+        onOpenEvent={vi.fn()}
+        onOpenPerformance={vi.fn()}
+        onCreateScale={vi.fn()}
+        onChooseScaleToRepeat={vi.fn()}
+        onResolveAttention={onResolveAttention}
+      />
+    );
+
+    const btn = screen.getByText('Continuar preparando');
+    fireEvent.click(btn);
+
+    const calledEvent = onResolveAttention.mock.calls[0][0];
+    expect(calledEvent.id).toBe('draft-event');
+    expect(calledEvent.id).not.toBe('published-event');
   });
 
   it('3. modo continue-draft', () => {
-    mockUseCapability.mockReturnValue({ hasCapability: () => true });
-    const draftScale = {
-      id: 'draft-1',
-      date: getFutureDate(),
-      time: '18:00',
-      status: 'draft',
-      eventName: { name: 'Culto de Jovens' },
-      eventType: { name: 'Culto de Jovens' },
-      location: { name: 'Auditório' },
-      eventAssignments: []
+    const experience = {
+      mode: 'continue-draft',
+      event: { id: 'published-event', date: '2026-08-10', title: 'Culto Publicado', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      draftEvent: { id: 'draft-event', date: '2026-08-10', title: 'Culto Rascunho', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      attentionItems: [{ code: 'missing-team', severity: 'important' }]
     };
-    mockUseMusic.mockReturnValue({ populatedScales: [draftScale], populatedBandScales: [], songs: [], loading: false });
-    renderWithRouter(<DashboardPage />);
+
+    renderWithRouter(
+      <HomeFocusCard
+        experience={experience as any}
+        canUsePerformance={false}
+        onOpenEvent={vi.fn()}
+        onOpenPerformance={vi.fn()}
+        onCreateScale={vi.fn()}
+        onChooseScaleToRepeat={vi.fn()}
+        onResolveAttention={vi.fn()}
+      />
+    );
+
     expect(screen.getByText('Continuar preparando')).toBeInTheDocument();
   });
 
   it('4. clicar em Continuar preparando', () => {
-    mockUseCapability.mockReturnValue({ hasCapability: () => true });
-    const draftScale = {
-      id: 'draft-1',
-      date: getFutureDate(),
-      time: '18:00',
-      status: 'draft',
-      eventName: { name: 'Culto de Jovens' },
-      eventType: { name: 'Culto de Jovens' },
-      location: { name: 'Auditório' },
-      eventAssignments: []
+    const experience = {
+      mode: 'continue-draft',
+      event: { id: 'published-event', date: '2026-08-10', title: 'Culto Publicado', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      draftEvent: { id: 'draft-event', date: '2026-08-10', title: 'Culto Rascunho', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      attentionItems: [{ code: 'missing-team', severity: 'important' }]
     };
-    mockUseMusic.mockReturnValue({ populatedScales: [draftScale], populatedBandScales: [], songs: [], loading: false });
-    renderWithRouter(<DashboardPage />);
-    const btn = screen.getByText('Continuar preparando');
-    fireEvent.click(btn);
-    expect(mockOpenScaleForm).toHaveBeenCalled();
-  });
+    const onResolveAttention = vi.fn();
 
-  it('5. handler recebe o ID do draftEvent', () => {
-    mockUseCapability.mockReturnValue({ hasCapability: () => true });
-    const publishedScale = {
-      id: 'pub-1',
-      date: getFutureDate(),
-      time: '10:00',
-      status: 'published',
-      eventName: { name: 'Culto de Domingo' },
-      eventType: { name: 'Culto de Domingo' },
-      location: { name: 'Santuário' },
-      eventAssignments: []
-    };
-    const draftScale = {
-      id: 'draft-1',
-      date: getFutureDate(),
-      time: '18:00',
-      status: 'draft',
-      eventName: { name: 'Culto de Jovens' },
-      eventType: { name: 'Culto de Jovens' },
-      location: { name: 'Auditório' },
-      eventAssignments: []
-    };
-    mockUseMusic.mockReturnValue({ populatedScales: [publishedScale, draftScale], populatedBandScales: [], songs: [], loading: false });
-    renderWithRouter(<DashboardPage />);
-    const btn = screen.getByText('Continuar preparando');
-    fireEvent.click(btn);
-    expect(mockOpenScaleForm).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'draft-1' }),
-      undefined,
-      expect.any(Object)
+    renderWithRouter(
+      <HomeFocusCard
+        experience={experience as any}
+        canUsePerformance={false}
+        onOpenEvent={vi.fn()}
+        onOpenPerformance={vi.fn()}
+        onCreateScale={vi.fn()}
+        onChooseScaleToRepeat={vi.fn()}
+        onResolveAttention={onResolveAttention}
+      />
     );
-  });
 
-  it('6. não recebe o ID do evento publicado', () => {
-    mockUseCapability.mockReturnValue({ hasCapability: () => true });
-    const publishedScale = {
-      id: 'pub-1',
-      date: getFutureDate(),
-      time: '10:00',
-      status: 'published',
-      eventName: { name: 'Culto de Domingo' },
-      eventType: { name: 'Culto de Domingo' },
-      location: { name: 'Santuário' },
-      eventAssignments: []
-    };
-    const draftScale = {
-      id: 'draft-1',
-      date: getFutureDate(),
-      time: '18:00',
-      status: 'draft',
-      eventName: { name: 'Culto de Jovens' },
-      eventType: { name: 'Culto de Jovens' },
-      location: { name: 'Auditório' },
-      eventAssignments: []
-    };
-    mockUseMusic.mockReturnValue({ populatedScales: [publishedScale, draftScale], populatedBandScales: [], songs: [], loading: false });
-    renderWithRouter(<DashboardPage />);
     const btn = screen.getByText('Continuar preparando');
     fireEvent.click(btn);
-    expect(mockOpenScaleForm).not.toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'pub-1' }),
-      expect.any(Object),
-      expect.any(Object)
-    );
+    expect(onResolveAttention).toHaveBeenCalled();
   });
 
-  it('7. pendência de banda abre link', () => {
-    mockUseCapability.mockReturnValue({ hasCapability: () => true });
-    const draftScale = {
-      id: 'draft-1',
-      date: getFutureDate(),
-      time: '18:00',
-      status: 'draft',
-      eventName: { name: 'Culto de Jovens' },
-      eventType: { name: 'Culto de Jovens' },
-      location: { name: 'Auditório' },
-      songs: [{ id: 'song1', title: 'Song 1' }],
-      eventAssignments: []
+  it('5. missing-team', () => {
+    const experience = {
+      mode: 'continue-draft',
+      event: { id: 'published-event', date: '2026-08-10', title: 'Culto Publicado', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      draftEvent: { id: 'draft-event', date: '2026-08-10', title: 'Culto Rascunho', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      attentionItems: [{ code: 'missing-team', severity: 'important' }]
     };
-    mockUseMusic.mockReturnValue({ populatedScales: [draftScale], populatedBandScales: [], songs: [], loading: false });
-    renderWithRouter(<DashboardPage />);
+    const onResolveAttention = vi.fn();
+
+    renderWithRouter(
+      <HomeFocusCard
+        experience={experience as any}
+        canUsePerformance={false}
+        onOpenEvent={vi.fn()}
+        onOpenPerformance={vi.fn()}
+        onCreateScale={vi.fn()}
+        onChooseScaleToRepeat={vi.fn()}
+        onResolveAttention={onResolveAttention}
+      />
+    );
+
     const btn = screen.getByText('Continuar preparando');
     fireEvent.click(btn);
-    expect(mockOpenScaleForm).toHaveBeenCalledWith(
-      expect.any(Object),
-      undefined,
-      expect.objectContaining({ initialStep: 'link' })
-    );
+
+    const calledAttention = onResolveAttention.mock.calls[0][1];
+    expect(calledAttention.code).toBe('missing-team');
   });
 
-  it('8. pendência de repertório abre build', () => {
-    mockUseCapability.mockReturnValue({ hasCapability: () => true });
-    const draftScale = {
-      id: 'draft-1',
-      date: getFutureDate(),
-      time: '18:00',
-      status: 'draft',
-      eventName: { name: 'Culto de Jovens' },
-      eventType: { name: 'Culto de Jovens' },
-      location: { name: 'Auditório' },
-      songs: [],
-      eventAssignments: [{ userId: 'u1', functionName: 'Vocal', active: true }]
+  it('6. missing-repertoire', () => {
+    const experience = {
+      mode: 'continue-draft',
+      event: { id: 'published-event', date: '2026-08-10', title: 'Culto Publicado', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      draftEvent: { id: 'draft-event', date: '2026-08-10', title: 'Culto Rascunho', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      attentionItems: [{ code: 'missing-repertoire', severity: 'important' }]
     };
-    mockUseMusic.mockReturnValue({ populatedScales: [draftScale], populatedBandScales: [], songs: [], loading: false });
-    renderWithRouter(<DashboardPage />);
+    const onResolveAttention = vi.fn();
+
+    renderWithRouter(
+      <HomeFocusCard
+        experience={experience as any}
+        canUsePerformance={false}
+        onOpenEvent={vi.fn()}
+        onOpenPerformance={vi.fn()}
+        onCreateScale={vi.fn()}
+        onChooseScaleToRepeat={vi.fn()}
+        onResolveAttention={onResolveAttention}
+      />
+    );
+
     const btn = screen.getByText('Continuar preparando');
     fireEvent.click(btn);
-    expect(mockOpenScaleForm).toHaveBeenCalledWith(
-      expect.any(Object),
-      undefined,
-      expect.objectContaining({ initialStep: 'build' })
-    );
+
+    const calledAttention = onResolveAttention.mock.calls[0][1];
+    expect(calledAttention.code).toBe('missing-repertoire');
   });
 
-  it('9. pendência de horário abre event', () => {
-    mockUseCapability.mockReturnValue({ hasCapability: () => true });
-    const draftScale = {
-      id: 'draft-1',
-      date: getFutureDate(),
-      time: undefined,
-      status: 'draft',
-      eventName: { name: 'Culto de Jovens' },
-      eventType: { name: 'Culto de Jovens' },
-      location: { name: 'Auditório' },
-      songs: [{ id: 'song1', title: 'Song 1' }],
-      eventAssignments: [{ userId: 'u1', functionName: 'Vocal', active: true }]
+  it('7. missing-time', () => {
+    const experience = {
+      mode: 'continue-draft',
+      event: { id: 'published-event', date: '2026-08-10', title: 'Culto Publicado', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      draftEvent: { id: 'draft-event', date: '2026-08-10', title: 'Culto Rascunho', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      attentionItems: [{ code: 'missing-time', severity: 'important' }]
     };
-    mockUseMusic.mockReturnValue({ populatedScales: [draftScale], populatedBandScales: [], songs: [], loading: false });
-    renderWithRouter(<DashboardPage />);
+    const onResolveAttention = vi.fn();
+
+    renderWithRouter(
+      <HomeFocusCard
+        experience={experience as any}
+        canUsePerformance={false}
+        onOpenEvent={vi.fn()}
+        onOpenPerformance={vi.fn()}
+        onCreateScale={vi.fn()}
+        onChooseScaleToRepeat={vi.fn()}
+        onResolveAttention={onResolveAttention}
+      />
+    );
+
     const btn = screen.getByText('Continuar preparando');
     fireEvent.click(btn);
-    expect(mockOpenScaleForm).toHaveBeenCalledWith(
-      expect.any(Object),
-      undefined,
-      expect.objectContaining({ initialStep: 'event' })
-    );
+
+    const calledAttention = onResolveAttention.mock.calls[0][1];
+    expect(calledAttention.code).toBe('missing-time');
   });
 
-  it('10. rascunho completo abre review', () => {
-    mockUseCapability.mockReturnValue({ hasCapability: () => true });
-    const draftScale = {
-      id: 'draft-1',
-      date: getFutureDate(),
-      time: '18:00',
-      status: 'draft',
-      eventName: { name: 'Culto de Jovens' },
-      eventType: { name: 'Culto de Jovens' },
-      location: { name: 'Auditório' },
-      songs: [{ id: 'song1', title: 'Song 1' }],
-      eventAssignments: [{ userId: 'u1', functionName: 'Vocal', active: true }]
+  it('8. missing-location', () => {
+    const experience = {
+      mode: 'continue-draft',
+      event: { id: 'published-event', date: '2026-08-10', title: 'Culto Publicado', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      draftEvent: { id: 'draft-event', date: '2026-08-10', title: 'Culto Rascunho', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      attentionItems: [{ code: 'missing-location', severity: 'important' }]
     };
-    mockUseMusic.mockReturnValue({ populatedScales: [draftScale], populatedBandScales: [], songs: [], loading: false });
-    renderWithRouter(<DashboardPage />);
+    const onResolveAttention = vi.fn();
+
+    renderWithRouter(
+      <HomeFocusCard
+        experience={experience as any}
+        canUsePerformance={false}
+        onOpenEvent={vi.fn()}
+        onOpenPerformance={vi.fn()}
+        onCreateScale={vi.fn()}
+        onChooseScaleToRepeat={vi.fn()}
+        onResolveAttention={onResolveAttention}
+      />
+    );
+
     const btn = screen.getByText('Continuar preparando');
     fireEvent.click(btn);
-    expect(mockOpenScaleForm).toHaveBeenCalledWith(
-      expect.any(Object),
-      undefined,
-      expect.objectContaining({ initialStep: 'review' })
-    );
+
+    const calledAttention = onResolveAttention.mock.calls[0][1];
+    expect(calledAttention.code).toBe('missing-location');
   });
 
-  it('11. rascunho ausente executa fallback', () => {
-    mockUseCapability.mockReturnValue({ hasCapability: () => true });
-    mockUseMusic.mockReturnValue({ populatedScales: [], populatedBandScales: [], songs: [], loading: false });
-    renderWithRouter(<DashboardPage />);
+  it('9. rascunho completo usa draft/review', () => {
+    const experience = {
+      mode: 'continue-draft',
+      event: { id: 'published-event', date: '2026-08-10', title: 'Culto Publicado', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      draftEvent: { id: 'draft-event', date: '2026-08-10', title: 'Culto Rascunho', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      attentionItems: [{ code: 'draft', severity: 'important' }]
+    };
+    const onResolveAttention = vi.fn();
+
+    renderWithRouter(
+      <HomeFocusCard
+        experience={experience as any}
+        canUsePerformance={false}
+        onOpenEvent={vi.fn()}
+        onOpenPerformance={vi.fn()}
+        onCreateScale={vi.fn()}
+        onChooseScaleToRepeat={vi.fn()}
+        onResolveAttention={onResolveAttention}
+      />
+    );
+
+    const btn = screen.getByText('Continuar preparando');
+    fireEvent.click(btn);
+
+    const calledAttention = onResolveAttention.mock.calls[0][1];
+    expect(calledAttention.code).toBe('draft');
+  });
+
+  it('10. ausência de handler abre draftEvent', () => {
+    const experience = {
+      mode: 'continue-draft',
+      event: { id: 'published-event', date: '2026-08-10', title: 'Culto Publicado', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      draftEvent: { id: 'draft-event', date: '2026-08-10', title: 'Culto Rascunho', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      attentionItems: [{ code: 'draft', severity: 'important' }]
+    };
+    const onOpenEvent = vi.fn();
+
+    renderWithRouter(
+      <HomeFocusCard
+        experience={experience as any}
+        canUsePerformance={false}
+        onOpenEvent={onOpenEvent}
+        onOpenPerformance={vi.fn()}
+        onCreateScale={vi.fn()}
+        onChooseScaleToRepeat={vi.fn()}
+      />
+    );
+
+    const btn = screen.getByText('Continuar preparando');
+    fireEvent.click(btn);
+
+    expect(onOpenEvent).toHaveBeenCalledTimes(1);
+    expect(onOpenEvent.mock.calls[0][0].id).toBe('draft-event');
+  });
+
+  it('11. rascunho raw ausente executa fallback', () => {
+    const experience = {
+      mode: 'continue-draft',
+      event: { id: 'published-event', date: '2026-08-10', title: 'Culto Publicado', type: 'music', songCount: 0, userFunctionNames: [], isUserAssigned: false },
+      draftEvent: null,
+      attentionItems: []
+    };
+
+    renderWithRouter(
+      <HomeFocusCard
+        experience={experience as any}
+        canUsePerformance={false}
+        onOpenEvent={vi.fn()}
+        onOpenPerformance={vi.fn()}
+        onCreateScale={vi.fn()}
+        onChooseScaleToRepeat={vi.fn()}
+        onResolveAttention={vi.fn()}
+      />
+    );
+
     expect(screen.queryByText('Continuar preparando')).not.toBeInTheDocument();
   });
 });

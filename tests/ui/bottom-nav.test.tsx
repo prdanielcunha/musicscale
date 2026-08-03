@@ -157,11 +157,6 @@ describe('BottomNav UI', () => {
     expect(links).toHaveLength(5);
   });
   
-  it('23. não existe setTimeout no componente, 24. não existe Promise com delay', () => {
-    // Manual inspection: verified in code
-    expect(true).toBe(true);
-  });
-
   it('25. rótulos não utilizam classes equivalentes a text-[8px] ou text-[9px], 26. rótulos não utilizam tracking-widest, 27. cada item mantém altura mínima de 48px', () => {
     const { container } = render(<MemoryRouter><BottomNav /></MemoryRouter>);
     expect(container.innerHTML).not.toContain('text-[8px]');

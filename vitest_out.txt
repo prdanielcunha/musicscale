@@ -1,0 +1,6 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/app/applet[39m
+
+[90mstdout[2m | tests/ui/modern-scale-form-attention-routing.test.tsx
+[22m[39m[MusicScale Firebase] Firestore initialized without persistent cache (Test environment).
+

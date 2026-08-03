@@ -29,16 +29,23 @@ const auth = getAuth(app);
 
 // Inicializa o firestore
 let db: any;
-try {
-  // Use persistentLocalCache to speed up loading
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-    ignoreUndefinedProperties: true
-  }, firebaseConfig.firestoreDatabaseId);
-  console.log("[MusicScale Firebase] Firestore initialized with persistent cache.");
-} catch (error) {
-  console.warn("[MusicScale Firebase] Failed to initialize Firestore with persistent cache. Attempting to fallback.", error);
+const isTestEnv = typeof process !== 'undefined' && (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true');
+
+if (isTestEnv) {
   db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+  console.log("[MusicScale Firebase] Firestore initialized without persistent cache (Test environment).");
+} else {
+  try {
+    // Use persistentLocalCache to speed up loading
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+      ignoreUndefinedProperties: true
+    }, firebaseConfig.firestoreDatabaseId);
+    console.log("[MusicScale Firebase] Firestore initialized with persistent cache.");
+  } catch (error) {
+    console.warn("[MusicScale Firebase] Failed to initialize Firestore with persistent cache. Attempting to fallback.", error);
+    db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+  }
 }
 
 const globalAny = globalThis as any;

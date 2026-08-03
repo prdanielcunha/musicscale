@@ -42,9 +42,34 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
        
        if (firstInstrumentRef.current.offsetParent === null) {
           setMobileTab('functions');
-          await new Promise(resolve => requestAnimationFrame(resolve));
+          await new Promise<void>((resolve, reject) => {
+             let rafId: number;
+             const onAbort = () => {
+                cancelAnimationFrame(rafId);
+                reject(new Error('Aborted'));
+             };
+             if (signal?.aborted) return reject(new Error('Aborted'));
+             signal?.addEventListener('abort', onAbort);
+             rafId = requestAnimationFrame(() => {
+                signal?.removeEventListener('abort', onAbort);
+                resolve();
+             });
+          }).catch(() => {});
           if (signal?.aborted) return false;
-          await new Promise(resolve => requestAnimationFrame(resolve));
+          
+          await new Promise<void>((resolve, reject) => {
+             let rafId: number;
+             const onAbort = () => {
+                cancelAnimationFrame(rafId);
+                reject(new Error('Aborted'));
+             };
+             if (signal?.aborted) return reject(new Error('Aborted'));
+             signal?.addEventListener('abort', onAbort);
+             rafId = requestAnimationFrame(() => {
+                signal?.removeEventListener('abort', onAbort);
+                resolve();
+             });
+          }).catch(() => {});
           if (signal?.aborted) return false;
        }
        
