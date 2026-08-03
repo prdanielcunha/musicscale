@@ -36,6 +36,22 @@ export function normalizeKey(key: string): string {
   return key.replace(/♯/g, '#').replace(/♭/g, 'b');
 }
 
+export function resolveChordContentSourceKey(metadata?: {
+  chordContentKey?: string;
+  shapeKey?: string;
+  normalizedToConcertKey?: boolean;
+  [key: string]: any;
+} | null): string | null {
+  if (!metadata) return null;
+  if (metadata.chordContentKey && isValidKey(metadata.chordContentKey)) {
+    return normalizeKey(metadata.chordContentKey);
+  }
+  if (metadata.shapeKey && isValidKey(metadata.shapeKey) && metadata.normalizedToConcertKey !== true) {
+    return normalizeKey(metadata.shapeKey);
+  }
+  return null;
+}
+
 export function isValidKey(key: string): boolean {
   if (!key) return false;
   const clean = normalizeKey(key).replace(/m$/, '');

@@ -4,7 +4,7 @@ import {
 } from '../types';
 import { doc, writeBatch, serverTimestamp, addDoc, collection, runTransaction } from 'firebase/firestore';
 import { db } from './firebase';
-import { transposeChordDocument, normalizeKey, isValidKey, getSignedSemitones, areKeysEnharmonicallyEquivalent, analyzeChordDocumentKeyCandidates, validateTransposedPreview, toEpochMillis } from '../utils/chordEngine';
+import { transposeChordDocument, normalizeKey, isValidKey, getSignedSemitones, areKeysEnharmonicallyEquivalent, analyzeChordDocumentKeyCandidates, validateTransposedPreview, toEpochMillis, resolveChordContentSourceKey } from '../utils/chordEngine';
 
 export class MusicRepository {
     private readonly orgId: string;
@@ -364,7 +364,7 @@ export class MusicRepository {
 
         // Run as a Firestore transaction
         await runTransaction(db, async (transaction) => {
-            const songDocRef = doc(db, `organizations/${organizationId}/songs/${songId}`);
+            const songDocRef = doc(db, 'songs', songId);
             const songDocSnapshot = await transaction.get(songDocRef);
             if (!songDocSnapshot.exists()) {
                 throw new Error("Música não encontrada");
@@ -403,7 +403,7 @@ export class MusicRepository {
             // Validate sourceConfirmation type against transaction data
             switch (sourceConfirmation.type) {
                 case 'metadata': {
-                    const songMetaKey = song.metadata?.chordContentKey || song.metadata?.shapeKey;
+                    const songMetaKey = resolveChordContentSourceKey(song.metadata);
                     if (!songMetaKey) {
                         throw new Error("Metadata de tom não encontrada no documento.");
                     }

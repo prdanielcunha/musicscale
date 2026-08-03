@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, ChevronDown, Check, AlertTriangle, Loader2 } from 'lucide-react';
-import type { PopulatedSong, ChordSourceConfirmation } from '../../types';
+import type { PopulatedSong, ChordSourceConfirmation, ChordKeyRepairDraftSong } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApi } from '../../contexts/ApiContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -13,19 +13,28 @@ import {
   analyzeChordDocumentKeyCandidates,
   validateTransposedPreview,
   areKeysEnharmonicallyEquivalent,
+  resolveChordContentSourceKey,
   ChordDocumentAnalysisResult
 } from '../../utils/chordEngine';
 import Button from '../common/Button';
 
 export type ChordKeyRepairMode = 'draft' | 'persisted';
 
-interface ChordKeyRepairSheetProps {
-  isOpen: boolean;
-  song: PopulatedSong;
-  onClose: () => void;
-  onSuccess?: (updatedSong: PopulatedSong) => void;
-  mode?: ChordKeyRepairMode;
-}
+export type ChordKeyRepairSheetProps =
+  | {
+      isOpen: boolean;
+      mode: 'draft';
+      song: ChordKeyRepairDraftSong;
+      onClose: () => void;
+      onSuccess?: (updatedSong: ChordKeyRepairDraftSong) => void;
+    }
+  | {
+      isOpen: boolean;
+      mode?: 'persisted';
+      song: PopulatedSong;
+      onClose: () => void;
+      onSuccess?: (updatedSong: PopulatedSong) => void;
+    };
 
 const MAJOR_KEYS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'];
 const MINOR_KEYS = MAJOR_KEYS.map(k => `${k}m`);
@@ -142,7 +151,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
       }
       setTargetChordKey(initialTarget);
 
-      const metadataKey = song.metadata?.chordContentKey || song.metadata?.shapeKey || '';
+      const metadataKey = resolveChordContentSourceKey(song.metadata) || '';
       const analysis = analyzeChordDocumentKeyCandidates(song.chords || '');
       setAnalysisResult(analysis);
 
@@ -175,7 +184,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
   );
 
   const topCandidate = analysisResult.candidates[0];
-  const metadataKey = song.metadata?.chordContentKey || song.metadata?.shapeKey || '';
+  const metadataKey = resolveChordContentSourceKey(song.metadata) || '';
 
   // Determine if there is a conflict between metadataKey and detected chords
   const hasMetadataContentConflict = !!(
@@ -585,25 +594,26 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
                 )}
               </div>
               <div className="flex gap-2">
-                {topCandidate && (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium') && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleConfirmDetected(topCandidate.key)}
-                    className="shrink-0 font-bold"
-                  >
-                    {t('chordKeyRepair.useDetectedKey', 'Usar {{detectedKey}}', { detectedKey: topCandidate.key })}
-                  </Button>
-                )}
-                {isSourceDivergentFromDetected ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleConfirmOverride}
-                    className="shrink-0 font-bold"
-                  >
-                    {t('chordKeyRepair.confirmOverride', 'Confirmar uso de {{sourceChordKey}}', { sourceChordKey })}
-                  </Button>
+                {topCandidate && (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium') ? (
+                  isSourceDivergentFromDetected ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleConfirmOverride}
+                      className="shrink-0 font-bold"
+                    >
+                      {t('chordKeyRepair.confirmOverride', 'Confirmar uso de {{sourceChordKey}}', { sourceChordKey })}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleConfirmDetected(topCandidate.key)}
+                      className="shrink-0 font-bold"
+                    >
+                      {t('chordKeyRepair.useDetectedKey', 'Usar {{detectedKey}}', { detectedKey: topCandidate.key })}
+                    </Button>
+                  )
                 ) : (
                   <Button
                     variant="outline"

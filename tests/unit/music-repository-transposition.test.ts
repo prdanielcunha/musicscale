@@ -92,6 +92,59 @@ describe('MusicRepository - Chord Key Repair Transactional Logic', () => {
     expect(result.metadata.chordContentKey).toBe('G');
     expect(result.metadata.chordKeyCorrection).toBeDefined();
     expect(result.metadata.chordKeyCorrection.method).toBe('detected');
+
+    // Assert that doc was called with root canonical path 'songs/song-111'
+    expect(mockDoc).toHaveBeenCalledWith(expect.anything(), 'songs', songId);
+    // Assert doc was NEVER called with organizations/org-shaddai-777/songs/song-111
+    const callsWithNestedPath = mockDoc.mock.calls.filter(call => 
+      call.some(arg => typeof arg === 'string' && arg.includes('organizations/'))
+    );
+    expect(callsWithNestedPath).toHaveLength(0);
+  });
+
+  it('não deve considerar shapeKey como tom atual quando normalizedToConcertKey for true (caso de provenance)', async () => {
+    const songId = 'song-prov-111';
+    const nowIso = new Date().toISOString();
+    const existingSong = {
+      id: songId,
+      organizationId: currentOrgId,
+      title: 'Música Provenance',
+      key: 'F#',
+      chords: 'F#   C#/E#   D#m   B\nF#   C#/E#   D#m   B',
+      metadata: {
+        declaredKey: 'F#',
+        shapeKey: 'E',
+        capo: 2,
+        transpositionSemitones: 2,
+        normalizedToConcertKey: true
+      },
+      lastModifiedAt: nowIso
+    };
+
+    mockRunTransaction.mockImplementation(async (callback: any) => {
+      const mockTransaction = {
+        get: vi.fn().mockResolvedValue({
+          exists: () => true,
+          data: () => existingSong
+        }),
+        update: vi.fn((_ref: any, data: any) => { lastSavedSongData = data; })
+      };
+      return callback(mockTransaction);
+    });
+
+    // Confirmation by metadata 'E' must be rejected because shapeKey 'E' is not current key when normalizedToConcertKey === true
+    await expect(
+      repository.repairOrganizationSongChordKey({
+        songId,
+        organizationId: currentOrgId,
+        sourceChordKey: 'E',
+        targetChordKey: 'G',
+        sourceConfirmation: {
+          type: 'metadata',
+          metadataKey: 'E'
+        }
+      })
+    ).rejects.toThrow('Metadata de tom não encontrada no documento.');
   });
 
   it('deve rejeitar reparo quando houver conflito entre metadata e detectado e confirmation for manual ou faltar acknowledgedConflict', async () => {

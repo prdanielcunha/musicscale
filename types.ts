@@ -291,6 +291,16 @@ export interface PopulatedSong extends Song {
     tags: Tag[];
 }
 
+export interface ChordKeyRepairDraftSong {
+  title?: string;
+  artist?: string;
+  key?: string;
+  originalKey?: string;
+  selectedKey?: string;
+  chords?: string;
+  metadata?: any;
+}
+
 export interface EventType {
   id: string;
   name: string;
