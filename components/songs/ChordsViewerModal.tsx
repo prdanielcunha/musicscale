@@ -209,6 +209,7 @@ interface ChordsViewerModalProps {
   onClose: () => void;
   song: PopulatedSong | null;
   onSave: (data: { songId: string; chords: string }) => Promise<void>;
+  onSongUpdate?: (updatedSong: PopulatedSong) => void;
   isSubmitting: boolean;
   scaleContext: {
     scaleId?: string;
@@ -223,6 +224,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   onClose,
   song,
   onSave,
+  onSongUpdate,
   isSubmitting,
   scaleContext,
   onNavigate,
@@ -1019,7 +1021,13 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                     className="w-full bg-indigo-600 hover:bg-indigo-500 text-white border-none transition-colors"
                     onClick={() => {
                       setActiveTab("none");
-                      openChordKeyRepair(song);
+                      if (song) {
+                        openChordKeyRepair(song, (updatedSong) => {
+                          if (onSongUpdate) {
+                            onSongUpdate(updatedSong);
+                          }
+                        });
+                      }
                     }}
                   >
                     Ajustar Tom da Cifra

@@ -381,7 +381,7 @@ const SongForm: React.FC<SongFormProps> = ({
                       chords: updatedSong.chords,
                       key: updatedSong.metadata?.chordContentKey || updatedSong.key || prev.key,
                     }));
-                  });
+                  }, 'draft');
                 }}
                 className="text-xs text-indigo-500 hover:text-indigo-600 font-bold flex items-center gap-1 focus:outline-none"
               >

@@ -17,6 +17,8 @@ import { db } from "../services/firebase";
 
 export type MusicScaleSaveIntent = "save-draft" | "publish";
 
+export type ChordKeyRepairMode = 'draft' | 'persisted';
+
 export type MusicScaleWritableData = Omit<Scale, "id" | "createdBy" | "createdAt"> | Scale;
 export type BandScaleWritableData = Omit<BandScale, "id" | "createdBy" | "createdAt"> | BandScale;
 
@@ -130,7 +132,8 @@ interface ModalContextType {
   // Chord Key Repair
   isChordKeyRepairOpen: boolean;
   songForChordKeyRepair: PopulatedSong | null;
-  openChordKeyRepair: (song: PopulatedSong, onSuccess?: (updatedSong: PopulatedSong) => void) => void;
+  chordKeyRepairMode: ChordKeyRepairMode;
+  openChordKeyRepair: (song: PopulatedSong, onSuccess?: (updatedSong: PopulatedSong) => void, mode?: ChordKeyRepairMode) => void;
   closeChordKeyRepair: () => void;
 }
 
@@ -272,6 +275,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [isChordKeyRepairOpen, setIsChordKeyRepairOpen] = useState(false);
   const [songForChordKeyRepair, setSongForChordKeyRepair] = useState<PopulatedSong | null>(null);
   const [chordKeyRepairOnSuccess, setChordKeyRepairOnSuccess] = useState<((updatedSong: PopulatedSong) => void) | null>(null);
+  const [chordKeyRepairMode, setChordKeyRepairMode] = useState<ChordKeyRepairMode>('persisted');
   
   const closeAllModals = useCallback(() => {
     setSongToEdit(null);
@@ -297,6 +301,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setIsChordKeyRepairOpen(false);
     setSongForChordKeyRepair(null);
     setChordKeyRepairOnSuccess(null);
+    setChordKeyRepairMode('persisted');
   }, []);
 
   const openFeedback = useCallback((type: 'bug'|'suggestion'|'feedback' = 'feedback') => {
@@ -313,8 +318,13 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const openWhatsNew = useCallback(() => { closeAllModals(); setIsWhatsNewOpen(true); }, [closeAllModals]);
   const closeWhatsNew = useCallback(() => { setIsWhatsNewOpen(false); }, []);
 
-  const openChordKeyRepair = useCallback((song: PopulatedSong, onSuccess?: (updatedSong: PopulatedSong) => void) => {
+  const openChordKeyRepair = useCallback((
+    song: PopulatedSong,
+    onSuccess?: (updatedSong: PopulatedSong) => void,
+    mode: ChordKeyRepairMode = 'persisted'
+  ) => {
     setSongForChordKeyRepair(song);
+    setChordKeyRepairMode(mode);
     if (onSuccess) {
       setChordKeyRepairOnSuccess(() => onSuccess);
     } else {
@@ -966,6 +976,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       handleSaveScale,
       isChordKeyRepairOpen,
       songForChordKeyRepair,
+      chordKeyRepairMode,
       openChordKeyRepair,
       closeChordKeyRepair
   }), [
@@ -973,7 +984,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       openSongForm, openSongDetail, openDeleteSongConfirmation, openScaleForm, openScaleDetail,
       openBandScaleForm, openBandScaleDetail, openAddChordModal, openSuggestionForm, openHelpModal,
       openSupportModal, saveChord, isSubmitting, isFeedbackOpen, feedbackType, openFeedback, closeFeedback,
-      handleSaveScale, isChordKeyRepairOpen, songForChordKeyRepair, openChordKeyRepair, closeChordKeyRepair
+      handleSaveScale, isChordKeyRepairOpen, songForChordKeyRepair, chordKeyRepairMode, openChordKeyRepair, closeChordKeyRepair
   ]);
 
   return (
@@ -1172,6 +1183,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             song={songForChordKeyRepair}
             onClose={closeChordKeyRepair}
             onSuccess={chordKeyRepairOnSuccess || undefined}
+            mode={chordKeyRepairMode}
           />
         )}
       </Suspense>

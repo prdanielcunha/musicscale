@@ -20,7 +20,8 @@
     "alteredChords": "Cantidad de acordes alterados",
     "concurrencyError": "Conflicto de concurrencia: La canción fue modificada por otro usuario. Recargue los datos e intente de nuevo.",
     "emptyContentError": "La cifra no puede estar vacía.",
-    "sameKeysError": "El tono de origen no puede ser igual al de destino."
+    "sameKeysError": "El tono de origen no puede ser igual al de destino.",
+    "selectSourceKey": "Seleccione el tono de origen"
   },
   "premium": {
     "upgradeModal": {

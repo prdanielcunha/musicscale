@@ -777,6 +777,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
         onClose={handleClosePerformance}
         song={song}
         onSave={saveChord}
+        onSongUpdate={(updatedSong) => setSong(updatedSong)}
         isSubmitting={isSubmitting}
         scaleContext={scaleContext}
         onNavigate={onNavigate}

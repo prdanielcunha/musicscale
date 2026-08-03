@@ -9,11 +9,14 @@ import { useToast } from '../../contexts/ToastContext';
 import { transposeChordDocument, normalizeKey, isValidKey } from '../../utils/chordEngine';
 import Button from '../common/Button';
 
+export type ChordKeyRepairMode = 'draft' | 'persisted';
+
 interface ChordKeyRepairSheetProps {
   isOpen: boolean;
   song: PopulatedSong;
   onClose: () => void;
   onSuccess?: (updatedSong: PopulatedSong) => void;
+  mode?: ChordKeyRepairMode;
 }
 
 const MAJOR_KEYS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'];
@@ -24,21 +27,23 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
   isOpen,
   song,
   onClose,
-  onSuccess
+  onSuccess,
+  mode = 'persisted'
 }) => {
   const { t } = useTranslation();
   const api = useApi();
   const { toast } = useToast();
   const { effectiveOrganizationId, permissions, userProfile } = useAuth();
 
-  const [sourceChordKey, setSourceChordKey] = useState<string>('E');
-  const [targetChordKey, setTargetChordKey] = useState<string>('F#');
+  const [sourceChordKey, setSourceChordKey] = useState<string>('');
+  const [targetChordKey, setTargetChordKey] = useState<string>('C');
   const [showFullPreview, setShowFullPreview] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const initialOrgIdRef = useRef(effectiveOrganizationId);
   const modalRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
 
   // Auto-close on organization change
   useEffect(() => {
@@ -58,22 +63,59 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // Smart defaults based on the song
+  // Set initial focus
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        closeBtnRef.current?.focus();
+      }, 50);
+    }
+  }, [isOpen]);
+
+  // Focus trap Tab behavior
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleFocusTrap = (e: KeyboardEvent) => {
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusableElements = modalRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusableElements.length === 0) return;
+        const firstElement = focusableElements[0] as HTMLElement;
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+        
+        if (e.shiftKey) { // Shift + Tab
+          if (document.activeElement === firstElement) {
+            lastElement.focus();
+            e.preventDefault();
+          }
+        } else { // Tab
+          if (document.activeElement === lastElement) {
+            firstElement.focus();
+            e.preventDefault();
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleFocusTrap);
+    return () => window.removeEventListener('keydown', handleFocusTrap);
+  }, [isOpen]);
+
+  // Setup keys from song without guessing
   useEffect(() => {
     if (song) {
       const tKey = song.key || 'C';
       setTargetChordKey(tKey);
-      if (tKey === 'F#') {
-        setSourceChordKey('E');
-      } else {
-        setSourceChordKey(tKey === 'C' ? 'G' : 'C');
-      }
+      
+      const contentKey = song.metadata?.chordContentKey || song.metadata?.shapeKey || '';
+      setSourceChordKey(contentKey);
     }
   }, [song]);
 
   if (!isOpen || !song) return null;
 
-  const hasEditCapability = !!(
+  const hasEditCapability = mode === 'draft' || !!(
     permissions?.['musicscale.songs.edit'] ||
     permissions?.manageSongs ||
     permissions?.['musicScale.manageSongs']
@@ -109,9 +151,14 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
     if (loading) return;
     setError(null);
 
-    // Double check capability
-    if (!hasEditCapability) {
+    // Double check capability (only in persisted mode)
+    if (mode === 'persisted' && !hasEditCapability) {
       setError(t('chordKeyRepair.unauthorized', 'Permissão negada: Usuário não possui a capability necessária para esta operação.'));
+      return;
+    }
+
+    if (!sourceChordKey) {
+      setError(t('chordKeyRepair.selectSourceKey', 'Selecione o tom de origem.'));
       return;
     }
 
@@ -128,59 +175,58 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
     setLoading(true);
 
     try {
-      if (!api) {
-        throw new Error('Serviço de API indisponível no momento.');
+      const updatedMetadata = {
+        ...(song.metadata || {}),
+        chordContentKey: targetChordKey,
+        normalizedToConcertKey: true,
+        declaredKey: targetChordKey,
+        shapeKey: targetChordKey,
+        capo: 0,
+        transpositionSemitones: 0,
+        chordKeyCorrection: {
+          version: 1,
+          previousContentKey: sourceChordKey,
+          correctedContentKey: targetChordKey,
+          semitones,
+          method: 'manual',
+          correctedAt: new Date().toISOString(),
+          correctedBy: userProfile?.uid || 'unknown'
+        }
+      };
+
+      const updatedSong: PopulatedSong = {
+        ...song,
+        chords: transposedChords,
+        metadata: updatedMetadata,
+        chordsLastModifiedAt: new Date().toISOString()
+      };
+
+      if (mode === 'persisted') {
+        if (!api) {
+          throw new Error('Serviço de API indisponível no momento.');
+        }
+
+        await api.repairOrganizationSongChordKey({
+          songId: song.id,
+          organizationId: effectiveOrganizationId || '',
+          sourceChordKey,
+          targetChordKey,
+          expectedUpdatedAt: song.lastModifiedAt || song.chordsLastModifiedAt || (song as any).updatedAt || null
+        });
+
+        // Show toast
+        toast({
+          title: t('chordKeyRepair.successTitle', 'Cifra corrigida'),
+          description: t('chordKeyRepair.successMessage', 'Os acordes foram ajustados de {{from}} para {{to}}.', {
+            from: sourceChordKey,
+            to: targetChordKey
+          }),
+          type: 'success'
+        });
       }
 
-      const userCapabilities = Object.keys(permissions || {}).filter(key => permissions[key] === true);
-
-      await api.repairOrganizationSongChordKey({
-        songId: song.id,
-        organizationId: effectiveOrganizationId || '',
-        sourceChordKey,
-        targetChordKey,
-        expectedUpdatedAt: song.lastModifiedAt || song.chordsLastModifiedAt || (song as any).updatedAt || null,
-        userCapabilities
-      });
-
-      // Show toast
-      toast({
-        title: t('chordKeyRepair.successTitle', 'Cifra corrigida'),
-        description: t('chordKeyRepair.successMessage', 'Os acordes foram ajustados de {{from}} para {{to}}.', {
-          from: sourceChordKey,
-          to: targetChordKey
-        }),
-        type: 'success'
-      });
-
-      // Refetch song or trigger success
+      // Trigger success callback
       if (onSuccess) {
-        const updatedMetadata = {
-          ...(song.metadata || {}),
-          chordContentKey: targetChordKey,
-          normalizedToConcertKey: true,
-          declaredKey: targetChordKey,
-          shapeKey: targetChordKey,
-          capo: 0,
-          transpositionSemitones: 0,
-          chordKeyCorrection: {
-            version: 1,
-            previousContentKey: sourceChordKey,
-            correctedContentKey: targetChordKey,
-            semitones,
-            method: 'manual',
-            correctedAt: new Date().toISOString(),
-            correctedBy: userProfile?.uid || 'unknown'
-          }
-        };
-
-        const updatedSong: PopulatedSong = {
-          ...song,
-          chords: transposedChords,
-          metadata: updatedMetadata,
-          chordsLastModifiedAt: new Date().toISOString()
-        };
-
         onSuccess(updatedSong);
       }
 
@@ -206,6 +252,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
         ref={modalRef}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="modal-title"
         className="relative w-full md:max-w-3xl bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 md:border md:rounded-3xl shadow-2xl flex flex-col max-h-[90vh] md:max-h-[85vh] transition-all rounded-t-3xl overflow-hidden"
       >
         {/* Mobile Drag Handle */}
@@ -224,6 +271,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
             </p>
           </div>
           <button
+            ref={closeBtnRef}
             onClick={onClose}
             className="p-1.5 rounded-full text-slate-400 hover:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none"
             aria-label="Fechar"
@@ -255,6 +303,9 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
                   disabled={loading}
                   className="w-full min-h-[44px] px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl font-medium focus:ring-2 focus:ring-primary/20 appearance-none outline-none disabled:opacity-50"
                 >
+                  <option value="" disabled>
+                    {t('chordKeyRepair.selectSourceKey', 'Selecione o tom de origem')}
+                  </option>
                   {ALL_KEYS.map((k) => (
                     <option key={k} value={k}>
                       {k}
@@ -376,7 +427,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
           <Button
             variant="primary"
             onClick={handleApply}
-            disabled={loading || sourceChordKey === targetChordKey}
+            disabled={loading || !sourceChordKey || sourceChordKey === targetChordKey}
             leftIcon={loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
             className="w-full sm:w-auto font-bold"
           >

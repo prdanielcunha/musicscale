@@ -20,7 +20,8 @@
     "alteredChords": "Quantidade de acordes alterados",
     "concurrencyError": "Conflito de concorrência: A música foi modificada por outro usuário. Recarregue os dados e tente novamente.",
     "emptyContentError": "A cifra não pode estar vazia.",
-    "sameKeysError": "O tom de origem não pode ser igual ao de destino."
+    "sameKeysError": "O tom de origem não pode ser igual ao de destino.",
+    "selectSourceKey": "Selecione o tom de origem"
   },
   "premium": {
     "upgradeModal": {
