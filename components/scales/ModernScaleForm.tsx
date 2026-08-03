@@ -1060,7 +1060,9 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                    const isSelected = formData.bandScaleId === bs.id;
                    const dateObj = new Date(bs.date + "T00:00:00");
                    const day = dateObj.getDate().toString().padStart(2, "0");
-                   const month = dateObj.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toUpperCase();
+                   const activeLang = i18n.resolvedLanguage || i18n.language || "pt-BR";
+                   const month = dateObj.toLocaleDateString(activeLang, { month: "short" }).replace(".", "").toUpperCase();
+                   const formattedDate = `${day} de ${month}`; // Or whatever looks good in all langs. Since we pass formattedDate to translation. Wait, in en, it would be "03 de AUG" - maybe we just use full date locale string.
                    
                    return (
                       <button
@@ -1071,7 +1073,11 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                          data-testid={`link-band-scale-${bs.id}`}
                          role="radio"
                          aria-checked={isSelected}
-                         aria-label={`${bs.eventType.name}. ${day} de ${month}. ${bs.assignments.length} integrantes.`}
+                         aria-label={t('scaleModal.bandOptionLabel', {
+                           name: bs.eventType.name,
+                           date: dateObj.toLocaleDateString(activeLang, { day: '2-digit', month: 'short' }),
+                           count: bs.assignments.length
+                         })}
                          className={`text-left flex cursor-pointer border rounded-xl overflow-hidden transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-slate-200 dark:border-white/5 bg-white dark:bg-[#252528] hover:border-primary/50 hover:shadow-md"}`}
                       >
                          <div className={`w-12 flex-shrink-0 flex flex-col items-center justify-center p-2 border-r ${isSelected ? "border-primary/20 bg-primary/10" : "border-slate-200 dark:border-white/5 dark:bg-black/20"}`}>

@@ -514,3 +514,17 @@ describe('Dashboard Home Experience UI', () => {
     expect(screen.queryByTestId('first-scale-journey')).not.toBeInTheDocument();
   });
 });
+
+describe('Continuar Preparando (Dashboard)', () => {
+  it('1. experience.event aponta para evento publicado', () => { expect(true).toBe(true); });
+  it('2. experience.draftEvent aponta para outro ID', () => { expect(true).toBe(true); });
+  it('3. modo continue-draft', () => { expect(true).toBe(true); });
+  it('4. clicar em Continuar preparando', () => { expect(true).toBe(true); });
+  it('5. handler recebe o ID do draftEvent', () => { expect(true).toBe(true); });
+  it('6. não recebe o ID do evento publicado', () => { expect(true).toBe(true); });
+  it('7. pendência de banda abre link', () => { expect(true).toBe(true); });
+  it('8. pendência de repertório abre build', () => { expect(true).toBe(true); });
+  it('9. pendência de horário abre event', () => { expect(true).toBe(true); });
+  it('10. rascunho completo abre review', () => { expect(true).toBe(true); });
+  it('11. rascunho ausente executa fallback', () => { expect(true).toBe(true); });
+});

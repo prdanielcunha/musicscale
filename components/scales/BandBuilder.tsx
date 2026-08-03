@@ -32,11 +32,32 @@ const BandBuilder = forwardRef<any, BandBuilderProps>(({
   const firstInstrumentRef = useRef<HTMLButtonElement>(null);
 
   useImperativeHandle(ref, () => ({
-    getFirstFocusableElement: () => {
-       if (window.innerWidth < 768 && mobileTab !== 'functions') {
+    focusFirstInstrument: async (): Promise<boolean> => {
+       if (!firstInstrumentRef.current) return false;
+       
+       if (firstInstrumentRef.current.offsetParent === null) {
           setMobileTab('functions');
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          await new Promise(resolve => requestAnimationFrame(resolve));
        }
-       return firstInstrumentRef.current;
+       
+       if (firstInstrumentRef.current) {
+          firstInstrumentRef.current.focus();
+          if (firstInstrumentRef.current.scrollIntoView) {
+             const rect = firstInstrumentRef.current.getBoundingClientRect();
+             const isVisible = (
+                 rect.top >= 0 &&
+                 rect.left >= 0 &&
+                 rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+                 rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+             );
+             if (!isVisible) {
+               firstInstrumentRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+             }
+          }
+          return true;
+       }
+       return false;
     }
   }));
 

@@ -691,6 +691,11 @@ export function resolveHomeAttentionTarget(params: {
 
   if (event.type === 'music') {
     switch (attentionItem.code) {
+      case 'draft':
+        return {
+          action: 'edit-music-scale',
+          step: 'review',
+        };
       case 'missing-repertoire':
         return {
           action: 'edit-music-scale',
@@ -740,6 +745,11 @@ export function resolveHomeAttentionTarget(params: {
     }
   } else if (event.type === 'band') {
     switch (attentionItem.code) {
+      case 'draft':
+        return {
+          action: 'edit-band-scale',
+          step: 'review',
+        };
       case 'missing-team':
         return {
           action: 'edit-band-scale',

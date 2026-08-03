@@ -36,11 +36,32 @@ const MusicBuilder = forwardRef<any, MusicBuilderProps>(({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useImperativeHandle(ref, () => ({
-    getFirstFocusableElement: () => {
-       if (window.innerWidth < 768 && mobileTab !== 'library') {
+    focusSearchInput: async (): Promise<boolean> => {
+       if (!searchInputRef.current) return false;
+       
+       if (searchInputRef.current.offsetParent === null) {
           setMobileTab('library');
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          await new Promise(resolve => requestAnimationFrame(resolve));
        }
-       return searchInputRef.current;
+       
+       if (searchInputRef.current) {
+          searchInputRef.current.focus();
+          if (searchInputRef.current.scrollIntoView) {
+             const rect = searchInputRef.current.getBoundingClientRect();
+             const isVisible = (
+                 rect.top >= 0 &&
+                 rect.left >= 0 &&
+                 rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+                 rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+             );
+             if (!isVisible) {
+               searchInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+             }
+          }
+          return true;
+       }
+       return false;
     }
   }));
 
