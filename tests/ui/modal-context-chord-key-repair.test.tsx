@@ -1,8 +1,10 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { ModalProvider, useModals } from '../../contexts/ModalContext';
 import { MemoryRouter } from 'react-router-dom';
+import type { PopulatedSong, ChordKeyRepairDraftSong } from '../../types';
+import type { ChordKeyRepairSheetProps } from '../../components/songs/ChordKeyRepairSheet';
 
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({
@@ -38,17 +40,41 @@ vi.mock('react-i18next', () => ({
 }));
 
 vi.mock('../../components/songs/ChordKeyRepairSheet', () => ({
-  ChordKeyRepairSheet: ({ isOpen, onClose, song, onSuccess, mode }: any) => {
+  ChordKeyRepairSheet: ({ isOpen, onClose, song, onSuccess, mode }: ChordKeyRepairSheetProps) => {
     if (!isOpen) return null;
     return (
       <div data-testid="chord-key-repair-sheet">
         <span>Modo: {mode}</span>
-        <button onClick={() => onSuccess({ ...song, chords: 'G' })}>Aplicar Correção Mock</button>
+        <button onClick={() => onSuccess({ ...(song as any), chords: 'G' })}>Aplicar Correção Mock</button>
         <button onClick={onClose}>Fechar Mock</button>
       </div>
     );
   },
 }));
+
+const fullPersistedSong: PopulatedSong = {
+  id: 'song123',
+  organizationId: 'org123',
+  title: 'Persisted Song',
+  artist: 'Artist',
+  key: 'C',
+  chords: 'C',
+  lyrics: '',
+  chordsUrl: '',
+  videoUrl: '',
+  status: 'active',
+  tagIds: [],
+  tags: [],
+  createdAt: '2026-08-01T12:00:00.000Z',
+  createdBy: { uid: 'user123', displayName: 'User', photoURL: null },
+  lastPlayed: null,
+};
+
+const fullDraftSong: ChordKeyRepairDraftSong = {
+  title: 'Draft Song',
+  chords: 'C',
+  key: 'C',
+};
 
 const TestComponent = () => {
   const { openDraftChordKeyRepair, openPersistedChordKeyRepair } = useModals();
@@ -58,7 +84,7 @@ const TestComponent = () => {
       <button
         onClick={() => {
           openDraftChordKeyRepair(
-            { title: 'Draft Song', chords: 'C' },
+            fullDraftSong,
             (song) => console.log('success draft', song.title)
           );
         }}
@@ -68,8 +94,8 @@ const TestComponent = () => {
       <button
         onClick={() => {
           openPersistedChordKeyRepair(
-            { id: 'song123', organizationId: 'org123', title: 'Persisted Song', chords: 'C' } as any,
-            (song) => console.log('success persisted', (song as any).title)
+            fullPersistedSong,
+            (song) => console.log('success persisted', song.title)
           );
         }}
       >
@@ -79,7 +105,7 @@ const TestComponent = () => {
         onClick={() => {
           // Attempting persisted without id
           openPersistedChordKeyRepair(
-            { organizationId: 'org123', chords: 'C' } as any,
+            { organizationId: 'org123', chords: 'C' } as unknown as PopulatedSong,
             () => {}
           );
         }}
@@ -90,7 +116,7 @@ const TestComponent = () => {
         onClick={() => {
           // Attempting persisted without organizationId
           openPersistedChordKeyRepair(
-            { id: 'song123', chords: 'C' } as any,
+            { id: 'song123', chords: 'C' } as unknown as PopulatedSong,
             () => {}
           );
         }}
