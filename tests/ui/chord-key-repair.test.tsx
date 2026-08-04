@@ -325,12 +325,12 @@ describe('ChordKeyRepairSheet', () => {
     document.body.removeChild(button);
   });
 
-  it('deve focar o destino quando origem está confirmada', async () => {
-    // mockSong has C as key and C in metadata, which auto-confirms source
+  it('deve focar a ação principal (Aplicar) quando origem e destino existem e origem está confirmada', async () => {
+    // mockSong has C as source key (metadata) and D as target key (song.key), which enables Apply button
     render(
       <ChordKeyRepairSheet
         isOpen={true}
-        song={{...mockSong, originalKey: undefined, selectedKey: undefined, key: undefined} as any}
+        song={{ ...mockSong, key: 'D' } as any}
         onClose={mockOnClose}
         onSuccess={mockOnSuccess}
         mode="draft"
@@ -338,14 +338,13 @@ describe('ChordKeyRepairSheet', () => {
     );
 
     await waitFor(() => {
-      const selects = screen.getAllByRole('combobox');
-      // The second select is target
-      expect(document.activeElement).toBe(selects[1]);
+      const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
+      expect(document.activeElement).toBe(applyBtn);
     });
   });
 
-  it('deve focar a origem quando a origem não está confirmada', async () => {
-    // Unconfirmed source: detected candidate is E, metadata is missing
+  it('deve focar o controle de confirmação explícita quando origem e destino existem mas origem não está confirmada', async () => {
+    // Unconfirmed source: detected candidate is E, metadata is missing, target key is C from mockSong.key
     render(
       <ChordKeyRepairSheet
         isOpen={true}
@@ -361,9 +360,8 @@ describe('ChordKeyRepairSheet', () => {
     );
 
     await waitFor(() => {
-      const selects = screen.getAllByRole('combobox');
-      // The first select is source
-      expect(document.activeElement).toBe(selects[0]);
+      const useEBtn = screen.getByRole('button', { name: /Usar E/i });
+      expect(document.activeElement).toBe(useEBtn);
     });
   });
 });

@@ -298,7 +298,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
   const { t } = useTranslation();
   const api = useApi();
   const { songs, populatedScales: scales } = useMusic();
-  const { openScaleDetail, saveChord, isSubmitting, openFeedback, openChordKeyRepair } = useModals();
+  const { openScaleDetail, saveChord, isSubmitting, openFeedback, openPersistedChordKeyRepair } = useModals();
   const { feedbackToast } = useToast();
   const { userProfile } = useAuth();
   const { hasCapability } = useCapability();
@@ -579,7 +579,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     {canManageSongs && (
                        <button
-                         onClick={() => song && openChordKeyRepair(song, (updatedSong) => setSong(updatedSong))}
+                         onClick={() => song && openPersistedChordKeyRepair(song, (updatedSong) => setSong(updatedSong))}
                          className="absolute top-2 right-2 p-1.5 text-white/30 hover:text-white/80 hover:bg-white/10 rounded-lg transition-all focus:outline-none focus:ring-1 focus:ring-indigo-500/30 z-10"
                          title={t('chordKeyRepair.title', 'Ajustar tom da cifra')}
                        >

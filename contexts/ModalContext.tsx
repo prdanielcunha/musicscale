@@ -154,10 +154,14 @@ interface ModalContextType {
   chordKeyRepairState: ChordKeyRepairState;
   songForChordKeyRepair: PopulatedSong | null;
   chordKeyRepairMode: ChordKeyRepairMode;
-  openChordKeyRepair: {
-    (song: ChordKeyRepairDraftSong, onSuccess: ((updatedSong: ChordKeyRepairDraftSong) => void) | undefined, mode: 'draft'): void;
-    (song: PopulatedSong, onSuccess?: (updatedSong: PopulatedSong) => void, mode?: 'persisted'): void;
-  };
+  openDraftChordKeyRepair: (
+    song: ChordKeyRepairDraftSong,
+    onSuccess?: (updatedSong: ChordKeyRepairDraftSong) => void
+  ) => void;
+  openPersistedChordKeyRepair: (
+    song: PopulatedSong,
+    onSuccess?: (updatedSong: PopulatedSong) => void
+  ) => void;
   closeChordKeyRepair: () => void;
 }
 
@@ -352,8 +356,20 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const openPersistedChordKeyRepair = useCallback((song: PopulatedSong, onSuccess?: (updatedSong: PopulatedSong) => void) => {
-    if (!song.id || !song.organizationId) {
-      toast({ title: 'Erro de validação', description: 'O modo persisted exige que a música possua id e organizationId válidos.', variant: 'destructive' });
+    if (!song?.id) {
+      toast({
+        title: 'Erro',
+        description: 'ID da música é obrigatório no modo de reparo persistido.',
+        type: 'error',
+      });
+      return;
+    }
+    if (!song?.organizationId) {
+      toast({
+        title: 'Erro',
+        description: 'ID da organização é obrigatório no modo de reparo persistido.',
+        type: 'error',
+      });
       return;
     }
     setChordKeyRepairState({
@@ -362,22 +378,6 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       onSuccess,
     });
   }, [toast]);
-
-  const openChordKeyRepair = useCallback((
-    song: ChordKeyRepairDraftSong | PopulatedSong,
-    onSuccess?: ((updatedSong: any) => void),
-    mode: ChordKeyRepairMode = 'persisted'
-  ) => {
-    if (mode === 'draft') {
-      openDraftChordKeyRepair(song, onSuccess);
-    } else {
-      if (!('id' in song) || !song.id || !('organizationId' in song) || !song.organizationId) {
-        toast({ title: 'Erro', description: 'O modo persisted não pode ser usado com um draft incompleto.', variant: 'destructive' });
-        return;
-      }
-      openPersistedChordKeyRepair(song as PopulatedSong, onSuccess);
-    }
-  }, [openDraftChordKeyRepair, openPersistedChordKeyRepair, toast]);
 
   const closeChordKeyRepair = useCallback(() => {
     setChordKeyRepairState(null);
@@ -1024,14 +1024,15 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       chordKeyRepairState,
       songForChordKeyRepair: chordKeyRepairState?.mode === 'persisted' ? chordKeyRepairState.song : null,
       chordKeyRepairMode: chordKeyRepairState?.mode || 'persisted',
-      openChordKeyRepair,
+      openDraftChordKeyRepair,
+      openPersistedChordKeyRepair,
       closeChordKeyRepair
   }), [
       isAiSongImportOpen, openAiSongImport, closeAiSongImport, isWhatsNewOpen, openWhatsNew, closeWhatsNew,
       openSongForm, openSongDetail, openDeleteSongConfirmation, openScaleForm, openScaleDetail,
       openBandScaleForm, openBandScaleDetail, openAddChordModal, openSuggestionForm, openHelpModal,
       openSupportModal, saveChord, isSubmitting, isFeedbackOpen, feedbackType, openFeedback, closeFeedback,
-      handleSaveScale, chordKeyRepairState, openChordKeyRepair, closeChordKeyRepair
+      handleSaveScale, chordKeyRepairState, openDraftChordKeyRepair, openPersistedChordKeyRepair, closeChordKeyRepair
   ]);
 
   return (

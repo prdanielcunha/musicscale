@@ -237,7 +237,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const { isPowerSave } = useAdaptivePerformance();
 
   const canManageChords = !!(permissions?.manageSongs || permissions?.manageChords || permissions?.['musicscale.chords.edit']);
-  const { openChordKeyRepair } = useModals();
+  const { openPersistedChordKeyRepair } = useModals();
   const canRepairChordKey = !!(permissions?.['musicscale.songs.edit'] || permissions?.manageSongs || permissions?.['musicScale.manageSongs']);
 
   const { lyrics: lyricsPalette, chords: chordsPalette } = useMemo(
@@ -1022,7 +1022,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                     onClick={() => {
                       setActiveTab("none");
                       if (song) {
-                        openChordKeyRepair(song, (updatedSong) => {
+                        openPersistedChordKeyRepair(song, (updatedSong) => {
                           if (onSongUpdate) {
                             onSongUpdate(updatedSong);
                           }

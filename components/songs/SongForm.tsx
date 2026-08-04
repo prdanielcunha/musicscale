@@ -38,7 +38,7 @@ const SongForm: React.FC<SongFormProps> = ({
   defaultOptions,
 }) => {
   const { t } = useTranslation();
-  const { openChordKeyRepair } = useModals();
+  const { openDraftChordKeyRepair } = useModals();
   const { userProfile, permissions, organization } = useAuth();
   const { isEcosystemAdmin } = useEcosystemAdmin();
   const canManageRepertoire = !!(permissions?.manageSongs || permissions?.['musicScale.manageSongs']);
@@ -369,7 +369,7 @@ const SongForm: React.FC<SongFormProps> = ({
                     chords: formData.chords,
                     metadata: { ...(songToEdit?.metadata || {}), ...formMetadata },
                   };
-                  openChordKeyRepair(
+                  openDraftChordKeyRepair(
                     draftSong,
                     (updatedSong) => {
                       setFormData((prev) => ({
@@ -382,8 +382,7 @@ const SongForm: React.FC<SongFormProps> = ({
                           ...updatedSong.metadata,
                         }));
                       }
-                    },
-                    'draft'
+                    }
                   );
                 }}
                 className="text-xs text-indigo-500 hover:text-indigo-600 font-bold flex items-center gap-1 focus:outline-none"

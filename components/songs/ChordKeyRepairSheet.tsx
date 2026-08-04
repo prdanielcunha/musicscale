@@ -41,13 +41,14 @@ const MAJOR_KEYS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G',
 const MINOR_KEYS = MAJOR_KEYS.map(k => `${k}m`);
 const ALL_KEYS = [...MAJOR_KEYS, ...MINOR_KEYS];
 
-export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
-  isOpen,
-  song,
-  onClose,
-  onSuccess,
-  mode = 'persisted'
-}) => {
+export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = (props) => {
+  const {
+    isOpen,
+    onClose,
+    mode = 'persisted'
+  } = props;
+  const song = props.song;
+
   const { t } = useTranslation();
   const api = useApi();
   const { toast } = useToast();
@@ -65,9 +66,12 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const sourceSelectRef = useRef<HTMLSelectElement>(null);
   const targetSelectRef = useRef<HTMLSelectElement>(null);
+  const confirmActionRef = useRef<any>(null);
+  const applyBtnRef = useRef<any>(null);
   const triggerElementRef = useRef<HTMLElement | null>(null);
 
   const [isInitialStateResolved, setIsInitialStateResolved] = useState(false);
+  const hasFocusedRef = useRef(false);
 
   // Auto-close on organization change
   useEffect(() => {
@@ -106,17 +110,37 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
 
   // Handle focus when initial state is resolved
   useEffect(() => {
-    if (!isOpen || !isInitialStateResolved) return;
+    if (!isOpen) {
+      hasFocusedRef.current = false;
+      return;
+    }
+    if (!isInitialStateResolved || hasFocusedRef.current) return;
+
     const animId = requestAnimationFrame(() => {
-      if (!sourceConfirmation) {
+      hasFocusedRef.current = true;
+      if (!sourceChordKey || (!sourceConfirmation && !targetChordKey)) {
         sourceSelectRef.current?.focus();
-      } else if (!targetChordKey) {
+      } else if (sourceConfirmation && !targetChordKey) {
         targetSelectRef.current?.focus();
+      } else if (!sourceConfirmation && sourceChordKey && targetChordKey) {
+        if (confirmActionRef.current && typeof confirmActionRef.current.focus === 'function') {
+          confirmActionRef.current.focus();
+        } else {
+          sourceSelectRef.current?.focus();
+        }
+      } else if (sourceConfirmation && targetChordKey) {
+        if (applyBtnRef.current && typeof applyBtnRef.current.focus === 'function') {
+          applyBtnRef.current.focus();
+        } else {
+          sourceSelectRef.current?.focus();
+        }
+      } else {
+        sourceSelectRef.current?.focus();
       }
     });
 
     return () => cancelAnimationFrame(animId);
-  }, [isOpen, isInitialStateResolved]); // Only run when these change
+  }, [isOpen, isInitialStateResolved, sourceChordKey, targetChordKey, sourceConfirmation]);
 
   // Focus trap Tab behavior
   useEffect(() => {
@@ -192,11 +216,8 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
         setSourceChordKey('');
         setSourceConfirmation(null);
       }
-      
-      // Delay state resolution slightly to allow renders to catch up for ref focusing
-      setTimeout(() => {
-        setIsInitialStateResolved(true);
-      }, 0);
+
+      setIsInitialStateResolved(true);
     } else {
       setIsInitialStateResolved(false);
       setSourceConfirmation(null);
@@ -381,24 +402,27 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
         chordKeyCorrection
       };
 
-      const updatedSong: PopulatedSong = {
-        ...song,
-        chords: transposedChords,
-        metadata: updatedMetadata,
-        chordsLastModifiedAt: new Date().toISOString()
-      };
+      if (props.mode === 'draft') {
+        const updatedDraft: ChordKeyRepairDraftSong = {
+          ...props.song,
+          chords: transposedChords,
+          metadata: updatedMetadata
+        };
 
-      if (mode === 'persisted') {
+        if (props.onSuccess) {
+          props.onSuccess(updatedDraft);
+        }
+      } else {
         if (!api) {
           throw new Error('Serviço de API indisponível no momento.');
         }
 
         const savedSong = await api.repairOrganizationSongChordKey({
-          songId: song.id,
+          songId: props.song.id,
           organizationId: effectiveOrganizationId || '',
           sourceChordKey,
           targetChordKey,
-          expectedUpdatedAt: song.lastModifiedAt || song.chordsLastModifiedAt || (song as any).updatedAt || null,
+          expectedUpdatedAt: props.song.lastModifiedAt || props.song.chordsLastModifiedAt || (props.song as any).updatedAt || null,
           sourceConfirmation
         });
 
@@ -416,12 +440,8 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
           type: 'success'
         });
 
-        if (onSuccess) {
-          onSuccess(savedSong as PopulatedSong);
-        }
-      } else {
-        if (onSuccess) {
-          onSuccess(updatedSong);
+        if (props.onSuccess) {
+          props.onSuccess(savedSong);
         }
       }
 
@@ -536,6 +556,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
               {/* Explicit Confirmation Actions inside Conflict Banner */}
               <div className="flex flex-wrap gap-2 pt-1">
                 <Button
+                  ref={confirmActionRef}
                   variant="secondary"
                   size="sm"
                   onClick={() => handleConfirmDetected(topCandidate.key)}
@@ -626,6 +647,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
                 {topCandidate && (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium') ? (
                   isSourceDivergentFromDetected ? (
                     <Button
+                      ref={confirmActionRef}
                       variant="outline"
                       size="sm"
                       onClick={handleConfirmOverride}
@@ -635,6 +657,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
                     </Button>
                   ) : (
                     <Button
+                      ref={confirmActionRef}
                       variant="secondary"
                       size="sm"
                       onClick={() => handleConfirmDetected(topCandidate.key)}
@@ -645,6 +668,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
                   )
                 ) : (
                   <Button
+                    ref={confirmActionRef}
                     variant="outline"
                     size="sm"
                     onClick={handleConfirmManual}
@@ -743,6 +767,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
             {t('chordKeyRepair.cancel', 'Cancelar')}
           </Button>
           <Button
+            ref={applyBtnRef}
             variant="primary"
             onClick={handleApply}
             disabled={isApplyDisabled}

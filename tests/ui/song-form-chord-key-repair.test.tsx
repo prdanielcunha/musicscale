@@ -7,11 +7,11 @@ import { useApi } from '../../contexts/ApiContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useModals } from '../../contexts/ModalContext';
 
-const mockOpenChordKeyRepair = vi.fn();
+const mockOpenDraftChordKeyRepair = vi.fn();
 
 vi.mock('../../contexts/ModalContext', () => ({
   useModals: () => ({
-    openChordKeyRepair: mockOpenChordKeyRepair,
+    openDraftChordKeyRepair: mockOpenDraftChordKeyRepair,
   }),
 }));
 
@@ -72,8 +72,7 @@ describe('SongForm + ChordKeyRepair Integration', () => {
       },
     };
 
-    mockOpenChordKeyRepair.mockImplementation((songToRepair, onSuccess, mode) => {
-      expect(mode).toBe('draft');
+    mockOpenDraftChordKeyRepair.mockImplementation((songToRepair, onSuccess) => {
       expect((songToRepair as any).id).toBeUndefined(); // ChordKeyRepairDraftSong never includes ID!
       expect((songToRepair as any).organizationId).toBeUndefined();
       // Simulate applying draft key repair to D
@@ -113,7 +112,7 @@ describe('SongForm + ChordKeyRepair Integration', () => {
     const repairBtn = screen.getByText('Ajustar tom da cifra');
     fireEvent.click(repairBtn);
 
-    expect(mockOpenChordKeyRepair).toHaveBeenCalled();
+    expect(mockOpenDraftChordKeyRepair).toHaveBeenCalled();
 
     // Check that declarative key input is STILL "C"
     expect(keyInput.value).toBe('C');
@@ -136,8 +135,7 @@ describe('SongForm + ChordKeyRepair Integration', () => {
   });
 
   it('música nova envia ChordKeyRepairDraftSong sem id, sem organizationId, sem createdAt e sem createdBy', async () => {
-    mockOpenChordKeyRepair.mockImplementation((draftSong, onSuccess, mode) => {
-      expect(mode).toBe('draft');
+    mockOpenDraftChordKeyRepair.mockImplementation((draftSong, onSuccess) => {
       expect((draftSong as any).id).toBeUndefined();
       expect((draftSong as any).organizationId).toBeUndefined();
       expect((draftSong as any).createdAt).toBeUndefined();
@@ -191,7 +189,7 @@ describe('SongForm + ChordKeyRepair Integration', () => {
     const repairBtn = screen.getByText('Ajustar tom da cifra');
     fireEvent.click(repairBtn);
 
-    expect(mockOpenChordKeyRepair).toHaveBeenCalled();
+    expect(mockOpenDraftChordKeyRepair).toHaveBeenCalled();
 
     // Check key input remains G
     expect((screen.getByLabelText(/Tom/i) as HTMLInputElement).value).toBe('G');

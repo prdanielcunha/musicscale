@@ -51,16 +51,15 @@ vi.mock('../../components/songs/ChordKeyRepairSheet', () => ({
 }));
 
 const TestComponent = () => {
-  const { openChordKeyRepair } = useModals();
+  const { openDraftChordKeyRepair, openPersistedChordKeyRepair } = useModals();
 
   return (
     <div>
       <button
         onClick={() => {
-          openChordKeyRepair(
+          openDraftChordKeyRepair(
             { title: 'Draft Song', chords: 'C' },
-            (song) => console.log('success draft', song.title),
-            'draft'
+            (song) => console.log('success draft', song.title)
           );
         }}
       >
@@ -68,7 +67,7 @@ const TestComponent = () => {
       </button>
       <button
         onClick={() => {
-          openChordKeyRepair(
+          openPersistedChordKeyRepair(
             { id: 'song123', organizationId: 'org123', title: 'Persisted Song', chords: 'C' } as any,
             (song) => console.log('success persisted', (song as any).title)
           );
@@ -79,10 +78,9 @@ const TestComponent = () => {
       <button
         onClick={() => {
           // Attempting persisted without id
-          openChordKeyRepair(
+          openPersistedChordKeyRepair(
             { organizationId: 'org123', chords: 'C' } as any,
-            () => {},
-            'persisted'
+            () => {}
           );
         }}
       >
@@ -91,10 +89,9 @@ const TestComponent = () => {
       <button
         onClick={() => {
           // Attempting persisted without organizationId
-          openChordKeyRepair(
+          openPersistedChordKeyRepair(
             { id: 'song123', chords: 'C' } as any,
-            () => {},
-            'persisted'
+            () => {}
           );
         }}
       >
