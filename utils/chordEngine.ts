@@ -36,20 +36,122 @@ export function normalizeKey(key: string): string {
   return key.replace(/♯/g, '#').replace(/♭/g, 'b');
 }
 
+export type ChordContentSourceResolution =
+  | {
+      key: string;
+      source: 'chordContentKey';
+      canAutoConfirm: true;
+    }
+  | {
+      key: string;
+      source: 'shapeKey';
+      canAutoConfirm: false;
+    }
+  | null;
+
 export function resolveChordContentSourceKey(metadata?: {
   chordContentKey?: string;
   shapeKey?: string;
   normalizedToConcertKey?: boolean;
   [key: string]: any;
-} | null): string | null {
+} | null): ChordContentSourceResolution {
   if (!metadata) return null;
   if (metadata.chordContentKey && isValidKey(metadata.chordContentKey)) {
-    return normalizeKey(metadata.chordContentKey);
+    return {
+      key: normalizeKey(metadata.chordContentKey),
+      source: 'chordContentKey',
+      canAutoConfirm: true,
+    };
   }
   if (metadata.shapeKey && isValidKey(metadata.shapeKey) && metadata.normalizedToConcertKey !== true) {
-    return normalizeKey(metadata.shapeKey);
+    return {
+      key: normalizeKey(metadata.shapeKey),
+      source: 'shapeKey',
+      canAutoConfirm: false,
+    };
   }
   return null;
+}
+
+export interface BuildChordKeyCorrectionMetadataParams {
+  previousContentKey: string;
+  correctedContentKey: string;
+  sourceConfirmation: {
+    type: 'metadata' | 'detected' | 'manual' | 'override';
+    metadataKey?: string;
+    detectedKey?: string;
+    detectionConfidence?: 'high' | 'medium' | 'low';
+    selectedKey?: string;
+    acknowledgedConflict?: boolean;
+  };
+  topCandidate?: { key: string; confidence: 'high' | 'medium' | 'low' } | null;
+  correctedBy?: string;
+  correctedAt?: string;
+}
+
+export function buildChordKeyCorrectionMetadata(params: BuildChordKeyCorrectionMetadataParams) {
+  const { previousContentKey, correctedContentKey, sourceConfirmation, topCandidate, correctedBy, correctedAt } = params;
+  const { signedSemitones, normalizedSemitones } = getSignedSemitones(previousContentKey, correctedContentKey);
+
+  const sourceConfirmationType = sourceConfirmation.type;
+  const method = sourceConfirmation.type;
+  let detectedKey: string | undefined = undefined;
+  let detectionConfidence: 'high' | 'medium' | 'low' | undefined = undefined;
+  let conflictAcknowledged = false;
+
+  switch (sourceConfirmation.type) {
+    case 'metadata': {
+      if (topCandidate && topCandidate.key) {
+        detectedKey = topCandidate.key;
+        detectionConfidence = topCandidate.confidence;
+      }
+      conflictAcknowledged = false;
+      break;
+    }
+    case 'detected': {
+      detectedKey = sourceConfirmation.detectedKey || topCandidate?.key;
+      detectionConfidence = sourceConfirmation.detectionConfidence || topCandidate?.confidence;
+      conflictAcknowledged = false;
+      break;
+    }
+    case 'manual': {
+      if (topCandidate && (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium')) {
+        detectedKey = topCandidate.key;
+        detectionConfidence = topCandidate.confidence;
+      }
+      conflictAcknowledged = false;
+      break;
+    }
+    case 'override': {
+      detectedKey = sourceConfirmation.detectedKey || topCandidate?.key;
+      detectionConfidence = sourceConfirmation.detectionConfidence || topCandidate?.confidence;
+      conflictAcknowledged = true;
+      break;
+    }
+  }
+
+  const correctionObj: Record<string, any> = {
+    version: 1,
+    previousContentKey,
+    correctedContentKey,
+    signedSemitones,
+    normalizedSemitones,
+    semitones: normalizedSemitones,
+    method,
+    sourceConfirmationType,
+    conflictAcknowledged,
+    correctedAt: correctedAt || new Date().toISOString(),
+    correctedBy: correctedBy || 'unknown',
+  };
+
+  if (detectedKey) {
+    correctionObj.detectedKey = detectedKey;
+  }
+  if (detectionConfidence) {
+    correctionObj.detectionConfidence = detectionConfidence;
+  }
+
+  return correctionObj;
 }
 
 export function isValidKey(key: string): boolean {

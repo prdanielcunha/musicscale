@@ -31,7 +31,7 @@ vi.mock('react-i18next', () => ({
       }
       if (key === 'chordKeyRepair.semitone') {
         const count = opts?.count || 0;
-        return count === 1 ? '1 semitom' : `${count} semitons`;
+        return count === 1 ? 'semitom' : 'semitons';
       }
       if (opts) {
         let result = typeof defVal === 'string' ? defVal : key;
@@ -235,9 +235,93 @@ describe('ChordKeyRepairSheet', () => {
     // Conflict banner resolves or source is confirmed, Apply button becomes enabled
     expect(applyBtn).not.toBeDisabled();
 
-    // Check signed semitones label shows -2 semitons
-    expect(screen.getByText((_content, element) => {
-      return element?.tagName.toLowerCase() === 'span' && element.textContent?.includes('-2') && element.textContent?.includes('semitons') || false;
-    })).toBeInTheDocument();
+    // Check signed semitones label shows exact -2 semitons and not duplicate -2 2 semitons
+    expect(screen.getByText('-2 semitons')).toBeInTheDocument();
+    expect(screen.queryByText('-2 2 semitons')).not.toBeInTheDocument();
+  });
+
+  it('deve usar shapeKey sem normalização apenas como sugestão e exigir confirmação explícita', async () => {
+    const shapeSong = {
+      ...mockSong,
+      chords: 'C G Am F', // Detected as C
+      metadata: {
+        shapeKey: 'G', // Shape key G differs from detected C
+        // chordContentKey is absent, normalizedToConcertKey is not true
+      },
+    };
+
+    render(
+      <ChordKeyRepairSheet
+        isOpen={true}
+        song={shapeSong as any}
+        onClose={mockOnClose}
+        onSuccess={mockOnSuccess}
+        mode="draft"
+      />
+    );
+
+    const selects = screen.getAllByRole('combobox');
+    expect(selects[0]).toHaveValue('G'); // suggested in selector from shapeKey
+
+    const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
+    expect(applyBtn).toBeDisabled(); // disabled until user confirms!
+
+    // Confirm override or detected
+    const confirmBtn = screen.getByText('Confirmar uso de G');
+    fireEvent.click(confirmBtn);
+
+    // Target key to D
+    fireEvent.change(selects[1], { target: { value: 'D' } });
+    expect(applyBtn).not.toBeDisabled();
+  });
+
+  it('não deve usar shapeKey com normalizedToConcertKey === true como tom de origem', async () => {
+    const normalizedShapeSong = {
+      ...mockSong,
+      chords: 'C G Am F', // Detected as C
+      metadata: {
+        shapeKey: 'G',
+        normalizedToConcertKey: true,
+      },
+    };
+
+    render(
+      <ChordKeyRepairSheet
+        isOpen={true}
+        song={normalizedShapeSong as any}
+        onClose={mockOnClose}
+        onSuccess={mockOnSuccess}
+        mode="draft"
+      />
+    );
+
+    const selects = screen.getAllByRole('combobox');
+    // Source should NOT be initialized to G from normalized shapeKey
+    // It uses detected key C
+    expect(selects[0]).toHaveValue('C');
+    // Apply button disabled because sourceConfirmation is null (detected requires confirmation)
+    const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
+    expect(applyBtn).toBeDisabled();
+  });
+
+  it('deve restaurar o foco ao elemento original no unmount', () => {
+    const button = document.createElement('button');
+    document.body.appendChild(button);
+    button.focus();
+    expect(document.activeElement).toBe(button);
+
+    const { unmount } = render(
+      <ChordKeyRepairSheet
+        isOpen={true}
+        song={mockSong as any}
+        onClose={mockOnClose}
+        onSuccess={mockOnSuccess}
+        mode="draft"
+      />
+    );
+
+    unmount();
+    expect(document.activeElement).toBe(button);
+    document.body.removeChild(button);
   });
 });

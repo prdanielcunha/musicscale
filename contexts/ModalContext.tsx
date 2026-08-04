@@ -4,7 +4,20 @@ import React, { createContext, useContext, useState, ReactNode, useCallback, use
 import { useTranslation } from 'react-i18next';
 import { useToast } from './ToastContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import type { PopulatedSong, Song, Scale, PopulatedScale, BandScale, PopulatedBandScale, MusicScalePublishPayload, MusicScalePublishPatch } from '../types';
+import type { PopulatedSong, Song, Scale, PopulatedScale, BandScale, PopulatedBandScale, MusicScalePublishPayload, MusicScalePublishPatch, ChordKeyRepairDraftSong } from '../types';
+
+export type ChordKeyRepairState =
+  | {
+      mode: 'draft';
+      song: ChordKeyRepairDraftSong;
+      onSuccess?: (updatedSong: ChordKeyRepairDraftSong) => void;
+    }
+  | {
+      mode: 'persisted';
+      song: PopulatedSong;
+      onSuccess?: (updatedSong: PopulatedSong) => void;
+    }
+  | null;
 import { useMusic } from './MusicDataContext';
 import { useAuth } from './AuthContext';
 import { DuplicateMatch } from '../components/songs/DuplicateSongModal';
@@ -138,9 +151,13 @@ interface ModalContextType {
 
   // Chord Key Repair
   isChordKeyRepairOpen: boolean;
+  chordKeyRepairState: ChordKeyRepairState;
   songForChordKeyRepair: PopulatedSong | null;
   chordKeyRepairMode: ChordKeyRepairMode;
-  openChordKeyRepair: (song: PopulatedSong, onSuccess?: (updatedSong: PopulatedSong) => void, mode?: ChordKeyRepairMode) => void;
+  openChordKeyRepair: {
+    (song: ChordKeyRepairDraftSong, onSuccess?: (updatedSong: ChordKeyRepairDraftSong) => void, mode: 'draft'): void;
+    (song: PopulatedSong, onSuccess?: (updatedSong: PopulatedSong) => void, mode?: 'persisted'): void;
+  };
   closeChordKeyRepair: () => void;
 }
 
@@ -279,10 +296,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
 
   // Chord Key Repair State
-  const [isChordKeyRepairOpen, setIsChordKeyRepairOpen] = useState(false);
-  const [songForChordKeyRepair, setSongForChordKeyRepair] = useState<PopulatedSong | null>(null);
-  const [chordKeyRepairOnSuccess, setChordKeyRepairOnSuccess] = useState<((updatedSong: PopulatedSong) => void) | null>(null);
-  const [chordKeyRepairMode, setChordKeyRepairMode] = useState<ChordKeyRepairMode>('persisted');
+  const [chordKeyRepairState, setChordKeyRepairState] = useState<ChordKeyRepairState>(null);
 
   const [scaleFormOptions, setScaleFormOptions] = useState<ScaleFormOpenOptions | null>(null);
   
@@ -307,10 +321,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setIsWhatsNewOpen(false);
     setIsFeedbackOpen(false);
     setSongOpenMode(undefined);
-    setIsChordKeyRepairOpen(false);
-    setSongForChordKeyRepair(null);
-    setChordKeyRepairOnSuccess(null);
-    setChordKeyRepairMode('persisted');
+    setChordKeyRepairState(null);
     setScaleFormOptions(null);
   }, []);
 
@@ -333,24 +344,27 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const closeWhatsNew = useCallback(() => { setIsWhatsNewOpen(false); }, []);
 
   const openChordKeyRepair = useCallback((
-    song: PopulatedSong,
-    onSuccess?: (updatedSong: PopulatedSong) => void,
+    song: ChordKeyRepairDraftSong | PopulatedSong,
+    onSuccess?: ((updatedSong: ChordKeyRepairDraftSong) => void) | ((updatedSong: PopulatedSong) => void),
     mode: ChordKeyRepairMode = 'persisted'
   ) => {
-    setSongForChordKeyRepair(song);
-    setChordKeyRepairMode(mode);
-    if (onSuccess) {
-      setChordKeyRepairOnSuccess(() => onSuccess);
+    if (mode === 'draft') {
+      setChordKeyRepairState({
+        mode: 'draft',
+        song: song as ChordKeyRepairDraftSong,
+        onSuccess: onSuccess as ((updatedSong: ChordKeyRepairDraftSong) => void) | undefined,
+      });
     } else {
-      setChordKeyRepairOnSuccess(null);
+      setChordKeyRepairState({
+        mode: 'persisted',
+        song: song as PopulatedSong,
+        onSuccess: onSuccess as ((updatedSong: PopulatedSong) => void) | undefined,
+      });
     }
-    setIsChordKeyRepairOpen(true);
   }, []);
 
   const closeChordKeyRepair = useCallback(() => {
-    setIsChordKeyRepairOpen(false);
-    setSongForChordKeyRepair(null);
-    setChordKeyRepairOnSuccess(null);
+    setChordKeyRepairState(null);
   }, []);
 
   const handleCloseScaleDetail = useCallback(() => {
@@ -990,9 +1004,10 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       openFeedback,
       closeFeedback,
       handleSaveScale,
-      isChordKeyRepairOpen,
-      songForChordKeyRepair,
-      chordKeyRepairMode,
+      isChordKeyRepairOpen: !!chordKeyRepairState,
+      chordKeyRepairState,
+      songForChordKeyRepair: chordKeyRepairState?.mode === 'persisted' ? chordKeyRepairState.song : null,
+      chordKeyRepairMode: chordKeyRepairState?.mode || 'persisted',
       openChordKeyRepair,
       closeChordKeyRepair
   }), [
@@ -1000,7 +1015,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       openSongForm, openSongDetail, openDeleteSongConfirmation, openScaleForm, openScaleDetail,
       openBandScaleForm, openBandScaleDetail, openAddChordModal, openSuggestionForm, openHelpModal,
       openSupportModal, saveChord, isSubmitting, isFeedbackOpen, feedbackType, openFeedback, closeFeedback,
-      handleSaveScale, isChordKeyRepairOpen, songForChordKeyRepair, chordKeyRepairMode, openChordKeyRepair, closeChordKeyRepair
+      handleSaveScale, chordKeyRepairState, openChordKeyRepair, closeChordKeyRepair
   ]);
 
   return (
@@ -1195,13 +1210,21 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           />
         )}
 
-        {isChordKeyRepairOpen && songForChordKeyRepair && (
+        {chordKeyRepairState && (
           <ChordKeyRepairSheet
-            isOpen={isChordKeyRepairOpen}
-            song={songForChordKeyRepair}
+            isOpen={!!chordKeyRepairState}
+            {...(chordKeyRepairState.mode === 'draft'
+              ? {
+                  mode: 'draft' as const,
+                  song: chordKeyRepairState.song,
+                  onSuccess: chordKeyRepairState.onSuccess,
+                }
+              : {
+                  mode: 'persisted' as const,
+                  song: chordKeyRepairState.song,
+                  onSuccess: chordKeyRepairState.onSuccess,
+                })}
             onClose={closeChordKeyRepair}
-            onSuccess={chordKeyRepairOnSuccess || undefined}
-            mode={chordKeyRepairMode}
           />
         )}
       </Suspense>

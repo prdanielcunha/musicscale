@@ -14,6 +14,7 @@ import {
   validateTransposedPreview,
   areKeysEnharmonicallyEquivalent,
   resolveChordContentSourceKey,
+  buildChordKeyCorrectionMetadata,
   ChordDocumentAnalysisResult
 } from '../../utils/chordEngine';
 import Button from '../common/Button';
@@ -85,21 +86,29 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose, loading]);
 
-  // Set initial focus & restore trigger focus on close
+  // Set initial focus & restore focus on cleanup
   useEffect(() => {
-    if (isOpen) {
-      triggerElementRef.current = document.activeElement as HTMLElement;
-      const animId = requestAnimationFrame(() => {
-        if (!sourceChordKey || !sourceConfirmation) {
-          sourceSelectRef.current?.focus();
-        } else {
-          targetSelectRef.current?.focus();
-        }
-      });
-      return () => cancelAnimationFrame(animId);
-    } else if (triggerElementRef.current) {
-      triggerElementRef.current.focus();
+    if (!isOpen) return;
+
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      triggerElementRef.current = document.activeElement;
     }
+
+    const animId = requestAnimationFrame(() => {
+      if (!sourceChordKey || !sourceConfirmation) {
+        sourceSelectRef.current?.focus();
+      } else {
+        targetSelectRef.current?.focus();
+      }
+    });
+
+    return () => {
+      cancelAnimationFrame(animId);
+      const prevElem = triggerElementRef.current;
+      if (prevElem && typeof prevElem.focus === 'function' && document.body.contains(prevElem)) {
+        prevElem.focus();
+      }
+    };
   }, [isOpen]);
 
   // Focus trap Tab behavior
@@ -151,20 +160,24 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
       }
       setTargetChordKey(initialTarget);
 
-      const metadataKey = resolveChordContentSourceKey(song.metadata) || '';
+      const sourceRes = resolveChordContentSourceKey(song.metadata);
       const analysis = analyzeChordDocumentKeyCandidates(song.chords || '');
       setAnalysisResult(analysis);
 
       const topCandidate = analysis.candidates[0];
 
-      if (metadataKey && isValidKey(metadataKey)) {
-        setSourceChordKey(metadataKey);
-        if (topCandidate && (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium') && !areKeysEnharmonicallyEquivalent(metadataKey, topCandidate.key)) {
+      if (sourceRes && sourceRes.canAutoConfirm) {
+        setSourceChordKey(sourceRes.key);
+        if (topCandidate && (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium') && !areKeysEnharmonicallyEquivalent(sourceRes.key, topCandidate.key)) {
           // Conflict between metadata and analysis! Unconfirmed
           setSourceConfirmation(null);
         } else {
-          setSourceConfirmation({ type: 'metadata', metadataKey });
+          setSourceConfirmation({ type: 'metadata', metadataKey: sourceRes.key });
         }
+      } else if (sourceRes && !sourceRes.canAutoConfirm) {
+        // shapeKey: suggested in selector, BUT cannot auto-confirm! User must confirm explicitly
+        setSourceChordKey(sourceRes.key);
+        setSourceConfirmation(null);
       } else if (topCandidate && (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium')) {
         setSourceChordKey(topCandidate.key);
         setSourceConfirmation(null); // Must explicitly confirm detected candidate
@@ -184,7 +197,8 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
   );
 
   const topCandidate = analysisResult.candidates[0];
-  const metadataKey = resolveChordContentSourceKey(song.metadata) || '';
+  const sourceRes = resolveChordContentSourceKey(song.metadata);
+  const metadataKey = sourceRes?.canAutoConfirm ? sourceRes.key : '';
 
   // Determine if there is a conflict between metadataKey and detected chords
   const hasMetadataContentConflict = !!(
@@ -335,21 +349,19 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
     setLoading(true);
 
     try {
+      const chordKeyCorrection = buildChordKeyCorrectionMetadata({
+        previousContentKey: sourceChordKey,
+        correctedContentKey: targetChordKey,
+        sourceConfirmation,
+        topCandidate,
+        correctedBy: userProfile?.uid || 'unknown'
+      });
+
       const updatedMetadata = {
         ...(song.metadata || {}),
         chordContentKey: targetChordKey,
         normalizedToConcertKey: true,
-        chordKeyCorrection: {
-          version: 1,
-          previousContentKey: sourceChordKey,
-          correctedContentKey: targetChordKey,
-          signedSemitones,
-          normalizedSemitones,
-          semitones: normalizedSemitones,
-          method: sourceConfirmation.type,
-          correctedAt: new Date().toISOString(),
-          correctedBy: userProfile?.uid || 'unknown'
-        }
+        chordKeyCorrection
       };
 
       const updatedSong: PopulatedSong = {

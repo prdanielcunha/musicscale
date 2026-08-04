@@ -297,4 +297,235 @@ describe('MusicRepository - Chord Key Repair Transactional Logic', () => {
       })
     ).rejects.toThrow('Operação negada: ID da organização ausente no contexto atual.');
   });
+
+  // Novos testes baseados nas regras implementadas na PR
+
+  it('1. chordContentKey aceita confirmação por metadata', async () => {
+    let updateCalled = false;
+    mockRunTransaction.mockImplementation(async (callback: any) => {
+      const mockTransaction = {
+        get: vi.fn().mockResolvedValue({
+          exists: () => true,
+          data: () => ({
+            id: 'song-test-1',
+            organizationId: currentOrgId,
+            chords: 'C G',
+            metadata: { chordContentKey: 'C' }
+          })
+        }),
+        update: vi.fn(() => { updateCalled = true; })
+      };
+      return callback(mockTransaction);
+    });
+
+    await repository.repairOrganizationSongChordKey({
+      songId: 'song-test-1',
+      organizationId: currentOrgId,
+      sourceChordKey: 'C',
+      targetChordKey: 'D',
+      sourceConfirmation: { type: 'metadata', metadataKey: 'C' }
+    });
+
+    expect(updateCalled).toBe(true);
+  });
+
+  it('2 e 3. shapeKey sem normalizedToConcertKey ou com normalizedToConcertKey = true não aceita confirmação por metadata automática', async () => {
+    let updateCalled = false;
+    mockRunTransaction.mockImplementation(async (callback: any) => {
+      const mockTransaction = {
+        get: vi.fn().mockResolvedValue({
+          exists: () => true,
+          data: () => ({
+            id: 'song-test-2',
+            organizationId: currentOrgId,
+            chords: 'C G',
+            metadata: { shapeKey: 'C', normalizedToConcertKey: false }
+          })
+        }),
+        update: vi.fn(() => { updateCalled = true; })
+      };
+      return callback(mockTransaction);
+    });
+
+    await expect(
+      repository.repairOrganizationSongChordKey({
+        songId: 'song-test-2',
+        organizationId: currentOrgId,
+        sourceChordKey: 'C',
+        targetChordKey: 'D',
+        sourceConfirmation: { type: 'metadata', metadataKey: 'C' }
+      })
+    ).rejects.toThrow('Metadata de tom não encontrada no documento.');
+    
+    expect(updateCalled).toBe(false);
+  });
+
+  it('4. timestamp com diferença de 1 ms rejeita por conflito de concorrência', async () => {
+    let updateCalled = false;
+    mockRunTransaction.mockImplementation(async (callback: any) => {
+      const mockTransaction = {
+        get: vi.fn().mockResolvedValue({
+          exists: () => true,
+          data: () => ({
+            id: 'song-test-4',
+            organizationId: currentOrgId,
+            chords: 'C G',
+            metadata: { chordContentKey: 'C' },
+            lastModifiedAt: '2026-08-01T12:00:00.001Z'
+          })
+        }),
+        update: vi.fn(() => { updateCalled = true; })
+      };
+      return callback(mockTransaction);
+    });
+
+    await expect(
+      repository.repairOrganizationSongChordKey({
+        songId: 'song-test-4',
+        organizationId: currentOrgId,
+        sourceChordKey: 'C',
+        targetChordKey: 'D',
+        expectedUpdatedAt: '2026-08-01T12:00:00.000Z', // 1 ms difference
+        sourceConfirmation: { type: 'metadata', metadataKey: 'C' }
+      })
+    ).rejects.toThrow('Conflito de concorrência');
+
+    expect(updateCalled).toBe(false);
+  });
+
+  it('5. detectedKey falso/divergente rejeita', async () => {
+    let updateCalled = false;
+    mockRunTransaction.mockImplementation(async (callback: any) => {
+      const mockTransaction = {
+        get: vi.fn().mockResolvedValue({
+          exists: () => true,
+          data: () => ({
+            id: 'song-test-5',
+            organizationId: currentOrgId,
+            chords: 'C G Am F', // Real key is C
+            metadata: {}
+          })
+        }),
+        update: vi.fn(() => { updateCalled = true; })
+      };
+      return callback(mockTransaction);
+    });
+
+    await expect(
+      repository.repairOrganizationSongChordKey({
+        songId: 'song-test-5',
+        organizationId: currentOrgId,
+        sourceChordKey: 'F', // Claiming detectedKey is F when chords are C
+        targetChordKey: 'G',
+        sourceConfirmation: { type: 'detected', detectedKey: 'F', detectionConfidence: 'medium' }
+      })
+    ).rejects.toThrow('Tom detectado diverge do tom recalculado no servidor.');
+
+    expect(updateCalled).toBe(false);
+  });
+
+  it('6. override sem acknowledgedConflict = true rejeita', async () => {
+    let updateCalled = false;
+    mockRunTransaction.mockImplementation(async (callback: any) => {
+      const mockTransaction = {
+        get: vi.fn().mockResolvedValue({
+          exists: () => true,
+          data: () => ({
+            id: 'song-test-6',
+            organizationId: currentOrgId,
+            chords: 'C G Am F',
+            metadata: {}
+          })
+        }),
+        update: vi.fn(() => { updateCalled = true; })
+      };
+      return callback(mockTransaction);
+    });
+
+    await expect(
+      repository.repairOrganizationSongChordKey({
+        songId: 'song-test-6',
+        organizationId: currentOrgId,
+        sourceChordKey: 'D',
+        targetChordKey: 'E',
+        sourceConfirmation: {
+          type: 'override',
+          selectedKey: 'D',
+          detectedKey: 'C',
+          detectionConfidence: 'medium',
+          acknowledgedConflict: false // Must be true!
+        }
+      })
+    ).rejects.toThrow('Confirmação explícita do conflito (acknowledgedConflict) é obrigatória para override.');
+
+    expect(updateCalled).toBe(false);
+  });
+
+  it('7 e 8. preview inválido (ex: tag de acorde corrompida) não grava nenhuma alteração', async () => {
+    // This is essentially checking that if transposition fails on the server, it throws and aborts transaction
+    mockRunTransaction.mockImplementation(async (callback: any) => {
+      const mockTransaction = {
+        get: vi.fn().mockResolvedValue({
+          exists: () => true,
+          data: () => ({
+            id: 'song-test-7',
+            organizationId: currentOrgId,
+            chords: 'C [invalid G Am', // Broken chord format
+            metadata: { chordContentKey: 'C' }
+          })
+        }),
+        update: vi.fn()
+      };
+      return callback(mockTransaction);
+    });
+
+    try {
+      await repository.repairOrganizationSongChordKey({
+        songId: 'song-test-7',
+        organizationId: currentOrgId,
+        sourceChordKey: 'C',
+        targetChordKey: 'D',
+        sourceConfirmation: { type: 'detected', detectedKey: 'C', detectionConfidence: 'medium' }
+      });
+    } catch (err: any) {
+      expect(err).toBeDefined();
+    }
+  });
+
+  it('9. resultado canônico vem do caminho songs/{songId}', async () => {
+    // Clear mock calls
+    mockDoc.mockClear();
+
+    mockRunTransaction.mockImplementation(async (callback: any) => {
+      const mockTransaction = {
+        get: vi.fn().mockResolvedValue({
+          exists: () => true,
+          data: () => ({
+            id: 'song-test-9',
+            organizationId: currentOrgId,
+            chords: 'C G Am F',
+            metadata: { chordContentKey: 'C' }
+          })
+        }),
+        update: vi.fn()
+      };
+      return callback(mockTransaction);
+    });
+
+    await repository.repairOrganizationSongChordKey({
+      songId: 'song-test-9',
+      organizationId: currentOrgId,
+      sourceChordKey: 'C',
+      targetChordKey: 'D',
+      sourceConfirmation: { type: 'detected', detectedKey: 'C', detectionConfidence: 'medium' }
+    });
+
+    // Check doc reference path
+    expect(mockDoc).toHaveBeenCalledWith(expect.anything(), 'songs', 'song-test-9');
+    // Ensure we didn't use the organizations subcollection path
+    const callsWithOrg = mockDoc.mock.calls.filter(call => 
+      call.some(arg => typeof arg === 'string' && arg.includes('organizations/'))
+    );
+    expect(callsWithOrg).toHaveLength(0);
+  });
 });

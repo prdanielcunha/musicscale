@@ -403,7 +403,7 @@ export class MusicRepository {
             // Validate sourceConfirmation type against transaction data
             switch (sourceConfirmation.type) {
                 case 'metadata': {
-                    const songMetaKey = resolveChordContentSourceKey(song.metadata);
+                    const songMetaKey = song.metadata?.chordContentKey ? normalizeKey(song.metadata.chordContentKey) : null;
                     if (!songMetaKey) {
                         throw new Error("Metadata de tom não encontrada no documento.");
                     }

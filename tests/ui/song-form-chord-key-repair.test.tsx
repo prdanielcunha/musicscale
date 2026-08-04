@@ -74,7 +74,8 @@ describe('SongForm + ChordKeyRepair Integration', () => {
 
     mockOpenChordKeyRepair.mockImplementation((songToRepair, onSuccess, mode) => {
       expect(mode).toBe('draft');
-      expect(songToRepair.id).toBe('song123'); // Uses real ID, not temp-form-song
+      expect((songToRepair as any).id).toBeUndefined(); // ChordKeyRepairDraftSong never includes ID!
+      expect((songToRepair as any).organizationId).toBeUndefined();
       // Simulate applying draft key repair to D
       onSuccess({
         ...songToRepair,
@@ -122,7 +123,7 @@ describe('SongForm + ChordKeyRepair Integration', () => {
     expect(chordsTextarea.value).toBe('D   A   Bm   G');
 
     // Submit SongForm
-    const saveBtn = screen.getByRole('button', { name: /Salvar/i });
+    const saveBtn = screen.getByRole('button', { name: /Salvar Alterações/i });
     fireEvent.click(saveBtn);
 
     await waitFor(() => {
@@ -131,6 +132,83 @@ describe('SongForm + ChordKeyRepair Integration', () => {
       expect(savedSong.key).toBe('C'); // Declarative key preserved as C!
       expect(savedSong.chords).toBe('D   A   Bm   G'); // Chords updated
       expect(savedSong.metadata.chordContentKey).toBe('D'); // Metadata updated
+    });
+  });
+
+  it('música nova envia ChordKeyRepairDraftSong sem id, sem organizationId, sem createdAt e sem createdBy', async () => {
+    mockOpenChordKeyRepair.mockImplementation((draftSong, onSuccess, mode) => {
+      expect(mode).toBe('draft');
+      expect((draftSong as any).id).toBeUndefined();
+      expect((draftSong as any).organizationId).toBeUndefined();
+      expect((draftSong as any).createdAt).toBeUndefined();
+      expect((draftSong as any).createdBy).toBeUndefined();
+      expect(draftSong.title).toBe('Nova Música em Rascunho');
+      expect(draftSong.artist).toBe('Artista Teste');
+      expect(draftSong.key).toBe('G');
+      expect(draftSong.chords).toBe('G D Em C');
+
+      // Simulate applying draft repair to A
+      onSuccess({
+        ...draftSong,
+        chords: 'A E F#m D',
+        metadata: {
+          ...draftSong.metadata,
+          chordContentKey: 'A',
+          chordKeyCorrection: {
+            version: 1,
+            previousContentKey: 'G',
+            correctedContentKey: 'A',
+            signedSemitones: 2,
+            normalizedSemitones: 2,
+            method: 'manual',
+            correctedAt: new Date().toISOString(),
+            correctedBy: 'user123'
+          }
+        }
+      });
+    });
+
+    const { container } = render(
+      <SongForm
+        songToEdit={null}
+        onSave={mockOnSave}
+        onClose={mockOnClose}
+        isSubmitting={false}
+        tags={[]}
+      />
+    );
+
+    // Fill form fields
+    fireEvent.change(screen.getByLabelText(/Título/i), { target: { value: 'Nova Música em Rascunho' } });
+    fireEvent.change(screen.getByLabelText(/Artista/i), { target: { value: 'Artista Teste' } });
+    fireEvent.change(screen.getByLabelText(/Tom/i), { target: { value: 'G' } });
+    fireEvent.change(container.querySelector('#bpm')!, { target: { value: '120' } });
+    
+    const chordsTextarea = container.querySelector('#chords') as HTMLTextAreaElement;
+    fireEvent.change(chordsTextarea, { target: { value: 'G D Em C' } });
+
+    // Click "Ajustar tom da cifra"
+    const repairBtn = screen.getByText('Ajustar tom da cifra');
+    fireEvent.click(repairBtn);
+
+    expect(mockOpenChordKeyRepair).toHaveBeenCalled();
+
+    // Check key input remains G
+    expect((screen.getByLabelText(/Tom/i) as HTMLInputElement).value).toBe('G');
+    // Check chords updated to A
+    expect(chordsTextarea.value).toBe('A E F#m D');
+
+    // Submit form
+    const saveBtn = screen.getByRole('button', { name: /Adicionar Música/i });
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalled();
+      const savedSong = mockOnSave.mock.calls[0][0];
+      expect(savedSong.title).toBe('Nova Música em Rascunho');
+      expect(savedSong.key).toBe('G');
+      expect(savedSong.chords).toBe('A E F#m D');
+      expect(savedSong.metadata.chordContentKey).toBe('A');
     });
   });
 });

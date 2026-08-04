@@ -1,7 +1,7 @@
 // FIX: Implemented the SongForm component for adding and editing songs.
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Song, PopulatedSong, Tag } from "../../types";
+import type { Song, PopulatedSong, Tag, ChordKeyRepairDraftSong } from "../../types";
 import { useEcosystemAdmin } from "../../hooks/useEcosystemAdmin";
 import Button from "../common/Button";
 import { useAuth } from "../../contexts/AuthContext";
@@ -360,40 +360,31 @@ const SongForm: React.FC<SongFormProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  const songToRepair: PopulatedSong = {
-                    id: songToEdit?.id || '',
+                  const draftSong: ChordKeyRepairDraftSong = {
                     title: formData.title,
                     artist: formData.artist,
                     key: formData.key,
-                    bpm: formData.bpm ? Number(formData.bpm) : null,
-                    status: formData.status as any,
-                    tagIds: formData.tagIds,
-                    lyrics: formData.lyrics,
+                    originalKey: songToEdit?.originalKey || songToEdit?.key || formData.key,
+                    selectedKey: formData.key,
                     chords: formData.chords,
-                    chordsUrl: formData.chordsUrl,
-                    videoUrl: formData.videoUrl,
-                    language: formData.language,
-                    organizationId: songToEdit?.organizationId || '',
-                    createdAt: songToEdit?.createdAt || new Date().toISOString(),
-                    createdBy: songToEdit?.createdBy || '',
-                    lastModifiedAt: songToEdit?.lastModifiedAt || null,
-                    chordsLastModifiedAt: songToEdit?.chordsLastModifiedAt || null,
                     metadata: { ...(songToEdit?.metadata || {}), ...formMetadata },
-                    tags: [],
-                    lastPlayed: null,
                   };
-                  openChordKeyRepair(songToRepair, (updatedSong) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      chords: updatedSong.chords,
-                    }));
-                    if (updatedSong.metadata) {
-                      setFormMetadata((prev) => ({
+                  openChordKeyRepair(
+                    draftSong,
+                    (updatedSong) => {
+                      setFormData((prev) => ({
                         ...prev,
-                        ...updatedSong.metadata,
+                        chords: updatedSong.chords || prev.chords,
                       }));
-                    }
-                  }, 'draft');
+                      if (updatedSong.metadata) {
+                        setFormMetadata((prev) => ({
+                          ...prev,
+                          ...updatedSong.metadata,
+                        }));
+                      }
+                    },
+                    'draft'
+                  );
                 }}
                 className="text-xs text-indigo-500 hover:text-indigo-600 font-bold flex items-center gap-1 focus:outline-none"
               >
