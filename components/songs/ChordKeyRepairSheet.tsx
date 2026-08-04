@@ -503,7 +503,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = (props) =
           organizationId: effectiveOrganizationId || '',
           sourceChordKey,
           targetChordKey,
-          expectedUpdatedAt: resolveExpectedUpdatedAt(props.song as PopulatedSong),
+          expectedUpdatedAt: resolveExpectedUpdatedAt(props.song),
           sourceConfirmation
         });
 
