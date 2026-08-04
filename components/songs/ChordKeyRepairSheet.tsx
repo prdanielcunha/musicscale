@@ -41,6 +41,25 @@ const MAJOR_KEYS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G',
 const MINOR_KEYS = MAJOR_KEYS.map(k => `${k}m`);
 const ALL_KEYS = [...MAJOR_KEYS, ...MINOR_KEYS];
 
+const resolveExpectedUpdatedAt = (
+  song: PopulatedSong
+): string | null => {
+  return (
+    song.lastModifiedAt ||
+    song.chordsLastModifiedAt ||
+    null
+  );
+};
+
+const getErrorMessage = (
+  error: unknown,
+  fallback: string
+): string => {
+  return error instanceof Error && error.message
+    ? error.message
+    : fallback;
+};
+
 export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = (props) => {
   const {
     isOpen,
@@ -66,8 +85,8 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = (props) =
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const sourceSelectRef = useRef<HTMLSelectElement>(null);
   const targetSelectRef = useRef<HTMLSelectElement>(null);
-  const confirmActionRef = useRef<any>(null);
-  const applyBtnRef = useRef<any>(null);
+  const confirmActionRef = useRef<HTMLButtonElement>(null);
+  const applyBtnRef = useRef<HTMLButtonElement>(null);
   const triggerElementRef = useRef<HTMLElement | null>(null);
 
   const [isInitialStateResolved, setIsInitialStateResolved] = useState(false);
@@ -107,40 +126,6 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = (props) =
       }
     };
   }, [isOpen]);
-
-  // Handle focus when initial state is resolved
-  useEffect(() => {
-    if (!isOpen) {
-      hasFocusedRef.current = false;
-      return;
-    }
-    if (!isInitialStateResolved || hasFocusedRef.current) return;
-
-    const animId = requestAnimationFrame(() => {
-      hasFocusedRef.current = true;
-      if (!sourceChordKey || (!sourceConfirmation && !targetChordKey)) {
-        sourceSelectRef.current?.focus();
-      } else if (sourceConfirmation && !targetChordKey) {
-        targetSelectRef.current?.focus();
-      } else if (!sourceConfirmation && sourceChordKey && targetChordKey) {
-        if (confirmActionRef.current && typeof confirmActionRef.current.focus === 'function') {
-          confirmActionRef.current.focus();
-        } else {
-          sourceSelectRef.current?.focus();
-        }
-      } else if (sourceConfirmation && targetChordKey) {
-        if (applyBtnRef.current && typeof applyBtnRef.current.focus === 'function' && !applyBtnRef.current.disabled) {
-          applyBtnRef.current.focus();
-        } else {
-          sourceSelectRef.current?.focus();
-        }
-      } else {
-        sourceSelectRef.current?.focus();
-      }
-    });
-
-    return () => cancelAnimationFrame(animId);
-  }, [isOpen, isInitialStateResolved, sourceChordKey, targetChordKey, sourceConfirmation]);
 
   // Focus trap Tab behavior
   useEffect(() => {
@@ -321,8 +306,8 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = (props) =
     } else {
       transposedChords = song.chords || '';
     }
-  } catch (err: any) {
-    previewError = err.message || t('chordKeyRepair.previewValidationFailed', 'Erro ao gerar prévia');
+  } catch (err: unknown) {
+    previewError = getErrorMessage(err, t('chordKeyRepair.previewValidationFailed', 'Erro ao gerar prévia'));
   }
 
   const beforeLines = (song.chords || '').split('\n');
@@ -340,12 +325,75 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = (props) =
 
   const isApplyDisabled =
     loading ||
+    (mode === 'persisted' && !hasEditCapability) ||
     !sourceChordKey ||
     !targetChordKey ||
     isSameKey ||
     isAlreadyInTargetKey ||
     !sourceConfirmation ||
     !!previewError;
+
+  // Handle focus when initial state is resolved
+  useEffect(() => {
+    if (!isOpen) {
+      hasFocusedRef.current = false;
+      return;
+    }
+    if (!isInitialStateResolved || hasFocusedRef.current) return;
+
+    const animId = requestAnimationFrame(() => {
+      hasFocusedRef.current = true;
+
+      if (!sourceChordKey) {
+        // A. origem vazia: focar origem
+        sourceSelectRef.current?.focus();
+      } else if (!sourceConfirmation) {
+        // B. origem definida e não confirmada: focar confirmação visível, fallback para origem
+        if (confirmActionRef.current && typeof confirmActionRef.current.focus === 'function' && !confirmActionRef.current.disabled) {
+          confirmActionRef.current.focus();
+        } else {
+          sourceSelectRef.current?.focus();
+        }
+      } else if (!targetChordKey || isSameKey || isAlreadyInTargetKey || previewError) {
+        // C. origem confirmada e destino vazio, D. origem e destino iguais, E. metadata já informa que a cifra está no destino, F. preview inválido
+        targetSelectRef.current?.focus();
+      } else if (!isApplyDisabled && applyBtnRef.current && typeof applyBtnRef.current.focus === 'function' && !applyBtnRef.current.disabled) {
+        // G. origem confirmada, destino válido e Aplicar habilitado
+        applyBtnRef.current.focus();
+      } else {
+        // H. usuário sem capability no modo persisted ou Aplicar desabilitado por outro motivo
+        // focar controle que permita revisar sem tentar executar
+        targetSelectRef.current?.focus();
+      }
+
+      // Validação do foco resultante
+      const active = document.activeElement as HTMLElement | null;
+      if (
+        !active ||
+        !modalRef.current?.contains(active) ||
+        active.hasAttribute('disabled') ||
+        (active as HTMLButtonElement | HTMLSelectElement).disabled
+      ) {
+        if (sourceSelectRef.current && !sourceSelectRef.current.disabled) {
+          sourceSelectRef.current.focus();
+        } else if (targetSelectRef.current && !targetSelectRef.current.disabled) {
+          targetSelectRef.current.focus();
+        }
+      }
+    });
+
+    return () => cancelAnimationFrame(animId);
+  }, [
+    isOpen,
+    isInitialStateResolved,
+    sourceChordKey,
+    targetChordKey,
+    sourceConfirmation,
+    isSameKey,
+    isAlreadyInTargetKey,
+    previewError,
+    isApplyDisabled
+  ]);
 
   const handleSourceKeyChange = (val: string) => {
     setSourceChordKey(val);
@@ -455,7 +503,7 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = (props) =
           organizationId: effectiveOrganizationId || '',
           sourceChordKey,
           targetChordKey,
-          expectedUpdatedAt: props.song.lastModifiedAt || props.song.chordsLastModifiedAt || (props.song as any).updatedAt || null,
+          expectedUpdatedAt: resolveExpectedUpdatedAt(props.song as PopulatedSong),
           sourceConfirmation
         });
 
@@ -479,9 +527,9 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = (props) =
       }
 
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[ChordKeyRepair] Repair failed:', err);
-      setError(err.message || 'Erro inesperado ao corrigir a cifra');
+      setError(getErrorMessage(err, 'Erro inesperado ao corrigir a cifra'));
     } finally {
       setLoading(false);
     }

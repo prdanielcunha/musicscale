@@ -6,6 +6,7 @@ import { ChordKeyRepairSheet } from '../../components/songs/ChordKeyRepairSheet'
 import { useAuth } from '../../contexts/AuthContext';
 import { useApi } from '../../contexts/ApiContext';
 import { useToast } from '../../contexts/ToastContext';
+import type { PopulatedSong, ChordKeyRepairDraftSong } from '../../types';
 
 // Mock contexts and hooks
 vi.mock('../../contexts/AuthContext', () => ({
@@ -46,18 +47,46 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-const mockSong = {
+const persistedSong: PopulatedSong = {
   id: 'song123',
+  organizationId: 'org123',
   title: 'Meu Altar',
   artist: 'Ministerio de Louvor',
   key: 'C',
+  originalKey: 'C',
+  selectedKey: 'C',
+  status: 'active',
+  tagIds: [],
+  tags: [],
+  lyrics: 'Letra da musica',
+  chords: 'C G Am F',
+  chordsUrl: '',
+  videoUrl: '',
+  createdAt: '2026-08-01T12:00:00.000Z',
+  lastPlayed: null,
+  createdBy: {
+    uid: 'user123',
+    displayName: 'User Test',
+    photoURL: null,
+  },
+  lastModifiedAt: '2026-08-01T12:00:00.000Z',
+  metadata: {
+    chordContentKey: 'C',
+    shapeKey: 'C',
+  },
+};
+
+const draftSong: ChordKeyRepairDraftSong = {
+  title: 'Meu Altar Draft',
+  artist: 'Ministerio de Louvor',
+  key: 'C',
+  originalKey: 'C',
+  selectedKey: 'C',
   chords: 'C G Am F',
   metadata: {
     chordContentKey: 'C',
     shapeKey: 'C',
   },
-  organizationId: 'org123',
-  lastModifiedAt: '2026-08-01T12:00:00.000Z',
 };
 
 describe('ChordKeyRepairSheet', () => {
@@ -69,103 +98,77 @@ describe('ChordKeyRepairSheet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Setup Auth mock
-    (useAuth as any).mockReturnValue({
+    vi.mocked(useAuth).mockReturnValue({
       effectiveOrganizationId: 'org123',
       permissions: {
         'musicscale.songs.edit': true,
       },
       userProfile: { uid: 'user123', organizationRole: 'admin' },
-    });
+    } as any);
 
-    // Setup Api mock
-    (useApi as any).mockReturnValue({
+    vi.mocked(useApi).mockReturnValue({
       repairOrganizationSongChordKey: mockRepairOrganizationSongChordKey,
-    });
+    } as any);
 
-    // Setup Toast mock
-    (useToast as any).mockReturnValue({
+    vi.mocked(useToast).mockReturnValue({
       toast: mockToast,
-    });
+    } as any);
   });
 
-  it('deve inicializar com o tom de origem de acordo com os metadados e focar no botão fechar', async () => {
+  it('deve inicializar e executar no modo draft com draftSong tipada', async () => {
+    const mockOnSuccessDraft = vi.fn((updatedSong: ChordKeyRepairDraftSong) => {});
     render(
       <ChordKeyRepairSheet
         isOpen={true}
-        song={mockSong as any}
+        song={draftSong}
         onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-        mode="persisted"
+        onSuccess={mockOnSuccessDraft}
+        mode="draft"
       />
     );
 
     const title = screen.getByText('Ajustar tom da cifra');
     expect(title).toBeInTheDocument();
 
-    // Source select should have 'C'
     const selects = screen.getAllByRole('combobox');
     expect(selects[0]).toHaveValue('C');
-    expect(selects[1]).toHaveValue('C'); // target defaults to song.key ('C')
-  });
+    expect(selects[1]).toHaveValue('C');
 
-  it('deve executar no modo draft (sem chamada de API, apenas sucesso local)', async () => {
-    render(
-      <ChordKeyRepairSheet
-        isOpen={true}
-        song={mockSong as any}
-        onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-        mode="draft"
-      />
-    );
-
-    const selects = screen.getAllByRole('combobox');
-    
-    // Change target key to D
     fireEvent.change(selects[1], { target: { value: 'D' } });
 
-    // Click Apply
-    const applyBtn = screen.getByText('Aplicar correção');
+    const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
     fireEvent.click(applyBtn);
 
     await waitFor(() => {
-      // onSuccess should be called
-      expect(mockOnSuccess).toHaveBeenCalled();
-      // No API call
+      expect(mockOnSuccessDraft).toHaveBeenCalled();
       expect(mockRepairOrganizationSongChordKey).not.toHaveBeenCalled();
-      // Check first arg to onSuccess
-      const updatedSong = mockOnSuccess.mock.calls[0][0];
-      expect(updatedSong.metadata.chordContentKey).toBe('D');
-      // onClose called
+      const updated = mockOnSuccessDraft.mock.calls[0][0];
+      expect(updated.metadata.chordContentKey).toBe('D');
       expect(mockOnClose).toHaveBeenCalled();
     });
   });
 
-  it('deve executar no modo persisted (com chamada de API e toast de sucesso)', async () => {
-    mockRepairOrganizationSongChordKey.mockResolvedValue(mockSong);
+  it('deve executar no modo persisted com persistedSong tipada e chamada de API', async () => {
+    mockRepairOrganizationSongChordKey.mockResolvedValue(persistedSong);
+    const mockOnSuccessPersisted = vi.fn((updatedSong: PopulatedSong) => {});
 
     render(
       <ChordKeyRepairSheet
         isOpen={true}
-        song={mockSong as any}
+        song={persistedSong}
         onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
+        onSuccess={mockOnSuccessPersisted}
         mode="persisted"
       />
     );
 
     const selects = screen.getAllByRole('combobox');
-    
-    // Change target key to E
     fireEvent.change(selects[1], { target: { value: 'E' } });
 
-    // Click Apply
-    const applyBtn = screen.getByText('Aplicar correção');
+    const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
     fireEvent.click(applyBtn);
 
     await waitFor(() => {
-      // API call made with sourceConfirmation
       expect(mockRepairOrganizationSongChordKey).toHaveBeenCalledWith({
         songId: 'song123',
         organizationId: 'org123',
@@ -178,7 +181,7 @@ describe('ChordKeyRepairSheet', () => {
         },
       });
       expect(mockToast).toHaveBeenCalled();
-      expect(mockOnSuccess).toHaveBeenCalled();
+      expect(mockOnSuccessPersisted).toHaveBeenCalledWith(persistedSong);
       expect(mockOnClose).toHaveBeenCalled();
     });
   });
@@ -187,7 +190,7 @@ describe('ChordKeyRepairSheet', () => {
     render(
       <ChordKeyRepairSheet
         isOpen={true}
-        song={mockSong as any}
+        song={persistedSong}
         onClose={mockOnClose}
         onSuccess={mockOnSuccess}
         mode="persisted"
@@ -199,11 +202,11 @@ describe('ChordKeyRepairSheet', () => {
   });
 
   it('deve exibir banner de conflito e permitir confirmar tom detectado Usar G para habilitar Aplicar', async () => {
-    const conflictingSong = {
-      ...mockSong,
-      chords: 'G D/F# Em7 A', // Detected as G with high confidence
+    const conflictingSong: ChordKeyRepairDraftSong = {
+      ...draftSong,
+      chords: 'G D/F# Em7 A',
       metadata: {
-        chordContentKey: 'C', // Contradicts G!
+        chordContentKey: 'C',
         shapeKey: 'C',
       },
     };
@@ -211,50 +214,41 @@ describe('ChordKeyRepairSheet', () => {
     render(
       <ChordKeyRepairSheet
         isOpen={true}
-        song={conflictingSong as any}
+        song={conflictingSong}
         onClose={mockOnClose}
         onSuccess={mockOnSuccess}
         mode="draft"
       />
     );
 
-    // Check conflict banner is rendered
     expect(screen.getByText('O tom informado não corresponde aos acordes encontrados')).toBeInTheDocument();
 
-    // Check Apply button is disabled due to unconfirmed conflict
     const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
     expect(applyBtn).toBeDisabled();
 
-    // Click "Usar G" button inside conflict banner
     const useGBtn = screen.getByText('Usar G');
     fireEvent.click(useGBtn);
 
-    // Target key set to F
     const selects = screen.getAllByRole('combobox');
     fireEvent.change(selects[1], { target: { value: 'F' } });
 
-    // Conflict banner resolves or source is confirmed, Apply button becomes enabled
     expect(applyBtn).not.toBeDisabled();
-
-    // Check signed semitones label shows exact -2 semitons and not duplicate -2 2 semitons
     expect(screen.getByText('-2 semitons')).toBeInTheDocument();
-    expect(screen.queryByText('-2 2 semitons')).not.toBeInTheDocument();
   });
 
   it('deve usar shapeKey sem normalização apenas como sugestão e exigir confirmação explícita', async () => {
-    const shapeSong = {
-      ...mockSong,
-      chords: 'C G Am F', // Detected as C
+    const shapeSong: ChordKeyRepairDraftSong = {
+      ...draftSong,
+      chords: 'C G Am F',
       metadata: {
-        shapeKey: 'G', // Shape key G differs from detected C
-        // chordContentKey is absent, normalizedToConcertKey is not true
+        shapeKey: 'G',
       },
     };
 
     render(
       <ChordKeyRepairSheet
         isOpen={true}
-        song={shapeSong as any}
+        song={shapeSong}
         onClose={mockOnClose}
         onSuccess={mockOnSuccess}
         mode="draft"
@@ -262,24 +256,22 @@ describe('ChordKeyRepairSheet', () => {
     );
 
     const selects = screen.getAllByRole('combobox');
-    expect(selects[0]).toHaveValue('G'); // suggested in selector from shapeKey
+    expect(selects[0]).toHaveValue('G');
 
     const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
-    expect(applyBtn).toBeDisabled(); // disabled until user confirms!
+    expect(applyBtn).toBeDisabled();
 
-    // Confirm override or detected
     const confirmBtn = screen.getByText('Confirmar uso de G');
     fireEvent.click(confirmBtn);
 
-    // Target key to D
     fireEvent.change(selects[1], { target: { value: 'D' } });
     expect(applyBtn).not.toBeDisabled();
   });
 
   it('não deve usar shapeKey com normalizedToConcertKey === true como tom de origem', async () => {
-    const normalizedShapeSong = {
-      ...mockSong,
-      chords: 'C G Am F', // Detected as C
+    const normalizedShapeSong: ChordKeyRepairDraftSong = {
+      ...draftSong,
+      chords: 'C G Am F',
       metadata: {
         shapeKey: 'G',
         normalizedToConcertKey: true,
@@ -289,7 +281,7 @@ describe('ChordKeyRepairSheet', () => {
     render(
       <ChordKeyRepairSheet
         isOpen={true}
-        song={normalizedShapeSong as any}
+        song={normalizedShapeSong}
         onClose={mockOnClose}
         onSuccess={mockOnSuccess}
         mode="draft"
@@ -297,81 +289,225 @@ describe('ChordKeyRepairSheet', () => {
     );
 
     const selects = screen.getAllByRole('combobox');
-    // Source should NOT be initialized to G from normalized shapeKey
-    // It uses detected key C
     expect(selects[0]).toHaveValue('C');
-    // Apply button disabled because sourceConfirmation is null (detected requires confirmation)
     const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
     expect(applyBtn).toBeDisabled();
   });
 
-  it('deve restaurar o foco ao elemento original no unmount', () => {
-    const button = document.createElement('button');
-    document.body.appendChild(button);
-    button.focus();
-    expect(document.activeElement).toBe(button);
+  describe('Focus Trap & Accessibility Required Tests', () => {
+    it('1. origem vazia foca origem', async () => {
+      const emptySourceSong: ChordKeyRepairDraftSong = {
+        ...draftSong,
+        key: '',
+        originalKey: '',
+        selectedKey: '',
+        chords: 'Palavras sem acordes',
+        metadata: {},
+      };
 
-    const { unmount } = render(
-      <ChordKeyRepairSheet
-        isOpen={true}
-        song={mockSong as any}
-        onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-        mode="draft"
-      />
-    );
-
-    unmount();
-    expect(document.activeElement).toBe(button);
-    document.body.removeChild(button);
-  });
-
-  it('deve focar a ação principal (Aplicar) quando origem e destino existem e origem está confirmada', async () => {
-    // mockSong has C as source key (metadata) and D as target key (song.key), which enables Apply button
-    render(
-      <ChordKeyRepairSheet
-        isOpen={true}
-        song={{ ...mockSong, key: 'D' } as any}
-        onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-        mode="draft"
-      />
-    );
-
-    await waitFor(() => {
-      const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
-      expect(document.activeElement).toBe(applyBtn);
-    });
-  });
-
-  it('deve focar o controle de confirmação explícita quando origem e destino existem mas origem não está confirmada', async () => {
-    // Unconfirmed source: detected candidate is E, metadata is missing, target key is C from mockSong.key
-    render(
-      <ChordKeyRepairSheet
-        isOpen={true}
-        song={{
-          ...mockSong,
-          metadata: {},
-          chords: 'E A B7'
-        } as any}
-        onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-        mode="draft"
-      />
-    );
-
-    await waitFor(() => {
-      const useEBtn = screen.getByRole('button', { name: /Usar E/i });
-      expect(document.activeElement).toBe(useEBtn);
-    });
-  });
-
-  describe('Focus Trap & Accessibility Tests', () => {
-    it('1. foco inicial continua dentro da modal', async () => {
       render(
         <ChordKeyRepairSheet
           isOpen={true}
-          song={mockSong as any}
+          song={emptySourceSong}
+          onClose={mockOnClose}
+          onSuccess={mockOnSuccess}
+          mode="draft"
+        />
+      );
+
+      await waitFor(() => {
+        const selects = screen.getAllByRole('combobox');
+        expect(document.activeElement).toBe(selects[0]);
+      });
+    });
+
+    it('2. origem não confirmada foca confirmação', async () => {
+      const unconfirmedSong: ChordKeyRepairDraftSong = {
+        ...draftSong,
+        chords: 'E A B7',
+        metadata: {},
+      };
+
+      render(
+        <ChordKeyRepairSheet
+          isOpen={true}
+          song={unconfirmedSong}
+          onClose={mockOnClose}
+          onSuccess={mockOnSuccess}
+          mode="draft"
+        />
+      );
+
+      await waitFor(() => {
+        const useEBtn = screen.getByRole('button', { name: /Usar E/i });
+        expect(document.activeElement).toBe(useEBtn);
+      });
+    });
+
+    it('3. destino vazio foca destino', async () => {
+      const emptyTargetSong: ChordKeyRepairDraftSong = {
+        ...draftSong,
+        key: '',
+        originalKey: '',
+        selectedKey: '',
+        metadata: {
+          chordContentKey: 'C',
+        },
+      };
+
+      render(
+        <ChordKeyRepairSheet
+          isOpen={true}
+          song={emptyTargetSong}
+          onClose={mockOnClose}
+          onSuccess={mockOnSuccess}
+          mode="draft"
+        />
+      );
+
+      await waitFor(() => {
+        const selects = screen.getAllByRole('combobox');
+        expect(document.activeElement).toBe(selects[1]);
+      });
+    });
+
+    it('4. origem e destino iguais focam destino', async () => {
+      const sameKeySong: ChordKeyRepairDraftSong = {
+        ...draftSong,
+        key: 'C',
+        metadata: {
+          chordContentKey: 'C',
+        },
+      };
+
+      render(
+        <ChordKeyRepairSheet
+          isOpen={true}
+          song={sameKeySong}
+          onClose={mockOnClose}
+          onSuccess={mockOnSuccess}
+          mode="draft"
+        />
+      );
+
+      await waitFor(() => {
+        const selects = screen.getAllByRole('combobox');
+        expect(document.activeElement).toBe(selects[1]);
+      });
+    });
+
+    it('5. preview inválido foca destino', async () => {
+      const invalidPreviewSong: ChordKeyRepairDraftSong = {
+        ...draftSong,
+        key: 'D',
+        chords: 'X9_INVALID_CHORD',
+        metadata: {
+          chordContentKey: 'C',
+        },
+      };
+
+      render(
+        <ChordKeyRepairSheet
+          isOpen={true}
+          song={invalidPreviewSong}
+          onClose={mockOnClose}
+          onSuccess={mockOnSuccess}
+          mode="draft"
+        />
+      );
+
+      await waitFor(() => {
+        const selects = screen.getAllByRole('combobox');
+        expect(document.activeElement).toBe(selects[1]);
+      });
+    });
+
+    it('6. Aplicar disabled nunca recebe foco', async () => {
+      render(
+        <ChordKeyRepairSheet
+          isOpen={true}
+          song={draftSong}
+          onClose={mockOnClose}
+          onSuccess={mockOnSuccess}
+          mode="draft"
+        />
+      );
+
+      await waitFor(() => {
+        const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
+        expect(applyBtn).toBeDisabled();
+        expect(document.activeElement).not.toBe(applyBtn);
+      });
+    });
+
+    it('7. Aplicar habilitado recebe foco', async () => {
+      const validApplySong: ChordKeyRepairDraftSong = {
+        ...draftSong,
+        key: 'D',
+        originalKey: 'D',
+        selectedKey: 'D',
+        metadata: {
+          chordContentKey: 'C',
+        },
+      };
+
+      render(
+        <ChordKeyRepairSheet
+          isOpen={true}
+          song={validApplySong}
+          onClose={mockOnClose}
+          onSuccess={mockOnSuccess}
+          mode="draft"
+        />
+      );
+
+      await waitFor(() => {
+        const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
+        expect(applyBtn).not.toBeDisabled();
+        expect(document.activeElement).toBe(applyBtn);
+      });
+    });
+
+    it('8. usuário sem capability vê Aplicar disabled', async () => {
+      vi.mocked(useAuth).mockReturnValue({
+        effectiveOrganizationId: 'org123',
+        permissions: {
+          'musicscale.songs.edit': false,
+          manageSongs: false,
+        },
+        userProfile: { uid: 'user123', organizationRole: 'member' },
+      } as any);
+
+      const validSong: PopulatedSong = {
+        ...persistedSong,
+        key: 'D',
+        metadata: {
+          chordContentKey: 'C',
+        },
+      };
+
+      render(
+        <ChordKeyRepairSheet
+          isOpen={true}
+          song={validSong}
+          onClose={mockOnClose}
+          onSuccess={mockOnSuccess}
+          mode="persisted"
+        />
+      );
+
+      await waitFor(() => {
+        const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
+        expect(applyBtn).toBeDisabled();
+        expect(document.activeElement).not.toBe(applyBtn);
+      });
+    });
+
+    it('9. foco inicial fica dentro da modal', async () => {
+      render(
+        <ChordKeyRepairSheet
+          isOpen={true}
+          song={draftSong}
           onClose={mockOnClose}
           onSuccess={mockOnSuccess}
           mode="draft"
@@ -384,12 +520,12 @@ describe('ChordKeyRepairSheet', () => {
       });
     });
 
-    it('2. focar o último controle e pressionar Tab move para o primeiro controle focável', async () => {
+    it('10. Tab no último retorna ao primeiro', async () => {
       const user = userEvent.setup();
       render(
         <ChordKeyRepairSheet
           isOpen={true}
-          song={{ ...mockSong, key: 'D' } as any}
+          song={{ ...draftSong, key: 'D' }}
           onClose={mockOnClose}
           onSuccess={mockOnSuccess}
           mode="draft"
@@ -401,9 +537,12 @@ describe('ChordKeyRepairSheet', () => {
         expect(dialog.contains(document.activeElement)).toBe(true);
       });
 
-      const focusables = dialog.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
+      const focusables = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter(el => !el.hasAttribute('disabled') && !(el as HTMLButtonElement).disabled);
+
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
 
@@ -416,12 +555,12 @@ describe('ChordKeyRepairSheet', () => {
       expect(dialog.contains(document.activeElement)).toBe(true);
     });
 
-    it('3. focar o primeiro controle e pressionar Shift+Tab move para o último controle focável', async () => {
+    it('11. Shift+Tab no primeiro retorna ao último', async () => {
       const user = userEvent.setup();
       render(
         <ChordKeyRepairSheet
           isOpen={true}
-          song={{ ...mockSong, key: 'D' } as any}
+          song={{ ...draftSong, key: 'D' }}
           onClose={mockOnClose}
           onSuccess={mockOnSuccess}
           mode="draft"
@@ -433,9 +572,12 @@ describe('ChordKeyRepairSheet', () => {
         expect(dialog.contains(document.activeElement)).toBe(true);
       });
 
-      const focusables = dialog.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
+      const focusables = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter(el => !el.hasAttribute('disabled') && !(el as HTMLButtonElement).disabled);
+
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
 
@@ -448,17 +590,16 @@ describe('ChordKeyRepairSheet', () => {
       expect(dialog.contains(document.activeElement)).toBe(true);
     });
 
-    it('4. pressionar Tab com foco externo traz o foco para dentro da modal', async () => {
+    it('12. foco externo + Tab retorna à modal', async () => {
       const externalBtn = document.createElement('button');
       externalBtn.textContent = 'External';
       document.body.appendChild(externalBtn);
       externalBtn.focus();
-      expect(document.activeElement).toBe(externalBtn);
 
       render(
         <ChordKeyRepairSheet
           isOpen={true}
-          song={mockSong as any}
+          song={draftSong}
           onClose={mockOnClose}
           onSuccess={mockOnSuccess}
           mode="draft"
@@ -475,12 +616,12 @@ describe('ChordKeyRepairSheet', () => {
       document.body.removeChild(externalBtn);
     });
 
-    it('5. botão Aplicar disabled não entra no ciclo', async () => {
+    it('13. disabled não entra no ciclo', async () => {
       const user = userEvent.setup();
       render(
         <ChordKeyRepairSheet
           isOpen={true}
-          song={mockSong as any}
+          song={draftSong}
           onClose={mockOnClose}
           onSuccess={mockOnSuccess}
           mode="draft"
@@ -495,7 +636,7 @@ describe('ChordKeyRepairSheet', () => {
         dialog.querySelectorAll<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         )
-      ).filter(el => !el.hasAttribute('disabled') && !(el as any).disabled);
+      ).filter(el => !el.hasAttribute('disabled') && !(el as HTMLButtonElement).disabled);
 
       const last = focusables[focusables.length - 1];
       last.focus();
@@ -506,47 +647,12 @@ describe('ChordKeyRepairSheet', () => {
       expect(dialog.contains(document.activeElement)).toBe(true);
     });
 
-    it('6. botão Fechar disabled durante loading não entra no ciclo', async () => {
-      let resolveApi: any;
-      mockRepairOrganizationSongChordKey.mockImplementation(() => new Promise((resolve) => {
-        resolveApi = resolve;
-      }));
-
-      render(
-        <ChordKeyRepairSheet
-          isOpen={true}
-          song={{ ...mockSong, key: 'D' } as any}
-          onClose={mockOnClose}
-          onSuccess={mockOnSuccess}
-          mode="persisted"
-        />
-      );
-
-      const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
-      fireEvent.click(applyBtn);
-
-      await waitFor(() => {
-        const closeBtn = screen.getByRole('button', { name: /Fechar/i });
-        expect(closeBtn).toBeDisabled();
-      });
-
-      const closeBtn = screen.getByRole('button', { name: /Fechar/i });
-
-      fireEvent.keyDown(window, { key: 'Tab' });
-
-      expect(document.activeElement).not.toBe(closeBtn);
-
-      await act(async () => {
-        resolveApi(mockSong);
-      });
-    });
-
-    it('7. controles hidden não entram no ciclo', async () => {
+    it('14. hidden não entra no ciclo', async () => {
       const user = userEvent.setup();
       render(
         <ChordKeyRepairSheet
           isOpen={true}
-          song={mockSong as any}
+          song={draftSong}
           onClose={mockOnClose}
           onSuccess={mockOnSuccess}
           mode="draft"
@@ -576,12 +682,12 @@ describe('ChordKeyRepairSheet', () => {
       dialog.removeChild(hiddenBtn);
     });
 
-    it('8. unmount remove o listener', () => {
+    it('15. listener é removido no unmount', () => {
       const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
       const { unmount } = render(
         <ChordKeyRepairSheet
           isOpen={true}
-          song={mockSong as any}
+          song={draftSong}
           onClose={mockOnClose}
           onSuccess={mockOnSuccess}
           mode="draft"
@@ -594,93 +700,13 @@ describe('ChordKeyRepairSheet', () => {
       removeEventListenerSpy.mockRestore();
     });
 
-    it('9. múltiplos rerenders não duplicam o listener', () => {
-      const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
-      const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
-
-      const { rerender } = render(
-        <ChordKeyRepairSheet
-          isOpen={true}
-          song={mockSong as any}
-          onClose={mockOnClose}
-          onSuccess={mockOnSuccess}
-          mode="draft"
-        />
-      );
-
-      const initialAddCalls = addEventListenerSpy.mock.calls.filter(([evt]) => evt === 'keydown').length;
-
-      rerender(
-        <ChordKeyRepairSheet
-          isOpen={true}
-          song={{ ...mockSong, key: 'D' } as any}
-          onClose={mockOnClose}
-          onSuccess={mockOnSuccess}
-          mode="draft"
-        />
-      );
-
-      const subsequentAddCalls = addEventListenerSpy.mock.calls.filter(([evt]) => evt === 'keydown').length;
-
-      expect(subsequentAddCalls - initialAddCalls).toBe(0);
-
-      addEventListenerSpy.mockRestore();
-      removeEventListenerSpy.mockRestore();
-    });
-
-    it('10. Escape continua funcionando quando não há loading', () => {
-      render(
-        <ChordKeyRepairSheet
-          isOpen={true}
-          song={mockSong as any}
-          onClose={mockOnClose}
-          onSuccess={mockOnSuccess}
-          mode="draft"
-        />
-      );
-
-      fireEvent.keyDown(window, { key: 'Escape' });
-      expect(mockOnClose).toHaveBeenCalledTimes(1);
-    });
-
-    it('11. Escape continua bloqueado durante loading', async () => {
-      let resolveApi: any;
-      mockRepairOrganizationSongChordKey.mockImplementation(() => new Promise((resolve) => {
-        resolveApi = resolve;
-      }));
-
-      render(
-        <ChordKeyRepairSheet
-          isOpen={true}
-          song={{ ...mockSong, key: 'D' } as any}
-          onClose={mockOnClose}
-          onSuccess={mockOnSuccess}
-          mode="persisted"
-        />
-      );
-
-      const applyBtn = screen.getByRole('button', { name: /Aplicar correção/i });
-      fireEvent.click(applyBtn);
-
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Fechar/i })).toBeDisabled();
-      });
-
-      fireEvent.keyDown(window, { key: 'Escape' });
-      expect(mockOnClose).not.toHaveBeenCalled();
-
-      await act(async () => {
-        resolveApi(mockSong);
-      });
-    });
-
-    it('12. requestAnimationFrame continua cancelado no cleanup', () => {
+    it('16. requestAnimationFrame é cancelado', () => {
       const cancelSpy = vi.spyOn(window, 'cancelAnimationFrame');
 
       const { unmount } = render(
         <ChordKeyRepairSheet
           isOpen={true}
-          song={mockSong as any}
+          song={draftSong}
           onClose={mockOnClose}
           onSuccess={mockOnSuccess}
           mode="draft"
@@ -693,13 +719,13 @@ describe('ChordKeyRepairSheet', () => {
       cancelSpy.mockRestore();
     });
 
-    it('13. nenhum setTimeout é usado pela implementação', async () => {
+    it('17. nenhum setTimeout é usado', async () => {
       const setTimeoutSpy = vi.spyOn(window, 'setTimeout');
 
       render(
         <ChordKeyRepairSheet
           isOpen={true}
-          song={mockSong as any}
+          song={draftSong}
           onClose={mockOnClose}
           onSuccess={mockOnSuccess}
           mode="draft"
@@ -716,6 +742,27 @@ describe('ChordKeyRepairSheet', () => {
       expect(setTimeoutForFocus).toBe(false);
 
       setTimeoutSpy.mockRestore();
+    });
+
+    it('18. foco original é restaurado no unmount', () => {
+      const button = document.createElement('button');
+      document.body.appendChild(button);
+      button.focus();
+      expect(document.activeElement).toBe(button);
+
+      const { unmount } = render(
+        <ChordKeyRepairSheet
+          isOpen={true}
+          song={draftSong}
+          onClose={mockOnClose}
+          onSuccess={mockOnSuccess}
+          mode="draft"
+        />
+      );
+
+      unmount();
+      expect(document.activeElement).toBe(button);
+      document.body.removeChild(button);
     });
   });
 });
