@@ -453,7 +453,7 @@ describe('MusicRepository - Chord Key Repair Transactional Logic', () => {
           selectedKey: 'D',
           detectedKey: 'C',
           detectionConfidence: 'medium',
-          acknowledgedConflict: false // Must be true!
+          acknowledgedConflict: false as any // Must be true!
         }
       })
     ).rejects.toThrow('Confirmação explícita do conflito (acknowledgedConflict) é obrigatória para override.');

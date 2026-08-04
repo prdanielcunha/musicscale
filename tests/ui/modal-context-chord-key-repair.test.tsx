@@ -2,7 +2,6 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { ModalProvider, useModals } from '../../contexts/ModalContext';
-
 import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('../../contexts/AuthContext', () => ({
@@ -13,9 +12,10 @@ vi.mock('../../contexts/AuthContext', () => ({
   }),
 }));
 
+const mockToast = vi.fn();
 vi.mock('../../contexts/ToastContext', () => ({
   useToast: () => ({
-    toast: vi.fn(),
+    toast: mockToast,
   }),
 }));
 
@@ -58,22 +58,55 @@ const TestComponent = () => {
       <button
         onClick={() => {
           openChordKeyRepair(
-            { id: 'song123', chords: 'C' } as any,
-            (song) => console.log('success', song.chords),
+            { title: 'Draft Song', chords: 'C' },
+            (song) => console.log('success draft', song.title),
             'draft'
           );
         }}
       >
-        Abrir Modal
+        Abrir Draft
+      </button>
+      <button
+        onClick={() => {
+          openChordKeyRepair(
+            { id: 'song123', organizationId: 'org123', title: 'Persisted Song', chords: 'C' } as any,
+            (song) => console.log('success persisted', (song as any).title)
+          );
+        }}
+      >
+        Abrir Persisted
+      </button>
+      <button
+        onClick={() => {
+          // Attempting persisted without id
+          openChordKeyRepair(
+            { organizationId: 'org123', chords: 'C' } as any,
+            () => {},
+            'persisted'
+          );
+        }}
+      >
+        Abrir Persisted Sem ID
+      </button>
+      <button
+        onClick={() => {
+          // Attempting persisted without organizationId
+          openChordKeyRepair(
+            { id: 'song123', chords: 'C' } as any,
+            () => {},
+            'persisted'
+          );
+        }}
+      >
+        Abrir Persisted Sem Org
       </button>
     </div>
   );
 };
 
 describe('ModalContext - ChordKeyRepair', () => {
-  it('deve abrir o ChordKeyRepairSheet através do ModalContext', async () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
+  it('deve rejeitar persisted sem id', async () => {
+    mockToast.mockClear();
     render(
       <MemoryRouter>
         <ModalProvider>
@@ -82,25 +115,61 @@ describe('ModalContext - ChordKeyRepair', () => {
       </MemoryRouter>
     );
 
-    // Initial state: not open
+    fireEvent.click(screen.getByText('Abrir Persisted Sem ID'));
+    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Erro' }));
     expect(screen.queryByTestId('chord-key-repair-sheet')).not.toBeInTheDocument();
+  });
 
-    // Open modal
-    fireEvent.click(screen.getByText('Abrir Modal'));
+  it('deve rejeitar persisted sem organizationId', async () => {
+    mockToast.mockClear();
+    render(
+      <MemoryRouter>
+        <ModalProvider>
+          <TestComponent />
+        </ModalProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText('Abrir Persisted Sem Org'));
+    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Erro' }));
+    expect(screen.queryByTestId('chord-key-repair-sheet')).not.toBeInTheDocument();
+  });
+
+  it('deve abrir draft sem exigir id ou organizationId e tipagem correta', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    
+    render(
+      <MemoryRouter>
+        <ModalProvider>
+          <TestComponent />
+        </ModalProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText('Abrir Draft'));
     expect(screen.getByTestId('chord-key-repair-sheet')).toBeInTheDocument();
     expect(screen.getByText('Modo: draft')).toBeInTheDocument();
-
-    // Test success callback
-    fireEvent.click(screen.getByText('Aplicar Correção Mock'));
-    expect(consoleSpy).toHaveBeenCalledWith('success', 'G');
-
-    // Test close
-    fireEvent.click(screen.getByText('Fechar Mock'));
     
-    await waitFor(() => {
-        expect(screen.queryByTestId('chord-key-repair-sheet')).not.toBeInTheDocument();
-    });
+    fireEvent.click(screen.getByText('Aplicar Correção Mock'));
+    expect(consoleSpy).toHaveBeenCalledWith('success draft', 'Draft Song');
+  });
 
-    consoleSpy.mockRestore();
+  it('deve abrir persisted com id e organizationId', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    
+    render(
+      <MemoryRouter>
+        <ModalProvider>
+          <TestComponent />
+        </ModalProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText('Abrir Persisted'));
+    expect(screen.getByTestId('chord-key-repair-sheet')).toBeInTheDocument();
+    expect(screen.getByText('Modo: persisted')).toBeInTheDocument();
+    
+    fireEvent.click(screen.getByText('Aplicar Correção Mock'));
+    expect(consoleSpy).toHaveBeenCalledWith('success persisted', 'Persisted Song');
   });
 });

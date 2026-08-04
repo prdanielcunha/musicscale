@@ -67,6 +67,8 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
   const targetSelectRef = useRef<HTMLSelectElement>(null);
   const triggerElementRef = useRef<HTMLElement | null>(null);
 
+  const [isInitialStateResolved, setIsInitialStateResolved] = useState(false);
+
   // Auto-close on organization change
   useEffect(() => {
     if (effectiveOrganizationId !== initialOrgIdRef.current) {
@@ -94,22 +96,27 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
       triggerElementRef.current = document.activeElement;
     }
 
-    const animId = requestAnimationFrame(() => {
-      if (!sourceChordKey || !sourceConfirmation) {
-        sourceSelectRef.current?.focus();
-      } else {
-        targetSelectRef.current?.focus();
-      }
-    });
-
     return () => {
-      cancelAnimationFrame(animId);
       const prevElem = triggerElementRef.current;
       if (prevElem && typeof prevElem.focus === 'function' && document.body.contains(prevElem)) {
         prevElem.focus();
       }
     };
   }, [isOpen]);
+
+  // Handle focus when initial state is resolved
+  useEffect(() => {
+    if (!isOpen || !isInitialStateResolved) return;
+    const animId = requestAnimationFrame(() => {
+      if (!sourceConfirmation) {
+        sourceSelectRef.current?.focus();
+      } else if (!targetChordKey) {
+        targetSelectRef.current?.focus();
+      }
+    });
+
+    return () => cancelAnimationFrame(animId);
+  }, [isOpen, isInitialStateResolved]); // Only run when these change
 
   // Focus trap Tab behavior
   useEffect(() => {
@@ -185,8 +192,18 @@ export const ChordKeyRepairSheet: React.FC<ChordKeyRepairSheetProps> = ({
         setSourceChordKey('');
         setSourceConfirmation(null);
       }
+      
+      // Delay state resolution slightly to allow renders to catch up for ref focusing
+      setTimeout(() => {
+        setIsInitialStateResolved(true);
+      }, 0);
+    } else {
+      setIsInitialStateResolved(false);
+      setSourceConfirmation(null);
+      setSourceChordKey('');
+      setTargetChordKey('');
     }
-  }, [song]);
+  }, [song, isOpen]);
 
   if (!isOpen || !song) return null;
 

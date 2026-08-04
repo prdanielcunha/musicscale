@@ -4,7 +4,7 @@ import {
 } from '../types';
 import { doc, writeBatch, serverTimestamp, addDoc, collection, runTransaction } from 'firebase/firestore';
 import { db } from './firebase';
-import { transposeChordDocument, normalizeKey, isValidKey, getSignedSemitones, areKeysEnharmonicallyEquivalent, analyzeChordDocumentKeyCandidates, validateTransposedPreview, toEpochMillis, resolveChordContentSourceKey } from '../utils/chordEngine';
+import { transposeChordDocument, normalizeKey, isValidKey, getSignedSemitones, areKeysEnharmonicallyEquivalent, analyzeChordDocumentKeyCandidates, validateTransposedPreview, toEpochMillis, resolveChordContentSourceKey, buildChordKeyCorrectionMetadata } from '../utils/chordEngine';
 
 export class MusicRepository {
     private readonly orgId: string;
@@ -482,27 +482,22 @@ export class MusicRepository {
                 throw new Error(val.error || "Falha na validação da prévia da transposição.");
             }
 
+            const chordKeyCorrection = buildChordKeyCorrectionMetadata({
+                previousContentKey: normSource,
+                correctedContentKey: normTarget,
+                sourceConfirmation,
+                topCandidate,
+                correctedBy: this.userProfile?.uid || 'unknown',
+                correctedAt: new Date().toISOString()
+            });
+
             // Update metadata preserving import provenance fields (declaredKey, shapeKey, capo, transpositionSemitones)
             const existingMetadata = song.metadata || {};
             const updatedMetadata = {
                 ...existingMetadata,
                 chordContentKey: normTarget,
                 normalizedToConcertKey: true,
-                chordKeyCorrection: {
-                    version: 1,
-                    previousContentKey: normSource,
-                    correctedContentKey: normTarget,
-                    signedSemitones,
-                    normalizedSemitones,
-                    semitones,
-                    method: sourceConfirmation.type,
-                    sourceConfirmationType: sourceConfirmation.type,
-                    detectedKey: topCandidate?.key || undefined,
-                    detectionConfidence: topCandidate?.confidence || undefined,
-                    conflictAcknowledged: sourceConfirmation.type === 'override',
-                    correctedAt: new Date().toISOString(),
-                    correctedBy: this.userProfile?.uid || 'unknown'
-                }
+                chordKeyCorrection
             };
 
             // Commit within transaction

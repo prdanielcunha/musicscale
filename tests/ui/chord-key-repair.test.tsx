@@ -324,4 +324,46 @@ describe('ChordKeyRepairSheet', () => {
     expect(document.activeElement).toBe(button);
     document.body.removeChild(button);
   });
+
+  it('deve focar o destino quando origem está confirmada', async () => {
+    // mockSong has C as key and C in metadata, which auto-confirms source
+    render(
+      <ChordKeyRepairSheet
+        isOpen={true}
+        song={{...mockSong, originalKey: undefined, selectedKey: undefined, key: undefined} as any}
+        onClose={mockOnClose}
+        onSuccess={mockOnSuccess}
+        mode="draft"
+      />
+    );
+
+    await waitFor(() => {
+      const selects = screen.getAllByRole('combobox');
+      // The second select is target
+      expect(document.activeElement).toBe(selects[1]);
+    });
+  });
+
+  it('deve focar a origem quando a origem não está confirmada', async () => {
+    // Unconfirmed source: detected candidate is E, metadata is missing
+    render(
+      <ChordKeyRepairSheet
+        isOpen={true}
+        song={{
+          ...mockSong,
+          metadata: {},
+          chords: 'E A B7'
+        } as any}
+        onClose={mockOnClose}
+        onSuccess={mockOnSuccess}
+        mode="draft"
+      />
+    );
+
+    await waitFor(() => {
+      const selects = screen.getAllByRole('combobox');
+      // The first select is source
+      expect(document.activeElement).toBe(selects[0]);
+    });
+  });
 });
