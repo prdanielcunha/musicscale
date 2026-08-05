@@ -4,7 +4,8 @@ import {
   getSignedSemitones, 
   analyzeChordDocumentKeyCandidates, 
   validateTransposedPreview,
-  areKeysEnharmonicallyEquivalent
+  areKeysEnharmonicallyEquivalent,
+  validateChordContentKeyConsistency
 } from '../../utils/chordEngine';
 
 describe('areKeysEnharmonicallyEquivalent', () => {
@@ -252,7 +253,6 @@ describe('validateTransposedPreview', () => {
   });
 });
 
-import { validateChordContentKeyConsistency } from '../../utils/chordEngine';
 
 describe('validateChordContentKeyConsistency', () => {
   it('identifies a MATCH in F#', () => {
@@ -283,5 +283,11 @@ describe('validateChordContentKeyConsistency', () => {
     const res = validateChordContentKeyConsistency("Grande é o Senhor e digno de louvor", "G");
     expect(res.status).toBe('NO_CHORDS');
     expect(res.totalChordTokens).toBe(0);
+  });
+
+  it('handles INVALID expectedKey as INDETERMINATE (does not throw)', () => {
+    const res = validateChordContentKeyConsistency("C G Am F", "INVALID_KEY");
+    expect(res.status).toBe('INDETERMINATE');
+    expect(res.expectedKey).toBe('INVALID_KEY');
   });
 });

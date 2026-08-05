@@ -2979,6 +2979,7 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
           });
           
           logWarn("10.5_KEY_CONSISTENCY", "Chord content key mismatch", {
+            requestId,
             expectedKey: consistencyResult.expectedKey,
             detectedKey: consistencyResult.detectedKey,
             confidence: consistencyResult.confidence,

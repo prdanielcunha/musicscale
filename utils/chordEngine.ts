@@ -1550,13 +1550,12 @@ export function validateChordContentKeyConsistency(
   }
 
   const normExpectedKey = normalizeKey(expectedKey);
-  let expectedCandidate = null;
-  for (const candidate of analysis.candidates) {
-    if (areKeysEnharmonicallyEquivalent(normalizeKey(candidate.key), normExpectedKey)) {
-      expectedCandidate = candidate;
-      break;
-    }
-  }
+  const expectedCandidate: ChordKeyCandidate | undefined = analysis.candidates.find((candidate) =>
+    areKeysEnharmonicallyEquivalent(
+      normalizeKey(candidate.key),
+      normExpectedKey
+    )
+  );
 
   const topCandidate = analysis.candidates[0];
   const scoreGap = topCandidate.score - (expectedCandidate ? expectedCandidate.score : 0);
@@ -1566,7 +1565,7 @@ export function validateChordContentKeyConsistency(
       ? expectedCandidate.evidence.diatonicHits / expectedCandidate.evidence.totalChordTokens 
       : 0;
     
-    if (analysis.candidates[0].evidence.totalChordTokens >= 3 &&
+    if (topCandidate.evidence.totalChordTokens >= 3 &&
         expectedCandidate.evidence.tonicHits >= 1 &&
         expectedDiatonicRatio >= 0.75 &&
         scoreGap <= 1.5) {
@@ -1574,11 +1573,11 @@ export function validateChordContentKeyConsistency(
         status: 'MATCH',
         expectedKey,
         detectedKey: expectedCandidate.key,
-        confidence: analysis.candidates[0].confidence,
+        confidence: topCandidate.confidence,
         topScore: topCandidate.score,
         expectedScore: expectedCandidate.score,
         scoreGap,
-        totalChordTokens: analysis.candidates[0].evidence.totalChordTokens
+        totalChordTokens: topCandidate.evidence.totalChordTokens
       };
     }
   }
@@ -1587,8 +1586,8 @@ export function validateChordContentKeyConsistency(
     ? expectedCandidate.evidence.diatonicHits / expectedCandidate.evidence.totalChordTokens 
     : 0;
 
-  if (analysis.candidates[0].evidence.totalChordTokens >= 4 &&
-      (analysis.candidates[0].confidence === 'high' || analysis.candidates[0].confidence === 'medium') &&
+  if (topCandidate.evidence.totalChordTokens >= 4 &&
+      (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium') &&
       scoreGap >= 3 &&
       (!expectedCandidate || expectedCandidate.evidence.tonicHits === 0) &&
       expectedDiatonicRatio2 <= 0.25) {
@@ -1596,11 +1595,11 @@ export function validateChordContentKeyConsistency(
       status: 'MISMATCH',
       expectedKey,
       detectedKey: topCandidate.key,
-      confidence: analysis.candidates[0].confidence,
+      confidence: topCandidate.confidence,
       topScore: topCandidate.score,
       expectedScore: expectedCandidate ? expectedCandidate.score : 0,
       scoreGap,
-      totalChordTokens: analysis.candidates[0].evidence.totalChordTokens
+      totalChordTokens: topCandidate.evidence.totalChordTokens
     };
   }
 
@@ -1608,10 +1607,10 @@ export function validateChordContentKeyConsistency(
     status: 'INDETERMINATE',
     expectedKey,
     detectedKey: topCandidate.key,
-    confidence: analysis.candidates[0].confidence,
+    confidence: topCandidate.confidence,
     topScore: topCandidate.score,
     expectedScore: expectedCandidate ? expectedCandidate.score : 0,
     scoreGap,
-    totalChordTokens: analysis.candidates[0].evidence.totalChordTokens
+    totalChordTokens: topCandidate.evidence.totalChordTokens
   };
 }

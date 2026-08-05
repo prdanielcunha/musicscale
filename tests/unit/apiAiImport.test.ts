@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import app from '../../server';
+import { areKeysEnharmonicallyEquivalent } from '../../utils/chordEngine';
 
 // Create a state object that we can mutate in tests
 const geminiMockState = vi.hoisted(() => ({
@@ -138,8 +139,7 @@ describe('AI Import API Backend Normalization', () => {
     expect(res.body.details.error).toBe("CHORD_CONTENT_KEY_MISMATCH");
     expect(res.body.details.expectedKey).toBe("F#");
     // Ensure detected key is enharmonically equivalent to G
-    const validGEquivalents = ['G', 'F##', 'Abb'];
-    expect(validGEquivalents.includes(res.body.details.detectedKey)).toBe(true);
+    expect(areKeysEnharmonicallyEquivalent(res.body.details.detectedKey, 'G')).toBe(true);
     
     expect(res.body.song).toBeUndefined();
   });
