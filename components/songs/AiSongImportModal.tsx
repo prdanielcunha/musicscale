@@ -28,6 +28,20 @@ import { useMusicScaleFeature } from "../../hooks/useMusicScaleEntitlements";
 import { auth } from "../../services/firebase";
 import { FeatureLockedCard } from "../premium/EntitlementGates";
 
+export const mergeAiImportResponse = (data: any) => {
+  if (!data) return null;
+  const result = data.result || {};
+  const song = data.song || {};
+  return {
+    ...result,
+    ...song,
+    metadata: {
+      ...(result.metadata || {}),
+      ...(song.metadata || {})
+    }
+  };
+};
+
 const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, defaultOptions }) => {
   const { t } = useTranslation();
   const { userProfile, permissions, organization } = useAuth();
@@ -217,7 +231,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
       
 
 
-      setPreviewData(data.song || data.result);
+      setPreviewData(mergeAiImportResponse(data));
       setStep("preview");
     } catch (err: any) {
       console.error(err);

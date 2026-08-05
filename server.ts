@@ -32,7 +32,9 @@ import {
   validateNoChordListAtStartOfChords, 
   validateNoChordLinesInLyrics,
   validateLyricsHasOnlySingableSections,
-  stripTablatureArtifacts
+  stripTablatureArtifacts,
+  normalizeKey,
+  isValidKey
 } from "./utils/chordEngine.js";
 import dotenv from "dotenv";
 import fs from "fs";
@@ -2989,6 +2991,10 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
         }
       });
 
+      if (result.metadata && result.metadata.normalizedToConcertKey === true && result.metadata.declaredKey && isValidKey(result.metadata.declaredKey)) {
+        result.metadata.chordContentKey = normalizeKey(result.metadata.declaredKey);
+      }
+
       return res.json({
         ok: true,
         song: {
@@ -3007,7 +3013,8 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
           version: result.version,
           rhythm: result.rhythm,
           sections: result.sections,
-          language: result.language || "pt"
+          language: result.language || "pt",
+          metadata: result.metadata
         },
         result,
         processingTimeMs,

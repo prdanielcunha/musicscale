@@ -5,19 +5,37 @@ import app from '../../server';
 // Mock dependencies
 vi.mock('@google/genai', () => {
   const generateContentMock = vi.fn().mockResolvedValue({
-    response: { text: () => "{}" }
+    text: JSON.stringify({
+      capitalizedTitle: "Test Song",
+      capitalizedArtist: "Test Artist",
+      originalKey: "F#",
+      cleanChords: "[Intro] F#  C#/E#  D#m  B",
+      cleanLyrics: "Hello world\nAnother line",
+      sections: ["Intro"]
+    })
   });
   return {
-    GoogleGenAI: vi.fn().mockImplementation(() => ({
-      models: {
+    GoogleGenAI: class {
+      models = {
         generateContent: generateContentMock
-      }
-    }))
+      };
+    }
+  };
+});
+
+vi.mock('../../services/server/aiRequestSecurity', async () => {
+  const actual = await vi.importActual('../../services/server/aiRequestSecurity') as any;
+  return {
+    ...actual,
+    authorizeAiRequest: vi.fn().mockResolvedValue({
+      ok: true,
+      context: { uid: 'test-uid' }
+    })
   };
 });
 
 vi.mock('../../services/firebaseAdmin', async () => {
-  const actual = await vi.importActual('../../services/firebaseAdmin');
+  const actual = await vi.importActual('../../services/firebaseAdmin') as any;
   return {
     ...actual,
     adminAuth: {
@@ -39,19 +57,46 @@ vi.mock('../../services/firebaseAdmin', async () => {
 
 describe('AI Import API Backend Normalization', () => {
   
-  it('should process the request with normalized text', async () => {
-    const encodedText = "tom:%20G%0A%0A%5BIntro%5D%20G%20C9%20Em7%20D";
+  it('should process the request and preserve provenance metadata', async () => {
+    const inputText = `Tom: F#
+Capotraste: 2
+Forma dos acordes no tom de E
+
+[Intro] E  B/D#  C#m  A`;
     
     const res = await request(app)
       .post('/api/ai-import')
       .set('Authorization', 'Bearer fake-token')
       .send({
-        rawText: encodedText,
+        rawText: inputText,
         orgId: 'test-org',
         userId: 'test-uid'
       });
       
-    // Should pass through successfully since Gemini is mocked and returns {}
-    expect(res.status).not.toBe(500);
+    console.log(res.body); expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+
+    // Validate metadata in song
+    expect(res.body.song.metadata).toBeDefined();
+    expect(res.body.song.metadata.declaredKey).toBe("F#");
+    expect(res.body.song.metadata.shapeKey).toBe("E");
+    expect(res.body.song.metadata.capo).toBe(2);
+    expect(res.body.song.metadata.transpositionSemitones).toBe(2);
+    expect(res.body.song.metadata.normalizedToConcertKey).toBe(true);
+    expect(res.body.song.metadata.chordContentKey).toBe("F#");
+
+    // Validate metadata in result
+    expect(res.body.result.metadata).toBeDefined();
+    expect(res.body.result.metadata.declaredKey).toBe("F#");
+    expect(res.body.result.metadata.shapeKey).toBe("E");
+    expect(res.body.result.metadata.capo).toBe(2);
+    expect(res.body.result.metadata.transpositionSemitones).toBe(2);
+    expect(res.body.result.metadata.normalizedToConcertKey).toBe(true);
+    expect(res.body.result.metadata.chordContentKey).toBe("F#");
+
+    // Validate keys
+    expect(res.body.song.key).toBe("F#");
+    expect(res.body.song.originalKey).toBe("F#");
+    expect(res.body.song.selectedKey).toBe("F#");
   });
 });

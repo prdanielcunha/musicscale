@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import AiSongImportModal from '../../components/songs/AiSongImportModal';
+import AiSongImportModal, { mergeAiImportResponse } from '../../components/songs/AiSongImportModal';
 
 // Mock contexts
 vi.mock('../../contexts/ApiContext', () => ({
@@ -69,5 +69,37 @@ describe('AiSongImportModal Fixes', () => {
     // Ensure the textarea is focused
     const textarea = screen.getByPlaceholderText('Cole aqui a letra, a cifra ou o conteúdo completo da música...');
     expect(document.activeElement).toBe(textarea);
+  });
+
+
+  it('correctly merges AI import response preserving metadata', () => {
+    const mockData = {
+      song: {
+        title: "Test Song",
+        metadata: {
+          declaredKey: "C",
+          shapeKey: "G"
+        }
+      },
+      result: {
+        artist: "Test Artist",
+        metadata: {
+          capo: 5,
+          normalizedToConcertKey: true
+        }
+      }
+    };
+
+    const merged = mergeAiImportResponse(mockData);
+    expect(merged).toBeDefined();
+    expect(merged.title).toBe("Test Song");
+    expect(merged.artist).toBe("Test Artist");
+    
+    // Verify metadata was merged
+    expect(merged.metadata).toBeDefined();
+    expect(merged.metadata.declaredKey).toBe("C");
+    expect(merged.metadata.shapeKey).toBe("G");
+    expect(merged.metadata.capo).toBe(5);
+    expect(merged.metadata.normalizedToConcertKey).toBe(true);
   });
 });
