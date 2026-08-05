@@ -28,16 +28,49 @@ import { useMusicScaleFeature } from "../../hooks/useMusicScaleEntitlements";
 import { auth } from "../../services/firebase";
 import { FeatureLockedCard } from "../premium/EntitlementGates";
 
-export const mergeAiImportResponse = (data: any) => {
-  if (!data) return null;
-  const result = data.result || {};
-  const song = data.song || {};
+export type AiImportMetadata = Record<string, unknown>;
+
+export interface AiImportPayload {
+  metadata?: AiImportMetadata;
+  [key: string]: unknown;
+}
+
+export interface AiImportApiResponse {
+  song?: unknown;
+  result?: unknown;
+}
+
+const isPlainRecord = (
+  value: unknown
+): value is Record<string, unknown> => {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+};
+
+export const mergeAiImportResponse = (data: unknown) => {
+  if (!isPlainRecord(data)) return null;
+
+  const rawResult = data.result;
+  const rawSong = data.song;
+
+  const safeResult = isPlainRecord(rawResult) ? rawResult : {};
+  const safeSong = isPlainRecord(rawSong) ? rawSong : {};
+
+  const rawResultMetadata = safeResult.metadata;
+  const rawSongMetadata = safeSong.metadata;
+
+  const safeResultMetadata = isPlainRecord(rawResultMetadata) ? rawResultMetadata : {};
+  const safeSongMetadata = isPlainRecord(rawSongMetadata) ? rawSongMetadata : {};
+
   return {
-    ...result,
-    ...song,
+    ...safeResult,
+    ...safeSong,
     metadata: {
-      ...(result.metadata || {}),
-      ...(song.metadata || {})
+      ...safeResultMetadata,
+      ...safeSongMetadata
     }
   };
 };

@@ -73,7 +73,7 @@ Forma dos acordes no tom de E
         userId: 'test-uid'
       });
       
-    console.log(res.body); expect(res.status).toBe(200);
+    expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
 
     // Validate metadata in song
