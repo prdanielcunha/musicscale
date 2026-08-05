@@ -96,6 +96,7 @@ describe('AI Import API Backend Normalization', () => {
     expect(res.body.song.metadata.transpositionSemitones).toBe(2);
     expect(res.body.song.metadata.normalizedToConcertKey).toBe(true);
     expect(res.body.song.metadata.chordContentKey).toBe("F#");
+    expect(res.body.song.metadata.chordContentKeyValidationStatus).toBe("MATCH");
 
     // Validate metadata in result
     expect(res.body.result.metadata).toBeDefined();
@@ -105,6 +106,7 @@ describe('AI Import API Backend Normalization', () => {
     expect(res.body.result.metadata.transpositionSemitones).toBe(2);
     expect(res.body.result.metadata.normalizedToConcertKey).toBe(true);
     expect(res.body.result.metadata.chordContentKey).toBe("F#");
+    expect(res.body.result.metadata.chordContentKeyValidationStatus).toBe("MATCH");
 
     // Validate keys
     expect(res.body.song.key).toBe("F#");
@@ -137,11 +139,59 @@ describe('AI Import API Backend Normalization', () => {
     expect(res.body.ok).toBe(false);
     expect(res.body.code).toBe("PARSING");
     expect(res.body.details.error).toBe("CHORD_CONTENT_KEY_MISMATCH");
+    expect(res.body.details.validationStatus).toBe("MISMATCH");
     expect(res.body.details.expectedKey).toBe("F#");
     // Ensure detected key is enharmonically equivalent to G
     expect(typeof res.body.details.detectedKey).toBe("string");
     expect(areKeysEnharmonicallyEquivalent(res.body.details.detectedKey, 'G')).toBe(true);
     
     expect(res.body.song).toBeUndefined();
+  });
+
+  it('should return INDETERMINATE when automatic confirmation is inconclusive', async () => {
+    geminiMockState.text = JSON.stringify({
+      capitalizedTitle: "Test Song",
+      capitalizedArtist: "Test Artist",
+      originalKey: "C",
+      cleanChords: "[Intro] F  G",
+      cleanLyrics: "Hello world\nAnother line",
+      sections: ["Intro"]
+    });
+
+    const inputText = `Tom: C\nCapotraste: 5\nForma dos acordes no tom de G\n\n[Intro]\nG  G  D  Em  C`;
+    
+    const res = await request(app)
+      .post('/api/ai-import')
+      .set('Authorization', 'Bearer fake-token')
+      .send({
+        rawText: inputText,
+        orgId: 'test-org',
+        userId: 'test-uid'
+      });
+      
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+
+    // Validate metadata in song
+    expect(res.body.song.metadata.declaredKey).toBe("C");
+    expect(res.body.song.metadata.shapeKey).toBe("G");
+    expect(res.body.song.metadata.capo).toBe(5);
+    expect(res.body.song.metadata.transpositionSemitones).toBe(5);
+    expect(res.body.song.metadata.normalizedToConcertKey).toBe(true);
+    expect(res.body.song.metadata.chordContentKeyValidationStatus).toBe("INDETERMINATE");
+    expect(res.body.song.metadata.chordContentKey).toBeUndefined();
+
+    // Validate metadata in result
+    expect(res.body.result.metadata.declaredKey).toBe("C");
+    expect(res.body.result.metadata.shapeKey).toBe("G");
+    expect(res.body.result.metadata.capo).toBe(5);
+    expect(res.body.result.metadata.transpositionSemitones).toBe(5);
+    expect(res.body.result.metadata.normalizedToConcertKey).toBe(true);
+    expect(res.body.result.metadata.chordContentKeyValidationStatus).toBe("INDETERMINATE");
+    expect(res.body.result.metadata.chordContentKey).toBeUndefined();
+
+    // Check warnings
+    expect(Array.isArray(res.body.result.warnings)).toBe(true);
+    expect(res.body.result.warnings.includes("Não foi possível confirmar automaticamente o tom físico dos acordes.")).toBe(true);
   });
 });

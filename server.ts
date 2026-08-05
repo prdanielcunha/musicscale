@@ -48,6 +48,12 @@ import { SongDiscoveryInboxService } from "./services/server/songDiscoveryInboxS
 import { analyzeInboxBatch } from "./services/server/songInboxAnalyzer.js";
 import { fixCandidatesWithoutTitle } from "./services/server/fixCandidatesWithoutTitle.js";
 import { buildSanitizedSnapshot } from "./utils/songDiscovery/snapshotSanitizer.js";
+type AiChordContentKeyValidationStatus =
+  | "MATCH"
+  | "MISMATCH"
+  | "INDETERMINATE"
+  | "NO_CHORDS";
+
 import { backfillGlobalSongs } from "./services/server/globalSongsBackfill.js";
 import { reanalyzeCandidates } from "./services/server/curationReanalyzer.js";
 import { extractSongIdentity } from "./utils/songDiscovery/identityGenerator.js";
@@ -2965,14 +2971,19 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
         }
       }
 
+      if (result.metadata) {
+        delete result.metadata.chordContentKey;
+        delete result.metadata.chordContentKeyValidationStatus;
+      }
+
       if (result.metadata && result.metadata.normalizedToConcertKey === true && result.metadata.declaredKey && isValidKey(result.metadata.declaredKey)) {
         const expectedContentKey = normalizeKey(result.metadata.declaredKey);
         const consistencyResult = validateChordContentKeyConsistency(result.chords, expectedContentKey);
         
         if (consistencyResult.status === 'MATCH') {
           result.metadata.chordContentKey = expectedContentKey;
+          result.metadata.chordContentKeyValidationStatus = 'MATCH' as AiChordContentKeyValidationStatus;
         } else if (consistencyResult.status === 'MISMATCH') {
-          delete result.metadata.chordContentKey;
           await finalizeAiImportFinOpsShadowWriteOnce({
             outcome: "GEMINI_ERROR",
             errorCode: "CHORD_CONTENT_KEY_MISMATCH"
@@ -2992,6 +3003,7 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
               "A tonalidade física dos acordes não corresponde ao tom informado pela fonte. Revise a cifra antes de importar.",
               { 
                 error: "CHORD_CONTENT_KEY_MISMATCH",
+                validationStatus: "MISMATCH" as AiChordContentKeyValidationStatus,
                 expectedKey: consistencyResult.expectedKey,
                 detectedKey: consistencyResult.detectedKey,
                 confidence: consistencyResult.confidence,
@@ -3001,13 +3013,13 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
             )
           );
         } else if (consistencyResult.status === 'INDETERMINATE') {
-          delete result.metadata.chordContentKey;
+          result.metadata.chordContentKeyValidationStatus = 'INDETERMINATE' as AiChordContentKeyValidationStatus;
           warnings.push("Não foi possível confirmar automaticamente o tom físico dos acordes.");
           if (overallConfidence === 'high') {
             overallConfidence = 'medium';
           }
         } else if (consistencyResult.status === 'NO_CHORDS') {
-          delete result.metadata.chordContentKey;
+          result.metadata.chordContentKeyValidationStatus = 'NO_CHORDS' as AiChordContentKeyValidationStatus;
         }
       }
 
