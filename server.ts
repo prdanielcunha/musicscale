@@ -34,7 +34,8 @@ import {
   validateLyricsHasOnlySingableSections,
   stripTablatureArtifacts,
   normalizeKey,
-  isValidKey
+  isValidKey,
+  validateChordContentKeyConsistency
 } from "./utils/chordEngine.js";
 import dotenv from "dotenv";
 import fs from "fs";
@@ -2964,6 +2965,51 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
         }
       }
 
+      if (result.metadata && result.metadata.normalizedToConcertKey === true && result.metadata.declaredKey && isValidKey(result.metadata.declaredKey)) {
+        const expectedContentKey = normalizeKey(result.metadata.declaredKey);
+        const consistencyResult = validateChordContentKeyConsistency(result.chords, expectedContentKey);
+        
+        if (consistencyResult.status === 'MATCH') {
+          result.metadata.chordContentKey = expectedContentKey;
+        } else if (consistencyResult.status === 'MISMATCH') {
+          delete result.metadata.chordContentKey;
+          await finalizeAiImportFinOpsShadowWriteOnce({
+            outcome: "GEMINI_ERROR",
+            errorCode: "CHORD_CONTENT_KEY_MISMATCH"
+          });
+          
+          logWarn("10.5_KEY_CONSISTENCY", "Chord content key mismatch", {
+            expectedKey: consistencyResult.expectedKey,
+            detectedKey: consistencyResult.detectedKey,
+            confidence: consistencyResult.confidence,
+            scoreGap: consistencyResult.scoreGap
+          });
+          
+          return res.status(200).json(
+            makeErrorResponse(
+              "PARSING",
+              "A tonalidade física dos acordes não corresponde ao tom informado pela fonte. Revise a cifra antes de importar.",
+              { 
+                error: "CHORD_CONTENT_KEY_MISMATCH",
+                expectedKey: consistencyResult.expectedKey,
+                detectedKey: consistencyResult.detectedKey,
+                confidence: consistencyResult.confidence,
+                scoreGap: consistencyResult.scoreGap
+              },
+              "10.5_KEY_CONSISTENCY"
+            )
+          );
+        } else if (consistencyResult.status === 'INDETERMINATE') {
+          delete result.metadata.chordContentKey;
+          warnings.push("Não foi possível confirmar automaticamente o tom físico dos acordes.");
+          if (overallConfidence === 'high') {
+            overallConfidence = 'medium';
+          }
+        } else if (consistencyResult.status === 'NO_CHORDS') {
+          delete result.metadata.chordContentKey;
+        }
+      }
+
       result.confidence = overallConfidence;
       result.warnings = warnings;
       
@@ -2991,9 +3037,7 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
         }
       });
 
-      if (result.metadata && result.metadata.normalizedToConcertKey === true && result.metadata.declaredKey && isValidKey(result.metadata.declaredKey)) {
-        result.metadata.chordContentKey = normalizeKey(result.metadata.declaredKey);
-      }
+
 
       return res.json({
         ok: true,

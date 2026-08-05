@@ -1510,3 +1510,108 @@ export function validateTransposedPreview(
 
   return { valid: true };
 }
+
+export type ChordContentKeyConsistencyStatus =
+  | 'MATCH'
+  | 'MISMATCH'
+  | 'INDETERMINATE'
+  | 'NO_CHORDS';
+
+export interface ChordContentKeyConsistencyResult {
+  status: ChordContentKeyConsistencyStatus;
+  expectedKey: string;
+  detectedKey?: string;
+  confidence?: 'high' | 'medium' | 'low';
+  topScore?: number;
+  expectedScore?: number;
+  scoreGap?: number;
+  totalChordTokens: number;
+}
+
+export function validateChordContentKeyConsistency(
+  chords: string,
+  expectedKey: string
+): ChordContentKeyConsistencyResult {
+  if (!isValidKey(expectedKey)) {
+    return {
+      status: 'INDETERMINATE',
+      expectedKey,
+      totalChordTokens: 0
+    };
+  }
+
+  const analysis = analyzeChordDocumentKeyCandidates(chords);
+  if (!analysis.candidates || analysis.candidates.length === 0) {
+    return {
+      status: 'NO_CHORDS',
+      expectedKey,
+      totalChordTokens: 0
+    };
+  }
+
+  const normExpectedKey = normalizeKey(expectedKey);
+  let expectedCandidate = null;
+  for (const candidate of analysis.candidates) {
+    if (areKeysEnharmonicallyEquivalent(normalizeKey(candidate.key), normExpectedKey)) {
+      expectedCandidate = candidate;
+      break;
+    }
+  }
+
+  const topCandidate = analysis.candidates[0];
+  const scoreGap = topCandidate.score - (expectedCandidate ? expectedCandidate.score : 0);
+
+  if (expectedCandidate) {
+    const expectedDiatonicRatio = expectedCandidate.evidence.totalChordTokens > 0 
+      ? expectedCandidate.evidence.diatonicHits / expectedCandidate.evidence.totalChordTokens 
+      : 0;
+    
+    if (analysis.candidates[0].evidence.totalChordTokens >= 3 &&
+        expectedCandidate.evidence.tonicHits >= 1 &&
+        expectedDiatonicRatio >= 0.75 &&
+        scoreGap <= 1.5) {
+      return {
+        status: 'MATCH',
+        expectedKey,
+        detectedKey: expectedCandidate.key,
+        confidence: analysis.candidates[0].confidence,
+        topScore: topCandidate.score,
+        expectedScore: expectedCandidate.score,
+        scoreGap,
+        totalChordTokens: analysis.candidates[0].evidence.totalChordTokens
+      };
+    }
+  }
+
+  const expectedDiatonicRatio2 = expectedCandidate && expectedCandidate.evidence.totalChordTokens > 0 
+    ? expectedCandidate.evidence.diatonicHits / expectedCandidate.evidence.totalChordTokens 
+    : 0;
+
+  if (analysis.candidates[0].evidence.totalChordTokens >= 4 &&
+      (analysis.candidates[0].confidence === 'high' || analysis.candidates[0].confidence === 'medium') &&
+      scoreGap >= 3 &&
+      (!expectedCandidate || expectedCandidate.evidence.tonicHits === 0) &&
+      expectedDiatonicRatio2 <= 0.25) {
+    return {
+      status: 'MISMATCH',
+      expectedKey,
+      detectedKey: topCandidate.key,
+      confidence: analysis.candidates[0].confidence,
+      topScore: topCandidate.score,
+      expectedScore: expectedCandidate ? expectedCandidate.score : 0,
+      scoreGap,
+      totalChordTokens: analysis.candidates[0].evidence.totalChordTokens
+    };
+  }
+
+  return {
+    status: 'INDETERMINATE',
+    expectedKey,
+    detectedKey: topCandidate.key,
+    confidence: analysis.candidates[0].confidence,
+    topScore: topCandidate.score,
+    expectedScore: expectedCandidate ? expectedCandidate.score : 0,
+    scoreGap,
+    totalChordTokens: analysis.candidates[0].evidence.totalChordTokens
+  };
+}

@@ -251,3 +251,37 @@ describe('validateTransposedPreview', () => {
     expect(val.error).toContain('letra foi alterada');
   });
 });
+
+import { validateChordContentKeyConsistency } from '../../utils/chordEngine';
+
+describe('validateChordContentKeyConsistency', () => {
+  it('identifies a MATCH in F#', () => {
+    const res = validateChordContentKeyConsistency("F# C#/E# D#m B", "F#");
+    expect(res.status).toBe('MATCH');
+    expect(res.expectedKey).toBe('F#');
+    expect(res.detectedKey).toBe('F#'); // or Gb depending on the engine
+    expect(res.totalChordTokens).toBe(4);
+  });
+
+  it('identifies a MATCH enharmonic', () => {
+    const res = validateChordContentKeyConsistency("F# C#/E# D#m B", "Gb");
+    expect(res.status).toBe('MATCH');
+  });
+
+  it('identifies a clear MISMATCH', () => {
+    const res = validateChordContentKeyConsistency("G D/F# Em C", "F#");
+    expect(res.status).toBe('MISMATCH');
+    expect(res.scoreGap).toBeGreaterThanOrEqual(3);
+  });
+
+  it('identifies an INDETERMINATE relative', () => {
+    const res = validateChordContentKeyConsistency("C G Am F", "Am");
+    expect(res.status).toBe('INDETERMINATE');
+  });
+
+  it('identifies NO_CHORDS', () => {
+    const res = validateChordContentKeyConsistency("Grande é o Senhor e digno de louvor", "G");
+    expect(res.status).toBe('NO_CHORDS');
+    expect(res.totalChordTokens).toBe(0);
+  });
+});
