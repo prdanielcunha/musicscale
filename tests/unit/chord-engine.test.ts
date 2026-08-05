@@ -259,19 +259,24 @@ describe('validateChordContentKeyConsistency', () => {
     const res = validateChordContentKeyConsistency("F# C#/E# D#m B", "F#");
     expect(res.status).toBe('MATCH');
     expect(res.expectedKey).toBe('F#');
-    expect(res.detectedKey).toBe('F#'); // or Gb depending on the engine
+    expect(typeof res.detectedKey).toBe("string");
+    expect(areKeysEnharmonicallyEquivalent(res.detectedKey!, "F#")).toBe(true);
     expect(res.totalChordTokens).toBe(4);
   });
 
   it('identifies a MATCH enharmonic', () => {
     const res = validateChordContentKeyConsistency("F# C#/E# D#m B", "Gb");
     expect(res.status).toBe('MATCH');
+    expect(typeof res.detectedKey).toBe("string");
+    expect(areKeysEnharmonicallyEquivalent(res.detectedKey!, "Gb")).toBe(true);
   });
 
   it('identifies a clear MISMATCH', () => {
     const res = validateChordContentKeyConsistency("G D/F# Em C", "F#");
     expect(res.status).toBe('MISMATCH');
     expect(res.scoreGap).toBeGreaterThanOrEqual(3);
+    expect(typeof res.detectedKey).toBe("string");
+    expect(areKeysEnharmonicallyEquivalent(res.detectedKey!, "G")).toBe(true);
   });
 
   it('identifies an INDETERMINATE relative', () => {
@@ -286,8 +291,10 @@ describe('validateChordContentKeyConsistency', () => {
   });
 
   it('handles INVALID expectedKey as INDETERMINATE (does not throw)', () => {
-    const res = validateChordContentKeyConsistency("C G Am F", "INVALID_KEY");
+    const res = validateChordContentKeyConsistency("C G Am F", "INVALID");
     expect(res.status).toBe('INDETERMINATE');
-    expect(res.expectedKey).toBe('INVALID_KEY');
+    expect(res.expectedKey).toBe('INVALID');
+    expect(res.totalChordTokens).toBe(0);
+    expect(res.detectedKey).toBeUndefined();
   });
 });

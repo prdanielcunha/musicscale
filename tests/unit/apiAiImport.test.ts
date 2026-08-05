@@ -139,6 +139,7 @@ describe('AI Import API Backend Normalization', () => {
     expect(res.body.details.error).toBe("CHORD_CONTENT_KEY_MISMATCH");
     expect(res.body.details.expectedKey).toBe("F#");
     // Ensure detected key is enharmonically equivalent to G
+    expect(typeof res.body.details.detectedKey).toBe("string");
     expect(areKeysEnharmonicallyEquivalent(res.body.details.detectedKey, 'G')).toBe(true);
     
     expect(res.body.song).toBeUndefined();
