@@ -326,6 +326,31 @@
       "leader_future_subtitle": "Hay programaciones que requieren tu atención.",
       "draft_title": "Hola, {{name}}.",
       "draft_subtitle": "Tienes un borrador de programación por terminar."
+    },
+    "explore": {
+      "eyebrow": "Descubre recursos",
+      "title": "Explora más en MusicScale",
+      "description": "Herramientas que ayudan a tu equipo a preparar repertorios, ensayos y cultos con mayor claridad.",
+      "libraryBadge": "Curaduría MusicScale",
+      "libraryTitle": "Biblioteca Viva",
+      "libraryDescription": "Encuentra acordes organizados, tonos, versiones y repertorios listos para importar a tu ministerio.",
+      "libraryBenefitChords": "Acordes organizados",
+      "libraryBenefitKeys": "Tonos y versiones",
+      "libraryBenefitReady": "Listas para importar",
+      "libraryCta": "Explorar Biblioteca Viva",
+      "aiBadge": "Organización inteligente",
+      "aiTitle": "Importar con IA",
+      "aiDescription": "Pega una letra o acordes y recibe una estructura organizada para revisar antes de guardar.",
+      "aiCta": "Importar una canción",
+      "performanceBadge": "Para el escenario",
+      "performanceTitle": "Modo Performance",
+      "performanceDescription": "Lectura limpia de letras y acordes para ensayos, prueba de sonido y cultos.",
+      "performanceOpenCta": "Abrir Modo Performance",
+      "performanceScalesCta": "Ver próximas escalas",
+      "activityTitle": "De tu ministerio",
+      "activityDescription": "Sugerencias, canciones recientes y contenidos que merecen atención.",
+      "activityExpand": "Mostrar actividad",
+      "activityCollapse": "Ocultar actividad"
     }
   },
   "songs": {

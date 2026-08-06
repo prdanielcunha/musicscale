@@ -76,12 +76,28 @@ export const DashboardPage: React.FC = () => {
   const { user, organization, isOwner } = useAuth();
   const { populatedScales, populatedBandScales, songs, loading: musicLoading, error: musicError } = useMusic();
   const { suggestions, loading: suggestionsLoading } = useSuggestionsContext();
-  const { openSongDetail, openScaleDetail, openBandScaleDetail, openScaleForm, openBandScaleForm } = useModals();
+  const { openSongDetail, openScaleDetail, openBandScaleDetail, openScaleForm, openBandScaleForm, openAiSongImport } = useModals();
   const { toast } = useToast();
   const { hasCapability } = useCapability();
   const canUsePerformance = hasCapability('musicscale.performance.use');
+  const canImportSongs = hasCapability('musicscale.songs.edit');
   
   const { experience, upcomingEvents, isLoading: experienceLoading } = useHomeExperience();
+
+  const canOpenExplorePerformance = Boolean(
+    canUsePerformance &&
+    experience.event &&
+    experience.event.type === 'music' &&
+    experience.event.songCount > 0
+  );
+
+  const handleExplorePerformance = () => {
+    if (canOpenExplorePerformance && experience.event) {
+      handleOpenPerformance(experience.event);
+      return;
+    }
+    navigate('/scales');
+  };
 
   // Secondary content calculations (kept as before)
   const unreadSuggestions = useMemo(() => {
@@ -428,108 +444,130 @@ export const DashboardPage: React.FC = () => {
             <HomeUpcomingEvents events={upcomingEvents} onOpenEvent={handleOpenEvent} />
           </div>
         )}
+      </div>
 
-        {(unreadSuggestions.length > 0 || recentlyAddedSongs.length > 0 || suggestedForRehearsal.length > 0) && (
-          <div className="pt-2">
-            <HomeSecondaryContent>
-              {unreadSuggestions.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center px-1">
-                    <h4 className="text-sm font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest">
-                      {t("dashboard.secondaryContent.pending_suggestions_section")}
-                    </h4>
+      <div className="pt-2">
+        <HomeSecondaryContent
+          onOpenLibrary={() => navigate('/library')}
+          onOpenAiImport={openAiSongImport}
+          onOpenPerformance={handleExplorePerformance}
+          canImportSongs={canImportSongs}
+          canOpenPerformance={canOpenExplorePerformance}
+        >
+          {unreadSuggestions.length > 0 && (
+            <div className="bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200/60 dark:border-white/[0.05] p-4 shadow-sm flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/15 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-500">
+                    <SuggestionIcon className="w-5 h-5" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                    {t("dashboard.secondaryContent.pending_suggestions_section")}
+                  </h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate("/suggestions")}
+                  className="text-amber-600 dark:text-amber-500 font-medium text-xs flex items-center gap-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded px-1"
+                >
+                  {t("dashboard.viewAll")} <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="flex flex-col">
+                {unreadSuggestions.slice(0, 3).map((suggestion, i) => (
+                  <div key={suggestion.id} className="flex flex-col">
                     <button
+                      type="button"
                       onClick={() => navigate("/suggestions")}
-                      className="text-amber-600 dark:text-amber-500 font-medium text-sm flex items-center gap-1 hover:underline"
+                      className="w-full text-left py-2.5 px-3 rounded-xl flex items-center gap-3 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03] active:bg-slate-100 dark:active:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 min-h-[44px]"
                     >
-                      {t("dashboard.viewAll")} <ArrowRight className="w-4 h-4" />
+                      <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <p className="font-semibold text-[15px] text-slate-900 dark:text-white truncate">
+                          {suggestion.songs.length === 1
+                            ? suggestion.songs[0].title
+                            : t("dashboard.secondaryContent.songs_suggested_other", { count: suggestion.songs.length })}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                          {t("dashboard.secondaryContent.by_author_suggestion", { name: suggestion.createdBy.name })}
+                        </p>
+                      </div>
                     </button>
+                    {i !== Math.min(unreadSuggestions.length, 3) - 1 && <div className="h-px bg-slate-100 dark:bg-slate-800/60 mx-3 my-0.5" />}
                   </div>
-                  <div className="space-y-2">
-                    {unreadSuggestions.slice(0, 3).map((suggestion) => (
-                      <button
-                        key={suggestion.id}
-                        onClick={() => navigate("/suggestions")}
-                        className="w-full text-left rounded-2xl py-3 px-3 flex items-center gap-3 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03] border border-transparent hover:border-slate-100 dark:hover:border-white/5"
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-500 flex items-center justify-center shrink-0">
-                          <SuggestionIcon className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-slate-900 dark:text-white truncate text-sm">
-                            {suggestion.songs.length === 1
-                              ? suggestion.songs[0].title
-                              : t("dashboard.secondaryContent.songs_suggested_other", { count: suggestion.songs.length })}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                            {t("dashboard.secondaryContent.by_author_suggestion", { name: suggestion.createdBy.name })}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                ))}
+              </div>
+            </div>
+          )}
 
-              {recentlyAddedSongs.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 px-1">
-                    <PlusSquare className="w-4 h-4 text-blue-600 dark:text-blue-500" />
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
-                      {t("dashboard.secondaryContent.new_songs_section")}
-                    </h4>
-                  </div>
-                  <div className="space-y-2">
-                    {recentlyAddedSongs.map((song) => (
-                      <button
-                        key={song.id}
-                        onClick={() => openSongDetail(song)}
-                        className="w-full text-left rounded-2xl py-2 px-3 flex flex-col transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03] border border-transparent hover:border-slate-100 dark:hover:border-white/5"
-                      >
-                        <span className="font-semibold text-slate-900 dark:text-white text-sm truncate">{song.title}</span>
-                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{song.artist}</span>
-                      </button>
-                    ))}
-                  </div>
+          {recentlyAddedSongs.length > 0 && (
+            <div className="bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200/60 dark:border-white/[0.05] p-4 shadow-sm flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/15 flex items-center justify-center shrink-0 text-blue-600 dark:text-blue-500">
+                  <PlusSquare className="w-5 h-5" />
                 </div>
-              )}
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                  {t("dashboard.secondaryContent.new_songs_section")}
+                </h4>
+              </div>
+              <div className="flex flex-col">
+                {recentlyAddedSongs.map((song, i) => (
+                  <div key={song.id} className="flex flex-col">
+                    <button
+                      type="button"
+                      onClick={() => openSongDetail(song)}
+                      className="w-full text-left py-2.5 px-3 rounded-xl flex items-center gap-3 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03] active:bg-slate-100 dark:active:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[44px]"
+                    >
+                      <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <p className="font-semibold text-[15px] text-slate-900 dark:text-white truncate">{song.title}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{song.artist}</p>
+                      </div>
+                    </button>
+                    {i !== recentlyAddedSongs.length - 1 && <div className="h-px bg-slate-100 dark:bg-slate-800/60 mx-3 my-0.5" />}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-              {suggestedForRehearsal.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 px-1">
-                    <RefreshCcw className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
-                      {t("dashboard.secondaryContent.suggested_rehearsal_section")}
-                    </h4>
-                  </div>
-                  <div className="space-y-2">
-                    {suggestedForRehearsal.map((song, i) => (
-                      <button
-                        key={`${song.id}-${i}`}
-                        onClick={() => openSongDetail(song as any)}
-                        className="w-full text-left rounded-2xl py-2 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03] border border-transparent hover:border-slate-100 dark:hover:border-white/5"
-                      >
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-semibold text-slate-900 dark:text-white text-sm truncate">{song.title}</span>
-                          <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{song.artist}</span>
-                        </div>
-                        <span className={`self-start sm:self-auto px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${song.tagBg} ${song.tagColor} border`}>
-                          {song.reasonCode === "least-played"
-                            ? t("dashboard.secondaryContent.least_played_reason")
-                            : song.reasonCode === "newly-added"
-                              ? t("dashboard.secondaryContent.newly_added_reason")
-                              : song.reasonCode === "review"
-                                ? t("dashboard.secondaryContent.review_reason")
-                                : song.reasonCode}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+          {suggestedForRehearsal.length > 0 && (
+            <div className="bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200/60 dark:border-white/[0.05] p-4 shadow-sm flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/15 flex items-center justify-center shrink-0 text-indigo-600 dark:text-indigo-400">
+                  <RefreshCcw className="w-5 h-5" />
                 </div>
-              )}
-            </HomeSecondaryContent>
-          </div>
-        )}
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                  {t("dashboard.secondaryContent.suggested_rehearsal_section")}
+                </h4>
+              </div>
+              <div className="flex flex-col">
+                {suggestedForRehearsal.map((song, i) => (
+                  <div key={`${song.id}-${i}`} className="flex flex-col">
+                    <button
+                      type="button"
+                      onClick={() => openSongDetail(song as any)}
+                      className="w-full text-left py-2.5 px-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03] active:bg-slate-100 dark:active:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 min-h-[44px]"
+                    >
+                      <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <p className="font-semibold text-[15px] text-slate-900 dark:text-white truncate">{song.title}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{song.artist}</p>
+                      </div>
+                      <span className={`self-start sm:self-auto px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${song.tagBg} ${song.tagColor} border border-transparent mt-1 sm:mt-0`}>
+                        {song.reasonCode === "least-played"
+                          ? t("dashboard.secondaryContent.least_played_reason")
+                          : song.reasonCode === "newly-added"
+                            ? t("dashboard.secondaryContent.newly_added_reason")
+                            : song.reasonCode === "review"
+                              ? t("dashboard.secondaryContent.review_reason")
+                              : song.reasonCode}
+                      </span>
+                    </button>
+                    {i !== suggestedForRehearsal.length - 1 && <div className="h-px bg-slate-100 dark:bg-slate-800/60 mx-3 my-0.5" />}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </HomeSecondaryContent>
       </div>
 
       {isOwner && (

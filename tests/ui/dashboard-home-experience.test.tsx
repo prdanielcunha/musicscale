@@ -54,6 +54,7 @@ const mockOpenBandScaleDetail = vi.fn();
 const mockOpenSongDetail = vi.fn();
 const mockOpenScaleForm = vi.fn();
 const mockOpenBandScaleForm = vi.fn();
+const mockOpenAiSongImport = vi.fn();
 vi.mock('../../contexts/ModalContext', () => ({
   useModals: () => ({
     openScaleDetail: mockOpenScaleDetail,
@@ -61,6 +62,7 @@ vi.mock('../../contexts/ModalContext', () => ({
     openSongDetail: mockOpenSongDetail,
     openScaleForm: mockOpenScaleForm,
     openBandScaleForm: mockOpenBandScaleForm,
+    openAiSongImport: mockOpenAiSongImport,
   })
 }));
 
@@ -259,18 +261,13 @@ describe('Dashboard Home Experience UI', () => {
     expect(screen.queryByText(/Acesso rápido/i)).not.toBeInTheDocument();
   });
 
-  it('10. Biblioteca Viva não domina o foco', () => {
-    renderWithRouter(<DashboardPage />);
-    expect(screen.queryByText(/Biblioteca Viva/i)).not.toBeInTheDocument();
-  });
-
   it('11. Explorar mais inicia recolhido no celular', () => {
     mockUseSuggestionsContext.mockReturnValue({
       suggestions: [{ id: '1', isRead: false, songs: [{ title: 'Song 1' }], createdBy: { name: 'User' } }],
       loading: false
     });
     renderWithRouter(<DashboardPage />);
-    const exploreBtnText = screen.getAllByText('Explorar mais')[1];
+    const exploreBtnText = screen.getAllByText('Do seu ministério')[1];
     const exploreBtn = exploreBtnText.closest('button');
     expect(exploreBtn).not.toBeNull();
     expect(exploreBtn!.getAttribute('aria-expanded')).toBe('false');
@@ -282,7 +279,7 @@ describe('Dashboard Home Experience UI', () => {
       loading: false
     });
     renderWithRouter(<DashboardPage />);
-    const exploreBtnText = screen.getAllByText('Explorar mais')[1];
+    const exploreBtnText = screen.getAllByText('Do seu ministério')[1];
     const exploreBtn = exploreBtnText.closest('button');
     expect(exploreBtn).not.toBeNull();
     fireEvent.click(exploreBtn!);
@@ -516,9 +513,64 @@ describe('Dashboard Home Experience UI', () => {
     expect(screen.getByText('Agenda livre')).toBeInTheDocument();
     expect(screen.queryByTestId('first-scale-journey')).not.toBeInTheDocument();
   });
-});
+describe('Dashboard Premium Explore', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockUseAuth.mockReturnValue({ user: defaultUser, organization: defaultOrg, isOwner: false, isSupportMode: false });
+    mockUseFirstScaleExperience.mockReturnValue({
+      isLoading: false, isEligible: false, isCompleted: true, currentEssentialStep: null
+    });
+    mockUseSuggestionsContext.mockReturnValue({ suggestions: [], loading: false });
+    mockUseMusic.mockReturnValue({ populatedScales: [], populatedBandScales: [], songs: [], loading: false });
+    mockUseCapability.mockReturnValue({ hasCapability: () => true });
+  });
 
-describe('Continuar Preparando (Dashboard)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('1. renderiza a seção explorar e Biblioteca Viva', () => {
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByText('Explore mais no MusicScale')).toBeInTheDocument();
+    expect(screen.getByText('Biblioteca Viva')).toBeInTheDocument();
+  });
+
+  it('2. renderiza AI Import se tiver permissão', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.songs.edit' });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByText('Importar com IA')).toBeInTheDocument();
+  });
+
+  it('3. oculta AI Import se não tiver permissão', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c !== 'musicscale.songs.edit' });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.queryByText('Importar com IA')).not.toBeInTheDocument();
+  });
+
+  it('4. navega para /library ao clicar em Biblioteca Viva', () => {
+    renderWithRouter(<DashboardPage />);
+    const btn = screen.getByText('Explorar Biblioteca Viva →').closest('button') || screen.getByText(/Explorar Biblioteca Viva/i).closest('button');
+    fireEvent.click(btn!);
+    expect(mockNavigate).toHaveBeenCalledWith('/library');
+  });
+
+  it('5. abre importação ao clicar em IA', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.songs.edit' });
+    renderWithRouter(<DashboardPage />);
+    const btn = screen.getByText('Importar música →').closest('button') || screen.getByText(/Importar música/i).closest('button');
+    fireEvent.click(btn!);
+    expect(mockOpenAiSongImport).toHaveBeenCalled();
+  });
+
+  it('6. Performance Mode card mostra "Ver escalas" sem evento ativo', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.performance.use' });
+    renderWithRouter(<DashboardPage />);
+    expect(screen.getByText(/Ver próximas escalas/i)).toBeInTheDocument();
+    const btn = screen.getByText(/Ver próximas escalas/i).closest('button');
+    fireEvent.click(btn!);
+    expect(mockNavigate).toHaveBeenCalledWith('/scales');
+  });
+});
   it('1. experience.event aponta para evento publicado', () => {
     const experience = {
       mode: 'continue-draft',

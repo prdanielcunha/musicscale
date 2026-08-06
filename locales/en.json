@@ -326,6 +326,31 @@
       "leader_future_subtitle": "There are schedules needing your attention.",
       "draft_title": "Hello, {{name}}.",
       "draft_subtitle": "You have a draft schedule to finish."
+    },
+    "explore": {
+      "eyebrow": "Discover features",
+      "title": "Explore more in MusicScale",
+      "description": "Tools that help your team prepare setlists, rehearsals and services with greater clarity.",
+      "libraryBadge": "MusicScale curation",
+      "libraryTitle": "Biblioteca Viva",
+      "libraryDescription": "Find organized chord charts, keys, versions and ready-to-import repertoire for your ministry.",
+      "libraryBenefitChords": "Organized chord charts",
+      "libraryBenefitKeys": "Keys and versions",
+      "libraryBenefitReady": "Ready to import",
+      "libraryCta": "Explore Biblioteca Viva",
+      "aiBadge": "Smart organization",
+      "aiTitle": "Import with AI",
+      "aiDescription": "Paste lyrics or a chord chart and receive an organized structure to review before saving.",
+      "aiCta": "Import a song",
+      "performanceBadge": "Built for the stage",
+      "performanceTitle": "Performance Mode",
+      "performanceDescription": "Clean lyrics and chord chart reading for rehearsals, soundcheck and services.",
+      "performanceOpenCta": "Open Performance Mode",
+      "performanceScalesCta": "View upcoming schedules",
+      "activityTitle": "From your ministry",
+      "activityDescription": "Suggestions, recent songs and content that deserves attention.",
+      "activityExpand": "Show activity",
+      "activityCollapse": "Hide activity"
     }
   },
   "songs": {
