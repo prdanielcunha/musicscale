@@ -23,7 +23,7 @@ const formLabelClass = "block text-sm font-medium text-slate-600 dark:text-gray-
 import { useToast } from "../../contexts/ToastContext";
 import { useModals } from "../../contexts/ModalContext";
 import { submitFeedback } from "../../services/feedback";
-import { normalizePastedSongText } from "../../utils/textNormalizer";
+import { normalizePastedSongText, normalizeSongClipboardPaste } from "../../utils/textNormalizer";
 import { useMusicScaleFeature } from "../../hooks/useMusicScaleEntitlements";
 import { auth } from "../../services/firebase";
 import { FeatureLockedCard } from "../premium/EntitlementGates";
@@ -306,16 +306,39 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
     if (error) setError(null);
     try {
       const pastedText = e.clipboardData.getData("text/plain");
+      const htmlText = e.clipboardData.getData("text/html");
       if (pastedText) {
-        const { text, wasDecoded } = normalizePastedSongText(pastedText);
-        if (wasDecoded) {
+        const { text, titleHint, artistHint, wasDecoded } = normalizeSongClipboardPaste(pastedText, htmlText);
+        if (wasDecoded || titleHint || artistHint) {
           e.preventDefault();
           const target = e.target as HTMLTextAreaElement;
           const start = target.selectionStart;
           const end = target.selectionEnd;
           const currentText = formData.rawText;
           const newText = currentText.substring(0, start) + text + currentText.substring(end);
-          setFormData(prev => ({ ...prev, rawText: newText }));
+          
+          const isTotalReplacement = (start === 0 && end === currentText.length) || currentText.trim() === "";
+
+          setFormData(prev => {
+             let newTitle = prev.title;
+             let newArtist = prev.artist;
+             
+             if (titleHint && artistHint) {
+                if (isTotalReplacement || !prev.title) {
+                   newTitle = titleHint;
+                }
+                if (isTotalReplacement || !prev.artist) {
+                   newArtist = artistHint;
+                }
+             }
+             
+             return { 
+                ...prev, 
+                rawText: newText,
+                title: newTitle,
+                artist: newArtist
+             };
+          });
           
           setTimeout(() => {
             if (target) {
@@ -323,7 +346,11 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
             }
           }, 0);
 
-          success(t("aiImport.decodedTitle", "Conteúdo normalizado"), t("aiImport.decodedMessage", "O conteúdo colado estava codificado e foi convertido para texto normal."));
+          if (wasDecoded && !titleHint) {
+            success(t("aiImport.decodedTitle", "Conteúdo normalizado"), t("aiImport.decodedMessage", "O conteúdo colado estava codificado e foi convertido para texto normal."));
+          } else if (titleHint && artistHint) {
+            success("Identificação recuperada", `Música identificada: ${titleHint} - ${artistHint}`);
+          }
         }
       }
     } catch (err) {

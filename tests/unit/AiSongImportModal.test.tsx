@@ -251,3 +251,136 @@ describe('AiSongImportModal Fixes', () => {
     });
   });
 });
+
+  describe('Paste Identity Recovery', () => {
+    beforeEach(() => {
+       global.fetch = vi.fn();
+    });
+
+    it('should recover title and artist from HTML and fill the form', async () => {
+      render(<AiSongImportModal isOpen={true} onClose={() => {}} />);
+      
+      const textarea = screen.getByPlaceholderText('Cole aqui a letra, a cifra ou o conteúdo completo da música...');
+      
+      const htmlFixture = `
+        <article>
+          <header>
+            <h1>Toda Terra</h1>
+            <a href="/gabriela-rocha/">Gabriela Rocha</a>
+          </header>
+          <div>Tom: E</div>
+        </article>
+      `;
+      const plainText = `Toda TerraGabriela Rocha\nTom: E\n[Intro] E`;
+
+      // Mock paste event
+      const pasteEvent = new Event('paste', { bubbles: true }) as any;
+      pasteEvent.clipboardData = {
+        getData: (type: string) => {
+          if (type === 'text/plain') return plainText;
+          if (type === 'text/html') return htmlFixture;
+          return '';
+        }
+      };
+      
+      Object.assign(pasteEvent, { preventDefault: vi.fn() });
+      
+      fireEvent(textarea, pasteEvent);
+      
+      await waitFor(() => {
+         expect((textarea as HTMLTextAreaElement).value).toContain('Toda Terra\nGabriela Rocha');
+      });
+      
+      (global.fetch as any).mockResolvedValue({
+        ok: true,
+        headers: { get: () => "application/json" },
+        json: async () => ({ song: {}, result: {} })
+      });
+
+      const button = screen.getByText('Processar com IA');
+      fireEvent.click(button);
+      
+      await waitFor(() => {
+         expect((global.fetch as any).mock.calls.length).toBeGreaterThan(0);
+      });
+      
+      const fetchCall = (global.fetch as any).mock.calls[0];
+      const fetchBody = JSON.parse(fetchCall[1].body);
+      
+      expect(fetchBody.title).toBe('Toda Terra');
+      expect(fetchBody.artist).toBe('Gabriela Rocha');
+      expect(fetchBody.rawText).toContain('Toda Terra\nGabriela Rocha\nTom: E');
+    });
+    
+    it('should not overwrite manual values with pasted identity', async () => {
+      render(<AiSongImportModal isOpen={true} onClose={() => {}} />);
+      const textarea = screen.getByPlaceholderText('Cole aqui a letra, a cifra ou o conteúdo completo da música...') as HTMLTextAreaElement;
+      
+      const htmlFixture1 = `
+        <article>
+          <header>
+            <h1>Título Corrigido</h1>
+            <a href="/art/">Artista Corrigido</a>
+          </header>
+          <div>Tom: E</div>
+        </article>
+      `;
+      const plainText1 = `Título CorrigidoArtista Corrigido\nTom: E`;
+
+      const pasteEvent1 = new Event('paste', { bubbles: true }) as any;
+      pasteEvent1.clipboardData = {
+        getData: (type: string) => type === 'text/plain' ? plainText1 : htmlFixture1
+      };
+      
+      textarea.selectionStart = 0;
+      textarea.selectionEnd = 0;
+      Object.assign(pasteEvent1, { preventDefault: vi.fn() });
+      fireEvent(textarea, pasteEvent1);
+      
+      await waitFor(() => {
+         expect(textarea.value).toContain('Título Corrigido');
+      });
+      
+      textarea.selectionStart = textarea.value.length;
+      textarea.selectionEnd = textarea.value.length;
+
+      const htmlFixture2 = `
+        <article>
+          <header>
+            <h1>Outro Titulo</h1>
+            <a href="/art/">Outro Artista</a>
+          </header>
+        </article>
+      `;
+      const plainText2 = `Outro TituloOutro Artista`;
+
+      const pasteEvent2 = new Event('paste', { bubbles: true }) as any;
+      pasteEvent2.clipboardData = {
+        getData: (type: string) => type === 'text/plain' ? plainText2 : htmlFixture2
+      };
+      Object.assign(pasteEvent2, { preventDefault: vi.fn() });
+      fireEvent(textarea, pasteEvent2);
+
+      await waitFor(() => {
+         expect(textarea.value).toContain('Outro Titulo\nOutro Artista');
+      });
+
+      (global.fetch as any).mockResolvedValue({
+        ok: true,
+        headers: { get: () => "application/json" },
+        json: async () => ({ song: {}, result: {} })
+      });
+
+      fireEvent.click(screen.getByText('Processar com IA'));
+      
+      await waitFor(() => {
+         expect((global.fetch as any).mock.calls.length).toBeGreaterThan(0);
+      });
+      
+      const fetchCall = (global.fetch as any).mock.calls[0];
+      const fetchBody = JSON.parse(fetchCall[1].body);
+      
+      expect(fetchBody.title).toBe('Título Corrigido');
+      expect(fetchBody.artist).toBe('Artista Corrigido');
+    });
+  });

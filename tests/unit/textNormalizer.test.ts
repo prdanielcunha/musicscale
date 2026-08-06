@@ -78,3 +78,100 @@ describe('normalizePastedSongText', () => {
     expect(result.transformations).toContain('removed_bom');
   });
 });
+
+import { normalizeSongClipboardPaste } from '../../utils/textNormalizer';
+
+describe('normalizeSongClipboardPaste', () => {
+  it('should recover identity and split text when HTML contains valid headers', () => {
+    const html = `
+      <article>
+        <header>
+          <h1>Toda Terra</h1>
+          <a href="/gabriela-rocha/">
+            Gabriela Rocha
+          </a>
+        </header>
+        <div>Principal</div>
+        <div>Tom: E</div>
+      </article>
+    `;
+    const plainText = `Toda TerraGabriela Rocha\nTom: E\n[Intro] E`;
+    const result = normalizeSongClipboardPaste(plainText, html);
+    
+    expect(result.titleHint).toBe('Toda Terra');
+    expect(result.artistHint).toBe('Gabriela Rocha');
+    expect(result.text).toBe('Toda Terra\nGabriela Rocha\nTom: E\n[Intro] E');
+    expect(result.transformations).toContain('recovered_identity_from_clipboard_html');
+  });
+
+  it('should preserve text unmodified when HTML is missing', () => {
+    const plainText = `Toda TerraGabriela Rocha\nTom: E\n[Intro] E`;
+    const result = normalizeSongClipboardPaste(plainText, '');
+    
+    expect(result.titleHint).toBeNull();
+    expect(result.artistHint).toBeNull();
+    expect(result.text).toBe(plainText);
+  });
+
+  it('should not return high confidence when HTML has only h1', () => {
+    const html = `<h1>Toda Terra</h1><div>Tom: E</div>`;
+    const plainText = `Toda Terra\nTom: E\n[Intro] E`;
+    const result = normalizeSongClipboardPaste(plainText, html);
+    
+    expect(result.titleHint).toBeNull();
+    expect(result.artistHint).toBeNull();
+    expect(result.text).toBe(plainText);
+  });
+
+  it('should skip interface text like "Principal" and find the artist', () => {
+    const html = `
+      <h1>Toda Terra</h1>
+      <a href="/letra">Letra</a>
+      <h2>Gabriela Rocha</h2>
+    `;
+    const plainText = `Toda TerraGabriela Rocha\nTom: E\n[Intro] E`;
+    const result = normalizeSongClipboardPaste(plainText, html);
+    
+    expect(result.titleHint).toBe('Toda Terra');
+    expect(result.artistHint).toBe('Gabriela Rocha');
+    expect(result.text).toBe('Toda Terra\nGabriela Rocha\nTom: E\n[Intro] E');
+  });
+
+  it('should not return high confidence when title and artist are the same', () => {
+    const html = `
+      <h1>Gabriela Rocha</h1>
+      <h2>Gabriela Rocha</h2>
+    `;
+    const plainText = `Gabriela Rocha\nTom: E\n[Intro] E`;
+    const result = normalizeSongClipboardPaste(plainText, html);
+    
+    expect(result.titleHint).toBeNull();
+    expect(result.artistHint).toBeNull();
+    expect(result.text).toBe(plainText);
+  });
+
+  it('should not throw on malformed HTML', () => {
+    const html = `<article><header><h1>Toda Terra</h1</header><a Gabriela Rocha</a>`;
+    const plainText = `Toda TerraGabriela Rocha\nTom: E\n[Intro] E`;
+    const result = normalizeSongClipboardPaste(plainText, html);
+    // As long as it doesn't throw, it passes.
+    expect(result).toBeDefined();
+  });
+
+  it('should not duplicate when text is already split', () => {
+    const html = `
+      <article>
+        <header>
+          <h1>Toda Terra</h1>
+          <a href="/gabriela-rocha/">Gabriela Rocha</a>
+        </header>
+      </article>
+    `;
+    const plainText = `Toda Terra\nGabriela Rocha\nTom: E\n[Intro] E`;
+    const result = normalizeSongClipboardPaste(plainText, html);
+    
+    expect(result.titleHint).toBe('Toda Terra');
+    expect(result.artistHint).toBe('Gabriela Rocha');
+    expect(result.text).toBe('Toda Terra\nGabriela Rocha\nTom: E\n[Intro] E');
+  });
+});
