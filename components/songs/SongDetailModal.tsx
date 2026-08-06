@@ -253,6 +253,7 @@ interface SongDetailModalProps {
   scaleContext: { scaleId?: string, songs: PopulatedSong[]; currentIndex: number } | null;
   onNavigate: (direction: "next" | "previous" | number) => void;
   startInPerformanceMode?: boolean;
+  openMode?: "detail" | "lyrics" | "chords" | "performance";
 }
 
 const statusMap = {
@@ -292,11 +293,12 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
   scaleContext,
   onNavigate,
   startInPerformanceMode,
+  openMode,
 }) => {
   const { t } = useTranslation();
   const api = useApi();
   const { songs, populatedScales: scales } = useMusic();
-  const { openScaleDetail, saveChord, isSubmitting, openFeedback } = useModals();
+  const { openScaleDetail, saveChord, isSubmitting, openFeedback, openPersistedChordKeyRepair } = useModals();
   const { feedbackToast } = useToast();
   const { userProfile } = useAuth();
   const { hasCapability } = useCapability();
@@ -330,7 +332,9 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
       const resolvedSong = scaleContext ? initialSong : (songs.find((s) => s.id === initialSong.id) || initialSong);
       setSong(resolvedSong);
 
-      if (startInPerformanceMode) {
+      const effectiveMode = openMode || (startInPerformanceMode ? "performance" : "detail");
+
+      if (effectiveMode === "performance") {
         if (!performanceStartTime) setPerformanceStartTime(Date.now());
         
         if (resolvedSong.chords) {
@@ -340,6 +344,14 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
         } else {
           setIsLyricsViewerOpen(true);
         }
+      } else if (effectiveMode === "chords") {
+        if (resolvedSong.chords) {
+          setIsChordsViewerOpen(true);
+        } else if (resolvedSong.chordsUrl) {
+          setIsWebViewerOpen(true);
+        }
+      } else if (effectiveMode === "lyrics") {
+        setIsLyricsViewerOpen(true);
       }
     } else {
       setSong(null);
@@ -347,7 +359,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
       setIsWebViewerOpen(false);
       setIsLyricsViewerOpen(false);
     }
-  }, [initialSong, songs, startInPerformanceMode, scaleContext]);
+  }, [initialSong, songs, startInPerformanceMode, openMode, scaleContext]);
 
   const handleClosePerformance = () => {
     setIsChordsViewerOpen(false);
@@ -357,8 +369,11 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
     // Clear recovery state since they explicitly exited
     clearPerformanceState().catch(e => console.error("Could not clear performance state", e));
     
+    const isDirectOpen = startInPerformanceMode || (openMode && openMode !== "detail");
+    
     // Feedback Logic: If they spent more than 8 seconds in performance mode, ask for feedback
-    if (startInPerformanceMode && performanceStartTime && Date.now() - performanceStartTime > 8000) {
+    const isPerformanceRun = startInPerformanceMode || openMode === "performance";
+    if (isPerformanceRun && performanceStartTime && Date.now() - performanceStartTime > 8000) {
        setTimeout(() => {
          feedbackToast(
            "Como foi usar o MusicScale no palco?",
@@ -373,8 +388,8 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
        }, 500);
     }
     
-    // Notify parent to close if it was started right into performance mode
-    if (startInPerformanceMode) {
+    // Notify parent to close if it was started right into performance mode or specific mode
+    if (isDirectOpen) {
       setPerformanceStartTime(null);
       onClose();
     }
@@ -562,6 +577,17 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 flex flex-col justify-center items-center relative overflow-hidden group">
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    {canManageSongs && (
+                       <button
+                         onClick={() => song && openPersistedChordKeyRepair(song, (updatedSong) => setSong(updatedSong))}
+                         className="absolute top-2 right-2 p-1.5 text-white/30 hover:text-white/80 hover:bg-white/10 rounded-lg transition-all focus:outline-none focus:ring-1 focus:ring-indigo-500/30 z-10"
+                         title={t('chordKeyRepair.title', 'Ajustar tom da cifra')}
+                       >
+                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                           <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A1.79 1.79 0 0020 18.25l-5.83-5.83M11.42 15.17l2.43-2.43M11.42 15.17L3 12h8l3-3 3 3h-2l-3.58 3.58M12 3v9h9" />
+                         </svg>
+                       </button>
+                    )}
                     <KeyIcon className="w-4 h-4 text-indigo-400 mb-2" />
                     <span className="text-2xl font-black text-white leading-none mb-1">{song.key || '-'}</span>
                     <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest text-center">Tom</span>
@@ -751,6 +777,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
         onClose={handleClosePerformance}
         song={song}
         onSave={saveChord}
+        onSongUpdate={(updatedSong) => setSong(updatedSong)}
         isSubmitting={isSubmitting}
         scaleContext={scaleContext}
         onNavigate={onNavigate}

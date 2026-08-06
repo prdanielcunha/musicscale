@@ -45,6 +45,7 @@ import { getSongFreshnessStatus } from "../utils/songHelpers";
 import { updateSongFreshnessInBatch, updateSongLanguageInBatch, updateSongTagIdsInBatch } from "../services/musicBatchHelpers";
 import { FreshnessStatus } from "../types";
 import { BulkManagePanel, PendingBulkChanges } from "../components/songs/BulkManagePanel";
+import { buildSearchIndex, searchSongs, getSearchSnippet } from "../utils/searchEngine";
 
 // Icons
 const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -323,7 +324,9 @@ const SongsPage: React.FC = () => {
     }
   }, [searchParams, loading, songs, openSongDetail, setSearchParams]);
 
-  const filteredAndSortedSongs = useMemo(() => {
+  const searchIndex = useMemo(() => buildSearchIndex(songs), [songs]);
+
+  const filteredAndSortedSongsWithMatch = useMemo(() => {
     let processedSongs = [...songs];
 
     if (statusFilter !== "all") {
@@ -356,23 +359,30 @@ const SongsPage: React.FC = () => {
         processedSongs = processedSongs.filter(song => getSongFreshnessStatus(song) === freshnessFilter);
     }
 
-    if (searchTerm) {
-      const lowerSearch = searchTerm.toLowerCase();
-      processedSongs = processedSongs.filter(
-        (song) =>
-          song.title.toLowerCase().includes(lowerSearch) ||
-          song.artist.toLowerCase().includes(lowerSearch),
-      );
-    }
     if (tagFilterIds.length > 0) {
       processedSongs = processedSongs.filter((song) =>
         tagFilterIds.every((tagId) => song.tagIds.includes(tagId)),
       );
     }
 
-    processedSongs.sort((a, b) => a.title.localeCompare(b.title));
-    return processedSongs;
-  }, [songs, statusFilter, contentFilters, searchTerm, tagFilterIds, languageFilter, freshnessFilter]);
+    let results = processedSongs.map(song => ({ song, searchMatch: undefined as import("../utils/searchEngine").SearchMatch | undefined }));
+
+    if (searchTerm) {
+      const allowedIds = new Set(processedSongs.map(song => song.id));
+      const documents = searchIndex.filter(doc => allowedIds.has(doc.song.id));
+      const matches = searchSongs(documents, searchTerm);
+      results = matches.map(match => ({
+        song: match.document.song as PopulatedSong,
+        searchMatch: match
+      }));
+    } else {
+      results.sort((a, b) => a.song.title.localeCompare(b.song.title));
+    }
+
+    return results;
+  }, [songs, searchIndex, statusFilter, contentFilters, searchTerm, tagFilterIds, languageFilter, freshnessFilter]);
+
+  const filteredAndSortedSongs = useMemo(() => filteredAndSortedSongsWithMatch.map(r => r.song), [filteredAndSortedSongsWithMatch]);
 
   const filterCount = useMemo(() => {
     let count = 0;
@@ -885,7 +895,7 @@ const SongsPage: React.FC = () => {
         viewMode === "cards" ? (
           <div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredAndSortedSongs.slice(0, renderLimit).map((song) => (
+              {filteredAndSortedSongsWithMatch.slice(0, renderLimit).map(({ song, searchMatch }) => (
                 <SongCard
                   key={song.id}
                   song={song}
@@ -898,6 +908,8 @@ const SongsPage: React.FC = () => {
                   isSelectionMode={isSelectionMode}
                   isSelected={selectedSongIds.includes(song.id)}
                   onSelectToggle={handleSongSelect}
+                  searchMatch={searchMatch}
+                  searchTerm={searchTerm}
                 />
               ))}
             </div>
@@ -962,7 +974,7 @@ const SongsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-white/[0.04] bg-white dark:bg-transparent">
-                {filteredAndSortedSongs.slice(0, renderLimit).map((song) => {
+                {filteredAndSortedSongsWithMatch.slice(0, renderLimit).map(({ song, searchMatch }) => {
                   const hasLyrics = !!song.lyrics?.trim();
                   const hasChords = !!song.chords?.trim();
                   
@@ -994,22 +1006,33 @@ const SongsPage: React.FC = () => {
                       </td>
                     )}
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        {song.language && song.language !== 'unknown' && song.language !== 'other' && (
-                           <span className="text-[14px] leading-none drop-shadow-sm" title={`Idioma: ${song.language.toUpperCase()}`}>
-                             {song.language === 'pt' ? '🇧🇷' : song.language === 'en' ? '🇺🇸' : song.language === 'es' ? '🇪🇸' : ''}
-                           </span>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          {song.language && song.language !== 'unknown' && song.language !== 'other' && (
+                             <span className="text-[14px] leading-none drop-shadow-sm" title={`Idioma: ${song.language.toUpperCase()}`}>
+                               {song.language === 'pt' ? '🇧🇷' : song.language === 'en' ? '🇺🇸' : song.language === 'es' ? '🇪🇸' : ''}
+                             </span>
+                          )}
+                          <span className="text-[14px] font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">
+                            {song.title}
+                          </span>
+                        </div>
+                        {searchMatch?.matchOrigin === 'lyrics' && searchTerm && (
+                          <span className="text-[11px] text-slate-500 italic mt-0.5 truncate max-w-[200px]">
+                            Na letra: "{getSearchSnippet(song.lyrics, searchTerm)}"
+                          </span>
                         )}
-                        <span className="text-[14px] font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">
-                          {song.title}
-                        </span>
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-[14px] text-slate-500 dark:text-slate-400 font-medium">
                       {song.artist}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-[13px] text-center font-mono font-medium text-slate-600 dark:text-slate-300">
-                      {song.key || "-"}
+                      {searchMatch && searchTerm ? (
+                        <span className="font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">{song.selectedKey || song.key || song.originalKey || "-"}</span>
+                      ) : (
+                        song.key || "-"
+                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-[13px] text-center font-mono font-medium text-slate-600 dark:text-slate-300">
                       {song.bpm || "-"}

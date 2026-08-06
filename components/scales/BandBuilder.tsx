@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, forwardRef, useImperativeHandle, useRef } from "react";
 import { UserProfile, Instrument, BandMember, PopulatedBandScale, PopulatedScale } from "../../types";
 import Button from "../common/Button";
 import { UserIcon } from "../icons/UserIcon";
@@ -17,18 +17,81 @@ interface BandBuilderProps {
   musicScales?: PopulatedScale[];
 }
 
-const BandBuilder: React.FC<BandBuilderProps> = ({
+export interface BandBuilderHandle {
+  focusFirstInstrument(signal?: AbortSignal): Promise<boolean>;
+}
+
+const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
   formData,
   setFormData,
   instrumentsByCat,
   allUsers,
   populatedBandScales,
   musicScales,
-}) => {
+}, ref) => {
   const { t } = useTranslation();
   const [selectedInstruments, setSelectedInstruments] = useState<Instrument[]>([]);
   const [showAllMembers, setShowAllMembers] = useState(false);
   const [mobileTab, setMobileTab] = useState<"functions" | "formation">("functions");
+  const firstInstrumentRef = useRef<HTMLButtonElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    focusFirstInstrument: async (signal?: AbortSignal): Promise<boolean> => {
+       if (signal?.aborted) return false;
+       if (!firstInstrumentRef.current) return false;
+       
+       if (firstInstrumentRef.current.offsetParent === null) {
+          setMobileTab('functions');
+          await new Promise<void>((resolve, reject) => {
+             let rafId: number;
+             const onAbort = () => {
+                cancelAnimationFrame(rafId);
+                reject(new Error('Aborted'));
+             };
+             if (signal?.aborted) return reject(new Error('Aborted'));
+             signal?.addEventListener('abort', onAbort);
+             rafId = requestAnimationFrame(() => {
+                signal?.removeEventListener('abort', onAbort);
+                resolve();
+             });
+          }).catch(() => {});
+          if (signal?.aborted) return false;
+          
+          await new Promise<void>((resolve, reject) => {
+             let rafId: number;
+             const onAbort = () => {
+                cancelAnimationFrame(rafId);
+                reject(new Error('Aborted'));
+             };
+             if (signal?.aborted) return reject(new Error('Aborted'));
+             signal?.addEventListener('abort', onAbort);
+             rafId = requestAnimationFrame(() => {
+                signal?.removeEventListener('abort', onAbort);
+                resolve();
+             });
+          }).catch(() => {});
+          if (signal?.aborted) return false;
+       }
+       
+       if (firstInstrumentRef.current) {
+          firstInstrumentRef.current.focus();
+          if (firstInstrumentRef.current.scrollIntoView) {
+             const rect = firstInstrumentRef.current.getBoundingClientRect();
+             const isVisible = (
+                 rect.top >= 0 &&
+                 rect.left >= 0 &&
+                 rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+                 rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+             );
+             if (!isVisible) {
+               firstInstrumentRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+             }
+          }
+          return true;
+       }
+       return false;
+    }
+  }));
 
   const addAssignment = (userId: string, instrumentId: string) => {
     const currentAssignments = formData.assignments || [];
@@ -214,6 +277,7 @@ const BandBuilder: React.FC<BandBuilderProps> = ({
                 size="sm"
                 className="w-full text-xs font-semibold py-1.5"
                 onClick={() => addAssignment(u.uid, selectedInstruments[0].id)}
+                data-testid={`add-assignment-${u.uid}-${selectedInstruments[0].id}`}
               >
                 {t('bandScaleModal.addAs')} {selectedInstruments[0].name}
               </Button>
@@ -260,6 +324,7 @@ const BandBuilder: React.FC<BandBuilderProps> = ({
                              : "bg-white dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20 border border-slate-200 dark:border-white/10"
                          }`}
                          onClick={() => addAssignment(u.uid, inst.id)}
+                         data-testid={`add-assignment-${u.uid}-${inst.id}`}
                        >
                          {inst.name}
                        </button>
@@ -329,13 +394,15 @@ const BandBuilder: React.FC<BandBuilderProps> = ({
                 {cat.name}
               </h4>
               <div className="flex flex-wrap gap-2">
-                {cat.instruments.map((inst) => {
+                {cat.instruments.map((inst, index) => {
                   const addedCount = currentAssignments.filter((a) => a.instrumentId === inst.id).length;
                   const isSelected = selectedInstruments.some(i => i.id === inst.id);
+                  const isFirst = cat.name === instrumentsByCat[0].name && index === 0;
 
                   return (
                     <button
                       key={inst.id}
+                      ref={isFirst ? firstInstrumentRef : undefined}
                       type="button"
                       onClick={() => {
                         setSelectedInstruments(prev => {
@@ -350,6 +417,7 @@ const BandBuilder: React.FC<BandBuilderProps> = ({
                           ? "border-primary bg-primary/10 text-primary shadow-sm"
                           : "border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1C1E] text-slate-700 dark:text-gray-300 hover:border-primary/50"
                       }`}
+                      data-testid={`select-instrument-${inst.id}`}
                     >
                       {inst.name}
                       {addedCount > 0 && (
@@ -424,6 +492,7 @@ const BandBuilder: React.FC<BandBuilderProps> = ({
                                   variant="ghost"
                                   className="!p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
                                   onClick={() => removeAssignment(a.userId, a.instrumentId)}
+                                  data-testid={`remove-assignment-${a.userId}-${a.instrumentId}`}
                                   title="Remover"
                                 >
                                   <XCircleIcon className="w-4 h-4" />
@@ -509,6 +578,6 @@ const BandBuilder: React.FC<BandBuilderProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default BandBuilder;

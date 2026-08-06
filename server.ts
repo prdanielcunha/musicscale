@@ -20,6 +20,7 @@ import { createFixChordsHandler } from "./services/server/fixChordsHandler.js";
 import { authorizeAiRequest, InMemoryAiRateLimiter } from "./services/server/aiRequestSecurity.js";
 import { createAiFinOpsFirestoreAdapter } from "./services/server/aiFinOpsFirestoreAdapter.js";
 import { resolveAiImportFinOpsReadPath } from "./services/server/aiImportFinOpsReadPath.js";
+import { normalizePastedSongText } from "./utils/textNormalizer.js";
 import { adminDb as db, adminAuth as auth, admin } from "./services/firebaseAdmin.js";
 import { GlobalLibraryCandidateReviewLogServerInput } from './services/server/curationServerTypes.js';
 import { 
@@ -31,7 +32,10 @@ import {
   validateNoChordListAtStartOfChords, 
   validateNoChordLinesInLyrics,
   validateLyricsHasOnlySingableSections,
-  stripTablatureArtifacts
+  stripTablatureArtifacts,
+  normalizeKey,
+  isValidKey,
+  validateChordContentKeyConsistency
 } from "./utils/chordEngine.js";
 import dotenv from "dotenv";
 import fs from "fs";
@@ -44,14 +48,18 @@ import { SongDiscoveryInboxService } from "./services/server/songDiscoveryInboxS
 import { analyzeInboxBatch } from "./services/server/songInboxAnalyzer.js";
 import { fixCandidatesWithoutTitle } from "./services/server/fixCandidatesWithoutTitle.js";
 import { buildSanitizedSnapshot } from "./utils/songDiscovery/snapshotSanitizer.js";
+type AiChordContentKeyValidationStatus =
+  | "MATCH"
+  | "MISMATCH"
+  | "INDETERMINATE"
+  | "NO_CHORDS";
+
 import { backfillGlobalSongs } from "./services/server/globalSongsBackfill.js";
 import { reanalyzeCandidates } from "./services/server/curationReanalyzer.js";
 import { extractSongIdentity } from "./utils/songDiscovery/identityGenerator.js";
 import { preVerifyCandidates, bulkImportCandidates } from './services/server/bulkImportService.js';
 import { BandScaleCommandService } from './services/server/bandScale/bandScaleCommandService.js';
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
-import { createSafeExternalFetch } from "./services/server/safeExternalFetch.js";
-import { fetchAiImportHtmlSafely } from "./services/server/aiImportSafeFetchAdapter.js";
 import { beginAiImportFinOpsWritePath, finalizeAiImportFinOpsWritePath } from "./services/server/aiImportFinOpsWritePath.js";
 
 if (fs.existsSync(".env.local")) {
@@ -70,7 +78,6 @@ function deriveMusicscaleRole(roleName: string): string {
 
 const fixChordsRateLimiter = new InMemoryAiRateLimiter();
 const aiImportRateLimiter = new InMemoryAiRateLimiter();
-const aiImportSafeExternalFetch = createSafeExternalFetch();
 
 const app = express();
 const PORT = 3000;
@@ -1149,7 +1156,12 @@ app.use((err: any, req: any, res: any, next: any) => {
         throw { status: 401, message: "Token de autorização inválido ou ausente." };
       }
       const token = authHeader.split(" ")[1];
-      const decoded = await admin.auth().verifyIdToken(token);
+      let decoded;
+      try {
+        decoded = await admin.auth().verifyIdToken(token);
+      } catch (e: any) {
+        throw { status: 401, message: "Token de autorização inválido ou expirado.", code: 'auth/invalid-token' };
+      }
       authUid = decoded.uid;
 
       orgId = req.headers["x-organization-id"] as string;
@@ -1252,21 +1264,35 @@ app.use((err: any, req: any, res: any, next: any) => {
       });
 
       const durationMs = Date.now() - startTime;
+      const anyResult = result as any;
       console.log(`[MusicScale Publish Command Completed] => ${JSON.stringify({
         correlationId,
         musicScaleId,
-        publishRevision: result.version,
-        eventAssignmentCount: result.eventAssignmentCount,
-        createdResponseCount: result.createdResponseCount,
-        createdNotificationCount: result.createdNotificationCount,
-        broadcastRecipientCount: result.broadcastRecipientCount,
-        fromCache: !!result.fromCache,
+        publishRevision: anyResult.version,
+        eventAssignmentCount: anyResult.eventAssignmentCount,
+        createdResponseCount: anyResult.createdResponseCount,
+        createdNotificationCount: anyResult.createdNotificationCount,
+        broadcastRecipientCount: anyResult.broadcastRecipientCount,
+        fromCache: !!anyResult.fromCache,
         durationMs
       })}`);
 
       return res.status(200).json(result);
     } catch (error: any) {
-      const status = error.status || (error.message?.includes("Permissão") ? 403 : error.message?.includes("idempotência") ? 409 : 400);
+      let status = error.status;
+      if (!status) {
+        if (error.code === 'IDEMPOTENCY_CONFLICT' || error.code === 'BAND_SCALE_ALREADY_LINKED') {
+          status = 409;
+        } else if (error.code === 'TENANT_SCOPE_MISMATCH' || error.message?.includes("Permissão")) {
+          status = 403;
+        } else if (error.code === 'VALIDATION_ERROR' || error.code === 'PAYLOAD_CONFLICT') {
+          status = 400;
+        } else if (error.message?.includes("não encontrada")) {
+          status = 404;
+        } else {
+          status = 400;
+        }
+      }
       console.log(`[MusicScale Publish Command Failed] => ${JSON.stringify({
         correlationId,
         codigo: error.code || status,
@@ -1275,7 +1301,11 @@ app.use((err: any, req: any, res: any, next: any) => {
       })}`);
       
       logger.error(`[MusicScale Command] Publish failed | Correlation ID: ${correlationId}`, error);
-      return res.status(status).json({ error: error.message || String(error), correlationId });
+      return res.status(status).json({
+        error: error.message || String(error),
+        code: error.code || 'UNKNOWN_ERROR',
+        correlationId
+      });
     }
   });
 
@@ -2387,7 +2417,8 @@ app.use((err: any, req: any, res: any, next: any) => {
     };
     // AI_FINOPS_SHADOW_WRITE_FINALIZE_END
 
-    const { rawText, url, title, artist, desiredKey, version, bpm, orgId, userId } = req.body;
+    let { rawText } = req.body;
+    const { url, title, artist, desiredKey, version, bpm, orgId, userId } = req.body;
     
     logInfo("1_INITIAL_PAYLOAD", "Route called with safe parameter summary:", {
       hasRawText: typeof rawText === "string" && rawText.length > 0,
@@ -2431,23 +2462,37 @@ app.use((err: any, req: any, res: any, next: any) => {
     // Validate rawText size and type
     const MAX_AI_IMPORT_RAW_TEXT_CHARS = 64000;
 
-    if (typeof rawText === "string" && rawText.length > MAX_AI_IMPORT_RAW_TEXT_CHARS) {
-      return res.status(413).json(
-        makeErrorResponse(
-          "VALIDATION",
-          "O texto informado é grande demais para importação automática.",
-          { maxChars: MAX_AI_IMPORT_RAW_TEXT_CHARS },
-          "1_INITIAL_PAYLOAD"
-        )
-      );
-    }
-
     if (rawText !== undefined && rawText !== null && typeof rawText !== "string") {
       return res.status(422).json(
         makeErrorResponse(
           "VALIDATION",
           "O texto informado é inválido para importação automática.",
           null,
+          "1_INITIAL_PAYLOAD"
+        )
+      );
+    }
+
+    if (typeof rawText === "string") {
+      const { text: normalized, wasDecoded, transformations } = normalizePastedSongText(rawText);
+      if (wasDecoded) {
+        logInfo("1_INITIAL_PAYLOAD", "Texto colado foi decodificado", {
+          pasteEncodingDetected: true,
+          pasteEncodingDecoded: true,
+          decodePasses: transformations.filter(t => t.startsWith('percent_decoded')).length,
+          rawLength: rawText.length,
+          normalizedLength: normalized.length
+        });
+        rawText = normalized;
+      }
+    }
+
+    if (typeof rawText === "string" && rawText.length > MAX_AI_IMPORT_RAW_TEXT_CHARS) {
+      return res.status(413).json(
+        makeErrorResponse(
+          "VALIDATION",
+          "O texto informado é grande demais para importação automática.",
+          { maxChars: MAX_AI_IMPORT_RAW_TEXT_CHARS },
           "1_INITIAL_PAYLOAD"
         )
       );
@@ -2549,268 +2594,16 @@ app.use((err: any, req: any, res: any, next: any) => {
 
     try {
       // Step 2: URL Normalization and Domain Checking
-      if (url && !textToProcess) {
-        logInfo("2_URL_NORMALIZATION", "Normalizing and sanitizing input URL", {
-          hasUrl: !!url
-        });
-        try {
-          let cleanedUrlInput = url.trim();
-          if (cleanedUrlInput.startsWith("//")) {
-            cleanedUrlInput = "https:" + cleanedUrlInput;
-          } else if (!cleanedUrlInput.startsWith("http://") && !cleanedUrlInput.startsWith("https://")) {
-            cleanedUrlInput = "https://" + cleanedUrlInput;
-          }
-
-          const parsedUrl = new URL(cleanedUrlInput);
-          const originalDomain = parsedUrl.hostname.toLowerCase();
-          
-          logInfo("2_URL_NORMALIZATION", `Parsed domain: "${originalDomain}"`);
-
-          // Clean social and UTM parameters, keeping trace elements
-          const params = new URLSearchParams(parsedUrl.search);
-          const cleanParams = new URLSearchParams();
-          for (const [k, v] of params.entries()) {
-            const lowerK = k.toLowerCase();
-            if (
-              !lowerK.startsWith("utm_") && 
-              lowerK !== "fbclid" && 
-              lowerK !== "gclid" && 
-              lowerK !== "_ga" && 
-              lowerK !== "_gl"
-            ) {
-              cleanParams.append(k, v);
-            }
-          }
-          parsedUrl.search = cleanParams.toString();
-          parsedUrl.hash = ""; // Strip fragment hash
-
-          normalizedUrlStr = parsedUrl.toString();
-          logInfo("2_URL_NORMALIZATION", "Successfully normalized URL", {
-            hostname: parsedUrl.hostname.toLowerCase()
-          });
-        } catch (urlErr: any) {
-          logError("2_URL_NORMALIZATION", "URL normalization engine failed");
-          return res.status(200).json(
-            makeErrorResponse(
-              "VALIDATION",
-              "O link informado não é um endereço de internet válido.",
-              { hasUrl: !!url },
-              "2_URL_NORMALIZATION"
-            )
-          );
-        }
-
-        // Step 3: Network Fetch with SSRF protection via testable adapter
-        const safeHtmlResult = (await fetchAiImportHtmlSafely(normalizedUrlStr, {
-          safeExternalFetch: aiImportSafeExternalFetch,
-          makeErrorResponse,
-          logInfo,
-          logWarn
-        })) as any;
-
-        if (!safeHtmlResult.ok) {
-          return res.status(200).json(safeHtmlResult.response);
-        }
-
-        const html = safeHtmlResult.html;
-
-        // Step 4: Metadata Parsing Strategy
-        logInfo("4_METADATA_EXTRACTION", "Starting metadata extraction strategies...");
-        let crawledTitle = "";
-        let crawledArtist = "";
-        let crawledKey = "";
-
-        // Extract key specific to CifraClub
-        try {
-          const tomMatch = html.match(/(?:id=["']cifra_tom["']|class=["'][^"']*cifra_tom[^"']*["'])[^>]*>([A-G][#b]?m?)<\//i);
-          if (tomMatch && tomMatch[1]) {
-            crawledKey = tomMatch[1].trim();
-            logInfo("4_METADATA_EXTRACTION", `Success metadata extraction via Cifra Tom element. Key="${crawledKey}"`);
-          } else {
-             // fallback general text search for "Tom: X"
-             const generalTomMatch = html.match(/Tom:\s*<[^>]+>\s*([A-G][#b]?m?)\s*<\//i) || html.match(/Tom:\s*([A-G][#b]?m?)\s*</i);
-             if (generalTomMatch && generalTomMatch[1]) {
-               crawledKey = generalTomMatch[1].trim();
-               logInfo("4_METADATA_EXTRACTION", `Success metadata extraction via text match. Key="${crawledKey}"`);
-             }
-          }
-        } catch (keyErr: any) {
-          logWarn("4_METADATA_EXTRACTION", `Failed to extract chord key: ${keyErr.message}`);
-        }
-
-        // Strategy A: JSON-LD Extraction
-        try {
-          const jsonLdRegex = /<script\s+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-          let ldMatch;
-          while ((ldMatch = jsonLdRegex.exec(html)) !== null) {
-            try {
-              const ldParsed = JSON.parse(ldMatch[1]);
-              const items = Array.isArray(ldParsed) ? ldParsed : [ldParsed];
-              for (const item of items) {
-                if (item && item.name && (item["@type"] === "MusicComposition" || item["@type"] === "MusicRecording")) {
-                  crawledTitle = item.name;
-                  if (item.byArtist && item.byArtist.name) {
-                    crawledArtist = item.byArtist.name;
-                  } else if (item.author && item.author.name) {
-                    crawledArtist = item.author.name;
-                  }
-                  logInfo("4_METADATA_EXTRACTION", `Success metadata extraction via JSON-LD. Title="${crawledTitle}", Artist="${crawledArtist}"`);
-                  break;
-                }
-              }
-            } catch (jsonLdParseErr) {
-              // Ignore single block errors, proceed to scan next
-            }
-          }
-        } catch (ldErr: any) {
-          logWarn("4_METADATA_EXTRACTION", `Error on JSON-LD scanner thread: ${ldErr.message}`);
-        }
-
-        // Strategy B: OpenGraph & HTML Title tags
-        if (!crawledTitle) {
-          try {
-            const ogTitleMatch = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i);
-            const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
-            const rawTitleString = ogTitleMatch ? ogTitleMatch[1] : (titleMatch ? titleMatch[1] : "");
-            
-            logInfo("4_METADATA_EXTRACTION", `Og/Html Title scrap string extracted: "${rawTitleString}"`);
-            if (rawTitleString) {
-              const cleanedTitle = rawTitleString.replace(/\s*-\s*Cifra Club\s*/gi, "").trim();
-              const tagParts = cleanedTitle.split(/\s+-\s+/);
-              if (tagParts.length >= 2) {
-                crawledTitle = tagParts[0].trim();
-                crawledArtist = tagParts[1].trim();
-              } else {
-                crawledTitle = cleanedTitle;
-              }
-              logInfo("4_METADATA_EXTRACTION", `Success metadata extraction via OG/Title Tag parsing. Title="${crawledTitle}", Artist="${crawledArtist}"`);
-            }
-          } catch (metaErr: any) {
-            logError("4_METADATA_EXTRACTION", `Failed to extract HTML metadata properties cleanly: ${metaErr.message}`);
-          }
-        }
-
-        if (crawledTitle && !result.title) result.title = crawledTitle;
-        if (crawledArtist && !result.artist) result.artist = crawledArtist;
-        if (crawledKey) {
-            result.originalKey = crawledKey;
-            result.selectedKey = crawledKey;
-        }
-
-        // Step 5: Multi-Strategy Extractor Runner
-        logInfo("5_CONTENT_EXTRACTION", "Running content extraction heuristic pipeline...");
-        let extractedRawText = "";
-        const lowerHtml = html.toLowerCase();
-
-        // Pipeline Strategy 1: PRE block boundary extraction
-        const preIdx = lowerHtml.indexOf("<pre");
-        if (preIdx !== -1) {
-          const closeTagIdx = html.indexOf(">", preIdx);
-          if (closeTagIdx !== -1) {
-            const endPreIdx = lowerHtml.indexOf("</pre>", closeTagIdx);
-            if (endPreIdx !== -1) {
-              extractedRawText = html.substring(closeTagIdx + 1, endPreIdx);
-              if (extractedRawText.trim().length > 100) {
-                selectedStrategy = "PRE_ELEMENT_BLOCK";
-                logInfo("5_CONTENT_EXTRACTION", `Strategy match: "PRE_ELEMENT_BLOCK", size = ${extractedRawText.length}`);
-              }
-            }
-          }
-        }
-
-        // Pipeline Strategy 2: cifra_cnt container divisions
-        if (!extractedRawText || extractedRawText.trim().length < 150) {
-          const classIdentifiers = ["cifra_cnt", "js-cifra", "cifra-container", "cifra-inner"];
-          for (const selector of classIdentifiers) {
-            const index = lowerHtml.indexOf(`class="${selector}"`) !== -1 
-              ? lowerHtml.indexOf(`class="${selector}"`) 
-              : lowerHtml.indexOf(`id="${selector}"`);
-
-            if (index !== -1) {
-              const startTagIdx = html.lastIndexOf("<", index);
-              if (startTagIdx !== -1) {
-                const closeTagIdx = html.indexOf(">", startTagIdx);
-                if (closeTagIdx !== -1) {
-                  const endDivIdx = lowerHtml.indexOf("</div>", closeTagIdx);
-                  if (endDivIdx !== -1) {
-                    const blockText = html.substring(closeTagIdx + 1, endDivIdx);
-                    if (blockText.trim().length > 150) {
-                      extractedRawText = blockText;
-                      selectedStrategy = `DIV_SELECTOR_${selector.toUpperCase()}`;
-                      logInfo("5_CONTENT_EXTRACTION", `Strategy match: "${selectedStrategy}", size = ${extractedRawText.length}`);
-                      break;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        // Pipeline Strategy 3: Article tagging structure representation
-        if (!extractedRawText || extractedRawText.trim().length < 150) {
-          const articleIdx = lowerHtml.indexOf("<article");
-          if (articleIdx !== -1) {
-            const closeTagIdx = html.indexOf(">", articleIdx);
-            if (closeTagIdx !== -1) {
-              const endArticleIdx = lowerHtml.indexOf("</article>", closeTagIdx);
-              if (endArticleIdx !== -1) {
-                extractedRawText = html.substring(closeTagIdx + 1, endArticleIdx);
-                if (extractedRawText.trim().length > 150) {
-                  selectedStrategy = "ARTICLE_ELEMENT_BLOCK";
-                  logInfo("5_CONTENT_EXTRACTION", `Strategy match: "ARTICLE_ELEMENT_BLOCK", size = ${extractedRawText.length}`);
-                }
-              }
-            }
-          }
-        }
-
-        // Pipeline Strategy 4: Body tag text boundary fallback
-        if (!extractedRawText || extractedRawText.trim().length < 150) {
-          const bodyIdx = lowerHtml.indexOf("<body");
-          if (bodyIdx !== -1) {
-            const closeTagIdx = html.indexOf(">", bodyIdx);
-            if (closeTagIdx !== -1) {
-              const endBodyIdx = lowerHtml.indexOf("</body>", closeTagIdx);
-              if (endBodyIdx !== -1) {
-                extractedRawText = html.substring(closeTagIdx + 1, endBodyIdx);
-                selectedStrategy = "BODY_ELEMENT_FALLBACK";
-                logInfo("5_CONTENT_EXTRACTION", `Strategy match: "BODY_ELEMENT_FALLBACK", size = ${extractedRawText.length}`);
-              }
-            }
-          }
-        }
-
-        // Pipeline Strategy 5: Standard Raw Trace Failure
-        if (!extractedRawText) {
-          extractedRawText = html;
-          selectedStrategy = "HTML_FULL_DUMP_STRATEGY";
-          logWarn("5_CONTENT_EXTRACTION", `All targeted extraction strategies missed. Defaulted to Full html dump`);
-        }
-
-        // Clean html tags to extract readable music lines
-        logInfo("5_CONTENT_EXTRACTION", "Executing semantic filters to strip formatting and clean HTML entities");
-        const sanitizedText = extractedRawText
-          .replace(/<br\s*\/?>/gi, "\n")
-          .replace(/<\/p>/gi, "\n")
-          .replace(/<\/div>/gi, "\n")
-          .replace(/<[\/]?b[^>]*>/gi, "")       // clean bold chord wraps completely
-          .replace(/<[\/]?span[^>]*>/gi, "")   // clean spans entirely
-          .replace(/<a[^>]*>/gi, "")           // clean chord anchors
-          .replace(/<\/a>/gi, "")
-          .replace(/<[^>]+>/g, " ")            // clean other trailing elements
-          .replace(/&nbsp;/g, " ")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&amp;/g, "&")
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .trim();
-
-        textToProcess = sanitizedText;
-        logInfo("5_CONTENT_EXTRACTION", `Completed cleaning cycle. Strategy = ${selectedStrategy}, String Length = ${textToProcess.length} character(s).`);
+      if (!textToProcess) {
+        return res.status(422).json(
+          makeErrorResponse(
+            "RAW_TEXT_REQUIRED" as any,
+            "Cole a letra ou cifra para continuar.",
+            null,
+            "1_INITIAL_PAYLOAD"
+          )
+        );
       }
-
       // Step 6: Core Validation checks
       logInfo("6_PAYLOAD_VALIDATION", `Validating extracted text content character depth: ${textToProcess.trim().length}`);
       if (textToProcess.trim().length < 50) {
@@ -2943,6 +2736,12 @@ app.use((err: any, req: any, res: any, next: any) => {
 Temos um texto bruto extraído de um site de cifras ou um texto pré-processado.
 Sua tarefa é classificar dados, limpar completamente o lixo da cifra e retornar UM JSON válido.
 
+POSSÍVEIS DADOS DE IDENTIFICAÇÃO DA FONTE:
+Título candidato: ${preProcessed?.title || "não identificado"}
+Artista candidato: ${preProcessed?.artist || "não identificado"}
+
+O título e o artista podem ter sido concatenados pela área de transferência. Separe-os semanticamente quando houver evidência clara. Nunca devolva título e artista unidos no mesmo campo. Não invente artista quando não houver evidência.
+
 Instruções cruciais para a cifra ("cleanChords"):
 1. A cifra ("cleanChords") DEVE conter em um único texto estruturado as seções, as linhas de acordes e também as linhas de letra correspondentes, no formato tradicional de cifras (onde as linhas de acordes estão imediatamente posicionadas acima da respectiva linha de letra, preservando o alinhamento musical por espaçamento para que o músico toque e cante). Nunca remova as linhas de letra da cifra!
 2. Remova lixos adicionais como diagramas e dicionários de acordes no início/fim, guias de ritmo textuais externos, dados de tablaturas ruins e anotações que poluam o fluxo de execução.
@@ -3034,9 +2833,58 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
           finalBpmSource = 'ai_suggestion';
         }
 
+        const normalizeIdentificationValue = (value: unknown): string | null => {
+          if (typeof value !== "string") return null;
+          const trimmed = value.trim();
+          return trimmed.length > 0 ? trimmed : null;
+        };
+
+        const isDefaultImportedTitle = (value: string | null) =>
+          !value || value.toLowerCase() === "música importada";
+
+        const isUnknownArtist = (value: string | null) =>
+          !value || value.toLowerCase().includes("desconhecido");
+
+        const normalizeIdentificationComparison = (value: string): string => {
+          return value.toLowerCase().replace(/\s+/g, "").replace(/[^\w]/g, "");
+        };
+
+        let explicitTitle = normalizeIdentificationValue(title);
+        if (isDefaultImportedTitle(explicitTitle)) explicitTitle = null;
+        
+        let aiTitle = normalizeIdentificationValue(parsedAiObj.capitalizedTitle);
+        const preProcessedTitle = normalizeIdentificationValue(preProcessed?.title);
+        
+        let explicitArtist = normalizeIdentificationValue(artist);
+        if (isUnknownArtist(explicitArtist)) explicitArtist = null;
+
+        let aiArtist = normalizeIdentificationValue(parsedAiObj.capitalizedArtist);
+        const preProcessedArtist = normalizeIdentificationValue(preProcessed?.artist);
+
+        if (aiTitle && aiArtist && preProcessedTitle && !preProcessedArtist) {
+          if (normalizeIdentificationComparison(preProcessedTitle) === normalizeIdentificationComparison(aiTitle + aiArtist)) {
+            // It was concatenated, use AI separated values
+            // We just let them pass as aiTitle and aiArtist
+          }
+        }
+
+        let finalTitle = explicitTitle || aiTitle || preProcessedTitle || "Música Importada";
+        let finalArtist = explicitArtist || aiArtist || preProcessedArtist || "Artista Desconhecido";
+
+        if (finalArtist === "Artista Desconhecido" && aiArtist) {
+           finalArtist = aiArtist;
+        }
+
+        if (aiTitle && aiArtist) {
+           const concatenated = normalizeIdentificationComparison(aiTitle + aiArtist);
+           if (normalizeIdentificationComparison(finalTitle) === concatenated) {
+               finalTitle = aiTitle;
+           }
+        }
+
         result = {
-          title: preProcessed?.title || parsedAiObj.capitalizedTitle || result.title,
-          artist: preProcessed?.artist || parsedAiObj.capitalizedArtist || result.artist,
+          title: finalTitle,
+          artist: finalArtist,
           originalKey: preProcessed?.metadata?.declaredKey || parsedAiObj.originalKey || result.originalKey,
           selectedKey: preProcessed?.metadata?.declaredKey || parsedAiObj.originalKey || result.selectedKey,
           version: result.version,
@@ -3178,6 +3026,58 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
         }
       }
 
+      if (result.metadata) {
+        delete result.metadata.chordContentKey;
+        delete result.metadata.chordContentKeyValidationStatus;
+      }
+
+      if (result.metadata && result.metadata.normalizedToConcertKey === true && result.metadata.declaredKey && isValidKey(result.metadata.declaredKey)) {
+        const expectedContentKey = normalizeKey(result.metadata.declaredKey);
+        const consistencyResult = validateChordContentKeyConsistency(result.chords, expectedContentKey);
+        
+        if (consistencyResult.status === 'MATCH') {
+          result.metadata.chordContentKey = expectedContentKey;
+          result.metadata.chordContentKeyValidationStatus = 'MATCH' as AiChordContentKeyValidationStatus;
+        } else if (consistencyResult.status === 'MISMATCH') {
+          await finalizeAiImportFinOpsShadowWriteOnce({
+            outcome: "GEMINI_ERROR",
+            errorCode: "CHORD_CONTENT_KEY_MISMATCH"
+          });
+          
+          logWarn("10.5_KEY_CONSISTENCY", "Chord content key mismatch", {
+            requestId,
+            expectedKey: consistencyResult.expectedKey,
+            detectedKey: consistencyResult.detectedKey,
+            confidence: consistencyResult.confidence,
+            scoreGap: consistencyResult.scoreGap
+          });
+          
+          return res.status(200).json(
+            makeErrorResponse(
+              "PARSING",
+              "A tonalidade física dos acordes não corresponde ao tom informado pela fonte. Revise a cifra antes de importar.",
+              { 
+                error: "CHORD_CONTENT_KEY_MISMATCH",
+                validationStatus: "MISMATCH" as AiChordContentKeyValidationStatus,
+                expectedKey: consistencyResult.expectedKey,
+                detectedKey: consistencyResult.detectedKey,
+                confidence: consistencyResult.confidence,
+                scoreGap: consistencyResult.scoreGap
+              },
+              "10.5_KEY_CONSISTENCY"
+            )
+          );
+        } else if (consistencyResult.status === 'INDETERMINATE') {
+          result.metadata.chordContentKeyValidationStatus = 'INDETERMINATE' as AiChordContentKeyValidationStatus;
+          warnings.push("Não foi possível confirmar automaticamente o tom físico dos acordes.");
+          if (overallConfidence === 'high') {
+            overallConfidence = 'medium';
+          }
+        } else if (consistencyResult.status === 'NO_CHORDS') {
+          result.metadata.chordContentKeyValidationStatus = 'NO_CHORDS' as AiChordContentKeyValidationStatus;
+        }
+      }
+
       result.confidence = overallConfidence;
       result.warnings = warnings;
       
@@ -3205,6 +3105,8 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
         }
       });
 
+
+
       return res.json({
         ok: true,
         song: {
@@ -3223,7 +3125,8 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
           version: result.version,
           rhythm: result.rhythm,
           sections: result.sections,
-          language: result.language || "pt"
+          language: result.language || "pt",
+          metadata: result.metadata
         },
         result,
         processingTimeMs,

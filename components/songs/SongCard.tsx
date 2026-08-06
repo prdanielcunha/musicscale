@@ -3,12 +3,14 @@ import {
   Plus, MoreHorizontal, FileText, Music, 
   Library, Sparkles, Layers, Activity, FileCheck, Check
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { PopulatedSong } from "../../types";
 import { useAuth } from "../../contexts/AuthContext";
 import { useSafeAction } from "../../hooks/useSafeAction";
 import { motion, AnimatePresence } from "motion/react";
 
 import { getSongFreshnessStatus } from "../../utils/songHelpers";
+import { getSearchSnippet } from "../../utils/searchEngine";
 
 const getTagColor = (tagName: string) => {
   const colors = [
@@ -36,6 +38,8 @@ interface SongCardProps {
   isSelectionMode: boolean;
   isSelected: boolean;
   onSelectToggle: (songId: string) => void;
+  searchMatch?: import("../../utils/searchEngine").SearchMatch;
+  searchTerm?: string;
 }
 
 import { useApi } from "../../contexts/ApiContext";
@@ -57,7 +61,10 @@ const SongCard: React.FC<SongCardProps> = ({
   isSelectionMode,
   isSelected,
   onSelectToggle,
-}) => {
+  searchMatch,
+  searchTerm
+}) => { 
+  const { t } = useTranslation();
   const { permissions, userProfile } = useAuth();
   const canEdit = !!(permissions?.manageSongs || permissions?.['musicScale.manageSongs'] || permissions?.['musicscale.songs.edit']);
   const canDelete = !!(permissions?.manageSongs || permissions?.['musicScale.manageSongs'] || permissions?.['musicscale.songs.edit']);
@@ -148,7 +155,7 @@ const SongCard: React.FC<SongCardProps> = ({
   const freshnessStatus = getSongFreshnessStatus(song);
 
   return (
-    <div className={cardClasses} onClick={handleMainClick}>
+    <div className={cardClasses} onClick={handleMainClick} data-testid={`song-card-${song.id}`}>
       {/* Premium subtle inner glows */}
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 dark:via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-t-[28px]"></div>
       <div className="absolute -inset-[80px] bg-gradient-to-br from-primary/10 dark:from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10 rounded-full blur-[80px]"></div>
@@ -222,6 +229,13 @@ const SongCard: React.FC<SongCardProps> = ({
         >
           {song.artist}
         </p>
+        
+        {searchMatch?.matchOrigin === 'lyrics' && searchTerm && (
+          <div className="mt-2 text-xs italic text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-white/5 p-2 rounded-md border border-slate-100 dark:border-white/5">
+            <span className="font-semibold text-primary mr-1">{t('library.in_lyrics', 'Na letra:')}</span>
+            "{getSearchSnippet(song.lyrics, searchTerm)}"
+          </div>
+        )}
       </div>
 
       <div className="mt-auto">
@@ -229,8 +243,12 @@ const SongCard: React.FC<SongCardProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
            <div className="flex items-center gap-2">
              <div className="flex flex-col">
-               <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 mb-0.5">Tom</span>
-               <span className="text-[13px] font-bold text-slate-800 dark:text-white/90 leading-none">{song.key || "—"}</span>
+               <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 mb-0.5">{t('library.key_short', 'Tom')}</span>
+               {searchMatch?.matchOrigin === 'key' ? (
+                 <span className="text-[13px] font-black text-primary leading-none bg-primary/10 px-1.5 py-0.5 rounded shadow-sm border border-primary/20">{song.selectedKey || song.key || song.originalKey || "—"}</span>
+               ) : (
+                 <span className="text-[13px] font-bold text-slate-800 dark:text-white/90 leading-none">{song.selectedKey || song.key || song.originalKey || "—"}</span>
+               )}
              </div>
              <div className="w-[1px] h-6 bg-slate-200 dark:bg-white/10 mx-2"></div>
              <div className="flex flex-col">

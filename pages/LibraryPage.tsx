@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger";
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth, useFeatures } from "../contexts/AuthContext";
 import { useMusicScaleUsage, useMusicScaleEntitlements } from "../hooks/useMusicScaleEntitlements";
 import { entitlementsService } from "../services/entitlementsService";
@@ -63,6 +63,7 @@ import { BulkDuplicateSongModal } from "../components/songs/BulkDuplicateSongMod
 import { getSongSimilarityScore } from "../lib/songMatch";
 import { useTranslation } from "react-i18next";
 import { AdminCrossOrgImportModal } from "../components/admin/AdminCrossOrgImportModal";
+import { buildSearchIndex, searchSongs } from "../utils/searchEngine";
 
 const Popover: React.FC<{
   triggerRef: React.RefObject<HTMLElement>;
@@ -216,6 +217,32 @@ export default function LibraryPage() {
   const [activeFilter, setActiveFilter] = useState<
     "tudo" | "completa" | "cifra" | "letra" | "importada" | "nao-importada"
   >("tudo");
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [pendingImportIntent, setPendingImportIntent] = useState(false);
+
+  // Handle intent=import
+  useEffect(() => {
+    if (searchParams.get("intent") === "import" && hasAccess) {
+      // Clean up the URL by removing the intent parameter but keeping others
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("intent");
+      setSearchParams(newParams, { replace: true });
+
+      setActiveFilter("nao-importada");
+      setPendingImportIntent(true);
+    }
+  }, [searchParams, hasAccess, setSearchParams]);
+
+  useEffect(() => {
+    if (pendingImportIntent && searchInputRef.current) {
+      searchInputRef.current.focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setPendingImportIntent(false);
+    }
+  }, [pendingImportIntent]);
+
   const [sortBy, setSortBy] = useState<"importCount" | "title" | "newest">(
     "importCount",
   );
@@ -607,20 +634,10 @@ export default function LibraryPage() {
     setIsFormModalOpen(true);
   };
 
-  const processedSongs = useMemo(() => {
-    let list = songs;
+  const searchIndex = useMemo(() => buildSearchIndex(songs), [songs]);
 
-    // Search is mostly handled by backend now, but we do local filtering too just in case
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      list = list.filter(
-        (song) =>
-          song.title.toLowerCase().includes(term) ||
-          song.artist.toLowerCase().includes(term) ||
-          (song.lyrics && song.lyrics.toLowerCase().includes(term)) ||
-          (song.key && song.key.toLowerCase() === term),
-      );
-    }
+  const processedSongsWithMatch = useMemo(() => {
+    let list = songs;
 
     // Filters
     if (activeFilter === "completa") {
@@ -635,21 +652,32 @@ export default function LibraryPage() {
       list = list.filter((s) => !importedIds.has(s.id));
     }
 
-    // Sorting
-    list = [...list].sort((a, b) => {
-      if (sortBy === "importCount") {
-        return (b.importCount || 0) - (a.importCount || 0);
-      } else if (sortBy === "newest") {
-        return (
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-      } else {
-        return a.title.localeCompare(b.title);
-      }
-    });
+    let results = list.map(song => ({ song, searchMatch: undefined as import("../utils/searchEngine").SearchMatch | undefined }));
 
-    return list;
-  }, [songs, searchTerm, activeFilter, sortBy, importedIds]);
+    if (searchTerm) {
+      const allowedIds = new Set(list.map(song => song.id));
+      const documents = searchIndex.filter(doc => allowedIds.has(doc.song.id));
+      const matches = searchSongs(documents, searchTerm);
+      results = matches.map(match => ({
+        song: match.document.song as GlobalSong,
+        searchMatch: match
+      }));
+    } else {
+      results.sort((a, b) => {
+        if (sortBy === "importCount") {
+          return (b.song.importCount || 0) - (a.song.importCount || 0);
+        } else if (sortBy === "newest") {
+          return new Date(b.song.createdAt).getTime() - new Date(a.song.createdAt).getTime();
+        } else {
+          return a.song.title.localeCompare(b.song.title);
+        }
+      });
+    }
+
+    return results;
+  }, [songs, searchTerm, activeFilter, sortBy, importedIds, searchIndex]);
+
+  const processedSongs = useMemo(() => processedSongsWithMatch.map(r => r.song), [processedSongsWithMatch]);
 
 
 
@@ -848,6 +876,7 @@ export default function LibraryPage() {
                 />
               </div>
               <input
+                ref={searchInputRef}
                 type="text"
                 placeholder={t("library.search_placeholder", "Buscar por música, artista, trecho da letra, tom ou BPM...")}
                 value={searchTerm}
@@ -1227,7 +1256,7 @@ export default function LibraryPage() {
 
               {viewMode === "grid" ? (
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4 sm:gap-6">
-                  {processedSongs.map((song) => (
+                  {processedSongsWithMatch.map(({ song, searchMatch }) => (
                     <LibrarySongCard
                       key={song.id}
                       song={song}
@@ -1248,12 +1277,14 @@ export default function LibraryPage() {
                             return next;
                          });
                       }}
+                      searchMatch={searchMatch}
+                      searchTerm={searchTerm}
                     />
                   ))}
                 </div>
               ) : (
                 <div className="flex flex-col rounded-[24px] border border-black/[0.04] dark:border-white/[0.05] shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.04)] bg-white/40 dark:bg-[#121214]/60 backdrop-blur-[32px] saturate-[180%]">
-                  {processedSongs.map((song) => (
+                  {processedSongsWithMatch.map(({ song, searchMatch }) => (
                     <LibrarySongListRow
                       key={song.id}
                       song={song}
@@ -1274,6 +1305,8 @@ export default function LibraryPage() {
                             return next;
                          });
                       }}
+                      searchMatch={searchMatch}
+                      searchTerm={searchTerm}
                     />
                   ))}
                 </div>

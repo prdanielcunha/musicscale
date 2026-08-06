@@ -1,4 +1,4 @@
-import React from "react";
+import React, { forwardRef } from "react";
 
 type ButtonAsButton = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   as?: "button";
@@ -17,7 +17,7 @@ export type ButtonProps = {
   rightIcon?: React.ReactNode;
 } & (ButtonAsButton | ButtonAsAnchor);
 
-const Button: React.FC<ButtonProps> = ({
+const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(({
   children,
   variant = "primary",
   size = "md",
@@ -26,7 +26,7 @@ const Button: React.FC<ButtonProps> = ({
   className = "",
   as = "button",
   ...props
-}) => {
+}, ref) => {
   const baseClasses =
     "inline-flex items-center justify-center gap-2.5 rounded-[16px] focus:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed tracking-wide shrink-0 whitespace-nowrap outline-none min-h-[44px] premium-interactive transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0";
 
@@ -56,6 +56,7 @@ const Button: React.FC<ButtonProps> = ({
   if (as === "a") {
     return (
       <a
+        ref={ref as React.Ref<HTMLAnchorElement>}
         className={combinedClasses}
         {...(props as React.AnchorHTMLAttributes<HTMLAnchorElement>)}
       >
@@ -76,6 +77,7 @@ const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
+      ref={ref as React.Ref<HTMLButtonElement>}
       className={combinedClasses}
       {...(props as React.ButtonHTMLAttributes<HTMLButtonElement>)}
     >
@@ -92,6 +94,8 @@ const Button: React.FC<ButtonProps> = ({
       )}
     </button>
   );
-};
+});
+
+Button.displayName = "Button";
 
 export default Button;

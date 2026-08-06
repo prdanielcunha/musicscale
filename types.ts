@@ -214,6 +214,11 @@ export interface GlobalSong {
   importCount: number;
   freshness?: FreshnessMetadata;
   revision?: number;
+  searchVersion?: number;
+  searchTokens?: string[];
+  searchTitlePrefixes?: string[];
+  searchArtistPrefixes?: string[];
+  searchKeyTokens?: string[];
 }
 
 export interface SongSubmission {
@@ -284,6 +289,16 @@ export interface Song {
 
 export interface PopulatedSong extends Song {
     tags: Tag[];
+}
+
+export interface ChordKeyRepairDraftSong {
+  title?: string;
+  artist?: string;
+  key?: string;
+  originalKey?: string;
+  selectedKey?: string;
+  chords?: string;
+  metadata?: any;
 }
 
 export interface EventType {
@@ -391,6 +406,7 @@ export interface ScaleSongSettings {
 
 export interface Scale {
   id: string;
+  organizationId?: string;
   date: string; // ISO date string YYYY-MM-DD
   time?: string; // Optional time string HH:mm
   arrivalDate?: string;
@@ -414,6 +430,24 @@ export interface Scale {
   lastModifiedAt?: string | null;
 }
 
+export interface MusicScalePublishPatch {
+  date?: string;
+  time?: string | null;
+  eventTypeId?: string;
+  locationId?: string;
+  eventNameId?: string | null;
+  observations?: string;
+  songIds?: string[];
+  songSettings?: Record<string, ScaleSongSettings>;
+  durationMinutes?: number;
+  bandScaleId?: string | null;
+}
+
+export interface MusicScalePublishPayload {
+  bandScaleId?: string | null;
+  scalePatch?: MusicScalePublishPatch;
+}
+
 export interface BandMember {
   userId: string;
   instrumentId: string;
@@ -421,6 +455,7 @@ export interface BandMember {
 
 export interface BandScale {
   id: string;
+  organizationId?: string;
   date?: string; // ISO date string YYYY-MM-DD
   time?: string; // Optional time string HH:mm
   observations?: string;
@@ -502,6 +537,28 @@ export interface GlobalSongUpdateResult {
 }
 
 export type ScaleSongSettingsUpdateResult = GlobalSongUpdateResult;
+
+export type ChordSourceConfirmation =
+  | {
+      type: 'metadata';
+      metadataKey: string;
+    }
+  | {
+      type: 'detected';
+      detectedKey: string;
+      detectionConfidence: 'high' | 'medium';
+    }
+  | {
+      type: 'manual';
+      selectedKey: string;
+    }
+  | {
+      type: 'override';
+      selectedKey: string;
+      detectedKey: string;
+      detectionConfidence: 'high' | 'medium';
+      acknowledgedConflict: true;
+    };
 
 export type ScaleSongSettingsChangeHandler = (
   key: string | null,

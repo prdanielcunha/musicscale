@@ -1,9 +1,9 @@
 import { logger } from "../lib/logger";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { getPrimaryDisplayRole, getRoleBadgeStyles } from '../utils/roleResolver';
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { doc, updateDoc, deleteDoc, collection, setDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { sendResetEmail } from "../services/authService";
@@ -11,6 +11,13 @@ import type { UserProfile, Role, Instrument } from "../types";
 import { useAuth, useLimits } from "../contexts/AuthContext";
 import { useApi } from "../contexts/ApiContext";
 import { useMusic } from "../contexts/MusicDataContext";
+import { useCapability } from "../hooks/useCapability";
+import { evaluateTeamSetup } from "../utils/teamSetup";
+
+import { TeamMemberAccessPolicy, TeamMemberSetupDraft, normalizeSpecialtyIds, TeamMemberSetupPayload } from '../utils/teamMemberSetup';
+import { ExistingMemberSetupGuide } from '../components/team/ExistingMemberSetupGuide';
+
+import { TeamSetupProgressCard } from "../components/team/TeamSetupProgressCard";
 import Spinner from "../components/common/Spinner";
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
@@ -35,6 +42,57 @@ import { Lock } from "lucide-react";
 import { canAssignOrganizationRole, canChangeOrganizationRole } from "../utils/roleHierarchy";
 import { useToast } from "../contexts/ToastContext";
 import { isGlobalPrivilegedUser } from "../hooks/useEcosystemAdmin";
+
+interface TeamSetupNavigationState {
+  teamSetupIntent: "add-members" | "configure-existing";
+  origin: "first-value-journey";
+  returnTo: "/";
+}
+
+type TeamSetupIntentDecision =
+  | {
+      status: "absent";
+    }
+  | {
+      status: "invalid";
+    }
+  | {
+      status: "valid";
+      value: TeamSetupNavigationState;
+    };
+
+function parseTeamSetupNavigationState(state: unknown): TeamSetupIntentDecision {
+  if (state === null || state === undefined) {
+    return { status: "absent" };
+  }
+  if (typeof state !== 'object') {
+    return { status: "invalid" };
+  }
+
+  const intent = Reflect.get(state, "teamSetupIntent");
+  const origin = Reflect.get(state, "origin");
+  const returnTo = Reflect.get(state, "returnTo");
+
+  if (intent !== 'add-members' && intent !== 'configure-existing') {
+    return { status: "invalid" };
+  }
+  if (origin !== 'first-value-journey') {
+    return { status: "invalid" };
+  }
+  if (returnTo !== '/') {
+    return { status: "invalid" };
+  }
+  
+  return {
+    status: "valid",
+    value: {
+      teamSetupIntent: intent,
+      origin,
+      returnTo
+    }
+  };
+}
+
 
 const MailIconComp: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg
@@ -544,7 +602,7 @@ const RoleCard: React.FC<RoleCardProps> = ({ role, count, onSelect }) => {
   );
 };
 
-const InviteMemberModal: React.FC<{
+export const InviteMemberModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   role: Role;
@@ -1406,9 +1464,15 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
 
 const UsersPage: React.FC = () => {
   const { t } = useTranslation();
-  const { user: currentUser, userProfile } = useAuth();
-  const { roles, instruments } = useMusic();
+  const { user: currentUser, userProfile, organization } = useAuth();
+  const { roles, instruments, loading: musicDataLoading } = useMusic();
   const api = useApi();
+  const { hasCapability } = useCapability();
+  const { success: toastSuccess, error: toastError } = useToast();
+  const managementSectionRef = useRef<HTMLDivElement>(null);
+  const consumedIntentLocationKeyRef = useRef<string | null>(null);
+  const activeScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1416,6 +1480,103 @@ const UsersPage: React.FC = () => {
   const [joinRequests, setJoinRequests] = useState<any[]>([]);
   const isGlobal = isGlobalPrivilegedUser(currentUser, userProfile);
   const [migrating, setMigrating] = useState(false);
+
+  const [isExistingMemberSetupOpen, setIsExistingMemberSetupOpen] = useState(false);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [showContextualGuide, setShowContextualGuide] = useState(false);
+  const [returnToPath, setReturnToPath] = useState<string | null>(null);
+
+  const resolveAccessPolicy = (member: UserProfile): TeamMemberAccessPolicy => {
+    const isCurrentUser = member.uid === currentUser?.uid;
+    const isMemberOwner = member.uid === organization?.ownerUserId || getRoleKeyFromId(member.roleId || "", roles) === "owner" || member.role === "Dono";
+    
+    const actorRoleKey = isGlobal ? "owner" : getRoleKeyFromName(userProfile?.role || "");
+    const currentTargetRoleKey = getRoleKeyFromId(member.roleId || "", roles);
+    
+    const otherOwnersActiveCount = allUsers.filter(u => u.organizationId === userProfile?.organizationId && u.uid !== member.uid && (getRoleKeyFromId(u.roleId || "", roles) === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
+
+    const roleCtx = {
+      isGlobalPrivilegedUser: isGlobal,
+      actorSystemRole: userProfile?.systemRole,
+      actorOrganizationRole: actorRoleKey,
+      targetOrganizationRole: currentTargetRoleKey,
+      isSelfChange: false,
+      otherOwnersActiveCount
+    };
+
+    const changeDecision = canChangeOrganizationRole(actorRoleKey, currentTargetRoleKey, currentTargetRoleKey, roleCtx);
+    const canEditByHierarchy = changeDecision.canChange;
+
+    let canEditAccess = true;
+    let lockReason: "owner" | "self" | "hierarchy" | null = null;
+    let reason = '';
+
+    if (isCurrentUser) {
+      canEditAccess = false;
+      lockReason = "self";
+      reason = t('teamSetup.existingMember.access.currentUserExplanation');
+    } else if (isMemberOwner) {
+      canEditAccess = false;
+      lockReason = "owner";
+      reason = t('teamSetup.existingMember.access.ownerExplanation');
+    } else if (!canEditByHierarchy) {
+      canEditAccess = false;
+      lockReason = "hierarchy";
+      reason = changeDecision.error || t('roles.cannot_manage_role');
+    } else {
+      lockReason = null;
+    }
+
+    const allowedRoleIds = roles.filter(r => {
+      const targetRoleKey = getRoleKeyFromId(r.id, roles);
+      if (targetRoleKey === 'owner' || r.name === 'Dono' || r.name === 'Owner' || r.name === 'CEO') return false;
+      
+      const assignCtx = {
+        ...roleCtx,
+        newOrganizationRole: targetRoleKey
+      };
+      
+      const assignDecision = canAssignOrganizationRole(actorRoleKey, targetRoleKey, assignCtx);
+      return assignDecision.canAssign;
+    }).map(r => r.id);
+
+    return {
+      canEditAccess,
+      lockReason,
+      reason,
+      allowedRoleIds
+    };
+  };
+
+  const handleSaveTeamSetup = async (draft: TeamMemberSetupDraft) => {
+    const member = allUsers.find(u => u.uid === draft.userId);
+    if (!member) throw new Error("Membro não encontrado");
+
+    if (draft.roleId && draft.roleId !== member.roleId) {
+      const policy = resolveAccessPolicy(member);
+      const isRoleAllowed = policy.allowedRoleIds.includes(draft.roleId);
+      const isTryingToAssignOwner = getRoleKeyFromId(draft.roleId, roles) === "owner";
+
+      if (!policy.canEditAccess || policy.lockReason !== null || !isRoleAllowed || isTryingToAssignOwner) {
+        throw new Error("TEAM_ACCESS_POLICY_CHANGED");
+      }
+    }
+
+    const specialtyIds = normalizeSpecialtyIds(draft.specialtyIds || []);
+    const payload: TeamMemberSetupPayload = { specialtyIds };
+
+    if (draft.roleId && draft.roleId !== member.roleId) {
+      payload.roleId = draft.roleId;
+      payload.musicscaleRole = getRoleKeyFromId(draft.roleId, roles);
+    }
+
+    await api.users.update(draft.userId, payload);
+    await fetchUsers();
+    toastSuccess(t('teamSetup.existingMember.successToast'));
+  };
+
 
   const fetchJoinRequests = async () => {
     if (!userProfile?.organizationId) return;
@@ -1507,11 +1668,19 @@ const UsersPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (userProfile?.organizationId && roles.length > 0) {
+    if (musicDataLoading) {
+      setLoading(true);
+      return;
+    }
+    if (roles.length === 0) {
+      setLoading(false);
+    } else if (userProfile?.organizationId) {
       fetchUsers();
       fetchJoinRequests();
+    } else {
+      setLoading(false);
     }
-  }, [userProfile?.organizationId, roles.length]);
+  }, [musicDataLoading, roles.length, userProfile?.organizationId]);
 
   const userCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -1527,6 +1696,123 @@ const UsersPage: React.FC = () => {
   }, [allUsers, roles]);
 
   const sortedRoles = useMemo(() => sortRolesByHierarchy(roles), [roles]);
+
+  const teamSetupSummary = useMemo(
+    () => evaluateTeamSetup(allUsers, currentUser?.uid),
+    [allUsers, currentUser?.uid]
+  );
+  
+  const canManageTeamSetup = hasCapability("musicscale.members.manage");
+
+  const consumeTeamSetupIntent = useCallback(() => {
+    consumedIntentLocationKeyRef.current = location.key || "default";
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.key, location.pathname, navigate]);
+
+  useEffect(() => {
+    return () => {
+      if (activeScrollTimerRef.current !== null) {
+        clearTimeout(activeScrollTimerRef.current);
+        activeScrollTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const parsedState = parseTeamSetupNavigationState(location.state);
+
+    if (parsedState.status === "absent") {
+      return;
+    }
+
+    const currentKey = location.key || "default";
+    if (consumedIntentLocationKeyRef.current === currentKey) {
+      return;
+    }
+
+    if (parsedState.status === "invalid") {
+      consumeTeamSetupIntent();
+      return;
+    }
+
+    if (!canManageTeamSetup) {
+      toastError(t("users.unauthorizedIntent"));
+      consumeTeamSetupIntent();
+      return;
+    }
+
+    if (musicDataLoading) {
+      return;
+    }
+
+    if (roles.length === 0) {
+      toastError(t("users.rolesUnavailable"));
+      consumeTeamSetupIntent();
+      return;
+    }
+
+    if (loading) {
+      return;
+    }
+
+    const intent = parsedState.value.teamSetupIntent;
+    const returnTo = parsedState.value.returnTo;
+
+    if (activeScrollTimerRef.current !== null) {
+      clearTimeout(activeScrollTimerRef.current);
+      activeScrollTimerRef.current = null;
+    }
+
+    if (intent === "add-members") {
+      setShowContextualGuide(true);
+      setReturnToPath(returnTo);
+
+      activeScrollTimerRef.current = setTimeout(() => {
+        const section = managementSectionRef.current;
+        if (section) {
+          section.scrollIntoView({ behavior: "smooth", block: "start" });
+          section.focus({ preventScroll: true });
+        }
+        activeScrollTimerRef.current = null;
+      }, 100);
+    } else if (intent === "configure-existing") {
+      setReturnToPath(returnTo);
+      if (teamSetupSummary.additionalMembers > 0) {
+        setIsExistingMemberSetupOpen(true);
+        setShowContextualGuide(true);
+      } else {
+        setShowContextualGuide(true);
+        toastError(t("teamSetup.existingMember.members.emptyDescription"));
+      }
+    }
+
+    consumeTeamSetupIntent();
+  }, [
+    location.state,
+    location.pathname,
+    location.key,
+    loading,
+    musicDataLoading,
+    canManageTeamSetup,
+    roles.length,
+    teamSetupSummary.additionalMembers,
+    navigate,
+    t,
+    toastError,
+    consumeTeamSetupIntent
+  ]);
+
+  const handleReviewTeamSetup = () => {
+    const section = managementSectionRef.current;
+    if (!section) return;
+    section.scrollIntoView?.({
+      behavior: "smooth",
+      block: "start"
+    });
+    section.focus({
+      preventScroll: true
+    });
+  };
 
   if (loading) {
     return (
@@ -1614,19 +1900,34 @@ const UsersPage: React.FC = () => {
 
   return (
     <div className="space-y-8">
+
       <div>
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
             {t("users.management_title", "Equipe e Permissões")}
           </h1>
           {isGlobal && (
-             <Button variant="outline" size="sm" onClick={handleMigrateRoles} disabled={migrating}>
-               {migrating ? <Spinner size="sm" /> : "Migrar Estrutura de Papéis (Admin)"}
-             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleMigrateRoles}
+              disabled={migrating}
+            >
+              {migrating ? <Spinner size="sm" /> : "Migrar Estrutura de Papéis (Admin)"}
+            </Button>
           )}
         </div>
         <UserUsageBanner />
       </div>
+
+      {!loading && canManageTeamSetup && (
+        <TeamSetupProgressCard
+          summary={teamSetupSummary}
+          onReview={handleReviewTeamSetup}
+          onConfigure={() => setIsExistingMemberSetupOpen(true)}
+        />
+      )}
+      
 
       {joinRequests.length > 0 && (
         <Card padding="none" className="overflow-hidden mb-8 border-amber-200 dark:border-amber-900/50">
@@ -1666,12 +1967,47 @@ const UsersPage: React.FC = () => {
         </Card>
       )}
 
-      <div>
+      {canManageTeamSetup && !loading && isExistingMemberSetupOpen && (
+        <ExistingMemberSetupGuide
+          isOpen={isExistingMemberSetupOpen}
+          resolveRoleKey={(roleId) => getRoleKeyFromId(roleId, roles)}
+          members={allUsers}
+          roles={roles}
+          instruments={instruments}
+          currentUserId={currentUser?.uid}
+          resolveAccessPolicy={resolveAccessPolicy}
+          onClose={() => setIsExistingMemberSetupOpen(false)}
+          onSave={handleSaveTeamSetup}
+        />
+      )}
+
+
+      <div
+        ref={managementSectionRef}
+        tabIndex={-1}
+        aria-label={t("teamSetup.progress.sectionLabel")}
+        className="outline-none"
+      >
+        {showContextualGuide && (
+          <div className="mb-6 p-4 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20">
+            <h3 className="text-sm font-bold text-indigo-700 dark:text-indigo-400 mb-2">
+              {t('firstValueJourney.guideTitle', 'Adicionar pessoas à equipe')}
+            </h3>
+            <p className="text-sm text-indigo-600 dark:text-indigo-300 mb-4 whitespace-pre-line">
+              {t('firstValueJourney.guideDescription', 'Escolha uma função e use Adicionar Usuário para incluir ou convidar alguém.')}
+            </p>
+            {returnToPath && (
+              <Button onClick={() => navigate(returnToPath)} variant="default">
+                {t('firstValueJourney.returnToDashboard', 'Voltar para o painel')}
+              </Button>
+            )}
+          </div>
+        )}
+
         <p className="text-slate-500 dark:text-gray-400 mb-4">
           {t("users.management_subtitle", "Clique em uma função para gerenciar os usuários associados.")}
         </p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {sortedRoles.map((role) => (
           <RoleCard
             key={role.id}
@@ -1680,6 +2016,7 @@ const UsersPage: React.FC = () => {
             onSelect={setSelectedRole}
           />
         ))}
+        </div>
       </div>
     </div>
   );

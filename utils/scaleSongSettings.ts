@@ -33,9 +33,23 @@ export const normalizeScaleSongSettings = (
   songIds.forEach(id => {
     if (settings[id]) {
       const { key, bpm } = settings[id] as any; // Cast to any to handle runtime malformed data as requested by tests
-      const validKey = typeof key === 'string' ? key.trim() || undefined : undefined;
-      const bpmNum = typeof bpm === 'string' ? Number((bpm as string).trim()) : typeof bpm === 'number' ? bpm : NaN;
-      const validBpm = (!isNaN(bpmNum) && bpmNum >= 20 && bpmNum <= 300) ? bpmNum : undefined;
+      
+      let validKey: string | null | undefined = undefined;
+      if (key === null) {
+        validKey = null;
+      } else if (typeof key === 'string') {
+        validKey = key.trim() || undefined;
+      }
+
+      let validBpm: number | null | undefined = undefined;
+      if (bpm === null) {
+        validBpm = null;
+      } else {
+        const bpmNum = typeof bpm === 'string' ? Number((bpm as string).trim()) : typeof bpm === 'number' ? bpm : NaN;
+        if (!isNaN(bpmNum) && bpmNum >= 20 && bpmNum <= 300) {
+          validBpm = bpmNum;
+        }
+      }
       
       if (validKey !== undefined || validBpm !== undefined) {
         normalized[id] = {};
@@ -51,22 +65,29 @@ export const normalizeScaleSongSettings = (
 export const applyScaleSongSettings = <T extends Song>(song: T, settings?: ScaleSongSettings): T => {
   if (!settings) return song;
 
-  // Clone the song to avoid mutating the original object
+  // Always clone the song to avoid mutating the original object
   const newSong = { ...song };
 
+  // Explicitly delete any legacy hidden metadata fields to ensure data integrity
+  delete (newSong as any)._untransposedKey;
+  delete (newSong as any)._untransposedChords;
+
+  const baseKey = song.selectedKey || song.key || song.originalKey || "";
+  const baseChords = song.chords || "";
+
   if (settings.key !== undefined && settings.key !== null) {
-    const sourceKey = newSong.selectedKey || newSong.key || newSong.originalKey || "";
-    const semitones = sourceKey ? getKeyDifference(sourceKey, settings.key) : 0;
+    const semitones = baseKey ? getKeyDifference(baseKey, settings.key) : 0;
     
     newSong.key = settings.key;
-    // We update selectedKey too so UI components expecting that use the effective key
     newSong.selectedKey = settings.key;
 
-    if (semitones !== 0 && newSong.chords && newSong.chords.trim().length > 0) {
-        const parsed = parseChordsAndLyrics(newSong.chords);
+    if (semitones !== 0 && baseChords && baseChords.trim().length > 0) {
+        const parsed = parseChordsAndLyrics(baseChords);
         newSong.chords = parsed.map(line => 
             line.type === 'chord' ? transposeChord(line.content, semitones) : line.content
         ).join('\n');
+    } else {
+        newSong.chords = baseChords;
     }
   }
 

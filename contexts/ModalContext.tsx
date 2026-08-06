@@ -4,7 +4,20 @@ import React, { createContext, useContext, useState, ReactNode, useCallback, use
 import { useTranslation } from 'react-i18next';
 import { useToast } from './ToastContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import type { PopulatedSong, Song, Scale, PopulatedScale, BandScale, PopulatedBandScale } from '../types';
+import type { PopulatedSong, Song, Scale, PopulatedScale, BandScale, PopulatedBandScale, MusicScalePublishPayload, MusicScalePublishPatch, ChordKeyRepairDraftSong } from '../types';
+
+export type ChordKeyRepairState =
+  | {
+      mode: 'draft';
+      song: ChordKeyRepairDraftSong;
+      onSuccess?: (updatedSong: ChordKeyRepairDraftSong) => void;
+    }
+  | {
+      mode: 'persisted';
+      song: PopulatedSong;
+      onSuccess?: (updatedSong: PopulatedSong) => void;
+    }
+  | null;
 import { useMusic } from './MusicDataContext';
 import { useAuth } from './AuthContext';
 import { DuplicateMatch } from '../components/songs/DuplicateSongModal';
@@ -14,11 +27,40 @@ import * as suggestionApi from '../services/suggestionsService';
 import { useSuggestionsContext } from './SuggestionContext';
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
+import type { HomeAttentionFocusTarget } from '../utils/homeExperience';
+
+export interface ScaleFormOpenOptions {
+  initialStep?: 'event' | 'link' | 'build' | 'review';
+  focusTarget?: HomeAttentionFocusTarget;
+  source?: 'dashboard-attention' | 'default';
+}
+
+export type MusicScaleSaveIntent = "save-draft" | "publish";
+
+export type ChordKeyRepairMode = 'draft' | 'persisted';
+
+export type MusicScaleWritableData = Omit<Scale, "id" | "createdBy" | "createdAt"> | Scale;
+export type BandScaleWritableData = Omit<BandScale, "id" | "createdBy" | "createdAt"> | BandScale;
+
+export interface MusicScaleSaveRequest {
+  data: MusicScaleWritableData;
+  intent: MusicScaleSaveIntent;
+  idempotencyKey: string;
+}
+
+export type MusicScaleSaveResult =
+  | { status: "draft-saved"; scaleId: string }
+  | { status: "published"; scaleId: string; version?: number }
+  | { status: "publish-unavailable" }
+  | { status: "publish-failed"; scaleId?: string; draftPreserved: boolean; correlationId?: string }
+  | { status: "republish-failed"; scaleId?: string; publishedPreserved: boolean; correlationId?: string };
+
 
 // Keep essential components eager or very light
 import Modal from '../components/common/Modal';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import SuccessModal from '../components/common/SuccessModal';
+import { ChordKeyRepairSheet } from '../components/songs/ChordKeyRepairSheet';
 
 // Lazy load heavy modals
 const DuplicateSongModal = lazy(() => import('../components/songs/DuplicateSongModal').then(m => ({ default: m.DuplicateSongModal })));
@@ -42,7 +84,7 @@ const createClientNotification = async (
   title: string,
   message: string,
   link: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ) => {
   try {
     const notificationsRef = collection(db, `organizations/${orgId}/notifications`);
@@ -63,6 +105,14 @@ const createClientNotification = async (
 };
 
 
+export type SongOpenMode = 'detail' | 'lyrics' | 'chords' | 'performance';
+
+export interface OpenSongDetailOptions {
+  keepCurrentOpen?: boolean;
+  scaleContext?: { scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null;
+  mode?: SongOpenMode;
+}
+
 interface ModalContextType {
   // Ai Import
   isAiSongImportOpen: boolean;
@@ -75,11 +125,16 @@ interface ModalContextType {
   closeWhatsNew: () => void;
 
   openSongForm: (song?: PopulatedSong) => void;
-  openSongDetail: (song: PopulatedSong, keepCurrentOpen?: boolean, scaleContext?: {  scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null, startInPerformanceMode?: boolean) => void;
+  openSongDetail: (
+    song: PopulatedSong,
+    options?: OpenSongDetailOptions | boolean,
+    scaleContext?: {  scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null,
+    startInPerformanceMode?: boolean
+  ) => void;
   openDeleteSongConfirmation: (song: PopulatedSong) => void;
-  openScaleForm: (scale?: Scale, preselectedSongIds?: string[]) => void;
+  openScaleForm: (scale?: Scale, preselectedSongIds?: string[], options?: ScaleFormOpenOptions) => void;
   openScaleDetail: (scale: PopulatedScale, action?: 'delete') => void;
-  openBandScaleForm: (scale?: BandScale, options?: { linkToMusicScaleId: string, prefillData?: Partial<BandScale> }) => void;
+  openBandScaleForm: (scale?: BandScale, options?: { linkToMusicScaleId: string, prefillData?: Partial<BandScale> }, formOpenOptions?: ScaleFormOpenOptions) => void;
   openBandScaleDetail: (scale: PopulatedBandScale, action?: 'delete') => void;
   openAddChordModal: () => void;
   openSuggestionForm: () => void;
@@ -87,14 +142,105 @@ interface ModalContextType {
   openSupportModal: () => void;
   saveChord: (data: { songId: string, chords: string }) => Promise<void>;
   isSubmitting: boolean;
+  handleSaveScale: (req: MusicScaleSaveRequest | { data: BandScaleWritableData; idempotencyKey?: string }) => Promise<MusicScaleSaveResult | void>;
   // Feedback Modal
   isFeedbackOpen: boolean;
   feedbackType: 'bug' | 'suggestion' | 'feedback';
   openFeedback: (type?: 'bug' | 'suggestion' | 'feedback') => void;
   closeFeedback: () => void;
+
+  // Chord Key Repair
+  isChordKeyRepairOpen: boolean;
+  chordKeyRepairState: ChordKeyRepairState;
+  songForChordKeyRepair: PopulatedSong | null;
+  chordKeyRepairMode: ChordKeyRepairMode;
+  openDraftChordKeyRepair: (
+    song: ChordKeyRepairDraftSong,
+    onSuccess?: (updatedSong: ChordKeyRepairDraftSong) => void
+  ) => void;
+  openPersistedChordKeyRepair: (
+    song: PopulatedSong,
+    onSuccess?: (updatedSong: PopulatedSong) => void
+  ) => void;
+  closeChordKeyRepair: () => void;
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
+
+
+interface ErrorLike {
+  message?: unknown;
+  code?: unknown;
+  status?: unknown;
+  correlationId?: unknown;
+}
+
+export function extractErrorDetails(error: unknown): { message?: string; code?: string; status?: number; correlationId?: string } {
+    const result: { message?: string; code?: string; status?: number; correlationId?: string } = {};
+    if (error instanceof Error) {
+        result.message = error.message;
+    }
+    if (typeof error === 'object' && error !== null) {
+        const errObj = error as ErrorLike;
+        if (typeof errObj.message === 'string') {
+            result.message = errObj.message;
+        }
+        if (typeof errObj.code === 'string') {
+            result.code = errObj.code;
+        }
+        if (typeof errObj.status === 'number') {
+            result.status = errObj.status;
+        }
+        if (typeof errObj.correlationId === 'string') {
+            result.correlationId = errObj.correlationId;
+        }
+    }
+    return result;
+}
+
+export function buildMusicScalePublishPayload(
+    scaleData: MusicScaleWritableData
+): MusicScalePublishPayload {
+    const scalePatch: MusicScalePublishPatch = {};
+
+    if (scaleData.date !== undefined) {
+        scalePatch.date = scaleData.date;
+    }
+    if (scaleData.time !== undefined) {
+        scalePatch.time = scaleData.time;
+    }
+    if (scaleData.eventTypeId !== undefined) {
+        scalePatch.eventTypeId = scaleData.eventTypeId;
+    }
+    if (scaleData.locationId !== undefined) {
+        scalePatch.locationId = scaleData.locationId;
+    }
+    if (scaleData.eventNameId !== undefined) {
+        scalePatch.eventNameId = scaleData.eventNameId;
+    }
+    if (scaleData.observations !== undefined) {
+        scalePatch.observations = scaleData.observations;
+    }
+    if (scaleData.songIds !== undefined) {
+        scalePatch.songIds = scaleData.songIds;
+    }
+    if (scaleData.songSettings !== undefined) {
+        scalePatch.songSettings = scaleData.songSettings;
+    }
+    
+    if (scaleData.durationMinutes !== undefined && scaleData.durationMinutes !== null) {
+        if (typeof scaleData.durationMinutes !== 'number' || !Number.isInteger(scaleData.durationMinutes) || scaleData.durationMinutes <= 0 || !Number.isFinite(scaleData.durationMinutes)) {
+            throw new Error("Invalid durationMinutes");
+        }
+        scalePatch.durationMinutes = scaleData.durationMinutes;
+    }
+
+    if ('bandScaleId' in scaleData && scaleData.bandScaleId !== undefined) {
+        scalePatch.bandScaleId = scaleData.bandScaleId;
+    }
+
+    return { scalePatch };
+}
 
 export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { t } = useTranslation();
@@ -119,6 +265,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     onSuccess?: () => void 
   } | null>(null);
   const [startInPerformanceMode, setStartInPerformanceMode] = useState<boolean>(false);
+  const [songOpenMode, setSongOpenMode] = useState<SongOpenMode | undefined>(undefined);
 
   // Scale Modals State
   const [scaleToEdit, setScaleToEdit] = useState<Scale | BandScale | null>(null);
@@ -151,6 +298,11 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const [isAiSongImportOpen, setIsAiSongImportOpen] = useState(false);
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
+
+  // Chord Key Repair State
+  const [chordKeyRepairState, setChordKeyRepairState] = useState<ChordKeyRepairState>(null);
+
+  const [scaleFormOptions, setScaleFormOptions] = useState<ScaleFormOpenOptions | null>(null);
   
   const closeAllModals = useCallback(() => {
     setSongToEdit(null);
@@ -172,7 +324,14 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setIsAiSongImportOpen(false);
     setIsWhatsNewOpen(false);
     setIsFeedbackOpen(false);
+    setSongOpenMode(undefined);
+    setChordKeyRepairState(null);
+    setScaleFormOptions(null);
   }, []);
+
+  React.useEffect(() => {
+    setScaleFormOptions(null);
+  }, [userProfile?.organizationId]);
 
   const openFeedback = useCallback((type: 'bug'|'suggestion'|'feedback' = 'feedback') => {
     closeAllModals();
@@ -187,6 +346,42 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const openWhatsNew = useCallback(() => { closeAllModals(); setIsWhatsNewOpen(true); }, [closeAllModals]);
   const closeWhatsNew = useCallback(() => { setIsWhatsNewOpen(false); }, []);
+
+  const openDraftChordKeyRepair = useCallback((song: ChordKeyRepairDraftSong, onSuccess?: (updatedSong: ChordKeyRepairDraftSong) => void) => {
+    setChordKeyRepairState({
+      mode: 'draft',
+      song,
+      onSuccess,
+    });
+  }, []);
+
+  const openPersistedChordKeyRepair = useCallback((song: PopulatedSong, onSuccess?: (updatedSong: PopulatedSong) => void) => {
+    if (!song?.id) {
+      toast({
+        title: 'Erro',
+        description: 'ID da música é obrigatório no modo de reparo persistido.',
+        type: 'error',
+      });
+      return;
+    }
+    if (!song?.organizationId) {
+      toast({
+        title: 'Erro',
+        description: 'ID da organização é obrigatório no modo de reparo persistido.',
+        type: 'error',
+      });
+      return;
+    }
+    setChordKeyRepairState({
+      mode: 'persisted',
+      song,
+      onSuccess,
+    });
+  }, [toast]);
+
+  const closeChordKeyRepair = useCallback(() => {
+    setChordKeyRepairState(null);
+  }, []);
 
   const handleCloseScaleDetail = useCallback(() => {
     const currentPath = location.pathname;
@@ -206,13 +401,33 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // Song Handlers
   const openSongForm = useCallback((song?: PopulatedSong) => { closeAllModals(); setSongToEdit(song || {} as PopulatedSong); }, [closeAllModals]);
   
-  const openSongDetail = useCallback((song: PopulatedSong, keepCurrentOpen = false, scaleContext: { scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null = null, startInPerformanceMode = false) => {
+  const openSongDetail = useCallback((
+    song: PopulatedSong,
+    options?: OpenSongDetailOptions | boolean,
+    scaleContext: { scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null = null,
+    startInPerformanceMode = false
+  ) => {
+    let keepCurrentOpen = false;
+    let actualScaleContext = scaleContext;
+    let actualStartInPerformanceMode = startInPerformanceMode;
+    let actualOpenMode: SongOpenMode | undefined = undefined;
+
+    if (typeof options === 'boolean') {
+      keepCurrentOpen = options;
+    } else if (options && typeof options === 'object') {
+      keepCurrentOpen = !!options.keepCurrentOpen;
+      actualScaleContext = options.scaleContext !== undefined ? options.scaleContext : null;
+      actualOpenMode = options.mode;
+      actualStartInPerformanceMode = options.mode === 'performance';
+    }
+
     if (!keepCurrentOpen) {
       closeAllModals();
     }
     setSongToView(song);
-    setScaleNavigationContext(scaleContext);
-    setStartInPerformanceMode(startInPerformanceMode);
+    setScaleNavigationContext(actualScaleContext);
+    setStartInPerformanceMode(actualStartInPerformanceMode);
+    setSongOpenMode(actualOpenMode);
   }, [closeAllModals]);
 
   const openDeleteSongConfirmation = useCallback((song: PopulatedSong) => { closeAllModals(); setSongToDelete(song); }, [closeAllModals]);
@@ -303,9 +518,10 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await refreshData();
     } catch (error) {
       logger.error("Failed to save song", error);
-      let errorMsg = (error as any)?.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
-      if ((error as any)?.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
-      toast({ type: 'error', message: t('common.errorSavingSong', "Erro ao salvar música"), description: `${t('common.details', 'Detalhes')}: ${errorMsg} (${(error as any)?.code || ''})` });
+      const errDetails = extractErrorDetails(error);
+      let errorMsg = errDetails.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
+      if (errDetails.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
+      toast({ type: 'error', message: t('common.errorSavingSong', "Erro ao salvar música"), description: `${t('common.details', 'Detalhes')}: ${errorMsg} (${errDetails.code || ''})` });
     } finally {
       setIsSubmitting(false);
     }
@@ -344,8 +560,9 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await refreshData();
     } catch (error) {
         logger.error("Failed to save duplicate song", error);
-        let errorMsg = (error as any)?.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
-        if ((error as any)?.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
+        const errDetails = extractErrorDetails(error);
+        let errorMsg = errDetails.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
+        if (errDetails.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
         toast({ type: 'error', message: t('common.error', "Erro"), description: `${t('common.details', 'Detalhes')}: ${errorMsg}` });
     } finally {
         setIsSubmitting(false);
@@ -361,8 +578,9 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await refreshData();
     } catch (error) {
       logger.error("Failed to delete song", error);
-      let errorMsg = (error as any)?.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
-      if ((error as any)?.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
+      const errDetails = extractErrorDetails(error);
+        let errorMsg = errDetails.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
+        if (errDetails.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
       toast({ type: 'error', message: t('common.error', "Erro"), description: `${t('common.details', 'Detalhes')}: ${errorMsg}` });
     } finally {
       setIsSubmitting(false);
@@ -370,14 +588,15 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [songToDelete, refreshData, api]);
 
   // Scale Handlers
-  const openScaleForm = useCallback((scale?: Scale, preselectedIds?: string[]) => {
+  const openScaleForm = useCallback((scale?: Scale, preselectedIds?: string[], options?: ScaleFormOpenOptions) => {
     closeAllModals();
     setScaleType('music');
     setScaleToEdit(scale || null);
     setPreselectedSongIds(preselectedIds || []);
+    setScaleFormOptions(options || null);
   }, [closeAllModals]);
   
-  const openBandScaleForm = useCallback((scale?: BandScale, options?: { linkToMusicScaleId: string, prefillData?: Partial<BandScale> }) => {
+  const openBandScaleForm = useCallback((scale?: BandScale, options?: { linkToMusicScaleId: string, prefillData?: Partial<BandScale> }, formOpenOptions?: ScaleFormOpenOptions) => {
       closeAllModals();
       setScaleType('band');
       const scaleForForm = { ...(scale || {}) };
@@ -388,6 +607,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (options?.linkToMusicScaleId) {
           setLinkingOptions({ linkToMusicScaleId: options.linkToMusicScaleId });
       }
+      setScaleFormOptions(formOpenOptions || null);
   }, [closeAllModals]);
 
   const openScaleDetail = useCallback((scale: PopulatedScale, action?: 'delete') => {
@@ -414,15 +634,37 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const isCommandApiV1Enabled = organization?.featureFlags?.['musicscale.bandScaleCommandApiV1'] === true || organization?.features?.['musicscale.bandScaleCommandApiV1'] === true;
   const isMusicScalePublishCommandEnabled = organization?.featureFlags?.['musicscale.musicScalePublishCommandV1'] === true || organization?.features?.['musicscale.musicScalePublishCommandV1'] === true;
 
-  const handleSaveScale = useCallback(async (scaleData: Omit<Scale, 'id' | 'createdBy' | 'createdAt'> | Scale | Omit<BandScale, 'id' | 'createdBy' | 'createdAt'> | BandScale, idempotencyKey?: string) => {
+  const scaleSaveInFlightRef = React.useRef(false);
+
+  const handleSaveScale = useCallback(async (
+    req: MusicScaleSaveRequest | { data: BandScaleWritableData; idempotencyKey?: string }
+  ): Promise<MusicScaleSaveResult | void> => {
+    if (scaleSaveInFlightRef.current) return;
+    
     if (!user || !userProfile || !api) {
         logger.error("Cannot save scale: user, userProfile or api is missing", { user: !!user, userProfile: !!userProfile, api: !!api });
         return;
     }
+    
+    scaleSaveInFlightRef.current = true;
     setIsSubmitting(true);
+    
     try {
         if (scaleType === 'music') {
+            const musicReq = req as MusicScaleSaveRequest;
             const orgId = organization?.id || "";
+            const isPublishIntent = musicReq.intent === 'publish';
+            const scaleData = musicReq.data as MusicScaleWritableData;
+            let idempotencyKey = musicReq.idempotencyKey;
+
+            if (isPublishIntent && !isMusicScalePublishCommandEnabled) {
+                toast({
+                    title: t("scaleModal.publishUnavailable"),
+                    description: t("scaleModal.publishUnavailableDescription"),
+                    variant: "destructive"
+                });
+                return { status: "publish-unavailable" };
+            }
 
             // Check if we need to bootstrap taxonomy implicitly
             if (eventTypes.length === 0 || locations.length === 0) {
@@ -449,75 +691,129 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             }
 
             let musicScaleId: string;
-            if ('id' in scaleData && scaleData.id && scaleData.id !== 'CLONE') {
-                await api.scales.update(scaleData.id, scaleData as Scale);
-                musicScaleId = scaleData.id;
-            } else {
-                musicScaleId = await api.scales.create(scaleData as Omit<Scale, 'id' | 'createdBy' | 'createdAt'>);
-            }
-
-            const bandScaleId = (scaleData as any).bandScaleId || null;
-            if (bandScaleId) {
-                await api.linkScales(musicScaleId, bandScaleId);
-            }
-
-            const currentStatus = (scaleData as any).status || "draft";
-            if (currentStatus === 'published') {
-                if (!isMusicScalePublishCommandEnabled) {
-                    const errMsg = "A publicação ainda não está habilitada para esta organização.";
-                    toast({
-                        title: "Publicação Bloqueada",
-                        description: errMsg,
-                        variant: "destructive"
-                    });
-                    throw new Error(errMsg);
+            const isUpdate = 'id' in scaleData && !!scaleData.id && scaleData.id !== 'CLONE';
+            
+            // Preserve the original status so we don't accidentally downgrade published scales to draft
+            const currentStatus = isUpdate && scaleToEdit && 'status' in scaleToEdit ? (scaleToEdit as Scale).status || "draft" : "draft";
+            const updateData = { ...scaleData, status: currentStatus };
+            
+            if (isPublishIntent) {
+                // For publishing, if it is a new scale, we MUST create it as a draft first to get a valid musicScaleId
+                if (!isUpdate) {
+                    const initialDraftData = { ...scaleData, status: "draft" as const };
+                    musicScaleId = await api.scales.create(initialDraftData as Omit<Scale, 'id' | 'createdBy' | 'createdAt'>);
+                    setScaleToEdit({ ...initialDraftData, id: musicScaleId } as Scale);
+                } else {
+                    musicScaleId = scaleData.id as string;
                 }
 
                 if (!idempotencyKey) {
                     idempotencyKey = crypto.randomUUID();
                 }
 
+                const payload = buildMusicScalePublishPayload(scaleData);
+
                 console.log('[MusicScale Publish Path] => ' + JSON.stringify({
                     organizationId: orgId,
                     musicScaleId,
                     musicScalePublishCommandEnabled: isMusicScalePublishCommandEnabled,
-                    currentStatus,
                     selectedAction: "publish_command_api"
                 }));
 
-                const publishResult = await api.musicScaleCommands.publish(
-                    musicScaleId,
-                    { bandScaleId },
-                    idempotencyKey
-                );
+                try {
+                    const publishResult = await api.musicScaleCommands.publish(
+                        musicScaleId,
+                        payload,
+                        idempotencyKey
+                    );
 
-                console.log('[MusicScale Publish Result] => ' + JSON.stringify({
-                    organizationId: orgId,
-                    musicScaleId,
-                    status: "published",
-                    publishRevision: publishResult.version,
-                    eventAssignmentCount: publishResult.eventAssignmentCount || publishResult.createdResponseCount || 0,
-                    createdResponseCount: publishResult.createdResponseCount || 0,
-                    createdNotificationCount: publishResult.createdNotificationCount || 0,
-                    recipientCount: publishResult.createdNotificationCount || 0,
-                    fromCache: !!publishResult.fromCache,
-                    correlationId: publishResult.correlationId || idempotencyKey
-                }));
+                    console.log('[MusicScale Publish Result] => ' + JSON.stringify({
+                        organizationId: orgId,
+                        musicScaleId,
+                        status: "published",
+                        publishRevision: publishResult.version,
+                        eventAssignmentCount: publishResult.eventAssignmentCount || publishResult.createdResponseCount || 0,
+                        createdResponseCount: publishResult.createdResponseCount || 0,
+                        createdNotificationCount: publishResult.createdNotificationCount || 0,
+                        recipientCount: publishResult.createdNotificationCount || 0,
+                        fromCache: !!publishResult.fromCache,
+                        correlationId: publishResult.correlationId || idempotencyKey
+                    }));
 
-                toast({
-                    title: "Sucesso",
-                    description: `Escala de músicas publicada com sucesso (Revisão: ${publishResult.version}).`,
-                });
+                    toast({
+                        title: t('scaleModal.publishSuccess'),
+                        description: t('scaleModal.publishSuccessDescription'),
+                    });
+                    
+                    closeAllModals();
+                    await refreshData();
+                    return { status: "published", scaleId: musicScaleId, version: publishResult.version };
+                } catch (publishErr: unknown) {
+                    logger.error("Failed to publish scale via command", publishErr);
+                    
+                    const errorObj = publishErr as Record<string, unknown> | null;
+                    const correlationId = errorObj && typeof errorObj.correlationId === 'string' ? errorObj.correlationId : undefined;
+                    
+                    const isPublishedPreserved = currentStatus === "published";
+                    const errorDescription = isPublishedPreserved 
+                        ? t('scaleModal.publishedPreserved') 
+                        : t('scaleModal.draftPreserved');
+
+                    toast({
+                        title: t('scaleModal.publishFailed'),
+                        description: errorDescription,
+                        variant: "destructive"
+                    });
+                    
+                    await refreshData();
+                    
+                    if (isPublishedPreserved) {
+                        return { 
+                            status: "republish-failed", 
+                            scaleId: musicScaleId, 
+                            publishedPreserved: true, 
+                            correlationId: correlationId 
+                        };
+                    } else {
+                        return { 
+                            status: "publish-failed", 
+                            scaleId: musicScaleId, 
+                            draftPreserved: true, 
+                            correlationId: correlationId 
+                        };
+                    }
+                }
             } else {
+                if (isUpdate) {
+                    musicScaleId = scaleData.id as string;
+                    await api.scales.update(musicScaleId, updateData as Scale);
+                } else {
+                    musicScaleId = await api.scales.create(updateData as Omit<Scale, 'id' | 'createdBy' | 'createdAt'>);
+                    setScaleToEdit({ ...updateData, id: musicScaleId } as Scale);
+                }
+
+                const bandScaleId = 'bandScaleId' in scaleData ? scaleData.bandScaleId || null : null;
+                if (bandScaleId) {
+                    await api.linkScales(musicScaleId, bandScaleId);
+                }
+
                 toast({
-                    title: "Rascunho Salvo",
-                    description: "Escala salva como rascunho com sucesso. Ela permanece oculta para os voluntários.",
+                    title: t('scaleModal.draftSaved'),
+                    description: t('scaleModal.draftSavedDescription'),
                 });
+                
+                closeAllModals();
+                await refreshData();
+                return { status: "draft-saved", scaleId: musicScaleId };
             }
         } else if (scaleType === 'band') {
+             const bandReq = req as { data: BandScaleWritableData; idempotencyKey?: string };
+             const scaleData = bandReq.data;
+             let idempotencyKey = bandReq.idempotencyKey;
+             
              let bandScaleId: string;
              const isUpdate = 'id' in scaleData && scaleData.id && scaleData.id !== 'CLONE';
-             const oldScale = isUpdate ? bandScales.find(b => b.id === (scaleData as any).id) : null;
+             const oldScale = isUpdate && 'id' in scaleData ? bandScales.find(b => b.id === scaleData.id) : null;
              
              console.info('[BandScale Save Path] => ' + JSON.stringify({
                  organizationId: organization?.id,
@@ -530,7 +826,9 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                      idempotencyKey = crypto.randomUUID(); // Fallback if not provided
                  }
                  if (isUpdate && oldScale) {
-                     const expectedVersion = (oldScale as any).version || 1;
+                     const expectedVersion = oldScale && 'version' in oldScale && typeof oldScale.version === 'number' 
+                         ? oldScale.version 
+                         : 1;
                      const result = await api.bandScaleCommands.update(scaleData.id as string, expectedVersion, scaleData, idempotencyKey);
                      bandScaleId = result.scaleId || scaleData.id;
                  } else {
@@ -539,44 +837,51 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                  }
              } else {
                  if (isUpdate) {
-                    await api.bandScales.update((scaleData as any).id, scaleData as BandScale);
-                    bandScaleId = (scaleData as any).id;
+                    const bandScaleData = scaleData as BandScale;
+                    await api.bandScales.update(bandScaleData.id, bandScaleData);
+                    bandScaleId = bandScaleData.id;
                 } else {
                     bandScaleId = await api.bandScales.create(scaleData as Omit<BandScale, 'id' | 'createdBy' | 'createdAt'>);
                 }
              }
              
-            if ((scaleData as any).musicScaleId) {
-                await api.linkScales((scaleData as any).musicScaleId, bandScaleId);
+            const bandScaleData = scaleData as BandScale & { musicScaleId?: string };
+            if (bandScaleData.musicScaleId) {
+                await api.linkScales(bandScaleData.musicScaleId, bandScaleId);
             }
             if (bandScaleId && linkingOptions?.linkToMusicScaleId) {
                 await api.linkScales(linkingOptions.linkToMusicScaleId, bandScaleId);
             }
+            
+            closeAllModals();
+            await refreshData();
         }
-        closeAllModals();
-        await refreshData();
-    } catch(e: any) {
+    } catch(e: unknown) {
         logger.error("Failed to save scale", e);
         
-        let errorMsg = e?.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
-        if (e?.status === 409) {
+        
+        const errDetails = extractErrorDetails(e);
+        let errorMsg = errDetails.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
+        if (errDetails.status === 409) {
              errorMsg = t('common.concurrencyError', "Esta escala foi alterada por outra pessoa. Atualize os dados antes de salvar novamente.");
-        } else if (e?.code === 'permission-denied') {
+        } else if (errDetails.code === 'permission-denied') {
              errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
         }
         
         let desc = errorMsg;
-        if (e?.correlationId) {
-            desc += ` (${t('common.correlation', 'Correlação')}: ${e.correlationId})`;
-        } else if (e?.code) {
-            desc += ` (${e.code})`;
+        if (errDetails.correlationId) {
+            desc += ` (${t('common.correlation', 'Correlação')}: ${errDetails.correlationId})`;
+        } else if (errDetails.code) {
+            desc += ` (${errDetails.code})`;
         }
+
         
         toast({ type: 'error', message: t('common.errorSaving', "Erro ao salvar"), description: desc });
     } finally {
         setIsSubmitting(false);
+        scaleSaveInFlightRef.current = false;
     }
-  }, [user, userProfile, scaleType, linkingOptions, refreshData, closeAllModals, api, bandScales, instruments, isCommandApiV1Enabled, isMusicScalePublishCommandEnabled, organization?.id, eventTypes, locations]);
+  }, [user, userProfile, scaleType, linkingOptions, refreshData, closeAllModals, api, bandScales, instruments, isCommandApiV1Enabled, isMusicScalePublishCommandEnabled, organization?.id, eventTypes, locations, t, toast]);
 
   const handleDeleteScale = useCallback(async () => {
       if (!scaleToDelete || !api || !user || !userProfile) {
@@ -603,8 +908,9 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           await refreshData();
       } catch(e) {
           logger.error("Failed to delete scale", e);
-          let errorMsg = (e as any)?.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
-          if ((e as any)?.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
+          const errDetails = extractErrorDetails(e);
+          let errorMsg = errDetails.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
+          if (errDetails.code === 'permission-denied') errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
           toast({ type: 'error', message: t('common.errorDeleting', "Erro ao excluir"), description: `${t('common.details', 'Detalhes')}: ${errorMsg}` });
       } finally {
           setIsSubmitting(false);
@@ -713,11 +1019,20 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       feedbackType,
       openFeedback,
       closeFeedback,
+      handleSaveScale,
+      isChordKeyRepairOpen: !!chordKeyRepairState,
+      chordKeyRepairState,
+      songForChordKeyRepair: chordKeyRepairState?.mode === 'persisted' ? chordKeyRepairState.song : null,
+      chordKeyRepairMode: chordKeyRepairState?.mode || 'persisted',
+      openDraftChordKeyRepair,
+      openPersistedChordKeyRepair,
+      closeChordKeyRepair
   }), [
       isAiSongImportOpen, openAiSongImport, closeAiSongImport, isWhatsNewOpen, openWhatsNew, closeWhatsNew,
       openSongForm, openSongDetail, openDeleteSongConfirmation, openScaleForm, openScaleDetail,
       openBandScaleForm, openBandScaleDetail, openAddChordModal, openSuggestionForm, openHelpModal,
-      openSupportModal, saveChord, isSubmitting, isFeedbackOpen, feedbackType, openFeedback, closeFeedback
+      openSupportModal, saveChord, isSubmitting, isFeedbackOpen, feedbackType, openFeedback, closeFeedback,
+      handleSaveScale, chordKeyRepairState, openDraftChordKeyRepair, openPersistedChordKeyRepair, closeChordKeyRepair
   ]);
 
   return (
@@ -760,9 +1075,13 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                   
                   setScaleToView(null);
                   if (rawScale) {
-                      const clonedScale = { ...rawScale, id: 'CLONE', date: '' } as any;
-                      if (scaleType === 'music') openScaleForm(clonedScale);
-                      else openBandScaleForm(clonedScale);
+                      if (scaleType === 'music') {
+                          const clonedScale: Scale = { ...rawScale, id: 'CLONE', date: '' } as Scale;
+                          openScaleForm(clonedScale);
+                      } else {
+                          const clonedScale: BandScale = { ...rawScale, id: 'CLONE', date: '' } as BandScale;
+                          openBandScaleForm(clonedScale);
+                      }
                   }
               }}
               onDelete={(s) => { 
@@ -779,13 +1098,14 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         {songToView && (
           <SongDetailModal
             song={songToView}
-            onClose={() => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); }}
-            onEdit={(song) => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); openSongForm(song); }}
-            onDelete={(song) => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); openDeleteSongConfirmation(song); }}
-            onCreateScale={(song) => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); navigate('/scales', { state: { preselectedSongIds: [song.id] } }); }}
+            onClose={() => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); setSongOpenMode(undefined); }}
+            onEdit={(song) => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); setSongOpenMode(undefined); openSongForm(song); }}
+            onDelete={(song) => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); setSongOpenMode(undefined); openDeleteSongConfirmation(song); }}
+            onCreateScale={(song) => { setSongToView(null); setScaleNavigationContext(null); setStartInPerformanceMode(false); setSongOpenMode(undefined); navigate('/scales', { state: { preselectedSongIds: [song.id] } }); }}
             scaleContext={scaleNavigationContext}
             onNavigate={navigateToSongInScale}
             startInPerformanceMode={startInPerformanceMode}
+            openMode={songOpenMode}
           />
         )}
 
@@ -844,8 +1164,10 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             scaleToEdit={scaleToEdit}
             preselectedSongIds={preselectedSongIds}
             onSave={handleSaveScale}
-            onClose={() => { setScaleToEdit(null); setScaleType(null); }}
+            onClose={() => { setScaleToEdit(null); setScaleType(null); setScaleFormOptions(null); }}
             isSubmitting={isSubmitting}
+            initialStep={scaleFormOptions?.initialStep}
+            focusTarget={scaleFormOptions?.focusTarget}
           />
         )}
         
@@ -902,6 +1224,24 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             isOpen={!!successConfig}
             onClose={() => setSuccessConfig(null)}
             {...successConfig}
+          />
+        )}
+
+        {chordKeyRepairState && (
+          <ChordKeyRepairSheet
+            isOpen={!!chordKeyRepairState}
+            {...(chordKeyRepairState.mode === 'draft'
+              ? {
+                  mode: 'draft' as const,
+                  song: chordKeyRepairState.song,
+                  onSuccess: chordKeyRepairState.onSuccess,
+                }
+              : {
+                  mode: 'persisted' as const,
+                  song: chordKeyRepairState.song,
+                  onSuccess: chordKeyRepairState.onSuccess,
+                })}
+            onClose={closeChordKeyRepair}
           />
         )}
       </Suspense>

@@ -194,6 +194,10 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
                   tags={tags}
                   localSettings={songSettings?.[song.id]}
                   onSettingsChange={(key, bpm, isGlobal) => onUpdateSongSettings(song.id, key, bpm, isGlobal)}
+                  onToggle={() => {
+                    const newSongIds = songIds.filter(id => id !== song.id);
+                    onSongIdsChange(newSongIds);
+                  }}
                   onMoveUp={() => moveSongReview(index, "up")}
                   onMoveDown={() => moveSongReview(index, "down")}
                   isFirst={index === 0}
@@ -217,7 +221,18 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
           />
         </div>
       ) : (
-        <span className="text-sm text-slate-400 italic">Nenhuma música selecionada</span>
+        <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl">
+          <span className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-3">
+            {t('scaleModal.noSongsSelected', 'Nenhuma música selecionada')}
+          </span>
+          <button
+            type="button"
+            onClick={() => goToStep('build')}
+            className="px-4 py-2 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
+          >
+            {t('scaleModal.addMoreSongs', 'Adicionar músicas')}
+          </button>
+        </div>
       )}
     </div>
   );

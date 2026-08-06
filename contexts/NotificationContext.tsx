@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { useAuth } from "./AuthContext";
 import { useToast } from "./ToastContext";
@@ -12,11 +12,11 @@ export interface Notification {
   title: string;
   message: string;
   link: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   isRead: boolean;
   isArchived: boolean;
-  createdAt: any;
-  readAt?: any;
+  createdAt: { toMillis?: () => number };
+  readAt?: { toMillis?: () => number };
 }
 
 interface NotificationContextType {
@@ -40,10 +40,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const isFirstLoadRef = useRef(true);
 
   useEffect(() => {
+    setNotifications([]);
+    setInitialLoadComplete(false);
+    isFirstLoadRef.current = true;
+
     if (!user || !organization?.id) {
-      setNotifications([]);
-      setInitialLoadComplete(false);
-      isFirstLoadRef.current = true;
       return;
     }
 
@@ -188,7 +189,10 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     if (!organization?.id) return;
     try {
       const ref = doc(db, `organizations/${organization.id}/notifications`, id);
-      await deleteDoc(ref);
+      await updateDoc(ref, {
+        isArchived: true,
+        archivedAt: new Date().toISOString(),
+      });
       // Optimistic update
       setNotifications((prev) => prev.filter((n) => n.id !== id));
     } catch (e) {

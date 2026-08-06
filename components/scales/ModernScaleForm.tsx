@@ -28,8 +28,8 @@ import { PlusCircleIcon } from "../icons/PlusCircleIcon";
 import { XCircleIcon } from "../icons/XCircleIcon";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { UsersIcon } from "../icons/UsersIcon";
-import BandBuilder from "./BandBuilder";
-import MusicBuilder from "./MusicBuilder";
+import BandBuilder, { BandBuilderHandle } from "./BandBuilder";
+import MusicBuilder, { MusicBuilderHandle } from "./MusicBuilder";
 import { ScaleSongCard } from "./ScaleSongCard";
 import { ScaleReviewRepertoire } from "./ScaleReviewRepertoire";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
@@ -93,25 +93,24 @@ const ArrowDownIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
+import { MusicScaleSaveRequest, MusicScaleSaveResult, BandScaleWritableData, MusicScaleWritableData, MusicScaleSaveIntent } from "../../contexts/ModalContext";
+import { useFeatureFlag } from "../../hooks/useFeatureFlag";
+import type { HomeAttentionFocusTarget } from "../../utils/homeExperience";
+
 interface ModernScaleFormProps {
   isOpen: boolean;
   scaleType: "music" | "band";
   scaleToEdit: Partial<Scale | BandScale> | null;
   preselectedSongIds: string[];
   onSave: (
-    scaleData:
-      | Omit<Scale, "id" | "createdBy" | "createdAt">
-      | Scale
-      | Omit<BandScale, "id" | "createdBy" | "createdAt">
-      | BandScale,
-    idempotencyKey?: string
-  ) => Promise<void>;
+    req: MusicScaleSaveRequest | { data: BandScaleWritableData; idempotencyKey?: string }
+  ) => Promise<MusicScaleSaveResult | void>;
   onClose: () => void;
   isSubmitting: boolean;
   zIndexClass?: string;
+  initialStep?: 'event' | 'link' | 'build' | 'review';
+  focusTarget?: HomeAttentionFocusTarget;
 }
-
-import { useFeatureFlag } from "../../hooks/useFeatureFlag";
 
 const formInputClass = "mt-1 input-base";
 const formOptionClass = "bg-white dark:bg-[#151515] text-slate-900 dark:text-white";
@@ -127,6 +126,8 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   onClose,
   isSubmitting,
   zIndexClass,
+  initialStep,
+  focusTarget,
 }) => {
   const { t, i18n } = useTranslation();
   const {
@@ -153,6 +154,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     error: showErrorToast,
   } = useToast();
   const isCommandApiV1Enabled = useFeatureFlag('musicscale.bandScaleCommandApiV1');
+  const isMusicScalePublishCommandEnabled = useFeatureFlag('musicscale.musicScalePublishCommandV1');
 
   const [formData, setFormData] = useState<Partial<Scale & BandScale>>({});
 
@@ -290,9 +292,10 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   
   const [selectedFixedBandScaleId, setSelectedFixedBandScaleId] = useState<string>("");
 
+  const [isFormInitialized, setIsFormInitialized] = useState<boolean>(false);
   const idempotencyKeyRef = useRef<string>("");
   const lastPayloadFingerprintRef = useRef<string>("");
-  const isInitializedRef = useRef<boolean>(false);
+  const hasAppliedInitialStepRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -300,7 +303,8 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       lastPayloadFingerprintRef.current = "";
       setSelectedFixedBandScaleId("");
     } else {
-      isInitializedRef.current = false;
+      setIsFormInitialized(false);
+      hasAppliedInitialStepRef.current = false;
     }
   }, [isOpen]);
 
@@ -330,7 +334,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   }, [instruments]);
 
   useEffect(() => {
-    if (!isOpen || isInitializedRef.current) {
+    if (!isOpen || isFormInitialized) {
       return;
     }
 
@@ -374,7 +378,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
     // Capture first snapshot
     initialFormDataRef.current = JSON.stringify(getComparableData(initialData));
-    isInitializedRef.current = true;
+    setIsFormInitialized(true);
   }, [isOpen, scaleToEdit, preselectedSongIds, scaleType, eventTypes, locations]);
 
   useEffect(() => {
@@ -465,7 +469,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         songSettings: normalizeScaleSongSettings(selectedSongs, formData.songSettings || {}),
         bandScaleId: formData.bandScaleId || null,
         durationMinutes: duration,
-        status: forcedStatus || (scaleToEdit as any)?.status || 'draft',
+        status: (scaleToEdit as any)?.status || "draft",
       };
     } else {
       const validAssignments = formData.assignments ? formData.assignments.filter(
@@ -488,10 +492,14 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       lastPayloadFingerprintRef.current = payloadFingerprint;
     }
 
-    if (scaleToEdit && "id" in scaleToEdit && scaleToEdit.id !== "CLONE") {
-      await onSave({ ...(scaleToEdit as Scale | BandScale), ...finalData }, idempotencyKeyRef.current);
+    if (scaleType === "music") {
+      const scaleData = { ...(scaleToEdit && "id" in scaleToEdit && scaleToEdit.id !== "CLONE" ? scaleToEdit : {}), ...finalData } as MusicScaleWritableData;
+      const intent: MusicScaleSaveIntent = forcedStatus === 'published' ? 'publish' : 'save-draft';
+      
+      await onSave({ data: scaleData, intent, idempotencyKey: idempotencyKeyRef.current });
     } else {
-      await onSave(finalData as any, idempotencyKeyRef.current);
+      const scaleData = { ...(scaleToEdit && "id" in scaleToEdit && scaleToEdit.id !== "CLONE" ? scaleToEdit : {}), ...finalData } as BandScaleWritableData;
+      await onSave({ data: scaleData, idempotencyKey: idempotencyKeyRef.current });
     }
   };
 
@@ -503,6 +511,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   ];
   
   const stepsBand = [
+    { id: 'event', label: t('scaleModal.stepEvent', 'Evento') },
     { id: 'link', label: t('scaleModal.stepLinkMusic', 'Músicas') },
     { id: 'build', label: t('scaleModal.stepFormation', 'Formação') },
     { id: 'review', label: t('scaleModal.stepReview', 'Revisão') }
@@ -510,6 +519,94 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
   const steps = scaleType === "music" ? stepsMusic : stepsBand;
   const [currentStep, setCurrentStep] = useState(0);
+
+  useEffect(() => {
+    if (isOpen && isFormInitialized && initialStep && !hasAppliedInitialStepRef.current) {
+      const activeSteps = scaleType === "music" ? stepsMusic : stepsBand;
+      const index = activeSteps.findIndex(step => step.id === initialStep);
+      if (index >= 0) {
+        setCurrentStep(index);
+      }
+      hasAppliedInitialStepRef.current = true;
+    }
+  }, [isOpen, isFormInitialized, initialStep, scaleType]);
+
+  const [hasAppliedFocusRef, setHasAppliedFocusRef] = useState<boolean>(false);
+  useEffect(() => {
+    if (!isOpen) {
+      setHasAppliedFocusRef(false);
+    }
+  }, [isOpen]);
+
+  const timeInputRef = useRef<HTMLInputElement>(null);
+  const locationInputRef = useRef<HTMLSelectElement>(null);
+  const firstBandOptionRef = useRef<HTMLButtonElement>(null);
+  const createBandBtnRef = useRef<HTMLButtonElement>(null);
+  const bandBuilderRef = useRef<BandBuilderHandle>(null);
+  const musicBuilderRef = useRef<MusicBuilderHandle>(null);
+
+  useEffect(() => {
+    if (!isOpen || !isFormInitialized || !focusTarget || hasAppliedFocusRef) return;
+
+    const activeSteps = scaleType === "music" ? stepsMusic : stepsBand;
+    const currentStepId = activeSteps[currentStep]?.id;
+
+    let expectedStepId: string | null = null;
+    if (focusTarget === 'event-time' || focusTarget === 'event-location') {
+      expectedStepId = 'event';
+    } else if (focusTarget === 'band-selector') {
+      expectedStepId = 'link';
+    } else if (focusTarget === 'band-formation' || focusTarget === 'repertoire-selector') {
+      expectedStepId = 'build';
+    }
+
+    if (expectedStepId && currentStepId !== expectedStepId) {
+      return;
+    }
+
+    const abortController = new AbortController();
+    const signal = abortController.signal;
+
+    const performFocus = async () => {
+      if (signal.aborted) return;
+
+      if (focusTarget === 'event-time') {
+        const element = timeInputRef.current;
+        if (element) {
+          element.focus();
+          setHasAppliedFocusRef(true);
+        }
+      } else if (focusTarget === 'event-location') {
+        const element = locationInputRef.current;
+        if (element) {
+          element.focus();
+          setHasAppliedFocusRef(true);
+        }
+      } else if (focusTarget === 'band-selector') {
+        const element = firstBandOptionRef.current || createBandBtnRef.current;
+        if (element) {
+          element.focus();
+          setHasAppliedFocusRef(true);
+        }
+      } else if (focusTarget === 'band-formation') {
+        const success = await bandBuilderRef.current?.focusFirstInstrument(signal);
+        if (success && !signal.aborted) {
+          setHasAppliedFocusRef(true);
+        }
+      } else if (focusTarget === 'repertoire-selector') {
+        const success = await musicBuilderRef.current?.focusSearchInput(signal);
+        if (success && !signal.aborted) {
+          setHasAppliedFocusRef(true);
+        }
+      }
+    };
+
+    performFocus();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [isOpen, isFormInitialized, currentStep, focusTarget, scaleType, hasAppliedFocusRef]);
 
   const availableBandScales = useMemo(() => {
     if (!populatedBandScales) return [];
@@ -631,6 +728,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                     key="btn-draft"
                     type="button" 
                     variant="secondary"
+                    data-testid="save-scale-draft"
                     onClick={(e) => {
                       e.preventDefault();
                       handleSubmit(e as any, 'draft');
@@ -640,18 +738,27 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                   >
                     {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.saveDraft', 'Salvar Rascunho')}
                   </Button>
-                  <Button 
-                    key="btn-publish"
-                    type="button" 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleSubmit(e as any, 'published');
-                    }}
-                    disabled={isSubmitting} 
-                    className="w-full lg:w-auto h-12 rounded-xl text-[12px] sm:text-[14px] bg-indigo-600 text-white hover:bg-indigo-500 shadow-[0_0_25px_rgba(99,102,241,0.45)] border-none font-bold min-w-0"
-                  >
-                    {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.publishScale', 'Publicar Escala')}
-                  </Button>
+                  <div className="w-full lg:w-auto flex flex-col items-center">
+                    <Button 
+                      key="btn-publish"
+                      type="button" 
+                      data-testid="publish-scale"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleSubmit(e as any, 'published');
+                      }}
+                      disabled={isSubmitting || !isMusicScalePublishCommandEnabled} 
+                      className="w-full lg:w-auto h-12 rounded-xl text-[12px] sm:text-[14px] bg-indigo-600 text-white hover:bg-indigo-500 shadow-[0_0_25px_rgba(99,102,241,0.45)] border-none font-bold min-w-0"
+                      aria-describedby={!isMusicScalePublishCommandEnabled ? "publish-blocked-desc" : undefined}
+                    >
+                      {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.publishScale', 'Publicar Escala')}
+                    </Button>
+                    {!isMusicScalePublishCommandEnabled && (
+                      <p id="publish-blocked-desc" className="text-xs text-red-500 font-medium mt-1 text-center">
+                        {t('scaleModal.publishUnavailable', 'A publicação ainda não está habilitada para esta organização.')}
+                      </p>
+                    )}
+                  </div>
                 </>
               ) : (
                 <div className="col-span-2 sm:col-span-1 lg:w-auto flex">
@@ -767,6 +874,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                   className={formInputClass}
                 />
                 <input
+                  ref={timeInputRef}
                   type="time"
                   name="time"
                   id="time"
@@ -802,6 +910,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                 {t('scaleModal.location')} {scaleType === "band" && <span className="text-white/40 text-[11px] font-normal tracking-normal ml-1">(Opcional)</span>}
               </label>
               <select
+                ref={locationInputRef}
                 name="locationId"
                 id="locationId"
                 value={formData.locationId || ""}
@@ -949,24 +1058,36 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                         : t('scaleModal.noBandScalesNoPerm')}
                   </p>
                   {hasCapability('musicscale.scales.manage') && (
-                      <Button type="button" variant="secondary" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCreatingNestedBandScale(true); }} className="mt-4 text-[13px]">
+                      <Button ref={createBandBtnRef} type="button" variant="secondary" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCreatingNestedBandScale(true); }} className="mt-4 text-[13px]" aria-label={t('scaleModal.createBandScaleBtn')}>
                         {t('scaleModal.createBandScaleBtn')}
                       </Button>
                   )}
                </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
-                {availableBandScales.map(bs => {
+                {availableBandScales.map((bs, i) => {
                    const isSelected = formData.bandScaleId === bs.id;
                    const dateObj = new Date(bs.date + "T00:00:00");
                    const day = dateObj.getDate().toString().padStart(2, "0");
-                   const month = dateObj.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toUpperCase();
+                   const activeLang = i18n.resolvedLanguage || i18n.language || "pt-BR";
+                   const month = dateObj.toLocaleDateString(activeLang, { month: "short" }).replace(".", "").toUpperCase();
+
                    
                    return (
-                      <div 
+                      <button
+                         type="button"
+                         ref={i === 0 ? firstBandOptionRef : undefined}
                          key={bs.id} 
                          onClick={() => setFormData(prev => ({...prev, bandScaleId: isSelected ? null : bs.id}))}
-                         className={`flex cursor-pointer border rounded-xl overflow-hidden transition-all duration-300 ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-slate-200 dark:border-white/5 bg-white dark:bg-[#252528] hover:border-primary/50 hover:shadow-md"}`}
+                         data-testid={`link-band-scale-${bs.id}`}
+                         role="radio"
+                         aria-checked={isSelected}
+                         aria-label={t('scaleModal.bandOptionLabel', {
+                           name: bs.eventType.name,
+                           date: dateObj.toLocaleDateString(activeLang, { day: '2-digit', month: 'short' }),
+                           count: bs.assignments.length
+                         })}
+                         className={`text-left flex cursor-pointer border rounded-xl overflow-hidden transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-slate-200 dark:border-white/5 bg-white dark:bg-[#252528] hover:border-primary/50 hover:shadow-md"}`}
                       >
                          <div className={`w-12 flex-shrink-0 flex flex-col items-center justify-center p-2 border-r ${isSelected ? "border-primary/20 bg-primary/10" : "border-slate-200 dark:border-white/5 dark:bg-black/20"}`}>
                             <span className={`text-[9px] font-black uppercase tracking-widest ${isSelected ? "text-primary": "text-slate-400"}`}>{month}</span>
@@ -983,7 +1104,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                                  {bs.musicScaleId && !isSelected && <span className="text-amber-500 opacity-80 truncate">{t('scaleModal.alreadyLinked')}</span>}
                              </div>
                          </div>
-                      </div>
+                      </button>
                    )
                 })}
               </div>
@@ -1064,6 +1185,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         <div className={steps[currentStep]?.id === 'build' ? "flex flex-col animate-fade-in gap-4" : "hidden"}>
           {scaleType === "music" && (
             <MusicBuilder
+              ref={musicBuilderRef}
               formData={formData}
               setFormData={setFormData}
               songs={songs}
@@ -1103,6 +1225,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
               
               <div className="flex flex-col">
                 <BandBuilder
+                  ref={bandBuilderRef}
                   formData={formData}
                   setFormData={setFormData}
                   instrumentsByCat={instrumentsByCat}

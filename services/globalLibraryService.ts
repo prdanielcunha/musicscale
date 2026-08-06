@@ -1,6 +1,16 @@
 import { collection, doc, query, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, where, limit, startAfter, orderBy, DocumentData, QueryDocumentSnapshot, serverTimestamp, increment, writeBatch } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import type { GlobalSong, SongSubmission, Song, FreshnessMetadata } from '../types';
+import { 
+  buildSearchIndex, 
+  searchSongs, 
+  normalizeSearchText, 
+  normalizeMusicalKey,
+  buildGlobalSongSearchFields,
+  GLOBAL_SEARCH_VERSION,
+  isValidMusicalKeyQuery,
+  buildTrigrams
+} from '../utils/searchEngine';
 
 const GLOBAL_SONGS_COLLECTION = 'globalSongs';
 const SUBMISSIONS_COLLECTION = 'songSubmissions';
@@ -44,8 +54,34 @@ export const updateGlobalSong = async (songId: string, payload: Partial<GlobalSo
     };
   }
 
+  const existingDoc = await getDoc(docRef);
+  if (existingDoc.exists()) {
+    const combinedData = { ...existingDoc.data(), ...updateData };
+    const searchFields = buildGlobalSongSearchFields(combinedData);
+    Object.assign(updateData, searchFields);
+  }
+
   await updateDoc(docRef, updateData);
 };
+
+export function mergeGlobalSearchCandidates(candidatesList: GlobalSong[], searchTerm: string): GlobalSong[] {
+  const seenIds = new Set<string>();
+  const uniqueCandidates: GlobalSong[] = [];
+  for (const song of candidatesList) {
+    if (song && song.id && !seenIds.has(song.id)) {
+      seenIds.add(song.id);
+      uniqueCandidates.push(song);
+    }
+  }
+
+  // manual status filter to ensure only active songs are returned
+  const activeCandidates = uniqueCandidates.filter(s => s.status === 'active');
+
+  const searchDocs = buildSearchIndex(activeCandidates);
+  const rankedMatches = searchSongs(searchDocs, searchTerm);
+
+  return rankedMatches.map(m => m.document.song);
+}
 
 export const getGlobalSongs = async (
   searchTerm: string = '',
@@ -56,20 +92,97 @@ export const getGlobalSongs = async (
   let q;
 
   if (searchTerm.trim()) {
-    const normalizedTerm = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-    q = query(
-      collRef,
-      where('normalizedTitle', '>=', normalizedTerm),
-      where('normalizedTitle', '<=', normalizedTerm + '\uf8ff'),
-      limit(pageSize + 10)  // fetch slightly more to allow for draft filtering
-    );
-  } else {
-    q = query(
-      collRef,
-      orderBy('importCount', 'desc'),
-      limit(pageSize + 10) // fetch slightly more to allow for draft filtering
-    );
+    const normalizedTerm = normalizeSearchText(searchTerm);
+    const queryTokens = normalizedTerm ? normalizedTerm.split(" ").filter(t => t.length > 0) : [];
+    const isKey = isValidMusicalKeyQuery(searchTerm);
+    const normalizedKey = isKey ? normalizeMusicalKey(searchTerm) : "";
+
+    const queries = [];
+
+    // 1. Key token match (only if it is a valid musical key)
+    if (isKey && normalizedKey) {
+      queries.push(query(
+        collRef,
+        where('searchKeyTokens', 'array-contains', normalizedKey),
+        limit(200)
+      ));
+    }
+
+    // 2. Exact word tokens match
+    if (queryTokens.length > 0) {
+      queries.push(query(
+        collRef,
+        where('searchTokens', 'array-contains-any', queryTokens.slice(0, 10)),
+        limit(200)
+      ));
+    }
+
+    // 3. Title prefix match
+    if (queryTokens.length > 0) {
+      queries.push(query(
+        collRef,
+        where('searchTitlePrefixes', 'array-contains-any', queryTokens.slice(0, 10)),
+        limit(200)
+      ));
+    }
+
+    // 4. Artist prefix match
+    if (queryTokens.length > 0) {
+      queries.push(query(
+        collRef,
+        where('searchArtistPrefixes', 'array-contains-any', queryTokens.slice(0, 10)),
+        limit(200)
+      ));
+    }
+
+    // 5. Trigram matches (Title and Artist)
+    const queryTrigrams = buildTrigrams(searchTerm);
+    if (queryTrigrams.length > 0) {
+      queries.push(query(
+        collRef,
+        where('searchTitleGrams', 'array-contains-any', queryTrigrams.slice(0, 10)),
+        limit(200)
+      ));
+      queries.push(query(
+        collRef,
+        where('searchArtistGrams', 'array-contains-any', queryTrigrams.slice(0, 10)),
+        limit(200)
+      ));
+    }
+
+    // 6. Legacy prefix fallback query (normalizedTitle)
+    if (normalizedTerm) {
+      queries.push(query(
+        collRef,
+        where('normalizedTitle', '>=', normalizedTerm),
+        where('normalizedTitle', '<=', normalizedTerm + '\uf8ff'),
+        limit(200)
+      ));
+    }
+
+    // Execute queries in parallel
+    const snapshots = await Promise.all(queries.map(q => getDocs(q)));
+    const allFetched: GlobalSong[] = [];
+
+    for (const snap of snapshots) {
+      snap.docs.forEach(docSnap => {
+        allFetched.push({ id: docSnap.id, ...(docSnap.data() as any) } as GlobalSong);
+      });
+    }
+
+    const songs = mergeGlobalSearchCandidates(allFetched, searchTerm);
+
+    return {
+      songs: songs.slice(0, pageSize),
+      lastVisible: null
+    };
   }
+
+  q = query(
+    collRef,
+    orderBy('importCount', 'desc'),
+    limit(pageSize + 10) 
+  );
 
   if (lastVisible) {
     q = query(q, startAfter(lastVisible));
@@ -79,9 +192,15 @@ export const getGlobalSongs = async (
   // manual status filter to avoid composite index requirement
   const allFetched = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }) as GlobalSong);
   const songs = allFetched.filter(s => s.status === 'active').slice(0, pageSize);
+
+  const lastSong = songs[songs.length - 1];
+  const lastVisibleDoc = lastSong 
+    ? snapshot.docs.find(d => d.id === lastSong.id) 
+    : null;
+
   return {
     songs,
-    lastVisible: snapshot.docs[snapshot.docs.length - 1]
+    lastVisible: lastVisibleDoc || null
   };
 };
 
@@ -243,7 +362,12 @@ export const saveToGlobalLibrary = async (payload: GlobalSongPayload & { isMilli
     }
   };
 
-  await setDoc(newGlobalSongRef, globalSongData);
+  const globalSongDataWithSearch = {
+    ...globalSongData,
+    ...buildGlobalSongSearchFields(globalSongData)
+  };
+
+  await setDoc(newGlobalSongRef, globalSongDataWithSearch);
   
   // Create audit log
   try {

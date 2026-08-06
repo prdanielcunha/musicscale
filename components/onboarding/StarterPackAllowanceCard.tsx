@@ -95,7 +95,6 @@ export function StarterPackAllowanceCard({
     return (
       <Card
         onClick={onOpen}
-        interactive
         className="w-full bg-indigo-500/10 border-indigo-500/30 hover:bg-indigo-500/20 hover:border-indigo-500/50 transition-all flex flex-col md:flex-row items-start md:items-center p-6 gap-4"
       >
         <div data-testid="starter-pack-empty-card" className="flex-1 w-full">

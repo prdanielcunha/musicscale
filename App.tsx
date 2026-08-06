@@ -213,7 +213,7 @@ const AppLayout: React.FC = () => {
                 
                 <Header onMenuClick={() => setSidebarCollapsed(false)} />
                 
-                <main className="flex-1 overflow-y-auto overflow-x-hidden relative isolate p-4 pb-[calc(100px+env(safe-area-inset-bottom))] md:pb-8 md:p-8 scroll-smooth touch-manipulation">
+                <main className="flex-1 overflow-y-auto overflow-x-hidden relative isolate p-4 pb-[calc(140px+env(safe-area-inset-bottom))] md:pb-8 md:p-8 scroll-smooth touch-manipulation">
                     <div className="max-w-7xl mx-auto space-y-8">
                        <Suspense fallback={<div className="flex h-64 w-full items-center justify-center"><Spinner size="lg" /></div>}>
                            <Routes>

@@ -148,7 +148,8 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
               // This is a UI trick to show all buttons again. We don't actually change status yet.
            }}
            disabled={submittingStatus !== null}
-           className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium transition-colors bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 mt-1"
+           data-testid="change-response"
+           className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium transition-all duration-300 ease-out bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 mt-1"
         >
            <RefreshCw className="w-4 h-4 text-slate-400" />
            {t('responses.changeResponse', 'Alterar resposta')}
@@ -157,43 +158,46 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
     }
 
     return (
-      <div className={`grid ${compact ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-3'} gap-3 mt-5`}>
+      <div className="flex flex-col gap-2 mt-3">
         <button 
           onClick={() => handleRespond('accepted')}
           disabled={submittingStatus !== null}
-          className={`relative overflow-hidden group flex items-center justify-center gap-2 h-11 px-4 text-sm font-medium rounded-xl transition-all duration-200 border ${
+          data-testid="response-accepted"
+          className={`flex items-center justify-center gap-2 h-[46px] px-4 text-sm font-semibold rounded-xl transition-all duration-300 ease-out ${
             currentStatus === 'accepted' 
-              ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
-              : 'bg-white/5 border-white/10 text-slate-300 hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-400'
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' 
+              : 'bg-slate-50 dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] border border-transparent'
           }`}
         >
-          {submittingStatus === 'accepted' ? <Spinner className="w-4 h-4" /> : <CheckCircle2 className={`w-4 h-4 ${currentStatus === 'accepted' ? 'text-emerald-400' : 'text-slate-400 group-hover:text-emerald-400 transition-colors'}`} />}
+          {submittingStatus === 'accepted' ? <Spinner className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
           <span>{t('responses.actionConfirm', 'Confirmo')}</span>
         </button>
         
         <button 
           onClick={() => handleRespond('maybe')}
           disabled={submittingStatus !== null}
-          className={`relative overflow-hidden group flex items-center justify-center gap-2 h-11 px-4 text-sm font-medium rounded-xl transition-all duration-200 border ${
+          data-testid="response-maybe"
+          className={`flex items-center justify-center gap-2 h-[46px] px-4 text-sm font-semibold rounded-xl transition-all duration-300 ease-out ${
             currentStatus === 'maybe' 
-              ? 'bg-amber-500/20 border-amber-500/50 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]' 
-              : 'bg-white/5 border-white/10 text-slate-300 hover:bg-amber-500/10 hover:border-amber-500/30 hover:text-amber-400'
+              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20' 
+              : 'bg-slate-50 dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] border border-transparent'
           }`}
         >
-          {submittingStatus === 'maybe' ? <Spinner className="w-4 h-4" /> : <HelpCircle className={`w-4 h-4 ${currentStatus === 'maybe' ? 'text-amber-400' : 'text-slate-400 group-hover:text-amber-400 transition-colors'}`} />}
+          {submittingStatus === 'maybe' ? <Spinner className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
           <span>{t('responses.actionMaybe', 'Ainda não sei')}</span>
         </button>
         
         <button 
           onClick={() => setIsDeclineModalOpen(true)}
           disabled={submittingStatus !== null}
-          className={`relative overflow-hidden group flex items-center justify-center gap-2 h-11 px-4 text-sm font-medium rounded-xl transition-all duration-200 border ${
+          data-testid="response-declined"
+          className={`flex items-center justify-center gap-2 h-[46px] px-4 text-sm font-semibold rounded-xl transition-all duration-300 ease-out ${
             currentStatus === 'declined' 
-              ? 'bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.15)]' 
-              : 'bg-white/5 border-white/10 text-slate-300 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400'
+              ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' 
+              : 'bg-slate-50 dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] border border-transparent'
           }`}
         >
-          {submittingStatus === 'declined' ? <Spinner className="w-4 h-4" /> : <XCircle className={`w-4 h-4 ${currentStatus === 'declined' ? 'text-red-400' : 'text-slate-400 group-hover:text-red-400 transition-colors'}`} />}
+          {submittingStatus === 'declined' ? <Spinner className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
           <span>{t('responses.actionDecline', 'Não poderei')}</span>
         </button>
       </div>
@@ -214,21 +218,22 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
       }
       
       return (
-          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/5">
+          <div className="flex flex-col gap-2 pt-2 mt-2">
             {currentStatus === 'declined' && (
                <button 
                  onClick={() => handleRespond('accepted')}
                  disabled={submittingStatus !== null}
-                 className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium transition-colors bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/20"
+                 className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium transition-all duration-300 ease-out bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl"
                >
-                 {submittingStatus === 'accepted' ? <Spinner className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                 {submittingStatus === 'accepted' ? <Spinner className="w-4 h-4" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                  {t('responses.nowICan', 'Agora posso participar')}
                </button>
             )}
             <button 
                onClick={() => setIsChanging(true)}
                disabled={submittingStatus !== null}
-               className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium transition-colors bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl border border-white/10"
+               data-testid="change-response"
+               className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium transition-all duration-300 ease-out bg-slate-50 dark:bg-white/[0.03] hover:bg-slate-100 dark:hover:bg-white/[0.06] text-slate-700 dark:text-slate-300 rounded-xl"
             >
                <RefreshCw className="w-4 h-4 text-slate-400" />
                {t('responses.changeResponse', 'Alterar resposta')}
@@ -238,27 +243,21 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
   }
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border backdrop-blur-xl transition-all duration-300 ${
+    <div className={`relative transition-all duration-300 ${
       currentStatus === 'accepted' 
-        ? 'border-emerald-500/20 bg-emerald-500/5 shadow-[0_0_20px_rgba(16,185,129,0.03)]' 
+        ? 'text-emerald-500' 
         : currentStatus === 'declined' 
-          ? 'border-red-500/20 bg-red-500/5 shadow-[0_0_20px_rgba(239,68,68,0.03)]' 
+          ? 'text-red-500' 
           : currentStatus === 'maybe' 
-            ? 'border-amber-500/20 bg-amber-500/5 shadow-[0_0_20px_rgba(245,158,11,0.03)]' 
-            : 'border-white/10 bg-white/[0.03] shadow-sm hover:border-white/20 hover:bg-white/[0.04]'
-    } p-5 sm:p-6 my-4`}>
+            ? 'text-amber-500' 
+            : 'text-slate-300'
+    } pt-1`}>
       
       {currentStatus === 'pending' && (
         <div className="flex flex-col">
           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center shrink-0 border border-indigo-500/20">
-                <HelpCircle className="w-5 h-5 text-indigo-400" />
-             </div>
              <div>
-                <h4 className="font-medium text-slate-200">{t('responses.titlePending', 'Confirme sua participação')}</h4>
-                <p className="text-sm text-slate-400 mt-0.5">
-                  {t('responses.descPending', 'Você está escalado para {{functions}} neste evento.', { functions: functionText })}
-                </p>
+                <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{t('responses.titlePending', 'Sua presença')}</h4>
              </div>
           </div>
           {renderButtons()}
@@ -268,14 +267,11 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
       {currentStatus === 'accepted' && (
         <div className="flex flex-col">
           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+             <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-500">
+                <CheckCircle2 className="w-3.5 h-3.5" />
              </div>
              <div>
-                <h4 className="font-medium text-emerald-400">{t('responses.titleAccepted', 'Presença confirmada')}</h4>
-                <p className="text-sm text-emerald-400/70 mt-0.5">
-                  {t('responses.descAccepted', 'Você confirmou sua participação como {{functions}}.', { functions: functionText })}
-                </p>
+                <h4 className="font-medium text-slate-800 dark:text-slate-200">{t('responses.titleAccepted', 'Presença confirmada')}</h4>
              </div>
           </div>
           {renderChangeButtons()}
@@ -285,14 +281,11 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
       {currentStatus === 'maybe' && (
         <div className="flex flex-col">
           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0 border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
-                <HelpCircle className="w-5 h-5 text-amber-400" />
+             <div className="w-6 h-6 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-500">
+                <HelpCircle className="w-3.5 h-3.5" />
              </div>
              <div>
-                <h4 className="font-medium text-amber-400">{t('responses.titleMaybe', 'Você ainda não confirmou')}</h4>
-                <p className="text-sm text-amber-400/70 mt-0.5">
-                  {t('responses.descMaybe', 'Avise o líder assim que tiver certeza.')}
-                </p>
+                <h4 className="font-medium text-slate-800 dark:text-slate-200">{t('responses.titleMaybe', 'Ainda não confirmada')}</h4>
              </div>
           </div>
           {renderChangeButtons()}
@@ -302,20 +295,11 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
       {currentStatus === 'declined' && (
         <div className="flex flex-col">
           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center shrink-0 border border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.2)]">
-                <XCircle className="w-5 h-5 text-red-400" />
+             <div className="w-6 h-6 rounded-full bg-red-500/10 flex items-center justify-center shrink-0 text-red-600 dark:text-red-500">
+                <XCircle className="w-3.5 h-3.5" />
              </div>
              <div>
-                <h4 className="font-medium text-red-400">{t('responses.titleDeclined', 'Você informou que não poderá participar')}</h4>
-                {currentReason ? (
-                   <p className="text-sm text-red-400/70 mt-0.5 italic">
-                      {t('responses.reasonGiven', 'Motivo informado:')} {currentReason}
-                   </p>
-                ) : (
-                   <p className="text-sm text-red-400/70 mt-0.5">
-                      Você não participará deste evento.
-                   </p>
-                )}
+                <h4 className="font-medium text-slate-900 dark:text-white">{t('responses.titleDeclined', 'Você informou que não poderá participar')}</h4>
              </div>
           </div>
           {renderChangeButtons()}
@@ -339,6 +323,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
               {t('responses.optionalReason', 'Motivo opcional')}
             </label>
             <textarea
+              data-testid="response-reason"
               value={declineReason}
               onChange={(e) => setDeclineReason(e.target.value.substring(0, 300))}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
@@ -356,6 +341,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
             </Button>
             <Button 
                variant="destructive"
+               data-testid="submit-response"
                disabled={submittingStatus !== null}
                onClick={() => handleRespond('declined', declineReason)}
             >

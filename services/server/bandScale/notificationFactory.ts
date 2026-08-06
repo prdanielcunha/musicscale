@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import * as crypto from "crypto";
 import { admin } from "../../firebaseAdmin.js";
 
 export interface NotificationPayload {

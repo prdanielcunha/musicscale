@@ -28,6 +28,7 @@ import { CloneIcon } from "../icons/CloneIcon";
 import { LocationMarkerIcon } from "../icons/LocationMarkerIcon";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { UsersIcon } from "../icons/UsersIcon";
+import { applyScaleSongSettings } from "../../utils/scaleSongSettings";
 import { UserIcon } from "../icons/UserIcon";
 import { ShareIcon } from "../icons/ShareIcon";
 import ScaleShareImage from "./ScaleShareImage";
@@ -373,7 +374,10 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
   
   useEffect(() => {
     if (scale && isMusicScale(scale)) {
-      setLocalSongs(scale.songs);
+      const songsWithSettings = scale.songs.map(song => 
+        applyScaleSongSettings(song, scale.songSettings?.[song.id])
+      );
+      setLocalSongs(songsWithSettings);
     }
   }, [scale]);
 
@@ -736,7 +740,7 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
                                 else if (hasLyrics) contentStatus = { label: "SÓ LETRA", color: "text-amber-700 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 border-amber-500/20 shadow-sm" };
 
                                 return (
-                                <div key={song.id} className="group relative flex items-center justify-between p-4 rounded-[20px] bg-[#121318]/50 border border-white/[0.04] hover:bg-[#1A1C23] hover:border-white/[0.08] transition-all backdrop-blur-xl shadow-sm">
+                                <div key={song.id} data-testid={`detail-song-card-${song.id}`} className="group relative flex items-center justify-between p-4 rounded-[20px] bg-[#121318]/50 border border-white/[0.04] hover:bg-[#1A1C23] hover:border-white/[0.08] transition-all backdrop-blur-xl shadow-sm">
                                    <div className="flex items-center gap-4 md:gap-5 overflow-hidden flex-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); openSongDetail(song, true, { songs: localSongs, currentIndex: index, scaleId: scale.id }) }}>
                                      
                                      <div className="relative w-10 h-10 rounded-full bg-[#1A1D24] shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-white/[0.03] flex items-center justify-center shrink-0 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-all">
@@ -754,14 +758,32 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
                                            {song.artist && <p className="text-[13px] font-medium text-white/40 truncate max-w-[120px] md:max-w-[200px]">{song.artist}</p>}
                                            {song.artist && ((song.selectedKey || song.key) || song.bpm) && <div className="w-1 h-1 rounded-full bg-white/10" />}
                                            <div className="flex items-center gap-2">
-                                             {(song.selectedKey || song.key) && <span className="text-[11px] font-bold text-indigo-300/80 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 uppercase tracking-widest shadow-sm">{song.selectedKey || song.key}</span>}
-                                             {song.bpm && <span className="text-[11px] font-bold text-emerald-300/80 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm"><BpmIcon className="w-3 h-3 opacity-60"/> {song.bpm}</span>}
+                                             {(song.selectedKey || song.key) && (
+                                               <span className="text-[11px] font-bold text-indigo-300/80 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 uppercase tracking-widest shadow-sm">
+                                                 {song.selectedKey || song.key}
+                                                 {scale.songSettings?.[song.id]?.key && (
+                                                   <span className="ml-1 px-1 py-[1px] bg-indigo-500/30 text-indigo-200 text-[8px] rounded uppercase tracking-wider">
+                                                     {t('scaleModal.scaleSpecificSetting', 'Desta escala')}
+                                                   </span>
+                                                 )}
+                                               </span>
+                                             )}
+                                             {song.bpm && (
+                                               <span className="text-[11px] font-bold text-emerald-300/80 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
+                                                 <BpmIcon className="w-3 h-3 opacity-60"/> {song.bpm}
+                                                 {scale.songSettings?.[song.id]?.bpm && (
+                                                   <span className="ml-1 px-1 py-[1px] bg-emerald-500/30 text-emerald-200 text-[8px] rounded uppercase tracking-wider">
+                                                     {t('scaleModal.scaleSpecificSetting', 'Desta escala')}
+                                                   </span>
+                                                 )}
+                                               </span>
+                                             )}
                                            </div>
                                         </div>
                                      </div>
                                    </div>
                                    <div className="flex items-center gap-2 shrink-0 pl-3 md:pl-4 opacity-70 group-hover:opacity-100 transition-opacity">
-                                     <button onClick={(e) => { e.stopPropagation(); openSongDetail(song, true, { songs: localSongs, currentIndex: index, scaleId: scale.id }, true) }} className="w-10 h-10 rounded-full bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 hover:text-white transition-all border border-indigo-500/20 flex items-center justify-center shadow-sm" title="Modo Performance">
+                                     <button onClick={(e) => { e.stopPropagation(); openSongDetail(song, true, { songs: localSongs, currentIndex: index, scaleId: scale.id }, true) }} data-testid={`performance-mode-button-${song.id}`} className="w-10 h-10 rounded-full bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 hover:text-white transition-all border border-indigo-500/20 flex items-center justify-center shadow-sm" title="Modo Performance">
                                        <svg className="w-4 h-4 ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                                      </button>
 
@@ -906,7 +928,7 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
            
            <div className="flex items-center gap-1.5 sm:gap-2.5">
              {canManage && (
-                <button onClick={() => onEdit(scale as any)} className="w-11 sm:w-auto px-0 sm:px-5 h-11 flex items-center justify-center gap-2 rounded-[16px] bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] text-white font-bold tracking-wide text-[13px] transition-all active:scale-95 shadow-sm" title="Editar">
+                <button onClick={() => onEdit(scale as any)} className="w-11 sm:w-auto px-0 sm:px-5 h-11 flex items-center justify-center gap-2 rounded-[16px] bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] text-white font-bold tracking-wide text-[13px] transition-all active:scale-95 shadow-sm" data-testid="edit-scale-detail-button" title="Editar">
                   <EditIcon />
                   <span className="hidden sm:inline">Editar</span>
                 </button>

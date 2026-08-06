@@ -3,6 +3,7 @@ import React from 'react';
 import type { GlobalSong } from '../../types';
 import { MusicNoteIcon } from '../icons/MusicNoteIcon';
 import { Download, Check, Loader2, Edit, Trash2, Sparkles } from 'lucide-react';
+import { getSearchSnippet } from '../../utils/searchEngine';
 
 interface LibrarySongListRowProps {
   song: GlobalSong;
@@ -16,6 +17,8 @@ interface LibrarySongListRowProps {
   selectable?: boolean;
   selected?: boolean;
   onToggleSelection?: (songId: string, e: React.MouseEvent) => void;
+  searchMatch?: import('../../utils/searchEngine').SearchMatch;
+  searchTerm?: string;
 }
 
 const getStatusBadge = (song: GlobalSong, t: any) => {
@@ -58,6 +61,8 @@ export const LibrarySongListRow: React.FC<LibrarySongListRowProps> = ({
   selectable = false,
   selected = false,
   onToggleSelection,
+  searchMatch,
+  searchTerm
 }) => {
   const { t } = useTranslation();
   const status = getStatusBadge(song, t);
@@ -138,6 +143,12 @@ export const LibrarySongListRow: React.FC<LibrarySongListRowProps> = ({
           <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400 truncate">
             {song.artist}
           </p>
+          {searchMatch?.matchOrigin === 'lyrics' && searchTerm && (
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 italic truncate mt-0.5 max-w-[200px] md:max-w-[400px]">
+              <span className="font-semibold text-blue-600 dark:text-blue-400 mr-1">{t('library.in_lyrics', 'Na letra:')}</span>
+              "{getSearchSnippet(song.lyrics, searchTerm)}"
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-3 md:w-56 flex-shrink-0">
@@ -147,7 +158,11 @@ export const LibrarySongListRow: React.FC<LibrarySongListRowProps> = ({
            <div className="flex flex-col items-start gap-px">
              <div className="flex items-center gap-1.5 opacity-80" title={t("library.key_short", "Tom")}>
                <span className="text-[8px] font-bold uppercase text-slate-400 w-6">{t("library.key_short", "Tom")}</span>
-               <span className="text-[11px] font-black text-slate-700 dark:text-slate-300">{song.key || "—"}</span>
+               {searchMatch?.matchOrigin === 'key' ? (
+                 <span className="text-[11px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-1 py-0.5 rounded border border-blue-100 dark:border-blue-500/20">{song.key || "—"}</span>
+               ) : (
+                 <span className="text-[11px] font-black text-slate-700 dark:text-slate-300">{song.key || "—"}</span>
+               )}
              </div>
              <div className="flex items-center gap-1.5 opacity-80" title={t("library.bpm_short", "BPM")}>
                 <span className="text-[8px] font-bold uppercase text-slate-400 w-6">{t("library.bpm_short", "BPM")}</span>

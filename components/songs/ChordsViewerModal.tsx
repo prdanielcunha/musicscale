@@ -27,6 +27,7 @@ import {
   getPerformanceState,
 } from "../../services/offline/database";
 import { useMusic } from "../../contexts/MusicDataContext";
+import { useModals } from "../../contexts/ModalContext";
 import { AiContextualSuggestions } from "../scales/AiContextualSuggestions";
 import { LiveWorshipDirector } from "./LiveWorshipDirector";
 import { useLiveWorshipSession } from "../../hooks/useLiveWorshipSession";
@@ -208,6 +209,7 @@ interface ChordsViewerModalProps {
   onClose: () => void;
   song: PopulatedSong | null;
   onSave: (data: { songId: string; chords: string }) => Promise<void>;
+  onSongUpdate?: (updatedSong: PopulatedSong) => void;
   isSubmitting: boolean;
   scaleContext: {
     scaleId?: string;
@@ -222,6 +224,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   onClose,
   song,
   onSave,
+  onSongUpdate,
   isSubmitting,
   scaleContext,
   onNavigate,
@@ -234,6 +237,8 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const { isPowerSave } = useAdaptivePerformance();
 
   const canManageChords = !!(permissions?.manageSongs || permissions?.manageChords || permissions?.['musicscale.chords.edit']);
+  const { openPersistedChordKeyRepair } = useModals();
+  const canRepairChordKey = !!(permissions?.['musicscale.songs.edit'] || permissions?.manageSongs || permissions?.['musicScale.manageSongs']);
 
   const { lyrics: lyricsPalette, chords: chordsPalette } = useMemo(
     () => (theme === "dark" ? darkThemeColors : lightThemeColors),
@@ -835,6 +840,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         <div className="flex-1">
           <button
             onClick={handleSafeClose}
+            data-testid="close-chords-viewer"
             className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 transition-all shadow-sm"
           >
             <CloseIcon className="w-5 h-5 md:w-6 md:h-6" />
@@ -1008,6 +1014,25 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
               </div>
 
               <div className="pt-2 flex flex-col gap-2 border-t border-white/5">
+                {canRepairChordKey && (
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white border-none transition-colors"
+                    onClick={() => {
+                      setActiveTab("none");
+                      if (song) {
+                        openPersistedChordKeyRepair(song, (updatedSong) => {
+                          if (onSongUpdate) {
+                            onSongUpdate(updatedSong);
+                          }
+                        });
+                      }
+                    }}
+                  >
+                    Ajustar Tom da Cifra
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="secondary"
@@ -1259,7 +1284,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                 <span className="text-[8px] font-bold uppercase tracking-widest text-white/40 mb-[1px]">
                   Tom
                 </span>
-                <span className="text-[15px] font-bold text-white tracking-wider leading-none">
+                <span className="text-[15px] font-bold text-white tracking-wider leading-none" data-testid="chords-viewer-transposed-key">
                   {song ? transposeChord(song.key, transpose) : ""}
                 </span>
               </div>

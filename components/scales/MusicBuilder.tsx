@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { PopulatedSong, Tag, ScaleSongSettingsUpdateResult } from "../../types";
 import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm, moveSongId, moveSongBeforeTarget } from "../../utils/scaleSongSettings";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
@@ -21,18 +21,81 @@ interface MusicBuilderProps {
   onUpdateSongSettings: (songId: string, key: string | null, bpm: number | null, isGlobal: boolean) => Promise<ScaleSongSettingsUpdateResult>;
 }
 
-const MusicBuilder: React.FC<MusicBuilderProps> = ({
+export interface MusicBuilderHandle {
+  focusSearchInput(signal?: AbortSignal): Promise<boolean>;
+}
+
+const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
   formData,
   setFormData,
   songs,
   tags,
   onUpdateSongSettings,
-}) => {
+}, ref) => {
   const { t } = useTranslation();
   const [songSearch, setSongSearch] = useState("");
   const [songStatusFilter, setSongStatusFilter] = useState<"all" | "active" | "new">("all");
   const [songTagFilterIds, setSongTagFilterIds] = useState<string[]>([]);
   const [mobileTab, setMobileTab] = useState<"library" | "setlist">("library");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    focusSearchInput: async (signal?: AbortSignal): Promise<boolean> => {
+       if (signal?.aborted) return false;
+       if (!searchInputRef.current) return false;
+       
+       if (searchInputRef.current.offsetParent === null) {
+          setMobileTab('library');
+          await new Promise<void>((resolve, reject) => {
+             let rafId: number;
+             const onAbort = () => {
+                cancelAnimationFrame(rafId);
+                reject(new Error('Aborted'));
+             };
+             if (signal?.aborted) return reject(new Error('Aborted'));
+             signal?.addEventListener('abort', onAbort);
+             rafId = requestAnimationFrame(() => {
+                signal?.removeEventListener('abort', onAbort);
+                resolve();
+             });
+          }).catch(() => {});
+          if (signal?.aborted) return false;
+          
+          await new Promise<void>((resolve, reject) => {
+             let rafId: number;
+             const onAbort = () => {
+                cancelAnimationFrame(rafId);
+                reject(new Error('Aborted'));
+             };
+             if (signal?.aborted) return reject(new Error('Aborted'));
+             signal?.addEventListener('abort', onAbort);
+             rafId = requestAnimationFrame(() => {
+                signal?.removeEventListener('abort', onAbort);
+                resolve();
+             });
+          }).catch(() => {});
+          if (signal?.aborted) return false;
+       }
+       
+       if (searchInputRef.current) {
+          searchInputRef.current.focus();
+          if (searchInputRef.current.scrollIntoView) {
+             const rect = searchInputRef.current.getBoundingClientRect();
+             const isVisible = (
+                 rect.top >= 0 &&
+                 rect.left >= 0 &&
+                 rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+                 rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+             );
+             if (!isVisible) {
+               searchInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+             }
+          }
+          return true;
+       }
+       return false;
+    }
+  }));
 
   // Filtering songs
   const filteredSongs = useMemo(() => {
@@ -289,7 +352,9 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
           <div className="flex flex-col space-y-3 flex-shrink-0 mb-4">
              <div className="relative">
                <input 
+                 ref={searchInputRef}
                  type="text" 
+                 id="repertoire-selector-input"
                  value={songSearch} 
                  onChange={e => setSongSearch(e.target.value)} 
                  placeholder={t('scaleModal.searchSongs', 'Buscar músicas...')}
@@ -461,6 +526,6 @@ const MusicBuilder: React.FC<MusicBuilderProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default MusicBuilder;

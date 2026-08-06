@@ -4,7 +4,7 @@ import { useMusic } from '../contexts/MusicDataContext';
 import { useCapability } from './useCapability';
 import { evaluateFirstValueJourney, FirstValueJourneyOutput } from '../utils/firstValueJourney';
 
-export function useFirstScaleExperience(): FirstValueJourneyOutput & { dismissTeamStep: () => void } {
+export function useFirstScaleExperience(): FirstValueJourneyOutput {
   const { organization, user } = useAuth();
   const { songs, scales, allUsers, loading } = useMusic();
   const { hasCapability } = useCapability();
@@ -18,10 +18,13 @@ export function useFirstScaleExperience(): FirstValueJourneyOutput & { dismissTe
     isCompleted: false,
     currentEssentialStep: null,
     completedEssentialSteps: 0,
-    totalEssentialSteps: 3,
+    totalEssentialSteps: 4,
     milestones: [],
     draftScale: null,
-    hasTeam: false
+    hasTeam: false,
+    teamState: "empty",
+    teamSetupSummary: null,
+    canManageMembers
   });
 
   useEffect(() => {
@@ -33,16 +36,11 @@ export function useFirstScaleExperience(): FirstValueJourneyOutput & { dismissTe
       canCreateSongs,
       canManageMembers,
       organizationId: organization?.id,
-      loading: loading || !user
+      loading: loading || !user,
+      currentUserId: user?.uid
     });
     setState(result);
   }, [songs, scales, allUsers, canEditScales, canCreateSongs, canManageMembers, organization?.id, user, loading]);
 
-  // Backward compatibility stub if needed, although we are removing it.
-  const dismissTeamStep = () => {};
-
-  return {
-    ...state,
-    dismissTeamStep
-  };
+  return state;
 }

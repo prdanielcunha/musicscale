@@ -32,3 +32,18 @@ Object.defineProperty(global, 'IntersectionObserver', {
   configurable: true,
   value: MockIntersectionObserver,
 });
+
+vi.mock('./hooks/useCapability', () => ({
+  useCapability: vi.fn(() => ({ hasCapability: vi.fn(() => true) })),
+}));
+
+vi.mock('../hooks/useCapability', () => ({
+  useCapability: vi.fn(() => ({ hasCapability: vi.fn(() => true) })),
+}));
+
+vi.mock('../../hooks/useCapability', () => ({
+  useCapability: vi.fn(() => ({ hasCapability: vi.fn(() => true) })),
+}));
+
+
+

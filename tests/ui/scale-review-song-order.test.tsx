@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+vi.mock('../../hooks/useCapability', () => ({
+  useCapability: vi.fn(() => ({ hasCapability: vi.fn(() => true) })),
+}));
+
 import { PopulatedSong } from '../../types';
 import { ScaleReviewRepertoire } from '../../components/scales/ScaleReviewRepertoire';
 

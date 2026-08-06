@@ -1,12 +1,14 @@
 import { BaseRepository, removeUndefinedValues } from '../lib/BaseRepository';
 import { 
-    Song, Scale, EventType, Location, EventName, Tag, Instrument, BandScale, FixedBandScale, UserProfile, Role, LiveWorshipSession
+    Song, Scale, EventType, Location, EventName, Tag, Instrument, BandScale, FixedBandScale, UserProfile, Role, LiveWorshipSession, ChordSourceConfirmation
 } from '../types';
-import { doc, writeBatch, serverTimestamp, addDoc, collection } from 'firebase/firestore';
+import { doc, writeBatch, serverTimestamp, addDoc, collection, runTransaction } from 'firebase/firestore';
 import { db } from './firebase';
+import { transposeChordDocument, normalizeKey, isValidKey, getSignedSemitones, areKeysEnharmonicallyEquivalent, analyzeChordDocumentKeyCandidates, validateTransposedPreview, toEpochMillis, resolveChordContentSourceKey, buildChordKeyCorrectionMetadata } from '../utils/chordEngine';
 
 export class MusicRepository {
     private readonly orgId: string;
+    private readonly userProfile?: UserProfile | null;
     public songs: BaseRepository<Song>;
     public scales: BaseRepository<Scale>;
     public bandScales: BaseRepository<BandScale>;
@@ -22,6 +24,7 @@ export class MusicRepository {
 
     constructor(orgId: string, userProfile?: UserProfile | null) {
         this.orgId = orgId;
+        this.userProfile = userProfile;
         this.songs = new class extends BaseRepository<Song> {
             async create(data: Omit<Song, 'id' | 'createdAt' | 'createdBy' | 'organizationId'>): Promise<string> {
                 const id = await super.create(data);
@@ -299,11 +302,224 @@ export class MusicRepository {
     }
 
     async updateSongChords(songId: string, chords: string) {
+        const song = await this.songs.getById(songId);
+        if (!song || song.organizationId !== this.orgId) {
+            throw new Error("Operação negada: ID da organização ausente no contexto atual.");
+        }
         await this.songs.update(songId, { 
             chords,
             chordsLastModifiedAt: serverTimestamp() as any 
         } as any);
     }
+
+    async repairOrganizationSongChordKey({
+        songId,
+        organizationId,
+        sourceChordKey,
+        targetChordKey,
+        expectedUpdatedAt,
+        sourceConfirmation
+    }: {
+        songId: string;
+        organizationId: string;
+        sourceChordKey: string;
+        targetChordKey: string;
+        expectedUpdatedAt?: string | number | Date | null;
+        sourceConfirmation: ChordSourceConfirmation;
+    }) {
+        // Validate active organization
+        if (organizationId !== this.orgId) {
+            throw new Error("Operação negada: ID da organização ausente no contexto atual.");
+        }
+
+        // Validate auth
+        if (!this.userProfile || !this.userProfile.uid) {
+            throw new Error("Usuário não autenticado");
+        }
+
+        const role = (this.userProfile.organizationRole || this.userProfile.role || '').toLowerCase();
+        if (role && ['visitor', 'visitante', 'guest', 'convidado'].includes(role)) {
+            throw new Error("Permissão negada: Usuário não possui permissão para editar músicas.");
+        }
+
+        // Validate keys
+        if (!sourceChordKey || !targetChordKey) {
+            throw new Error("Tons de origem e destino são obrigatórios.");
+        }
+
+        const normSource = normalizeKey(sourceChordKey);
+        const normTarget = normalizeKey(targetChordKey);
+
+        if (!isValidKey(normSource) || !isValidKey(normTarget)) {
+            throw new Error("Tom inválido");
+        }
+
+        if (areKeysEnharmonicallyEquivalent(normSource, normTarget)) {
+            throw new Error("Origem e destino não podem ser iguais");
+        }
+
+        if (!sourceConfirmation) {
+            throw new Error("É necessário confirmar o tom de origem antes de aplicar.");
+        }
+
+        // Run as a Firestore transaction
+        await runTransaction(db, async (transaction) => {
+            const songDocRef = doc(db, 'songs', songId);
+            const songDocSnapshot = await transaction.get(songDocRef);
+            if (!songDocSnapshot.exists()) {
+                throw new Error("Música não encontrada");
+            }
+            const song = songDocSnapshot.data() as Song;
+
+            if (song.organizationId !== this.orgId) {
+                throw new Error("Operação negada: ID da organização ausente no contexto atual.");
+            }
+
+            // Concurrency validation using exact epoch milliseconds
+            if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== null) {
+                const lastMod = song.lastModifiedAt || song.chordsLastModifiedAt || (song as any).updatedAt;
+                const currentEpoch = toEpochMillis(lastMod);
+                const expectedEpoch = toEpochMillis(expectedUpdatedAt);
+
+                if (currentEpoch !== null && expectedEpoch !== null && currentEpoch !== expectedEpoch) {
+                    throw new Error("Conflito de concorrência: A música foi modificada por outro usuário. Recarregue os dados e tente novamente.");
+                }
+            }
+
+            // Check if chords are empty
+            if (!song.chords || song.chords.trim() === '') {
+                throw new Error("Conteúdo vazio");
+            }
+
+            // Prevent double correction
+            if (song.metadata?.chordContentKey && areKeysEnharmonicallyEquivalent(song.metadata.chordContentKey, normTarget)) {
+                throw new Error("A cifra já está neste tom.");
+            }
+
+            // Analyze chords inside transaction
+            const analysis = analyzeChordDocumentKeyCandidates(song.chords);
+            const topCandidate = analysis.candidates[0];
+
+            // Validate sourceConfirmation type against transaction data
+            switch (sourceConfirmation.type) {
+                case 'metadata': {
+                    const songMetaKey = song.metadata?.chordContentKey ? normalizeKey(song.metadata.chordContentKey) : null;
+                    if (!songMetaKey) {
+                        throw new Error("Metadata de tom não encontrada no documento.");
+                    }
+                    if (!areKeysEnharmonicallyEquivalent(songMetaKey, sourceConfirmation.metadataKey)) {
+                        throw new Error("Metadata da música não corresponde à chave informada.");
+                    }
+                    if (!areKeysEnharmonicallyEquivalent(normSource, sourceConfirmation.metadataKey)) {
+                        throw new Error("Tom de origem não corresponde ao tom da metadata.");
+                    }
+                    break;
+                }
+                case 'detected': {
+                    if (!topCandidate) {
+                        throw new Error("Nenhum tom foi detectado na cifra.");
+                    }
+                    if (!areKeysEnharmonicallyEquivalent(topCandidate.key, sourceConfirmation.detectedKey)) {
+                        throw new Error("Tom detectado diverge do tom recalculado no servidor.");
+                    }
+                    if (topCandidate.confidence !== sourceConfirmation.detectionConfidence) {
+                        throw new Error("Nível de confiança da detecção diverge do servidor.");
+                    }
+                    if (!areKeysEnharmonicallyEquivalent(normSource, topCandidate.key)) {
+                        throw new Error("Tom de origem não corresponde ao tom detectado.");
+                    }
+                    break;
+                }
+                case 'manual': {
+                    if (!areKeysEnharmonicallyEquivalent(normSource, sourceConfirmation.selectedKey)) {
+                        throw new Error("Tom de origem não corresponde ao tom selecionado manualmente.");
+                    }
+                    if (topCandidate && (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium')) {
+                        throw new Error("Confirmação manual não é permitida quando há tom detectado de confiança alta ou média. Use override se deseja alterar.");
+                    }
+                    break;
+                }
+                case 'override': {
+                    if (!topCandidate || (topCandidate.confidence !== 'high' && topCandidate.confidence !== 'medium')) {
+                        throw new Error("Override de tom requer um candidato detectado de alta ou média confiança.");
+                    }
+                    if (areKeysEnharmonicallyEquivalent(normSource, topCandidate.key)) {
+                        throw new Error("Override não é necessário quando o tom de origem é idêntico ao tom detectado.");
+                    }
+                    if (!areKeysEnharmonicallyEquivalent(topCandidate.key, sourceConfirmation.detectedKey)) {
+                        throw new Error("Tom detectado informado no override diverge do tom recalculado no servidor.");
+                    }
+                    if (topCandidate.confidence !== sourceConfirmation.detectionConfidence) {
+                        throw new Error("Nível de confiança do override diverge do servidor.");
+                    }
+                    if (!sourceConfirmation.acknowledgedConflict) {
+                        throw new Error("Confirmação explícita do conflito (acknowledgedConflict) é obrigatória para override.");
+                    }
+                    if (!areKeysEnharmonicallyEquivalent(normSource, sourceConfirmation.selectedKey)) {
+                        throw new Error("Tom de origem não corresponde ao tom selecionado no override.");
+                    }
+                    break;
+                }
+                default: {
+                    throw new Error("Tipo de confirmação de origem inválido.");
+                }
+            }
+
+            // Reject high/medium confidence divergence if not using override
+            if (topCandidate && (topCandidate.confidence === 'high' || topCandidate.confidence === 'medium')) {
+                if (!areKeysEnharmonicallyEquivalent(normSource, topCandidate.key) && sourceConfirmation.type !== 'override') {
+                    throw new Error("Divergência de tom detectado com confiança alta ou média exige confirmação de override.");
+                }
+            }
+
+            // Perform transposition
+            const { chords: transposedChords, semitones } = transposeChordDocument(song.chords, normSource, normTarget);
+            const { signedSemitones, normalizedSemitones } = getSignedSemitones(normSource, normTarget);
+
+            // Validate transposed preview inside transaction
+            const val = validateTransposedPreview(song.chords, transposedChords, normSource, normTarget);
+            if (!val.valid) {
+                throw new Error(val.error || "Falha na validação da prévia da transposição.");
+            }
+
+            const chordKeyCorrection = buildChordKeyCorrectionMetadata({
+                previousContentKey: normSource,
+                correctedContentKey: normTarget,
+                sourceConfirmation,
+                topCandidate,
+                correctedBy: this.userProfile?.uid || 'unknown',
+                correctedAt: new Date().toISOString()
+            });
+
+            // Update metadata preserving import provenance fields (declaredKey, shapeKey, capo, transpositionSemitones)
+            const existingMetadata = song.metadata || {};
+            const updatedMetadata = {
+                ...existingMetadata,
+                chordContentKey: normTarget,
+                normalizedToConcertKey: true,
+                chordKeyCorrection
+            };
+
+            // Commit within transaction
+            transaction.update(songDocRef, {
+                chords: transposedChords,
+                metadata: updatedMetadata,
+                chordsLastModifiedAt: serverTimestamp() as any,
+                lastModifiedAt: serverTimestamp() as any
+            });
+        });
+
+        // After transaction completes, re-read saved document from Firestore
+        const canonicalSong = await this.songs.getById(songId);
+        if (!canonicalSong) {
+            throw new Error("Erro ao reler o documento da música após a gravação.");
+        }
+        if (canonicalSong.organizationId !== this.orgId) {
+            throw new Error("Operação negada: ID da organização ausente no contexto atual.");
+        }
+        return canonicalSong;
+    }
+
 
     public bandScaleCommands = {
         create: async (payload: any, idempotencyKey: string) => {
