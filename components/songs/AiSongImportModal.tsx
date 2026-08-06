@@ -320,17 +320,11 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
           const isTotalReplacement = (start === 0 && end === currentText.length) || currentText.trim() === "";
 
           setFormData(prev => {
-             let newTitle = prev.title;
-             let newArtist = prev.artist;
+             const currentTitle = prev.title.trim();
+             const currentArtist = prev.artist.trim();
              
-             if (titleHint && artistHint) {
-                if (isTotalReplacement || !prev.title) {
-                   newTitle = titleHint;
-                }
-                if (isTotalReplacement || !prev.artist) {
-                   newArtist = artistHint;
-                }
-             }
+             let newTitle = currentTitle ? prev.title : (titleHint || "");
+             let newArtist = currentArtist ? prev.artist : (artistHint || "");
              
              return { 
                 ...prev, 
@@ -697,6 +691,32 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
           </div>
           
           <div className="space-y-4">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                   <label className={formLabelClass}>{t("aiImport.preview.titleField", "Título")}</label>
+                   <input 
+                      type="text" 
+                      name="title"
+                      aria-label={t("aiImport.preview.titleField", "Título")}
+                      value={formData.title} 
+                      onChange={handleChange} 
+                      className={formInputClass} 
+                      placeholder={t("aiImport.titlePlaceholder", "Opcional")} 
+                   />
+                </div>
+                <div>
+                   <label className={formLabelClass}>{t("aiImport.preview.artistField", "Artista")}</label>
+                   <input 
+                      type="text" 
+                      name="artist"
+                      aria-label={t("aiImport.preview.artistField", "Artista")}
+                      value={formData.artist} 
+                      onChange={handleChange} 
+                      className={formInputClass} 
+                      placeholder={t("aiImport.artistPlaceholder", "Opcional")} 
+                   />
+                </div>
+             </div>
              <div>
                 <div className="flex justify-between items-end mb-2">
                    <label className={formLabelClass}>{t("aiImport.inputLabel", "Cole a cifra ou letra")}</label>

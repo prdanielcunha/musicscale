@@ -314,55 +314,41 @@ describe('AiSongImportModal Fixes', () => {
     
     it('should not overwrite manual values with pasted identity', async () => {
       render(<AiSongImportModal isOpen={true} onClose={() => {}} />);
+      
+      const titleInput = screen.getByLabelText('Título') as HTMLInputElement;
+      const artistInput = screen.getByLabelText('Artista') as HTMLInputElement;
       const textarea = screen.getByPlaceholderText('Cole aqui a letra, a cifra ou o conteúdo completo da música...') as HTMLTextAreaElement;
       
-      const htmlFixture1 = `
+      fireEvent.change(titleInput, { target: { value: 'Título Corrigido' } });
+      fireEvent.change(artistInput, { target: { value: 'Artista Corrigido' } });
+
+      const htmlFixture = `
         <article>
           <header>
-            <h1>Título Corrigido</h1>
-            <a href="/art/">Artista Corrigido</a>
+            <h1>Toda Terra</h1>
+            <a href="/art/gabriela-rocha/">Gabriela Rocha</a>
           </header>
           <div>Tom: E</div>
+          <pre>[Intro] E</pre>
         </article>
       `;
-      const plainText1 = `Título CorrigidoArtista Corrigido\nTom: E`;
+      const plainText = `Toda TerraGabriela Rocha\nTom: E\n[Intro] E`;
 
-      const pasteEvent1 = new Event('paste', { bubbles: true }) as any;
-      pasteEvent1.clipboardData = {
-        getData: (type: string) => type === 'text/plain' ? plainText1 : htmlFixture1
+      const pasteEvent = new Event('paste', { bubbles: true }) as any;
+      pasteEvent.clipboardData = {
+        getData: (type: string) => type === 'text/plain' ? plainText : htmlFixture
       };
       
       textarea.selectionStart = 0;
       textarea.selectionEnd = 0;
-      Object.assign(pasteEvent1, { preventDefault: vi.fn() });
-      fireEvent(textarea, pasteEvent1);
+      Object.assign(pasteEvent, { preventDefault: vi.fn() });
+      fireEvent(textarea, pasteEvent);
       
       await waitFor(() => {
-         expect(textarea.value).toContain('Título Corrigido');
-      });
-      
-      textarea.selectionStart = textarea.value.length;
-      textarea.selectionEnd = textarea.value.length;
-
-      const htmlFixture2 = `
-        <article>
-          <header>
-            <h1>Outro Titulo</h1>
-            <a href="/art/">Outro Artista</a>
-          </header>
-        </article>
-      `;
-      const plainText2 = `Outro TituloOutro Artista`;
-
-      const pasteEvent2 = new Event('paste', { bubbles: true }) as any;
-      pasteEvent2.clipboardData = {
-        getData: (type: string) => type === 'text/plain' ? plainText2 : htmlFixture2
-      };
-      Object.assign(pasteEvent2, { preventDefault: vi.fn() });
-      fireEvent(textarea, pasteEvent2);
-
-      await waitFor(() => {
-         expect(textarea.value).toContain('Outro Titulo\nOutro Artista');
+         expect(textarea.value).toContain('Toda Terra');
+         expect(textarea.value).toContain('Gabriela Rocha');
+         expect(textarea.value).toContain('Tom: E');
+         expect(textarea.value).toContain('[Intro] E');
       });
 
       (global.fetch as any).mockResolvedValue({
@@ -382,5 +368,6 @@ describe('AiSongImportModal Fixes', () => {
       
       expect(fetchBody.title).toBe('Título Corrigido');
       expect(fetchBody.artist).toBe('Artista Corrigido');
+      expect(fetchBody.rawText).toContain('Toda Terra\nGabriela Rocha\nTom: E\n[Intro] E');
     });
   });
