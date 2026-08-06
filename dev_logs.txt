@@ -1,0 +1,9 @@
+
+> music-scale-manager@0.0.0 dev
+> tsx server.ts
+
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+[DEBUG] Firebase Admin initialized successfully in firebaseAdmin.ts.
+[INFO] Server process started
+◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+[INFO] Initializing Vite middleware...
