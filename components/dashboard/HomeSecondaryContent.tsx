@@ -163,21 +163,28 @@ export const HomeSecondaryContent: React.FC<HomeSecondaryContentProps> = ({
               aria-expanded={isActivityExpanded}
               aria-controls="dashboard-contextual-content"
               aria-label={isActivityExpanded ? t('dashboard.explore.activityCollapse') : t('dashboard.explore.activityExpand')}
-              className="w-full flex items-center justify-between text-left transition-colors hover:text-indigo-600 dark:hover:text-indigo-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-2xl min-h-[56px]"
+              className="w-full max-w-full min-w-0 h-auto overflow-hidden text-left cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-black rounded-2xl"
             >
-              <div className="space-y-1 pr-4">
-                <div className="text-slate-900 dark:text-white font-bold text-base truncate">
-                  {t('dashboard.explore.activityTitle')}
+              <div className="flex flex-col w-full">
+                <div className="space-y-1 w-full min-w-0 max-w-full">
+                  <div className="text-slate-900 dark:text-white font-bold text-base">
+                    {t('dashboard.explore.activityTitle')}
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 whitespace-normal break-words max-w-full leading-relaxed">
+                    {t('dashboard.explore.activityDescription')}
+                  </div>
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                  {t('dashboard.explore.activityDescription')}
+                <div className="mt-4 flex min-h-[44px] w-full items-center justify-between rounded-xl border border-slate-200/80 dark:border-white/[0.07] bg-slate-100/80 dark:bg-white/[0.04] px-3 py-2.5 transition-colors hover:bg-slate-200/70 dark:hover:bg-white/[0.07] text-indigo-600 dark:text-indigo-300">
+                  <span className="text-sm font-semibold min-w-0">
+                    {isActivityExpanded ? t('dashboard.explore.activityCollapse') : t('dashboard.explore.activityExpand')}
+                  </span>
+                  {isActivityExpanded ? (
+                    <ChevronUp className="w-5 h-5 shrink-0 ml-2" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 shrink-0 ml-2" />
+                  )}
                 </div>
               </div>
-              {isActivityExpanded ? (
-                <ChevronUp className="w-5 h-5 text-slate-400 shrink-0 ml-2" />
-              ) : (
-                <ChevronDown className="w-5 h-5 text-slate-400 shrink-0 ml-2" />
-              )}
             </button>
 
             <AnimatePresence>

@@ -261,7 +261,7 @@ describe('Dashboard Home Experience UI', () => {
     expect(screen.queryByText(/Acesso rápido/i)).not.toBeInTheDocument();
   });
 
-  it('11. Explorar mais inicia recolhido no celular', () => {
+  it('11. O painel contextual inicia recolhido com affordance correto', () => {
     mockUseSuggestionsContext.mockReturnValue({
       suggestions: [{ id: '1', isRead: false, songs: [{ title: 'Song 1' }], createdBy: { name: 'User' } }],
       loading: false
@@ -270,10 +270,14 @@ describe('Dashboard Home Experience UI', () => {
     const exploreBtnText = screen.getAllByText('Do seu ministério')[1];
     const exploreBtn = exploreBtnText.closest('button');
     expect(exploreBtn).not.toBeNull();
+    
     expect(exploreBtn!.getAttribute('aria-expanded')).toBe('false');
+    expect(exploreBtn!.getAttribute('aria-controls')).toBe('dashboard-contextual-content');
+    expect(screen.getByText('Mostrar atividade')).toBeInTheDocument();
+    expect(exploreBtn!.querySelector('svg.lucide-chevron-down')).toBeInTheDocument();
   });
 
-  it('12. aria-expanded muda ao clicar em Explorar mais', () => {
+  it('12. O painel contextual expande exibindo affordance atualizado e conteúdo', () => {
     mockUseSuggestionsContext.mockReturnValue({
       suggestions: [{ id: '1', isRead: false, songs: [{ title: 'Song 1' }], createdBy: { name: 'User' } }],
       loading: false
@@ -282,8 +286,13 @@ describe('Dashboard Home Experience UI', () => {
     const exploreBtnText = screen.getAllByText('Do seu ministério')[1];
     const exploreBtn = exploreBtnText.closest('button');
     expect(exploreBtn).not.toBeNull();
+    
     fireEvent.click(exploreBtn!);
+    
     expect(exploreBtn!.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('Ocultar atividade')).toBeInTheDocument();
+    expect(exploreBtn!.querySelector('svg.lucide-chevron-up')).toBeInTheDocument();
+    expect(screen.getAllByText('Song 1').length).toBeGreaterThan(0);
   });
 
   it('13. próximos eventos limitados a três', () => {
