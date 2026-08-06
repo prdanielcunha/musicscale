@@ -194,4 +194,53 @@ describe('AI Import API Backend Normalization', () => {
     expect(Array.isArray(res.body.result.warnings)).toBe(true);
     expect(res.body.result.warnings.includes("Não foi possível confirmar automaticamente o tom físico dos acordes.")).toBe(true);
   });
+
+  it('should split concatenated title and artist when evident, and use explicit values when provided', async () => {
+    geminiMockState.text = JSON.stringify({
+      capitalizedTitle: "Toda Terra",
+      capitalizedArtist: "Gabriela Rocha",
+      originalKey: "E",
+      cleanChords: "[Intro] E  B  C#m  A",
+      cleanLyrics: "Toda Terra",
+      sections: ["Intro"]
+    });
+
+    const inputText = `Toda TerraGabriela Rocha\nTom: E\n[Intro] E  B  C#m  A`;
+    
+    // First, test without explicit title/artist
+    const res1 = await request(app)
+      .post('/api/ai-import')
+      .set('Authorization', 'Bearer fake-token')
+      .send({
+        rawText: inputText,
+        orgId: 'test-org',
+        userId: 'test-uid'
+      });
+      
+    expect(res1.status).toBe(200);
+    expect(res1.body.ok).toBe(true);
+    expect(res1.body.song.title).toBe("Toda Terra");
+    expect(res1.body.song.artist).toBe("Gabriela Rocha");
+    expect(res1.body.result.title).toBe("Toda Terra");
+    expect(res1.body.result.artist).toBe("Gabriela Rocha");
+
+    // Second, test WITH explicit title/artist overriding AI
+    const res2 = await request(app)
+      .post('/api/ai-import')
+      .set('Authorization', 'Bearer fake-token')
+      .send({
+        rawText: inputText,
+        title: "Explicit Title",
+        artist: "Explicit Artist",
+        orgId: 'test-org',
+        userId: 'test-uid'
+      });
+
+    expect(res2.status).toBe(200);
+    expect(res2.body.ok).toBe(true);
+    expect(res2.body.song.title).toBe("Explicit Title");
+    expect(res2.body.song.artist).toBe("Explicit Artist");
+    expect(res2.body.result.title).toBe("Explicit Title");
+    expect(res2.body.result.artist).toBe("Explicit Artist");
+  });
 });

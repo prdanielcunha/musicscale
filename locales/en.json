@@ -1431,6 +1431,26 @@
     "errorEmpty": "Paste lyrics or chords to continue.",
     "processButton": "Process with AI",
     "saveDestination": "Save Destination",
-    "pasteClipboard": "Paste from clipboard"
+    "pasteClipboard": "Paste from clipboard",
+    "preview": {
+      "titleField": "Title",
+      "artistField": "Artist",
+      "originalKey": "Original key",
+      "currentChordKey": "Current chord key",
+      "targetKey": "Key to play",
+      "applyKey": "Apply key",
+      "alreadyInKey": "The chords are already in this key.",
+      "noChordsToTranspose": "No chords to transpose.",
+      "keyMismatch": "The displayed chords do not match the current key. Review the chords before applying another key.",
+      "applyBeforeSave": "You have chosen a different key. Tap \"Apply key\" to update the chords before saving.",
+      "reviewRequired": "Review the chords and confirm the key before saving.",
+      "reviewCheckbox": "I have reviewed the chords and confirmed they match the key to play.",
+      "keyConfirmed": "Chord key verified.",
+      "keyIndeterminate": "Check the chords before saving.",
+      "lyricsOnly": "This import has no chords.",
+      "saveSong": "Save song",
+      "transposeSuccess": "The chords were updated from {{from}} to {{to}}. {{count}} chords were adjusted.",
+      "transposeSuccessOne": "The chords were updated from {{from}} to {{to}}. 1 chord was adjusted."
+    }
   }
 }

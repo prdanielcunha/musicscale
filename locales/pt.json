@@ -1430,6 +1430,26 @@
     "errorEmpty": "Cole a letra ou cifra para continuar.",
     "processButton": "Processar com IA",
     "saveDestination": "Destino do Salvamento",
-    "pasteClipboard": "Colar da área de transferência"
+    "pasteClipboard": "Colar da área de transferência",
+    "preview": {
+      "titleField": "Título",
+      "artistField": "Artista",
+      "originalKey": "Tom original",
+      "currentChordKey": "Tom atual da cifra",
+      "targetKey": "Tom para tocar",
+      "applyKey": "Aplicar tom",
+      "alreadyInKey": "A cifra já está neste tom.",
+      "noChordsToTranspose": "Não há acordes para transpor.",
+      "keyMismatch": "Os acordes exibidos não correspondem ao tom atual. Revise a cifra antes de aplicar outro tom.",
+      "applyBeforeSave": "Você escolheu outro tom. Toque em \"Aplicar tom\" para atualizar a cifra antes de salvar.",
+      "reviewRequired": "Revise a cifra e confirme o tom antes de salvar.",
+      "reviewCheckbox": "Revisei a cifra e confirmei que os acordes correspondem ao tom para tocar.",
+      "keyConfirmed": "Tom da cifra conferido.",
+      "keyIndeterminate": "Confira os acordes antes de salvar.",
+      "lyricsOnly": "Esta importação não possui cifra.",
+      "saveSong": "Salvar música",
+      "transposeSuccess": "A cifra foi atualizada de {{from}} para {{to}}. {{count}} acordes foram ajustados.",
+      "transposeSuccessOne": "A cifra foi atualizada de {{from}} para {{to}}. 1 acorde foi ajustado."
+    }
   }
 }

@@ -1,6 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import AiSongImportModal, { mergeAiImportResponse } from '../../components/songs/AiSongImportModal';
 
 // Mock contexts
@@ -121,5 +121,133 @@ describe('AiSongImportModal Fixes', () => {
     };
     const merged2 = mergeAiImportResponse(stringMetadataData) as any;
     expect(merged2.metadata).toEqual({});
+  });
+
+  describe('Transposition and Normalization', () => {
+    beforeEach(() => {
+       global.fetch = vi.fn();
+    });
+
+    it('sets initial physical chord key correctly and separates title/artist', async () => {
+      const mockResponse = {
+        ok: true,
+        song: {
+          title: "Toda Terra",
+          artist: "Gabriela Rocha",
+          originalKey: "E",
+          chords: "[Intro] E\n\n[Primeira Parte]\nE\nEu ouvi uma vez\nE7M\nEu li no Teu Livro\nA\nO que o Senhor fez\nA7M\nFaz mais uma vez",
+          metadata: {
+            chordContentKey: "E",
+            chordContentKeyValidationStatus: "MATCH"
+          }
+        },
+        result: {}
+      };
+
+      (global.fetch as any).mockResolvedValue({
+        ok: true,
+        headers: { get: () => "application/json" },
+        json: async () => mockResponse
+      });
+
+      render(<AiSongImportModal isOpen={true} onClose={() => {}} />);
+      
+      // Paste something and click process
+      const textarea = screen.getByPlaceholderText('Cole aqui a letra, a cifra ou o conteúdo completo da música...');
+      fireEvent.change(textarea, { target: { value: 'some content' } });
+      fireEvent.click(screen.getByText('Processar com IA'));
+
+      // Wait for preview step
+      const applyBtn = await screen.findByText('Aplicar tom');
+      expect(applyBtn).toBeDefined();
+
+      // Check title and artist inputs
+      const titleInput = screen.getByDisplayValue("Toda Terra");
+      expect(titleInput).toBeDefined();
+      const artistInput = screen.getByDisplayValue("Gabriela Rocha");
+      expect(artistInput).toBeDefined();
+
+      // Check keys
+      const eSpans = screen.getAllByText("E", { selector: 'span.font-bold.text-slate-500' });
+      expect(eSpans.length).toBeGreaterThan(0);
+
+      // Change target key without applying
+      const selectTarget = screen.getByRole('combobox', { name: "Tom para tocar" });
+      fireEvent.change(selectTarget, { target: { value: 'G' } });
+      
+      // Chords should remain E before apply
+      const initialChordsTextarea = screen.getByDisplayValue(/\[Intro\] E/i);
+      expect(initialChordsTextarea).toBeDefined();
+
+      console.log("CHORDS BEFORE APPLY:", (initialChordsTextarea as HTMLTextAreaElement).value);
+      
+      const currentChordKeySpan = screen.getAllByText("E", { selector: 'span.font-bold.text-slate-500' });
+      console.log("current chord key span:", currentChordKeySpan.map(s => s.textContent));
+
+      // Now apply
+      fireEvent.click(applyBtn);
+
+      // Wait for chords to change
+      await waitFor(() => {
+        const textboxes = screen.getAllByRole('textbox');
+        const chordsBox = textboxes.find(t => (t as HTMLTextAreaElement).value.includes('[Intro]\nG'));
+        if (!chordsBox) {
+           console.log("CURRENT CHORDS:", (textboxes[textboxes.length-1] as HTMLTextAreaElement).value);
+        }
+        expect(chordsBox).toBeDefined();
+      });
+
+      // Find again to perform assertions
+      const textboxes = screen.getAllByRole('textbox');
+      const chordsTextarea = textboxes.find(t => (t as HTMLTextAreaElement).value.includes('[Intro]\nG')) as HTMLTextAreaElement;
+      
+      expect(chordsTextarea.value).toContain("\nG\nEu ouvi uma vez");
+      expect((chordsTextarea as HTMLTextAreaElement).value).toContain("\nG7M\nEu li no Teu Livro");
+      expect((chordsTextarea as HTMLTextAreaElement).value).toContain("\nC\nO que o Senhor fez");
+
+      // Success message should appear only once (aria-live polite)
+      const successMsgs = screen.getAllByText(/A cifra foi atualizada de/i);
+      expect(successMsgs.length).toBe(1);
+
+      // Current chord key should now be G
+      const gSpans = screen.getAllByText("G");
+      expect(gSpans.length).toBeGreaterThan(0);
+    });
+
+    it('does not transpose if no chords are present and does not change state', async () => {
+       const mockResponse = {
+        ok: true,
+        song: {
+          title: "Toda Terra",
+          originalKey: "E",
+          chords: "No chords here",
+          metadata: { chordContentKey: "E" }
+        },
+        result: {}
+      };
+
+      (global.fetch as any).mockResolvedValue({
+        ok: true,
+        headers: { get: () => "application/json" },
+        json: async () => mockResponse
+      });
+
+      render(<AiSongImportModal isOpen={true} onClose={() => {}} />);
+      fireEvent.change(screen.getByPlaceholderText('Cole aqui a letra, a cifra ou o conteúdo completo da música...'), { target: { value: 'some content' } });
+      fireEvent.click(screen.getByText('Processar com IA'));
+
+      const applyBtn = await screen.findByText('Aplicar tom');
+      const selectTarget = screen.getByRole('combobox', { name: "Tom para tocar" });
+      fireEvent.change(selectTarget, { target: { value: 'G' } });
+      
+      fireEvent.click(applyBtn);
+
+      const errorMsg = await screen.findByText("Não há acordes para transpor.");
+      expect(errorMsg).toBeDefined();
+
+      // Chords remain the same
+      const chordsTextareaNoChords = screen.getByDisplayValue("No chords here");
+      expect(chordsTextareaNoChords).toBeDefined();
+    });
   });
 });

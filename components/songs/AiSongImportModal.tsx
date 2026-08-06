@@ -27,6 +27,13 @@ import { normalizePastedSongText } from "../../utils/textNormalizer";
 import { useMusicScaleFeature } from "../../hooks/useMusicScaleEntitlements";
 import { auth } from "../../services/firebase";
 import { FeatureLockedCard } from "../premium/EntitlementGates";
+import { transposeChordDocument, validateChordContentKeyConsistency, isValidKey, normalizeKey, areKeysEnharmonicallyEquivalent } from "../../utils/chordEngine";
+
+type AiPreviewKeyValidationStatus =
+  | "MATCH"
+  | "INDETERMINATE"
+  | "NO_CHORDS"
+  | "MISMATCH";
 
 export type AiImportMetadata = Record<string, unknown>;
 
@@ -109,6 +116,13 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
   });
   
   const [previewData, setPreviewData] = useState<any>(null);
+  const [targetKey, setTargetKey] = useState("");
+  const [currentChordKey, setCurrentChordKey] = useState<string | null>(null);
+  const [transpositionMessage, setTranspositionMessage] = useState<string | null>(null);
+  const [transpositionError, setTranspositionError] = useState<string | null>(null);
+  const [requiresChordReview, setRequiresChordReview] = useState(false);
+  const [chordReviewConfirmed, setChordReviewConfirmed] = useState(false);
+  
   const [error, setError] = useState<string | null>(null);
   const [duplicateInfo, setDuplicateInfo] = useState<{ songData: any, matches: DuplicateMatch[] } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -142,6 +156,136 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
     }
     return () => clearInterval(interval);
   }, [step]);
+
+  const COMMON_KEYS = [
+    "C", "C#", "Db", "D", "Eb", "E", "F", "F#", "Gb", "G", "Ab", "A", "Bb", "B",
+    "Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"
+  ];
+
+  const resolveInitialPhysicalChordKey = (data: any) => {
+    if (!data) return null;
+    
+    if (data.metadata?.chordContentKey && isValidKey(data.metadata.chordContentKey)) {
+      return data.metadata.chordContentKey;
+    }
+    if (data.selectedKey && isValidKey(data.selectedKey)) {
+      return data.selectedKey;
+    }
+    if (data.originalKey && isValidKey(data.originalKey)) {
+      return data.originalKey;
+    }
+    return null;
+  };
+
+  const normalizePreviewChordDocumentForTranspose = (chords: string): string => {
+    if (!chords) return "";
+    return chords.split('\n').map(line => {
+      const trimmed = line.trim();
+      const sectionMatch = trimmed.match(/^(\[[^\]]+\])(.+)$/);
+      if (sectionMatch) {
+        const section = sectionMatch[1];
+        const rest = sectionMatch[2].trim();
+        if (rest.length > 0) {
+          // Check if rest contains at least one likely chord token
+          const hasTokens = rest.split(/\s+/).some(t => /^[A-G][#b]?(m|M|maj|min|dim|aug|sus|add|[0-9])*(\/[A-G][#b]?)?$/.test(t));
+          if (hasTokens) {
+            return `${section}\n${rest}`;
+          }
+        }
+      }
+      return line;
+    }).join('\n');
+  };
+
+  const handleApplyPreviewTransposition = () => {
+    setTranspositionMessage(null);
+    setTranspositionError(null);
+    
+    if (!currentChordKey || !targetKey || !isValidKey(currentChordKey) || !isValidKey(targetKey)) {
+       setTranspositionError(t("aiImport.preview.noChordsToTranspose", "Não há acordes para transpor."));
+       return;
+    }
+
+    if (!previewData?.chords || previewData.chords.trim().length === 0) {
+       setTranspositionError(t("aiImport.preview.noChordsToTranspose", "Não há acordes para transpor."));
+       return;
+    }
+
+    const normalizedChords = normalizePreviewChordDocumentForTranspose(previewData.chords);
+    if (!normalizedChords.trim()) {
+       setTranspositionError(t("aiImport.preview.noChordsToTranspose", "Não há acordes para transpor."));
+       return;
+    }
+
+    // Very fast basic token check to avoid false NO_CHORDS from full validation engine
+    const hasAnyLikelyChord = normalizedChords.split(/\s+/).some(t => /^[A-G][#b]?(m|M|maj|min|dim|aug|sus|add|[0-9])*(\/[A-G][#b]?)?$/.test(t));
+    if (!hasAnyLikelyChord) {
+       setTranspositionError(t("aiImport.preview.noChordsToTranspose", "Não há acordes para transpor."));
+       return;
+    }
+
+    const consistency = validateChordContentKeyConsistency(normalizedChords, currentChordKey);
+    
+    if (consistency.status === "MISMATCH") {
+       setTranspositionError(t("aiImport.preview.keyMismatch", "Os acordes exibidos não correspondem ao tom atual. Revise a cifra antes de aplicar outro tom."));
+       return;
+    }
+    
+    // We already did a basic chord check, so if NO_CHORDS appears here, we ignore it 
+    // unless our own check failed. We want to allow transposing even if INDETERMINATE/NO_CHORDS
+    // as long as there is some physical chords.
+
+    const normalizedTargetKey = normalizeKey(targetKey);
+    
+    if (areKeysEnharmonicallyEquivalent(currentChordKey, normalizedTargetKey)) {
+       setPreviewData((prev: any) => ({ ...prev, selectedKey: normalizedTargetKey }));
+       setTranspositionMessage(t("aiImport.preview.alreadyInKey", "A cifra já está neste tom."));
+       return;
+    }
+
+    const result = transposeChordDocument(normalizedChords, currentChordKey, normalizedTargetKey);
+
+    if (result.changedChordCount === 0) {
+       // Maybe it failed to transpose anything?
+    }
+
+    setPreviewData((prev: any) => {
+       const newMetadata = { ...prev.metadata };
+       
+       if (consistency.status === "MATCH") {
+          newMetadata.chordContentKey = normalizedTargetKey;
+          newMetadata.chordContentKeyValidationStatus = "MATCH";
+       } else if (consistency.status === "INDETERMINATE" || consistency.status === "NO_CHORDS") {
+          delete newMetadata.chordContentKey;
+          newMetadata.chordContentKeyValidationStatus = "INDETERMINATE";
+          setRequiresChordReview(true);
+       }
+       
+       newMetadata.previewTransposition = {
+          fromKey: currentChordKey,
+          toKey: normalizedTargetKey,
+          semitones: result.semitones,
+          changedChordCount: result.changedChordCount,
+          appliedAt: new Date().toISOString()
+       };
+       
+       return {
+         ...prev,
+         chords: result.chords,
+         selectedKey: normalizedTargetKey,
+         key: normalizedTargetKey,
+         metadata: newMetadata
+       };
+    });
+    
+    setCurrentChordKey(normalizedTargetKey);
+
+    if (result.changedChordCount === 1) {
+       setTranspositionMessage(t("aiImport.preview.transposeSuccessOne", "A cifra foi atualizada de {{from}} para {{to}}. 1 acorde foi ajustado.", { from: currentChordKey, to: normalizedTargetKey }));
+    } else {
+       setTranspositionMessage(t("aiImport.preview.transposeSuccess", "A cifra foi atualizada de {{from}} para {{to}}. {{count}} acordes foram ajustados.", { from: currentChordKey, to: normalizedTargetKey, count: result.changedChordCount }));
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -264,7 +408,13 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
       
 
 
-      setPreviewData(mergeAiImportResponse(data));
+      const mergedPreview = mergeAiImportResponse(data) as any;
+      setPreviewData(mergedPreview);
+      setCurrentChordKey(resolveInitialPhysicalChordKey(mergedPreview));
+      
+      const newTargetKey = formData.desiredKey || mergedPreview?.selectedKey || mergedPreview?.originalKey || "";
+      setTargetKey(newTargetKey);
+      
       setStep("preview");
     } catch (err: any) {
       console.error(err);
@@ -331,6 +481,18 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
 
   const handleSave = async (forceSave = false) => {
     if (!api || !userProfile || !previewData) return;
+    
+    if (targetKey && isValidKey(targetKey) && previewData.selectedKey && !areKeysEnharmonicallyEquivalent(targetKey, previewData.selectedKey)) {
+      toastError(t("aiImport.preview.applyBeforeSave", "Você escolheu outro tom. Toque em \"Aplicar tom\" para atualizar a cifra antes de salvar."));
+      const applyBtn = document.getElementById("ai-import-apply-key");
+      if (applyBtn) applyBtn.focus();
+      return;
+    }
+
+    if (requiresChordReview && !chordReviewConfirmed) {
+      toastError(t("aiImport.preview.reviewRequired", "Revise a cifra e confirme o tom antes de salvar."));
+      return;
+    }
 
     const safeTitle = (previewData.title || formData.title || "").trim();
     if (!safeTitle) {
@@ -570,7 +732,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
+          className="space-y-6 pb-24 sm:pb-0"
         >
            {/* Save Options */}
            <div className="p-4 bg-slate-50 dark:bg-slate-800/20 rounded-2xl border border-slate-200 dark:border-white/5 space-y-4">
@@ -588,50 +750,100 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
            </div>
 
            <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm space-y-3">
-              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
+              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2">
                  <Music className="w-3.5 h-3.5" /> {t("aiImport.identification", "Identificação")}
               </div>
-              <input
-                 aria-label={t("aiImport.titleLabel", "Título da Música")}
-                 className="w-full bg-transparent font-black text-slate-900 dark:text-white text-3xl tracking-tight border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
-                 value={previewData.title || ''}
-                 onChange={(e) => setPreviewData({...previewData, title: e.target.value})}
-                 placeholder={t("aiImport.titlePlaceholder", "Título obrigatório")}
-                 />
-                 <input
-                   aria-label={t("aiImport.artistLabel", "Artista")}
-                   className="w-full bg-transparent text-[13px] font-semibold text-slate-500 border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
-                   value={previewData.artist || ''}
-                   onChange={(e) => setPreviewData({...previewData, artist: e.target.value})}
-                   placeholder={t("aiImport.artistPlaceholder", "Artista")}
-                 />
-              </div>
-           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-               <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm">
-                 <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3">
-                   <Key className="w-3.5 h-3.5" /> {t("aiImport.keyLabel", "Tom")}
+              <div className="flex flex-col gap-4">
+                 <div>
+                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t("aiImport.preview.titleField", "Título")}</label>
+                   <input
+                     aria-label={t("aiImport.preview.titleField", "Título")}
+                     className="w-full bg-slate-50 dark:bg-white/5 font-bold text-slate-900 dark:text-white text-xl sm:text-2xl tracking-tight border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors min-w-0"
+                     value={previewData.title || ''}
+                     onChange={(e) => setPreviewData({...previewData, title: e.target.value})}
+                     placeholder={t("aiImport.titlePlaceholder", "Título obrigatório")}
+                     id="ai-import-title-input"
+                   />
                  </div>
-                 <div className="flex flex-col gap-2">
+                 <div>
+                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t("aiImport.preview.artistField", "Artista")}</label>
+                   <input
+                     aria-label={t("aiImport.preview.artistField", "Artista")}
+                     className="w-full bg-slate-50 dark:bg-white/5 font-medium text-slate-900 dark:text-white text-base border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors min-w-0"
+                     value={previewData.artist || ''}
+                     onChange={(e) => setPreviewData({...previewData, artist: e.target.value})}
+                     placeholder={t("aiImport.artistPlaceholder", "Artista")}
+                   />
+                 </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+               <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm">
+                 <div className="flex flex-col gap-3">
                    <div className="flex items-center justify-between">
-                     <span className="text-[10px] font-bold text-slate-400 uppercase">{t("aiImport.playLabel", "Tocar")}</span>
-                     <input
-                       aria-label={t("aiImport.selectedKeyLabel", "Tom selecionado")}
-                       className="w-16 bg-transparent font-black text-slate-900 dark:text-white text-xl tracking-tighter text-right border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
-                       value={previewData.selectedKey || ''}
-                       onChange={(e) => setPreviewData({...previewData, selectedKey: e.target.value})}
-                       placeholder="Ex: G"
-                     />
+                     <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
+                       <Key className="w-3.5 h-3.5" /> {t("aiImport.keyLabel", "Tom")}
+                     </div>
+                     {previewData.metadata?.chordContentKeyValidationStatus === "MATCH" && (
+                       <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 uppercase">
+                         {t("aiImport.preview.keyConfirmed", "Tom da cifra conferido.")}
+                       </span>
+                     )}
+                     {previewData.metadata?.chordContentKeyValidationStatus === "INDETERMINATE" && (
+                       <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 uppercase">
+                         {t("aiImport.preview.keyIndeterminate", "Confira os acordes antes de salvar.")}
+                       </span>
+                     )}
+                     {previewData.metadata?.chordContentKeyValidationStatus === "NO_CHORDS" && (
+                       <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-400 uppercase">
+                         {t("aiImport.preview.lyricsOnly", "Esta importação não possui cifra.")}
+                       </span>
+                     )}
                    </div>
                    <div className="flex items-center justify-between">
-                     <span className="text-[10px] font-bold text-slate-400 uppercase">{t("aiImport.origLabel", "Orig.")}</span>
-                     <input
-                       aria-label={t("aiImport.originalKeyLabel", "Tom original")}
-                       className="w-16 bg-transparent font-black text-slate-900 dark:text-white text-lg tracking-tighter text-right border-b border-transparent hover:border-slate-300 dark:hover:border-white/20 focus:border-indigo-500 focus:ring-0 outline-none transition-colors"
-                       value={previewData.originalKey || ''}
-                       onChange={(e) => setPreviewData({...previewData, originalKey: e.target.value})}
-                       placeholder="Ex: G"
-                     />
+                     <span className="text-[10px] font-bold text-slate-400 uppercase">{t("aiImport.preview.originalKey", "Tom original")}</span>
+                     <span className="font-bold text-slate-500">{previewData.originalKey || "-"}</span>
                    </div>
+                   <div className="flex items-center justify-between">
+                     <span className="text-[10px] font-bold text-slate-400 uppercase">{t("aiImport.preview.currentChordKey", "Tom atual da cifra")}</span>
+                     <span className="font-bold text-slate-500">{currentChordKey || "-"}</span>
+                   </div>
+                   <div className="flex flex-col gap-1.5 mt-2">
+                     <label className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase">{t("aiImport.preview.targetKey", "Tom para tocar")}</label>
+                     <select
+                       aria-label={t("aiImport.preview.targetKey", "Tom para tocar")}
+                       className="w-full bg-slate-50 dark:bg-white/5 font-black text-slate-900 dark:text-white text-lg border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                       value={targetKey}
+                       onChange={(e) => setTargetKey(e.target.value)}
+                     >
+                       <option value="">Selecione...</option>
+                       {COMMON_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
+                     </select>
+                   </div>
+                   <Button
+                     type="button"
+                     id="ai-import-apply-key"
+                     onClick={handleApplyPreviewTransposition}
+                     variant="primary"
+                     className="w-full min-h-[44px] mt-1"
+                   >
+                     {t("aiImport.preview.applyKey", "Aplicar tom")}
+                   </Button>
+                   
+                   {transpositionMessage && (
+                      <div aria-live="polite" className="p-3 bg-green-100 dark:bg-green-500/10 flex items-start gap-2 text-green-700 dark:text-green-400 rounded-xl text-xs font-medium border border-green-200 dark:border-green-500/20 leading-snug">
+                        <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                        {transpositionMessage}
+                      </div>
+                   )}
+                   
+                   {transpositionError && (
+                      <div role="alert" aria-live="polite" className="p-3 bg-amber-100 dark:bg-amber-500/10 flex items-start gap-2 text-amber-700 dark:text-amber-400 rounded-xl text-xs font-medium border border-amber-200 dark:border-amber-500/20 leading-snug">
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                        {transpositionError}
+                      </div>
+                   )}
                  </div>
               </div>
                <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm">
@@ -689,9 +901,35 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
                  <textarea 
                     className={`${formInputClass} font-mono text-xs leading-relaxed flex-1 min-h-[300px] whitespace-pre-wrap`}
                     value={previewData.chords}
-                    onChange={(e) => setPreviewData({...previewData, chords: e.target.value})}
+                    onChange={(e) => {
+                       const val = e.target.value;
+                       setPreviewData((prev: any) => {
+                          const newMetadata = { ...prev.metadata };
+                          delete newMetadata.chordContentKey;
+                          newMetadata.chordContentKeyValidationStatus = "INDETERMINATE";
+                          delete newMetadata.previewTransposition;
+                          return { ...prev, chords: val, metadata: newMetadata };
+                       });
+                       setRequiresChordReview(true);
+                       setChordReviewConfirmed(false);
+                       setTranspositionMessage(null);
+                    }}
                     spellCheck={false}
                  ></textarea>
+                 
+                 {requiresChordReview && (
+                   <label className="flex items-center gap-3 p-3 mt-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl cursor-pointer">
+                      <input 
+                         type="checkbox" 
+                         checked={chordReviewConfirmed} 
+                         onChange={(e) => setChordReviewConfirmed(e.target.checked)} 
+                         className="w-5 h-5 shrink-0 text-amber-600 rounded border-amber-300 focus:ring-amber-500" 
+                      />
+                      <span className="text-sm font-bold text-amber-800 dark:text-amber-400 leading-tight">
+                         {t("aiImport.preview.reviewCheckbox", "Revisei a cifra e confirmei que os acordes correspondem ao tom para tocar.")}
+                      </span>
+                   </label>
+                 )}
                  
                  {previewData.tabs && previewData.tabs.length > 0 && (
                    <div className="mt-4 border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
@@ -733,18 +971,27 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
             </div>
            )}
 
-           <div className="flex flex-col-reverse sm:flex-row justify-between items-center pt-6 mt-4 border-t border-slate-200 dark:border-white/10 gap-4">
-              <button type="button" onClick={() => setStep("input")} className="text-slate-500 hover:text-slate-800 dark:hover:text-white text-sm font-medium transition-colors p-2 w-full sm:w-auto text-center">
+           <div className="hidden sm:flex flex-row justify-between items-center pt-6 mt-4 border-t border-slate-200 dark:border-white/10 gap-4">
+              <button type="button" onClick={() => setStep("input")} className="text-slate-500 hover:text-slate-800 dark:hover:text-white text-sm font-medium transition-colors p-2 text-center">
                  Voltar e Editar Info
               </button>
               
-              <div className="flex flex-col-reverse sm:flex-row items-center gap-3 w-full sm:w-auto">
-                 <Button variant="secondary" onClick={onClose} type="button" className="w-full sm:w-auto">{t("common.cancel", "Cancelar")}</Button>
-                 <button onClick={handleSave} className="w-full sm:w-auto px-8 py-3 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold tracking-wide shadow-lg shadow-slate-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+              <div className="flex flex-row items-center gap-3">
+                 <Button variant="secondary" onClick={onClose} type="button">{t("common.cancel", "Cancelar")}</Button>
+                 <button onClick={() => handleSave(false)} className="px-8 py-3 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold tracking-wide shadow-lg shadow-slate-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
                     <CheckCircle2 className="w-5 h-5" />
                     Salvar na Biblioteca
                  </button>
               </div>
+           </div>
+
+           {/* Mobile Sticky Footer */}
+           <div className="sm:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-[#111] backdrop-blur-xl border-t border-slate-200 dark:border-white/10 z-50 flex gap-3 shadow-[0_-4px_24px_rgba(0,0,0,0.1)] pb-[calc(1rem+env(safe-area-inset-bottom))]">
+              <Button variant="secondary" onClick={onClose} type="button" className="flex-1 min-h-[48px]">{t("common.cancel", "Cancelar")}</Button>
+              <button onClick={() => handleSave(false)} className="flex-[2] min-h-[48px] rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold tracking-wide shadow-lg shadow-indigo-500/10 flex items-center justify-center gap-2">
+                 <CheckCircle2 className="w-5 h-5" />
+                 Salvar música
+              </button>
            </div>
         </motion.div>
       )}

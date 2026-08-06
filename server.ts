@@ -2736,6 +2736,12 @@ app.use((err: any, req: any, res: any, next: any) => {
 Temos um texto bruto extraído de um site de cifras ou um texto pré-processado.
 Sua tarefa é classificar dados, limpar completamente o lixo da cifra e retornar UM JSON válido.
 
+POSSÍVEIS DADOS DE IDENTIFICAÇÃO DA FONTE:
+Título candidato: ${preProcessed?.title || "não identificado"}
+Artista candidato: ${preProcessed?.artist || "não identificado"}
+
+O título e o artista podem ter sido concatenados pela área de transferência. Separe-os semanticamente quando houver evidência clara. Nunca devolva título e artista unidos no mesmo campo. Não invente artista quando não houver evidência.
+
 Instruções cruciais para a cifra ("cleanChords"):
 1. A cifra ("cleanChords") DEVE conter em um único texto estruturado as seções, as linhas de acordes e também as linhas de letra correspondentes, no formato tradicional de cifras (onde as linhas de acordes estão imediatamente posicionadas acima da respectiva linha de letra, preservando o alinhamento musical por espaçamento para que o músico toque e cante). Nunca remova as linhas de letra da cifra!
 2. Remova lixos adicionais como diagramas e dicionários de acordes no início/fim, guias de ritmo textuais externos, dados de tablaturas ruins e anotações que poluam o fluxo de execução.
@@ -2827,9 +2833,58 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
           finalBpmSource = 'ai_suggestion';
         }
 
+        const normalizeIdentificationValue = (value: unknown): string | null => {
+          if (typeof value !== "string") return null;
+          const trimmed = value.trim();
+          return trimmed.length > 0 ? trimmed : null;
+        };
+
+        const isDefaultImportedTitle = (value: string | null) =>
+          !value || value.toLowerCase() === "música importada";
+
+        const isUnknownArtist = (value: string | null) =>
+          !value || value.toLowerCase().includes("desconhecido");
+
+        const normalizeIdentificationComparison = (value: string): string => {
+          return value.toLowerCase().replace(/\s+/g, "").replace(/[^\w]/g, "");
+        };
+
+        let explicitTitle = normalizeIdentificationValue(title);
+        if (isDefaultImportedTitle(explicitTitle)) explicitTitle = null;
+        
+        let aiTitle = normalizeIdentificationValue(parsedAiObj.capitalizedTitle);
+        const preProcessedTitle = normalizeIdentificationValue(preProcessed?.title);
+        
+        let explicitArtist = normalizeIdentificationValue(artist);
+        if (isUnknownArtist(explicitArtist)) explicitArtist = null;
+
+        let aiArtist = normalizeIdentificationValue(parsedAiObj.capitalizedArtist);
+        const preProcessedArtist = normalizeIdentificationValue(preProcessed?.artist);
+
+        if (aiTitle && aiArtist && preProcessedTitle && !preProcessedArtist) {
+          if (normalizeIdentificationComparison(preProcessedTitle) === normalizeIdentificationComparison(aiTitle + aiArtist)) {
+            // It was concatenated, use AI separated values
+            // We just let them pass as aiTitle and aiArtist
+          }
+        }
+
+        let finalTitle = explicitTitle || aiTitle || preProcessedTitle || "Música Importada";
+        let finalArtist = explicitArtist || aiArtist || preProcessedArtist || "Artista Desconhecido";
+
+        if (finalArtist === "Artista Desconhecido" && aiArtist) {
+           finalArtist = aiArtist;
+        }
+
+        if (aiTitle && aiArtist) {
+           const concatenated = normalizeIdentificationComparison(aiTitle + aiArtist);
+           if (normalizeIdentificationComparison(finalTitle) === concatenated) {
+               finalTitle = aiTitle;
+           }
+        }
+
         result = {
-          title: preProcessed?.title || parsedAiObj.capitalizedTitle || result.title,
-          artist: preProcessed?.artist || parsedAiObj.capitalizedArtist || result.artist,
+          title: finalTitle,
+          artist: finalArtist,
           originalKey: preProcessed?.metadata?.declaredKey || parsedAiObj.originalKey || result.originalKey,
           selectedKey: preProcessed?.metadata?.declaredKey || parsedAiObj.originalKey || result.selectedKey,
           version: result.version,
