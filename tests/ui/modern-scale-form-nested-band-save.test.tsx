@@ -15,7 +15,7 @@ import { initReactI18next } from 'react-i18next';
 
 if (typeof window !== 'undefined') {
   window.requestAnimationFrame = (callback) => {
-    return setTimeout(callback, 0) as any;
+    return setTimeout(callback, 16) as any;
   };
   window.cancelAnimationFrame = (id) => {
     clearTimeout(id);
@@ -203,9 +203,9 @@ describe('ModernScaleForm - Nested Band Scale Save', () => {
 
     // Step 1: Link Band - Click "Nova Escala" to open nested BandScale form
     await waitFor(() => {
-      expect(screen.getByText('Nova Escala')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Nova Escala' })).toBeInTheDocument();
     });
-    const newBandButton = screen.getByText('Nova Escala');
+    const newBandButton = screen.getByRole('button', { name: 'Nova Escala' });
     fireEvent.click(newBandButton);
 
     // The nested BandScale form appears as top-most dialog
