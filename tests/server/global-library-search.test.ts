@@ -17,8 +17,9 @@ vi.mock('../../services/firebase', () => ({
 import { getGlobalSongs } from '../../services/globalLibraryService';
 
 const runEmulatorTests = !!process.env.FIRESTORE_EMULATOR_HOST;
+const describeEmulator = runEmulatorTests ? describe : describe.skip;
 
-describe('Global Library Search (Emulator)', () => {
+describeEmulator('Global Library Search (Emulator)', () => {
   beforeAll(async () => {
     testEnv = await initializeTestEnvironment({
       projectId: 'musicscale-test-search-2',
