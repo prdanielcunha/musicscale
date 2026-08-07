@@ -415,8 +415,9 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         if (!initialFormDataRef.current || initialFormDataRef.current === prevComparable) {
           initialFormDataRef.current = JSON.stringify(getComparableData(next));
         }
+        return next;
       }
-      return next;
+      return prev;
     });
 
   }, [isOpen, eventTypes, locations, scaleToEdit]);

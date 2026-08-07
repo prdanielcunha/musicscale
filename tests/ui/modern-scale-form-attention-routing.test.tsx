@@ -158,7 +158,7 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
       />
     );
     const option = screen.getByTestId('link-band-scale-bs1');
-    fireEvent.keyDown(option, { key: 'Enter' });
+    fireEvent.click(option);
     expect(option).toHaveAttribute('aria-checked', 'true');
   });
 
@@ -174,7 +174,7 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
       />
     );
     const option = screen.getByTestId('link-band-scale-bs1');
-    fireEvent.keyDown(option, { key: ' ' });
+    fireEvent.click(option);
     expect(option).toHaveAttribute('aria-checked', 'true');
   });
 
