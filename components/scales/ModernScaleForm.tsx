@@ -1364,7 +1364,11 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
             eventNameId: formData.eventNameId || "",
             observations: ""
           }}
-          onSave={async (nestedData, idempotencyKey) => {
+          onSave={async (nestedReq) => {
+            const { data: nestedData, idempotencyKey } = nestedReq as {
+              data: BandScaleWritableData;
+              idempotencyKey?: string;
+            };
             if (!api) return;
             setIsSubmittingNested(true);
             try {
@@ -1380,7 +1384,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                   const result = await api.bandScaleCommands.create(nestedData, idempotencyKey || crypto.randomUUID());
                   bandScaleId = result.scaleId;
               } else {
-                  bandScaleId = await api.bandScales.create(nestedData as any);
+                  bandScaleId = await api.bandScales.create(nestedData);
               }
               setFormData(prev => ({...prev, bandScaleId}));
               setIsCreatingNestedBandScale(false);
