@@ -13,11 +13,17 @@ import { getFirebaseRuntimeConfig } from './firebaseRuntimeConfig';
 
 const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
 
+const safeProcessEnv = typeof process !== 'undefined' ? process.env : {} as any;
+
+const isDevMode = import.meta.env?.DEV ?? (safeProcessEnv.NODE_ENV !== 'production');
+const e2eMode = import.meta.env?.VITE_E2E_MODE ?? safeProcessEnv.VITE_E2E_MODE;
+const e2eProjectId = import.meta.env?.VITE_E2E_FIREBASE_PROJECT_ID ?? safeProcessEnv.VITE_E2E_FIREBASE_PROJECT_ID;
+
 const { firebaseConfig, useEmulators } = getFirebaseRuntimeConfig({
   prodConfig: prodFirebaseConfig,
-  isDev: import.meta.env?.DEV ?? (process.env.NODE_ENV !== 'production'),
-  viteE2eMode: import.meta.env?.VITE_E2E_MODE ?? process.env.VITE_E2E_MODE,
-  viteE2eProjectId: import.meta.env?.VITE_E2E_FIREBASE_PROJECT_ID ?? process.env.VITE_E2E_FIREBASE_PROJECT_ID,
+  isDev: isDevMode,
+  viteE2eMode: e2eMode,
+  viteE2eProjectId: e2eProjectId,
   hostname
 });
 
@@ -29,7 +35,7 @@ const auth = getAuth(app);
 
 // Inicializa o firestore
 let db: any;
-const isTestEnv = typeof process !== 'undefined' && (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true');
+const isTestEnv = typeof process !== 'undefined' && (safeProcessEnv.NODE_ENV === 'test' || safeProcessEnv.VITEST === 'true');
 
 if (isTestEnv) {
   db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -50,11 +56,17 @@ if (isTestEnv) {
 
 const globalAny = globalThis as any;
 if (useEmulators && !globalAny.__FIREBASE_EMULATORS_CONNECTED__) {
+  const authHost = import.meta.env?.VITE_E2E_AUTH_EMULATOR_HOST || safeProcessEnv.VITE_E2E_AUTH_EMULATOR_HOST || '127.0.0.1';
+  const authPort = Number(import.meta.env?.VITE_E2E_AUTH_EMULATOR_PORT || safeProcessEnv.VITE_E2E_AUTH_EMULATOR_PORT || 9099);
+
+  const firestoreHost = import.meta.env?.VITE_E2E_FIRESTORE_EMULATOR_HOST || safeProcessEnv.VITE_E2E_FIRESTORE_EMULATOR_HOST || '127.0.0.1';
+  const firestorePort = Number(import.meta.env?.VITE_E2E_FIRESTORE_EMULATOR_PORT || safeProcessEnv.VITE_E2E_FIRESTORE_EMULATOR_PORT || 8080);
+
   try {
-    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    connectAuthEmulator(auth, `http://${authHost}:${authPort}`, { disableWarnings: true });
+    connectFirestoreEmulator(db, firestoreHost, firestorePort);
     globalAny.__FIREBASE_EMULATORS_CONNECTED__ = true;
-    console.log("[MusicScale Firebase] Connected to Emulators synchronously.");
+    console.log(`[MusicScale Firebase] Connected to Emulators synchronously at Auth: ${authHost}:${authPort}, Firestore: ${firestoreHost}:${firestorePort}`);
   } catch (error: any) {
     if (error.code !== 'auth/emulator-config-failed' && error.code !== 'failed-precondition') {
       throw error;
