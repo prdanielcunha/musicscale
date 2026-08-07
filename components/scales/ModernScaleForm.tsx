@@ -843,6 +843,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         maxWidth="max-w-5xl"
         footer={footer}
         zIndexClass={zIndexClass}
+        dataTestId={`${scaleType}-scale-modal`}
       >
         <form id="scale-form" onSubmit={handleSubmit} className="flex flex-col flex-1">
           <div className="flex w-full mb-6 border-b border-slate-200 dark:border-white/10 overflow-x-auto custom-scrollbar -mx-2 px-2 sm:mx-0 sm:px-0 shrink-0 sticky -top-4 sm:-top-5 md:-top-6 bg-white/95 dark:bg-[#05070D]/90 backdrop-blur-md z-20 pb-1 pt-4 sm:pt-5 md:pt-6 -mt-4 sm:-mt-5 md:-mt-6">
@@ -879,6 +880,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                   type="time"
                   name="time"
                   id="time"
+                  aria-label={t('scaleModal.time', 'Horário')}
                   value={formData.time || ""}
                   onChange={handleChange}
                   className={`${formInputClass} w-32`}
@@ -1080,6 +1082,12 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                          ref={i === 0 ? firstBandOptionRef : undefined}
                          key={bs.id} 
                          onClick={() => setFormData(prev => ({...prev, bandScaleId: isSelected ? null : bs.id}))}
+                         onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                               e.preventDefault();
+                               setFormData(prev => ({...prev, bandScaleId: isSelected ? null : bs.id}));
+                            }
+                         }}
                          data-testid={`link-band-scale-${bs.id}`}
                          role="radio"
                          aria-checked={isSelected}

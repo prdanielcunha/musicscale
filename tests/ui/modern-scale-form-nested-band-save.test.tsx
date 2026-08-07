@@ -174,7 +174,6 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('ModernScaleForm - Nested Band Scale Save', () => {
-  console.log('TEST SUITE STARTED');
   beforeEach(() => {
     vi.clearAllMocks();
     mockBandScaleCommandsCreate.mockResolvedValue({ scaleId: 'new-bs-1' });
@@ -183,7 +182,7 @@ describe('ModernScaleForm - Nested Band Scale Save', () => {
 
   const createNestedBandScale = async () => {
     const onSaveMusicScale = vi.fn();
-    const { container } = render(
+    render(
       <ModernScaleForm
         isOpen={true}
         scaleType="music"
@@ -195,78 +194,75 @@ describe('ModernScaleForm - Nested Band Scale Save', () => {
       />
     );
 
+    const parentDialog = screen.getByTestId('music-scale-modal');
+
     // Step 0: Event - Parent Music Scale
-    const dateInput = screen.getByLabelText(/Data/i);
+    const dateInput = within(parentDialog).getByLabelText(/Data/i);
     fireEvent.change(dateInput, { target: { value: '2026-08-20' } });
     
-    const timeInput = document.querySelector('input[type="time"]');
-    console.log('TIME INPUT FOUND:', !!timeInput);
-    if (timeInput) {
-      fireEvent.change(timeInput, { target: { value: '19:00' } });
-    }
+    const timeInput = within(parentDialog).getByLabelText(/Horário/i);
+    fireEvent.change(timeInput, { target: { value: '19:00' } });
 
-    const eventTypeSelect = screen.getByLabelText(/Culto\/Evento/i);
+    const eventTypeSelect = within(parentDialog).getByLabelText(/Culto\/Evento/i);
     fireEvent.change(eventTypeSelect, { target: { value: 'et-1' } });
     
-    const locationSelect = screen.getByLabelText(/Local/i);
+    const locationSelect = within(parentDialog).getByLabelText(/Local/i);
     fireEvent.change(locationSelect, { target: { value: 'loc-1' } });
 
     // Advance parent MusicScale from Step 0 ('event') to Step 1 ('link')
-    const parentNextBtn = screen.getByRole('button', { name: /Avançar/i });
+    const parentNextBtn = within(parentDialog).getByRole('button', { name: /Avançar/i });
     fireEvent.click(parentNextBtn);
 
     // Step 1: Link Band - Click "Nova Escala" to open nested BandScale form
     await waitFor(() => {
-      const btns = screen.getAllByRole('button', { name: 'Nova Escala' });
+      const btns = within(parentDialog).getAllByRole('button', { name: 'Nova Escala' });
       expect(btns.length).toBeGreaterThan(0);
     });
-    const btns = screen.getAllByRole('button', { name: 'Nova Escala' });
+    const btns = within(parentDialog).getAllByRole('button', { name: 'Nova Escala' });
     fireEvent.click(btns[btns.length - 1]);
 
     // The nested BandScale form appears as top-most dialog
-    const nestedForms = screen.getAllByRole('dialog');
-    const nestedForm = nestedForms[nestedForms.length - 1];
+    const nestedDialog = screen.getByTestId('band-scale-modal');
 
     // Clear time in nested form to ensure it saves without time
-    const nestedTimeInput = nestedForm.querySelector('input[type="time"]');
-    if (nestedTimeInput) {
-      fireEvent.change(nestedTimeInput, { target: { value: '' } });
-    }
+    const nestedTimeInput = within(nestedDialog).getByLabelText(/Horário/i);
+    fireEvent.change(nestedTimeInput, { target: { value: '' } });
+    expect(nestedTimeInput).toHaveValue('');
 
     // Step 0: Event - Band Scale
-    const nextToLinkButton = within(nestedForm).getByRole('button', { name: /Avançar/i });
+    const nextToLinkButton = within(nestedDialog).getByRole('button', { name: /Avançar/i });
     fireEvent.click(nextToLinkButton);
 
     // Step 1: Link Music - Band Scale
-    const nextToBuildButton = within(nestedForm).getByRole('button', { name: /Avançar/i });
+    const nextToBuildButton = within(nestedDialog).getByRole('button', { name: /Avançar/i });
     fireEvent.click(nextToBuildButton);
 
     // Step 2: Build - Band Scale (BandBuilder)
     await waitFor(() => {
-      expect(within(nestedForm).getByText(/Violão/i)).toBeInTheDocument();
+      expect(within(nestedDialog).getByText(/Violão/i)).toBeInTheDocument();
     });
 
-    const violaoInstrumentBtn = within(nestedForm).getByText(/Violão/i);
+    const violaoInstrumentBtn = within(nestedDialog).getByText(/Violão/i);
     fireEvent.click(violaoInstrumentBtn);
 
     await waitFor(() => {
-      expect(within(nestedForm).getByTestId('add-assignment-u1-inst1')).toBeInTheDocument();
+      expect(within(nestedDialog).getByTestId('add-assignment-u1-inst1')).toBeInTheDocument();
     });
-    const addAssignmentBtn = within(nestedForm).getByTestId('add-assignment-u1-inst1');
+    const addAssignmentBtn = within(nestedDialog).getByTestId('add-assignment-u1-inst1');
     fireEvent.click(addAssignmentBtn);
 
-    const nextToReviewBtn = within(nestedForm).getByRole('button', { name: /Avançar/i });
+    const nextToReviewBtn = within(nestedDialog).getByRole('button', { name: /Avançar/i });
     fireEvent.click(nextToReviewBtn);
 
     // Step 3: Review - Band Scale
     await waitFor(() => {
-      expect(within(nestedForm).getByRole('button', { name: /Salvar Escala/i })).toBeInTheDocument();
+      expect(within(nestedDialog).getByRole('button', { name: /Salvar Escala/i })).toBeInTheDocument();
     });
 
-    const saveScaleBtn = within(nestedForm).getByRole('button', { name: /Salvar Escala/i });
+    const saveScaleBtn = within(nestedDialog).getByRole('button', { name: /Salvar Escala/i });
     fireEvent.click(saveScaleBtn);
 
-    return { nestedForm };
+    return { nestedForm: nestedDialog };
   };
 
   it('1. CENÁRIO 1 - COMMAND API: passes correct arguments with time explicitly empty or null', async () => {

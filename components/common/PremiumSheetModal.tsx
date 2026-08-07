@@ -9,6 +9,7 @@ interface PremiumSheetModalProps {
   footer?: React.ReactNode;
   maxWidth?: "max-w-2xl" | "max-w-3xl" | "max-w-4xl" | "max-w-5xl" | "max-w-6xl";
   zIndexClass?: string;
+  dataTestId?: string;
 }
 
 let openModalCount = 0;
@@ -22,7 +23,8 @@ const PremiumSheetModal = forwardRef<HTMLDivElement, PremiumSheetModalProps>(
       children,
       footer,
       maxWidth = "max-w-5xl",
-      zIndexClass = "z-[100]"
+      zIndexClass = "z-[100]",
+      dataTestId
     },
     ref: ForwardedRef<HTMLDivElement>,
   ) => {
@@ -54,6 +56,7 @@ const PremiumSheetModal = forwardRef<HTMLDivElement, PremiumSheetModalProps>(
         aria-labelledby="modal-title"
         role="dialog"
         aria-modal="true"
+        data-testid={dataTestId}
       >
         {/* Backdrop */}
         <div 
