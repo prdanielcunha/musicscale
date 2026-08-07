@@ -1,6 +1,12 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+
+vi.mock('../../services/firebase', () => ({
+  db: { mockDb: true },
+  auth: { mockAuth: true },
+}));
+
 import ModernScaleForm from '../../components/scales/ModernScaleForm';
 
 vi.unmock('react-i18next');
@@ -34,23 +40,47 @@ i18n
   .init({
     resources: {
       pt: { translation: { 
-        "scaleModal.newBandScale": "Nova Escala",
+        "scaleModal.createNew": "Nova Escala",
+        "scaleModal.createBandScaleBtn": "Nova Escala",
         "scaleModal.stepEvent": "Evento",
         "scaleModal.stepBuild": "Banda",
         "scaleModal.stepLink": "Banda",
+        "scaleModal.stepLinkBand": "Banda",
+        "scaleModal.stepFormation": "Formação",
         "scaleModal.stepReview": "Revisão",
-        "scaleModal.dateLabel": "Data",
-        "scaleModal.timeLabel": "Horário",
-        "scaleModal.eventTypeLabel": "Culto/Evento",
-        "scaleModal.locationLabel": "Local",
-        "scaleModal.eventNameLabel": "Nome do Evento (Opcional)",
-        "scaleModal.nextToBuild": "Avançar",
-        "scaleModal.nextToReview": "Avançar",
+        "scaleModal.date": "Data",
+        "scaleModal.time": "Horário",
+        "scaleModal.eventType": "Culto/Evento",
+        "scaleModal.location": "Local",
+        "scaleModal.eventName": "Nome do Evento (Opcional)",
+        "scaleModal.next": "Avançar",
+        "scaleModal.back": "Voltar",
+        "scaleModal.cancel": "Cancelar",
         "scaleModal.saveScale": "Salvar Escala",
         "scaleModal.saveMusicScale": "Salvar Escala",
+        "scaleModal.selectPlaceholder": "Selecione...",
         "scaleModal.selectUserPlaceholder": "Selecione um integrante",
         "scaleModal.addInstrumentHint": "Adicionar {{instrument}}",
-        "scaleModal.noBandScaleTitle": "Nenhuma escala de banda selecionada"
+        "scaleModal.noBandScaleTitle": "Nenhuma escala de banda selecionada",
+        "scaleModal.linkBandScale": "Vincular Escala da Banda",
+        "scaleModal.linkBandDesc": "Selecione uma escala da banda",
+        "scaleModal.noBandScales": "Nenhuma escala da banda disponível",
+        "scaleModal.noBandScalesDesc": "Criar nova escala da banda",
+        "bandScaleModal.useSavedFormation": "Usar Formação Salva",
+        "bandScaleModal.chooseFunction": "Escolher Função",
+        "bandScaleModal.addAs": "Adicionar como",
+        "scaleModal.reviewSummary": "Resumo da Escala",
+        "scaleModal.requiredFields": "Preencha Data, Horário, Culto e Local antes de avançar.",
+        "scaleModal.minimumOneSong": "Selecione pelo menos uma música para a escala de músicas.",
+        "scaleModal.minimumOneMember": "Adicione pelo menos um integrante à escala da banda.",
+        "scaleModal.bandScaleCreated": "Escala da banda criada e vinculada com sucesso.",
+        "scaleModal.musicCount": "{{count}} músicas",
+        "scaleModal.memberCount": "{{count}} integrantes",
+        "scaleModal.bandLinked": "Banda vinculada",
+        "scaleModal.bandNotLinked": "Sem banda",
+        "scaleModal.musicLinked": "Músicas vinculadas",
+        "scaleModal.musicNotLinked": "Sem músicas",
+        "scaleModal.optional": "Opcional"
       } }
     },
     lng: "pt",
@@ -66,21 +96,26 @@ let isCommandApiV1EnabledMock = true;
 
 vi.mock('../../hooks/useFeatureFlag', () => ({
   useFeatureFlag: (flag: string) => {
-    if (flag === 'ff_ms_command_api_v1') return isCommandApiV1EnabledMock;
+    if (flag === 'musicscale.bandScaleCommandApiV1') {
+      return isCommandApiV1EnabledMock;
+    }
+    if (flag === 'musicscale.musicScalePublishCommandV1') {
+      return false;
+    }
     return false;
   }
 }));
 
 vi.mock('../../contexts/MusicDataContext', () => ({
   useMusic: () => ({
-    songs: [],
+    songs: [{ id: 'song-1', title: 'Song 1' }],
     eventTypes: [{ id: 'et-1', name: 'Culto' }],
     locations: [{ id: 'loc-1', name: 'Templo' }],
     eventNames: [],
-    instruments: [{ id: 'inst1', name: 'Violão', category: 'Base' }],
+    instruments: [{ id: 'inst1', name: 'Violão', category: 'Instrumento' }],
     tags: [],
     fixedBandScales: [],
-    allUsers: [{ uid: 'u1', name: 'User One', assignments: [] }],
+    allUsers: [{ uid: 'u1', id: 'u1', displayName: 'User One', specialtyIds: ['inst1'], organizationId: 'org-abc' }],
     populatedBandScales: [],
     populatedScales: [],
     refreshData: mockRefreshData,
@@ -89,7 +124,7 @@ vi.mock('../../contexts/MusicDataContext', () => ({
 
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({
-    userProfile: { id: 'u1', name: 'User 1', organizationId: 'org-abc' },
+    userProfile: { uid: 'u1', displayName: 'User 1', organizationId: 'org-abc' },
     user: { uid: 'u1' },
     organization: { id: 'org-abc' },
   }),
@@ -142,47 +177,62 @@ describe('ModernScaleForm - Nested Band Scale Save', () => {
         isOpen={true}
         scaleType="music"
         scaleToEdit={null}
-        preselectedSongIds={[]}
+        preselectedSongIds={['song-1']}
         onSave={onSaveMusicScale}
         onClose={vi.fn()}
         isSubmitting={false}
       />
     );
 
-    // Step 1: Event - Music Scale
+    // Step 0: Event - Parent Music Scale
     const dateInput = screen.getByLabelText(/Data/i);
     fireEvent.change(dateInput, { target: { value: '2026-08-20' } });
     
+    const timeInput = screen.getByLabelText(/Horário/i);
+    fireEvent.change(timeInput, { target: { value: '19:00' } });
+
     const eventTypeSelect = screen.getByLabelText(/Culto\/Evento/i);
     fireEvent.change(eventTypeSelect, { target: { value: 'et-1' } });
     
     const locationSelect = screen.getByLabelText(/Local/i);
     fireEvent.change(locationSelect, { target: { value: 'loc-1' } });
 
-    // Click "Nova Escala" to open nested BandScale form
+    // Advance parent MusicScale from Step 0 ('event') to Step 1 ('link')
+    const parentNextBtn = screen.getByRole('button', { name: /Avançar/i });
+    fireEvent.click(parentNextBtn);
+
+    // Step 1: Link Band - Click "Nova Escala" to open nested BandScale form
+    await waitFor(() => {
+      expect(screen.getByText('Nova Escala')).toBeInTheDocument();
+    });
     const newBandButton = screen.getByText('Nova Escala');
     fireEvent.click(newBandButton);
 
-    // The nested form appears. It has its own steps.
+    // The nested BandScale form appears as top-most dialog
     const nestedForms = screen.getAllByRole('dialog');
-    const nestedForm = nestedForms[nestedForms.length - 1]; // Top-most modal
+    const nestedForm = nestedForms[nestedForms.length - 1];
 
-    // Step 1: Event - Band Scale
-    // Wait for the next step button in nested form
+    // Step 0: Event - Band Scale
+    const nextToLinkButton = within(nestedForm).getByRole('button', { name: /Avançar/i });
+    fireEvent.click(nextToLinkButton);
+
+    // Step 1: Link Music - Band Scale
     const nextToBuildButton = within(nestedForm).getByRole('button', { name: /Avançar/i });
     fireEvent.click(nextToBuildButton);
 
-    // Step 2: Build - Band Scale
+    // Step 2: Build - Band Scale (BandBuilder)
     await waitFor(() => {
       expect(within(nestedForm).getByText(/Violão/i)).toBeInTheDocument();
     });
 
-    const addViolaoBtn = within(nestedForm).getByText(/Adicionar Violão/i);
-    fireEvent.click(addViolaoBtn);
+    const violaoInstrumentBtn = within(nestedForm).getByText(/Violão/i);
+    fireEvent.click(violaoInstrumentBtn);
 
-    const userSelects = within(nestedForm).getAllByRole('combobox');
-    const userSelect = userSelects[0];
-    fireEvent.change(userSelect, { target: { value: 'u1' } });
+    await waitFor(() => {
+      expect(within(nestedForm).getByTestId('add-assignment-u1-inst1')).toBeInTheDocument();
+    });
+    const addAssignmentBtn = within(nestedForm).getByTestId('add-assignment-u1-inst1');
+    fireEvent.click(addAssignmentBtn);
 
     const nextToReviewBtn = within(nestedForm).getByRole('button', { name: /Avançar/i });
     fireEvent.click(nextToReviewBtn);
@@ -206,21 +256,25 @@ describe('ModernScaleForm - Nested Band Scale Save', () => {
       expect(mockBandScaleCommandsCreate).toHaveBeenCalledTimes(1);
     });
 
+    expect(mockBandScalesCreate).not.toHaveBeenCalled();
+
     const [payload, idempotencyKey] = mockBandScaleCommandsCreate.mock.calls[0];
     
-    expect(payload.data).toBeUndefined(); // It should NOT be wrapped in { data }
+    expect(payload.data).toBeUndefined(); // Must NOT be wrapped in { data }
     expect(payload.idempotencyKey).toBeUndefined(); 
     expect(payload.date).toBe('2026-08-20');
     expect(payload.eventTypeId).toBe('et-1');
     expect(payload.locationId).toBe('loc-1');
     expect(payload.assignments).toHaveLength(1);
     expect(payload.assignments[0].userId).toBe('u1');
+    expect(payload.assignments[0].instrumentId).toBe('inst1');
     
-    // time should be explicitly tested
+    // time should be empty/null/undefined
     expect(['', null, undefined]).toContain(payload.time);
 
     expect(idempotencyKey).toBeTruthy();
     expect(typeof idempotencyKey).toBe('string');
+    expect(idempotencyKey.length).toBeGreaterThan(0);
   });
 
   it('2. CENÁRIO 2 - LEGACY WRITER: passes correct arguments', async () => {
@@ -231,15 +285,20 @@ describe('ModernScaleForm - Nested Band Scale Save', () => {
       expect(mockBandScalesCreate).toHaveBeenCalledTimes(1);
     });
 
+    expect(mockBandScaleCommandsCreate).not.toHaveBeenCalled();
+
     const [payload] = mockBandScalesCreate.mock.calls[0];
     
     expect(payload.data).toBeUndefined(); 
     expect(payload.date).toBe('2026-08-20');
     expect(payload.eventTypeId).toBe('et-1');
     expect(payload.locationId).toBe('loc-1');
+    expect(payload.assignments).toHaveLength(1);
+    expect(payload.assignments[0].userId).toBe('u1');
+    expect(payload.assignments[0].instrumentId).toBe('inst1');
   });
   
-  it('3. CENÁRIO 3 - INTEGRAÇÃO COM FORMULÁRIO PAI: after success, parent remains open', async () => {
+  it('3. CENÁRIO 3 - INTEGRAÇÃO COM FORMULÁRIO PAI: after success, parent remains open and receives bandScaleId', async () => {
     isCommandApiV1EnabledMock = true;
     const { nestedForm } = await createNestedBandScale();
 
@@ -247,26 +306,40 @@ describe('ModernScaleForm - Nested Band Scale Save', () => {
       expect(mockRefreshData).toHaveBeenCalled();
     });
 
-    // The nested form should be closed, but the parent form should still be open
+    // The nested form should be closed
     await waitFor(() => {
       expect(nestedForm).not.toBeInTheDocument();
     });
     
+    // The parent form remains open
     const remainingModals = screen.getAllByRole('dialog');
-    expect(remainingModals.length).toBeGreaterThan(0);
-    expect(screen.getByLabelText(/Data/i)).toBeInTheDocument();
+    expect(remainingModals.length).toBe(1);
+    
+    // Confirm parent form shows band is linked
+    expect(screen.getByText(/Banda vinculada/i)).toBeInTheDocument();
   });
 
-  it('4. CENÁRIO 4 - ERRO: when writer rejects, nested modal remains open', async () => {
+  it('4. CENÁRIO 4 - ERRO: when writer rejects, nested modal remains open with data preserved', async () => {
     isCommandApiV1EnabledMock = true;
     mockBandScaleCommandsCreate.mockRejectedValueOnce(new Error('Simulated Save Error'));
     
     const { nestedForm } = await createNestedBandScale();
 
     await waitFor(() => {
-      // The nested form should still be there because save failed
+      expect(mockBandScaleCommandsCreate).toHaveBeenCalledTimes(1);
+    });
+
+    // The nested form should still be in document
+    await waitFor(() => {
       expect(nestedForm).toBeInTheDocument();
     });
+
+    // Save button is re-enabled for retry
+    const saveButton = within(nestedForm).getByRole('button', { name: /Salvar Escala/i });
+    expect(saveButton).not.toBeDisabled();
+
+    // Member assignment is still preserved in review
+    expect(within(nestedForm).getByText(/User One/i)).toBeInTheDocument();
   });
 
   it('BandScale aninhada pode ser salva sem horário', async () => {
@@ -278,7 +351,7 @@ describe('ModernScaleForm - Nested Band Scale Save', () => {
     });
 
     const [payload] = mockBandScaleCommandsCreate.mock.calls[0];
-    // This confirms time is either empty string or null, which implies it works without a required time
+    // Confirms time is empty string, null, or undefined and doesn't block saving
     expect(['', null, undefined]).toContain(payload.time);
   });
 });
