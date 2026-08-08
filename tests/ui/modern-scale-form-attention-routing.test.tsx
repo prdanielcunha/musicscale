@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import ModernScaleForm from '../../components/scales/ModernScaleForm';
 import BandBuilder from '../../components/scales/BandBuilder';
@@ -146,7 +147,8 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
     });
   });
 
-  it('3. Enter seleciona a banda', () => {
+  it('3. Enter seleciona a banda', async () => {
+    const user = userEvent.setup();
     render(
       <ModernScaleForm
         isOpen={true}
@@ -158,11 +160,13 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
       />
     );
     const option = screen.getByTestId('link-band-scale-bs1');
-    fireEvent.keyDown(option, { key: 'Enter' });
+    option.focus();
+    await user.keyboard('{Enter}');
     expect(option).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('4. Espaço seleciona a banda', () => {
+  it('4. Espaço seleciona a banda', async () => {
+    const user = userEvent.setup();
     render(
       <ModernScaleForm
         isOpen={true}
@@ -174,7 +178,8 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
       />
     );
     const option = screen.getByTestId('link-band-scale-bs1');
-    fireEvent.keyDown(option, { key: ' ' });
+    option.focus();
+    await user.keyboard(' ');
     expect(option).toHaveAttribute('aria-checked', 'true');
   });
 
@@ -532,5 +537,107 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
     const label = option.getAttribute('aria-label') || '';
     expect(label).toContain('Escala Culto');
     expect(label).toContain('1 integrante');
+  });
+
+  describe('State Guard and Defaults verification', () => {
+    it('1. quando eventTypeId/locationId precisam de default: o estado é atualizado', async () => {
+      render(
+        <ModernScaleForm
+          isOpen={true}
+          scaleType="band"
+          initialStep="event"
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+          isSubmitting={false}
+        />
+      );
+      await waitFor(() => {
+        expect(document.getElementById('eventTypeId')).toHaveValue('et-1');
+        expect(document.getElementById('locationId')).toHaveValue('loc-1');
+      });
+    });
+
+    it('2. quando não existe mudança: os dados existentes permanecem', async () => {
+      const mockSave = vi.fn();
+      render(
+        <ModernScaleForm
+          isOpen={true}
+          scaleType="band"
+          initialStep="event"
+          onSave={mockSave}
+          onClose={vi.fn()}
+          isSubmitting={false}
+          scaleToEdit={{
+            id: 'existing-id',
+            date: '2026-08-25',
+            time: '18:00',
+            eventTypeId: 'et-1',
+            locationId: 'loc-1',
+            eventNameId: '',
+            assignments: [],
+          }}
+        />
+      );
+      await waitFor(() => {
+        expect(document.getElementById('date')).toHaveValue('2026-08-25');
+        expect(document.getElementById('time')).toHaveValue('18:00');
+      });
+    });
+
+    it('3. re-render equivalente não reseta o formulário', async () => {
+      const { rerender } = render(
+        <ModernScaleForm
+          isOpen={true}
+          scaleType="band"
+          initialStep="event"
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+          isSubmitting={false}
+        />
+      );
+
+      const dateInput = document.getElementById('date') as HTMLInputElement;
+      fireEvent.change(dateInput, { target: { value: '2026-08-29' } });
+      expect(dateInput).toHaveValue('2026-08-29');
+
+      rerender(
+        <ModernScaleForm
+          isOpen={true}
+          scaleType="band"
+          initialStep="event"
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+          isSubmitting={false}
+        />
+      );
+
+      expect(document.getElementById('date')).toHaveValue('2026-08-29');
+    });
+
+    it('4. abertura de scaleToEdit continua carregando dados', async () => {
+      render(
+        <ModernScaleForm
+          isOpen={true}
+          scaleType="band"
+          initialStep="event"
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+          isSubmitting={false}
+          scaleToEdit={{
+            id: 'edit-1',
+            date: '2026-09-01',
+            time: '10:00',
+            eventTypeId: 'et-1',
+            locationId: 'loc-1',
+            eventNameId: '',
+            assignments: [],
+          }}
+        />
+      );
+      await waitFor(() => {
+        expect(document.getElementById('date')).toHaveValue('2026-09-01');
+        expect(document.getElementById('time')).toHaveValue('10:00');
+      });
+    });
   });
 });

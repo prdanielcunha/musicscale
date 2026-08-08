@@ -415,8 +415,9 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         if (!initialFormDataRef.current || initialFormDataRef.current === prevComparable) {
           initialFormDataRef.current = JSON.stringify(getComparableData(next));
         }
+        return next;
       }
-      return next;
+      return prev;
     });
 
   }, [isOpen, eventTypes, locations, scaleToEdit]);
@@ -842,6 +843,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         maxWidth="max-w-5xl"
         footer={footer}
         zIndexClass={zIndexClass}
+        dataTestId={`${scaleType}-scale-modal`}
       >
         <form id="scale-form" onSubmit={handleSubmit} className="flex flex-col flex-1">
           <div className="flex w-full mb-6 border-b border-slate-200 dark:border-white/10 overflow-x-auto custom-scrollbar -mx-2 px-2 sm:mx-0 sm:px-0 shrink-0 sticky -top-4 sm:-top-5 md:-top-6 bg-white/95 dark:bg-[#05070D]/90 backdrop-blur-md z-20 pb-1 pt-4 sm:pt-5 md:pt-6 -mt-4 sm:-mt-5 md:-mt-6">
@@ -878,6 +880,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                   type="time"
                   name="time"
                   id="time"
+                  aria-label={t('scaleModal.time', 'Horário')}
                   value={formData.time || ""}
                   onChange={handleChange}
                   className={`${formInputClass} w-32`}
@@ -1079,6 +1082,12 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                          ref={i === 0 ? firstBandOptionRef : undefined}
                          key={bs.id} 
                          onClick={() => setFormData(prev => ({...prev, bandScaleId: isSelected ? null : bs.id}))}
+                         onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                               e.preventDefault();
+                               setFormData(prev => ({...prev, bandScaleId: isSelected ? null : bs.id}));
+                            }
+                         }}
                          data-testid={`link-band-scale-${bs.id}`}
                          role="radio"
                          aria-checked={isSelected}
@@ -1364,7 +1373,11 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
             eventNameId: formData.eventNameId || "",
             observations: ""
           }}
-          onSave={async (nestedData, idempotencyKey) => {
+          onSave={async (nestedReq) => {
+            const { data: nestedData, idempotencyKey } = nestedReq as {
+              data: BandScaleWritableData;
+              idempotencyKey?: string;
+            };
             if (!api) return;
             setIsSubmittingNested(true);
             try {
@@ -1380,7 +1393,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                   const result = await api.bandScaleCommands.create(nestedData, idempotencyKey || crypto.randomUUID());
                   bandScaleId = result.scaleId;
               } else {
-                  bandScaleId = await api.bandScales.create(nestedData as any);
+                  bandScaleId = await api.bandScales.create(nestedData);
               }
               setFormData(prev => ({...prev, bandScaleId}));
               setIsCreatingNestedBandScale(false);
