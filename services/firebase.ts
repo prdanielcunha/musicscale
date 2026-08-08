@@ -36,10 +36,15 @@ const auth = getAuth(app);
 // Inicializa o firestore
 let db: any;
 const isTestEnv = typeof process !== 'undefined' && (safeProcessEnv.NODE_ENV === 'test' || safeProcessEnv.VITEST === 'true');
+const shouldDisablePersistentCache = isTestEnv || useEmulators;
 
-if (isTestEnv) {
+if (shouldDisablePersistentCache) {
   db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-  console.log("[MusicScale Firebase] Firestore initialized without persistent cache (Test environment).");
+  console.log(
+    useEmulators
+      ? '[MusicScale Firebase] Firestore initialized without persistent cache for Emulator.'
+      : '[MusicScale Firebase] Firestore initialized without persistent cache for Test environment.'
+  );
 } else {
   try {
     // Use persistentLocalCache to speed up loading
