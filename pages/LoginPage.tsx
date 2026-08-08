@@ -288,11 +288,14 @@ export default function LoginPage() {
                 >
                   {isRegister && (
                     <div className="space-y-2 relative isolate text-left">
-                      <label className="block text-[13px] font-extrabold text-slate-800 dark:text-slate-200 px-1 tracking-tight">
+                      <label htmlFor="register-display-name" className="block text-[13px] font-extrabold text-slate-800 dark:text-slate-200 px-1 tracking-tight">
                         Seu Nome
                       </label>
                       <div className="relative group w-full">
                         <input
+                          id="register-display-name"
+                          name="displayName"
+                          autoComplete="name"
                           type="text"
                           value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
@@ -305,11 +308,14 @@ export default function LoginPage() {
                   )}
 
                   <div className="space-y-2 relative isolate text-left">
-                    <label className="block text-[13px] font-extrabold text-slate-800 dark:text-slate-200 px-1 tracking-tight">
+                    <label htmlFor="login-email" className="block text-[13px] font-extrabold text-slate-800 dark:text-slate-200 px-1 tracking-tight">
                       Endereço de e-mail
                     </label>
                     <div className="relative group w-full">
                       <input
+                        id="login-email"
+                        name="email"
+                        autoComplete="email"
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
@@ -321,11 +327,14 @@ export default function LoginPage() {
                   </div>
 
                   <div className="space-y-2 relative isolate text-left">
-                    <label className="block text-[13px] font-extrabold text-slate-800 dark:text-slate-200 px-1 tracking-tight">
+                    <label htmlFor="login-password" className="block text-[13px] font-extrabold text-slate-800 dark:text-slate-200 px-1 tracking-tight">
                       Senha
                     </label>
                     <div className="relative group w-full flex items-center">
                       <input
+                        id="login-password"
+                        name="password"
+                        autoComplete="current-password"
                         type={showPassword ? "text" : "password"}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
@@ -336,6 +345,7 @@ export default function LoginPage() {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                         className="absolute right-3 h-[40px] w-[40px] flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors outline-none cursor-pointer rounded-full hover:bg-slate-50 dark:hover:bg-white/5"
                       >
                         {showPassword ? (

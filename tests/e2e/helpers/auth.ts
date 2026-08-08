@@ -11,13 +11,15 @@ export async function loginAs(page: Page, email: string, orgId: string, orgName:
   await expect(emailButton).toBeVisible();
   await emailButton.click();
   
-  const emailInput = page.getByLabel(/E-mail/i).or(page.getByPlaceholder(/E-mail/i)).first();
+  const emailInput = page.getByRole('textbox', { name: /Endereço de e-mail/i });
   await expect(emailInput).toBeVisible();
-  
   await emailInput.fill(email);
-  await page.getByLabel(/Senha/i).or(page.getByPlaceholder(/Senha/i)).first().fill('password');
   
-  await page.getByRole('button', { name: /Entrar|Acessar/i }).first().click();
+  const passwordInput = page.getByLabel('Senha', { exact: true });
+  await expect(passwordInput).toBeVisible();
+  await passwordInput.fill('password');
+  
+  await page.getByRole('button', { name: 'Acessar Plataforma', exact: true }).click();
   
   // Wait for Dashboard (the app redirects to /)
   await page.waitForURL('**/', { timeout: 15000 });
