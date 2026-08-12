@@ -100,6 +100,10 @@ Silo de dados lógico: Cada registro gravado (música, escala, membro) armazena 
 - `eventTypes`, `tags`, `instruments`, `locations`
 - `monthly_usage`
 
+### Projeção de perfil interno MusicScale
+
+`organizations/{orgId}/musicscale_members/{uid}` armazena exclusivamente a atribuição tenant-scoped de função e perfil musical (`roleId`, `musicscaleRole`, `ministryFunction` e `specialtyIds`). A membership canônica em `organizations/{orgId}/members/{uid}` continua sendo usada para provar membership e resolver `organizationRole`, mas não recebe novos writes desses campos específicos do MusicScale. Leituras mantêm fallback temporário para campos legados tenant-bound; novos writes de perfil interno passam por endpoint autenticado e convergem somente para a projeção.
+
 ## 18. Firestore Rules Encontradas
 Baseadas em `firestore.rules` (vistas na leitura inicial):
 - Regras bloqueando leituras gerais não autorizadas.

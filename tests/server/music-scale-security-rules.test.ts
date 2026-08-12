@@ -270,6 +270,44 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
     });
   });
 
+  describe.skipIf(!hasEmulatorHost)('1b. MusicScale member projection isolation', () => {
+    it('permite leitura no tenant e nega escrita direta e leitura cross-tenant', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-1/members/user-1').set({
+          uid: 'user-1', organizationId: 'org-1', status: 'active', organizationRole: 'member'
+        });
+        await adminDb.doc('organizations/org-1/musicscale_members/user-1').set({
+          uid: 'user-1', organizationId: 'org-1', roleId: 'role-admin'
+        });
+        await adminDb.doc('organizations/org-2/musicscale_members/user-2').set({
+          uid: 'user-2', organizationId: 'org-2', roleId: 'role-member'
+        });
+      });
+
+      const db = getAuthedFirestore({ uid: 'user-1' });
+      await assertSucceeds(db.doc('organizations/org-1/musicscale_members/user-1').get());
+      await assertFails(db.doc('organizations/org-1/musicscale_members/user-1').update({ roleId: 'role-owner' }));
+      await assertFails(db.doc('organizations/org-2/musicscale_members/user-2').get());
+      await assertFails(db.doc('organizations/org-2/musicscale_members/user-1').set({ roleId: 'role-owner' }));
+    });
+
+    it('users.systemRole admin não recebe acesso global, mas os quatro papéis canônicos recebem', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-1/musicscale_members/user-1').set({ roleId: 'role-member' });
+        await adminDb.doc('users/local-admin').set({ systemRole: 'admin' });
+        for (const role of ['ceo', 'global_admin', 'ecosystem_owner', 'founder']) {
+          await adminDb.doc(`users/${role}`).set({ systemRole: role });
+        }
+      });
+      await assertFails(getAuthedFirestore({ uid: 'local-admin' }).doc('organizations/org-1/musicscale_members/user-1').get());
+      for (const role of ['ceo', 'global_admin', 'ecosystem_owner', 'founder']) {
+        await assertSucceeds(getAuthedFirestore({ uid: role }).doc('organizations/org-1/musicscale_members/user-1').get());
+      }
+    });
+  });
+
   describe('2. Notifications Soft Delete & Restricted Updates', () => {
     it('cliente não cria notificação', async () => {
       const db = getAuthedFirestore({ uid: 'user-1' });

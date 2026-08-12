@@ -161,6 +161,13 @@ service cloud.firestore {
       );
     }
 
+    function hasCanonicalGlobalRole() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('systemRole', '') in
+          ['ceo', 'global_admin', 'ecosystem_owner', 'founder'];
+    }
+
     // ==========================================
     // 1. DADOS DOS USUÁRIOS
     // ==========================================
@@ -252,6 +259,11 @@ service cloud.firestore {
         );
       }
 
+      match /musicscale_members/{uid} {
+        allow read: if isAuthenticated() && (checkMemberExists(orgId) || hasCanonicalGlobalRole());
+        allow create, update, delete: if false;
+      }
+
       match /invites/{inviteId} {
         allow read: if true; 
         allow list: if isAuthenticated();
@@ -281,9 +293,9 @@ service cloud.firestore {
 
 
       match /{app}/{document=**} {
-        allow read: if isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
-        allow create: if isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
-        allow update, delete: if isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow read: if app != 'musicscale_members' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow create: if app != 'musicscale_members' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow update, delete: if app != 'musicscale_members' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
       }
     }
 
