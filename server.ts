@@ -46,6 +46,7 @@ import { requireEcosystemRole } from "./services/server/ecosystemAuth.js";
 import { writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
 import { createInvitationCompatibilityHandlers } from "./services/server/musicScaleInvitationCompatibility.js";
+import { createJoinRequestCompatibilityHandlers } from "./services/server/musicScaleJoinRequestCompatibility.js";
 import { runSongDiscoveryProcessor } from "./services/server/songDiscoveryProcessor.js";
 import { SongDiscoveryInboxService } from "./services/server/songDiscoveryInboxService.js";
 import { analyzeInboxBatch } from "./services/server/songInboxAnalyzer.js";
@@ -1741,142 +1742,10 @@ app.use((err: any, req: any, res: any, next: any) => {
       }
   });
 
-  app.post("/api/orgs/join", async (req, res) => {
-      try {
-          if (!db || !auth) throw new Error("Database not initialized");
-          
-          const authHeader = req.headers.authorization;
-          if (!authHeader || !authHeader.startsWith("Bearer ")) {
-             return res.status(401).json({ error: "UNAUTHORIZED" });
-          }
-          const token = authHeader.split("Bearer ")[1].trim();
-          
-          let decodedToken;
-          try {
-             decodedToken = await auth.verifyIdToken(token, true);
-          } catch (err) {
-             return res.status(401).json({ error: "UNAUTHORIZED" });
-          }
-          const authenticatedUid = decodedToken.uid;
-
-          const { userId, ownerEmail } = req.body;
-          if (!ownerEmail) return res.status(400).json({ error: "Missing parameters" });
-
-          if (userId && userId !== authenticatedUid) {
-             return res.status(403).json({ error: "ACTOR_ID_MISMATCH" });
-          }
-
-          // Find the owner user by email
-          const usersRef = await db.collection('users')
-              .where('email', '==', ownerEmail.toLowerCase().trim())
-              .limit(1)
-              .get();
-
-          if (usersRef.empty) {
-              return res.status(404).json({ error: "Owner user not found" });
-          }
-
-          const ownerDoc = usersRef.docs[0];
-          const ownerUid = ownerDoc.id;
-          const ownerData = ownerDoc.data();
-
-          // Collect possible org IDs
-          const candidateOrgs = new Set<string>();
-          if (ownerData.organizationId) candidateOrgs.add(ownerData.organizationId);
-          if (ownerData.activeOrganizationId) candidateOrgs.add(ownerData.activeOrganizationId);
-          if (ownerData.primaryOrganizationId) candidateOrgs.add(ownerData.primaryOrganizationId);
-
-          const [owned1, owned2, owned3] = await Promise.all([
-             db.collection('organizations').where('ownerUid', '==', ownerUid).get(),
-             db.collection('organizations').where('ownerUserId', '==', ownerUid).get(),
-             db.collection('organizations').where('ownerId', '==', ownerUid).get()
-          ]);
-          owned1.docs.forEach((d: any) => candidateOrgs.add(d.id));
-          owned2.docs.forEach((d: any) => candidateOrgs.add(d.id));
-          owned3.docs.forEach((d: any) => candidateOrgs.add(d.id));
-
-          let matchedOrgId = null;
-          let matchCount = 0;
-
-          for (const orgId of candidateOrgs) {
-              const orgDoc = await db.collection('organizations').doc(orgId).get();
-              if (!orgDoc.exists) continue;
-              const orgData = orgDoc.data();
-              const normalizedOrgStatus = String(orgData?.status || "").trim().toLowerCase();
-              if (normalizedOrgStatus === 'archived' || orgData?.archived === true) continue;
-              
-              if (orgData?.ownerUid === ownerUid || orgData?.ownerUserId === ownerUid || orgData?.ownerId === ownerUid) {
-                  matchedOrgId = orgId;
-                  matchCount++;
-              }
-          }
-
-          if (matchCount === 0 || !matchedOrgId) {
-             return res.status(404).json({ error: "OWNER_ORGANIZATION_NOT_FOUND" });
-          }
-          
-          if (matchCount > 1) {
-             return res.status(409).json({ error: "OWNER_HAS_MULTIPLE_ORGANIZATIONS" });
-          }
-
-          const reqUserDoc = await db.collection('users').doc(authenticatedUid).get();
-          if (!reqUserDoc.exists) return res.status(403).json({ error: "FORBIDDEN" });
-          const reqUserData = reqUserDoc.data();
-
-          // Idempotent creation
-          const canonMemberRef = db.collection('organizations').doc(matchedOrgId).collection('members').doc(authenticatedUid);
-          const reqRef = db.collection('organization_join_requests').doc(`${matchedOrgId}_${authenticatedUid}`);
-          
-          await db.runTransaction(async (t: any) => {
-             const [canonDoc, reqDoc] = await Promise.all([
-                 t.get(canonMemberRef),
-                 t.get(reqRef)
-             ]);
-
-             if (canonDoc.exists) {
-                 const st = String(canonDoc.data()?.status || '').trim().toLowerCase();
-                 if (st === 'active' || st === 'ativo') {
-                    throw new Error("ALREADY_MEMBER");
-                 }
-             }
-
-             if (!reqDoc.exists) {
-                t.set(reqRef, {
-                    uid: authenticatedUid,
-                    organizationId: matchedOrgId,
-                    email: reqUserData?.email || '',
-                    displayName: reqUserData?.displayName || '',
-                    photoURL: reqUserData?.photoURL || '',
-                    status: 'pending',
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    requestedByUid: authenticatedUid,
-                    correlationId: crypto.randomUUID()
-                });
-             } else {
-                const existingStatus = String(reqDoc.data()?.status || '').trim().toLowerCase();
-                if (existingStatus === 'pending') {
-                    t.update(reqRef, {
-                        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                    });
-                } else if (existingStatus === 'accepted') {
-                    throw new Error("JOIN_REQUEST_ALREADY_ACCEPTED");
-                } else {
-                    throw new Error("JOIN_REQUEST_NOT_PENDING");
-                }
-             }
-          });
-
-          res.json({ success: true, message: "Solicitação enviada. Aguarde a aprovação do administrador." });
-      } catch (e: any) {
-          logger.error(`[API] Error joining org:`, e);
-          const msg = e.message;
-          if (["ALREADY_MEMBER", "JOIN_REQUEST_ALREADY_ACCEPTED", "JOIN_REQUEST_NOT_PENDING"].includes(msg)) {
-              return res.status(409).json({ error: msg });
-          }
-          res.status(500).json({ error: "INTERNAL_SERVER_ERROR" });
-      }
-  });
+  const joinRequestCompatibilityHandlers = createJoinRequestCompatibilityHandlers({ db, auth, logger });
+  app.post("/api/orgs/join", joinRequestCompatibilityHandlers.create);
+  app.post("/api/orgs/:organizationId/join-requests/:requestId/approve", joinRequestCompatibilityHandlers.approve);
+  app.post("/api/orgs/:organizationId/join-requests/:requestId/reject", joinRequestCompatibilityHandlers.reject);
 
   app.patch("/api/orgs/:organizationId/musicscale-members/:uid", async (req, res) => {
       try {

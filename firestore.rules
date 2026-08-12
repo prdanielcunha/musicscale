@@ -195,6 +195,29 @@ service cloud.firestore {
       );
     }
 
+    function hasCanonicalJoinRequestReadAccess(orgId) {
+      return isAuthenticated() && (
+        hasCanonicalGlobalRole() ||
+        (
+          exists(/databases/$(database)/documents/organizations/$(orgId)) &&
+          (
+            get(/databases/$(database)/documents/organizations/$(orgId)).data.get('ownerUid', '') == request.auth.uid ||
+            get(/databases/$(database)/documents/organizations/$(orgId)).data.get('ownerId', '') == request.auth.uid ||
+            get(/databases/$(database)/documents/organizations/$(orgId)).data.get('owner_user_id', '') == request.auth.uid ||
+            get(/databases/$(database)/documents/organizations/$(orgId)).data.get('ownerUserId', '') == request.auth.uid ||
+            (
+              exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('status', '') in ['active', 'ativo'] &&
+              (
+                get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('role', '') in ['owner', 'admin'] ||
+                get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('organizationRole', '') in ['owner', 'admin']
+              )
+            )
+          )
+        )
+      );
+    }
+
     // ==========================================
     // 1. DADOS DOS USUÁRIOS
     // ==========================================
@@ -299,6 +322,11 @@ service cloud.firestore {
         allow read, create, update, delete: if false;
       }
 
+      match /join_requests/{requestId} {
+        allow read, list: if hasCanonicalJoinRequestReadAccess(orgId);
+        allow create, update, delete: if false;
+      }
+
       match /audit_logs/{document=**} {
         allow read: if isAuthenticated() && checkOrgAccess(orgId);
         allow write: if isAuthenticated() && checkOrgAccess(orgId);
@@ -318,9 +346,9 @@ service cloud.firestore {
 
 
       match /{app}/{document=**} {
-        allow read: if app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
-        allow create: if app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
-        allow update, delete: if app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow read: if app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow create: if app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow update, delete: if app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
       }
     }
 

@@ -1579,62 +1579,52 @@ const UsersPage: React.FC = () => {
 
 
   const fetchJoinRequests = async () => {
-    if (!userProfile?.organizationId) return;
+    const organizationId = userProfile?.activeOrganizationId || userProfile?.primaryOrganizationId || userProfile?.organizationId;
+    if (!organizationId) return;
     try {
       const q = query(
-        collection(db, 'organization_join_requests'), 
-        where('organizationId', '==', userProfile.organizationId)
+        collection(db, 'organizations', organizationId, 'join_requests'),
+        where('status', '==', 'pending')
       );
       const snap = await getDocs(q);
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setJoinRequests(docs.filter(d => (d as any).status === 'pending'));
+      setJoinRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
-      logger.error("Failed to load join requests", e);
+      logger.error("Failed to load canonical join requests", e);
+      setJoinRequests([]);
     }
   };
 
   const handleProcessRequest = async (req: any, approve: boolean) => {
-     try {
-        if (approve) {
-           // 1. Official Members Subcollection
-           const targetMemberRef = doc(db, 'organizations', req.organizationId, 'members', req.uid);
-           await setDoc(targetMemberRef, {
-              uid: req.uid,
-              organizationId: req.organizationId,
-              organizationRole: 'member',
-              musicscaleRole: 'member',
-              role: 'member',
-              status: 'active',
-              joinedAt: serverTimestamp(),
-              source: 'join_request',
-              apps: { musicscale: { access: true, status: "active" } }
-           }, { merge: true });
-
-           // 2. Legacy fallback
-           const memberRef = doc(db, 'organization_members', `${req.organizationId}_${req.uid}`);
-           await setDoc(memberRef, {
-              user_id: req.uid,
-              uid: req.uid,
-              organization_id: req.organizationId,
-              organizationId: req.organizationId,
-              role: 'member',
-              created_at: serverTimestamp(),
-              joinedAt: serverTimestamp()
-           });
-
-           await updateDoc(doc(db, 'users', req.uid), {
-              organizationId: req.organizationId
-           });
-           await deleteDoc(doc(db, 'organization_join_requests', req.id));
-        } else {
-           await updateDoc(doc(db, 'organization_join_requests', req.id), { status: 'denied' });
-        }
-        await fetchJoinRequests();
-        await fetchUsers();
-     } catch (e) {
-        logger.error("Failed to process request", e);
-        alert("Erro ao processar solicitação.");
-     }
+    try {
+      if (!currentUser) throw new Error(t("users.auth_error", "Usuário não autenticado."));
+      const organizationId = userProfile?.activeOrganizationId || userProfile?.primaryOrganizationId || userProfile?.organizationId;
+      const requestId = typeof req?.requestId === 'string' ? req.requestId : req?.id;
+      if (!organizationId || typeof requestId !== 'string' || !requestId) {
+        throw new Error(t("users.join_request_invalid", "Solicitação inválida."));
+      }
+      const idToken = await currentUser.getIdToken();
+      const action = approve ? 'approve' : 'reject';
+      const response = await fetch(`/api/orgs/${encodeURIComponent(organizationId)}/join-requests/${encodeURIComponent(requestId)}/${action}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({})
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success !== true) {
+        throw new Error(data?.reasonCode || data?.error || t("users.join_request_error", "Erro ao processar solicitação."));
+      }
+      await fetchJoinRequests();
+      await fetchUsers();
+      toastSuccess(approve
+        ? t("users.join_request_approved", "Solicitação aprovada com sucesso.")
+        : t("users.join_request_rejected", "Solicitação rejeitada."));
+    } catch (e: any) {
+      logger.error("Failed to process canonical join request", e);
+      toastError(e?.message || t("users.join_request_error", "Erro ao processar solicitação."));
+    }
   };
 
   const fetchUsers = async () => {
