@@ -1449,5 +1449,8 @@
       "transposeSuccess": "Los acordes se actualizaron de {{from}} a {{to}}. {{count}} acordes fueron ajustados.",
       "transposeSuccessOne": "Los acordes se actualizaron de {{from}} a {{to}}. 1 acorde fue ajustado."
     }
+  },
+  "profile": {
+    "invite_person": "Invitar persona"
   }
 }

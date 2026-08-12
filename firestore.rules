@@ -292,13 +292,11 @@ service cloud.firestore {
       }
 
       match /invites/{inviteId} {
-        allow read: if true; 
-        allow list: if isAuthenticated();
-        allow update: if isAuthenticated() && (
-          isOrgAdmin(orgId) || isSystemAdmin() || 
-          (request.resource.data.get('status', '') == 'accepted' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedByUid', 'acceptedAt']))
-        );
-        allow create, delete: if isAuthenticated() && (isOrgAdmin(orgId) || isSystemAdmin());
+        allow read, create, update, delete: if false;
+      }
+
+      match /musicscale_invite_role_intents/{intentId} {
+        allow read, create, update, delete: if false;
       }
 
       match /audit_logs/{document=**} {
@@ -320,9 +318,9 @@ service cloud.firestore {
 
 
       match /{app}/{document=**} {
-        allow read: if app != 'musicscale_members' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
-        allow create: if app != 'musicscale_members' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
-        allow update, delete: if app != 'musicscale_members' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow read: if app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow create: if app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow update, delete: if app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
       }
     }
 

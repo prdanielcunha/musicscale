@@ -45,6 +45,7 @@ import { compareSongs } from "./utils/songDiscovery/matcher.js";
 import { requireEcosystemRole } from "./services/server/ecosystemAuth.js";
 import { writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
+import { HubInvitationAdapter, HubInvitationError, abandonRoleIntent, applyRoleIntent, decodeLegacyNestedToken, finishRoleIntent, normalizeEmail, permitsLegacyInvitationFallback, prepareRoleIntent } from "./services/server/hubInvitationAdapter.js";
 import { runSongDiscoveryProcessor } from "./services/server/songDiscoveryProcessor.js";
 import { SongDiscoveryInboxService } from "./services/server/songDiscoveryInboxService.js";
 import { analyzeInboxBatch } from "./services/server/songInboxAnalyzer.js";
@@ -1918,8 +1919,9 @@ app.use((err: any, req: any, res: any, next: any) => {
   });
 
   app.post("/api/orgs/invite", async (req, res) => {
+      let preparedIntent: { ref: any; generationId: string } | undefined;
       try {
-          if (!db) throw new Error("Database not initialized");
+          if (!db || !auth) throw new Error("Database not initialized");
           const { organizationId, inviterUserId, email, roleId } = req.body;
           if (!organizationId) return res.status(400).json({ error: "Missing parameters" });
 
@@ -1940,58 +1942,26 @@ app.use((err: any, req: any, res: any, next: any) => {
           if (!email) return res.status(400).json({ error: "EMAIL_REQUIRED" });
           if (!roleId) return res.status(400).json({ error: "ROLE_ID_REQUIRED" });
           
-          const safeEmail = String(email).trim().toLowerCase();
+          const safeEmail = normalizeEmail(email);
           if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeEmail)) {
               return res.status(400).json({ error: "INVALID_EMAIL" });
           }
 
           const safeRoleId = String(roleId).trim();
 
-          const roleDoc = await db.collection('roles').doc(safeRoleId).get();
-          if (!roleDoc.exists) {
-              return res.status(404).json({ error: "ROLE_NOT_FOUND" });
-          }
-          const roleData = roleDoc.data() as any;
-
-          if (roleData.organizationId !== organizationId) {
-              return res.status(403).json({ error: "ROLE_ORGANIZATION_MISMATCH" });
-          }
-
-          const roleName = String(roleData.name || "").trim();
-          const lowerRoleName = roleName.toLowerCase();
-          if (['owner', 'dono', 'ceo', 'global_admin', 'ecosystem_owner', 'founder', 'support', 'suporte'].includes(lowerRoleName)) {
-              return res.status(403).json({ error: "CANNOT_INVITE_GLOBAL_OR_OWNER" });
-          }
-
-          const rawToken = crypto.randomBytes(32).toString('base64url');
-          const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-          
-          const expiresAt = new Date();
-          expiresAt.setHours(expiresAt.getHours() + 48); // 48h expiration
-
-          const inviteRef = db.collection('invites').doc();
-          await inviteRef.set({
-              tokenHash,
-              email: safeEmail,
-              roleId: safeRoleId,
-              roleName: roleName,
-              rolePermissions: roleData.permissions || null,
-              organizationRole: 'member',
-              organizationId: organizationId,
-              status: 'pending',
-              expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
-              createdAt: admin.firestore.FieldValue.serverTimestamp(),
-              createdByUid: ctx.uid,
-              correlationId: crypto.randomUUID()
-          });
-
-          if (safeEmail) {
-             logger.info(`Sending invite email to ${safeEmail} (Simulated)`);
-          }
-
-          res.json({ link: `/invite?token=${rawToken}`, success: true });
+          const intent = await prepareRoleIntent(db, organizationId, safeEmail, safeRoleId, ctx.uid);
+          preparedIntent = intent;
+          const hub = await new HubInvitationAdapter().create(req.headers.authorization!, organizationId, safeEmail);
+          await finishRoleIntent(intent.ref, intent.generationId, hub);
+          res.json({ success: true, link: hub.invitePath, reasonCode: hub.reasonCode, invitation: hub.invitation });
       } catch (e: any) {
-          logger.error(`[API] Error inviting to org:`, e);
+          if (e instanceof HubInvitationError) {
+              if (preparedIntent && !e.ambiguous) await abandonRoleIntent(preparedIntent.ref, preparedIntent.generationId);
+              return res.status(e.status).json({ error: e.reasonCode, reasonCode: e.reasonCode });
+          }
+          if (e?.message === 'ROLE_NOT_FOUND') return res.status(404).json({ error: e.message });
+          if (['INVALID_ROLE_ID', 'ROLE_ORGANIZATION_MISMATCH'].includes(e?.message)) return res.status(403).json({ error: e.message });
+          logger.error(`[API] Invitation create failed`);
           res.status(500).json({ error: "INTERNAL_SERVER_ERROR" });
       }
   });
@@ -2022,15 +1992,36 @@ app.use((err: any, req: any, res: any, next: any) => {
              return res.status(403).json({ error: "ACTOR_ID_MISMATCH" });
           }
 
+          try {
+             const hub = await new HubInvitationAdapter().accept(authHeader, String(token));
+             const roleProjectionApplied = authenticatedEmail
+               ? await applyRoleIntent(db, hub.organizationId, authenticatedUid, authenticatedEmail)
+               : false;
+             return res.json({ ...hub, roleProjectionApplied });
+          } catch (hubError) {
+             if (!permitsLegacyInvitationFallback(hubError)) {
+                if (hubError instanceof HubInvitationError) return res.status(hubError.status).json({ error: hubError.reasonCode, reasonCode: hubError.reasonCode });
+                return res.status(503).json({ error: 'HUB_UNAVAILABLE' });
+             }
+          }
+
           const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
           
           let inviteSnapshot = await db.collection('invites').where('tokenHash', '==', tokenHash).limit(1).get();
-          if (inviteSnapshot.empty) {
-             inviteSnapshot = await db.collection('invites').where('token', '==', token).limit(1).get();
+          let isNestedLegacy = false;
+          if (inviteSnapshot.empty) inviteSnapshot = await db.collection('invites').where('token', '==', token).limit(1).get();
+          let initialInviteDoc: any = inviteSnapshot.empty ? null : inviteSnapshot.docs[0];
+          if (!initialInviteDoc) {
+             const nested = decodeLegacyNestedToken(String(token));
+             if (nested) {
+                const candidate = await db.collection('organizations').doc(nested.organizationId).collection('invites').doc(nested.inviteId).get();
+                if (candidate.exists && candidate.data()?.organizationId === nested.organizationId) {
+                   initialInviteDoc = candidate;
+                   isNestedLegacy = true;
+                }
+             }
           }
-
-          if (inviteSnapshot.empty) return res.status(400).json({ error: "INVALID_TOKEN" });
-          const initialInviteDoc = inviteSnapshot.docs[0];
+          if (!initialInviteDoc) return res.status(400).json({ error: "INVALID_TOKEN" });
 
           let inviteOrgIdResult = "";
           
@@ -2043,14 +2034,17 @@ app.use((err: any, req: any, res: any, next: any) => {
               if (!inviteOrgId) throw new Error("INVALID_INVITE_ORG");
               inviteOrgIdResult = inviteOrgId;
 
-              const expDate = (inviteData.expiresAt || inviteData.expires_at)?.toDate();
+              const expiry = inviteData.expiresAt || inviteData.expires_at;
+              const expDate = typeof expiry?.toDate === 'function' ? expiry.toDate() : expiry instanceof Date ? expiry : null;
               if (expDate && expDate < new Date()) {
                   throw new Error("TOKEN_EXPIRED");
               }
 
               // CORREÇÃO 1 — REVALIDAR O TOKEN DENTRO DA TRANSACTION
               let tokenIsValid = false;
-              if (inviteData.tokenHash) {
+              if (isNestedLegacy) {
+                  tokenIsValid = true; // strict path-bound token was decoded before this transaction
+              } else if (inviteData.tokenHash) {
                   const presentedTokenHash = crypto.createHash('sha256').update(token).digest('hex');
                   try {
                       const buf1 = Buffer.from(String(inviteData.tokenHash), 'utf8');
@@ -2152,9 +2146,6 @@ app.use((err: any, req: any, res: any, next: any) => {
                   organizationId: inviteOrgId,
                   organizationRole: roleIdToAssign ? 'member' : finalOrgRole,
                   role: roleIdToAssign ? 'member' : finalOrgRole,
-                  roleId: roleIdToAssign || null,
-                  musicscaleRole: derivedMusicscaleRole,
-                  internalRoleId: roleIdToAssign || null,
                   status: 'active',
                   updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                   invitedByUid: inviteData.createdByUid || null,
@@ -2164,6 +2155,15 @@ app.use((err: any, req: any, res: any, next: any) => {
                   Object.assign(canonicalData, { joinedAt: admin.firestore.FieldValue.serverTimestamp() });
               }
               t.set(canonMemberRef, canonicalData, { merge: true });
+
+              if (roleIdToAssign) {
+                  const projectionRef = db.collection('organizations').doc(inviteOrgId).collection('musicscale_members').doc(authenticatedUid);
+                  t.set(projectionRef, {
+                      uid: authenticatedUid, organizationId: inviteOrgId, roleId: roleIdToAssign,
+                      musicscaleRole: derivedMusicscaleRole, updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                      updatedByUid: authenticatedUid, source: isNestedLegacy ? 'legacy_nested_invite_migration' : 'legacy_root_invite_migration'
+                  }, { merge: true });
+              }
 
               // B. Legacy membership mirror
               const legacyMemberRef = db.collection('organization_members').doc(`${authenticatedUid}_${inviteOrgId}`);
@@ -2196,12 +2196,12 @@ app.use((err: any, req: any, res: any, next: any) => {
               if (inviteData.token) {
                   inviteUpdates.token = admin.firestore.FieldValue.delete();
               }
-              t.update(inviteDoc.ref, inviteUpdates);
+              if (!isNestedLegacy) t.update(inviteDoc.ref, inviteUpdates);
 
               // E. Audit log
               const auditRef = db.collection('audit_logs').doc();
               t.set(auditRef, {
-                  action: 'organization.invite.accepted',
+                  action: isNestedLegacy ? 'organization.invite.legacy_nested_migrated' : 'organization.invite.legacy_root_migrated',
                   actorUid: authenticatedUid,
                   organizationId: inviteOrgId,
                   inviteId: inviteDoc.id,
@@ -2212,7 +2212,7 @@ app.use((err: any, req: any, res: any, next: any) => {
 
           res.json({ success: true, organization_id: inviteOrgIdResult });
       } catch (e: any) {
-          logger.error(`[API] Error accepting invite:`, e);
+          logger.error(`[API] Legacy invitation acceptance failed: ${e?.message || 'UNKNOWN'}`);
           const msg = e.message;
           if (["EMAIL_REQUIRED", "EMAIL_MISMATCH", "USER_NOT_FOUND", "ROLE_ORGANIZATION_MISMATCH", "CANNOT_ACCEPT_GLOBAL_OR_OWNER"].includes(msg)) {
               return res.status(403).json({ error: msg });
