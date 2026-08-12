@@ -168,6 +168,33 @@ service cloud.firestore {
           ['ceo', 'global_admin', 'ecosystem_owner', 'founder'];
     }
 
+    function hasActiveMusicScaleTenantMembership(orgId) {
+      return (orgId is string) && (
+        (
+          exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('status', '') in ['active', 'ativo']
+        ) ||
+        (
+          exists(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)) &&
+          get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('status', '') in ['active', 'ativo'] &&
+          (!('uid' in get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data) || get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('uid', '') == request.auth.uid) &&
+          (!('userId' in get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data) || get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('userId', '') == request.auth.uid) &&
+          (!('user_id' in get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data) || get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('user_id', '') == request.auth.uid) &&
+          (!('organizationId' in get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data) || get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('organizationId', '') == orgId) &&
+          (!('organization_id' in get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data) || get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('organization_id', '') == orgId)
+        ) ||
+        (
+          exists(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)) &&
+          get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('status', '') in ['active', 'ativo'] &&
+          (!('uid' in get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data) || get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('uid', '') == request.auth.uid) &&
+          (!('userId' in get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data) || get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('userId', '') == request.auth.uid) &&
+          (!('user_id' in get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data) || get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('user_id', '') == request.auth.uid) &&
+          (!('organizationId' in get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data) || get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('organizationId', '') == orgId) &&
+          (!('organization_id' in get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data) || get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('organization_id', '') == orgId)
+        )
+      );
+    }
+
     // ==========================================
     // 1. DADOS DOS USUÁRIOS
     // ==========================================
@@ -260,7 +287,7 @@ service cloud.firestore {
       }
 
       match /musicscale_members/{uid} {
-        allow read: if isAuthenticated() && (checkMemberExists(orgId) || hasCanonicalGlobalRole());
+        allow read: if isAuthenticated() && (hasActiveMusicScaleTenantMembership(orgId) || hasCanonicalGlobalRole());
         allow create, update, delete: if false;
       }
 
@@ -436,7 +463,6 @@ service cloud.firestore {
     // ==========================================
     // 7. ECOSYSTEM INFRASTRUCTURE COLLECTIONS
     // ==========================================
-
     match /analytics_events/{eventId} {
       allow create: if true;
       allow read: if isSystemAdmin();
