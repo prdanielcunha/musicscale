@@ -49,6 +49,8 @@ jobs:
           base64 -d /tmp/ms02b.patch.gz.b64 > /tmp/ms02b.patch.gz
           gzip -dc /tmp/ms02b.patch.gz > /tmp/ms02b.patch
           echo "3012f539e214816da223349f9c42a4139da9d353c433669fbc5b071cd4a8fa7b  /tmp/ms02b.patch" | sha256sum -c -
+          sed 's/\r$//' /tmp/ms02b.patch > /tmp/ms02b.lf.patch
+          test -s /tmp/ms02b.lf.patch
 
       - name: Verify exact target base
         working-directory: target
@@ -58,13 +60,13 @@ jobs:
           test "$(git rev-parse HEAD)" = "8bc1c8d251f0eb4b2296589e2d5a55c40b7d12de"
           test -z "$(git status --porcelain=v1)"
 
-      - name: Apply copied correction
+      - name: Apply normalized copied correction
         working-directory: target
         shell: bash
         run: |
           set -euo pipefail
-          git apply --check /tmp/ms02b.patch
-          git apply /tmp/ms02b.patch
+          git apply --check /tmp/ms02b.lf.patch
+          git apply /tmp/ms02b.lf.patch
           git diff --check
 
       - name: Verify certified cumulative shape
