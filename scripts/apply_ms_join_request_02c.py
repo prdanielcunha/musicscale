@@ -148,8 +148,9 @@ join_block = role_intent_block + '''
 '''
 s = replace_once(s, role_intent_block, join_block, 'Rules join_requests block')
 s = s.replace("app != 'musicscale_invite_role_intents' && isAuthenticated()", "app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated()")
-if s.count("app != 'join_requests'") != 3:
-    raise SystemExit(f"Rules catch-all exclusion: expected three exclusions, got {s.count(\"app != 'join_requests'\")}")
+join_exclusion_count = s.count("app != 'join_requests'")
+if join_exclusion_count != 3:
+    raise SystemExit(f"Rules catch-all exclusion: expected three exclusions, got {join_exclusion_count}")
 p.write_text(s)
 
 print('02C guarded patch applied successfully')
