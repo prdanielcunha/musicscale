@@ -1,0 +1,117 @@
+name: Publish Certified MusicScale 02B2
+
+on:
+  push:
+    branches:
+      - recovery/ms-sec-p0-invitation-hub-adapter-02b
+    paths:
+      - .github/workflows/publish-ms02b.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout certified payload
+        uses: actions/checkout@v4
+        with:
+          ref: recovery/ms-sec-p0-invitation-hub-adapter-02b
+          path: helper
+          persist-credentials: false
+
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/ms-sec-p0-invitation-hub-adapter-02b
+          path: target
+          fetch-depth: 0
+
+      - name: Verify unchanged certified starting point
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "6a89fa2c46fbe364f4aa88fa0a0aca49cd35769d"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Recreate exact already-tested 02B2 delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp helper/tmp/02b2/musicScaleInvitationCompatibility.ts target/services/server/musicScaleInvitationCompatibility.ts
+          cp helper/tmp/02b2/hubInvitationAdapter.ts target/services/server/hubInvitationAdapter.ts
+          cp helper/tmp/02b2/musicScaleMemberProjection.ts target/services/server/musicScaleMemberProjection.ts
+          cp helper/tmp/02b2/hub-invitation-adapter-02b.test.ts target/tests/server/hub-invitation-adapter-02b.test.ts
+          cp helper/tmp/02b2/music-scale-invitation-compatibility-02b2.test.ts target/tests/server/music-scale-invitation-compatibility-02b2.test.ts
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('target/server.ts')
+          text = p.read_text()
+          old_import = 'import { HubInvitationAdapter, HubInvitationError, abandonRoleIntent, applyRoleIntent, decodeLegacyNestedToken, finishRoleIntent, normalizeEmail, permitsLegacyInvitationFallback, prepareRoleIntent } from "./services/server/hubInvitationAdapter.js";'
+          new_import = 'import { createInvitationCompatibilityHandlers } from "./services/server/musicScaleInvitationCompatibility.js";'
+          if old_import not in text:
+              raise SystemExit('expected invitation adapter import not found')
+          text = text.replace(old_import, new_import, 1)
+          old_derive = '''function deriveMusicscaleRole(roleName: string): string {
+            const name = (roleName || "").toLowerCase();
+            if (name.includes("administrador") || name.includes("admin")) return "admin";
+            if (name.includes("líder") || name.includes("lider") || name.includes("ministro")) return "leader";
+            if (name.includes("músico") || name.includes("musico") || name.includes("vocal")) return "musician";
+            if (name.includes("visitante") || name.includes("viewer")) return "viewer";
+            return "custom";
+          }
+
+          '''
+          if old_derive not in text:
+              raise SystemExit('expected legacy role derivation helper not found')
+          text = text.replace(old_derive, '', 1)
+          start_marker = '  app.post("/api/orgs/invite", async (req, res) => {'
+          end_marker = '  app.post("/api/orgs/check-access", async (req, res) => {'
+          start = text.find(start_marker)
+          end = text.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit('invitation route block markers not found')
+          replacement = '''  const invitationCompatibilityHandlers = createInvitationCompatibilityHandlers({ db, auth, admin, logger });
+            app.post("/api/orgs/invite", invitationCompatibilityHandlers.create);
+            app.post("/api/orgs/accept-invite", invitationCompatibilityHandlers.accept);
+
+          '''
+          text = text[:start] + replacement + text[end:]
+          p.write_text(text)
+          PY
+
+      - name: Verify exact tested delta shape
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git add -A
+          printf '%s\n' \
+            server.ts \
+            services/server/hubInvitationAdapter.ts \
+            services/server/musicScaleInvitationCompatibility.ts \
+            services/server/musicScaleMemberProjection.ts \
+            tests/server/hub-invitation-adapter-02b.test.ts \
+            tests/server/music-scale-invitation-compatibility-02b2.test.ts \
+            | sort > /tmp/expected.txt
+          git diff --cached --name-only | sort > /tmp/actual.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          git diff --cached --check
+          echo "STAGED_DIFF_SHA256=$(git diff --cached --binary | sha256sum | awk '{print $1}')"
+          git diff --cached --stat
+
+      - name: Publish certified correction only to 02B branch
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(security): harden Hub invitation acceptance identity"
+          git push origin HEAD:codex/ms-sec-p0-invitation-hub-adapter-02b
+          echo "PUBLISHED_HEAD=$(git rev-parse HEAD)"
+          echo "PUBLISHED_TREE=$(git rev-parse HEAD^{tree})"
