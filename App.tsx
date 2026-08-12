@@ -415,6 +415,8 @@ const AppContent: React.FC = () => {
         <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/join" element={<JoinPage />} />
+            <Route path="/join/:organizationId" element={<JoinPage />} />
+            <Route path="/invite" element={<JoinPage />} />
             <Route path="/start" element={<StartGateway />} />
             <Route path="/*" element={
                 <Gatekeeper>

@@ -436,6 +436,59 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
     });
   });
 
+  describe.skipIf(!hasEmulatorHost)('1c. Invitation authority is server-only', () => {
+    const seedOrganization = async () => testEnv.withSecurityRulesDisabled(async context => {
+      await context.firestore().doc('organizations/org-1').set({ status: 'active', ownerUid: 'owner-1' });
+      await context.firestore().doc('organizations/org-1/members/admin-1').set({ status: 'active', organizationRole: 'admin' });
+      await context.firestore().doc('organizations/org-1/members/member-1').set({ status: 'active', organizationRole: 'member' });
+      await context.firestore().doc('organizations/org-1/invites/legacy-1').set({ status: 'pending', organizationId: 'org-1' });
+      await context.firestore().doc('organizations/org-1/musicscale_invite_role_intents/hash-1').set({ status: 'pending', organizationId: 'org-1' });
+      await context.firestore().doc('users/global-1').set({ systemRole: 'global_admin' });
+    });
+
+    it('denies unauthenticated and ordinary authenticated nested invitation reads', async () => {
+      await seedOrganization();
+      await assertFails(getAuthedFirestore().doc('organizations/org-1/invites/legacy-1').get());
+      await assertFails(getAuthedFirestore({ uid: 'ordinary-1' }).doc('organizations/org-1/invites/legacy-1').get());
+    });
+
+    it.each(['member-1', 'admin-1', 'owner-1', 'global-1'])('denies invitation read for privileged identity %s', async uid => {
+      await seedOrganization();
+      await assertFails(getAuthedFirestore({ uid }).doc('organizations/org-1/invites/legacy-1').get());
+    });
+
+    it.each(['ordinary-1', 'admin-1', 'owner-1', 'global-1'])('denies invitation create for client %s', async uid => {
+      await seedOrganization();
+      await assertFails(getAuthedFirestore({ uid }).doc(`organizations/org-1/invites/new-${uid}`).set({ status: 'pending' }));
+    });
+
+    it('denies invitation update and delete', async () => {
+      await seedOrganization();
+      const ref = getAuthedFirestore({ uid: 'admin-1' }).doc('organizations/org-1/invites/legacy-1');
+      await assertFails(ref.update({ status: 'accepted' }));
+      await assertFails(ref.delete());
+    });
+
+    it('denies all client access to role intents and catch-all does not reopen it', async () => {
+      await seedOrganization();
+      const ref = getAuthedFirestore({ uid: 'admin-1' }).doc('organizations/org-1/musicscale_invite_role_intents/hash-1');
+      await assertFails(ref.get());
+      await assertFails(getAuthedFirestore({ uid: 'admin-1' }).doc('organizations/org-1/musicscale_invite_role_intents/hash-2').set({ status: 'creating' }));
+      await assertFails(ref.update({ status: 'applied' }));
+      await assertFails(ref.delete());
+    });
+
+    it('denies every role-intent operation for canonical global identity', async () => {
+      await seedOrganization();
+      const db = getAuthedFirestore({ uid: 'global-1' });
+      const ref = db.doc('organizations/org-1/musicscale_invite_role_intents/hash-1');
+      await assertFails(ref.get());
+      await assertFails(db.doc('organizations/org-1/musicscale_invite_role_intents/hash-global').set({ status: 'creating' }));
+      await assertFails(ref.update({ status: 'applied' }));
+      await assertFails(ref.delete());
+    });
+  });
+
   describe('2. Notifications Soft Delete & Restricted Updates', () => {
     it('cliente não cria notificação', async () => {
       const db = getAuthedFirestore({ uid: 'user-1' });

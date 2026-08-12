@@ -19,7 +19,17 @@ export interface ResolvedMusicScaleMemberProfile {
   source: MusicScaleMemberSource;
 }
 
+export interface MusicScaleMemberWriteOptions {
+  source?: string;
+}
+
 const VALID_ID = /^[A-Za-z0-9_-]{1,128}$/;
+const VALID_WRITE_SOURCES = new Set([
+  'member_profile_update',
+  'hub_invitation_role_intent',
+  'legacy_root_invite_migration',
+  'legacy_nested_invite_migration'
+]);
 
 function cleanString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
@@ -101,17 +111,21 @@ export async function writeMusicScaleMemberProjection(
   organizationId: string,
   uid: string,
   actorUid: string,
-  input: any
+  input: any,
+  options: MusicScaleMemberWriteOptions = {}
 ): Promise<void> {
   assertMusicScaleMemberIdentity(organizationId, uid);
+  if (!VALID_ID.test(actorUid)) throw new Error('INVALID_ACTOR_ID');
   const patch = sanitizeMusicScaleMemberPatch(input);
   if (patch.roleId) await validateMusicScaleRole(db, organizationId, String(patch.roleId));
+  const requestedSource = cleanString(options.source) || 'member_profile_update';
+  const source = VALID_WRITE_SOURCES.has(requestedSource) ? requestedSource : 'member_profile_update';
   await db.collection('organizations').doc(organizationId).collection('musicscale_members').doc(uid).set({
     uid,
     organizationId,
     ...patch,
     updatedAt: new Date(),
     updatedByUid: actorUid,
-    source: 'member_profile_update'
+    source
   }, { merge: true });
 }
