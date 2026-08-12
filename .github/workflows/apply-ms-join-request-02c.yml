@@ -34,3 +34,5 @@ jobs:
           git diff --cached --check
           git commit -m "fix(security): delegate join requests to MillionsNest Hub"
           git push origin HEAD:codex/ms-sec-p0-join-request-hub-adapter-02c
+
+# rerun after guarded script syntax correction
