@@ -24,14 +24,21 @@ s = replace_once(
     'import { createInvitationCompatibilityHandlers } from "./services/server/musicScaleInvitationCompatibility.js";\nimport { createJoinRequestCompatibilityHandlers } from "./services/server/musicScaleJoinRequestCompatibility.js";\n',
     'server import'
 )
-legacy_route_pattern = r'  app\.post\("/api/orgs/join", async \(req, res\) => \{.*?\n  \}\);\n\n  app\.post\("/api/orgs/check-access"'
-legacy_route_replacement = '''  const joinRequestCompatibilityHandlers = createJoinRequestCompatibilityHandlers({ db, auth, logger });
+join_start_marker = '  app.post("/api/orgs/join", async (req, res) => {'
+if s.count(join_start_marker) != 1:
+    raise SystemExit(f"legacy /api/orgs/join route: expected one start marker, got {s.count(join_start_marker)}")
+join_start = s.index(join_start_marker)
+next_route = re.search(r'\n  app\.(?:get|post|put|patch|delete)\(', s[join_start + len(join_start_marker):])
+if not next_route:
+    raise SystemExit('legacy /api/orgs/join route: next top-level route not found')
+join_end = join_start + len(join_start_marker) + next_route.start() + 1
+registration = '''  const joinRequestCompatibilityHandlers = createJoinRequestCompatibilityHandlers({ db, auth, logger });
   app.post("/api/orgs/join", joinRequestCompatibilityHandlers.create);
   app.post("/api/orgs/:organizationId/join-requests/:requestId/approve", joinRequestCompatibilityHandlers.approve);
   app.post("/api/orgs/:organizationId/join-requests/:requestId/reject", joinRequestCompatibilityHandlers.reject);
 
-  app.post("/api/orgs/check-access"'''
-s = regex_once(s, legacy_route_pattern, legacy_route_replacement, 'legacy /api/orgs/join route')
+'''
+s = s[:join_start] + registration + s[join_end:]
 p.write_text(s)
 
 # TenantOnboarding: owner email remains discovery input; caller uid is never body authority.
