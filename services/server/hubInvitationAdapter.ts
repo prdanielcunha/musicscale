@@ -3,6 +3,7 @@ import { writeMusicScaleMemberProjection, validateMusicScaleRole } from './music
 
 const FORBIDDEN_ROLES = new Set(['owner', 'dono', 'ceo', 'global_admin', 'ecosystem_owner', 'founder', 'support', 'suporte']);
 const VALID_ID = /^[A-Za-z0-9_-]{1,128}$/;
+const VALID_ACCEPT_REASON_CODES = new Set(['INVITATION_CAN_BE_ACCEPTED', 'ALREADY_MEMBER']);
 
 export class HubInvitationError extends Error {
   constructor(public status: number, public reasonCode: string, public ambiguous = false) {
@@ -22,6 +23,26 @@ export function resolveHubOrigin(value = process.env.MILLIONSNEST_HUB_ORIGIN): s
   } catch {
     throw new HubInvitationError(503, 'HUB_NOT_CONFIGURED');
   }
+}
+
+function validateAcceptSuccess(data: any): any {
+  const organizationId = typeof data?.organizationId === 'string' ? data.organizationId.trim() : '';
+  const activeOrganizationId = typeof data?.activeOrganizationId === 'string' ? data.activeOrganizationId.trim() : '';
+  const membershipRole = typeof data?.membershipRole === 'string' ? data.membershipRole.trim() : '';
+  const reasonCode = typeof data?.reasonCode === 'string' ? data.reasonCode.trim() : '';
+
+  if (
+    data?.success !== true ||
+    !VALID_ID.test(organizationId) ||
+    activeOrganizationId !== organizationId ||
+    !membershipRole ||
+    typeof data?.alreadyMember !== 'boolean' ||
+    !VALID_ACCEPT_REASON_CODES.has(reasonCode)
+  ) {
+    throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
+  }
+
+  return { ...data, organizationId, activeOrganizationId, membershipRole, reasonCode };
 }
 
 export class HubInvitationAdapter {
@@ -53,7 +74,10 @@ export class HubInvitationAdapter {
     return result;
   }
 
-  accept(bearer: string, token: string) { return this.post('/api/v1/invitations/accept', bearer, { token }); }
+  async accept(bearer: string, token: string) {
+    const result = await this.post('/api/v1/invitations/accept', bearer, { token });
+    return validateAcceptSuccess(result);
+  }
 }
 
 export function permitsLegacyInvitationFallback(error: unknown): boolean {
@@ -86,8 +110,10 @@ export async function applyRoleIntent(db: any, organizationId: string, uid: stri
   const snap = await ref.get();
   if (!snap.exists || !['creating', 'pending'].includes(snap.data()?.status) || snap.data()?.organizationId !== organizationId) return false;
   try {
-    await validateMusicScaleRole(db, organizationId, snap.data().roleId);
-    await writeMusicScaleMemberProjection(db, organizationId, uid, uid, { roleId: snap.data().roleId });
+    const data = snap.data() || {};
+    await validateMusicScaleRole(db, organizationId, data.roleId);
+    const provenanceUid = typeof data.createdByUid === 'string' && VALID_ID.test(data.createdByUid) ? data.createdByUid : uid;
+    await writeMusicScaleMemberProjection(db, organizationId, uid, provenanceUid, { roleId: data.roleId }, { source: 'hub_invitation_role_intent' });
     await ref.set({ status: 'applied', appliedToUid: uid, appliedAt: new Date(), updatedAt: new Date() }, { merge: true });
     return true;
   } catch {
@@ -105,4 +131,4 @@ export function decodeLegacyNestedToken(token: string) {
   } catch { return null; }
 }
 
-export { FORBIDDEN_ROLES };
+export { FORBIDDEN_ROLES, validateAcceptSuccess };
