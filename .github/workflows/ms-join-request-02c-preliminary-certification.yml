@@ -1,0 +1,54 @@
+name: MusicScale Join Request 02C Preliminary Certification
+
+on:
+  push:
+    branches:
+      - "certify/ms-join-request-02c-preliminary"
+    paths:
+      - ".github/workflows/ms-join-request-02c-preliminary-certification.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "d3be6b383e7bb9c0c79539da9df3e7b0471cec84"
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Verify exact feature head
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "d3be6b383e7bb9c0c79539da9df3e7b0471cec84"
+          test -z "$(git status --porcelain)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install dependencies
+        run: npm ci
+      - name: 02C adapter compatibility and migration tests
+        run: npx vitest run tests/server/hub-join-request-adapter-02c.test.ts tests/server/music-scale-join-request-compatibility-02c.test.ts tests/server/music-scale-join-request-migration-02c.test.ts
+      - name: 02C real Firestore Rules certification
+        run: npx firebase emulators:exec --project demo-musicscale-join-request-02c --only firestore "npx vitest run tests/server/music-scale-join-request-rules-02c.test.ts"
+      - name: 02A and 02B targeted regressions
+        run: npx vitest run tests/server/music-scale-member-projection.test.ts tests/server/hub-invitation-adapter-02b.test.ts tests/server/music-scale-invitation-compatibility-02b2.test.ts
+      - name: Existing security Rules regression
+        run: npx firebase emulators:exec --project demo-musicscale-rules --only firestore "npx vitest run tests/server/music-scale-security-rules.test.ts"
+      - name: Lint typecheck
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Hygiene
+        run: |
+          set -euo pipefail
+          git diff --check
+          test "$(git rev-parse HEAD)" = "d3be6b383e7bb9c0c79539da9df3e7b0471cec84"
+          test -z "$(git status --porcelain)"
