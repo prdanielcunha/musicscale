@@ -68,14 +68,19 @@ jobs:
           git apply --check /tmp/ms02b.lf.patch
           git apply /tmp/ms02b.lf.patch
           git diff --check
+          git add -A
 
       - name: Verify certified cumulative shape
         working-directory: target
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git diff --name-only | wc -l | tr -d ' ')" = "16"
-          git diff --name-only | sort > /tmp/actual-files.txt
+          echo "Changed files:"
+          git diff --cached --name-only | sort
+          echo "Numstat:"
+          git diff --cached --numstat
+          test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = "16"
+          git diff --cached --name-only | sort > /tmp/actual-files.txt
           cat > /tmp/expected-files.txt <<'EOF'
           .env.example
           App.tsx
@@ -96,10 +101,11 @@ jobs:
           EOF
           sort /tmp/expected-files.txt -o /tmp/expected-files.txt
           diff -u /tmp/expected-files.txt /tmp/actual-files.txt
-          read additions deletions < <(git diff --numstat | awk '{a+=$1; d+=$2} END {print a, d}')
+          read additions deletions < <(git diff --cached --numstat | awk '{a+=$1; d+=$2} END {print a, d}')
           echo "additions=$additions deletions=$deletions"
           test "$additions" = "554"
           test "$deletions" = "557"
+          git diff --cached --check
 
       - name: Commit and publish only 02B branch
         working-directory: target
@@ -108,7 +114,6 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
           git commit -m "feat(security): recover certified Hub invitation adapter 02B"
           git push origin HEAD:codex/ms-sec-p0-invitation-hub-adapter-02b
           echo "RECOVERED_HEAD=$(git rev-parse HEAD)"
