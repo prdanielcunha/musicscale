@@ -39,7 +39,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Install dependencies
         run: npm ci
@@ -48,24 +48,31 @@ jobs:
         run: npx firebase emulators:exec --project demo-musicscale-rules --only firestore "npm run test:emulator:security"
 
       - name: Projection unit certification
+        if: ${{ always() }}
         run: npx vitest run tests/server/music-scale-member-projection.test.ts --reporter=default
 
       - name: Users compatibility certification
+        if: ${{ always() }}
         run: npx vitest run tests/server/music-scale-member-projection.test.ts tests/ui/users-existing-member-setup-integration.test.tsx tests/ui/users-team-setup-progress-integration.test.tsx --reporter=default
 
       - name: AI authorization certification
+        if: ${{ always() }}
         run: npx tsx scripts/test_phase0_2c1a_ai_authorization.ts
 
       - name: Lint
+        if: ${{ always() }}
         run: npm run lint
 
       - name: Typecheck
+        if: ${{ always() }}
         run: npx tsc --noEmit
 
       - name: Build
+        if: ${{ always() }}
         run: npm run build
 
       - name: Final hygiene
+        if: ${{ always() }}
         shell: bash
         run: |
           set -euo pipefail
