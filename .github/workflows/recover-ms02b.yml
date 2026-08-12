@@ -1,0 +1,113 @@
+name: Recover MusicScale 02B branch
+
+on:
+  push:
+    branches:
+      - recovery/ms-sec-p0-invitation-hub-adapter-02b
+    paths:
+      - .github/workflows/recover-ms02b.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout recovery payload
+        uses: actions/checkout@v4
+        with:
+          ref: recovery/ms-sec-p0-invitation-hub-adapter-02b
+          path: helper
+
+      - name: Checkout target 02B branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/ms-sec-p0-invitation-hub-adapter-02b
+          path: target
+          fetch-depth: 0
+
+      - name: Reconstruct and verify copied correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat \
+            helper/tmp/ms02b-recovery.patch.gz.b64.part1 \
+            helper/tmp/ms02b-recovery.patch.gz.b64.part2 \
+            helper/tmp/ms02b-recovery.patch.gz.b64.part3 \
+            helper/tmp/ms02b-recovery.patch.gz.b64.part4 \
+            helper/tmp/ms02b-recovery.patch.gz.b64.p5.01 \
+            helper/tmp/ms02b-recovery.patch.gz.b64.p5.02 \
+            helper/tmp/ms02b-recovery.patch.gz.b64.p5.03 \
+            helper/tmp/ms02b-recovery.patch.gz.b64.p5.04 \
+            helper/tmp/ms02b-recovery.patch.gz.b64.p5.05 \
+            helper/tmp/ms02b-recovery.patch.gz.b64.p5.06 \
+            helper/tmp/ms02b-recovery.patch.gz.b64.p5.07 \
+            helper/tmp/ms02b-recovery.patch.gz.b64.p5.08 \
+            > /tmp/ms02b.patch.gz.b64
+          base64 -d /tmp/ms02b.patch.gz.b64 > /tmp/ms02b.patch.gz
+          gzip -dc /tmp/ms02b.patch.gz > /tmp/ms02b.patch
+          echo "3012f539e214816da223349f9c42a4139da9d353c433669fbc5b071cd4a8fa7b  /tmp/ms02b.patch" | sha256sum -c -
+
+      - name: Verify exact target base
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "8bc1c8d251f0eb4b2296589e2d5a55c40b7d12de"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Apply copied correction
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply --check /tmp/ms02b.patch
+          git apply /tmp/ms02b.patch
+          git diff --check
+
+      - name: Verify certified cumulative shape
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only | wc -l | tr -d ' ')" = "16"
+          git diff --name-only | sort > /tmp/actual-files.txt
+          cat > /tmp/expected-files.txt <<'EOF'
+          .env.example
+          App.tsx
+          docs/ARCHITECTURE_CURRENT.md
+          firestore.rules
+          locales/en.json
+          locales/es.json
+          locales/pt.json
+          pages/JoinPage.tsx
+          pages/LoginPage.tsx
+          pages/ProfilePage.tsx
+          server.ts
+          services/inviteService.ts
+          services/server/hubInvitationAdapter.ts
+          tests/server/hub-invitation-adapter-02b.test.ts
+          tests/server/music-scale-security-rules.test.ts
+          tests/ui/invitation-hub-flow-02b.test.tsx
+          EOF
+          sort /tmp/expected-files.txt -o /tmp/expected-files.txt
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+          read additions deletions < <(git diff --numstat | awk '{a+=$1; d+=$2} END {print a, d}')
+          echo "additions=$additions deletions=$deletions"
+          test "$additions" = "554"
+          test "$deletions" = "557"
+
+      - name: Commit and publish only 02B branch
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(security): recover certified Hub invitation adapter 02B"
+          git push origin HEAD:codex/ms-sec-p0-invitation-hub-adapter-02b
+          echo "RECOVERED_HEAD=$(git rev-parse HEAD)"
+          echo "RECOVERED_TREE=$(git rev-parse HEAD^{tree})"
