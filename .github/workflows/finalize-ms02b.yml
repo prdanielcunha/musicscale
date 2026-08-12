@@ -1,0 +1,211 @@
+name: Finalize MusicScale 02B
+
+on:
+  push:
+    branches:
+      - recovery/ms-sec-p0-invitation-hub-adapter-02b
+    paths:
+      - .github/workflows/finalize-ms02b.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout staged correction
+        uses: actions/checkout@v4
+        with:
+          ref: recovery/ms-sec-p0-invitation-hub-adapter-02b
+          path: helper
+          persist-credentials: false
+
+      - name: Checkout isolated 02B branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/ms-sec-p0-invitation-hub-adapter-02b
+          path: target
+          fetch-depth: 0
+
+      - name: Verify exact remote starting point
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "6a89fa2c46fbe364f4aa88fa0a0aca49cd35769d"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Apply 02B2 security correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp helper/tmp/02b2/musicScaleInvitationCompatibility.ts target/services/server/musicScaleInvitationCompatibility.ts
+          cp helper/tmp/02b2/hubInvitationAdapter.ts target/services/server/hubInvitationAdapter.ts
+          cp helper/tmp/02b2/musicScaleMemberProjection.ts target/services/server/musicScaleMemberProjection.ts
+          cp helper/tmp/02b2/hub-invitation-adapter-02b.test.ts target/tests/server/hub-invitation-adapter-02b.test.ts
+          cp helper/tmp/02b2/music-scale-invitation-compatibility-02b2.test.ts target/tests/server/music-scale-invitation-compatibility-02b2.test.ts
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('target/server.ts')
+          text = p.read_text()
+          old_import = 'import { HubInvitationAdapter, HubInvitationError, abandonRoleIntent, applyRoleIntent, decodeLegacyNestedToken, finishRoleIntent, normalizeEmail, permitsLegacyInvitationFallback, prepareRoleIntent } from "./services/server/hubInvitationAdapter.js";'
+          new_import = 'import { createInvitationCompatibilityHandlers } from "./services/server/musicScaleInvitationCompatibility.js";'
+          if old_import not in text:
+              raise SystemExit('expected invitation adapter import not found')
+          text = text.replace(old_import, new_import, 1)
+
+          old_derive = '''function deriveMusicscaleRole(roleName: string): string {
+            const name = (roleName || "").toLowerCase();
+            if (name.includes("administrador") || name.includes("admin")) return "admin";
+            if (name.includes("líder") || name.includes("lider") || name.includes("ministro")) return "leader";
+            if (name.includes("músico") || name.includes("musico") || name.includes("vocal")) return "musician";
+            if (name.includes("visitante") || name.includes("viewer")) return "viewer";
+            return "custom";
+          }
+
+          '''
+          if old_derive not in text:
+              raise SystemExit('expected legacy role derivation helper not found')
+          text = text.replace(old_derive, '', 1)
+
+          start_marker = '  app.post("/api/orgs/invite", async (req, res) => {'
+          end_marker = '  app.post("/api/orgs/check-access", async (req, res) => {'
+          start = text.find(start_marker)
+          end = text.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit('invitation route block markers not found')
+          replacement = '''  const invitationCompatibilityHandlers = createInvitationCompatibilityHandlers({ db, auth, admin, logger });
+            app.post("/api/orgs/invite", invitationCompatibilityHandlers.create);
+            app.post("/api/orgs/accept-invite", invitationCompatibilityHandlers.accept);
+
+          '''
+          text = text[:start] + replacement + text[end:]
+          p.write_text(text)
+          PY
+
+          cd target
+          git diff --check
+          git add -A
+          printf '%s\n' \
+            server.ts \
+            services/server/hubInvitationAdapter.ts \
+            services/server/musicScaleInvitationCompatibility.ts \
+            services/server/musicScaleMemberProjection.ts \
+            tests/server/hub-invitation-adapter-02b.test.ts \
+            tests/server/music-scale-invitation-compatibility-02b2.test.ts \
+            | sort > /tmp/expected.txt
+          git diff --cached --name-only | sort > /tmp/actual.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          git diff --cached --check
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: target/package-lock.json
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        working-directory: target
+        run: npm ci
+
+      - name: Run executable 02B security tests
+        working-directory: target
+        run: |
+          npx vitest run \
+            tests/server/hub-invitation-adapter-02b.test.ts \
+            tests/server/music-scale-invitation-compatibility-02b2.test.ts \
+            tests/ui/invitation-hub-flow-02b.test.tsx \
+            --reporter=default
+
+      - name: Run 02A role projection regression
+        working-directory: target
+        run: |
+          npx vitest run \
+            tests/server/music-scale-member-projection.test.ts \
+            tests/ui/users-existing-member-setup-integration.test.tsx \
+            tests/ui/users-team-setup-progress-integration.test.tsx \
+            --reporter=default
+
+      - name: Run AI authorization regression
+        working-directory: target
+        run: npx tsx scripts/test_phase0_2c1a_ai_authorization.ts
+
+      - name: Run real Firestore Emulator security suite
+        working-directory: target
+        run: npx firebase emulators:exec --project demo-musicscale-rules --only firestore "npm run test:emulator:security"
+
+      - name: Lint and typecheck
+        working-directory: target
+        run: |
+          npm run lint
+          npx tsc --noEmit
+
+      - name: Build
+        working-directory: target
+        run: npm run build
+
+      - name: Confirm full UI suite has no new failures
+        working-directory: target
+        shell: bash
+        run: |
+          set +e
+          npm run test:ui > /tmp/test-ui.log 2>&1
+          rc=$?
+          set -e
+          tail -n 160 /tmp/test-ui.log
+          if [ "$rc" -eq 0 ]; then
+            echo "Full UI suite is fully green."
+            exit 0
+          fi
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path('/tmp/test-ui.log').read_text(errors='replace')
+          if not re.search(r'Test Files\s+2 failed', text):
+              raise SystemExit('unexpected failed test-file count')
+          if not re.search(r'Tests\s+5 failed', text):
+              raise SystemExit('unexpected failed test count')
+          required = [
+              'tests/server/music-scale-http-endpoints.test.ts',
+              'tests/unit/apiAiImport.test.ts'
+          ]
+          for item in required:
+              if item not in text:
+                  raise SystemExit(f'missing known baseline failure: {item}')
+          fail_files = set(re.findall(r'FAIL\s+([^\s]+\.test\.(?:ts|tsx))', text))
+          unexpected = fail_files.difference(required)
+          if unexpected:
+              raise SystemExit(f'new failure files: {sorted(unexpected)}')
+          print('Only the five known baseline failures remain.')
+          PY
+
+      - name: Final hygiene before publish
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --cached --check
+          test -z "$(git diff --name-only)"
+          test -z "$(git ls-files --others --exclude-standard)"
+          git diff --cached --name-only | sort
+
+      - name: Commit and publish certified 02B2 correction
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(security): harden Hub invitation acceptance identity"
+          git push origin HEAD:codex/ms-sec-p0-invitation-hub-adapter-02b
+          echo "FINAL_HEAD=$(git rev-parse HEAD)"
+          echo "FINAL_TREE=$(git rev-parse HEAD^{tree})"
