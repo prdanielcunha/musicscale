@@ -134,8 +134,10 @@ export class MusicRepository {
                         const uid = mDoc.id; 
                         if (!uid) continue;
                         
-                        const memberRole = memberData.musicscaleRole || memberData.organizationRole || memberData.ministryFunction;
-                        const memberRoleId = memberData.roleId;
+                        const projectionSnap = await getDoc(doc(db, 'organizations', orgId, 'musicscale_members', uid)).catch(() => null);
+                        const projectionData = projectionSnap?.exists() ? projectionSnap.data() : null;
+                        const memberRole = projectionData?.musicscaleRole || projectionData?.ministryFunction || memberData.musicscaleRole || memberData.organizationRole || memberData.ministryFunction;
+                        const memberRoleId = projectionData?.roleId || projectionData?.internalRoleId || memberData.roleId || memberData.internalRoleId;
 
                         profilesMap.set(uid, {
                             id: uid,
@@ -146,10 +148,10 @@ export class MusicRepository {
                             role: memberRole,
                             roleId: memberRoleId,
                             organizationRole: memberData.organizationRole,
-                            musicscaleRole: memberData.musicscaleRole,
-                            ministryFunction: memberData.ministryFunction,
+                            musicscaleRole: projectionData?.musicscaleRole || memberData.musicscaleRole,
+                            ministryFunction: projectionData?.ministryFunction || memberData.ministryFunction,
                             systemRole: memberData.systemRole,
-                            specialtyIds: memberData.specialtyIds,
+                            specialtyIds: projectionData?.specialtyIds || memberData.specialtyIds,
                             organizationId: orgId
                         } as any);
                     }
@@ -187,34 +189,31 @@ export class MusicRepository {
 
             async update(id: string, data: Partial<UserProfile>): Promise<void> {
                 const { writeBatch, doc } = await import('firebase/firestore');
-                const { db } = await import('./firebase');
+                const { db, auth } = await import('./firebase');
                 const batch = writeBatch(db);
-                
-                // Update specific role fields in new member subcollection
-                if (data.roleId !== undefined || data.role !== undefined || data.musicscaleRole !== undefined || data.ministryFunction !== undefined || data.specialtyIds !== undefined) {
-                    const memberUpdate: any = {};
-                    if (data.roleId !== undefined) memberUpdate.roleId = data.roleId;
-                    if (data.role !== undefined) memberUpdate.role = data.role;
-                    if (data.musicscaleRole !== undefined) memberUpdate.musicscaleRole = data.musicscaleRole;
-                    if (data.ministryFunction !== undefined) memberUpdate.ministryFunction = data.ministryFunction;
-                    if (data.specialtyIds !== undefined) memberUpdate.specialtyIds = data.specialtyIds;
-                    
-                    // Main source of truth update
-                    batch.set(doc(db, 'organizations', orgId, 'members', id), memberUpdate, { merge: true });
-                    
-                    // Legacy fallbacks
-                    try {
-                        batch.set(doc(db, 'organization_members', `${id}_${orgId}`), memberUpdate, { merge: true });
-                        batch.set(doc(db, 'organization_members', `${orgId}_${id}`), memberUpdate, { merge: true });
-                    } catch (e) {}
-                    
-                    // Update main user doc
-                    batch.set(doc(db, 'users', id), data, { merge: true });
-                } else {
-                    batch.set(doc(db, 'users', id), data, { merge: true });
+                const domainFields = ['roleId', 'musicscaleRole', 'ministryFunction', 'specialtyIds'] as const;
+                const domainPatch: any = {};
+                const globalPatch: any = { ...data };
+                for (const field of domainFields) {
+                    if (data[field] !== undefined) domainPatch[field] = data[field];
+                    delete globalPatch[field];
                 }
-                
-                await batch.commit().catch(e => {
+                // `role` is legacy MusicScale display metadata when roleId is edited; it is
+                // never written to canonical membership by this repository.
+                if (data.roleId !== undefined) delete globalPatch.role;
+
+                if (Object.keys(domainPatch).length > 0) {
+                    const token = await auth.currentUser?.getIdToken();
+                    if (!token) throw new Error('UNAUTHORIZED');
+                    const response = await fetch(`/api/orgs/${encodeURIComponent(orgId)}/musicscale-members/${encodeURIComponent(id)}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify(domainPatch)
+                    });
+                    if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || 'MUSICSCALE_PROFILE_UPDATE_FAILED');
+                }
+                if (Object.keys(globalPatch).length > 0) batch.set(doc(db, 'users', id), globalPatch, { merge: true });
+                if (Object.keys(globalPatch).length > 0) await batch.commit().catch(e => {
                      console.error("[MusicRepository] failed to update user role", e);
                      throw e;
                 });

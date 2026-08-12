@@ -43,6 +43,8 @@ import Stripe from "stripe";
 import { PLAN_FEATURES, PLAN_LIMITS } from "./services/entitlementsConstants.js";
 import { compareSongs } from "./utils/songDiscovery/matcher.js";
 import { requireEcosystemRole } from "./services/server/ecosystemAuth.js";
+import { writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
+import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
 import { runSongDiscoveryProcessor } from "./services/server/songDiscoveryProcessor.js";
 import { SongDiscoveryInboxService } from "./services/server/songDiscoveryInboxService.js";
 import { analyzeInboxBatch } from "./services/server/songInboxAnalyzer.js";
@@ -59,7 +61,6 @@ import { reanalyzeCandidates } from "./services/server/curationReanalyzer.js";
 import { extractSongIdentity } from "./utils/songDiscovery/identityGenerator.js";
 import { preVerifyCandidates, bulkImportCandidates } from './services/server/bulkImportService.js';
 import { BandScaleCommandService } from './services/server/bandScale/bandScaleCommandService.js';
-import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
 import { beginAiImportFinOpsWritePath, finalizeAiImportFinOpsWritePath } from "./services/server/aiImportFinOpsWritePath.js";
 
 if (fs.existsSync(".env.local")) {
@@ -1882,6 +1883,37 @@ app.use((err: any, req: any, res: any, next: any) => {
               return res.status(409).json({ error: msg });
           }
           res.status(500).json({ error: "INTERNAL_SERVER_ERROR" });
+      }
+  });
+
+  app.patch("/api/orgs/:organizationId/musicscale-members/:uid", async (req, res) => {
+      try {
+          if (!db || !auth) return res.status(503).json({ error: "SERVICE_UNAVAILABLE" });
+          const { organizationId, uid } = req.params;
+          if (!/^[A-Za-z0-9_-]{1,128}$/.test(organizationId) || !/^[A-Za-z0-9_-]{1,128}$/.test(uid)) {
+              return res.status(400).json({ error: "INVALID_TARGET" });
+          }
+          const authorization = await resolveOrganizationAuthorization(req.headers.authorization, organizationId, db, auth);
+          if (authorization.statusCode) return res.status(authorization.statusCode).json({ error: authorization.error });
+          const actor = authorization.context!;
+          const requestedFields = Object.keys(req.body || {});
+          const isSelfProfileOnly = actor.uid === uid && requestedFields.length > 0 &&
+              requestedFields.every(field => field === 'ministryFunction' || field === 'specialtyIds');
+          const canManageMembers = !!actor.systemRole || actor.isOwner || actor.organizationRole === 'admin' || actor.capabilities.includes('organization.members.manage');
+          if (!actor.isActive || (!canManageMembers && !isSelfProfileOnly)) {
+              return res.status(403).json({ error: "FORBIDDEN" });
+          }
+          const membership = await db.collection('organizations').doc(organizationId).collection('members').doc(uid).get();
+          if (!membership.exists || !['active', 'ativo'].includes(String(membership.data()?.status || '').trim().toLowerCase())) {
+              return res.status(404).json({ error: "TARGET_MEMBERSHIP_NOT_FOUND" });
+          }
+          await writeMusicScaleMemberProjection(db, organizationId, uid, actor.uid, req.body);
+          return res.json({ success: true });
+      } catch (error: any) {
+          if (error?.message === 'ROLE_NOT_FOUND') return res.status(404).json({ error: error.message });
+          if (['INVALID_ROLE_ID', 'ROLE_ORGANIZATION_MISMATCH'].includes(error?.message)) return res.status(403).json({ error: error.message });
+          logger.error('[API] MusicScale member projection update failed:', error);
+          return res.status(500).json({ error: "INTERNAL_SERVER_ERROR" });
       }
   });
 
