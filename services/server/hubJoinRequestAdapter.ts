@@ -23,8 +23,8 @@ function validateCreateSuccess(data: any, organizationId: string) {
     throw new HubJoinRequestError(502, 'INVALID_HUB_RESPONSE', true);
   }
   if (reasonCode !== 'ALREADY_MEMBER') {
-    const requestId = validateId(data?.requestId, 'INVALID_HUB_RESPONSE');
-    if (typeof data?.generation !== 'number' || !Number.isInteger(data.generation) || data.generation < 1) {
+    const requestId = typeof data?.requestId === 'string' ? data.requestId.trim() : '';
+    if (!VALID_ID.test(requestId) || typeof data?.generation !== 'number' || !Number.isInteger(data.generation) || data.generation < 1) {
       throw new HubJoinRequestError(502, 'INVALID_HUB_RESPONSE', true);
     }
     return { success: true as const, reasonCode, organizationId, requestId, generation: data.generation };
