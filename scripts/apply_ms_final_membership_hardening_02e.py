@@ -163,7 +163,7 @@ s = replace_once(s, old_remove, new_remove, 'ProfilePage member removal')
 
 s = regex_once(
     s,
-    r'  const handleSupportCreateOrg = async \(e: React\.FormEvent\) => \{.*?\n  \};\n\n  const handleDeleteAccount',
+    r'  const handleSupportCreateOrg = async \(e: React\.FormEvent\) => \{.*?\n  \};\n\n  const handleSpecialtyChange',
     '''  const handleSupportCreateOrg = async (e: React.FormEvent) => {
     e.preventDefault();
     setSupportSuccess(null);
@@ -171,7 +171,7 @@ s = regex_once(
     setSupportError("A criação e vinculação de organizações foi movida para o MillionsNest Hub para preservar a autoridade canônica.");
   };
 
-  const handleDeleteAccount''',
+  const handleSpecialtyChange''',
     'ProfilePage support org creation authority'
 )
 p.write_text(s)
@@ -247,14 +247,11 @@ new_legacy = '''    match /organization_members/{id} {
 '''
 s = replace_once(s, old_legacy, new_legacy, 'legacy membership Rules')
 
-for old in [
-    "app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated()"
-]:
-    count = s.count(old)
-    if count != 3:
-        raise SystemExit(f'generic nested rules expected 3 protected expressions, got {count}')
-    s = s.replace(old, "app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated()")
-
+old_generic = "app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated()"
+count = s.count(old_generic)
+if count != 3:
+    raise SystemExit(f'generic nested rules expected 3 protected expressions, got {count}')
+s = s.replace(old_generic, "app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated()")
 p.write_text(s)
 
 # Guardrails over reachable client files.
