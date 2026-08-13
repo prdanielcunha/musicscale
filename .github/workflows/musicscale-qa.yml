@@ -17,15 +17,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: 20
         cache: 'npm'
-        
-    - name: Install dependencies
-      run: npm ci
+
+    - name: Install dependencies and refresh lock for Firebase fix validation
+      run: npm install
+
+    - name: Verify Firebase versions
+      run: npm ls firebase @firebase/firestore
+
+    - name: Upload generated package lock
+      uses: actions/upload-artifact@v4
+      with:
+        name: package-lock-generated
+        path: package-lock.json
+        retention-days: 7
 
     - name: Lint and Type Check
       run: npx tsc --noEmit
@@ -47,12 +57,12 @@ jobs:
       with:
         distribution: 'temurin'
         java-version: '21'
-        
+
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
-      
-    - name: Run E2E QA Suite
-      run: npm run test:e2e
+
+    - name: Run E2E bootstrap smoke then full QA suite
+      run: npx firebase emulators:exec --project demo-musicscale --only auth,firestore "npm run test:emulator:global-search && npm run test:emulator:security && npx playwright test tests/e2e/01-bootstrap-dashboard.spec.ts --project=desktop-chromium && npm run test:e2e:run"
       env:
         CI: true
         GCLOUD_PROJECT: demo-musicscale
