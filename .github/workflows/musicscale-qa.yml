@@ -7,6 +7,10 @@ on:
     branches: [ main, production ]
   workflow_dispatch:
 
+concurrency:
+  group: musicscale-qa-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     timeout-minutes: 60
@@ -75,5 +79,7 @@ jobs:
       if: ${{ !cancelled() }}
       with:
         name: test-results
-        path: test-results/
+        path: |
+          test-results/
+          playwright-results.json
         retention-days: 30
