@@ -1,0 +1,31 @@
+name: MusicScale Membership Write Audit
+
+on:
+  push:
+    branches:
+      - "certify/ms-membership-write-audit"
+    paths:
+      - ".github/workflows/ms-membership-write-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "66bfbc3d62c6d27b55139c1232f10866e94bb04e"
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Direct membership authority references
+        run: |
+          set +e
+          echo '=== organization_members references ==='
+          rg -n --glob '!node_modules/**' --glob '!dist/**' --glob '!docs/**' --glob '!*.md' 'organization_members' .
+          echo '=== canonical members path/write references ==='
+          rg -n --glob '!node_modules/**' --glob '!dist/**' --glob '!docs/**' --glob '!*.md' "organizations.{0,120}members|collection\([^\n]*['\"]members['\"]|doc\([^\n]*['\"]members['\"]" .
+          echo '=== organizationRole writes/migrations ==='
+          rg -n --glob '!node_modules/**' --glob '!dist/**' --glob '!docs/**' --glob '!*.md' 'organizationRole\s*=|organizationRole\s*:|role\.updated|handleMigrateRoles' .
+          exit 0
