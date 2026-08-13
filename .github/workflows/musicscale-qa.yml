@@ -58,6 +58,14 @@ jobs:
         GCLOUD_PROJECT: demo-musicscale
         GOOGLE_CLOUD_PROJECT: demo-musicscale
 
+    - name: Upload Playwright JSON Result
+      uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: playwright-json
+        path: playwright-results.json
+        retention-days: 30
+
     - name: Upload Playwright Report
       uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
@@ -79,7 +87,5 @@ jobs:
       if: ${{ !cancelled() }}
       with:
         name: test-results
-        path: |
-          test-results/
-          playwright-results.json
+        path: test-results/
         retention-days: 30
