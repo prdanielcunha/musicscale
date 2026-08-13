@@ -391,8 +391,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
       }
       try {
         const q = query(
-          collection(db, 'organization_join_requests'), 
-          where('organizationId', '==', userProfile.organizationId),
+          collection(db, 'organizations', userProfile.organizationId, 'join_requests'),
           where('status', '==', 'pending'),
           limit(1)
         );
