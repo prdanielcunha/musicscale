@@ -1,12 +1,14 @@
 /// <reference types="vite/client" />
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getAuth, connectAuthEmulator, onAuthStateChanged } from 'firebase/auth';
 import { 
   initializeFirestore, 
   persistentLocalCache,
   persistentMultipleTabManager,
   getFirestore,
-  connectFirestoreEmulator
+  connectFirestoreEmulator,
+  doc,
+  onSnapshot
 } from 'firebase/firestore';
 import prodFirebaseConfig from '../firebase-applet-config.json';
 import { getFirebaseRuntimeConfig } from './firebaseRuntimeConfig';
@@ -77,6 +79,42 @@ if (useEmulators && !globalAny.__FIREBASE_EMULATORS_CONNECTED__) {
       throw error;
     }
   }
+}
+
+// Firestore 12.x can hit the ca9 -> b815 target teardown race when a cold
+// memory-cache client starts with a transient getDoc(). E2E uses the emulator
+// with persistence intentionally disabled, so keep the signed-in user's document
+// listener alive for the authenticated session. Production keeps its existing
+// persistent-cache path unchanged.
+if (useEmulators && !globalAny.__MUSICSCALE_E2E_FIRESTORE_BOOTSTRAP__) {
+  let unsubscribeUserDocument: (() => void) | null = null;
+
+  const unsubscribeBootstrapAuth = onAuthStateChanged(auth, (user) => {
+    if (unsubscribeUserDocument) {
+      unsubscribeUserDocument();
+      unsubscribeUserDocument = null;
+    }
+
+    if (!user) return;
+
+    unsubscribeUserDocument = onSnapshot(
+      doc(db, 'users', user.uid),
+      () => {
+        // Intentionally kept open. This stabilizes the emulator's cold listen
+        // stream before EcosystemContext performs its transient bootstrap reads.
+      },
+      (error) => {
+        console.warn('[MusicScale Firebase] E2E bootstrap user listener failed:', error);
+      }
+    );
+  });
+
+  globalAny.__MUSICSCALE_E2E_FIRESTORE_BOOTSTRAP__ = {
+    unsubscribe: () => {
+      if (unsubscribeUserDocument) unsubscribeUserDocument();
+      unsubscribeBootstrapAuth();
+    }
+  };
 }
 
 export { auth, db };
