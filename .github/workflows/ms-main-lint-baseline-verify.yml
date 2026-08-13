@@ -1,0 +1,29 @@
+name: MusicScale Main Lint Baseline Verify
+
+on:
+  push:
+    branches:
+      - "certify/ms-main-lint-baseline-verify"
+    paths:
+      - ".github/workflows/ms-main-lint-baseline-verify.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "ba7e2f4a5585db8bf458c1f97fbe9f887bd6f123"
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Lint baseline
+        run: npm run lint
