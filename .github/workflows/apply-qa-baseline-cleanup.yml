@@ -1,0 +1,36 @@
+name: Apply QA Baseline Cleanup
+
+on:
+  push:
+    branches:
+      - fix/qa-baseline-cleanup-20260813
+
+jobs:
+  apply:
+    if: github.event.head_commit.message != 'test: remove stale MusicScale QA baselines'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/qa-baseline-cleanup-20260813
+          fetch-depth: 1
+
+      - name: Apply guarded test-only changes
+        run: python3 scripts/apply_qa_baseline_cleanup.py
+
+      - name: Validate scope and diff
+        run: |
+          git diff --check
+          test "$(git diff --name-only | sort | tr '\n' ' ')" = "tests/server/music-scale-http-endpoints.test.ts tests/unit/apiAiImport.test.ts "
+          git diff --stat
+
+      - name: Commit test-only cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/server/music-scale-http-endpoints.test.ts tests/unit/apiAiImport.test.ts
+          git commit -m "test: remove stale MusicScale QA baselines"
+          git push origin HEAD:fix/qa-baseline-cleanup-20260813
