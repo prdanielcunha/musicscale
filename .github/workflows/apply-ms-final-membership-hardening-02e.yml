@@ -1,0 +1,35 @@
+name: Apply MusicScale Final Membership Hardening 02E
+
+on:
+  push:
+    branches:
+      - "codex/ms-sec-p0-final-membership-hardening-02e"
+    paths:
+      - ".github/workflows/apply-ms-final-membership-hardening-02e.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Apply guarded hardening
+        run: python3 scripts/apply_ms_final_membership_hardening_02e.py
+      - name: Verify functional scope
+        run: |
+          set -euo pipefail
+          git diff --check
+          git diff --name-only | sort
+      - name: Commit functional hardening
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pages/UsersPage.tsx pages/ProfilePage.tsx components/admin/EcosystemDiagnostics.tsx firestore.rules
+          git diff --cached --check
+          git commit -m "fix(security): make membership authority server-only"
+          git push origin HEAD:codex/ms-sec-p0-final-membership-hardening-02e
