@@ -23,9 +23,8 @@ jobs:
         run: |
           set +e
           echo '=== organization_members references ==='
-          rg -n --glob '!node_modules/**' --glob '!dist/**' --glob '!docs/**' --glob '!*.md' 'organization_members' .
-          echo '=== canonical members path/write references ==='
-          rg -n --glob '!node_modules/**' --glob '!dist/**' --glob '!docs/**' --glob '!*.md' "organizations.{0,120}members|collection\([^\n]*['\"]members['\"]|doc\([^\n]*['\"]members['\"]" .
+          grep -RInE --include='*.ts' --include='*.tsx' --include='*.js' --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git 'organization_members' . || true
+          echo '=== canonical members references ==='
+          grep -RInE --include='*.ts' --include='*.tsx' --include='*.js' --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git "organizations.{0,120}members|collection\([^)]*['\"]members['\"]|doc\([^)]*['\"]members['\"]" . || true
           echo '=== organizationRole writes/migrations ==='
-          rg -n --glob '!node_modules/**' --glob '!dist/**' --glob '!docs/**' --glob '!*.md' 'organizationRole\s*=|organizationRole\s*:|role\.updated|handleMigrateRoles' .
-          exit 0
+          grep -RInE --include='*.ts' --include='*.tsx' --include='*.js' --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git 'organizationRole[[:space:]]*=|organizationRole[[:space:]]*:|role\.updated|handleMigrateRoles' . || true
