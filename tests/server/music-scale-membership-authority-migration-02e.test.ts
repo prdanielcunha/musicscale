@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 const usersPage = readFileSync('pages/UsersPage.tsx', 'utf8');
 const profilePage = readFileSync('pages/ProfilePage.tsx', 'utf8');
+const sidebar = readFileSync('components/layout/Sidebar.tsx', 'utf8');
 const diagnostics = readFileSync('components/admin/EcosystemDiagnostics.tsx', 'utf8');
 const rules = readFileSync('firestore.rules', 'utf8');
 
@@ -30,6 +31,11 @@ describe('02E final client membership-authority migration', () => {
     expect(commandBlock).toContain("'Authorization': `Bearer ${idToken}`");
     expect(commandBlock).not.toMatch(/\b(?:setDoc|updateDoc|deleteDoc)\s*\(/);
     expect(commandBlock).not.toContain('organization_members');
+  });
+
+  it('Sidebar reads canonical nested join requests for the pending badge', () => {
+    expect(sidebar).toContain("collection(db, 'organizations', userProfile.organizationId, 'join_requests')");
+    expect(sidebar).not.toContain('organization_join_requests');
   });
 
   it('ProfilePage member removal delegates to the 02D backend and contains no membership Firestore mutation', () => {
@@ -69,8 +75,9 @@ describe('02E final client membership-authority migration', () => {
     expect(genericBlock.match(/app != 'members'/g)?.length).toBe(3);
   });
 
-  it('legacy root join-request authority is absent from reachable team/profile UX', () => {
+  it('legacy root join-request authority is absent from all reachable join-request UX', () => {
     expect(usersPage).not.toContain('organization_join_requests');
     expect(profilePage).not.toContain('organization_join_requests');
+    expect(sidebar).not.toContain('organization_join_requests');
   });
 });
