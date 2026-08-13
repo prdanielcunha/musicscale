@@ -47,6 +47,7 @@ import { writeMusicScaleMemberProjection } from "./services/server/musicScaleMem
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
 import { createInvitationCompatibilityHandlers } from "./services/server/musicScaleInvitationCompatibility.js";
 import { createJoinRequestCompatibilityHandlers } from "./services/server/musicScaleJoinRequestCompatibility.js";
+import { createMemberRemovalCompatibilityHandler } from "./services/server/musicScaleMemberRemovalCompatibility.js";
 import { runSongDiscoveryProcessor } from "./services/server/songDiscoveryProcessor.js";
 import { SongDiscoveryInboxService } from "./services/server/songDiscoveryInboxService.js";
 import { analyzeInboxBatch } from "./services/server/songInboxAnalyzer.js";
@@ -1746,6 +1747,9 @@ app.use((err: any, req: any, res: any, next: any) => {
   app.post("/api/orgs/join", joinRequestCompatibilityHandlers.create);
   app.post("/api/orgs/:organizationId/join-requests/:requestId/approve", joinRequestCompatibilityHandlers.approve);
   app.post("/api/orgs/:organizationId/join-requests/:requestId/reject", joinRequestCompatibilityHandlers.reject);
+
+  const memberRemovalCompatibilityHandler = createMemberRemovalCompatibilityHandler({ db, auth, logger });
+  app.delete("/api/orgs/:organizationId/members/:memberId", memberRemovalCompatibilityHandler);
 
   app.patch("/api/orgs/:organizationId/musicscale-members/:uid", async (req, res) => {
       try {
