@@ -4,10 +4,11 @@ on:
   push:
     branches:
       - fix/qa-baseline-cleanup-20260813
+    paths:
+      - .github/workflows/apply-qa-baseline-cleanup.yml
 
 jobs:
   apply:
-    if: github.event.head_commit.message != 'test: remove stale MusicScale QA baselines'
     permissions:
       contents: write
     runs-on: ubuntu-latest
