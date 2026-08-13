@@ -207,7 +207,6 @@ const TenantOnboarding: React.FC = () => {
           "Authorization": `Bearer ${idToken}`
         },
         body: JSON.stringify({
-          userId: user.uid,
           ownerEmail: joinEmail,
         }),
       });
