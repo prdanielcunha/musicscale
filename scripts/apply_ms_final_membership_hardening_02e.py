@@ -193,11 +193,12 @@ s = regex_once(
 )
 s = regex_once(
     s,
-    r'''            if \(previewAction\.type === "CREATE_ORG"\) \{.*?\n            \}\n            else if \(previewAction\.type === "ENABLE_MUSICSCALE"\)''',
+    r'''            if \(previewAction\.type === "CREATE_ORG"\) \{.*?\n            \}\n  \n            setPreviewAction\(null\);''',
     '''            if (previewAction.type === "CREATE_ORG") {
                 throw new Error("ORGANIZATION_CREATION_REQUIRES_MILLIONSNEST_HUB");
             }
-            else if (previewAction.type === "ENABLE_MUSICSCALE")''',
+  
+            setPreviewAction(null);''',
     'EcosystemDiagnostics CREATE_ORG mutation'
 )
 p.write_text(s)
