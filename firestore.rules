@@ -301,12 +301,7 @@ service cloud.firestore {
           uid == request.auth.uid || checkOrgAccess(orgId) || isSystemAdmin()
         );
         allow list: if isAuthenticated() && (checkOrgAccess(orgId) || isSystemAdmin());
-        allow create: if isAuthenticated() && (
-          uid == request.auth.uid || isOrgAdmin(orgId) || isSystemAdmin()
-        );
-        allow update, delete: if isAuthenticated() && (
-          isOrgAdmin(orgId) || isSystemAdmin()
-        );
+        allow create, update, delete: if false;
       }
 
       match /musicscale_members/{uid} {
@@ -346,18 +341,16 @@ service cloud.firestore {
 
 
       match /{app}/{document=**} {
-        allow read: if app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
-        allow create: if app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
-        allow update, delete: if app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow read: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow create: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow update, delete: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
       }
     }
 
     match /organization_members/{id} {
       allow read: if isAuthenticated() && (isSystemAdmin() || id.split('_')[0] == request.auth.uid || id.split('_')[1] == request.auth.uid || checkOrgAccess(resource.data.get('organizationId', '')));
       allow list: if isAuthenticated() && (isSystemAdmin() || resource.data.get('userId', '') == request.auth.uid || resource.data.get('uid', '') == request.auth.uid || checkOrgAccess(resource.data.get('organizationId', '')));
-      allow create: if isAuthenticated() && (id.split('_')[0] == request.auth.uid || id.split('_')[1] == request.auth.uid || isOrgAdmin(incoming().get('organizationId', '')) || isSystemAdmin());
-      allow update: if isAuthenticated() && (isOrgAdmin(resource.data.get('organizationId', '')) || isSystemAdmin() || (resource.data.get('userId', '') == request.auth.uid && (!('role' in incoming()) || incoming().get('role', '') == resource.data.get('role', ''))));
-      allow delete: if isAuthenticated() && (isOrgAdmin(resource.data.get('organizationId', '')) || isSystemAdmin() || id.split('_')[0] == request.auth.uid || id.split('_')[1] == request.auth.uid);
+      allow create, update, delete: if false;
     }
 
     // ==========================================

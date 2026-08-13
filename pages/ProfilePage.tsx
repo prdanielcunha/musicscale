@@ -240,59 +240,45 @@ const ProfilePage: React.FC = () => {
   useEffect(() => {
     if (organization?.id && canManageMembers) {
       const q = query(
-        collection(db, 'organization_join_requests'),
-        where('organizationId', '==', organization.id),
+        collection(db, 'organizations', organization.id, 'join_requests'),
         where('status', '==', 'pending')
       );
       getDocs(q).then(snap => {
         setJoinRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       }).catch(err => {
-        logger.error("[ProfilePage] Failed loading join requests: ", err);
+        logger.error("[ProfilePage] Failed loading canonical join requests: ", err);
+        setJoinRequests([]);
       });
+    } else {
+      setJoinRequests([]);
     }
   }, [organization?.id, canManageMembers]);
 
   const handleProcessJoinRequest = async (req: any, approve: boolean) => {
     try {
-      if (approve) {
-        const targetMemberRef = doc(db, 'organizations', req.organizationId, 'members', req.uid);
-        await setDoc(targetMemberRef, {
-          uid: req.uid,
-          organizationId: req.organizationId,
-          organizationRole: 'member',
-          musicscaleRole: 'member',
-          status: 'active',
-          joinedAt: serverTimestamp(),
-          source: 'join_request',
-          apps: { musicscale: { access: true, status: "active" } }
-        }, { merge: true });
-
-        const memberRef = doc(db, 'organization_members', `${req.organizationId}_${req.uid}`);
-        await setDoc(memberRef, {
-          user_id: req.uid,
-          uid: req.uid,
-          organization_id: req.organizationId,
-          organizationId: req.organizationId,
-          created_at: serverTimestamp()
-        }, { merge: true });
-
-        await updateDoc(doc(db, 'users', req.uid), {
-          organizationId: req.organizationId,
-          activeOrganizationId: req.organizationId
-        });
-
-        // Delete from local join requests and firestore
-        await deleteDoc(doc(db, 'organization_join_requests', req.id));
-        showToast('Solicitação aceita com sucesso!', 'success');
-      } else {
-        await deleteDoc(doc(db, 'organization_join_requests', req.id));
-        showToast('Solicitação rejeitada com sucesso.', 'success');
+      if (!user || !organization?.id) throw new Error("AUTH_OR_ORGANIZATION_REQUIRED");
+      const requestId = typeof req?.requestId === 'string' ? req.requestId : req?.id;
+      if (typeof requestId !== 'string' || !requestId) throw new Error("INVALID_JOIN_REQUEST");
+      const idToken = await user.getIdToken();
+      const action = approve ? 'approve' : 'reject';
+      const response = await fetch(`/api/orgs/${encodeURIComponent(organization.id)}/join-requests/${encodeURIComponent(requestId)}/${action}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({})
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success !== true) {
+        throw new Error(data?.reasonCode || data?.error || 'JOIN_REQUEST_COMMAND_FAILED');
       }
-      setJoinRequests(prev => prev.filter(r => r.id !== req.id));
+      setJoinRequests(prev => prev.filter(r => r.id !== requestId));
+      showToast(approve ? 'Solicitação aceita com sucesso!' : 'Solicitação rejeitada com sucesso.', 'success');
       refreshData();
     } catch (err: any) {
-      logger.error("[ProfilePage] Failed to process request:", err);
-      showToast('Erro ao processar solicitação.', 'error');
+      logger.error("[ProfilePage] Failed to process canonical join request:", err);
+      showToast(err?.message || 'Erro ao processar solicitação.', 'error');
     }
   };
 
@@ -346,22 +332,21 @@ const ProfilePage: React.FC = () => {
       return;
     }
     try {
-      const orgId = organization?.id;
-      if (orgId) {
-        await deleteDoc(doc(db, "organizations", orgId, "members", memberId)).catch(() => {});
-        await deleteDoc(doc(db, "organization_members", `${memberId}_${orgId}`)).catch(() => {});
-        await deleteDoc(doc(db, "organization_members", `${orgId}_${memberId}`)).catch(() => {});
-        
-        await updateDoc(doc(db, "users", memberId), {
-          organizationId: "",
-          activeOrganizationId: ""
-        }).catch(() => {});
+      if (!user || !organization?.id) throw new Error("AUTH_OR_ORGANIZATION_REQUIRED");
+      const idToken = await user.getIdToken();
+      const response = await fetch(`/api/orgs/${encodeURIComponent(organization.id)}/members/${encodeURIComponent(memberId)}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success !== true || !['MEMBER_REMOVED', 'ALREADY_REMOVED'].includes(data?.reasonCode)) {
+        throw new Error(data?.reasonCode || data?.error || 'MEMBER_REMOVAL_FAILED');
       }
       showToast('Membro removido com sucesso!', 'success');
       refreshData();
     } catch (err: any) {
-      logger.error("[ProfilePage] Failed to remove member:", err);
-      showToast('Erro ao remover o membro.', 'error');
+      logger.error("[ProfilePage] Failed to remove member through Hub:", err);
+      showToast(err?.message || 'Erro ao remover o membro.', 'error');
     }
   };
 
@@ -494,73 +479,9 @@ const ProfilePage: React.FC = () => {
 
   const handleSupportCreateOrg = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supportNewOrgName.trim()) return;
-
-    setSupportCreateLoading(true);
     setSupportSuccess(null);
-    setSupportError(null);
-
-    try {
-      const generatedSlug = (supportNewOrgSlug.trim() || supportNewOrgName)
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)+/g, "");
-
-      const orgId = "org_" + Math.random().toString(36).substring(2, 11);
-
-      // 1. Create organization
-      const orgRef = doc(db, "organizations", orgId);
-      await setDoc(orgRef, {
-        name: supportNewOrgName.trim(),
-        displayName: supportNewOrgName.trim(),
-        slug: generatedSlug,
-        ownerUserId: user?.uid,
-        ownerEmail: user?.email,
-        plan: "starter",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      // 2. Create membership
-      const targetMemberRef = doc(db, 'organizations', orgId, 'members', user?.uid || '');
-      await setDoc(targetMemberRef, {
-        uid: user?.uid,
-        email: user?.email || '',
-        organizationId: orgId,
-        organizationRole: 'owner',
-        musicscaleRole: 'admin',
-        status: 'active',
-        joinedAt: serverTimestamp(),
-        apps: { musicscale: { access: true, status: "active" } }
-      }, { merge: true });
-
-      const memberRef = doc(db, "organization_members", `${orgId}_${user?.uid}`);
-      await setDoc(memberRef, {
-        organizationId: orgId,
-        uid: user?.uid,
-        email: user?.email || "",
-        joinedAt: serverTimestamp()
-      });
-
-      // 3. Update user profile organizationId
-      const userRef = doc(db, "users", user?.uid || "");
-      await setDoc(userRef, {
-        organizationId: orgId,
-        organizationRole: "Diretor"
-      }, { merge: true });
-
-      setSupportSuccess("Organização criada e vinculada com sucesso!");
-      setSupportNewOrgName("");
-      setSupportNewOrgSlug("");
-      await refreshAuthData();
-    } catch (err: any) {
-      logger.error("[ProfilePage] Support org creation error:", err);
-      setSupportError(`Erro ao criar organização: ${err.message || err}`);
-    } finally {
-      setSupportCreateLoading(false);
-    }
+    setSupportCreateLoading(false);
+    setSupportError("A criação e vinculação de organizações foi movida para o MillionsNest Hub para preservar a autoridade canônica.");
   };
 
   const handleSpecialtyChange = (specialtyId: string) => {

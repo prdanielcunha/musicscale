@@ -1450,7 +1450,6 @@ const UsersPage: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [joinRequests, setJoinRequests] = useState<any[]>([]);
   const isGlobal = isGlobalPrivilegedUser(currentUser, userProfile);
-  const [migrating, setMigrating] = useState(false);
 
   const [isExistingMemberSetupOpen, setIsExistingMemberSetupOpen] = useState(false);
 
@@ -1801,64 +1800,6 @@ const UsersPage: React.FC = () => {
     );
   }
 
-  const handleMigrateRoles = async () => {
-    if (!api || !userProfile?.organizationId) return;
-    if (!window.confirm("Essa operação irá separar os campos de Cargo Organizacional e Função Ministerial para todos os usuários desta organização preservando a compatibilidade. Deseja continuar?")) return;
-    setMigrating(true);
-    try {
-      const db = (await import('../services/firebase')).db;
-      const { collection, getDocs, writeBatch, doc } = await import('firebase/firestore');
-      
-      const membersSnap = await getDocs(query(collection(db, 'organization_members'), where('organizationId', '==', userProfile.organizationId)));
-      const membersSnapLeg = await getDocs(query(collection(db, 'organization_members'), where('organization_id', '==', userProfile.organizationId)));
-      
-      const batch = writeBatch(db);
-      let count = 0;
-      
-      const processDoc = (d: any) => {
-         const data = d.data();
-         if (!data.organizationRole && data.role) {
-             const updates: any = {};
-             // Migrate role -> organizationRole and musicscaleRole
-             const r = typeof data.role === 'string' ? data.role.toLowerCase() : '';
-             
-             updates.organizationRole = r.includes('dono') || r.includes('owner') ? 'owner' 
-               : r.includes('admin') ? 'admin' 
-               : r.includes('lider') || r.includes('líder') ? 'leader' 
-               : r.includes('visit') ? 'visitor' : 'member';
-
-             updates.musicscaleRole = r.includes('dono') || r.includes('owner') || r.includes('admin') ? 'admin'
-               : r.includes('lider') || r.includes('líder') ? 'leader'
-               : r.includes('visit') ? 'viewer' : 'member';
-
-             // If the legacy role sounds like a ministry function, assign it
-             if (r.includes('músico') || r.includes('musico') || r.includes('vocal')) {
-                 updates.ministryFunction = r.includes('vocal') ? 'vocal' : 'musician';
-             }
-
-             batch.update(doc(db, 'organization_members', d.id), updates);
-             count++;
-         }
-      };
-
-      membersSnap.docs.forEach(processDoc);
-      membersSnapLeg.docs.forEach(processDoc);
-      
-      if (count > 0) {
-          await batch.commit();
-          alert(`Migração concluída! ${count} registros populados com a nova estrutura separada.`);
-          fetchUsers();
-      } else {
-          alert('A organização já estava com os papéis atualizados (Nenhum registro antigo encontrado).');
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Erro na migração.");
-    } finally {
-      setMigrating(false);
-    }
-  };
-
   return (
     <div className="space-y-8">
 
@@ -1867,16 +1808,6 @@ const UsersPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
             {t("users.management_title", "Equipe e Permissões")}
           </h1>
-          {isGlobal && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleMigrateRoles}
-              disabled={migrating}
-            >
-              {migrating ? <Spinner size="sm" /> : "Migrar Estrutura de Papéis (Admin)"}
-            </Button>
-          )}
         </div>
         <UserUsageBanner />
       </div>
