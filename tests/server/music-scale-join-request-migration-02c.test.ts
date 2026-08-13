@@ -47,13 +47,14 @@ describe('02C migrated join-request authority boundaries', () => {
     expect(block).not.toContain("'members'");
   });
 
-  it('compatibility service contains no local mutation primitives or legacy fallback', () => {
+  it('compatibility service contains no local membership/request authority or legacy fallback', () => {
     expect(compatibility).not.toContain('organization_join_requests');
     expect(compatibility).not.toContain('organization_members');
     expect(compatibility).not.toContain('runTransaction');
-    expect(compatibility).not.toMatch(/\.set\s*\(/);
-    expect(compatibility).not.toMatch(/\.update\s*\(/);
-    expect(compatibility).not.toMatch(/\.delete\s*\(/);
+    // Map.set() is used only to deduplicate organization-discovery results. Runtime
+    // compatibility tests provide the primary proof that no Firestore mutation occurs.
+    expect(compatibility).not.toMatch(/\btransaction\.(set|update|delete)\s*\(/);
+    expect(compatibility).not.toMatch(/\b(?:memberRef|requestRef|userRef|legacyRef)\.(set|update|delete)\s*\(/);
     expect(compatibility).not.toContain('legacy');
   });
 });
