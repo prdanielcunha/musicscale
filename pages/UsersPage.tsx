@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { useTranslation } from "react-i18next";
 import { getPrimaryDisplayRole, getRoleBadgeStyles } from '../utils/roleResolver';
 import { useNavigate, useLocation } from "react-router-dom";
-import { doc, updateDoc, deleteDoc, collection, setDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
+import { doc, updateDoc, collection, setDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { sendResetEmail } from "../services/authService";
 import type { UserProfile, Role, Instrument } from "../types";
@@ -1064,57 +1064,35 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
     }
   };
 
+  const removeMemberViaHub = async (memberId: string) => {
+    if (!currentUser) throw new Error(t("users.auth_error", "Usuário não autenticado."));
+    if (memberId === currentUser.uid) throw new Error("SELF_REMOVAL_REQUIRES_LEAVE_COMMAND");
+    const organizationId = userProfile?.activeOrganizationId || userProfile?.primaryOrganizationId || userProfile?.organizationId;
+    if (!organizationId) throw new Error("ORGANIZATION_CONTEXT_REQUIRED");
+
+    const idToken = await currentUser.getIdToken();
+    const response = await fetch(`/api/orgs/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(memberId)}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${idToken}` }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.success !== true || !["MEMBER_REMOVED", "ALREADY_REMOVED"].includes(data?.reasonCode)) {
+      throw new Error(data?.reasonCode || data?.error || "MEMBER_REMOVAL_FAILED");
+    }
+    return data;
+  };
+
   const handleRemoveMember = async (memberId: string) => {
     if (memberId === currentUser?.uid || !api) return;
-    
-    // Validate hierarchy before removing member
-    const targetUser = allUsers.find(u => u.uid === memberId);
-    if (targetUser) {
-      const targetRoleKey = getRoleKeyFromId(targetUser.roleId || "", allRoles);
-      const actorRoleKey = isGlobal ? "owner" : getRoleKeyFromName(userProfile?.role || "");
-      const otherOwnersActiveCount = allUsers.filter(u => u.organizationId === userProfile?.organizationId && u.uid !== memberId && (u.role === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
-      
-      const roleCtx = {
-        isGlobalPrivilegedUser: isGlobal,
-        actorSystemRole: userProfile?.systemRole,
-        actorOrganizationRole: actorRoleKey,
-        targetOrganizationRole: targetRoleKey,
-        isSelfChange: memberId === currentUser?.uid,
-        otherOwnersActiveCount
-      };
-
-      const checkChange = canChangeOrganizationRole(actorRoleKey, targetRoleKey, "viewer", roleCtx);
-      if (!checkChange.canChange) {
-        toastError(checkChange.error || "Você não tem autorização para remover este usuário.");
-        return;
-      }
-    }
-
     setIsSaving(true);
     try {
-      const orgId = userProfile?.organizationId || currentUser?.uid;
-      try {
-          // Official Source of Truth delete
-          await deleteDoc(doc(db, "organizations", orgId, "members", memberId));
-          
-          // Legacy deletes
-          const docRef1 = doc(db, "organization_members", `${memberId}_${orgId}`);
-          await deleteDoc(docRef1);
-      } catch (e) {}
-      try {
-          const docRef2 = doc(db, "organization_members", `${orgId}_${memberId}`);
-          await deleteDoc(docRef2);
-      } catch (e) {}
-      
+      await removeMemberViaHub(memberId);
       setUsers((prev) => prev.filter((u) => u.uid !== memberId));
-      if (allUsers) {
-         // Should realistically refresh all users, but refreshUsers handles it.
-         refreshUsers();
-      }
+      refreshUsers();
       toastSuccess("Membro removido da organização.");
-    } catch (error) {
+    } catch (error: any) {
       logger.error("Failed to remove user", error);
-      toastError("Erro ao remover o usuário.");
+      toastError(error?.message || "Erro ao remover o usuário.");
     } finally {
       setIsSaving(false);
     }
@@ -1162,14 +1140,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
     setIsSaving(true);
     try {
       if (bulkAction === "delete") {
-        await Promise.all(selectedUserIds.map((uid) => {
-            const orgId = userProfile?.organizationId || currentUser?.uid;
-            return Promise.all([
-               deleteDoc(doc(db, "organizations", orgId, "members", uid)).catch(e => null),
-               deleteDoc(doc(db, "organization_members", `${uid}_${orgId}`)).catch(e => null),
-               deleteDoc(doc(db, "organization_members", `${orgId}_${uid}`)).catch(e => null)
-            ]);
-        }));
+        await Promise.all(selectedUserIds.map((uid) => removeMemberViaHub(uid)));
       } else if (bulkAction === "changeRole" && newRoleId) {
         await Promise.all(selectedUserIds.map((uid) => handleUpdateMemberRole(uid, newRoleId)));
       }
