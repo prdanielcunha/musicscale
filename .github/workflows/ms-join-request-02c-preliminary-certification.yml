@@ -16,13 +16,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: "d3be6b383e7bb9c0c79539da9df3e7b0471cec84"
+          ref: "cec30bf4b962823fe8ecb800b0f2e03f3639b71e"
           persist-credentials: false
           fetch-depth: 1
       - name: Verify exact feature head
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "d3be6b383e7bb9c0c79539da9df3e7b0471cec84"
+          test "$(git rev-parse HEAD)" = "cec30bf4b962823fe8ecb800b0f2e03f3639b71e"
           test -z "$(git status --porcelain)"
       - uses: actions/setup-node@v4
         with:
@@ -50,5 +50,5 @@ jobs:
         run: |
           set -euo pipefail
           git diff --check
-          test "$(git rev-parse HEAD)" = "d3be6b383e7bb9c0c79539da9df3e7b0471cec84"
+          test "$(git rev-parse HEAD)" = "cec30bf4b962823fe8ecb800b0f2e03f3639b71e"
           test -z "$(git status --porcelain)"
