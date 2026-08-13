@@ -181,35 +181,7 @@ export const OrgDiagnosisModal = ({ org, onClose, onRepaired }: { org: any, onCl
               logDetails = `Normalizou plano para ${previewAction.payload.plan}`;
           } 
           else if (previewAction.type === "LINK_OWNER") {
-              const { targetUid, targetEmail, targetName } = previewAction.payload;
-              batch.update(orgRef, {
-                  ownerUserId: targetUid,
-                  ownerEmail: targetEmail,
-                  updatedAt: timestamp,
-                  repairedAt: timestamp,
-                  repairedBy: user?.uid || ""
-              });
-              
-              const memberRef = doc(db, "organizations", org.id, "members", targetUid);
-              batch.set(memberRef, {
-                  uid: targetUid,
-                  email: targetEmail,
-                  displayName: targetName,
-                  organizationRole: "owner",
-                  role: "owner",
-                  status: "active",
-                  addedAt: timestamp,
-                  updatedAt: timestamp,
-                  repairedBy: user?.uid || ""
-              }, { merge: true });
-
-              const userRef = doc(db, "users", targetUid);
-              batch.update(userRef, { 
-                  organizationId: org.id,
-                  updatedAt: timestamp 
-              });
-
-              logDetails = `Vinculou usuário ${targetUid} como owner.`;
+              throw new Error("OWNER_LINK_REQUIRES_MILLIONSNEST_HUB");
           }
           else if (previewAction.type === "CREATE_MUSICSCALE") {
               const orgSnap = await getDoc(orgRef);
@@ -452,44 +424,7 @@ export const UserDiagnosisModal = ({ userObj, onClose, onRepaired }: { userObj: 
             const timestamp = new Date().toISOString();
   
             if (previewAction.type === "CREATE_ORG") {
-                const newOrgRef = doc(collection(db, "organizations"));
-                const newOrgId = newOrgRef.id;
-
-                batch.set(newOrgRef, {
-                    name: `Organização de ${userObj.displayName || "Usuário"}`,
-                    slug: `org-${newOrgId.substring(0, 5)}`.toLowerCase(),
-                    ownerUserId: userObj.id,
-                    ownerEmail: userObj.email,
-                    plan: "starter",
-                    "apps.musicscale": { status: "active", plan: "starter", installedAt: timestamp },
-                    createdAt: timestamp,
-                    updatedAt: timestamp
-                });
-                
-                const memberRef = doc(db, "organizations", newOrgId, "members", userObj.id);
-                batch.set(memberRef, {
-                    role: "owner",
-                    email: userObj.email,
-                    addedAt: timestamp
-                });
-  
-                const userRef = doc(db, "users", userObj.id);
-                batch.update(userRef, { 
-                    activeOrganizationId: newOrgId,
-                    organizationId: newOrgId 
-                });
-  
-                await batch.commit();
-                
-                await addDoc(collection(db, "system_audit_logs"), {
-                    action: `REPARO_USER_${previewAction.type}`,
-                    actorUid: user?.uid,
-                    actorEmail: user?.email,
-                    targetUserId: userObj.id,
-                    targetOrganizationId: newOrgId,
-                    timestamp,
-                    details: `Criou organização ${newOrgId} para usuário órfão.`
-                });
+                throw new Error("ORGANIZATION_CREATION_REQUIRES_MILLIONSNEST_HUB");
             }
   
             setPreviewAction(null);
