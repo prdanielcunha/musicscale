@@ -1,0 +1,52 @@
+name: Apply MusicScale Sidebar Canonical Join Query 02E
+
+on:
+  push:
+    branches:
+      - "codex/ms-sec-p0-final-membership-hardening-02e"
+    paths:
+      - ".github/workflows/apply-ms-sidebar-join-query-02e.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Replace legacy root join-request query
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('components/layout/Sidebar.tsx')
+          s = p.read_text()
+          old = '''        const q = query(
+          collection(db, 'organization_join_requests'), 
+          where('organizationId', '==', userProfile.organizationId),
+          where('status', '==', 'pending'),
+          limit(1)
+        );'''
+          new = '''        const q = query(
+          collection(db, 'organizations', userProfile.organizationId, 'join_requests'),
+          where('status', '==', 'pending'),
+          limit(1)
+        );'''
+          if s.count(old) != 1:
+              raise SystemExit(f'legacy Sidebar query anchor mismatch: {s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          git diff --check
+          git diff -- components/layout/Sidebar.tsx
+      - name: Commit functional change only
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add components/layout/Sidebar.tsx
+          git diff --cached --check
+          test "$(git diff --cached --name-only)" = "components/layout/Sidebar.tsx"
+          git commit -m "fix(security): read canonical join requests in sidebar"
+          git push origin HEAD:codex/ms-sec-p0-final-membership-hardening-02e
