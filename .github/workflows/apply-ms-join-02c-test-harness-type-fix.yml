@@ -1,0 +1,80 @@
+name: Apply MusicScale 02C Test Harness Type Fix
+
+on:
+  push:
+    branches:
+      - "certify/ms-join-request-02c-preliminary"
+    paths:
+      - ".github/workflows/apply-ms-join-02c-test-harness-type-fix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "codex/ms-sec-p0-join-request-hub-adapter-02c"
+          persist-credentials: true
+          fetch-depth: 1
+      - name: Apply exact type-only harness correction
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tests/server/music-scale-security-rules.test.ts')
+          s = p.read_text()
+          old = '''async function assertSucceeds<T>(pr: Promise<T> | T): Promise<T> {
+            if (isFallbackMode) {
+              return pr;
+            }
+            return realAssertSucceeds(pr as Promise<T>);
+          }
+
+          async function assertFails<T>(pr: Promise<T> | T): Promise<unknown> {
+            if (isFallbackMode) {
+              try {
+                await pr;
+              } catch (err) {
+                return err;
+              }
+              throw new Error('Expected promise to fail but it succeeded');
+            }
+            return realAssertFails(pr as Promise<T>);
+          }
+          '''
+          new = '''async function assertSucceeds(pr: unknown): Promise<any> {
+            if (isFallbackMode) {
+              return await (pr as any);
+            }
+            return realAssertSucceeds(pr as any);
+          }
+
+          async function assertFails(pr: unknown): Promise<unknown> {
+            if (isFallbackMode) {
+              try {
+                await (pr as any);
+              } catch (err) {
+                return err;
+              }
+              throw new Error('Expected promise to fail but it succeeded');
+            }
+            return realAssertFails(pr as any);
+          }
+          '''
+          if s.count(old) != 1:
+              raise SystemExit(f'expected exact harness block once, found {s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          git diff --check
+          git diff -- tests/server/music-scale-security-rules.test.ts
+      - name: Commit to feature branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/server/music-scale-security-rules.test.ts
+          git diff --cached --check
+          git commit -m "test: stabilize Firestore rules harness typing"
+          git push origin HEAD:codex/ms-sec-p0-join-request-hub-adapter-02c
