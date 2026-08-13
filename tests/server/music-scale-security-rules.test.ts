@@ -146,23 +146,23 @@ const mockTestEnv = {
   },
 };
 
-async function assertSucceeds<T>(pr: Promise<T> | T): Promise<T> {
+async function assertSucceeds(pr: unknown): Promise<any> {
   if (isFallbackMode) {
-    return pr;
+    return await (pr as any);
   }
-  return realAssertSucceeds(pr as Promise<T>);
+  return realAssertSucceeds(pr as any);
 }
 
-async function assertFails<T>(pr: Promise<T> | T): Promise<unknown> {
+async function assertFails(pr: unknown): Promise<unknown> {
   if (isFallbackMode) {
     try {
-      await pr;
+      await (pr as any);
     } catch (err) {
       return err;
     }
     throw new Error('Expected promise to fail but it succeeded');
   }
-  return realAssertFails(pr as Promise<T>);
+  return realAssertFails(pr as any);
 }
 
 const hasEmulatorHost = !!process.env.FIRESTORE_EMULATOR_HOST;
