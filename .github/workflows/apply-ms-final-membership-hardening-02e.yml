@@ -34,4 +34,4 @@ jobs:
           git commit -m "fix(security): make membership authority server-only"
           git push origin HEAD:codex/ms-sec-p0-final-membership-hardening-02e
 
-# rerun after correcting ProfilePage support-org structural anchor
+# rerun after correcting ProfilePage support-org and diagnostics CREATE_ORG anchors
