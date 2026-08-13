@@ -51,6 +51,8 @@ jobs:
       run: npm run test:e2e
       env:
         CI: true
+        GCLOUD_PROJECT: demo-musicscale
+        GOOGLE_CLOUD_PROJECT: demo-musicscale
 
     - name: Upload Playwright Report
       uses: actions/upload-artifact@v4
