@@ -1,0 +1,54 @@
+name: Fix MusicScale 02E Diagnostics Anchor
+
+on:
+  push:
+    branches:
+      - "codex/ms-sec-p0-final-membership-hardening-02e"
+    paths:
+      - ".github/workflows/fix-ms-02e-diagnostics-anchor.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Correct exact CREATE_ORG structural boundary
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/apply_ms_final_membership_hardening_02e.py')
+          s = p.read_text()
+          old = '''s = regex_once(
+              s,
+              r''' + "'''" + r'''            if \(previewAction\.type === "CREATE_ORG"\) \{.*?\n            \}\n            else if \(previewAction\.type === "ENABLE_MUSICSCALE"\)''' + "'''" + ''',
+              ''' + "'''" + '''            if (previewAction.type === "CREATE_ORG") {
+                  throw new Error("ORGANIZATION_CREATION_REQUIRES_MILLIONSNEST_HUB");
+              }
+              else if (previewAction.type === "ENABLE_MUSICSCALE")''' + "'''" + ''',
+              'EcosystemDiagnostics CREATE_ORG mutation'
+          )'''
+          new = '''s = regex_once(
+              s,
+              r''' + "'''" + r'''            if \(previewAction\.type === "CREATE_ORG"\) \{.*?\n            \}\n  \n            setPreviewAction\(null\);''' + "'''" + ''',
+              ''' + "'''" + '''            if (previewAction.type === "CREATE_ORG") {
+                  throw new Error("ORGANIZATION_CREATION_REQUIRES_MILLIONSNEST_HUB");
+              }
+  
+              setPreviewAction(null);''' + "'''" + ''',
+              'EcosystemDiagnostics CREATE_ORG mutation'
+          )'''
+          if s.count(old) != 1:
+              raise SystemExit(f'expected old CREATE_ORG script block once, found {s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/apply_ms_final_membership_hardening_02e.py
+          git commit -m "ci: correct 02E diagnostics structural anchor"
+          git push origin HEAD:codex/ms-sec-p0-final-membership-hardening-02e
