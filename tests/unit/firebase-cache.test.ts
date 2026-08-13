@@ -17,7 +17,8 @@ vi.mock('firebase/auth', () => ({
   onAuthStateChanged: mockOnAuthStateChanged
 }));
 
-const mockGetFirestore = vi.fn();
+const mockFirestoreInstance = { id: 'mock-firestore' };
+const mockGetFirestore = vi.fn(() => mockFirestoreInstance);
 const mockInitializeFirestore = vi.fn();
 const mockPersistentLocalCache = vi.fn(() => 'mock-local-cache');
 const mockPersistentMultipleTabManager = vi.fn(() => 'mock-tab-manager');
@@ -57,7 +58,7 @@ describe('Firebase Initialization', () => {
     expect(mockInitializeFirestore).not.toHaveBeenCalled();
 
     expect(mockOnAuthStateChanged).toHaveBeenCalledTimes(1);
-    expect(mockDoc).toHaveBeenCalledWith(expect.anything(), 'users', 'e2e-user');
+    expect(mockDoc).toHaveBeenCalledWith(mockFirestoreInstance, 'users', 'e2e-user');
     expect(mockOnSnapshot).toHaveBeenCalledTimes(1);
   });
 });
