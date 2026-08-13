@@ -1,14 +1,12 @@
 /// <reference types="vite/client" />
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { 
   initializeFirestore, 
   persistentLocalCache,
   persistentMultipleTabManager,
   getFirestore,
-  connectFirestoreEmulator,
-  doc,
-  onSnapshot
+  connectFirestoreEmulator
 } from 'firebase/firestore';
 import prodFirebaseConfig from '../firebase-applet-config.json';
 import { getFirebaseRuntimeConfig } from './firebaseRuntimeConfig';
@@ -29,13 +27,9 @@ const { firebaseConfig, useEmulators } = getFirebaseRuntimeConfig({
   hostname
 });
 
-// Inicializa o Firebase
 const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-
-// Obtém as instâncias dos serviços
 const auth = getAuth(app);
 
-// Inicializa o firestore
 let db: any;
 const isTestEnv = typeof process !== 'undefined' && (safeProcessEnv.NODE_ENV === 'test' || safeProcessEnv.VITEST === 'true');
 const shouldDisablePersistentCache = isTestEnv || useEmulators;
@@ -49,7 +43,6 @@ if (shouldDisablePersistentCache) {
   );
 } else {
   try {
-    // Use persistentLocalCache to speed up loading
     db = initializeFirestore(app, {
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
       ignoreUndefinedProperties: true
@@ -79,42 +72,6 @@ if (useEmulators && !globalAny.__FIREBASE_EMULATORS_CONNECTED__) {
       throw error;
     }
   }
-}
-
-// Firestore 12.x can hit the ca9 -> b815 target teardown race when a cold
-// memory-cache client starts with a transient getDoc(). E2E uses the emulator
-// with persistence intentionally disabled, so keep the signed-in user's document
-// listener alive for the authenticated session. Production keeps its existing
-// persistent-cache path unchanged.
-if (useEmulators && !globalAny.__MUSICSCALE_E2E_FIRESTORE_BOOTSTRAP__) {
-  let unsubscribeUserDocument: (() => void) | null = null;
-
-  const unsubscribeBootstrapAuth = onAuthStateChanged(auth, (user) => {
-    if (unsubscribeUserDocument) {
-      unsubscribeUserDocument();
-      unsubscribeUserDocument = null;
-    }
-
-    if (!user) return;
-
-    unsubscribeUserDocument = onSnapshot(
-      doc(db, 'users', user.uid),
-      () => {
-        // Intentionally kept open. This stabilizes the emulator's cold listen
-        // stream before EcosystemContext performs its transient bootstrap reads.
-      },
-      (error) => {
-        console.warn('[MusicScale Firebase] E2E bootstrap user listener failed:', error);
-      }
-    );
-  });
-
-  globalAny.__MUSICSCALE_E2E_FIRESTORE_BOOTSTRAP__ = {
-    unsubscribe: () => {
-      if (unsubscribeUserDocument) unsubscribeUserDocument();
-      unsubscribeBootstrapAuth();
-    }
-  };
 }
 
 export { auth, db };
