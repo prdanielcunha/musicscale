@@ -75,6 +75,42 @@ export async function setupNetworkMocks(page: Page, orgId: string = 'org_a', rol
 
     // Allowlist approach
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      // Optional admin-only diagnostics are not part of ordinary tenant E2E.
+      // Return a non-error, non-privileged result instead of exercising global-admin auth here.
+      if (url.includes('/api/admin/finops-diagnostics/preflight')) {
+        return route.fulfill({ status: 204, body: '' });
+      }
+
+      // The starter-pack backend validates production-style tokens. In emulator E2E,
+      // provide the exact successful contract with no remaining starter allowance.
+      if (url.includes('/api/v1/onboarding/starter-pack')) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            allowance: {
+              limit: 0,
+              used: 0,
+              remaining: 0,
+              completed: true,
+              started: true
+            },
+            starterPack: []
+          })
+        });
+      }
+
+      // Contextual AI suggestions are optional on scale detail pages and are not the
+      // subject of the end-to-end scale lifecycle tests. Keep them deterministic.
+      if (url.includes('/api/ai-suggest-songs')) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ suggestions: [] })
+        });
+      }
+
       // Mock the Hub-owned canonical access-context contract with the authenticated E2E identity.
       if (url.includes('/api/v1/ecosystem/access-context')) {
         const uid = resolveAuthenticatedUid(request.headers()['authorization']);
