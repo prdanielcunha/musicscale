@@ -744,13 +744,9 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                         title: t('scaleModal.publishSuccess'),
                         description: t('scaleModal.publishSuccessDescription'),
                     });
-
-                    // Do not signal completion while the client still points at
-                    // the pre-publish snapshot. Users (and E2E) can reopen the
-                    // scale immediately after the modal closes, so refresh first
-                    // and only then close the editor.
-                    await refreshData();
+                    
                     closeAllModals();
+                    await refreshData();
                     return { status: "published", scaleId: musicScaleId, version: publishResult.version };
                 } catch (publishErr: unknown) {
                     logger.error("Failed to publish scale via command", publishErr);
@@ -782,7 +778,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                         return { 
                             status: "publish-failed", 
                             scaleId: musicScaleId, 
-                            draftPreserved: true,
+                            draftPreserved: true, 
                             correlationId: correlationId 
                         };
                     }
@@ -805,11 +801,9 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                     title: t('scaleModal.draftSaved'),
                     description: t('scaleModal.draftSavedDescription'),
                 });
-
-                // Keep the editor open until the fresh snapshot is available.
-                // Closing first creates a real stale-read race on immediate reopen.
-                await refreshData();
+                
                 closeAllModals();
+                await refreshData();
                 return { status: "draft-saved", scaleId: musicScaleId };
             }
         } else if (scaleType === 'band') {
@@ -858,11 +852,9 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             if (bandScaleId && linkingOptions?.linkToMusicScaleId) {
                 await api.linkScales(linkingOptions.linkToMusicScaleId, bandScaleId);
             }
-
-            // Same completion contract as MusicScale: once the editor closes,
-            // consumers must see the just-saved formation, not a stale snapshot.
-            await refreshData();
+            
             closeAllModals();
+            await refreshData();
         }
     } catch(e: unknown) {
         logger.error("Failed to save scale", e);
