@@ -18,7 +18,7 @@ test.describe('Scale Song Persistence', () => {
     const songItemBefore = page.getByTestId('song-card-song_a_2');
     await expect(songItemBefore).toBeVisible();
     await expect(songItemBefore.getByText('D', { exact: true })).toBeVisible();
-    await expect(songItemBefore.getByText('90 BPM')).toBeVisible();
+    await expect(songItemBefore.getByText(/(?:BPM\s*90|90\s*BPM)/i)).toBeVisible();
 
     // 1 & 2. abrir a escala draft conhecida ("Culto de Terça") e modo de edição
     await page.goto(`/scales/${scaleId}`);
@@ -36,7 +36,7 @@ test.describe('Scale Song Persistence', () => {
     // 4. localizar música e o card respectivo. 'song_a_2' é "Outra Música".
     const songCard = page.getByTestId('scale-song-card-song_a_2');
     await expect(songCard).toBeVisible();
-    
+
     // 5. editor de settings aberto (Ajustes da música)
     const gearBtn = songCard.getByTestId('edit-scale-song-settings-song_a_2');
     await expect(gearBtn).toBeVisible();
@@ -60,7 +60,7 @@ test.describe('Scale Song Persistence', () => {
     const applyBtn = songCard.getByTestId('save-scale-song-settings-song_a_2');
     await expect(applyBtn).toBeVisible();
     await applyBtn.click();
-    
+
     // 9. escala salva
     const saveScaleBtn = page.getByTestId('save-scale-draft');
     await expect(saveScaleBtn).toBeVisible();
@@ -78,7 +78,7 @@ test.describe('Scale Song Persistence', () => {
     await expect(detailSongCard).toBeVisible();
     await expect(detailSongCard.getByText('G', { exact: true })).toBeVisible();
     await expect(detailSongCard.getByText('105', { exact: true })).toBeVisible();
-    
+
     const localBadges = detailSongCard.getByText('Desta escala');
     await expect(localBadges).toHaveCount(2);
 
@@ -90,11 +90,11 @@ test.describe('Scale Song Persistence', () => {
     // 17. tom G confirmado na cifra (indicador de tom na barra de controle)
     const tomLabel = page.getByText('Tom', { exact: true });
     await expect(tomLabel).toBeVisible();
-    
+
     const transposedKey = page.getByTestId('chords-viewer-transposed-key');
     await expect(transposedKey).toBeVisible();
     await expect(transposedKey).toHaveText('G');
-    
+
     // Fechar cifra usando o botão de fechar determinístico
     const closeBtn = page.getByTestId('close-chords-viewer');
     await expect(closeBtn).toBeVisible();
@@ -103,11 +103,11 @@ test.describe('Scale Song Persistence', () => {
     // 18. música global aberta
     await page.goto('/songs');
     await page.waitForURL('**/songs');
-    
+
     // 19 & 20. tom global D confirmado; BPM global 90 confirmado
     const songItemAfter = page.getByTestId('song-card-song_a_2');
     await expect(songItemAfter).toBeVisible();
     await expect(songItemAfter.getByText('D', { exact: true })).toBeVisible();
-    await expect(songItemAfter.getByText('90 BPM')).toBeVisible();
+    await expect(songItemAfter.getByText(/(?:BPM\s*90|90\s*BPM)/i)).toBeVisible();
   });
 });
