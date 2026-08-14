@@ -25,13 +25,62 @@ export const test = base.extend<TestFixtures>({
     const nativeGoto = page.goto.bind(page);
     const nativeWaitForURL = page.waitForURL.bind(page);
 
-    // Playwright's waitForURL defaults to waiting for a full document "load".
-    // History API navigation inside an already-mounted SPA changes the URL but
-    // intentionally does not emit a new document load. After hydration, normalize
-    // URL waits to "commit" so legacy specs can safely assert the route without
-    // hanging for 30 seconds on an event that cannot occur.
+    const globToRegExp = (glob: string) => {
+      let pattern = '^';
+      for (let i = 0; i < glob.length; i += 1) {
+        const char = glob[i];
+        if (char === '*') {
+          if (glob[i + 1] === '*') {
+            pattern += '.*';
+            i += 1;
+          } else {
+            pattern += '[^/]*';
+          }
+        } else if (char === '?') {
+          pattern += '.';
+        } else {
+          pattern += char.replace(/[\\^$+?.()|{}[\]]/g, '\\$&');
+        }
+      }
+      pattern += '$';
+      return new RegExp(pattern);
+    };
+
+    const currentUrlMatches = (matcher: any) => {
+      const href = page.url();
+      if (!href) return false;
+
+      if (typeof matcher === 'function') {
+        try {
+          return Boolean(matcher(new URL(href)));
+        } catch {
+          return false;
+        }
+      }
+
+      if (matcher instanceof RegExp) {
+        const lastIndex = matcher.lastIndex;
+        const matched = matcher.test(href);
+        matcher.lastIndex = lastIndex;
+        return matched;
+      }
+
+      if (typeof matcher === 'string') {
+        return globToRegExp(matcher).test(href);
+      }
+
+      return false;
+    };
+
+    // Playwright waitForURL observes *future* navigations. Our SPA goto below has
+    // already committed history.pushState before it returns, so a legacy pattern
+    // like `await page.goto('/scales'); await page.waitForURL('**/scales')` must
+    // be idempotent when the current URL already matches. Otherwise Playwright
+    // waits 30 seconds for a second navigation that will never happen.
     (page as any).waitForURL = async (url: any, options?: any) => {
       if ((page as any)._musicscaleClientNavigationReady === true) {
+        if (currentUrlMatches(url)) return;
+
         return nativeWaitForURL(url, {
           ...options,
           waitUntil: options?.waitUntil ?? 'commit',
