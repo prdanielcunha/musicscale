@@ -86,7 +86,9 @@ test.describe('MusicScale full cycle', () => {
     // local cache write even after the durable document is already correct.
     await expect.poll(async () => {
       const snapshot = await getScaleSnapshot(scaleId);
-      return snapshot?.bandScaleId || null;
+      return snapshot
+        ? (snapshot as unknown as { bandScaleId?: string | null }).bandScaleId || null
+        : null;
     }, { timeout: 15_000 }).toBe(bandScaleId);
 
     // Then wait for the live React list to consume the refreshed snapshot before
@@ -289,8 +291,12 @@ test.describe('MusicScale full cycle', () => {
     await selectKeyInst.click();
     if (compactBandBuilder) await activateTab(bandBuilderTabs.locator('button').nth(1));
 
-    const btnShowAll = bandEditor.getByRole('button', { name: /Mostrar todos/i });
-    if (await btnShowAll.isVisible().catch(() => false)) await btnShowAll.click();
+    // BandBuilder renders the same "Mostrar todos" action in the section header
+    // and in the empty-state body. Select one deterministically instead of letting
+    // a strict locator be swallowed by the old isVisible().catch(false) branch.
+    const btnShowAll = bandEditor.getByRole('button', { name: /Mostrar todos/i }).first();
+    await expect(btnShowAll).toBeVisible();
+    await activateTab(btnShowAll);
 
     const addBtn = bandEditor.getByTestId('add-assignment-user_musician_a3-instrument_keyboard');
     await expect(addBtn).toBeVisible();
