@@ -17,6 +17,7 @@ export default defineConfig({
   globalSetup: './tests/e2e/helpers/globalSetup.ts',
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
+    locale: 'pt-BR',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
