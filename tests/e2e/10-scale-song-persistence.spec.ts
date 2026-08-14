@@ -133,17 +133,8 @@ test.describe('Scale Song Persistence', () => {
     const localBadges = detailSongCard.getByText(/Ajuste local|Desta escala/i);
     await expect(localBadges).toHaveCount(2);
 
-    const viewChordsBtn = detailSongCard.getByTestId('performance-mode-button-song_a_2');
-    await expect(viewChordsBtn).toBeVisible();
-    await viewChordsBtn.click();
-
-    // song_a_2 is intentionally incomplete and has no transposable chord body.
-    // The durable scale override is already proven above as G/105; here we only
-    // verify that Performance Mode opens successfully for that incomplete song.
-    const closeBtn = page.getByTestId('close-chords-viewer');
-    await expect(closeBtn).toBeVisible();
-    await closeBtn.click();
-
+    // This spec owns persistence/isolation only. Performance viewer routing is
+    // content-dependent (chords, chords URL, or lyrics) and is covered separately.
     await page.goto('/songs');
     await page.waitForURL('**/songs');
 
