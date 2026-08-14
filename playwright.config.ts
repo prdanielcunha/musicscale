@@ -7,6 +7,10 @@ export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
+  // The release flows intentionally exercise several real UI/API transitions.
+  // Keep per-action/assertion timeouts strict while giving slower WebKit devices
+  // enough total test budget to finish deterministic successful workflows.
+  timeout: 60_000,
   retries: process.env.CI ? 1 : 0,
   workers: 1, // Deterministic tests in CI
   reporter: [
@@ -17,6 +21,7 @@ export default defineConfig({
   globalSetup: './tests/e2e/helpers/globalSetup.ts',
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
+    locale: 'pt-BR',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',

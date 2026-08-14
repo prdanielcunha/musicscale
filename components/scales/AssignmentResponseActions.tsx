@@ -29,44 +29,53 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
   const api = useApi();
   const { toast } = useToast();
   const { t, i18n } = useTranslation();
-  
+
   const [responses, setResponses] = useState<EventAssignmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingStatus, setSubmittingStatus] = useState<string | null>(null);
-  
+
   const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
-  
+
   const [isChanging, setIsChanging] = useState(false);
   const isEnabled = useFeatureFlag('musicscale.scaleResponsesV1');
 
-  // Real-time listener for user's responses
+  // Real-time listener for this user's responses on the current scale.
   useEffect(() => {
     if (!user || !isEnabled) {
+       setResponses([]);
        setLoading(false);
        return;
     }
-    
-    // We only want to listen to responses belonging to the user for this scale
+
+    setLoading(true);
     const responsesRef = collection(db, 'scales', musicScaleId, 'responses');
     const q = query(responsesRef, where('userId', '==', user.uid));
-    
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetched: EventAssignmentResponse[] = [];
       snapshot.forEach(doc => {
         fetched.push(doc.data() as EventAssignmentResponse);
       });
-      setResponses(fetched);
+
+      // Response history is intentionally retained for audit. The UI must only
+      // derive its current state from active responses, and in the unlikely case
+      // of duplicate active records it must prefer the highest response revision.
+      const currentResponses = fetched
+        .filter(response => response.active !== false)
+        .sort((a, b) => (b.responseRevision || 0) - (a.responseRevision || 0));
+
+      setResponses(currentResponses);
       setLoading(false);
     }, (error) => {
       console.error("Error listening to responses:", error);
       setLoading(false);
     });
-    
+
     return () => unsubscribe();
   }, [musicScaleId, user?.uid, isEnabled]);
 
-  const currentResponse = responses.length > 0 ? responses[0] : null;
+  const currentResponse = responses[0] || null;
   const currentStatus = currentResponse?.status || 'pending';
 
   // Effect to reset isChanging when status updates from server
@@ -81,20 +90,20 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
   const currentReason = currentResponse?.reason || '';
 
   const hasEventStarted = eventStart && new Date() > eventStart;
-  
+
   const handleRespond = async (status: 'accepted' | 'maybe' | 'declined', reason: string | null = null) => {
-    if (submittingStatus || hasEventStarted) return;
-    
+    if (submittingStatus || hasEventStarted || !api) return;
+
     setSubmittingStatus(status);
     const idempotencyKey = crypto.randomUUID();
-    
+
     try {
       await api.musicScaleResponses.respondOwn(
         musicScaleId,
         { status, reason },
         idempotencyKey
       );
-      
+
       // Toast message
       if (status === 'accepted') {
         toast({ title: t('responses.acceptedSuccess', 'Presença confirmada') });
@@ -103,23 +112,23 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
       } else if (status === 'declined') {
         toast({ title: t('responses.declinedSuccess', 'Indisponibilidade informada ao líder') });
       }
-      
+
       if (status === 'declined') {
         setIsDeclineModalOpen(false);
       }
     } catch (error: any) {
-      let description = error.messageKey 
+      let description = error.messageKey
         ? t(error.messageKey, error.message)
         : t('scaleResponses.errors.generic', 'Não foi possível registrar sua resposta. Tente novamente.');
-        
+
       if (error.correlationId) {
          description += `\n\n${t('common.code', 'Código:')} ${error.correlationId}`;
       }
-        
-      toast({ 
-        title: t('common.error', 'Erro'), 
+
+      toast({
+        title: t('common.error', 'Erro'),
         description,
-        type: "error" 
+        type: "error"
       });
     } finally {
       setSubmittingStatus(null);
@@ -128,7 +137,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
 
   const functionNames = Array.from(new Set(assignments.map(a => a.functionName).filter(Boolean))) as string[];
   const formatter = new Intl.ListFormat(i18n.language, { style: 'long', type: 'conjunction' });
-  const functionText = functionNames.length > 0 
+  const functionText = functionNames.length > 0
     ? formatter.format(functionNames)
     : t('responses.yourFunction', 'sua função');
 
@@ -143,7 +152,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
 
     if (showOnlyChange) {
       return (
-        <button 
+        <button
            onClick={() => {
               // This is a UI trick to show all buttons again. We don't actually change status yet.
            }}
@@ -159,41 +168,41 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
 
     return (
       <div className="flex flex-col gap-2 mt-3">
-        <button 
+        <button
           onClick={() => handleRespond('accepted')}
           disabled={submittingStatus !== null}
           data-testid="response-accepted"
           className={`flex items-center justify-center gap-2 h-[46px] px-4 text-sm font-semibold rounded-xl transition-all duration-300 ease-out ${
-            currentStatus === 'accepted' 
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' 
+            currentStatus === 'accepted'
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
               : 'bg-slate-50 dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] border border-transparent'
           }`}
         >
           {submittingStatus === 'accepted' ? <Spinner className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
           <span>{t('responses.actionConfirm', 'Confirmo')}</span>
         </button>
-        
-        <button 
+
+        <button
           onClick={() => handleRespond('maybe')}
           disabled={submittingStatus !== null}
           data-testid="response-maybe"
           className={`flex items-center justify-center gap-2 h-[46px] px-4 text-sm font-semibold rounded-xl transition-all duration-300 ease-out ${
-            currentStatus === 'maybe' 
-              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20' 
+            currentStatus === 'maybe'
+              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
               : 'bg-slate-50 dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] border border-transparent'
           }`}
         >
           {submittingStatus === 'maybe' ? <Spinner className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
           <span>{t('responses.actionMaybe', 'Ainda não sei')}</span>
         </button>
-        
-        <button 
+
+        <button
           onClick={() => setIsDeclineModalOpen(true)}
           disabled={submittingStatus !== null}
           data-testid="response-declined"
           className={`flex items-center justify-center gap-2 h-[46px] px-4 text-sm font-semibold rounded-xl transition-all duration-300 ease-out ${
-            currentStatus === 'declined' 
-              ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' 
+            currentStatus === 'declined'
+              ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
               : 'bg-slate-50 dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] border border-transparent'
           }`}
         >
@@ -203,7 +212,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
       </div>
     );
   };
-  
+
   const renderChangeButtons = () => {
       if (hasEventStarted) {
         return (
@@ -212,15 +221,15 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
           </p>
         );
       }
-      
+
       if (isChanging) {
           return renderButtons();
       }
-      
+
       return (
           <div className="flex flex-col gap-2 pt-2 mt-2">
             {currentStatus === 'declined' && (
-               <button 
+               <button
                  onClick={() => handleRespond('accepted')}
                  disabled={submittingStatus !== null}
                  className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium transition-all duration-300 ease-out bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl"
@@ -229,7 +238,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
                  {t('responses.nowICan', 'Agora posso participar')}
                </button>
             )}
-            <button 
+            <button
                onClick={() => setIsChanging(true)}
                disabled={submittingStatus !== null}
                data-testid="change-response"
@@ -244,15 +253,15 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
 
   return (
     <div className={`relative transition-all duration-300 ${
-      currentStatus === 'accepted' 
-        ? 'text-emerald-500' 
-        : currentStatus === 'declined' 
-          ? 'text-red-500' 
-          : currentStatus === 'maybe' 
-            ? 'text-amber-500' 
+      currentStatus === 'accepted'
+        ? 'text-emerald-500'
+        : currentStatus === 'declined'
+          ? 'text-red-500'
+          : currentStatus === 'maybe'
+            ? 'text-amber-500'
             : 'text-slate-300'
     } pt-1`}>
-      
+
       {currentStatus === 'pending' && (
         <div className="flex flex-col">
           <div className="flex items-center gap-3">
@@ -334,12 +343,12 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
               {declineReason.length}/300
             </div>
           </div>
-          
+
           <div className="flex justify-end gap-3 mt-6">
             <Button variant="outline" onClick={() => setIsDeclineModalOpen(false)}>
               {t('common.back', 'Voltar')}
             </Button>
-            <Button 
+            <Button
                variant="destructive"
                data-testid="submit-response"
                disabled={submittingStatus !== null}

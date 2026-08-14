@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 
+vi.hoisted(() => {
+  process.env.VERCEL = 'true';
+});
+
 // Define the mock database state and verifyIdToken mock
 const mockDbState = new Map<string, any>();
 const mockVerifyIdToken = vi.fn();
@@ -166,9 +170,6 @@ vi.mock('firebase-admin/firestore', () => {
     }
   };
 });
-
-// Set process.env.VERCEL so startLocalServer is NOT started
-process.env.VERCEL = 'true';
 
 // Import our Express application
 import app from '../../server.js';
@@ -467,6 +468,10 @@ describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
     
     // Seed Org and User (who is not in assignments of band_scale_123)
     seedStandardUserAndOrg({ userId: 'user_not_escalado', role: 'member', isOwner: false, scaleStatus: 'published' });
+
+    // Keep this authorization/business-rule scenario independent from wall-clock time.
+    const seededScale = mockDbState.get('scales/scale_123');
+    mockDbState.set('scales/scale_123', { ...seededScale, date: '2099-08-10', time: '19:00' });
 
     // Try to post response
     const res = await request(app)

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../services/firebase';
-import { collection, query, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
 import { EventAssignment, EventAssignmentResponse } from '../../types';
 import Spinner from '../common/Spinner';
 import { Can } from '../auth/Can';
 import { Check, Clock, X, HelpCircle } from 'lucide-react';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { useCapability } from '../../hooks/useCapability';
 
 interface TeamStatusSummaryProps {
   musicScaleId: string;
@@ -19,25 +19,34 @@ const TeamStatusSummary: React.FC<TeamStatusSummaryProps> = ({
   assignments
 }) => {
   const { t, i18n } = useTranslation();
-  const { user } = useAuth();
-  
+  const { hasCapability } = useCapability();
+
   const formatter = new Intl.ListFormat(i18n.language, { style: 'long', type: 'conjunction' });
-  
+
   const [responses, setResponses] = useState<EventAssignmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const isEnabled = useFeatureFlag('musicscale.scaleResponsesV1');
+  const canManageScales = hasCapability('musicscale.scales.manage');
 
   useEffect(() => {
-    if (!isEnabled) {
+    // The team-wide response summary is a manager-only view. Non-managers must
+    // never subscribe to the full response collection because Firestore rules
+    // intentionally allow them to read only their own response documents.
+    if (!isEnabled || !canManageScales) {
+       setResponses([]);
        setLoading(false);
        return;
     }
-    
-    // Fetch all responses for this scale
+
+    setLoading(true);
+
+    // Only active responses participate in the current team status. Historical
+    // response revisions stay in Firestore for audit, but should not be read by
+    // the live summary (or consume Rules evaluation budget).
     const responsesRef = collection(db, 'scales', musicScaleId, 'responses');
-    const q = query(responsesRef);
-    
+    const q = query(responsesRef, where('active', '==', true));
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetched: EventAssignmentResponse[] = [];
       snapshot.forEach(doc => {
@@ -46,14 +55,14 @@ const TeamStatusSummary: React.FC<TeamStatusSummaryProps> = ({
       setResponses(fetched);
       setLoading(false);
     }, (error) => {
-      console.error("Error listening to all responses:", error);
+      console.error("Error listening to active team responses:", error);
       setLoading(false);
     });
-    
-    return () => unsubscribe();
-  }, [musicScaleId, isEnabled]);
 
-  if (!isEnabled) return null;
+    return () => unsubscribe();
+  }, [musicScaleId, isEnabled, canManageScales]);
+
+  if (!isEnabled || !canManageScales) return null;
   if (loading) return <div className="flex justify-center p-4"><Spinner className="w-5 h-5 text-slate-500" /></div>;
 
   // Group by unique user.
@@ -81,9 +90,9 @@ const TeamStatusSummary: React.FC<TeamStatusSummaryProps> = ({
     }
   });
 
-  // Apply response data
+  // Apply current active response data.
   responses.forEach(r => {
-    if (r.active !== false && userMap.has(r.userId)) {
+    if (userMap.has(r.userId)) {
        const u = userMap.get(r.userId)!;
        u.status = r.status;
        u.reason = r.reason;
@@ -118,7 +127,7 @@ const TeamStatusSummary: React.FC<TeamStatusSummaryProps> = ({
        <h3 className="text-sm font-bold text-white uppercase tracking-wider">
          {t('responses.teamStatus', 'Situação da Equipe')}
        </h3>
-       
+
        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex flex-col items-center justify-center">
             <span className="text-xl font-bold text-emerald-400">{counts.accepted}</span>
@@ -165,12 +174,6 @@ const TeamStatusSummary: React.FC<TeamStatusSummaryProps> = ({
                </div>
                <div>
                   <p className="text-sm font-medium text-slate-200">
-                    {/* Realistically, we need user's name here.
-                        Since assignments don't store user names by default (unless populated),
-                        we might need to rely on the fact that these are just roles, 
-                        or we need to map userId to user name using the users repository.
-                        For now, we'll display the roles.
-                    */}
                     {formatter.format(u.functions)}
                   </p>
                   {u.status === 'declined' && u.reason && (
@@ -182,7 +185,7 @@ const TeamStatusSummary: React.FC<TeamStatusSummaryProps> = ({
                   )}
                </div>
              </div>
-             
+
              <div className="text-right">
                 <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded
                    ${u.status === 'accepted' ? 'text-emerald-400 bg-emerald-500/10' :

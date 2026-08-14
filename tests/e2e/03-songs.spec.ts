@@ -5,18 +5,18 @@ import { loginAsLeaderA } from './helpers/auth';
 test.describe('Songs Management', () => {
   test('Should list, view and interact with songs', async ({ page }, testInfo) => {
     await loginAsLeaderA(page);
-    
-    // Go to Songs (Repertório)
-    await page.getByRole('link', { name: /Repertório|Músicas/i }).first().click();
+
+    // Navigation has dedicated coverage; enter the canonical feature route directly.
+    await page.goto('/songs');
     await page.waitForURL('**/songs');
-    
-    // Check for seeded song
-    await expect(page.getByText('Música Sintética').first()).toBeVisible();
+
+    const songCard = page.getByTestId('song-card-song_a_1');
+    await expect(songCard).toBeVisible();
+    await expect(songCard.getByText('Música Sintética', { exact: true })).toBeVisible();
     await captureFullPage(page, testInfo, 'songs-list');
 
-    // Click on song to see detail
-    await page.getByText('Música Sintética').first().click();
-    await expect(page.getByText('Artista Teste').first()).toBeVisible();
+    await songCard.click();
+    await expect(page.getByText('Artista Teste', { exact: true }).first()).toBeVisible();
     await captureFullPage(page, testInfo, 'song-detail');
   });
 });
