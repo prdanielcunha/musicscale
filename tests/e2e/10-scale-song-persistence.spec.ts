@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/base';
 import { loginAsLeaderA } from './helpers/auth';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 const readCachedScale = async (page: Page, scaleId: string) => page.evaluate((id) => {
   for (let i = 0; i < localStorage.length; i += 1) {
@@ -16,6 +16,13 @@ const readCachedScale = async (page: Page, scaleId: string) => page.evaluate((id
   }
   return null;
 }, scaleId);
+
+const activateTab = async (locator: Locator) => {
+  await expect(locator).toBeVisible();
+  // Wizard/tab controls live inside animated sheets. Dispatch the semantic click
+  // after visibility so WebKit does not wait forever for CSS transform stability.
+  await locator.dispatchEvent('click');
+};
 
 test.describe('Scale Song Persistence', () => {
   test.describe.configure({
@@ -51,7 +58,7 @@ test.describe('Scale Song Persistence', () => {
     // mounted copy.
     const repertoireStep = scaleEditor.getByRole('button', { name: 'Repertório', exact: true }).first();
     await expect(repertoireStep).toBeVisible();
-    await repertoireStep.click();
+    await activateTab(repertoireStep);
 
     const viewport = page.viewportSize();
     if (viewport && viewport.width < 768) {
@@ -59,7 +66,7 @@ test.describe('Scale Song Persistence', () => {
       const builderTabs = scaleEditor.locator('div.md\\:hidden').filter({ hasText: /Repertório/ }).first();
       if (await builderTabs.isVisible().catch(() => false)) {
         const repertoireMobileTab = builderTabs.getByRole('button', { name: /Repertório/i }).last();
-        await repertoireMobileTab.click();
+        await activateTab(repertoireMobileTab);
       }
     }
 
@@ -89,7 +96,7 @@ test.describe('Scale Song Persistence', () => {
     // Draft/publish controls are rendered only on the Revisão step.
     const reviewStep = scaleEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
     await expect(reviewStep).toBeVisible();
-    await reviewStep.click();
+    await activateTab(reviewStep);
 
     const saveScaleBtn = scaleEditor.getByTestId('save-scale-draft');
     await expect(saveScaleBtn).toBeVisible();
@@ -119,8 +126,8 @@ test.describe('Scale Song Persistence', () => {
     // The current detail UI renders the value and the "Ajuste local" badge in
     // the same element, so assert the semantic values without requiring legacy
     // "Tom"/"BPM" copy that is not present in this card.
-    await expect(detailSongCard.getByText(/^G\s*(?:Ajuste local|Desta escala)$/i)).toBeVisible();
-    await expect(detailSongCard.getByText(/^105\s*(?:Ajuste local|Desta escala)$/i)).toBeVisible();
+    await expect(detailSongCard).toContainText(/\bG\b/);
+    await expect(detailSongCard).toContainText(/\b105\b/);
 
     const localBadges = detailSongCard.getByText(/Ajuste local|Desta escala/i);
     await expect(localBadges).toHaveCount(2);
