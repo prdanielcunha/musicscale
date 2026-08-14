@@ -20,10 +20,11 @@ test.describe('Scale Song Persistence', () => {
     await expect(songItemBefore.getByText('D', { exact: true })).toBeVisible();
     await expect(songItemBefore.getByText(/(?:BPM\s*90|90\s*BPM)/i)).toBeVisible();
 
-    // 1 & 2. abrir a escala draft conhecida ("Culto de Terça") e modo de edição
+    // 1 & 2. abrir a escala draft conhecida e confirmar o detalhe por controles estáveis.
+    // O título público é derivado de eventType/eventName, não do campo legado `title` do fixture.
     await page.goto(`/scales/${scaleId}`);
     await page.waitForURL(`**/scales/${scaleId}`);
-    await expect(page.getByRole('heading', { name: `Persistência de Tom ${project}` })).toBeVisible();
+    await expect(page.getByTestId('detail-song-card-song_a_2')).toBeVisible();
 
     // 3. Clicar no botão "Editar Escala" da barra do cabeçalho de título para entrar no modo edição
     const btnEditScale = page.getByTestId('edit-scale-detail-button');
@@ -69,9 +70,9 @@ test.describe('Scale Song Persistence', () => {
     // 10. confirmação real de salvamento (espera modal/drawer fechar)
     await expect(page.getByRole('heading', { name: /Editar Escala/i })).toBeHidden();
 
-    // 11 & 12. escala reaberta (ou seja, nós voltamos pra Scale View e vemos os dados).
+    // 11 & 12. escala reaberta e detalhe novamente disponível.
     await page.waitForURL(`**/scales/${scaleId}`);
-    await expect(page.getByRole('heading', { name: `Persistência de Tom ${project}` })).toBeVisible();
+    await expect(page.getByTestId('edit-scale-detail-button')).toBeVisible();
 
     // 13 & 14 & 15. tom G exibido e BPM 105 exibido com o badge "Desta escala"
     const detailSongCard = page.getByTestId('detail-song-card-song_a_2');
