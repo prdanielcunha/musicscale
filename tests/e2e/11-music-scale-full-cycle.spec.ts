@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/base';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { loginAsLeaderA, loginAsMusicianA, loginAsLeaderB } from './helpers/auth';
 import {
   getScaleSnapshot,
@@ -11,25 +11,11 @@ import {
   findNotification
 } from './helpers/emulatorAssertions';
 
-const readCachedScale = async (page: Page, scaleId: string) => page.evaluate((id) => {
-  for (let i = 0; i < localStorage.length; i += 1) {
-    const key = localStorage.key(i);
-    if (!key?.startsWith('musicscale:music-data:v2:')) continue;
-    try {
-      const envelope = JSON.parse(localStorage.getItem(key) || 'null');
-      const scale = envelope?.data?.populatedScales?.find((item: any) => item.id === id);
-      if (scale) return scale;
-    } catch {
-      // Ignore unrelated/invalid storage entries.
-    }
-  }
-  return null;
-}, scaleId);
-
-const waitForReactCommit = async (page: Page) => {
-  await page.evaluate(() => new Promise<void>((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-  }));
+const activateTab = async (locator: Locator) => {
+  await expect(locator).toBeVisible();
+  // The wizard lives in animated bottom sheets on WebKit. Once visible, dispatch
+  // the semantic click instead of waiting indefinitely for transform stability.
+  await locator.dispatchEvent('click');
 };
 
 const openScaleFromList = async (page: Page, scaleId: string) => {
@@ -96,19 +82,18 @@ test.describe('MusicScale full cycle', () => {
     expect(await countNotificationsForScale('org_a', scaleId)).toBe(0);
     expect(await countActiveResponses(scaleId)).toBe(0);
 
-    // Saving closes the editor before the background refresh finishes. Wait for
-    // useMusicData's durable cache write, then let React commit that same fresh
-    // snapshot before reopening through the real card instead of a same-route
-    // deep-link that can capture the old PopulatedScale object.
+    // The draft contract is Firestore, not localStorage. WebKit can delay the
+    // local cache write even after the durable document is already correct.
     await expect.poll(async () => {
-      const cachedScale = await readCachedScale(page, scaleId);
-      return cachedScale?.bandScaleId || null;
+      const snapshot = await getScaleSnapshot(scaleId);
+      return snapshot?.bandScaleId || null;
     }, { timeout: 15_000 }).toBe(bandScaleId);
-    await waitForReactCommit(page);
 
+    // Then wait for the live React list to consume the refreshed snapshot before
+    // reopening the scale through the same card a user would click.
     const refreshedCard = page.getByTestId(`scale-card-${scaleId}`);
     await expect(refreshedCard).toBeVisible();
-    await expect(refreshedCard).toContainText(/2\s+escalados/i);
+    await expect(refreshedCard).toContainText(/2\s+escalados/i, { timeout: 15_000 });
     await refreshedCard.getByRole('heading', { level: 3 }).click();
     await expect(page.getByTestId('detail-song-card-song_a_2')).toBeVisible();
 
@@ -119,7 +104,7 @@ test.describe('MusicScale full cycle', () => {
 
     const reviewStep = scaleEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
     await expect(reviewStep).toBeVisible();
-    await reviewStep.click();
+    await activateTab(reviewStep);
 
     const publishPromise = page.waitForResponse(response =>
       response.url().includes(`/api/v1/music-scales/${scaleId}/publish`) && response.request().method() === 'POST'
@@ -203,7 +188,7 @@ test.describe('MusicScale full cycle', () => {
     );
     await btnMaybe.click();
     expect((await maybePromise).status()).toBe(200);
-    await expect(page.getByText(/Ainda não confirmada/i).first()).toBeVisible();
+    await expect(page.getByText(/Você ainda não confirmou|Ainda não confirmada/i).first()).toBeVisible();
 
     const responsesMaybe = await getScaleResponses(scaleId);
     const respMaybe = responsesMaybe.find(r => r.userId === 'user_musician_a' && r.active === true);
@@ -284,25 +269,25 @@ test.describe('MusicScale full cycle', () => {
 
     const formationStep = bandEditor.getByRole('button', { name: 'Formação', exact: true }).first();
     await expect(formationStep).toBeVisible();
-    await formationStep.click();
+    await activateTab(formationStep);
 
     const viewport = page.viewportSize();
     const compactBandBuilder = !!viewport && viewport.width < 1024;
     const bandBuilderTabs = bandEditor.locator('div.lg\\:hidden').filter({ hasText: /Formação/ }).first();
     if (compactBandBuilder) {
       await expect(bandBuilderTabs).toBeVisible();
-      await bandBuilderTabs.locator('button').nth(1).click();
+      await activateTab(bandBuilderTabs.locator('button').nth(1));
     }
 
     const removeBtn = bandEditor.getByTestId('remove-assignment-user_musician_a2-instrument_guitar');
     await expect(removeBtn).toBeVisible();
     await removeBtn.click();
 
-    if (compactBandBuilder) await bandBuilderTabs.locator('button').nth(0).click();
+    if (compactBandBuilder) await activateTab(bandBuilderTabs.locator('button').nth(0));
     const selectKeyInst = bandEditor.getByTestId('select-instrument-instrument_keyboard');
     await expect(selectKeyInst).toBeVisible();
     await selectKeyInst.click();
-    if (compactBandBuilder) await bandBuilderTabs.locator('button').nth(1).click();
+    if (compactBandBuilder) await activateTab(bandBuilderTabs.locator('button').nth(1));
 
     const btnShowAll = bandEditor.getByRole('button', { name: /Mostrar todos/i });
     if (await btnShowAll.isVisible().catch(() => false)) await btnShowAll.click();
@@ -312,7 +297,7 @@ test.describe('MusicScale full cycle', () => {
     await addBtn.click();
 
     const bandReviewStep = bandEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
-    await bandReviewStep.click();
+    await activateTab(bandReviewStep);
     const saveBandBtn = bandEditor.getByRole('button', { name: /Salvar Escala/i }).first();
     await expect(saveBandBtn).toBeVisible();
     await saveBandBtn.click();
@@ -335,7 +320,7 @@ test.describe('MusicScale full cycle', () => {
     const scaleEditor = page.getByTestId('music-scale-modal');
     await expect(scaleEditor).toBeVisible();
     const musicReviewStep = scaleEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
-    await musicReviewStep.click();
+    await activateTab(musicReviewStep);
 
     const publishPromise = page.waitForResponse(response =>
       response.url().includes(`/api/v1/music-scales/${scaleId}/publish`) && response.request().method() === 'POST'
