@@ -1,5 +1,21 @@
 import { test, expect } from './helpers/base';
 import { loginAsLeaderA } from './helpers/auth';
+import type { Page } from '@playwright/test';
+
+const readCachedScale = async (page: Page, scaleId: string) => page.evaluate((id) => {
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith('musicscale:music-data:v2:')) continue;
+    try {
+      const envelope = JSON.parse(localStorage.getItem(key) || 'null');
+      const scale = envelope?.data?.populatedScales?.find((item: any) => item.id === id);
+      if (scale) return scale;
+    } catch {
+      // Ignore unrelated/invalid storage entries and keep looking for the active cache.
+    }
+  }
+  return null;
+}, scaleId);
 
 test.describe('Scale Song Persistence', () => {
   test.describe.configure({
@@ -80,19 +96,31 @@ test.describe('Scale Song Persistence', () => {
     await saveScaleBtn.click();
     await expect(scaleEditor).toBeHidden();
 
-    // base.ts waits for BrowserRouter to commit each internal route before the
-    // next goto, so the ScalesPage deep-link guard can reset deterministically.
-    await page.goto('/scales');
-    await expect(page.getByRole('heading', { name: 'Escalas Musicais' })).toBeVisible();
-    await page.goto(`/scales/${scaleId}`);
+    // Closing the editor intentionally happens before the background refresh is
+    // finished. Synchronize on the cache write that useMusicData performs only
+    // after it has rebuilt populatedScales, instead of racing a second deep-link.
+    await expect.poll(async () => {
+      const cachedScale = await readCachedScale(page, scaleId);
+      return {
+        key: cachedScale?.songSettings?.song_a_2?.key,
+        bpm: cachedScale?.songSettings?.song_a_2?.bpm,
+      };
+    }, { timeout: 15_000 }).toEqual({ key: 'G', bpm: 105 });
+
+    // Exercise the real user path from the refreshed list. This avoids reopening
+    // the same route before React Router/context have committed the new snapshot.
+    const refreshedScaleCard = page.getByTestId(`scale-card-${scaleId}`);
+    await expect(refreshedScaleCard).toBeVisible();
+    await refreshedScaleCard.getByRole('heading', { level: 3 }).click();
     await expect(page.getByTestId('edit-scale-detail-button')).toBeVisible();
 
     const detailSongCard = page.getByTestId('detail-song-card-song_a_2');
     await expect(detailSongCard).toBeVisible();
-    // The current detail card renders the value together with its semantic label
-    // (for example "Tom G" / "BPM 105") rather than as an isolated text node.
-    await expect(detailSongCard).toContainText(/Tom\s*G/i);
-    await expect(detailSongCard).toContainText(/(?:BPM\s*105|105\s*BPM)/i);
+    // The current detail UI renders the value and the "Ajuste local" badge in
+    // the same element, so assert the semantic values without requiring legacy
+    // "Tom"/"BPM" copy that is not present in this card.
+    await expect(detailSongCard.getByText(/^G\s*(?:Ajuste local|Desta escala)$/i)).toBeVisible();
+    await expect(detailSongCard.getByText(/^105\s*(?:Ajuste local|Desta escala)$/i)).toBeVisible();
 
     const localBadges = detailSongCard.getByText(/Ajuste local|Desta escala/i);
     await expect(localBadges).toHaveCount(2);
