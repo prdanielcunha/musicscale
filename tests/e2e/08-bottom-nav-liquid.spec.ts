@@ -25,7 +25,7 @@ test.describe('BottomNav Liquid Glass', () => {
     const fontSizeStr = await painelLink.locator('span').evaluate((el) => window.getComputedStyle(el).fontSize);
     expect(parseFloat(fontSizeStr)).toBeGreaterThanOrEqual(10);
 
-    const navSurface = nav.locator('> div > div.pointer-events-auto.flex');
+    const navSurface = nav.locator(':scope > div > div.pointer-events-auto.flex');
     const surfaceBox = await navSurface.boundingBox();
     expect(surfaceBox).not.toBeNull();
     if (surfaceBox) {
@@ -59,11 +59,9 @@ test.describe('BottomNav Liquid Glass', () => {
     await expect(page).toHaveURL(/.*\//);
     await expect(painelLink).toHaveAttribute('aria-current', 'page');
 
-    // Scope the liquid indicator to the active bottom-nav link. The rest of the
-    // application legitimately contains many aria-hidden decorative elements.
     const activeLinks = nav.locator('a[aria-current="page"]');
     await expect(activeLinks).toHaveCount(1);
-    const activeIndicator = activeLinks.locator('> div[aria-hidden="true"]');
+    const activeIndicator = activeLinks.locator(':scope > div[aria-hidden="true"]');
     await expect(activeIndicator).toHaveCount(1);
     await expect(activeIndicator).toBeVisible();
 
