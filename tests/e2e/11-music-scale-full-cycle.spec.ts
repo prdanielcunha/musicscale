@@ -44,13 +44,15 @@ test.describe('MusicScale full cycle', () => {
     await page.goto(`/scales/${scaleId}`);
     await page.waitForURL(`**/scales/${scaleId}`);
 
-    await expect(page.getByRole('heading', { name: `Ciclo Completo ${project}` })).toBeVisible();
+    // The public scale title is canonically derived from eventType/eventName,
+    // not from the legacy fixture `title` field. Verify the exact scale by
+    // deterministic content and controls instead of presentation text.
     await expect(page.getByText('19:30')).toBeVisible();
     await expect(page.getByTestId('detail-song-card-song_a_2')).toBeVisible();
+    await expect(page.getByTestId('edit-scale-detail-button')).toBeVisible();
 
     // Editar e vincular bandscale
     const btnEdit = page.getByTestId('edit-scale-detail-button');
-    await expect(btnEdit).toBeVisible();
     await btnEdit.click();
     await expect(page.getByRole('heading', { name: /Editar Escala/i })).toBeVisible();
 
@@ -92,10 +94,10 @@ test.describe('MusicScale full cycle', () => {
     await btnNext.click();
     await btnNext.click();
 
-    const publishPromise = page.waitForResponse(response => 
+    const publishPromise = page.waitForResponse(response =>
       response.url().includes(`/api/v1/music-scales/${scaleId}/publish`) && response.request().method() === 'POST'
     );
-    
+
     const btnPublish = page.getByTestId('publish-scale');
     await expect(btnPublish).toBeVisible();
     await btnPublish.click();
@@ -159,7 +161,7 @@ test.describe('MusicScale full cycle', () => {
     const viewFullBtn = page.getByRole('button', { name: /Ver escala completa/i });
     await expect(viewFullBtn).toBeVisible();
     await viewFullBtn.click();
-    
+
     await page.waitForURL(`**/scales/${scaleId}`);
 
     // Confirmar função atribuída
@@ -187,7 +189,7 @@ test.describe('MusicScale full cycle', () => {
     const btnChange = page.getByTestId('change-response');
     await expect(btnChange).toBeVisible();
     await btnChange.click();
-    
+
     const btnMaybe = page.getByTestId('response-maybe');
     await expect(btnMaybe).toBeVisible();
     await btnMaybe.click();
@@ -207,7 +209,7 @@ test.describe('MusicScale full cycle', () => {
     // 3. Alterar para declined
     await expect(btnChange).toBeVisible();
     await btnChange.click();
-    
+
     const btnDecline = page.getByTestId('response-declined');
     await expect(btnDecline).toBeVisible();
     await btnDecline.click();
@@ -216,7 +218,7 @@ test.describe('MusicScale full cycle', () => {
     const inputReason = page.getByTestId('response-reason');
     await expect(inputReason).toBeVisible();
     await inputReason.fill('Imprevisto médico');
-    
+
     const submitReason = page.getByTestId('submit-response');
     await expect(submitReason).toBeVisible();
     await submitReason.click();
@@ -304,7 +306,7 @@ test.describe('MusicScale full cycle', () => {
     await btnNext.click(); // Avança para Passo 4 (Revisão final)
 
     // Republicar e asseverar incremento da revisão e reconciliação dos registros
-    const publishPromise = page.waitForResponse(response => 
+    const publishPromise = page.waitForResponse(response =>
       response.url().includes(`/api/v1/music-scales/${scaleId}/publish`) && response.request().method() === 'POST'
     );
     const republishBtn = page.getByTestId('publish-scale');
@@ -351,14 +353,14 @@ test.describe('MusicScale full cycle', () => {
     const btnAddToCalendar = page.getByRole('button', { name: /Agenda/i });
     await expect(btnAddToCalendar).toBeVisible();
     await btnAddToCalendar.click();
-      
-    // Capturar URL do Google Agenda
+
+    // Capturar URL do Google Agenda. Calendar exports use the canonical public
+    // title derived from event type/name, matching the visible scale title.
     const linkGoogle = page.getByRole('link', { name: /Google/i });
     await expect(linkGoogle).toBeVisible();
     const href = await linkGoogle.getAttribute('href');
     expect(href).toContain('calendar.google.com');
-    // SUMMARY do Google Calendar link
-    expect(href).toContain(encodeURIComponent(`Ciclo Completo ${project}`));
+    expect(href).toContain(encodeURIComponent('Culto Principal'));
 
     // Gerar ICS (Download Promise)
     const btnICS = page.getByRole('button', { name: /Apple|ICS|Download/i });
@@ -366,7 +368,7 @@ test.describe('MusicScale full cycle', () => {
     const downloadPromise = page.waitForEvent('download');
     await btnICS.click();
     const download = await downloadPromise;
-    
+
     // Ler e verificar o arquivo ICS baixado
     const stream = await download.createReadStream();
     let content = '';
@@ -376,7 +378,7 @@ test.describe('MusicScale full cycle', () => {
       }
     }
     expect(content).toContain('BEGIN:VCALENDAR');
-    expect(content).toContain(`SUMMARY:Ciclo Completo ${project}`);
+    expect(content).toContain('SUMMARY:Culto Principal');
     expect(content).toContain('END:VCALENDAR');
   });
 
@@ -385,12 +387,12 @@ test.describe('MusicScale full cycle', () => {
     const scaleId = `scale_full_cycle_${project}`;
 
     await loginAsLeaderB(page);
-    
+
     // ETAPA 13: Tentar abrir a escala da organização A e asseverar que o acesso foi negado/redirecionado com segurança
     await page.goto(`/scales/${scaleId}`);
-    
-    // O título "Ciclo Completo <project>" não deve estar visível
-    await expect(page.getByRole('heading', { name: `Ciclo Completo ${project}` })).not.toBeVisible();
+
+    // Conteúdo tenant-específico da escala da organização A nunca pode aparecer para B.
+    await expect(page.getByTestId('detail-song-card-song_a_2')).not.toBeVisible();
 
     // Se o status da página for 200, garantir que a URL mudou ou exibe mensagem de segurança/erro
     const pageUrl = page.url();
