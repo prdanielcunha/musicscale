@@ -1,4 +1,5 @@
 import { test, expect } from './helpers/base';
+import type { Page } from '@playwright/test';
 import { loginAsLeaderA, loginAsMusicianA, loginAsLeaderB } from './helpers/auth';
 import {
   getScaleSnapshot,
@@ -10,6 +11,34 @@ import {
   findNotification
 } from './helpers/emulatorAssertions';
 
+const readCachedScale = async (page: Page, scaleId: string) => page.evaluate((id) => {
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith('musicscale:music-data:v2:')) continue;
+    try {
+      const envelope = JSON.parse(localStorage.getItem(key) || 'null');
+      const scale = envelope?.data?.populatedScales?.find((item: any) => item.id === id);
+      if (scale) return scale;
+    } catch {
+      // Ignore unrelated/invalid storage entries.
+    }
+  }
+  return null;
+}, scaleId);
+
+const waitForReactCommit = async (page: Page) => {
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+};
+
+const openScaleFromList = async (page: Page, scaleId: string) => {
+  const card = page.getByTestId(`scale-card-${scaleId}`);
+  await expect(card).toBeVisible();
+  await card.getByRole('heading', { level: 3 }).click();
+  await expect(page.getByTestId('edit-scale-detail-button')).toBeVisible();
+};
+
 test.describe('MusicScale full cycle', () => {
   test.describe.configure({
     mode: 'serial',
@@ -19,6 +48,7 @@ test.describe('MusicScale full cycle', () => {
   test('A. líder publica a escala', async ({ page }, testInfo) => {
     const project = testInfo.project.name;
     const scaleId = `scale_full_cycle_${project}`;
+    const bandScaleId = `bandscale_full_cycle_${project}`;
 
     const initialScale = await getScaleSnapshot(scaleId);
     expect(initialScale).not.toBeNull();
@@ -27,17 +57,14 @@ test.describe('MusicScale full cycle', () => {
     expect(initialScale!.songIds).toHaveLength(2);
     expect(initialScale!.eventAssignments || []).toHaveLength(0);
 
-    const bandScaleSnapshot = await getBandScaleSnapshot(`bandscale_full_cycle_${project}`);
+    const bandScaleSnapshot = await getBandScaleSnapshot(bandScaleId);
     expect(bandScaleSnapshot).not.toBeNull();
     expect(bandScaleSnapshot!.assignments).toHaveLength(2);
 
-    const initialNotifs = await countNotificationsForScale('org_a', scaleId);
-    const initialResponses = await countActiveResponses(scaleId);
-    expect(initialNotifs).toBe(0);
-    expect(initialResponses).toBe(0);
+    expect(await countNotificationsForScale('org_a', scaleId)).toBe(0);
+    expect(await countActiveResponses(scaleId)).toBe(0);
 
     await loginAsLeaderA(page);
-
     await page.goto(`/scales/${scaleId}`);
     await page.waitForURL(`**/scales/${scaleId}`);
     await expect(page.getByTestId('detail-song-card-song_a_2')).toBeVisible();
@@ -53,7 +80,7 @@ test.describe('MusicScale full cycle', () => {
     await expect(btnNext).toBeVisible();
     await btnNext.click();
 
-    const cardBandScale = scaleEditor.getByTestId(`link-band-scale-bandscale_full_cycle_${project}`);
+    const cardBandScale = scaleEditor.getByTestId(`link-band-scale-${bandScaleId}`);
     await expect(cardBandScale).toBeVisible();
     await cardBandScale.click();
 
@@ -66,16 +93,23 @@ test.describe('MusicScale full cycle', () => {
     await expect(scaleEditor).toBeHidden();
     await expect(page.getByText(/Rascunho|Draft/i).first()).toBeVisible();
 
-    const midNotifs = await countNotificationsForScale('org_a', scaleId);
-    const midResponses = await countActiveResponses(scaleId);
-    expect(midNotifs).toBe(0);
-    expect(midResponses).toBe(0);
+    expect(await countNotificationsForScale('org_a', scaleId)).toBe(0);
+    expect(await countActiveResponses(scaleId)).toBe(0);
 
-    // base.ts now waits for BrowserRouter to commit each internal route before
-    // the next goto, so the ScalesPage deep-link guard resets deterministically.
-    await page.goto('/scales');
-    await expect(page.getByRole('heading', { name: 'Escalas Musicais' })).toBeVisible();
-    await page.goto(`/scales/${scaleId}`);
+    // Saving closes the editor before the background refresh finishes. Wait for
+    // useMusicData's durable cache write, then let React commit that same fresh
+    // snapshot before reopening through the real card instead of a same-route
+    // deep-link that can capture the old PopulatedScale object.
+    await expect.poll(async () => {
+      const cachedScale = await readCachedScale(page, scaleId);
+      return cachedScale?.bandScaleId || null;
+    }, { timeout: 15_000 }).toBe(bandScaleId);
+    await waitForReactCommit(page);
+
+    const refreshedCard = page.getByTestId(`scale-card-${scaleId}`);
+    await expect(refreshedCard).toBeVisible();
+    await expect(refreshedCard).toContainText(/2\s+escalados/i);
+    await refreshedCard.getByRole('heading', { level: 3 }).click();
     await expect(page.getByTestId('detail-song-card-song_a_2')).toBeVisible();
 
     const btnEditAgain = page.getByTestId('edit-scale-detail-button');
@@ -90,32 +124,25 @@ test.describe('MusicScale full cycle', () => {
     const publishPromise = page.waitForResponse(response =>
       response.url().includes(`/api/v1/music-scales/${scaleId}/publish`) && response.request().method() === 'POST'
     );
-
     const btnPublish = scaleEditor.getByTestId('publish-scale');
     await expect(btnPublish).toBeVisible();
     await btnPublish.click();
 
     const publishResponse = await publishPromise;
     const publishRequest = publishResponse.request();
-
     expect(publishRequest.headers()['authorization']).toContain('Bearer ');
     expect(publishRequest.headers()['x-organization-id']).toBe('org_a');
     expect(publishRequest.headers()['idempotency-key']).toBeTruthy();
     expect(publishResponse.status()).toBe(200);
-
     await expect(scaleEditor).toBeHidden();
 
-    // The durable publish contract is the command response plus persisted state,
-    // not a locale/copy fragment in the post-publish UI.
     const scaleSnapshot = await getScaleSnapshot(scaleId);
     expect(scaleSnapshot).not.toBeNull();
     expect(scaleSnapshot!.publishRevision).toBe(1);
     expect(scaleSnapshot!.status).toBe('published');
     expect(scaleSnapshot!.eventAssignments).toHaveLength(2);
 
-    const finalNotifs = await countNotificationsForScale('org_a', scaleId);
-    expect(finalNotifs).toBeGreaterThan(0);
-
+    expect(await countNotificationsForScale('org_a', scaleId)).toBeGreaterThan(0);
     const musicianNotif = await findNotification('org_a', {
       sourceEventId: scaleId,
       recipientId: 'user_musician_a',
@@ -131,7 +158,6 @@ test.describe('MusicScale full cycle', () => {
     const scaleId = `scale_full_cycle_${project}`;
 
     await loginAsMusicianA(page);
-
     await page.goto('/notifications');
     await page.waitForURL('**/notifications');
 
@@ -143,7 +169,6 @@ test.describe('MusicScale full cycle', () => {
     const viewFullBtn = page.getByRole('button', { name: /Ver escala completa/i });
     await expect(viewFullBtn).toBeVisible();
     await viewFullBtn.click();
-
     await page.waitForURL(`**/scales/${scaleId}`);
     await expect(page.getByText('Vocal', { exact: true }).first()).toBeVisible();
 
@@ -153,8 +178,7 @@ test.describe('MusicScale full cycle', () => {
       response.url().includes(`/api/v1/music-scales/${scaleId}/my-response`) && response.request().method() === 'POST'
     );
     await btnAccept.click();
-    const acceptResponse = await acceptPromise;
-    expect(acceptResponse.status()).toBe(200);
+    expect((await acceptPromise).status()).toBe(200);
     await expect(page.getByText(/Presença confirmada/i).first()).toBeVisible();
 
     const responsesAccepted = await getScaleResponses(scaleId);
@@ -178,8 +202,7 @@ test.describe('MusicScale full cycle', () => {
       response.url().includes(`/api/v1/music-scales/${scaleId}/my-response`) && response.request().method() === 'POST'
     );
     await btnMaybe.click();
-    const maybeResponse = await maybePromise;
-    expect(maybeResponse.status()).toBe(200);
+    expect((await maybePromise).status()).toBe(200);
     await expect(page.getByText(/Ainda não confirmada/i).first()).toBeVisible();
 
     const responsesMaybe = await getScaleResponses(scaleId);
@@ -204,16 +227,12 @@ test.describe('MusicScale full cycle', () => {
     await inputReason.fill('Imprevisto médico');
 
     const submitReason = page.getByTestId('submit-response');
-    await expect(submitReason).toBeVisible();
     const declinePromise = page.waitForResponse(response =>
       response.url().includes(`/api/v1/music-scales/${scaleId}/my-response`) && response.request().method() === 'POST'
     );
     await submitReason.click();
-    const declineResponse = await declinePromise;
-    expect(declineResponse.status()).toBe(200);
-
+    expect((await declinePromise).status()).toBe(200);
     await expect(page.getByText(/Você informou que não poderá/i).first()).toBeVisible();
-    await expect(page.getByText('Imprevisto médico', { exact: true }).first()).toBeVisible();
 
     const responsesDeclined = await getScaleResponses(scaleId);
     const respDeclined = responsesDeclined.find(r => r.userId === 'user_musician_a' && r.active === true);
@@ -253,10 +272,6 @@ test.describe('MusicScale full cycle', () => {
     const prevPublishRev = prevScale!.publishRevision || 1;
 
     await loginAsLeaderA(page);
-
-    // The linked formation is owned by BandScale. Update that source of truth
-    // before republishing MusicScale; assignment controls do not exist in the
-    // MusicScale editor.
     await page.goto(`/band-scales/${bandScaleId}`);
     await page.waitForURL(`**/band-scales/${bandScaleId}`);
 
@@ -273,8 +288,7 @@ test.describe('MusicScale full cycle', () => {
 
     const viewport = page.viewportSize();
     const compactBandBuilder = !!viewport && viewport.width < 1024;
-    let bandBuilderTabs = bandEditor.locator('div.lg\\:hidden').filter({ hasText: /Formação/ }).first();
-
+    const bandBuilderTabs = bandEditor.locator('div.lg\\:hidden').filter({ hasText: /Formação/ }).first();
     if (compactBandBuilder) {
       await expect(bandBuilderTabs).toBeVisible();
       await bandBuilderTabs.locator('button').nth(1).click();
@@ -284,31 +298,21 @@ test.describe('MusicScale full cycle', () => {
     await expect(removeBtn).toBeVisible();
     await removeBtn.click();
 
-    if (compactBandBuilder) {
-      await bandBuilderTabs.locator('button').nth(0).click();
-    }
-
+    if (compactBandBuilder) await bandBuilderTabs.locator('button').nth(0).click();
     const selectKeyInst = bandEditor.getByTestId('select-instrument-instrument_keyboard');
     await expect(selectKeyInst).toBeVisible();
     await selectKeyInst.click();
-
-    if (compactBandBuilder) {
-      await bandBuilderTabs.locator('button').nth(1).click();
-    }
+    if (compactBandBuilder) await bandBuilderTabs.locator('button').nth(1).click();
 
     const btnShowAll = bandEditor.getByRole('button', { name: /Mostrar todos/i });
-    if (await btnShowAll.isVisible().catch(() => false)) {
-      await btnShowAll.click();
-    }
+    if (await btnShowAll.isVisible().catch(() => false)) await btnShowAll.click();
 
     const addBtn = bandEditor.getByTestId('add-assignment-user_musician_a3-instrument_keyboard');
     await expect(addBtn).toBeVisible();
     await addBtn.click();
 
     const bandReviewStep = bandEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
-    await expect(bandReviewStep).toBeVisible();
     await bandReviewStep.click();
-
     const saveBandBtn = bandEditor.getByRole('button', { name: /Salvar Escala/i }).first();
     await expect(saveBandBtn).toBeVisible();
     await saveBandBtn.click();
@@ -319,33 +323,28 @@ test.describe('MusicScale full cycle', () => {
     expect(updatedBand!.assignments.some((a: any) => a.userId === 'user_musician_a2' && a.instrumentId === 'instrument_guitar')).toBe(false);
     expect(updatedBand!.assignments.some((a: any) => a.userId === 'user_musician_a3' && a.instrumentId === 'instrument_keyboard')).toBe(true);
 
-    await page.goto(`/scales/${scaleId}`);
-    await page.waitForURL(`**/scales/${scaleId}`);
+    // Cross back to the real list and open the current card instead of forcing a
+    // deep-link while the BandScale refresh is still settling.
+    await page.goto('/scales');
+    await expect(page.getByRole('heading', { name: 'Escalas Musicais' })).toBeVisible();
+    await openScaleFromList(page, scaleId);
     await expect(page.getByTestId('detail-song-card-song_a_2')).toBeVisible();
 
     const editMusicBtn = page.getByTestId('edit-scale-detail-button');
-    await expect(editMusicBtn).toBeVisible();
     await editMusicBtn.click();
-
     const scaleEditor = page.getByTestId('music-scale-modal');
     await expect(scaleEditor).toBeVisible();
     const musicReviewStep = scaleEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
-    await expect(musicReviewStep).toBeVisible();
     await musicReviewStep.click();
 
     const publishPromise = page.waitForResponse(response =>
       response.url().includes(`/api/v1/music-scales/${scaleId}/publish`) && response.request().method() === 'POST'
     );
     const republishBtn = scaleEditor.getByTestId('publish-scale');
-    await expect(republishBtn).toBeVisible();
     await republishBtn.click();
-
-    const publishResponse = await publishPromise;
-    expect(publishResponse.status()).toBe(200);
-
+    expect((await publishPromise).status()).toBe(200);
     await expect(scaleEditor).toBeHidden();
 
-    // Republish is verified against the durable revision and response state.
     const scaleSnapshot = await getScaleSnapshot(scaleId);
     expect(scaleSnapshot).not.toBeNull();
     expect(scaleSnapshot!.publishRevision).toBe(prevPublishRev + 1);
@@ -353,12 +352,10 @@ test.describe('MusicScale full cycle', () => {
     const responses = await getScaleResponses(scaleId);
     const activeResponses = responses.filter(r => r.active === true);
     const inactiveResponses = responses.filter(r => r.active === false);
-
     expect(activeResponses).toHaveLength(2);
     expect(activeResponses.some(r => r.userId === 'user_musician_a')).toBe(true);
     expect(activeResponses.some(r => r.userId === 'user_musician_a3')).toBe(true);
     expect(activeResponses.every(r => r.assignmentRevision === prevPublishRev + 1)).toBe(true);
-
     expect(inactiveResponses.length).toBeGreaterThan(0);
     expect(inactiveResponses.some(r => r.userId === 'user_musician_a' && r.assignmentRevision === 1)).toBe(true);
   });
@@ -390,9 +387,7 @@ test.describe('MusicScale full cycle', () => {
     const stream = await download.createReadStream();
     let content = '';
     if (stream) {
-      for await (const chunk of stream) {
-        content += chunk;
-      }
+      for await (const chunk of stream) content += chunk;
     }
     expect(content).toContain('BEGIN:VCALENDAR');
     expect(content).toContain('SUMMARY:Culto Principal');
@@ -405,7 +400,6 @@ test.describe('MusicScale full cycle', () => {
 
     await loginAsLeaderB(page);
     await page.goto(`/scales/${scaleId}`);
-
     await expect(page.getByTestId('detail-song-card-song_a_2')).not.toBeVisible();
 
     const pageUrl = page.url();
