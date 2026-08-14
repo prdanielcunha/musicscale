@@ -437,27 +437,53 @@ import { ToastProvider } from './contexts/ToastContext';
 import { OfflineProvider } from './contexts/OfflineContext';
 import { EcosystemProvider } from './contexts/EcosystemContext';
 
+const PrivateAppProviders: React.FC = () => (
+    <EcosystemProvider>
+        <ThemeProvider>
+            <AuthProvider>
+                <ToastProvider>
+                    <OfflineProvider>
+                        <ApiProvider>
+                            <NotificationProvider>
+                                <ErrorBoundary>
+                                    <AppContent />
+                                </ErrorBoundary>
+                            </NotificationProvider>
+                        </ApiProvider>
+                    </OfflineProvider>
+                </ToastProvider>
+            </AuthProvider>
+        </ThemeProvider>
+    </EcosystemProvider>
+);
+
+/**
+ * The login page is a public authentication boundary. It must be reachable before
+ * tenant, membership and entitlement hydration completes. Once login navigates to
+ * /start, this component remounts the private provider stack, where all canonical
+ * ecosystem/RBAC/subscription gates remain mandatory.
+ */
+const RootApp: React.FC = () => {
+    const location = useLocation();
+
+    if (location.pathname === '/login') {
+        return (
+            <ThemeProvider>
+                <ErrorBoundary>
+                    <LoginPage />
+                </ErrorBoundary>
+            </ThemeProvider>
+        );
+    }
+
+    return <PrivateAppProviders />;
+};
+
 const App: React.FC = () => {
     return (
-        <EcosystemProvider>
-            <ThemeProvider>
-                <AuthProvider>
-                    <ToastProvider>
-                        <OfflineProvider>
-                            <ApiProvider>
-                                <NotificationProvider>
-                                    <BrowserRouter>
-                                        <ErrorBoundary>
-                                            <AppContent />
-                                        </ErrorBoundary>
-                                    </BrowserRouter>
-                                </NotificationProvider>
-                            </ApiProvider>
-                        </OfflineProvider>
-                    </ToastProvider>
-                </AuthProvider>
-            </ThemeProvider>
-        </EcosystemProvider>
+        <BrowserRouter>
+            <RootApp />
+        </BrowserRouter>
     );
 };
 
