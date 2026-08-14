@@ -23,17 +23,17 @@ test.describe('Multiple Scales', () => {
     await expect(page.getByTestId('detail-song-card-song_a_1')).toBeVisible();
     await captureFullPage(page, testInfo, 'scale-detail');
 
-    // Close the detail surface using its deterministic close/back control.
     const backButton = page.getByRole('button', { name: /Voltar|Fechar/i }).first();
     await expect(backButton).toBeVisible();
     await backButton.click();
     await page.waitForURL('**/scales');
 
-    // Open creation through the global create contract and assert the real form.
     const createBtn = page.getByRole('button', { name: 'Criar', exact: true }).first();
     await expect(createBtn).toBeVisible();
     await createBtn.click();
-    const newScaleAction = page.getByRole('menuitem', { name: /Criar escala de músicas/i });
+    // Desktop exposes a menuitem while mobile exposes a dialog button; exact
+    // visible copy is unique in both variants.
+    const newScaleAction = page.getByText('Criar escala de músicas', { exact: true });
     await expect(newScaleAction).toBeVisible();
     await newScaleAction.click();
     await expect(page.getByTestId('music-scale-modal')).toBeVisible();
