@@ -149,8 +149,13 @@ test.describe('MusicScale full cycle', () => {
 
     const btnAccept = page.getByTestId('response-accepted');
     await expect(btnAccept).toBeVisible();
+    const acceptPromise = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/music-scales/${scaleId}/my-response`) && response.request().method() === 'POST'
+    );
     await btnAccept.click();
-    await expect(page.getByText(/Confirmo/i).first()).toBeVisible();
+    const acceptResponse = await acceptPromise;
+    expect(acceptResponse.status()).toBe(200);
+    await expect(page.getByText(/Presença confirmada/i).first()).toBeVisible();
 
     const responsesAccepted = await getScaleResponses(scaleId);
     const respAccepted = responsesAccepted.find(r => r.userId === 'user_musician_a' && r.active === true);
@@ -169,8 +174,13 @@ test.describe('MusicScale full cycle', () => {
 
     const btnMaybe = page.getByTestId('response-maybe');
     await expect(btnMaybe).toBeVisible();
+    const maybePromise = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/music-scales/${scaleId}/my-response`) && response.request().method() === 'POST'
+    );
     await btnMaybe.click();
-    await expect(page.getByText(/Ainda não sei/i).first()).toBeVisible();
+    const maybeResponse = await maybePromise;
+    expect(maybeResponse.status()).toBe(200);
+    await expect(page.getByText(/Ainda não confirmada/i).first()).toBeVisible();
 
     const responsesMaybe = await getScaleResponses(scaleId);
     const respMaybe = responsesMaybe.find(r => r.userId === 'user_musician_a' && r.active === true);
@@ -195,9 +205,14 @@ test.describe('MusicScale full cycle', () => {
 
     const submitReason = page.getByTestId('submit-response');
     await expect(submitReason).toBeVisible();
+    const declinePromise = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/music-scales/${scaleId}/my-response`) && response.request().method() === 'POST'
+    );
     await submitReason.click();
+    const declineResponse = await declinePromise;
+    expect(declineResponse.status()).toBe(200);
 
-    await expect(page.getByText(/Não poderei/i).first()).toBeVisible();
+    await expect(page.getByText(/Você informou que não poderá/i).first()).toBeVisible();
     await expect(page.getByText('Imprevisto médico', { exact: true }).first()).toBeVisible();
 
     const responsesDeclined = await getScaleResponses(scaleId);
