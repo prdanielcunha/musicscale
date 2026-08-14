@@ -2,11 +2,17 @@ import { test, expect } from './helpers/base';
 import { loginAsLeaderA } from './helpers/auth';
 
 test.describe('BottomNav Liquid Glass', () => {
-  test('Should render compact navigation with correct active state and smooth layout', async ({ page, isMobile }) => {
-    if (!isMobile) test.skip();
+  test('Should render compact navigation with correct active state and smooth layout', async ({ page }) => {
+    // iPad Mini is flagged as a mobile device by Playwright, but at 768px it is
+    // intentionally on the product's md/sidebar layout. BottomNav itself is
+    // md:hidden, so exercise this contract only below the actual breakpoint.
+    const viewport = page.viewportSize();
+    if (!viewport || viewport.width >= 768) test.skip();
+
     await loginAsLeaderA(page);
 
     const nav = page.locator('nav[aria-label="Navegação Principal"]');
+    await expect(nav).toBeVisible();
     const links = nav.locator('a');
     await expect(links).toHaveCount(5);
 

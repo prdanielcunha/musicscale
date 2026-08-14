@@ -18,24 +18,29 @@ test.describe('Multiple Scales', () => {
 
     await captureFullPage(page, testInfo, 'scales-list');
 
-    await publishedCard.click();
+    // Click the title instead of the card center. The card intentionally contains
+    // interactive song chips that stop propagation, and desktop/tablet center
+    // coordinates can land on those controls instead of opening the scale.
+    await publishedCard.locator('h3').click();
     await expect(page.getByTestId('edit-scale-detail-button')).toBeVisible();
     await expect(page.getByTestId('detail-song-card-song_a_1')).toBeVisible();
     await captureFullPage(page, testInfo, 'scale-detail');
 
-    // Close the detail explicitly instead of hard-reloading the same route. The
-    // latter tears down the hydrated E2E providers and can cancel lazy modules.
-    const closeDetail = page.getByRole('button', { name: 'Close modal' }).first();
-    await expect(closeDetail).toBeVisible();
-    await closeDetail.click();
+    // The detail is a sheet/dialog over a backdrop. Click a guaranteed backdrop
+    // point that sits outside the responsive sheet on both mobile and desktop.
+    await page.mouse.click(10, 10);
     await expect(page.getByTestId('edit-scale-detail-button')).toBeHidden();
 
     const createBtn = page.getByRole('button', { name: 'Criar', exact: true }).first();
     await expect(createBtn).toBeVisible();
     await createBtn.click();
-    const newScaleAction = page.getByText('Criar escala de músicas', { exact: true });
+
+    const palette = page.locator('#global-create-menu:visible, #global-create-dialog:visible');
+    await expect(palette).toBeVisible();
+    const newScaleAction = palette.locator('button').filter({ hasText: 'Criar escala de músicas' }).first();
     await expect(newScaleAction).toBeVisible();
     await newScaleAction.click();
+
     await expect(page.getByTestId('music-scale-modal')).toBeVisible();
     await captureFullPage(page, testInfo, 'scale-create');
 

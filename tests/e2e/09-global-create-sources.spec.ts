@@ -3,50 +3,55 @@ import { captureFullPage } from './helpers/visualHelper';
 import { loginAsLeaderA, loginAsMusicianA } from './helpers/auth';
 
 test.describe('Global Create Sources (Paleta)', () => {
-  test('Líder deve ver a paleta completa e interagir com fontes de criação', async ({ page, isMobile }, testInfo) => {
+  test('Líder deve ver a paleta completa e interagir com fontes de criação', async ({ page }, testInfo) => {
     await loginAsLeaderA(page);
 
     const createBtn = page.getByRole('button', { name: 'Criar', exact: true }).first();
     await expect(createBtn).toBeVisible();
     await createBtn.click();
 
-    const surfaceTitle = page.getByText('Criar ou importar', { exact: true }).first();
-    await expect(surfaceTitle).toBeVisible();
+    const palette = page.locator('#global-create-menu:visible, #global-create-dialog:visible');
+    await expect(palette).toBeVisible();
+    await expect(palette.getByText('Criar ou importar', { exact: true })).toBeVisible();
 
-    await expect(page.getByRole('group', { name: 'Músicas' })).toBeVisible();
-    await expect(page.getByRole('group', { name: 'Escalas' })).toBeVisible();
+    await expect(palette.getByRole('group', { name: 'Músicas' })).toBeVisible();
+    await expect(palette.getByRole('group', { name: 'Escalas' })).toBeVisible();
 
-    const aiAction = page.getByText('Importar com IA', { exact: true });
-    const libraryAction = page.getByText('Buscar na Biblioteca Viva', { exact: true });
-    const manualAction = page.getByText('Adicionar manualmente', { exact: true });
+    // Scope action locators to the create palette. The dashboard also has an
+    // educational "Importar com IA" card, so a page-wide text locator is
+    // intentionally ambiguous and not a valid action contract.
+    const aiAction = palette.locator('button').filter({ hasText: 'Importar com IA' }).first();
+    const libraryAction = palette.locator('button').filter({ hasText: 'Buscar na Biblioteca Viva' }).first();
+    const manualAction = palette.locator('button').filter({ hasText: 'Adicionar manualmente' }).first();
     await expect(aiAction).toBeVisible();
     await expect(libraryAction).toBeVisible();
     await expect(manualAction).toBeVisible();
     await captureFullPage(page, testInfo, 'global-create-sources');
 
     await aiAction.click();
-    await expect(page.getByText(/Importar Música com Inteligência Artificial|Importar Música/i).first()).toBeVisible();
+    await expect(page.locator('textarea[name="rawText"]')).toBeVisible();
     await page.getByRole('button', { name: /Cancelar|Fechar/i }).first().click();
 
     await createBtn.click();
-    await expect(surfaceTitle).toBeVisible();
-    await page.getByText('Buscar na Biblioteca Viva', { exact: true }).click();
+    await expect(palette).toBeVisible();
+    await palette.locator('button').filter({ hasText: 'Buscar na Biblioteca Viva' }).first().click();
     await expect(page).toHaveURL(/.*\/library/);
     await expect(page.getByPlaceholder(/Buscar por música/i)).toBeFocused();
 
     await page.goto('/');
     await expect(createBtn).toBeVisible();
     await createBtn.click();
-    await expect(surfaceTitle).toBeVisible();
-    await page.getByText('Adicionar manualmente', { exact: true }).click();
+    await expect(palette).toBeVisible();
+    await palette.locator('button').filter({ hasText: 'Adicionar manualmente' }).first().click();
     await expect(page.getByText('Nova Música', { exact: true }).first()).toBeVisible();
     await page.getByRole('button', { name: /Cancelar|Fechar/i }).first().click();
 
-    if (isMobile) {
+    const viewport = page.viewportSize();
+    if (viewport && viewport.width < 768) {
       await createBtn.click();
-      await expect(surfaceTitle).toBeVisible();
+      await expect(palette).toBeVisible();
       await page.mouse.click(10, 10);
-      await expect(surfaceTitle).toBeHidden();
+      await expect(palette).toBeHidden();
 
       const overflowX = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       expect(overflowX).toBeFalsy();

@@ -15,7 +15,9 @@ test.describe('AI Import - Paste normalization', () => {
     await expect(createBtn).toBeVisible();
     await createBtn.click();
 
-    const aiAction = page.getByText('Importar com IA', { exact: true });
+    const palette = page.locator('#global-create-menu:visible, #global-create-dialog:visible');
+    await expect(palette).toBeVisible();
+    const aiAction = palette.locator('button').filter({ hasText: 'Importar com IA' }).first();
     await expect(aiAction).toBeVisible();
     await aiAction.click();
 
@@ -38,7 +40,9 @@ test.describe('AI Import - Paste normalization', () => {
     const expectedDecodedText = "tom: G\n\n[Intro] G C9 Em7 D";
     await expect(textarea).toHaveValue(expectedDecodedText);
 
-    const submitBtn = page.getByRole('button', { name: /Continuar e Organizar/i });
+    // Current AiSongImportModal copy names the processing action explicitly.
+    // The old "Continuar e Organizar" label no longer exists in the UI.
+    const submitBtn = page.getByRole('button', { name: /Processar com IA/i });
     await expect(submitBtn).toBeEnabled();
   });
 });

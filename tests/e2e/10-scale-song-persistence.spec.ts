@@ -30,7 +30,17 @@ test.describe('Scale Song Persistence', () => {
     const scaleEditor = page.getByTestId('music-scale-modal');
     await expect(scaleEditor).toBeVisible();
 
-    const songCard = scaleEditor.getByTestId('scale-song-card-song_a_2');
+    // MusicBuilder intentionally renders a library copy and a setlist copy of a
+    // selected song. Settings belong to the setlist representation. On small
+    // screens that column is behind the Repertório tab, so expose it first.
+    const viewport = page.viewportSize();
+    if (viewport && viewport.width < 768) {
+      const repertoireTab = scaleEditor.getByRole('button', { name: /Repertório/i }).first();
+      await expect(repertoireTab).toBeVisible();
+      await repertoireTab.click();
+    }
+
+    const songCard = scaleEditor.locator('[data-song-id="song_a_2"][data-testid="scale-song-card-song_a_2"]');
     await expect(songCard).toBeVisible();
 
     const gearBtn = songCard.getByTestId('edit-scale-song-settings-song_a_2');
@@ -58,7 +68,11 @@ test.describe('Scale Song Persistence', () => {
     await saveScaleBtn.click();
     await expect(scaleEditor).toBeHidden();
 
-    await page.waitForURL(`**/scales/${scaleId}`);
+    // Saving the editor returns to the scale list. Reset the deep-link param and
+    // reopen the exact seeded scale so the detail assertions describe real UX.
+    await page.goto('/scales');
+    await expect(page.getByRole('heading', { name: 'Escalas Musicais' })).toBeVisible();
+    await page.goto(`/scales/${scaleId}`);
     await expect(page.getByTestId('edit-scale-detail-button')).toBeVisible();
 
     const detailSongCard = page.getByTestId('detail-song-card-song_a_2');

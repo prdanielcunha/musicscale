@@ -74,6 +74,13 @@ test.describe('MusicScale full cycle', () => {
     expect(midNotifs).toBe(0);
     expect(midResponses).toBe(0);
 
+    // Saving closes the editor/detail and returns to the scale list. Reset the
+    // deep-link param, then reopen the exact scale before the publish pass.
+    await page.goto('/scales');
+    await expect(page.getByRole('heading', { name: 'Escalas Musicais' })).toBeVisible();
+    await page.goto(`/scales/${scaleId}`);
+    await expect(page.getByTestId('detail-song-card-song_a_2')).toBeVisible();
+
     const btnEditAgain = page.getByTestId('edit-scale-detail-button');
     await expect(btnEditAgain).toBeVisible();
     await btnEditAgain.click();
