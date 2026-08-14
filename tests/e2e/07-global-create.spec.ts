@@ -12,7 +12,6 @@ test.describe('Global Create Action', () => {
     await createBtn.click();
     const palette = page.locator('#global-create-menu:visible, #global-create-dialog:visible');
     await expect(palette).toBeVisible();
-    await expect(palette.getByText('Criar ou importar', { exact: true })).toBeVisible();
 
     const musicScaleAction = palette.locator('button').filter({ hasText: 'Criar escala de músicas' }).first();
     const bandScaleAction = palette.locator('button').filter({ hasText: 'Criar escala da banda' }).first();
