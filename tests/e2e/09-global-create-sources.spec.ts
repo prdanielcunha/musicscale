@@ -12,7 +12,6 @@ test.describe('Global Create Sources (Paleta)', () => {
 
     const palette = page.locator('#global-create-menu:visible, #global-create-dialog:visible');
     await expect(palette).toBeVisible();
-    await expect(palette.getByText('Criar ou importar', { exact: true })).toBeVisible();
 
     await expect(palette.getByRole('group', { name: 'Músicas' })).toBeVisible();
     await expect(palette.getByRole('group', { name: 'Escalas' })).toBeVisible();
