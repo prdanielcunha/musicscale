@@ -4,6 +4,13 @@ import { setupNetworkMocks } from './network';
 export async function loginAs(page: Page, email: string, orgId: string, orgName: string, role: string) {
   await setupNetworkMocks(page, orgId, role);
 
+  // Keep UI assertions deterministic across Chromium/WebKit runners regardless
+  // of the host locale. Product i18n remains untouched; this only selects the
+  // Portuguese locale already supported by the app for this E2E suite.
+  await page.addInitScript(() => {
+    window.localStorage.setItem('millionsnest_i18n_lng', 'pt');
+  });
+
   await page.goto('/login');
 
   // Mobile/WebKit can remain briefly on the global Ecosystem bootstrap before
