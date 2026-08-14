@@ -30,15 +30,12 @@ test.describe('Scale Song Persistence', () => {
     const scaleEditor = page.getByTestId('music-scale-modal');
     await expect(scaleEditor).toBeVisible();
 
-    // MusicBuilder intentionally renders a library copy and a setlist copy of a
-    // selected song. Settings belong to the setlist representation. On small
-    // screens that column is behind the Repertório tab, so expose it first.
-    const viewport = page.viewportSize();
-    if (viewport && viewport.width < 768) {
-      const repertoireTab = scaleEditor.getByRole('button', { name: /Repertório/i }).first();
-      await expect(repertoireTab).toBeVisible();
-      await repertoireTab.click();
-    }
+    // The editor always opens on Evento. Song settings live in the Repertório
+    // step, which remains mounted but hidden on every viewport until selected.
+    // Enter that step explicitly before asserting the setlist card.
+    const repertoireTab = scaleEditor.getByRole('button', { name: /Repertório/i }).first();
+    await expect(repertoireTab).toBeVisible();
+    await repertoireTab.click();
 
     const songCard = scaleEditor.locator('[data-song-id="song_a_2"][data-testid="scale-song-card-song_a_2"]');
     await expect(songCard).toBeVisible();
