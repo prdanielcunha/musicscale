@@ -139,18 +139,10 @@ export const test = base.extend<TestFixtures>({
               );
             }, nextHref);
 
-            await nativeWaitForURL(
-              (candidate) =>
-                candidate.pathname === target.pathname &&
-                (!target.search || candidate.search === target.search) &&
-                (!target.hash || candidate.hash === target.hash),
-              { timeout: options?.timeout ?? 10000, waitUntil: 'commit' },
-            );
-
-            // URL mutation is synchronous, while BrowserRouter commits the new
-            // route on the following React/browser turns. Give it two frames so
-            // sequential SPA gotos cannot collapse /scales -> /scales/:id into
-            // an apparent same-param transition before route effects reset.
+            // pushState updates window.location synchronously. Waiting for a
+            // future Playwright navigation here is incorrect and causes WebKit
+            // and mobile timeouts because no second navigation is supposed to
+            // happen. BrowserRouter commits on the following render turns.
             await page.evaluate(() => new Promise<void>((resolve) => {
               requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
             }));
