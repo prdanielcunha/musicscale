@@ -240,10 +240,25 @@ test.describe('MusicScale full cycle', () => {
     const scaleId = `scale_full_cycle_${project}`;
 
     await loginAsLeaderA(page);
-    await page.goto(`/scales/${scaleId}`);
-    await page.waitForURL(`**/scales/${scaleId}`);
 
-    await expect(page.getByText('Situação da Equipe', { exact: true }).first()).toBeVisible();
+    // The response is already durable from B. Wait for the leader's hydrated list
+    // to consume the published assignments before opening the detail object.
+    await expect.poll(async () => {
+      const snapshot = await getScaleSnapshot(scaleId);
+      return snapshot?.eventAssignments?.length || 0;
+    }, { timeout: 15_000 }).toBe(2);
+
+    await page.goto('/scales');
+    await page.waitForURL('**/scales');
+    await expect(page.getByRole('heading', { name: 'Escalas Musicais' })).toBeVisible();
+
+    const targetCard = page.getByTestId(`scale-card-${scaleId}`);
+    await expect(targetCard).toBeVisible();
+    await expect(targetCard).toContainText(/2\s+escalados/i, { timeout: 15_000 });
+    await targetCard.getByRole('heading', { level: 3 }).click();
+    await expect(page.getByTestId('edit-scale-detail-button')).toBeVisible();
+
+    await expect(page.getByRole('heading', { name: /Situação da Equipe/i }).first()).toBeVisible();
     await expect(page.getByText('Vocal', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Não poderá', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Imprevisto médico', { exact: true }).first()).toBeVisible();
