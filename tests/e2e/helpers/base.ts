@@ -23,6 +23,23 @@ export const test = base.extend<TestFixtures>({
     // uses the native Playwright navigation because this flag stays false until
     // the login helper explicitly enables client-side navigation.
     const nativeGoto = page.goto.bind(page);
+    const nativeWaitForURL = page.waitForURL.bind(page);
+
+    // Playwright's waitForURL defaults to waiting for a full document "load".
+    // History API navigation inside an already-mounted SPA changes the URL but
+    // intentionally does not emit a new document load. After hydration, normalize
+    // URL waits to "commit" so legacy specs can safely assert the route without
+    // hanging for 30 seconds on an event that cannot occur.
+    (page as any).waitForURL = async (url: any, options?: any) => {
+      if ((page as any)._musicscaleClientNavigationReady === true) {
+        return nativeWaitForURL(url, {
+          ...options,
+          waitUntil: options?.waitUntil ?? 'commit',
+        });
+      }
+      return nativeWaitForURL(url, options);
+    };
+
     (page as any).goto = async (url: string, options?: any) => {
       if (
         (page as any)._musicscaleClientNavigationReady === true &&
@@ -55,12 +72,12 @@ export const test = base.extend<TestFixtures>({
               );
             }, nextHref);
 
-            await page.waitForURL(
+            await nativeWaitForURL(
               (candidate) =>
                 candidate.pathname === target.pathname &&
                 (!target.search || candidate.search === target.search) &&
                 (!target.hash || candidate.hash === target.hash),
-              { timeout: options?.timeout ?? 10000 },
+              { timeout: options?.timeout ?? 10000, waitUntil: 'commit' },
             );
 
             // URL mutation is synchronous, while BrowserRouter commits the new
