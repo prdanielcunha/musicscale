@@ -1,8 +1,8 @@
 /// <reference types="vite/client" />
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { 
-  initializeFirestore, 
+import { getAuth, initializeAuth, inMemoryPersistence, connectAuthEmulator } from 'firebase/auth';
+import {
+  initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
   getFirestore,
@@ -12,7 +12,6 @@ import prodFirebaseConfig from '../firebase-applet-config.json';
 import { getFirebaseRuntimeConfig } from './firebaseRuntimeConfig';
 
 const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-
 const safeProcessEnv = typeof process !== 'undefined' ? process.env : {} as any;
 
 const isDevMode = import.meta.env?.DEV ?? (safeProcessEnv.NODE_ENV !== 'production');
@@ -28,7 +27,25 @@ const { firebaseConfig, useEmulators } = getFirebaseRuntimeConfig({
 });
 
 const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const auth = getAuth(app);
+
+// Browser persistence is part of the real product session contract. Emulator/E2E
+// contexts are disposable and isolated, and Firebase Auth browser persistence can
+// stall completion of an otherwise successful mobile-emulator sign-in. Use memory
+// persistence only in explicit emulator mode; production continues to use getAuth()
+// and authService keeps the real Local/Session remember-me behavior.
+let auth: ReturnType<typeof getAuth>;
+if (useEmulators) {
+  try {
+    auth = initializeAuth(app, { persistence: inMemoryPersistence });
+    console.log('[MusicScale Firebase] Auth initialized with in-memory persistence for Emulator.');
+  } catch (error: any) {
+    // HMR or another module may already have initialized Auth for this app.
+    // Reuse the existing instance rather than creating a second Auth instance.
+    auth = getAuth(app);
+  }
+} else {
+  auth = getAuth(app);
+}
 
 let db: any;
 const isTestEnv = typeof process !== 'undefined' && (safeProcessEnv.NODE_ENV === 'test' || safeProcessEnv.VITEST === 'true');
