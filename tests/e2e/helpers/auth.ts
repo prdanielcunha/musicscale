@@ -13,28 +13,31 @@ export async function loginAs(page: Page, email: string, orgId: string, orgName:
   });
 
   await page.goto('/login');
+  await page.waitForURL('**/login');
 
-  // Mobile/WebKit can remain briefly on the global Ecosystem bootstrap before
-  // LoginPage is mounted. Wait for the actual login surface instead of assuming
-  // it is available within Playwright's 5s assertion default.
+  // /login is a public authentication surface and must mount independently of
+  // tenant/ecosystem hydration. Prefer stable DOM ids once the email form opens.
   const emailButton = page.getByRole('button', { name: /Acessar com e-mail/i });
-  const emailInput = page.getByRole('textbox', { name: /Endereço de e-mail/i });
+  const emailInput = page.locator('#login-email');
 
-  await expect(emailButton.or(emailInput).first()).toBeVisible({ timeout: 20000 });
-  if (await emailButton.isVisible()) {
+  await expect(emailButton.or(emailInput).first()).toBeVisible({ timeout: 10000 });
+  if (await emailButton.isVisible().catch(() => false)) {
     await emailButton.click();
   }
 
-  await expect(emailInput).toBeVisible({ timeout: 10000 });
+  await expect(emailInput).toBeVisible({ timeout: 5000 });
   await emailInput.fill(email);
 
-  const passwordInput = page.getByLabel('Senha', { exact: true });
-  await expect(passwordInput).toBeVisible();
+  const passwordInput = page.locator('#login-password');
+  await expect(passwordInput).toBeVisible({ timeout: 5000 });
   await passwordInput.fill('password');
 
-  await page.getByRole('button', { name: 'Acessar Plataforma', exact: true }).click();
+  const submit = page.locator('form button[type="submit"]').first();
+  await expect(submit).toBeVisible({ timeout: 5000 });
+  await submit.click();
 
-  // Wait for Dashboard (the app redirects to /)
+  // Login intentionally transitions through /start while ecosystem context is
+  // hydrated, and then reaches the canonical workspace at /.
   await page.waitForURL('**/', { timeout: 20000 });
 
   // Ensure no blocking screens are visible. Check for their real texts, not component names.
