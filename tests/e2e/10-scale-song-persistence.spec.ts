@@ -123,10 +123,10 @@ test.describe('Scale Song Persistence', () => {
 
     const detailSongCard = page.getByTestId('detail-song-card-song_a_2');
     await expect(detailSongCard).toBeVisible();
-    // Scope assertions to the value badges themselves. The DOM intentionally
-    // concatenates the value and the local-adjustment badge without whitespace.
+    // Scope assertions to the value badges themselves. The BPM badge includes an
+    // SVG before the numeric text, which produces leading whitespace in textContent.
     const localKeyValue = detailSongCard.locator('span').filter({ hasText: /^G(?:Ajuste local|Desta escala)$/i }).first();
-    const localBpmValue = detailSongCard.locator('span').filter({ hasText: /^105(?:Ajuste local|Desta escala)$/i }).first();
+    const localBpmValue = detailSongCard.locator('span').filter({ hasText: /105\s*(?:Ajuste local|Desta escala)/i }).first();
     await expect(localKeyValue).toBeVisible();
     await expect(localBpmValue).toBeVisible();
 
