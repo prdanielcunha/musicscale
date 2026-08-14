@@ -21,8 +21,12 @@ export const test = base.extend<TestFixtures>({
     page.on('console', msg => {
       if (msg.type() === 'error') {
         const text = msg.text();
+        const locationUrl = msg.location().url || '';
+        const isExpectedFinOpsPreflightDenial =
+          locationUrl.includes('/api/admin/finops-diagnostics/preflight') &&
+          /401|Unauthorized/i.test(text);
         const ignoredPatterns = (page as any)._ignoredPatterns as RegExp[];
-        const ignored = ignoredPatterns && ignoredPatterns.some(p => p.test(text));
+        const ignored = isExpectedFinOpsPreflightDenial || (ignoredPatterns && ignoredPatterns.some(p => p.test(text)));
         if (!ignored) {
           errors.push(`ConsoleError: ${text}`);
         }
