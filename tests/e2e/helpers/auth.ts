@@ -9,6 +9,7 @@ export async function loginAs(page: Page, email: string, orgId: string, orgName:
   // Portuguese locale already supported by the app for this E2E suite.
   await page.addInitScript(() => {
     window.localStorage.setItem('millionsnest_i18n_lng', 'pt');
+    window.localStorage.setItem('i18nextLng', 'pt-BR');
   });
 
   await page.goto('/login');
