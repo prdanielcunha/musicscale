@@ -5,6 +5,7 @@ import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
+  memoryLocalCache,
   getFirestore,
   connectFirestoreEmulator
 } from 'firebase/firestore';
@@ -49,15 +50,22 @@ if (useEmulators) {
 
 let db: any;
 const isTestEnv = typeof process !== 'undefined' && (safeProcessEnv.NODE_ENV === 'test' || safeProcessEnv.VITEST === 'true');
-const shouldDisablePersistentCache = isTestEnv || useEmulators;
 
-if (shouldDisablePersistentCache) {
+if (useEmulators) {
+  // The WebKit Playwright projects can indefinitely buffer the Firestore WebChannel
+  // streaming GET even after the Emulator accepts the Listen POST. Force long polling
+  // only for Emulator/E2E so each response closes after data is delivered. Production
+  // keeps the normal persistent cache and transport selection below.
+  db = initializeFirestore(app, {
+    localCache: memoryLocalCache(),
+    experimentalForceLongPolling: true,
+    experimentalLongPollingOptions: { timeoutSeconds: 10 },
+    ignoreUndefinedProperties: true
+  }, firebaseConfig.firestoreDatabaseId);
+  console.log('[MusicScale Firebase] Firestore initialized with memory cache and forced long polling for Emulator.');
+} else if (isTestEnv) {
   db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-  console.log(
-    useEmulators
-      ? '[MusicScale Firebase] Firestore initialized without persistent cache for Emulator.'
-      : '[MusicScale Firebase] Firestore initialized without persistent cache for Test environment.'
-  );
+  console.log('[MusicScale Firebase] Firestore initialized without persistent cache for Test environment.');
 } else {
   try {
     db = initializeFirestore(app, {

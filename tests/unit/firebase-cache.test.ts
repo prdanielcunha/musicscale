@@ -20,7 +20,8 @@ vi.mock('firebase/auth', () => ({
 
 const mockFirestore = {};
 const mockGetFirestore = vi.fn(() => mockFirestore);
-const mockInitializeFirestore = vi.fn();
+const mockInitializeFirestore = vi.fn(() => mockFirestore);
+const mockMemoryLocalCache = vi.fn(() => 'mock-memory-cache');
 const mockPersistentLocalCache = vi.fn(() => 'mock-local-cache');
 const mockPersistentMultipleTabManager = vi.fn(() => 'mock-tab-manager');
 const mockConnectFirestoreEmulator = vi.fn();
@@ -28,6 +29,7 @@ const mockConnectFirestoreEmulator = vi.fn();
 vi.mock('firebase/firestore', () => ({
   getFirestore: mockGetFirestore,
   initializeFirestore: mockInitializeFirestore,
+  memoryLocalCache: mockMemoryLocalCache,
   persistentLocalCache: mockPersistentLocalCache,
   persistentMultipleTabManager: mockPersistentMultipleTabManager,
   connectFirestoreEmulator: mockConnectFirestoreEmulator
@@ -46,7 +48,7 @@ describe('Firebase Initialization', () => {
     vi.resetModules();
   });
 
-  it('uses deterministic in-memory Auth and disables Firestore persistent cache in Emulator mode', async () => {
+  it('uses deterministic in-memory Auth and forced long-polling Firestore in Emulator mode', async () => {
     await import('../../services/firebase');
 
     expect(mockInitializeAuth).toHaveBeenCalledWith(expect.anything(), {
@@ -55,8 +57,19 @@ describe('Firebase Initialization', () => {
     expect(mockGetAuth).not.toHaveBeenCalled();
     expect(mockConnectAuthEmulator).toHaveBeenCalled();
 
-    expect(mockGetFirestore).toHaveBeenCalled();
-    expect(mockInitializeFirestore).not.toHaveBeenCalled();
+    expect(mockMemoryLocalCache).toHaveBeenCalled();
+    expect(mockPersistentLocalCache).not.toHaveBeenCalled();
+    expect(mockGetFirestore).not.toHaveBeenCalled();
+    expect(mockInitializeFirestore).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        localCache: 'mock-memory-cache',
+        experimentalForceLongPolling: true,
+        experimentalLongPollingOptions: { timeoutSeconds: 10 },
+        ignoreUndefinedProperties: true
+      }),
+      'mock-db'
+    );
     expect(mockConnectFirestoreEmulator).toHaveBeenCalledWith(mockFirestore, '127.0.0.1', 8080);
   });
 });
