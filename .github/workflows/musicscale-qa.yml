@@ -103,7 +103,7 @@ jobs:
 
     - name: Upload Visual Evidence Artifacts
       uses: actions/upload-artifact@v4
-      if: $ {{ !cancelled() }}
+      if: ${{ !cancelled() }}
       with:
         name: e2e-artifacts
         path: tests/e2e/artifacts/
