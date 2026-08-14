@@ -23,9 +23,12 @@ test.describe('Multiple Scales', () => {
     await expect(page.getByTestId('detail-song-card-song_a_1')).toBeVisible();
     await captureFullPage(page, testInfo, 'scale-detail');
 
-    // Return by route; closing behavior belongs to the modal interaction suite.
-    await page.goto('/scales');
-    await page.waitForURL('**/scales');
+    // Close the detail explicitly instead of hard-reloading the same route. The
+    // latter tears down the hydrated E2E providers and can cancel lazy modules.
+    const closeDetail = page.getByRole('button', { name: 'Close modal' }).first();
+    await expect(closeDetail).toBeVisible();
+    await closeDetail.click();
+    await expect(page.getByTestId('edit-scale-detail-button')).toBeHidden();
 
     const createBtn = page.getByRole('button', { name: 'Criar', exact: true }).first();
     await expect(createBtn).toBeVisible();

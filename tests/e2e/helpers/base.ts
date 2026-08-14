@@ -13,6 +13,63 @@ export const test = base.extend<TestFixtures>({
   page: async ({ page }, use) => {
     const errors: string[] = [];
     (page as any)._ignoredPatterns = [];
+    (page as any)._musicscaleClientNavigationReady = false;
+
+    // Once loginAs() proves that the private workspace is fully hydrated, keep
+    // feature-route navigation inside the already-running SPA. A hard page.goto
+    // after login tears down the hydrated providers, restarts Firestore listeners,
+    // and can cancel Vite lazy imports in WebKit, which the product ErrorBoundary
+    // correctly interprets as a chunk-load failure. Authentication itself still
+    // uses the native Playwright navigation because this flag stays false until
+    // the login helper explicitly enables client-side navigation.
+    const nativeGoto = page.goto.bind(page);
+    (page as any).goto = async (url: string, options?: any) => {
+      if (
+        (page as any)._musicscaleClientNavigationReady === true &&
+        typeof url === 'string' &&
+        url.startsWith('/')
+      ) {
+        const currentUrl = page.url();
+        if (/^https?:\/\//i.test(currentUrl)) {
+          const current = new URL(currentUrl);
+          const target = new URL(url, current.origin);
+
+          if (target.origin === current.origin && target.pathname !== '/login') {
+            const nextHref = `${target.pathname}${target.search}${target.hash}`;
+
+            await page.evaluate((href) => {
+              const currentState = window.history.state || {};
+              const currentIndex = typeof currentState.idx === 'number' ? currentState.idx : 0;
+
+              window.history.pushState(
+                {
+                  ...currentState,
+                  idx: currentIndex + 1,
+                  key: `e2e-${Date.now()}`,
+                },
+                '',
+                href,
+              );
+              window.dispatchEvent(
+                new PopStateEvent('popstate', { state: window.history.state }),
+              );
+            }, nextHref);
+
+            await page.waitForURL(
+              (candidate) =>
+                candidate.pathname === target.pathname &&
+                (!target.search || candidate.search === target.search) &&
+                (!target.hash || candidate.hash === target.hash),
+              { timeout: options?.timeout ?? 10000 },
+            );
+
+            return null;
+          }
+        }
+      }
+
+      return nativeGoto(url, options);
+    };
     
     page.on('pageerror', err => {
       errors.push(`PageError: ${err.message}`);
