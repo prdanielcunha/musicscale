@@ -1,0 +1,74 @@
+name: MusicScale Focused E2E 10-11
+
+on:
+  pull_request:
+    branches: [ main, production ]
+    paths:
+      - 'tests/e2e/10-scale-song-persistence.spec.ts'
+      - 'tests/e2e/11-music-scale-full-cycle.spec.ts'
+      - 'tests/e2e/helpers/**'
+      - 'components/scales/AssignmentResponseActions.tsx'
+      - 'components/scales/TeamStatusSummary.tsx'
+      - '.github/workflows/musicscale-e2e-focus.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: musicscale-focused-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused-e2e:
+    timeout-minutes: 35
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Set up Java for Firebase Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install Playwright Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Run only residual E2E specs 10 and 11
+        run: >-
+          npx firebase emulators:exec --project demo-musicscale --only auth,firestore
+          "npx playwright test
+          tests/e2e/10-scale-song-persistence.spec.ts
+          tests/e2e/11-music-scale-full-cycle.spec.ts
+          --project=desktop-chromium
+          --project=mobile-chromium
+          --project=mobile-webkit
+          --project=tablet-webkit
+          --workers=1"
+        env:
+          CI: true
+          GCLOUD_PROJECT: demo-musicscale
+          GOOGLE_CLOUD_PROJECT: demo-musicscale
+
+      - name: Upload focused Playwright JSON
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: focused-playwright-json
+          path: playwright-results.json
+          retention-days: 14
+
+      - name: Upload focused test results
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: focused-test-results
+          path: test-results/
+          retention-days: 14
