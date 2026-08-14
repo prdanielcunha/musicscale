@@ -30,12 +30,22 @@ test.describe('Scale Song Persistence', () => {
     const scaleEditor = page.getByTestId('music-scale-modal');
     await expect(scaleEditor).toBeVisible();
 
-    // The editor always opens on Evento. Song settings live in the Repertório
-    // step, which remains mounted but hidden on every viewport until selected.
-    // Enter that step explicitly before asserting the setlist card.
-    const repertoireTab = scaleEditor.getByRole('button', { name: /Repertório/i }).first();
-    await expect(repertoireTab).toBeVisible();
-    await repertoireTab.click();
+    // The editor opens on Evento. Use the wizard's explicit Repertório tab so
+    // settings are exercised on the real setlist representation, not its hidden
+    // mounted copy.
+    const repertoireStep = scaleEditor.getByRole('button', { name: 'Repertório', exact: true }).first();
+    await expect(repertoireStep).toBeVisible();
+    await repertoireStep.click();
+
+    const viewport = page.viewportSize();
+    if (viewport && viewport.width < 768) {
+      // Inside MusicBuilder, mobile has its own Biblioteca/Repertório tabs.
+      const builderTabs = scaleEditor.locator('div.md\\:hidden').filter({ hasText: /Repertório/ }).first();
+      if (await builderTabs.isVisible().catch(() => false)) {
+        const repertoireMobileTab = builderTabs.getByRole('button', { name: /Repertório/i }).last();
+        await repertoireMobileTab.click();
+      }
+    }
 
     const songCard = scaleEditor.locator('[data-song-id="song_a_2"][data-testid="scale-song-card-song_a_2"]');
     await expect(songCard).toBeVisible();
@@ -60,13 +70,18 @@ test.describe('Scale Song Persistence', () => {
     await expect(applyBtn).toBeVisible();
     await applyBtn.click();
 
+    // Draft/publish controls are rendered only on the Revisão step.
+    const reviewStep = scaleEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
+    await expect(reviewStep).toBeVisible();
+    await reviewStep.click();
+
     const saveScaleBtn = scaleEditor.getByTestId('save-scale-draft');
     await expect(saveScaleBtn).toBeVisible();
     await saveScaleBtn.click();
     await expect(scaleEditor).toBeHidden();
 
-    // Saving the editor returns to the scale list. Reset the deep-link param and
-    // reopen the exact seeded scale so the detail assertions describe real UX.
+    // base.ts waits for BrowserRouter to commit each internal route before the
+    // next goto, so the ScalesPage deep-link guard can reset deterministically.
     await page.goto('/scales');
     await expect(page.getByRole('heading', { name: 'Escalas Musicais' })).toBeVisible();
     await page.goto(`/scales/${scaleId}`);

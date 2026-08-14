@@ -4,7 +4,6 @@ import {
   getScaleSnapshot,
   getScaleResponses,
   getScaleResponseHistory,
-  getOrganizationNotifications,
   countNotificationsForScale,
   countActiveResponses,
   getBandScaleSnapshot,
@@ -30,7 +29,7 @@ test.describe('MusicScale full cycle', () => {
 
     const bandScaleSnapshot = await getBandScaleSnapshot(`bandscale_full_cycle_${project}`);
     expect(bandScaleSnapshot).not.toBeNull();
-    expect(bandScaleSnapshot.assignments).toHaveLength(2);
+    expect(bandScaleSnapshot!.assignments).toHaveLength(2);
 
     const initialNotifs = await countNotificationsForScale('org_a', scaleId);
     const initialResponses = await countActiveResponses(scaleId);
@@ -41,14 +40,12 @@ test.describe('MusicScale full cycle', () => {
 
     await page.goto(`/scales/${scaleId}`);
     await page.waitForURL(`**/scales/${scaleId}`);
-
-    // Confirm the exact deep-linked scale through deterministic content rather
-    // than a time string repeated by every seeded scale card.
     await expect(page.getByTestId('detail-song-card-song_a_2')).toBeVisible();
+
     const btnEdit = page.getByTestId('edit-scale-detail-button');
     await expect(btnEdit).toBeVisible();
-
     await btnEdit.click();
+
     const scaleEditor = page.getByTestId('music-scale-modal');
     await expect(scaleEditor).toBeVisible();
 
@@ -74,8 +71,8 @@ test.describe('MusicScale full cycle', () => {
     expect(midNotifs).toBe(0);
     expect(midResponses).toBe(0);
 
-    // Saving closes the editor/detail and returns to the scale list. Reset the
-    // deep-link param, then reopen the exact scale before the publish pass.
+    // base.ts now waits for BrowserRouter to commit each internal route before
+    // the next goto, so the ScalesPage deep-link guard resets deterministically.
     await page.goto('/scales');
     await expect(page.getByRole('heading', { name: 'Escalas Musicais' })).toBeVisible();
     await page.goto(`/scales/${scaleId}`);
@@ -86,10 +83,9 @@ test.describe('MusicScale full cycle', () => {
     await btnEditAgain.click();
     await expect(scaleEditor).toBeVisible();
 
-    const btnNextAgain = scaleEditor.getByRole('button', { name: /Avançar/i });
-    await btnNextAgain.click();
-    await btnNextAgain.click();
-    await btnNextAgain.click();
+    const reviewStep = scaleEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
+    await expect(reviewStep).toBeVisible();
+    await reviewStep.click();
 
     const publishPromise = page.waitForResponse(response =>
       response.url().includes(`/api/v1/music-scales/${scaleId}/publish`) && response.request().method() === 'POST'
@@ -234,44 +230,92 @@ test.describe('MusicScale full cycle', () => {
   test('D. líder republica e reconcilia', async ({ page }, testInfo) => {
     const project = testInfo.project.name;
     const scaleId = `scale_full_cycle_${project}`;
+    const bandScaleId = `bandscale_full_cycle_${project}`;
 
     const prevScale = await getScaleSnapshot(scaleId);
     expect(prevScale).not.toBeNull();
     const prevPublishRev = prevScale!.publishRevision || 1;
 
     await loginAsLeaderA(page);
-    await page.goto(`/scales/${scaleId}`);
-    await page.waitForURL(`**/scales/${scaleId}`);
+
+    // The linked formation is owned by BandScale. Update that source of truth
+    // before republishing MusicScale; assignment controls do not exist in the
+    // MusicScale editor.
+    await page.goto(`/band-scales/${bandScaleId}`);
+    await page.waitForURL(`**/band-scales/${bandScaleId}`);
 
     const editBandBtn = page.getByTestId('edit-scale-detail-button');
     await expect(editBandBtn).toBeVisible();
     await editBandBtn.click();
 
-    const scaleEditor = page.getByTestId('music-scale-modal');
-    await expect(scaleEditor).toBeVisible();
+    const bandEditor = page.getByTestId('band-scale-modal');
+    await expect(bandEditor).toBeVisible();
 
-    const removeBtn = scaleEditor.getByTestId('remove-assignment-user_musician_a2-instrument_guitar');
+    const formationStep = bandEditor.getByRole('button', { name: 'Formação', exact: true }).first();
+    await expect(formationStep).toBeVisible();
+    await formationStep.click();
+
+    const viewport = page.viewportSize();
+    const compactBandBuilder = !!viewport && viewport.width < 1024;
+    let bandBuilderTabs = bandEditor.locator('div.lg\\:hidden').filter({ hasText: /Formação/ }).first();
+
+    if (compactBandBuilder) {
+      await expect(bandBuilderTabs).toBeVisible();
+      await bandBuilderTabs.locator('button').nth(1).click();
+    }
+
+    const removeBtn = bandEditor.getByTestId('remove-assignment-user_musician_a2-instrument_guitar');
     await expect(removeBtn).toBeVisible();
     await removeBtn.click();
 
-    const selectKeyInst = scaleEditor.getByTestId('select-instrument-instrument_keyboard');
+    if (compactBandBuilder) {
+      await bandBuilderTabs.locator('button').nth(0).click();
+    }
+
+    const selectKeyInst = bandEditor.getByTestId('select-instrument-instrument_keyboard');
     await expect(selectKeyInst).toBeVisible();
     await selectKeyInst.click();
 
-    const btnShowAll = scaleEditor.getByRole('button', { name: /Mostrar todos/i });
+    if (compactBandBuilder) {
+      await bandBuilderTabs.locator('button').nth(1).click();
+    }
+
+    const btnShowAll = bandEditor.getByRole('button', { name: /Mostrar todos/i });
     if (await btnShowAll.isVisible().catch(() => false)) {
       await btnShowAll.click();
     }
 
-    const addBtn = scaleEditor.getByTestId('add-assignment-user_musician_a3-instrument_keyboard');
+    const addBtn = bandEditor.getByTestId('add-assignment-user_musician_a3-instrument_keyboard');
     await expect(addBtn).toBeVisible();
     await addBtn.click();
 
-    const btnNext = scaleEditor.getByRole('button', { name: /Avançar/i });
-    await expect(btnNext).toBeVisible();
-    await btnNext.click();
-    await btnNext.click();
-    await btnNext.click();
+    const bandReviewStep = bandEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
+    await expect(bandReviewStep).toBeVisible();
+    await bandReviewStep.click();
+
+    const saveBandBtn = bandEditor.getByRole('button', { name: /Salvar Escala/i }).first();
+    await expect(saveBandBtn).toBeVisible();
+    await saveBandBtn.click();
+    await expect(bandEditor).toBeHidden();
+
+    const updatedBand = await getBandScaleSnapshot(bandScaleId);
+    expect(updatedBand).not.toBeNull();
+    expect(updatedBand!.assignments.some((a: any) => a.userId === 'user_musician_a2' && a.instrumentId === 'instrument_guitar')).toBe(false);
+    expect(updatedBand!.assignments.some((a: any) => a.userId === 'user_musician_a3' && a.instrumentId === 'instrument_keyboard')).toBe(true);
+
+    await page.goto(`/scales/${scaleId}`);
+    await page.waitForURL(`**/scales/${scaleId}`);
+    await expect(page.getByTestId('detail-song-card-song_a_2')).toBeVisible();
+
+    const editMusicBtn = page.getByTestId('edit-scale-detail-button');
+    await expect(editMusicBtn).toBeVisible();
+    await editMusicBtn.click();
+
+    const scaleEditor = page.getByTestId('music-scale-modal');
+    await expect(scaleEditor).toBeVisible();
+    const musicReviewStep = scaleEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
+    await expect(musicReviewStep).toBeVisible();
+    await musicReviewStep.click();
 
     const publishPromise = page.waitForResponse(response =>
       response.url().includes(`/api/v1/music-scales/${scaleId}/publish`) && response.request().method() === 'POST'

@@ -28,8 +28,16 @@ test.describe('Global Create Sources (Paleta)', () => {
     await captureFullPage(page, testInfo, 'global-create-sources');
 
     await aiAction.click();
-    await expect(page.locator('textarea[name="rawText"]')).toBeVisible();
-    await page.getByRole('button', { name: /Cancelar|Fechar/i }).first().click();
+    const aiTextarea = page.locator('textarea[name="rawText"]').first();
+    await expect(aiTextarea).toBeVisible();
+
+    // AiSongImportModal uses the shared role=dialog Modal. Close the exact
+    // dialog that owns rawText and wait for it to disappear before reopening the
+    // global palette; a page-wide Cancel/Close locator races the overlay in WebKit.
+    const aiDialog = page.getByRole('dialog').filter({ has: aiTextarea });
+    await expect(aiDialog).toBeVisible();
+    await aiDialog.getByRole('button', { name: 'Close modal' }).click();
+    await expect(aiDialog).toBeHidden();
 
     await createBtn.click();
     await expect(palette).toBeVisible();
@@ -42,8 +50,15 @@ test.describe('Global Create Sources (Paleta)', () => {
     await createBtn.click();
     await expect(palette).toBeVisible();
     await palette.locator('button').filter({ hasText: 'Adicionar manualmente' }).first().click();
-    await expect(page.getByText('Nova Música', { exact: true }).first()).toBeVisible();
-    await page.getByRole('button', { name: /Cancelar|Fechar/i }).first().click();
+
+    const newSongTitle = page.getByText('Nova Música', { exact: true }).first();
+    await expect(newSongTitle).toBeVisible();
+    const manualDialog = page.getByRole('dialog').filter({ has: newSongTitle }).first();
+    await expect(manualDialog).toBeVisible();
+    const manualClose = manualDialog.getByRole('button', { name: /Close modal|Cancelar|Fechar/i }).first();
+    await expect(manualClose).toBeVisible();
+    await manualClose.click();
+    await expect(manualDialog).toBeHidden();
 
     const viewport = page.viewportSize();
     if (viewport && viewport.width < 768) {
