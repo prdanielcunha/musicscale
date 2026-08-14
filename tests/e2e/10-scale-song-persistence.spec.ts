@@ -123,11 +123,12 @@ test.describe('Scale Song Persistence', () => {
 
     const detailSongCard = page.getByTestId('detail-song-card-song_a_2');
     await expect(detailSongCard).toBeVisible();
-    // The current detail UI renders the value and the "Ajuste local" badge in
-    // the same element, so assert the semantic values without requiring legacy
-    // "Tom"/"BPM" copy that is not present in this card.
-    await expect(detailSongCard).toContainText(/\bG\b/);
-    await expect(detailSongCard).toContainText(/\b105\b/);
+    // Scope assertions to the value badges themselves. The DOM intentionally
+    // concatenates the value and the local-adjustment badge without whitespace.
+    const localKeyValue = detailSongCard.locator('span').filter({ hasText: /^G(?:Ajuste local|Desta escala)$/i }).first();
+    const localBpmValue = detailSongCard.locator('span').filter({ hasText: /^105(?:Ajuste local|Desta escala)$/i }).first();
+    await expect(localKeyValue).toBeVisible();
+    await expect(localBpmValue).toBeVisible();
 
     const localBadges = detailSongCard.getByText(/Ajuste local|Desta escala/i);
     await expect(localBadges).toHaveCount(2);
