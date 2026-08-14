@@ -19,6 +19,7 @@ const AddToCalendarButton: React.FC<AddToCalendarButtonProps> = ({ scale, classN
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const eventData = convertScaleToCalendarEvent(scale);
+  const googleCalendarUrl = eventData ? generateGoogleCalendarUrl(eventData) : null;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -35,11 +36,9 @@ const AddToCalendarButton: React.FC<AddToCalendarButtonProps> = ({ scale, classN
     };
   }, [isOpen]);
 
-  if (!eventData) return null;
+  if (!eventData || !googleCalendarUrl) return null;
 
-  const handleGoogleCalendar = () => {
-    const url = generateGoogleCalendarUrl(eventData);
-    window.open(url, "_blank", "noopener,noreferrer");
+  const handleGoogleCalendarOpen = () => {
     setIsOpen(false);
     toast({ title: t('notifications.scaleDetail.calendarOpened', 'Agenda aberta') });
   };
@@ -82,13 +81,19 @@ const AddToCalendarButton: React.FC<AddToCalendarButtonProps> = ({ scale, classN
 
       {isOpen && (
         <div className={`absolute right-0 ${alignY === "top" ? "bottom-full mb-2" : "mt-2"} w-56 rounded-xl bg-[#18181b]/95 border border-white/[0.08] shadow-2xl backdrop-blur-md z-50 py-1 overflow-hidden animate-in fade-in ${alignY === "top" ? "slide-in-from-bottom-1" : "slide-in-from-top-1"} duration-100`}>
-          <button
-            onClick={handleGoogleCalendar}
+          <a
+            href={googleCalendarUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleGoogleCalendarOpen();
+            }}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.04] transition-all"
           >
             <Calendar className="w-4 h-4 text-amber-400" />
             <span>{t('calendar.googleCalendar', 'Google Agenda')}</span>
-          </button>
+          </a>
           <button
             onClick={handleIcsDownload}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.04] transition-all border-t border-white/[0.03]"
