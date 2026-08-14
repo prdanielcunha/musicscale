@@ -63,6 +63,14 @@ export const test = base.extend<TestFixtures>({
               { timeout: options?.timeout ?? 10000 },
             );
 
+            // URL mutation is synchronous, while BrowserRouter commits the new
+            // route on the following React/browser turns. Give it two frames so
+            // sequential SPA gotos cannot collapse /scales -> /scales/:id into
+            // an apparent same-param transition before route effects reset.
+            await page.evaluate(() => new Promise<void>((resolve) => {
+              requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+            }));
+
             return null;
           }
         }
