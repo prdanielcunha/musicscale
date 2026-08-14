@@ -23,16 +23,13 @@ test.describe('Multiple Scales', () => {
     await expect(page.getByTestId('detail-song-card-song_a_1')).toBeVisible();
     await captureFullPage(page, testInfo, 'scale-detail');
 
-    const backButton = page.getByRole('button', { name: /Voltar|Fechar/i }).first();
-    await expect(backButton).toBeVisible();
-    await backButton.click();
+    // Return by route; closing behavior belongs to the modal interaction suite.
+    await page.goto('/scales');
     await page.waitForURL('**/scales');
 
     const createBtn = page.getByRole('button', { name: 'Criar', exact: true }).first();
     await expect(createBtn).toBeVisible();
     await createBtn.click();
-    // Desktop exposes a menuitem while mobile exposes a dialog button; exact
-    // visible copy is unique in both variants.
     const newScaleAction = page.getByText('Criar escala de músicas', { exact: true });
     await expect(newScaleAction).toBeVisible();
     await newScaleAction.click();
