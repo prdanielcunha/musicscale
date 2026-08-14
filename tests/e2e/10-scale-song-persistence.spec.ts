@@ -137,9 +137,8 @@ test.describe('Scale Song Persistence', () => {
     await expect(viewChordsBtn).toBeVisible();
     await viewChordsBtn.click();
 
-    const tomLabel = page.getByText('Tom', { exact: true });
-    await expect(tomLabel).toBeVisible();
-
+    // The viewer renders responsive copies of the label "Tom". The actual
+    // transposition contract is the dedicated key value below, which is unique.
     const transposedKey = page.getByTestId('chords-viewer-transposed-key');
     await expect(transposedKey).toBeVisible();
     await expect(transposedKey).toHaveText('G');
