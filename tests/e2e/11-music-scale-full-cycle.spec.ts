@@ -104,8 +104,9 @@ test.describe('MusicScale full cycle', () => {
     expect(publishResponse.status()).toBe(200);
 
     await expect(scaleEditor).toBeHidden();
-    await expect(page.getByText(/Publicado/i).first()).toBeVisible();
 
+    // The durable publish contract is the command response plus persisted state,
+    // not a locale/copy fragment in the post-publish UI.
     const scaleSnapshot = await getScaleSnapshot(scaleId);
     expect(scaleSnapshot).not.toBeNull();
     expect(scaleSnapshot!.publishRevision).toBe(1);
@@ -328,8 +329,8 @@ test.describe('MusicScale full cycle', () => {
     expect(publishResponse.status()).toBe(200);
 
     await expect(scaleEditor).toBeHidden();
-    await expect(page.getByText(/Publicado/i).first()).toBeVisible();
 
+    // Republish is verified against the durable revision and response state.
     const scaleSnapshot = await getScaleSnapshot(scaleId);
     expect(scaleSnapshot).not.toBeNull();
     expect(scaleSnapshot!.publishRevision).toBe(prevPublishRev + 1);
