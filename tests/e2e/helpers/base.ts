@@ -66,7 +66,25 @@ export const test = base.extend<TestFixtures>({
       }
 
       if (typeof matcher === 'string') {
-        return globToRegExp(matcher).test(href);
+        const matcherRegex = globToRegExp(matcher);
+        if (matcherRegex.test(href)) return true;
+
+        // Legacy feature specs use route-shaped globs (for example
+        // `**/scales`) as a path assertion. React Router may normalize the
+        // current location with search/hash state after pushState, even though
+        // the canonical pathname is already correct. When the matcher itself
+        // does not request query/hash matching, compare it against the URL with
+        // those non-route components removed instead of waiting forever for a
+        // second navigation that will never happen.
+        if (!matcher.includes('?') && !matcher.includes('#')) {
+          try {
+            const current = new URL(href);
+            const canonicalHref = `${current.origin}${current.pathname}`;
+            return matcherRegex.test(canonicalHref);
+          } catch {
+            return false;
+          }
+        }
       }
 
       return false;
