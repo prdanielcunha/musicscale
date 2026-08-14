@@ -89,10 +89,12 @@ test.describe('Scale Song Persistence', () => {
 
     const detailSongCard = page.getByTestId('detail-song-card-song_a_2');
     await expect(detailSongCard).toBeVisible();
-    await expect(detailSongCard.getByText('G', { exact: true })).toBeVisible();
-    await expect(detailSongCard.getByText('105', { exact: true })).toBeVisible();
+    // The current detail card renders the value together with its semantic label
+    // (for example "Tom G" / "BPM 105") rather than as an isolated text node.
+    await expect(detailSongCard).toContainText(/Tom\s*G/i);
+    await expect(detailSongCard).toContainText(/(?:BPM\s*105|105\s*BPM)/i);
 
-    const localBadges = detailSongCard.getByText('Desta escala');
+    const localBadges = detailSongCard.getByText(/Ajuste local|Desta escala/i);
     await expect(localBadges).toHaveCount(2);
 
     const viewChordsBtn = detailSongCard.getByTestId('performance-mode-button-song_a_2');
