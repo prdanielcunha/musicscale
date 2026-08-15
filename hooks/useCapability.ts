@@ -31,6 +31,13 @@ function canonicalCapabilitiesFromContext(context: any): Set<string> {
   return new Set([...directCapabilities, ...effectiveCapabilities]);
 }
 
+export function hasCanonicalTaxonomyManagement(context: any): boolean {
+  const canonicalCapabilities = canonicalCapabilitiesFromContext(context);
+  return TAXONOMY_CAPABILITIES.every((requiredCapability) =>
+    canonicalCapabilities.has(requiredCapability),
+  );
+}
+
 export function useCapability() {
   const { permissions, isGlobalAdmin } = useAuth();
   const { context } = useEcosystem();
@@ -43,9 +50,7 @@ export function useCapability() {
     if (canonicalCapabilities.has(capability)) return true;
 
     if (capability === 'musicscale.taxonomy.manage') {
-      return TAXONOMY_CAPABILITIES.every((requiredCapability) =>
-        canonicalCapabilities.has(requiredCapability),
-      );
+      return hasCanonicalTaxonomyManagement(context);
     }
 
     return false;
