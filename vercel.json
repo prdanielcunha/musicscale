@@ -4,9 +4,11 @@
     "deploymentEnabled": {
       "*": false,
       "main": true,
-      "production": true
+      "production": true,
+      "fix/global-role-display-v2-20260814": true
     }
   },
+  "buildCommand": "npm run lint && npm run test:ui && npm run build",
   "rewrites": [
     {
       "source": "/api/(.*)",
