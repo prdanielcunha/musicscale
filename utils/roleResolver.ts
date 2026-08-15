@@ -9,9 +9,10 @@ export interface DisplayRole {
 
 export function getPrimaryDisplayRole(
   userProfile?: UserProfile | any | null,
-  organization?: Organization | any | null
+  organization?: Organization | any | null,
+  canonicalEcosystemRole?: string | null
 ): DisplayRole {
-  const systemRole = (userProfile?.systemRole || '').toLowerCase();
+  const systemRole = String(canonicalEcosystemRole || userProfile?.systemRole || '').toLowerCase();
   
   // Organization role string usually comes from userProfile or organizations/{orgId}/members doc
   let orgRoleStr = '';
