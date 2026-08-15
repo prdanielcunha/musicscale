@@ -1,6 +1,7 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth, AppPermissions } from "../../contexts/AuthContext";
+import { useCapability } from "../../hooks/useCapability";
 import Spinner from "../common/Spinner";
 import { getSubscriptionBlockReason } from "../../utils/subscriptionValidator";
 
@@ -14,6 +15,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requiredPermission,
 }) => {
   const { permissions, loading, isGlobalAdmin, entitlements, organization, subscription } = useAuth();
+  const { hasCapability } = useCapability();
 
   const isSubscriptionValid = React.useMemo(() => {
     if (isGlobalAdmin) return true;
@@ -39,7 +41,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/" replace />;
   }
 
-  const hasPermission = permissions[requiredPermission] || isGlobalAdmin;
+  // /database manages MusicScale taxonomy, not organization-wide settings.
+  // Leaders already receive the canonical taxonomy.*.manage capabilities from
+  // the RBAC resolver and Firestore Rules. Keep plans/backup/debug guarded by
+  // manageOrganization while allowing this domain-specific route independently.
+  const effectivePermission =
+    window.location.pathname.startsWith('/database') && requiredPermission === 'manageOrganization'
+      ? 'musicscale.taxonomy.manage'
+      : requiredPermission;
+  const hasPermission = hasCapability(effectivePermission) || isGlobalAdmin;
 
   if (!hasPermission) {
     // Prevent infinite redirect loop if already on the root path
