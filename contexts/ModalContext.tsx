@@ -786,14 +786,18 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             } else {
                 if (isUpdate) {
                     musicScaleId = scaleData.id as string;
-                    await api.scales.update(musicScaleId, updateData as Scale);
+                    await api.musicScaleCommands.save(
+                        musicScaleId,
+                        buildMusicScalePublishPayload(updateData),
+                        idempotencyKey || crypto.randomUUID()
+                    );
                 } else {
                     musicScaleId = await api.scales.create(updateData as Omit<Scale, 'id' | 'createdBy' | 'createdAt'>);
                     setScaleToEdit({ ...updateData, id: musicScaleId } as Scale);
                 }
 
                 const bandScaleId = 'bandScaleId' in scaleData ? scaleData.bandScaleId || null : null;
-                if (bandScaleId) {
+                if (!isUpdate && bandScaleId) {
                     await api.linkScales(musicScaleId, bandScaleId);
                 }
 

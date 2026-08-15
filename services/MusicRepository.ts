@@ -576,6 +576,30 @@ export class MusicRepository {
     };
 
     public musicScaleCommands = {
+        save: async (musicScaleId: string, payload: any, idempotencyKey: string) => {
+            const { auth } = await import('./firebase');
+            const token = await auth.currentUser?.getIdToken();
+            if (!token) throw new Error("Usuário não autenticado.");
+            const res = await fetch(`/api/v1/music-scales/${musicScaleId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'Idempotency-Key': idempotencyKey,
+                    'X-Organization-Id': this.orgId
+                },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                const err = new Error(errData.error || "Erro ao salvar escala de música.");
+                (err as any).correlationId = errData.correlationId;
+                (err as any).status = res.status;
+                (err as any).code = errData.code;
+                throw err;
+            }
+            return await res.json();
+        },
         publish: async (musicScaleId: string, payload: any, idempotencyKey: string) => {
             const { auth } = await import('./firebase');
             const token = await auth.currentUser?.getIdToken();

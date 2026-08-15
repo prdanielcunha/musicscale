@@ -5,7 +5,7 @@ import type { FirebaseFirestore } from "@firebase/firestore-types";
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue | undefined };
 
 export interface CommandReceipt<TResult = unknown> {
-  commandType: "bandScale.create" | "bandScale.update" | "musicScale.publish" | "musicScale.respondOwn";
+  commandType: "bandScale.create" | "bandScale.update" | "musicScale.publish" | "musicScale.save" | "musicScale.respondOwn";
   organizationId: string;
   userId?: string;
   authenticatedUserId?: string;
