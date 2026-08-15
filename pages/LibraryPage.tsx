@@ -65,6 +65,12 @@ import { useTranslation } from "react-i18next";
 import { AdminCrossOrgImportModal } from "../components/admin/AdminCrossOrgImportModal";
 import { buildSearchIndex, searchSongs } from "../utils/searchEngine";
 
+export const LIBRARY_LOAD_TIMEOUT_MS = 15_000;
+
+type LibraryLoadError = "timeout" | "generic";
+
+class LibraryLoadTimeoutError extends Error {}
+
 const Popover: React.FC<{
   triggerRef: React.RefObject<HTMLElement>;
   isOpen: boolean;
@@ -184,6 +190,7 @@ export default function LibraryPage() {
 
   const [songs, setSongs] = useState<GlobalSong[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<LibraryLoadError | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [importingId, setImportingId] = useState<string | null>(null);
 
@@ -208,6 +215,10 @@ export default function LibraryPage() {
     QueryDocumentSnapshot<DocumentData> | undefined
   >(undefined);
   const [hasMore, setHasMore] = useState(true);
+  const requestSequenceRef = useRef(0);
+  const isLoadingMoreRef = useRef(false);
+  const lastLoadIntentRef = useRef({ isFirstPage: true, term: "" });
+  const didInitializeSearchRef = useRef(false);
 
   // New precise state
   const [viewMode, setViewMode] = useState<"grid" | "list">(
@@ -358,24 +369,48 @@ export default function LibraryPage() {
     isFirstPage: boolean = false,
     term: string = searchTerm,
   ) => {
-    if (loading || (!hasMore && !isFirstPage)) return;
+    if ((!hasMore && !isFirstPage) || (!isFirstPage && isLoadingMoreRef.current)) return;
+
+    const requestSequence = ++requestSequenceRef.current;
+    lastLoadIntentRef.current = { isFirstPage, term };
+    if (!isFirstPage) isLoadingMoreRef.current = true;
     setLoading(true);
+    setLoadError(null);
+    if (isFirstPage) setSongs([]);
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
-      const result = await getGlobalSongs(
-        term,
-        isFirstPage ? undefined : lastVisible,
-        30,
-      );
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new LibraryLoadTimeoutError("Library load timed out")),
+          LIBRARY_LOAD_TIMEOUT_MS,
+        );
+      });
+      const result = await Promise.race([
+        getGlobalSongs(term, isFirstPage ? undefined : lastVisible, 30),
+        timeoutPromise,
+      ]);
+
+      if (requestSequence !== requestSequenceRef.current) return;
       setSongs((prev) =>
         isFirstPage ? result.songs : [...prev, ...result.songs],
       );
       setLastVisible(result.lastVisible);
       setHasMore(result.songs.length === 30);
     } catch (error) {
+      if (requestSequence !== requestSequenceRef.current) return;
       logger.error("Error loading library", error);
+      setLoadError(error instanceof LibraryLoadTimeoutError ? "timeout" : "generic");
     } finally {
-      setLoading(false);
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      if (requestSequence === requestSequenceRef.current) setLoading(false);
+      if (!isFirstPage) isLoadingMoreRef.current = false;
     }
+  };
+
+  const retryLastLoad = () => {
+    const { isFirstPage, term } = lastLoadIntentRef.current;
+    void loadSongs(isFirstPage, term);
   };
 
   useEffect(() => {
@@ -387,6 +422,10 @@ export default function LibraryPage() {
 
   useEffect(() => {
     if (!hasAccess) return;
+    if (!didInitializeSearchRef.current) {
+      didInitializeSearchRef.current = true;
+      return;
+    }
     const handler = setTimeout(() => {
       loadSongs(true, searchTerm);
     }, 400);
@@ -1169,8 +1208,34 @@ export default function LibraryPage() {
         </div>
 
         {/* Global Songs Feed */}
-        <div className="animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-          {loading && songs.length === 0 ? (
+        <div
+          className="animate-fade-in-up"
+          style={{ animationDelay: "200ms" }}
+          aria-busy={loading}
+        >
+          {loadError && songs.length === 0 ? (
+            <div
+              role="alert"
+              className="py-20 px-6 flex flex-col items-center justify-center text-center bg-white dark:bg-[#1A1A1C]/60 rounded-[32px] border border-red-200 dark:border-red-500/20"
+            >
+              <div className="w-20 h-20 mb-6 rounded-full bg-red-50 dark:bg-red-500/10 flex items-center justify-center text-red-500">
+                <Search className="w-8 h-8" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
+                {loadError === "timeout"
+                  ? t("library.load_timeout_title", "A Biblioteca demorou para responder")
+                  : t("library.load_error_title", "Não foi possível carregar a Biblioteca")}
+              </h3>
+              <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8 font-medium">
+                {loadError === "timeout"
+                  ? t("library.load_timeout_description", "Verifique sua conexão e tente novamente.")
+                  : t("library.load_error_description", "Tivemos um problema ao buscar as músicas. Tente novamente em instantes.")}
+              </p>
+              <Button onClick={retryLastLoad} variant="primary" className="min-h-[44px] px-8">
+                {t("library.retry", "Tentar novamente")}
+              </Button>
+            </div>
+          ) : loading && songs.length === 0 ? (
             viewMode === "grid" ? (
               <div className="grid grid-cols-1  lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -1217,6 +1282,18 @@ export default function LibraryPage() {
             </div>
           ) : (
             <>
+              {loadError && (
+                <div role="alert" className="mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 p-4">
+                  <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                    {loadError === "timeout"
+                      ? t("library.load_timeout_description", "Verifique sua conexão e tente novamente.")
+                      : t("library.load_error_description", "Tivemos um problema ao buscar as músicas. Tente novamente em instantes.")}
+                  </p>
+                  <Button onClick={retryLastLoad} variant="secondary" className="min-h-[44px] shrink-0">
+                    {t("library.retry", "Tentar novamente")}
+                  </Button>
+                </div>
+              )}
               {isSelectionMode && processedSongs.every(s => importedIds.has(s.id)) && (
                  <div className="mb-8 p-6 flex flex-col md:flex-row items-center gap-6 justify-between bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl border border-emerald-100 dark:border-emerald-500/20 text-emerald-900 dark:text-emerald-100 shrink-0">
                     <div className="flex items-center gap-4">
