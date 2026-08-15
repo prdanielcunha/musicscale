@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { navigationRegistry } from '../../components/layout/navigationRegistry';
-import { hasCanonicalTaxonomyManagement } from '../../hooks/useCapability';
 import { buildEffectiveAccessContext } from '../../utils/rbac';
+import { hasCanonicalTaxonomyManagement } from '../../utils/taxonomyAccess';
 
 const taxonomyNavigationIds = [
   'structures',
