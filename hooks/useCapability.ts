@@ -1,5 +1,9 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useEcosystem } from '../contexts/EcosystemContext';
+import {
+  canonicalCapabilitiesFromContext,
+  hasCanonicalTaxonomyManagement,
+} from '../utils/taxonomyAccess';
 
 export type MusicScaleCapability = 
   | 'musicscale.songs.edit'
@@ -8,35 +12,6 @@ export type MusicScaleCapability =
   | 'musicscale.performance.use'
   | 'musicscale.taxonomy.manage'
   | 'manageOrganization';
-
-const TAXONOMY_CAPABILITIES = [
-  'taxonomy.instruments.manage',
-  'taxonomy.skills.manage',
-  'taxonomy.eventTypes.manage',
-  'taxonomy.eventNames.manage',
-  'taxonomy.locations.manage',
-  'taxonomy.tags.manage',
-] as const;
-
-function canonicalCapabilitiesFromContext(context: any): Set<string> {
-  const directCapabilities = Array.isArray(context?.capabilities)
-    ? context.capabilities
-    : [];
-  const effectiveCapabilities = Array.isArray(
-    context?.serverContext?.effectiveContext?.effectiveCapabilities,
-  )
-    ? context.serverContext.effectiveContext.effectiveCapabilities
-    : [];
-
-  return new Set([...directCapabilities, ...effectiveCapabilities]);
-}
-
-export function hasCanonicalTaxonomyManagement(context: any): boolean {
-  const canonicalCapabilities = canonicalCapabilitiesFromContext(context);
-  return TAXONOMY_CAPABILITIES.every((requiredCapability) =>
-    canonicalCapabilities.has(requiredCapability),
-  );
-}
 
 export function useCapability() {
   const { permissions, isGlobalAdmin } = useAuth();
