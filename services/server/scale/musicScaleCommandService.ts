@@ -68,6 +68,15 @@ export interface MusicScalePublishResult {
   fromCache: boolean;
 }
 
+export interface MusicScaleSaveResult {
+  correlationId: string;
+  organizationId: string;
+  authenticatedUserId: string;
+  musicScaleId: string;
+  status: string;
+  fromCache: boolean;
+}
+
 export type MusicScalePublishTransactionResult = Omit<MusicScalePublishResult, 'correlationId' | 'organizationId' | 'authenticatedUserId'>;
 
 export class MusicScaleCommandService {
@@ -235,6 +244,130 @@ export class MusicScaleCommandService {
           throw new ValidationError("O campo bandScaleId no patch deve ser uma string não vazia ou null.");
         }
       }
+    }
+  }
+
+  static async saveMusicScale(params: {
+    authUid: string; orgId: string; musicScaleId: string; idempotencyKey: string;
+    payload: MusicScalePublishPayload; correlationId: string;
+  }): Promise<MusicScaleSaveResult> {
+    const { authUid, orgId, musicScaleId, idempotencyKey, payload, correlationId } = params;
+    this.validatePayload(payload);
+    const db = getFirestore();
+    const normalizedPayload = { scalePatch: payload.scalePatch || {}, bandScaleId: payload.bandScaleId };
+    const fingerprint = IdempotencyService.getRequestFingerprint(normalizedPayload);
+    const receiptId = IdempotencyService.getReceiptId(orgId, `musicScale.save:${idempotencyKey}`);
+    let modifierIdentity = { displayName: null as string | null, photoURL: null as string | null };
+    try {
+      const userSnap = await db.collection('users').doc(authUid).get();
+      if (userSnap.exists) {
+        const userData = userSnap.data() || {};
+        modifierIdentity = {
+          displayName: userData.displayName || userData.name || null,
+          photoURL: userData.photoURL || null
+        };
+      }
+    } catch (error) {
+      logger.warn('[MusicScaleSaveCommand] Could not resolve canonical modifier metadata', { correlationId, authUid, error });
+    }
+
+    const result = await db.runTransaction(async transaction => {
+      const receipt = await IdempotencyService.getReceiptInTransaction<MusicScaleSaveResult>(transaction, orgId, receiptId);
+      if (receipt) {
+        if (receipt.commandType === 'musicScale.save' && receipt.requestFingerprint === fingerprint &&
+            receipt.authenticatedUserId === authUid && receipt.entityId === musicScaleId) {
+          return { ...(receipt.result as MusicScaleSaveResult), correlationId, fromCache: true };
+        }
+        throw new PublishCommandError('Conflito de idempotência.', 'IDEMPOTENCY_CONFLICT');
+      }
+
+      const scaleRef = db.collection('scales').doc(musicScaleId);
+      const scaleSnap = await transaction.get(scaleRef);
+      if (!scaleSnap.exists) throw new PublishCommandError('Escala não encontrada.', 'NOT_FOUND');
+      const current = scaleSnap.data() as Scale;
+      if (current.organizationId !== orgId) throw new PublishCommandError('Escala pertence a outra organização.', 'TENANT_SCOPE_MISMATCH');
+
+      const patch = { ...(payload.scalePatch || {}) } as Record<string, unknown>;
+      const hasBandScalePatch = Object.prototype.hasOwnProperty.call(payload, 'bandScaleId') || Object.prototype.hasOwnProperty.call(patch, 'bandScaleId');
+      const nextBandScaleId = hasBandScalePatch ? (payload.bandScaleId ?? patch.bandScaleId ?? null) as string | null : (current.bandScaleId || null);
+      delete patch.bandScaleId;
+
+      const previousBandRef = current.bandScaleId && current.bandScaleId !== nextBandScaleId
+        ? db.collection('bandScales').doc(current.bandScaleId) : null;
+      const nextBandRef = nextBandScaleId ? db.collection('bandScales').doc(nextBandScaleId) : null;
+      const previousBandSnap = previousBandRef ? await transaction.get(previousBandRef) : null;
+      const nextBandSnap = nextBandRef ? await transaction.get(nextBandRef) : null;
+      if (previousBandSnap?.exists && previousBandSnap.data()?.organizationId !== orgId) {
+        throw new PublishCommandError('Escala de banda anterior pertence a outra organização.', 'TENANT_SCOPE_MISMATCH');
+      }
+      if (nextBandSnap && (!nextBandSnap.exists || nextBandSnap.data()?.organizationId !== orgId)) {
+        throw new PublishCommandError('Escala de banda inválida para esta organização.', 'TENANT_SCOPE_MISMATCH');
+      }
+      if (nextBandSnap?.exists) {
+        const nextData = nextBandSnap.data() as BandScale;
+        if (nextData.musicScaleId && nextData.musicScaleId !== musicScaleId) {
+          throw new PublishCommandError('Escala de banda já vinculada a outra escala de música.', 'BAND_SCALE_ALREADY_LINKED');
+        }
+      }
+
+      if (previousBandRef && previousBandSnap?.exists) transaction.update(previousBandRef, { musicScaleId: null, updatedAt: FieldValue.serverTimestamp() });
+      if (nextBandRef) transaction.update(nextBandRef, { musicScaleId, updatedAt: FieldValue.serverTimestamp() });
+
+      const update = {
+        ...patch,
+        ...(hasBandScalePatch ? { bandScaleId: nextBandScaleId } : {}),
+        status: current.status || 'draft',
+        organizationId: current.organizationId,
+        updatedAt: FieldValue.serverTimestamp(),
+        lastModifiedAt: FieldValue.serverTimestamp(),
+        lastModifiedBy: { uid: authUid, ...modifierIdentity }
+      };
+      transaction.update(scaleRef, update);
+      transaction.set(db.collection('organizations').doc(orgId).collection('audit_logs').doc(), {
+        action: 'musicScale.save', entityType: 'scale', entityId: musicScaleId,
+        organizationId: orgId, userId: authUid, correlationId,
+        createdAt: FieldValue.serverTimestamp()
+      });
+      const result: MusicScaleSaveResult = { correlationId, organizationId: orgId, authenticatedUserId: authUid, musicScaleId, status: current.status || 'draft', fromCache: false };
+      IdempotencyService.writeReceiptInTransaction(transaction, orgId, receiptId, {
+        commandType: 'musicScale.save', organizationId: orgId, authenticatedUserId: authUid,
+        entityId: musicScaleId, requestFingerprint: fingerprint, correlationId, result
+      });
+      return result;
+    });
+
+    try {
+      const savedScale = await db.collection('scales').doc(musicScaleId).get();
+      const savedData = savedScale.data() as Scale | undefined;
+      await this.updateSongsLastScheduledAt(db, orgId, savedData?.songIds, savedData?.date);
+    } catch (error) {
+      logger.error('[MusicScaleSaveCommand] lastScheduledAt maintenance failed', { correlationId, musicScaleId, orgId, error });
+    }
+
+    return result;
+  }
+
+  private static async updateSongsLastScheduledAt(
+    db: FirebaseFirestore.Firestore,
+    orgId: string,
+    songIds: string[] | undefined,
+    scheduledDate: string | undefined
+  ): Promise<void> {
+    if (!scheduledDate || !/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate)) return;
+    const [year, month, day] = scheduledDate.split('-').map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return;
+
+    for (const songId of new Set((songIds || []).filter(id => typeof id === 'string' && id.trim()))) {
+      const songRef = db.collection('songs').doc(songId);
+      await db.runTransaction(async transaction => {
+        const songSnap = await transaction.get(songRef);
+        if (!songSnap.exists) return;
+        const song = songSnap.data() || {};
+        if (song.organizationId !== orgId) return;
+        const current = typeof song.lastScheduledAt === 'string' ? song.lastScheduledAt : null;
+        if (!current || scheduledDate > current) transaction.update(songRef, { lastScheduledAt: scheduledDate });
+      });
     }
   }
 
