@@ -100,6 +100,18 @@ Silo de dados lógico: Cada registro gravado (música, escala, membro) armazena 
 - `eventTypes`, `tags`, `instruments`, `locations`
 - `monthly_usage`
 
+### Projeção de perfil interno MusicScale
+
+`organizations/{orgId}/musicscale_members/{uid}` armazena exclusivamente a atribuição tenant-scoped de função e perfil musical (`roleId`, `musicscaleRole`, `ministryFunction` e `specialtyIds`). A membership canônica em `organizations/{orgId}/members/{uid}` continua sendo usada para provar membership e resolver `organizationRole`, mas não recebe novos writes desses campos específicos do MusicScale. Leituras mantêm fallback temporário para campos legados tenant-bound; novos writes de perfil interno passam por endpoint autenticado e convergem somente para a projeção.
+
+### Convites canônicos do Hub
+
+Novos convites são criados e aceitos exclusivamente pela API canônica do MillionsNest Hub, por meio do adapter server-side do MusicScale configurado por `MILLIONSNEST_HUB_ORIGIN`. O adapter encaminha apenas o Firebase Bearer do usuário e sempre solicita a membership Hub `member`; a função ministerial escolhida fica separada em `organizations/{orgId}/musicscale_invite_role_intents/{sha256(email normalizado)}` e, após aceite canônico, é aplicada somente à projeção `musicscale_members`.
+
+Links novos usam `/join/{organizationId}?token=...`. Tokens brutos são somente transitórios na chamada e na URL: não são persistidos nem registrados. Não há mais criação de convite anônimo pelo Profile; o CTA encaminha ao fluxo de e-mail e função em Users.
+
+O endpoint de aceite tenta o Hub primeiro. O fallback temporário para os antigos `invites/{id}` e `organizations/{orgId}/invites/{id}` só é elegível após `404` com `INVITE_NOT_FOUND`; indisponibilidade, timeout ou qualquer outro resultado falham fechados. Ainda dependem de fases posteriores os join requests, remoção de membros, atualização de `organizationRole` e hardening final das Rules.
+
 ## 18. Firestore Rules Encontradas
 Baseadas em `firestore.rules` (vistas na leitura inicial):
 - Regras bloqueando leituras gerais não autorizadas.

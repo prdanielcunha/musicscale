@@ -1,18 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock dependencies
 vi.mock('firebase/app', () => ({
   initializeApp: vi.fn(() => ({})),
   getApps: vi.fn(() => [])
 }));
 
+const mockAuth = {};
+const mockInitializeAuth = vi.fn(() => mockAuth);
+const mockGetAuth = vi.fn(() => mockAuth);
+const mockInMemoryPersistence = { type: 'NONE' };
+const mockConnectAuthEmulator = vi.fn();
+
 vi.mock('firebase/auth', () => ({
-  getAuth: vi.fn(),
-  connectAuthEmulator: vi.fn()
+  getAuth: mockGetAuth,
+  initializeAuth: mockInitializeAuth,
+  inMemoryPersistence: mockInMemoryPersistence,
+  connectAuthEmulator: mockConnectAuthEmulator
 }));
 
-const mockGetFirestore = vi.fn();
-const mockInitializeFirestore = vi.fn();
+const mockFirestore = {};
+const mockGetFirestore = vi.fn(() => mockFirestore);
+const mockInitializeFirestore = vi.fn(() => mockFirestore);
+const mockMemoryLocalCache = vi.fn(() => 'mock-memory-cache');
 const mockPersistentLocalCache = vi.fn(() => 'mock-local-cache');
 const mockPersistentMultipleTabManager = vi.fn(() => 'mock-tab-manager');
 const mockConnectFirestoreEmulator = vi.fn();
@@ -20,6 +29,7 @@ const mockConnectFirestoreEmulator = vi.fn();
 vi.mock('firebase/firestore', () => ({
   getFirestore: mockGetFirestore,
   initializeFirestore: mockInitializeFirestore,
+  memoryLocalCache: mockMemoryLocalCache,
   persistentLocalCache: mockPersistentLocalCache,
   persistentMultipleTabManager: mockPersistentMultipleTabManager,
   connectFirestoreEmulator: mockConnectFirestoreEmulator
@@ -38,13 +48,28 @@ describe('Firebase Initialization', () => {
     vi.resetModules();
   });
 
-  it('should disable persistent cache in Emulator mode', async () => {
-    // We mock useEmulators: true above
+  it('uses deterministic in-memory Auth and forced long-polling Firestore in Emulator mode', async () => {
     await import('../../services/firebase');
-    
-    // getFirestore should have been called (which means no persistent cache)
-    expect(mockGetFirestore).toHaveBeenCalled();
-    // initializeFirestore with persistentLocalCache should NOT have been called
-    expect(mockInitializeFirestore).not.toHaveBeenCalled();
+
+    expect(mockInitializeAuth).toHaveBeenCalledWith(expect.anything(), {
+      persistence: mockInMemoryPersistence
+    });
+    expect(mockGetAuth).not.toHaveBeenCalled();
+    expect(mockConnectAuthEmulator).toHaveBeenCalled();
+
+    expect(mockMemoryLocalCache).toHaveBeenCalled();
+    expect(mockPersistentLocalCache).not.toHaveBeenCalled();
+    expect(mockGetFirestore).not.toHaveBeenCalled();
+    expect(mockInitializeFirestore).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        localCache: 'mock-memory-cache',
+        experimentalForceLongPolling: true,
+        experimentalLongPollingOptions: { timeoutSeconds: 10 },
+        ignoreUndefinedProperties: true
+      }),
+      'mock-db'
+    );
+    expect(mockConnectFirestoreEmulator).toHaveBeenCalledWith(mockFirestore, '127.0.0.1', 8080);
   });
 });

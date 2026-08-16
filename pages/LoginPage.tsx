@@ -34,6 +34,11 @@ export default function LoginPage() {
   const [isRegister, setIsRegister] = useState(false);
   const [displayName, setDisplayName] = useState("");
 
+  const safeRedirect = () => {
+    const candidate = new URLSearchParams(window.location.search).get('redirect');
+    return candidate && candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : null;
+  };
+
   useEffect(() => {
      const params = new URLSearchParams(window.location.search);
      
@@ -85,21 +90,9 @@ export default function LoginPage() {
       const authResult = await signInWithGoogle();
       
       const params = new URLSearchParams(window.location.search);
-      const redirectPath = params.get('redirect');
+      const redirectPath = safeRedirect();
       if (redirectPath) {
-         if (redirectPath.includes('invite=')) {
-            const inviteParamMatch = redirectPath.match(/invite=([^&]+)/);
-            if (inviteParamMatch && authResult && authResult.user) {
-                const token = decodeURIComponent(inviteParamMatch[1]);
-                try {
-                  const { acceptInvite } = await import('../services/inviteService');
-                  await acceptInvite(authResult.user, token);
-                } catch(e) {}
-            }
-            window.location.href = '/';
-         } else {
-            navigate(redirectPath, { replace: true });
-         }
+         navigate(redirectPath, { replace: true });
       } else {
          navigate("/start", { replace: true });
       }
@@ -130,21 +123,9 @@ export default function LoginPage() {
       }
 
       const params = new URLSearchParams(window.location.search);
-      const redirectPath = params.get('redirect');
+      const redirectPath = safeRedirect();
       if (redirectPath) {
-         if (redirectPath.includes('invite=')) {
-            const inviteParamMatch = redirectPath.match(/invite=([^&]+)/);
-            if (inviteParamMatch && authResult && authResult.user) {
-                const token = decodeURIComponent(inviteParamMatch[1]);
-                try {
-                  const { acceptInvite } = await import('../services/inviteService');
-                  await acceptInvite(authResult.user, token);
-                } catch(e) {}
-            }
-            window.location.href = '/';
-         } else {
-            navigate(redirectPath, { replace: true });
-         }
+         navigate(redirectPath, { replace: true });
       } else {
          navigate("/start", { replace: true });
       }

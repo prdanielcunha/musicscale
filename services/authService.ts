@@ -1,4 +1,3 @@
-
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -18,14 +17,25 @@ import {
   signInWithPopup
 } from 'firebase/auth';
 import { auth } from './firebase';
-// FIX: Corrected import path and usage to treat firestoreService as a module.
 import { createUserProfile, getUserProfileData } from './firestoreService';
 import type { User } from '../types';
 
+/**
+ * Browser persistence is a real-product concern. Playwright's emulator contexts
+ * are disposable and already isolated per browser/project; switching persistence
+ * before sign-in can stall Firebase Auth initialization under mobile emulation.
+ * Keep production remember-me behavior unchanged and skip only in explicit E2E mode.
+ */
+const isE2EAuthMode = (): boolean => {
+  return import.meta.env?.VITE_E2E_MODE === 'true';
+};
+
 export const signUpWithEmail = async (email: string, password: string, displayName: string, roleName?: string): Promise<UserCredential> => {
-  await setPersistence(auth, browserLocalPersistence);
+  if (!isE2EAuthMode()) {
+    await setPersistence(auth, browserLocalPersistence);
+  }
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  
+
   // Update the new user's profile in Firebase Auth to include their name
   await updateProfile(userCredential.user, { displayName });
   // After user is created in Auth, create their profile in Firestore.
@@ -35,21 +45,23 @@ export const signUpWithEmail = async (email: string, password: string, displayNa
 };
 
 export const signInWithEmail = async (email: string, password: string, keepLoggedIn: boolean): Promise<any> => {
-  await setPersistence(auth, keepLoggedIn ? browserLocalPersistence : browserSessionPersistence);
+  if (!isE2EAuthMode()) {
+    await setPersistence(auth, keepLoggedIn ? browserLocalPersistence : browserSessionPersistence);
+  }
   return signInWithEmailAndPassword(auth, email, password);
 };
 
 export const signInWithGoogle = async (): Promise<UserCredential> => {
     const provider = new GoogleAuthProvider();
     const userCredential = await signInWithPopup(auth, provider);
-    
+
     // Check if user profile exists in database
     const profile = await getUserProfileData(userCredential.user.uid);
     if (!profile) {
         // Create basic profile if it acts as a standalone fallback
         await createUserProfile(userCredential.user, '', 'visitor');
     }
-    
+
     return userCredential;
 };
 
@@ -73,10 +85,10 @@ export const changePassword = async (currentPassword: string, newPassword: strin
     }
 
     const credential = EmailAuthProvider.credential(user.email, currentPassword);
-    
+
     // Re-authenticate the user to confirm their identity
     await reauthenticateWithCredential(user, credential);
-    
+
     // If re-authentication is successful, update the password
     await updatePassword(user, newPassword);
 };

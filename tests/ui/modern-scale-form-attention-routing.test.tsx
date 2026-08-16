@@ -52,7 +52,7 @@ i18n
 
 // All necessary Context Mocks
 let mockPopulatedBandScales = [
-  { id: 'bs1', date: '2026-08-15', eventType: { name: 'Culto' }, assignments: [ { userId: 'u1', instrumentId: 'inst1' } ] }
+  { id: 'bs1', date: '2099-08-15', eventType: { name: 'Culto' }, assignments: [ { userId: 'u1', instrumentId: 'inst1' } ] }
 ];
 
 vi.mock('../../contexts/MusicDataContext', () => ({
@@ -109,7 +109,7 @@ vi.mock('../../contexts/ToastContext', () => ({
 describe('ModernScaleForm Attention Routing & Focus', () => {
   beforeEach(async () => {
     mockPopulatedBandScales = [
-      { id: 'bs1', date: '2026-08-15', eventType: { name: 'Culto' }, assignments: [ { userId: 'u1', instrumentId: 'inst1' } ] }
+      { id: 'bs1', date: '2099-08-15', eventType: { name: 'Culto' }, assignments: [ { userId: 'u1', instrumentId: 'inst1' } ] }
     ];
     await i18n.changeLanguage('pt');
   });

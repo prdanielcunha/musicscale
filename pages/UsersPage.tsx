@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { useTranslation } from "react-i18next";
 import { getPrimaryDisplayRole, getRoleBadgeStyles } from '../utils/roleResolver';
 import { useNavigate, useLocation } from "react-router-dom";
-import { doc, updateDoc, deleteDoc, collection, setDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
+import { doc, updateDoc, collection, setDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { sendResetEmail } from "../services/authService";
 import type { UserProfile, Role, Instrument } from "../types";
@@ -1064,57 +1064,35 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
     }
   };
 
+  const removeMemberViaHub = async (memberId: string) => {
+    if (!currentUser) throw new Error(t("users.auth_error", "Usuário não autenticado."));
+    if (memberId === currentUser.uid) throw new Error("SELF_REMOVAL_REQUIRES_LEAVE_COMMAND");
+    const organizationId = userProfile?.activeOrganizationId || userProfile?.primaryOrganizationId || userProfile?.organizationId;
+    if (!organizationId) throw new Error("ORGANIZATION_CONTEXT_REQUIRED");
+
+    const idToken = await currentUser.getIdToken();
+    const response = await fetch(`/api/orgs/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(memberId)}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${idToken}` }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.success !== true || !["MEMBER_REMOVED", "ALREADY_REMOVED"].includes(data?.reasonCode)) {
+      throw new Error(data?.reasonCode || data?.error || "MEMBER_REMOVAL_FAILED");
+    }
+    return data;
+  };
+
   const handleRemoveMember = async (memberId: string) => {
     if (memberId === currentUser?.uid || !api) return;
-    
-    // Validate hierarchy before removing member
-    const targetUser = allUsers.find(u => u.uid === memberId);
-    if (targetUser) {
-      const targetRoleKey = getRoleKeyFromId(targetUser.roleId || "", allRoles);
-      const actorRoleKey = isGlobal ? "owner" : getRoleKeyFromName(userProfile?.role || "");
-      const otherOwnersActiveCount = allUsers.filter(u => u.organizationId === userProfile?.organizationId && u.uid !== memberId && (u.role === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
-      
-      const roleCtx = {
-        isGlobalPrivilegedUser: isGlobal,
-        actorSystemRole: userProfile?.systemRole,
-        actorOrganizationRole: actorRoleKey,
-        targetOrganizationRole: targetRoleKey,
-        isSelfChange: memberId === currentUser?.uid,
-        otherOwnersActiveCount
-      };
-
-      const checkChange = canChangeOrganizationRole(actorRoleKey, targetRoleKey, "viewer", roleCtx);
-      if (!checkChange.canChange) {
-        toastError(checkChange.error || "Você não tem autorização para remover este usuário.");
-        return;
-      }
-    }
-
     setIsSaving(true);
     try {
-      const orgId = userProfile?.organizationId || currentUser?.uid;
-      try {
-          // Official Source of Truth delete
-          await deleteDoc(doc(db, "organizations", orgId, "members", memberId));
-          
-          // Legacy deletes
-          const docRef1 = doc(db, "organization_members", `${memberId}_${orgId}`);
-          await deleteDoc(docRef1);
-      } catch (e) {}
-      try {
-          const docRef2 = doc(db, "organization_members", `${orgId}_${memberId}`);
-          await deleteDoc(docRef2);
-      } catch (e) {}
-      
+      await removeMemberViaHub(memberId);
       setUsers((prev) => prev.filter((u) => u.uid !== memberId));
-      if (allUsers) {
-         // Should realistically refresh all users, but refreshUsers handles it.
-         refreshUsers();
-      }
+      refreshUsers();
       toastSuccess("Membro removido da organização.");
-    } catch (error) {
+    } catch (error: any) {
       logger.error("Failed to remove user", error);
-      toastError("Erro ao remover o usuário.");
+      toastError(error?.message || "Erro ao remover o usuário.");
     } finally {
       setIsSaving(false);
     }
@@ -1162,14 +1140,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
     setIsSaving(true);
     try {
       if (bulkAction === "delete") {
-        await Promise.all(selectedUserIds.map((uid) => {
-            const orgId = userProfile?.organizationId || currentUser?.uid;
-            return Promise.all([
-               deleteDoc(doc(db, "organizations", orgId, "members", uid)).catch(e => null),
-               deleteDoc(doc(db, "organization_members", `${uid}_${orgId}`)).catch(e => null),
-               deleteDoc(doc(db, "organization_members", `${orgId}_${uid}`)).catch(e => null)
-            ]);
-        }));
+        await Promise.all(selectedUserIds.map((uid) => removeMemberViaHub(uid)));
       } else if (bulkAction === "changeRole" && newRoleId) {
         await Promise.all(selectedUserIds.map((uid) => handleUpdateMemberRole(uid, newRoleId)));
       }
@@ -1479,7 +1450,6 @@ const UsersPage: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [joinRequests, setJoinRequests] = useState<any[]>([]);
   const isGlobal = isGlobalPrivilegedUser(currentUser, userProfile);
-  const [migrating, setMigrating] = useState(false);
 
   const [isExistingMemberSetupOpen, setIsExistingMemberSetupOpen] = useState(false);
 
@@ -1579,62 +1549,52 @@ const UsersPage: React.FC = () => {
 
 
   const fetchJoinRequests = async () => {
-    if (!userProfile?.organizationId) return;
+    const organizationId = userProfile?.activeOrganizationId || userProfile?.primaryOrganizationId || userProfile?.organizationId;
+    if (!organizationId) return;
     try {
       const q = query(
-        collection(db, 'organization_join_requests'), 
-        where('organizationId', '==', userProfile.organizationId)
+        collection(db, 'organizations', organizationId, 'join_requests'),
+        where('status', '==', 'pending')
       );
       const snap = await getDocs(q);
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setJoinRequests(docs.filter(d => (d as any).status === 'pending'));
+      setJoinRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
-      logger.error("Failed to load join requests", e);
+      logger.error("Failed to load canonical join requests", e);
+      setJoinRequests([]);
     }
   };
 
   const handleProcessRequest = async (req: any, approve: boolean) => {
-     try {
-        if (approve) {
-           // 1. Official Members Subcollection
-           const targetMemberRef = doc(db, 'organizations', req.organizationId, 'members', req.uid);
-           await setDoc(targetMemberRef, {
-              uid: req.uid,
-              organizationId: req.organizationId,
-              organizationRole: 'member',
-              musicscaleRole: 'member',
-              role: 'member',
-              status: 'active',
-              joinedAt: serverTimestamp(),
-              source: 'join_request',
-              apps: { musicscale: { access: true, status: "active" } }
-           }, { merge: true });
-
-           // 2. Legacy fallback
-           const memberRef = doc(db, 'organization_members', `${req.organizationId}_${req.uid}`);
-           await setDoc(memberRef, {
-              user_id: req.uid,
-              uid: req.uid,
-              organization_id: req.organizationId,
-              organizationId: req.organizationId,
-              role: 'member',
-              created_at: serverTimestamp(),
-              joinedAt: serverTimestamp()
-           });
-
-           await updateDoc(doc(db, 'users', req.uid), {
-              organizationId: req.organizationId
-           });
-           await deleteDoc(doc(db, 'organization_join_requests', req.id));
-        } else {
-           await updateDoc(doc(db, 'organization_join_requests', req.id), { status: 'denied' });
-        }
-        await fetchJoinRequests();
-        await fetchUsers();
-     } catch (e) {
-        logger.error("Failed to process request", e);
-        alert("Erro ao processar solicitação.");
-     }
+    try {
+      if (!currentUser) throw new Error(t("users.auth_error", "Usuário não autenticado."));
+      const organizationId = userProfile?.activeOrganizationId || userProfile?.primaryOrganizationId || userProfile?.organizationId;
+      const requestId = typeof req?.requestId === 'string' ? req.requestId : req?.id;
+      if (!organizationId || typeof requestId !== 'string' || !requestId) {
+        throw new Error(t("users.join_request_invalid", "Solicitação inválida."));
+      }
+      const idToken = await currentUser.getIdToken();
+      const action = approve ? 'approve' : 'reject';
+      const response = await fetch(`/api/orgs/${encodeURIComponent(organizationId)}/join-requests/${encodeURIComponent(requestId)}/${action}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({})
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success !== true) {
+        throw new Error(data?.reasonCode || data?.error || t("users.join_request_error", "Erro ao processar solicitação."));
+      }
+      await fetchJoinRequests();
+      await fetchUsers();
+      toastSuccess(approve
+        ? t("users.join_request_approved", "Solicitação aprovada com sucesso.")
+        : t("users.join_request_rejected", "Solicitação rejeitada."));
+    } catch (e: any) {
+      logger.error("Failed to process canonical join request", e);
+      toastError(e?.message || t("users.join_request_error", "Erro ao processar solicitação."));
+    }
   };
 
   const fetchUsers = async () => {
@@ -1840,64 +1800,6 @@ const UsersPage: React.FC = () => {
     );
   }
 
-  const handleMigrateRoles = async () => {
-    if (!api || !userProfile?.organizationId) return;
-    if (!window.confirm("Essa operação irá separar os campos de Cargo Organizacional e Função Ministerial para todos os usuários desta organização preservando a compatibilidade. Deseja continuar?")) return;
-    setMigrating(true);
-    try {
-      const db = (await import('../services/firebase')).db;
-      const { collection, getDocs, writeBatch, doc } = await import('firebase/firestore');
-      
-      const membersSnap = await getDocs(query(collection(db, 'organization_members'), where('organizationId', '==', userProfile.organizationId)));
-      const membersSnapLeg = await getDocs(query(collection(db, 'organization_members'), where('organization_id', '==', userProfile.organizationId)));
-      
-      const batch = writeBatch(db);
-      let count = 0;
-      
-      const processDoc = (d: any) => {
-         const data = d.data();
-         if (!data.organizationRole && data.role) {
-             const updates: any = {};
-             // Migrate role -> organizationRole and musicscaleRole
-             const r = typeof data.role === 'string' ? data.role.toLowerCase() : '';
-             
-             updates.organizationRole = r.includes('dono') || r.includes('owner') ? 'owner' 
-               : r.includes('admin') ? 'admin' 
-               : r.includes('lider') || r.includes('líder') ? 'leader' 
-               : r.includes('visit') ? 'visitor' : 'member';
-
-             updates.musicscaleRole = r.includes('dono') || r.includes('owner') || r.includes('admin') ? 'admin'
-               : r.includes('lider') || r.includes('líder') ? 'leader'
-               : r.includes('visit') ? 'viewer' : 'member';
-
-             // If the legacy role sounds like a ministry function, assign it
-             if (r.includes('músico') || r.includes('musico') || r.includes('vocal')) {
-                 updates.ministryFunction = r.includes('vocal') ? 'vocal' : 'musician';
-             }
-
-             batch.update(doc(db, 'organization_members', d.id), updates);
-             count++;
-         }
-      };
-
-      membersSnap.docs.forEach(processDoc);
-      membersSnapLeg.docs.forEach(processDoc);
-      
-      if (count > 0) {
-          await batch.commit();
-          alert(`Migração concluída! ${count} registros populados com a nova estrutura separada.`);
-          fetchUsers();
-      } else {
-          alert('A organização já estava com os papéis atualizados (Nenhum registro antigo encontrado).');
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Erro na migração.");
-    } finally {
-      setMigrating(false);
-    }
-  };
-
   return (
     <div className="space-y-8">
 
@@ -1906,16 +1808,6 @@ const UsersPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
             {t("users.management_title", "Equipe e Permissões")}
           </h1>
-          {isGlobal && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleMigrateRoles}
-              disabled={migrating}
-            >
-              {migrating ? <Spinner size="sm" /> : "Migrar Estrutura de Papéis (Admin)"}
-            </Button>
-          )}
         </div>
         <UserUsageBanner />
       </div>

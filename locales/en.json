@@ -1452,5 +1452,8 @@
       "transposeSuccess": "The chords were updated from {{from}} to {{to}}. {{count}} chords were adjusted.",
       "transposeSuccessOne": "The chords were updated from {{from}} to {{to}}. 1 chord was adjusted."
     }
+  },
+  "profile": {
+    "invite_person": "Invite person"
   }
 }

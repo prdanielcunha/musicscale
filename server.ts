@@ -43,6 +43,11 @@ import Stripe from "stripe";
 import { PLAN_FEATURES, PLAN_LIMITS } from "./services/entitlementsConstants.js";
 import { compareSongs } from "./utils/songDiscovery/matcher.js";
 import { requireEcosystemRole } from "./services/server/ecosystemAuth.js";
+import { writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
+import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
+import { createInvitationCompatibilityHandlers } from "./services/server/musicScaleInvitationCompatibility.js";
+import { createJoinRequestCompatibilityHandlers } from "./services/server/musicScaleJoinRequestCompatibility.js";
+import { createMemberRemovalCompatibilityHandler } from "./services/server/musicScaleMemberRemovalCompatibility.js";
 import { runSongDiscoveryProcessor } from "./services/server/songDiscoveryProcessor.js";
 import { SongDiscoveryInboxService } from "./services/server/songDiscoveryInboxService.js";
 import { analyzeInboxBatch } from "./services/server/songInboxAnalyzer.js";
@@ -59,22 +64,12 @@ import { reanalyzeCandidates } from "./services/server/curationReanalyzer.js";
 import { extractSongIdentity } from "./utils/songDiscovery/identityGenerator.js";
 import { preVerifyCandidates, bulkImportCandidates } from './services/server/bulkImportService.js';
 import { BandScaleCommandService } from './services/server/bandScale/bandScaleCommandService.js';
-import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
 import { beginAiImportFinOpsWritePath, finalizeAiImportFinOpsWritePath } from "./services/server/aiImportFinOpsWritePath.js";
 
 if (fs.existsSync(".env.local")) {
   dotenv.config({ path: ".env.local" });
 }
 dotenv.config();
-
-function deriveMusicscaleRole(roleName: string): string {
-  const name = (roleName || "").toLowerCase();
-  if (name.includes("administrador") || name.includes("admin")) return "admin";
-  if (name.includes("líder") || name.includes("lider") || name.includes("ministro")) return "leader";
-  if (name.includes("músico") || name.includes("musico") || name.includes("vocal")) return "musician";
-  if (name.includes("visitante") || name.includes("viewer")) return "viewer";
-  return "custom";
-}
 
 const fixChordsRateLimiter = new InMemoryAiRateLimiter();
 const aiImportRateLimiter = new InMemoryAiRateLimiter();
@@ -1137,6 +1132,57 @@ app.use((err: any, req: any, res: any, next: any) => {
     }
   });
 
+  app.patch("/api/v1/music-scales/:musicScaleId", async (req, res) => {
+    const correlationId = crypto.randomUUID();
+    const { musicScaleId } = req.params;
+    try {
+      const authHeader = req.headers.authorization || "";
+      const orgId = req.headers["x-organization-id"] as string;
+      const idempotencyKey = req.headers["idempotency-key"] as string;
+      if (!authHeader.startsWith("Bearer ")) return res.status(401).json({ error: "UNAUTHORIZED", correlationId });
+      if (!orgId) return res.status(400).json({ error: "X-Organization-Id is required", correlationId });
+      if (!idempotencyKey) return res.status(400).json({ error: "Idempotency-Key is required", correlationId });
+
+      const authorization = await resolveOrganizationAuthorization(authHeader, orgId, db, admin.auth());
+      if (authorization.error || !authorization.context) {
+        return res.status(authorization.statusCode || 403).json({ error: authorization.error || "FORBIDDEN", correlationId });
+      }
+      const { buildEffectiveAccessContext, hasMusicScaleCapability } = await import("./utils/rbac.js");
+      const effectiveOrganizationRole = authorization.context.isOwner
+        ? "owner"
+        : authorization.context.organizationRole || null;
+      const access = buildEffectiveAccessContext(
+        authorization.context.uid, orgId, authorization.context.systemRole,
+        effectiveOrganizationRole,
+        authorization.context.isActive ? "active" : "inactive"
+      );
+      const hasGlobalAccess = access.isGlobalFullAccess;
+      if ((!authorization.context.isActive && !hasGlobalAccess) || !hasMusicScaleCapability(access, "scales.update")) {
+        return res.status(403).json({ error: "FORBIDDEN", code: "PERMISSION_DENIED", correlationId });
+      }
+
+      const { MusicScaleCommandService } = await import("./services/server/scale/musicScaleCommandService.js");
+      const result = await MusicScaleCommandService.saveMusicScale({
+        authUid: authorization.context.uid, orgId, musicScaleId, idempotencyKey,
+        payload: req.body, correlationId
+      });
+      return res.status(200).json(result);
+    } catch (error: any) {
+      const knownErrors: Record<string, number> = {
+        VALIDATION_ERROR: 400,
+        PAYLOAD_CONFLICT: 400,
+        TENANT_SCOPE_MISMATCH: 403,
+        NOT_FOUND: 404,
+        IDEMPOTENCY_CONFLICT: 409,
+        BAND_SCALE_ALREADY_LINKED: 409
+      };
+      const code = typeof error.code === "string" && knownErrors[error.code] ? error.code : "SAVE_FAILED";
+      const status = knownErrors[code] || 500;
+      logger.error(`[MusicScale Command] Save failed | Correlation ID: ${correlationId}`, error);
+      return res.status(status).json({ error: code, code, correlationId });
+    }
+  });
+
   app.post("/api/v1/music-scales/:musicScaleId/publish", async (req, res) => {
     const correlationId = crypto.randomUUID();
     const commandId = crypto.randomUUID();
@@ -1748,455 +1794,48 @@ app.use((err: any, req: any, res: any, next: any) => {
       }
   });
 
-  app.post("/api/orgs/join", async (req, res) => {
+  const joinRequestCompatibilityHandlers = createJoinRequestCompatibilityHandlers({ db, auth, logger });
+  app.post("/api/orgs/join", joinRequestCompatibilityHandlers.create);
+  app.post("/api/orgs/:organizationId/join-requests/:requestId/approve", joinRequestCompatibilityHandlers.approve);
+  app.post("/api/orgs/:organizationId/join-requests/:requestId/reject", joinRequestCompatibilityHandlers.reject);
+
+  const memberRemovalCompatibilityHandler = createMemberRemovalCompatibilityHandler({ db, auth, logger });
+  app.delete("/api/orgs/:organizationId/members/:memberId", memberRemovalCompatibilityHandler);
+
+  app.patch("/api/orgs/:organizationId/musicscale-members/:uid", async (req, res) => {
       try {
-          if (!db || !auth) throw new Error("Database not initialized");
-          
-          const authHeader = req.headers.authorization;
-          if (!authHeader || !authHeader.startsWith("Bearer ")) {
-             return res.status(401).json({ error: "UNAUTHORIZED" });
+          if (!db || !auth) return res.status(503).json({ error: "SERVICE_UNAVAILABLE" });
+          const { organizationId, uid } = req.params;
+          if (!/^[A-Za-z0-9_-]{1,128}$/.test(organizationId) || !/^[A-Za-z0-9_-]{1,128}$/.test(uid)) {
+              return res.status(400).json({ error: "INVALID_TARGET" });
           }
-          const token = authHeader.split("Bearer ")[1].trim();
-          
-          let decodedToken;
-          try {
-             decodedToken = await auth.verifyIdToken(token, true);
-          } catch (err) {
-             return res.status(401).json({ error: "UNAUTHORIZED" });
-          }
-          const authenticatedUid = decodedToken.uid;
-
-          const { userId, ownerEmail } = req.body;
-          if (!ownerEmail) return res.status(400).json({ error: "Missing parameters" });
-
-          if (userId && userId !== authenticatedUid) {
-             return res.status(403).json({ error: "ACTOR_ID_MISMATCH" });
-          }
-
-          // Find the owner user by email
-          const usersRef = await db.collection('users')
-              .where('email', '==', ownerEmail.toLowerCase().trim())
-              .limit(1)
-              .get();
-
-          if (usersRef.empty) {
-              return res.status(404).json({ error: "Owner user not found" });
-          }
-
-          const ownerDoc = usersRef.docs[0];
-          const ownerUid = ownerDoc.id;
-          const ownerData = ownerDoc.data();
-
-          // Collect possible org IDs
-          const candidateOrgs = new Set<string>();
-          if (ownerData.organizationId) candidateOrgs.add(ownerData.organizationId);
-          if (ownerData.activeOrganizationId) candidateOrgs.add(ownerData.activeOrganizationId);
-          if (ownerData.primaryOrganizationId) candidateOrgs.add(ownerData.primaryOrganizationId);
-
-          const [owned1, owned2, owned3] = await Promise.all([
-             db.collection('organizations').where('ownerUid', '==', ownerUid).get(),
-             db.collection('organizations').where('ownerUserId', '==', ownerUid).get(),
-             db.collection('organizations').where('ownerId', '==', ownerUid).get()
-          ]);
-          owned1.docs.forEach((d: any) => candidateOrgs.add(d.id));
-          owned2.docs.forEach((d: any) => candidateOrgs.add(d.id));
-          owned3.docs.forEach((d: any) => candidateOrgs.add(d.id));
-
-          let matchedOrgId = null;
-          let matchCount = 0;
-
-          for (const orgId of candidateOrgs) {
-              const orgDoc = await db.collection('organizations').doc(orgId).get();
-              if (!orgDoc.exists) continue;
-              const orgData = orgDoc.data();
-              const normalizedOrgStatus = String(orgData?.status || "").trim().toLowerCase();
-              if (normalizedOrgStatus === 'archived' || orgData?.archived === true) continue;
-              
-              if (orgData?.ownerUid === ownerUid || orgData?.ownerUserId === ownerUid || orgData?.ownerId === ownerUid) {
-                  matchedOrgId = orgId;
-                  matchCount++;
-              }
-          }
-
-          if (matchCount === 0 || !matchedOrgId) {
-             return res.status(404).json({ error: "OWNER_ORGANIZATION_NOT_FOUND" });
-          }
-          
-          if (matchCount > 1) {
-             return res.status(409).json({ error: "OWNER_HAS_MULTIPLE_ORGANIZATIONS" });
-          }
-
-          const reqUserDoc = await db.collection('users').doc(authenticatedUid).get();
-          if (!reqUserDoc.exists) return res.status(403).json({ error: "FORBIDDEN" });
-          const reqUserData = reqUserDoc.data();
-
-          // Idempotent creation
-          const canonMemberRef = db.collection('organizations').doc(matchedOrgId).collection('members').doc(authenticatedUid);
-          const reqRef = db.collection('organization_join_requests').doc(`${matchedOrgId}_${authenticatedUid}`);
-          
-          await db.runTransaction(async (t: any) => {
-             const [canonDoc, reqDoc] = await Promise.all([
-                 t.get(canonMemberRef),
-                 t.get(reqRef)
-             ]);
-
-             if (canonDoc.exists) {
-                 const st = String(canonDoc.data()?.status || '').trim().toLowerCase();
-                 if (st === 'active' || st === 'ativo') {
-                    throw new Error("ALREADY_MEMBER");
-                 }
-             }
-
-             if (!reqDoc.exists) {
-                t.set(reqRef, {
-                    uid: authenticatedUid,
-                    organizationId: matchedOrgId,
-                    email: reqUserData?.email || '',
-                    displayName: reqUserData?.displayName || '',
-                    photoURL: reqUserData?.photoURL || '',
-                    status: 'pending',
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    requestedByUid: authenticatedUid,
-                    correlationId: crypto.randomUUID()
-                });
-             } else {
-                const existingStatus = String(reqDoc.data()?.status || '').trim().toLowerCase();
-                if (existingStatus === 'pending') {
-                    t.update(reqRef, {
-                        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                    });
-                } else if (existingStatus === 'accepted') {
-                    throw new Error("JOIN_REQUEST_ALREADY_ACCEPTED");
-                } else {
-                    throw new Error("JOIN_REQUEST_NOT_PENDING");
-                }
-             }
-          });
-
-          res.json({ success: true, message: "Solicitação enviada. Aguarde a aprovação do administrador." });
-      } catch (e: any) {
-          logger.error(`[API] Error joining org:`, e);
-          const msg = e.message;
-          if (["ALREADY_MEMBER", "JOIN_REQUEST_ALREADY_ACCEPTED", "JOIN_REQUEST_NOT_PENDING"].includes(msg)) {
-              return res.status(409).json({ error: msg });
-          }
-          res.status(500).json({ error: "INTERNAL_SERVER_ERROR" });
-      }
-  });
-
-  app.post("/api/orgs/invite", async (req, res) => {
-      try {
-          if (!db) throw new Error("Database not initialized");
-          const { organizationId, inviterUserId, email, roleId } = req.body;
-          if (!organizationId) return res.status(400).json({ error: "Missing parameters" });
-
-          const authRes = await resolveOrganizationAuthorization(req.headers.authorization, organizationId, db, auth);
-          if (authRes.statusCode) {
-              return res.status(authRes.statusCode).json({ error: authRes.error });
-          }
-          const ctx = authRes.context!;
-
-          if (inviterUserId && inviterUserId !== ctx.uid) {
-             return res.status(403).json({ error: "ACTOR_ID_MISMATCH" });
-          }
-
-          if (!ctx.systemRole && !ctx.isOwner && ctx.organizationRole !== 'admin' && !ctx.capabilities.includes('organization.members.manage')) {
+          const authorization = await resolveOrganizationAuthorization(req.headers.authorization, organizationId, db, auth);
+          if (authorization.statusCode) return res.status(authorization.statusCode).json({ error: authorization.error });
+          const actor = authorization.context!;
+          const requestedFields = Object.keys(req.body || {});
+          const isSelfProfileOnly = actor.uid === uid && requestedFields.length > 0 &&
+              requestedFields.every(field => field === 'ministryFunction' || field === 'specialtyIds');
+          const canManageMembers = !!actor.systemRole || actor.isOwner || actor.organizationRole === 'admin' || actor.capabilities.includes('organization.members.manage');
+          if (!actor.isActive || (!canManageMembers && !isSelfProfileOnly)) {
               return res.status(403).json({ error: "FORBIDDEN" });
           }
-          
-          if (!email) return res.status(400).json({ error: "EMAIL_REQUIRED" });
-          if (!roleId) return res.status(400).json({ error: "ROLE_ID_REQUIRED" });
-          
-          const safeEmail = String(email).trim().toLowerCase();
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeEmail)) {
-              return res.status(400).json({ error: "INVALID_EMAIL" });
+          const membership = await db.collection('organizations').doc(organizationId).collection('members').doc(uid).get();
+          if (!membership.exists || !['active', 'ativo'].includes(String(membership.data()?.status || '').trim().toLowerCase())) {
+              return res.status(404).json({ error: "TARGET_MEMBERSHIP_NOT_FOUND" });
           }
-
-          const safeRoleId = String(roleId).trim();
-
-          const roleDoc = await db.collection('roles').doc(safeRoleId).get();
-          if (!roleDoc.exists) {
-              return res.status(404).json({ error: "ROLE_NOT_FOUND" });
-          }
-          const roleData = roleDoc.data() as any;
-
-          if (roleData.organizationId !== organizationId) {
-              return res.status(403).json({ error: "ROLE_ORGANIZATION_MISMATCH" });
-          }
-
-          const roleName = String(roleData.name || "").trim();
-          const lowerRoleName = roleName.toLowerCase();
-          if (['owner', 'dono', 'ceo', 'global_admin', 'ecosystem_owner', 'founder', 'support', 'suporte'].includes(lowerRoleName)) {
-              return res.status(403).json({ error: "CANNOT_INVITE_GLOBAL_OR_OWNER" });
-          }
-
-          const rawToken = crypto.randomBytes(32).toString('base64url');
-          const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-          
-          const expiresAt = new Date();
-          expiresAt.setHours(expiresAt.getHours() + 48); // 48h expiration
-
-          const inviteRef = db.collection('invites').doc();
-          await inviteRef.set({
-              tokenHash,
-              email: safeEmail,
-              roleId: safeRoleId,
-              roleName: roleName,
-              rolePermissions: roleData.permissions || null,
-              organizationRole: 'member',
-              organizationId: organizationId,
-              status: 'pending',
-              expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
-              createdAt: admin.firestore.FieldValue.serverTimestamp(),
-              createdByUid: ctx.uid,
-              correlationId: crypto.randomUUID()
-          });
-
-          if (safeEmail) {
-             logger.info(`Sending invite email to ${safeEmail} (Simulated)`);
-          }
-
-          res.json({ link: `/invite?token=${rawToken}`, success: true });
-      } catch (e: any) {
-          logger.error(`[API] Error inviting to org:`, e);
-          res.status(500).json({ error: "INTERNAL_SERVER_ERROR" });
+          await writeMusicScaleMemberProjection(db, organizationId, uid, actor.uid, req.body);
+          return res.json({ success: true });
+      } catch (error: any) {
+          if (error?.message === 'ROLE_NOT_FOUND') return res.status(404).json({ error: error.message });
+          if (['INVALID_ROLE_ID', 'ROLE_ORGANIZATION_MISMATCH'].includes(error?.message)) return res.status(403).json({ error: error.message });
+          logger.error('[API] MusicScale member projection update failed:', error);
+          return res.status(500).json({ error: "INTERNAL_SERVER_ERROR" });
       }
   });
 
-  app.post("/api/orgs/accept-invite", async (req, res) => {
-      try {
-          if (!db || !auth) throw new Error("Database not initialized");
-          
-          const authHeader = req.headers.authorization;
-          if (!authHeader || !authHeader.startsWith("Bearer ")) {
-             return res.status(401).json({ error: "UNAUTHORIZED" });
-          }
-          const idToken = authHeader.split("Bearer ")[1].trim();
-          
-          let decodedToken;
-          try {
-             decodedToken = await auth.verifyIdToken(idToken, true);
-          } catch (err) {
-             return res.status(401).json({ error: "UNAUTHORIZED" });
-          }
-          const authenticatedUid = decodedToken.uid;
-          const authenticatedEmail = decodedToken.email;
-
-          const { token, userId } = req.body;
-          if (!token) return res.status(400).json({ error: "Missing parameters" });
-          
-          if (userId && userId !== authenticatedUid) {
-             return res.status(403).json({ error: "ACTOR_ID_MISMATCH" });
-          }
-
-          const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-          
-          let inviteSnapshot = await db.collection('invites').where('tokenHash', '==', tokenHash).limit(1).get();
-          if (inviteSnapshot.empty) {
-             inviteSnapshot = await db.collection('invites').where('token', '==', token).limit(1).get();
-          }
-
-          if (inviteSnapshot.empty) return res.status(400).json({ error: "INVALID_TOKEN" });
-          const initialInviteDoc = inviteSnapshot.docs[0];
-
-          let inviteOrgIdResult = "";
-          
-          await db.runTransaction(async (t: any) => {
-              const inviteDoc = await t.get(initialInviteDoc.ref);
-              if (!inviteDoc.exists) throw new Error("INVITE_NOT_FOUND");
-              const inviteData = inviteDoc.data();
-              
-              const inviteOrgId = inviteData.organization_id || inviteData.organizationId;
-              if (!inviteOrgId) throw new Error("INVALID_INVITE_ORG");
-              inviteOrgIdResult = inviteOrgId;
-
-              const expDate = (inviteData.expiresAt || inviteData.expires_at)?.toDate();
-              if (expDate && expDate < new Date()) {
-                  throw new Error("TOKEN_EXPIRED");
-              }
-
-              // CORREÇÃO 1 — REVALIDAR O TOKEN DENTRO DA TRANSACTION
-              let tokenIsValid = false;
-              if (inviteData.tokenHash) {
-                  const presentedTokenHash = crypto.createHash('sha256').update(token).digest('hex');
-                  try {
-                      const buf1 = Buffer.from(String(inviteData.tokenHash), 'utf8');
-                      const buf2 = Buffer.from(presentedTokenHash, 'utf8');
-                      if (buf1.length === buf2.length && crypto.timingSafeEqual(buf1, buf2)) {
-                          tokenIsValid = true;
-                      }
-                  } catch (e) {}
-              } else if (inviteData.token) {
-                  try {
-                      const buf1 = Buffer.from(String(inviteData.token), 'utf8');
-                      const buf2 = Buffer.from(String(token), 'utf8');
-                      if (buf1.length === buf2.length && crypto.timingSafeEqual(buf1, buf2)) {
-                          tokenIsValid = true;
-                      }
-                  } catch (e) {}
-              }
-
-              if (!tokenIsValid) {
-                  throw new Error("INVALID_TOKEN");
-              }
-
-              if (String(inviteData.status || "").trim().toLowerCase() === 'accepted') {
-                  if (inviteData.acceptedByUid === authenticatedUid) {
-                      // Idempotent success
-                      return;
-                  } else {
-                      throw new Error("INVITE_ALREADY_CONSUMED");
-                  }
-              } else if (String(inviteData.status || "").trim().toLowerCase() !== 'pending') {
-                  throw new Error("INVITE_NOT_PENDING");
-              }
-              
-              if (inviteData.email) {
-                  if (!authenticatedEmail) throw new Error("EMAIL_REQUIRED");
-                  if (inviteData.email.toLowerCase().trim() !== authenticatedEmail.toLowerCase().trim()) {
-                      throw new Error("EMAIL_MISMATCH");
-                  }
-              }
-              
-              const orgRef = db.collection('organizations').doc(inviteOrgId);
-              const orgDoc = await t.get(orgRef);
-              const orgData = orgDoc.data();
-              const normalizedOrgStatus = String(orgData?.status || "").trim().toLowerCase();
-              if (!orgDoc.exists || normalizedOrgStatus === 'archived' || orgData?.archived === true) {
-                  throw new Error("INVALID_ORG");
-              }
-
-              const roleToAssign = inviteData.internalRoleId || inviteData.requestedRoleId || inviteData.role || 'member';
-              let isInternalRole = false;
-              const lowerRole = String(roleToAssign).toLowerCase();
-              if (['owner', 'dono', 'ceo', 'global_admin', 'ecosystem_owner', 'founder', 'support', 'suporte'].includes(lowerRole)) {
-                  throw new Error("CANNOT_ACCEPT_GLOBAL_OR_OWNER");
-              }
-              if (lowerRole !== 'admin' && lowerRole !== 'leader' && lowerRole !== 'member') {
-                  isInternalRole = true;
-              }
-
-              const reqUserDocRef = db.collection('users').doc(authenticatedUid);
-              const reqUserDoc = await t.get(reqUserDocRef);
-              if (!reqUserDoc.exists) {
-                  throw new Error("USER_NOT_FOUND");
-              }
-              const reqUserData = reqUserDoc.data();
-
-              // A. Canonical membership
-              const canonMemberRef = db.collection('organizations').doc(inviteOrgId).collection('members').doc(authenticatedUid);
-              const canonMemberDoc = await t.get(canonMemberRef);
-              
-              let roleIdToAssign = inviteData.roleId || null;
-              let derivedMusicscaleRole = "custom";
-              let finalOrgRole = 'member';
-
-              if (roleIdToAssign) {
-                  const roleDocRef = db.collection('roles').doc(roleIdToAssign);
-                  const roleDoc = await t.get(roleDocRef);
-                  if (!roleDoc.exists) {
-                      throw new Error("ROLE_NOT_FOUND");
-                  }
-                  const roleData = roleDoc.data();
-                  if (roleData?.organizationId !== inviteOrgId) {
-                      throw new Error("ROLE_ORGANIZATION_MISMATCH");
-                  }
-                  const rName = String(roleData?.name || "").toLowerCase();
-                  if (['owner', 'dono', 'ceo', 'global_admin', 'ecosystem_owner', 'founder', 'support', 'suporte'].includes(rName)) {
-                      throw new Error("CANNOT_ACCEPT_GLOBAL_OR_OWNER");
-                  }
-                  derivedMusicscaleRole = deriveMusicscaleRole(roleData?.name || "");
-              } else {
-                  // CORREÇÃO 2 — CONVITES LEGADOS NUNCA CONCEDEM ADMIN ORGANIZACIONAL
-                  finalOrgRole = 'member';
-                  derivedMusicscaleRole = deriveMusicscaleRole(roleToAssign);
-              }
-              
-              const canonicalData = {
-                  uid: authenticatedUid,
-                  email: authenticatedEmail || reqUserData?.email || '',
-                  displayName: reqUserData?.displayName || '',
-                  organizationId: inviteOrgId,
-                  organizationRole: roleIdToAssign ? 'member' : finalOrgRole,
-                  role: roleIdToAssign ? 'member' : finalOrgRole,
-                  roleId: roleIdToAssign || null,
-                  musicscaleRole: derivedMusicscaleRole,
-                  internalRoleId: roleIdToAssign || null,
-                  status: 'active',
-                  updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                  invitedByUid: inviteData.createdByUid || null,
-                  inviteId: inviteDoc.id
-              };
-              if (!canonMemberDoc.exists) {
-                  Object.assign(canonicalData, { joinedAt: admin.firestore.FieldValue.serverTimestamp() });
-              }
-              t.set(canonMemberRef, canonicalData, { merge: true });
-
-              // B. Legacy membership mirror
-              const legacyMemberRef = db.collection('organization_members').doc(`${authenticatedUid}_${inviteOrgId}`);
-              t.set(legacyMemberRef, canonicalData, { merge: true });
-
-              // C. Update user profile (append org)
-              const userUpdate: any = {};
-              let currentOrgs = Array.isArray(reqUserData?.organizations) ? reqUserData.organizations : [];
-              
-              userUpdate.organizations = admin.firestore.FieldValue.arrayUnion(inviteOrgId);
-              
-              if (!reqUserData?.activeOrganizationId) {
-                 userUpdate.activeOrganizationId = inviteOrgId;
-              }
-              if (!reqUserData?.primaryOrganizationId) {
-                 userUpdate.primaryOrganizationId = inviteOrgId;
-              }
-              
-              if (Object.keys(userUpdate).length > 0) {
-                 t.update(reqUserDocRef, userUpdate);
-              }
-              
-              // D. Mark invite as accepted
-              const inviteUpdates: any = {
-                  status: 'accepted',
-                  acceptedByUid: authenticatedUid,
-                  acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
-                  tokenHash: tokenHash // Preserve tokenHash, removing raw token if it's a legacy one
-              };
-              if (inviteData.token) {
-                  inviteUpdates.token = admin.firestore.FieldValue.delete();
-              }
-              t.update(inviteDoc.ref, inviteUpdates);
-
-              // E. Audit log
-              const auditRef = db.collection('audit_logs').doc();
-              t.set(auditRef, {
-                  action: 'organization.invite.accepted',
-                  actorUid: authenticatedUid,
-                  organizationId: inviteOrgId,
-                  inviteId: inviteDoc.id,
-                  timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                  correlationId: crypto.randomUUID()
-              });
-          });
-
-          res.json({ success: true, organization_id: inviteOrgIdResult });
-      } catch (e: any) {
-          logger.error(`[API] Error accepting invite:`, e);
-          const msg = e.message;
-          if (["EMAIL_REQUIRED", "EMAIL_MISMATCH", "USER_NOT_FOUND", "ROLE_ORGANIZATION_MISMATCH", "CANNOT_ACCEPT_GLOBAL_OR_OWNER"].includes(msg)) {
-              return res.status(403).json({ error: msg });
-          }
-          if (["ROLE_NOT_FOUND"].includes(msg)) {
-              return res.status(404).json({ error: msg });
-          }
-          if (["INVITE_ALREADY_CONSUMED"].includes(msg)) {
-              return res.status(409).json({ error: msg });
-          }
-          if (["INVALID_TOKEN", "INVITE_NOT_FOUND", "INVALID_INVITE_ORG", "TOKEN_EXPIRED", "INVALID_ORG", "INVITE_NOT_PENDING"].includes(msg)) {
-              return res.status(400).json({ error: msg });
-          }
-          res.status(500).json({ error: "INTERNAL_SERVER_ERROR" });
-      }
-  });
+  const invitationCompatibilityHandlers = createInvitationCompatibilityHandlers({ db, auth, admin, logger });
+  app.post("/api/orgs/invite", invitationCompatibilityHandlers.create);
+  app.post("/api/orgs/accept-invite", invitationCompatibilityHandlers.accept);
 
   app.post("/api/orgs/check-access", async (req, res) => {
       try {

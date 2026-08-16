@@ -1,53 +1,94 @@
-# MusicScale
+# MusicScale (music-scale-manager)
 
-O **MusicScale** é o módulo de gestão de escalas musicais, repertórios e times, operando como um satélite integrado ao ecossistema **MillionsNest**. Todas as fontes de identidade, organizações, memberships e RBAC emanam da plataforma principal MillionsNest, enquanto o MusicScale provê as ferramentas específicas para o ministério de louvor.
+## 1. Visão Geral
+O **MusicScale** é uma plataforma SaaS para gestão de ministérios de louvor, oferecendo gestão de repertório, escalas de banda e programação, visualizador para performance ao vivo (letras, cifras, auto-scroll e BPM), bem como um repositório central de músicas (Biblioteca Viva).
 
-## Repositório e Branches
+Atua como um aplicativo satélite integrado à **MillionsNest** (que gerencia autenticação, locatário/Organização, faturamento e papéis globais). O MusicScale gerencia a operação musical com restrições baseadas na assinatura fornecida pela plataforma principal.
 
-* **Repositório:** `prdanielcunha/musicscale`
-* **Branch `main`:** Ambiente de desenvolvimento e homologação. Todas as novas features devem ser implementadas e testadas aqui.
-* **Branch `production`:** Ambiente aprovado e publicado. Esta branch não deve ser alterada diretamente, apenas atualizada via sincronização após aprovação.
+## 2. Estado Atual
+Produção e desenvolvimento contínuo.
 
-## Pré-requisitos
+## 3. Stack Principal
+* **Frontend:** React 19, React Router v7, Vite v6, Tailwind CSS v4, Motion (Framer Motion).
+* **Backend:** Node.js (Express integrado via Vite e standalone no build), Firebase Auth, Cloud Firestore, Firebase Admin.
+* **Tipagem:** TypeScript.
+* **PWA/Offline:** vite-plugin-pwa, idb, dexie, workbox-window.
+* **Testes:** Vitest (unitários e servidor) e Playwright (E2E).
+* **IA:** `@google/genai` (executado exclusivamente no server-side).
 
-* **Node.js** (versão 22.x ou compatível) instalado.
+## 4. Estrutura Principal de Diretórios
+* `/components/`: Componentes de UI (escala, songs, library, admin, layout).
+* `/contexts/`: React Contexts (auth, tenants, offline).
+* `/hooks/`: React Custom Hooks.
+* `/pages/`: Componentes roteáveis das páginas.
+* `/services/`: Integração com Firebase e outras camadas de infraestrutura web.
+* `/docs/`: Manuais e protocolos detalhados de arquitetura e regras de IA.
+* `/tests/`: Testes rigorosos e2e, unitários e QA do sistema.
+* `server.ts`: Ponto de entrada do backend Express.
 
-## Comandos Principais
+## 5. Pré-requisitos
+* **Node.js** 22.x ou compatível.
+* Ferramentas do **Firebase Emulator** para execução da suíte E2E (opcional mas recomendado).
 
+## 6. Instalação e Desenvolvimento
 ```bash
-# 1. Instalar as dependências
+# Instalar dependências
 npm install
 
-# 2. Iniciar o servidor de desenvolvimento local
+# Iniciar servidor local de desenvolvimento
 npm run dev
 
-# 3. Validar tipagem e regras estáticas
-# (Atualmente configurado para executar typecheck via tsc --noEmit)
-npm run lint
-
-# 4. Construir para produção (Vite + esbuild)
+# Fazer o Build para Produção (Vite frontend + esbuild server)
 npm run build
 ```
 
-## Comandos de Teste
-
-O projeto possui gates rigorosos para validar integridade e contratos.
+## 7. Testes e Qualidade
+O projeto possui gates rigorosos de lançamento, divididos em scripts do `package.json`.
 
 ```bash
-# Executar a bateria de testes de validação para release
-npm run test:release
+# Validação de Tipagem
+npm run lint
 
-# (O comando acima roda internamente: test:release:core, test:release:scale-review, test:starter-pack-ui, test:ui, lint, build)
+# Testes de UI e Testes Unitários
+npm run test:ui
+
+# Testes E2E via Emulator (Playwright)
+npm run test:e2e
+
+# QA unificada (Lint + Build + UI + E2E)
+npm run test:qa
+
+# Suíte Final de Release
+npm run test:release
 ```
 
-## Variáveis de Ambiente e Segurança
+## 8. Variáveis de Ambiente
+Baseie-se no `.env.example`. NUNCA exponha credenciais, secrets ou tokens de produção nestes arquivos.
 
-* **NÃO VERSIONE SECRETS:** Chaves de API privadas (como `GEMINI_API_KEY` ou credenciais do Firebase Admin) nunca devem ser commitadas. Use variáveis de ambiente (via `.env` local).
-* **Variáveis Públicas:** Variáveis prefixadas com `VITE_` serão expostas ao cliente no navegador. Certifique-se de usar este prefixo apenas para valores que podem ser públicos.
+* **Client-Side (Públicas, prefixo `VITE_`):** `VITE_APP_URL`, variáveis de Emulador E2E (`VITE_E2E_MODE`, etc).
+* **Server-Side (Secrets):** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `FIREBASE_SERVICE_ACCOUNT`, `GEMINI_MODEL`, `AI_FINOPS_HMAC_SECRET`, etc.
 
-## Infraestrutura Externa (Firebase)
+## 9. Arquitetura Resumida
+A arquitetura é offline-first baseada no banco **Cloud Firestore**. Todas as operações persistem nativamente. A aplicação Node atua como ponte para integrações de segurança e uso de tokens/chaves privadas (IA e Stripe), protegendo os segredos do client-side. A leitura mais profunda da arquitetura encontra-se em `docs/ARCHITECTURE_CURRENT.md`.
 
-Os seguintes recursos possuem ciclo de deploy separado e não são construídos pelo frontend:
-* **Firebase Security Rules** (`firestore.rules`)
-* **Índices do Firestore** (`firestore.indexes.json`)
-* **Firebase Functions** (código de backend)
+## 10. Integrações
+* **MillionsNest:** Plataforma central de Tenant e Autenticação.
+* **Stripe:** Gestão de assinaturas / Webhooks no backend.
+* **Firebase:** Auth, Firestore e Functions (para indexação de banco e segurança via `firestore.rules`).
+* **OpenAI Codex / Gemini:** Motores de inteligência artificial.
+
+## 11. Banco de Dados e Segurança (Firestore)
+A base de dados é isolada usando o conceito de `organizationId`. Nenhuma organização pode acessar documentos alheios. Estas diretrizes são policiadas através das `firestore.rules`, sendo de longe a fronteira de segurança mais crítica.
+
+## 12. Autenticação e Autorização
+O `Firebase Auth` (com validações da MillionsNest) assegura o fluxo de usuários, delegando acesso baseado no `organizationRole`. O Frontend nunca é tratado como fonte de verdade para permissões.
+
+## 13. Deploy
+A execução do comando `npm run build` cria um bundle otimizado. No ambiente produtivo, o ponto de partida é o arquivo `dist/server.cjs`, gerado pelo Esbuild.
+
+## 14. Documentação Adicional
+Consulte os documentos em `/docs` para manuais técnicos focados:
+* `docs/ARCHITECTURE_CURRENT.md`
+* `docs/AI_CHANGE_PROTOCOL.md`
+* `docs/GLOBAL_LIBRARY_CURATION_DATA_MODEL.md`
+* E o arquivo `AGENTS.md` (mandatório para IA).

@@ -5,8 +5,9 @@ import {
   RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
-import { describe, it, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { resolve } from 'path';
+import { buildEffectiveAccessContext, hasMusicScaleCapability } from '../../utils/rbac';
 
 interface DocData {
   recipientId?: string;
@@ -146,23 +147,23 @@ const mockTestEnv = {
   },
 };
 
-async function assertSucceeds<T>(pr: Promise<T> | T): Promise<T> {
+async function assertSucceeds(pr: unknown): Promise<any> {
   if (isFallbackMode) {
-    return pr;
+    return await (pr as any);
   }
-  return realAssertSucceeds(pr as Promise<T>);
+  return realAssertSucceeds(pr as any);
 }
 
-async function assertFails<T>(pr: Promise<T> | T): Promise<unknown> {
+async function assertFails(pr: unknown): Promise<unknown> {
   if (isFallbackMode) {
     try {
-      await pr;
+      await (pr as any);
     } catch (err) {
       return err;
     }
     throw new Error('Expected promise to fail but it succeeded');
   }
-  return realAssertFails(pr as Promise<T>);
+  return realAssertFails(pr as any);
 }
 
 const hasEmulatorHost = !!process.env.FIRESTORE_EMULATOR_HOST;
@@ -206,7 +207,7 @@ beforeAll(async () => {
       testEnv = mockTestEnv;
     }
   }
-});
+}, 30_000);
 
 afterAll(async () => {
   await testEnv.cleanup();
@@ -222,6 +223,15 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
       return testEnv.authenticatedContext(auth.uid, { email: auth.email }).firestore();
     }
     return testEnv.unauthenticatedContext().firestore();
+  };
+
+  const seedProjection = async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const adminDb = context.firestore();
+      await adminDb.doc('organizations/org-1/musicscale_members/member-1').set({
+        uid: 'member-1', organizationId: 'org-1', roleId: 'role-member'
+      });
+    });
   };
 
   describe('0. Security Rules Environment Check', () => {
@@ -267,6 +277,237 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
         const db = getAuthedFirestore({ uid: 'user-1' });
         const docRef = db.doc('organizations/org-2/notifications/notif-1');
         await assertFails(docRef.get());
+    });
+  });
+
+  describe.skipIf(!hasEmulatorHost)('1b. MusicScale member projection isolation', () => {
+    it('canonical status active permite leitura no tenant', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('organizations/org-1/members/user-active').set({
+          uid: 'user-active', organizationId: 'org-1', status: 'active', organizationRole: 'member'
+        });
+      });
+      await assertSucceeds(getAuthedFirestore({ uid: 'user-active' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('canonical status ativo permite leitura no tenant', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('organizations/org-1/members/user-ativo').set({
+          uid: 'user-ativo', organizationId: 'org-1', status: 'ativo', organizationRole: 'member'
+        });
+      });
+      await assertSucceeds(getAuthedFirestore({ uid: 'user-ativo' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('canonical pending não permite leitura', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('organizations/org-1/members/user-pending').set({ status: 'pending' });
+      });
+      await assertFails(getAuthedFirestore({ uid: 'user-pending' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('canonical inactive não permite leitura', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('organizations/org-1/members/user-inactive').set({ status: 'inactive' });
+      });
+      await assertFails(getAuthedFirestore({ uid: 'user-inactive' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('canonical sem status ativo não permite leitura', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('organizations/org-1/members/user-no-status').set({ organizationRole: 'member' });
+      });
+      await assertFails(getAuthedFirestore({ uid: 'user-no-status' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('legacy uid_org active preserva leitura', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('organization_members/legacy-a_org-1').set({
+          uid: 'legacy-a', organizationId: 'org-1', status: 'active'
+        });
+      });
+      await assertSucceeds(getAuthedFirestore({ uid: 'legacy-a' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('legacy uid_org pending não permite leitura', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('organization_members/legacy-b_org-1').set({
+          uid: 'legacy-b', organizationId: 'org-1', status: 'pending'
+        });
+      });
+      await assertFails(getAuthedFirestore({ uid: 'legacy-b' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('legacy uid_org inactive não permite leitura', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('organization_members/legacy-c_org-1').set({
+          uid: 'legacy-c', organizationId: 'org-1', status: 'inactive'
+        });
+      });
+      await assertFails(getAuthedFirestore({ uid: 'legacy-c' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('legacy org_uid ativo preserva leitura', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('organization_members/org-1_legacy-d').set({
+          uid: 'legacy-d', organizationId: 'org-1', status: 'ativo'
+        });
+      });
+      await assertSucceeds(getAuthedFirestore({ uid: 'legacy-d' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('legacy org_uid pending não permite leitura', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('organization_members/org-1_legacy-e').set({
+          uid: 'legacy-e', organizationId: 'org-1', status: 'pending'
+        });
+      });
+      await assertFails(getAuthedFirestore({ uid: 'legacy-e' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('legacy org_uid inactive não permite leitura', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('organization_members/org-1_legacy-f').set({
+          uid: 'legacy-f', organizationId: 'org-1', status: 'inactive'
+        });
+      });
+      await assertFails(getAuthedFirestore({ uid: 'legacy-f' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('usuário autenticado sem membership não permite leitura', async () => {
+      await seedProjection();
+      await assertFails(getAuthedFirestore({ uid: 'ordinary-user' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('membership ativa em outro tenant não permite leitura', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('organizations/org-2/members/cross-tenant').set({ status: 'active' });
+      });
+      await assertFails(getAuthedFirestore({ uid: 'cross-tenant' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('users.systemRole admin não recebe acesso global', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('users/local-admin').set({ systemRole: 'admin' });
+      });
+      await assertFails(getAuthedFirestore({ uid: 'local-admin' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('users.systemRole owner não recebe acesso global', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('users/local-owner').set({ systemRole: 'owner' });
+      });
+      await assertFails(getAuthedFirestore({ uid: 'local-owner' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    for (const role of ['ceo', 'global_admin', 'ecosystem_owner', 'founder']) {
+      it(`${role} recebe acesso global canônico`, async () => {
+        await seedProjection();
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          await context.firestore().doc(`users/${role}`).set({ systemRole: role });
+        });
+        await assertSucceeds(getAuthedFirestore({ uid: role }).doc('organizations/org-1/musicscale_members/member-1').get());
+      });
+    }
+
+    it('cliente com membership ativa não pode create, update ou delete diretamente', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-1/members/user-writer').set({ status: 'active' });
+        await adminDb.doc('organizations/org-1/musicscale_members/member-1').set({ roleId: 'role-member' });
+      });
+      const db = getAuthedFirestore({ uid: 'user-writer' });
+      await assertFails(db.doc('organizations/org-1/musicscale_members/new-member').set({ roleId: 'role-owner' }));
+      await assertFails(db.doc('organizations/org-1/musicscale_members/member-1').update({ roleId: 'role-owner' }));
+      await assertFails(db.doc('organizations/org-1/musicscale_members/member-1').delete());
+    });
+  });
+
+  describe.skipIf(!hasEmulatorHost)('1d. Existing MusicScale save incident reproduction', () => {
+    it('captures permission-denied from the legacy client writer although canonical capability allows update', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-save').set({ status: 'active', ownerUid: 'owner-save' });
+        await adminDb.doc('organizations/org-save/members/leader-save').set({
+          uid: 'leader-save', organizationId: 'org-save', status: 'active', organizationRole: 'leader'
+        });
+        await adminDb.doc('scales/scale-save').set({
+          organizationId: 'org-save', status: 'draft', observations: 'before'
+        });
+      });
+
+      const effectiveContext = buildEffectiveAccessContext('leader-save', 'org-save', null, 'leader', 'active');
+      expect(hasMusicScaleCapability(effectiveContext, 'scales.update')).toBe(true);
+      await assertFails(
+        getAuthedFirestore({ uid: 'leader-save' }).doc('scales/scale-save').update({ observations: 'after' })
+      );
+    });
+  });
+
+  describe.skipIf(!hasEmulatorHost)('1c. Invitation authority is server-only', () => {
+    const seedOrganization = async () => testEnv.withSecurityRulesDisabled(async context => {
+      await context.firestore().doc('organizations/org-1').set({ status: 'active', ownerUid: 'owner-1' });
+      await context.firestore().doc('organizations/org-1/members/admin-1').set({ status: 'active', organizationRole: 'admin' });
+      await context.firestore().doc('organizations/org-1/members/member-1').set({ status: 'active', organizationRole: 'member' });
+      await context.firestore().doc('organizations/org-1/invites/legacy-1').set({ status: 'pending', organizationId: 'org-1' });
+      await context.firestore().doc('organizations/org-1/musicscale_invite_role_intents/hash-1').set({ status: 'pending', organizationId: 'org-1' });
+      await context.firestore().doc('users/global-1').set({ systemRole: 'global_admin' });
+    });
+
+    it('denies unauthenticated and ordinary authenticated nested invitation reads', async () => {
+      await seedOrganization();
+      await assertFails(getAuthedFirestore().doc('organizations/org-1/invites/legacy-1').get());
+      await assertFails(getAuthedFirestore({ uid: 'ordinary-1' }).doc('organizations/org-1/invites/legacy-1').get());
+    });
+
+    it.each(['member-1', 'admin-1', 'owner-1', 'global-1'])('denies invitation read for privileged identity %s', async uid => {
+      await seedOrganization();
+      await assertFails(getAuthedFirestore({ uid }).doc('organizations/org-1/invites/legacy-1').get());
+    });
+
+    it.each(['ordinary-1', 'admin-1', 'owner-1', 'global-1'])('denies invitation create for client %s', async uid => {
+      await seedOrganization();
+      await assertFails(getAuthedFirestore({ uid }).doc(`organizations/org-1/invites/new-${uid}`).set({ status: 'pending' }));
+    });
+
+    it('denies invitation update and delete', async () => {
+      await seedOrganization();
+      const ref = getAuthedFirestore({ uid: 'admin-1' }).doc('organizations/org-1/invites/legacy-1');
+      await assertFails(ref.update({ status: 'accepted' }));
+      await assertFails(ref.delete());
+    });
+
+    it('denies all client access to role intents and catch-all does not reopen it', async () => {
+      await seedOrganization();
+      const ref = getAuthedFirestore({ uid: 'admin-1' }).doc('organizations/org-1/musicscale_invite_role_intents/hash-1');
+      await assertFails(ref.get());
+      await assertFails(getAuthedFirestore({ uid: 'admin-1' }).doc('organizations/org-1/musicscale_invite_role_intents/hash-2').set({ status: 'creating' }));
+      await assertFails(ref.update({ status: 'applied' }));
+      await assertFails(ref.delete());
+    });
+
+    it('denies every role-intent operation for canonical global identity', async () => {
+      await seedOrganization();
+      const db = getAuthedFirestore({ uid: 'global-1' });
+      const ref = db.doc('organizations/org-1/musicscale_invite_role_intents/hash-1');
+      await assertFails(ref.get());
+      await assertFails(db.doc('organizations/org-1/musicscale_invite_role_intents/hash-global').set({ status: 'creating' }));
+      await assertFails(ref.update({ status: 'applied' }));
+      await assertFails(ref.delete());
     });
   });
 

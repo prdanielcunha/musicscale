@@ -10,6 +10,7 @@ interface TestDocumentRef {
   id: string;
   path: string;
   collection?: (subPath: string) => CollectionMockResult;
+  get?: () => Promise<TestDocumentSnapshot>;
   _isQuery?: boolean;
 }
 
@@ -65,7 +66,7 @@ interface TestFirestore {
 }
 
 function isQueryOrCollection(ref: TestDocumentRef | TestQueryRef | CollectionMockResult): ref is TestQueryRef | CollectionMockResult {
-  return ref && 'get' in ref && typeof ref.get === 'function';
+  return !!ref && (('_isQuery' in ref && ref._isQuery === true) || 'where' in ref);
 }
 
 declare global {
@@ -164,7 +165,11 @@ vi.mock('firebase-admin', () => {
       return { 
         id: docId, 
         path: docPath, 
-        collection: (subPath: string) => collectionMock(`${docPath}/${subPath}`)
+        collection: (subPath: string) => collectionMock(`${docPath}/${subPath}`),
+        get: async () => {
+          const state = dbState.get(docPath);
+          return { exists: !!state, data: () => state?.data, id: docId };
+        }
       };
     },
     get: async () => {
@@ -968,6 +973,153 @@ describe('MusicScaleCommandService (Backend)', () => {
 
     expect(JSON.stringify(dbState.get('scales/scale-1'))).toBe(originalStateJson);
     expect(dbState.size).toBe(originalDbSize);
+  });
+
+  it('20. save atualiza draft preservando dados e status', async () => {
+    setupBasicScale();
+    const before = dbState.get('scales/scale-1')!.data;
+    dbState.set('scales/scale-1', { data: { ...before, observations: 'before', durationMinutes: 45, songSettings: { 'song-1': { key: 'D', bpm: 96 } } }, version: 1 });
+    const result = await MusicScaleCommandService.saveMusicScale({
+      musicScaleId: 'scale-1', orgId: 'org-1', payload: getPayload({ observations: 'after' }),
+      idempotencyKey: 'save-1', authUid: 'leader-1', correlationId: 'save-correlation'
+    });
+    const saved = dbState.get('scales/scale-1')!.data;
+    expect(result.status).toBe('draft');
+    expect(saved).toMatchObject({ observations: 'after', status: 'draft', organizationId: 'org-1', songIds: ['song-1'], durationMinutes: 45, songSettings: { 'song-1': { key: 'D', bpm: 96 } } });
+  });
+
+  it('21. save de published não faz downgrade', async () => {
+    setupBasicScale();
+    const before = dbState.get('scales/scale-1')!.data;
+    dbState.set('scales/scale-1', { data: { ...before, status: 'published' }, version: 1 });
+    await MusicScaleCommandService.saveMusicScale({
+      musicScaleId: 'scale-1', orgId: 'org-1', payload: getPayload({ observations: 'edited' }),
+      idempotencyKey: 'save-2', authUid: 'leader-1', correlationId: 'save-correlation'
+    });
+    expect(dbState.get('scales/scale-1')!.data).toMatchObject({ observations: 'edited', status: 'published' });
+  });
+
+  it('22. save rejeita cross-tenant e preserva organizationId', async () => {
+    setupBasicScale('org-other');
+    await expect(MusicScaleCommandService.saveMusicScale({
+      musicScaleId: 'scale-1', orgId: 'org-1', payload: getPayload({ observations: 'attack', organizationId: 'org-1' }),
+      idempotencyKey: 'save-3', authUid: 'leader-1', correlationId: 'save-correlation'
+    })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(dbState.get('scales/scale-1')!.data.organizationId).toBe('org-other');
+  });
+
+  it('23. save vinculado atualiza escala e vínculo atomicamente', async () => {
+    setupBasicScale();
+    dbState.set('bandScales/band-1', { data: { organizationId: 'org-1', musicScaleId: null }, version: 1 });
+    await MusicScaleCommandService.saveMusicScale({
+      musicScaleId: 'scale-1', orgId: 'org-1', payload: { scalePatch: { observations: 'linked' }, bandScaleId: 'band-1' },
+      idempotencyKey: 'save-4', authUid: 'leader-1', correlationId: 'save-correlation'
+    });
+    expect(dbState.get('scales/scale-1')!.data).toMatchObject({ observations: 'linked', bandScaleId: 'band-1' });
+    expect(dbState.get('bandScales/band-1')!.data.musicScaleId).toBe('scale-1');
+  });
+
+  it('24. save replay usa namespace próprio e detecta payload divergente', async () => {
+    setupBasicScale();
+    const params = { musicScaleId: 'scale-1', orgId: 'org-1', payload: getPayload({ observations: 'same' }), idempotencyKey: 'shared-save-key', authUid: 'u1', correlationId: 'save' };
+    expect((await MusicScaleCommandService.saveMusicScale(params)).fromCache).toBe(false);
+    expect((await MusicScaleCommandService.saveMusicScale(params)).fromCache).toBe(true);
+    await expect(MusicScaleCommandService.saveMusicScale({ ...params, payload: getPayload({ observations: 'different' }) }))
+      .rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+  });
+
+  it('25. save e publish com a mesma caller key usam receipts independentes', async () => {
+    setupBasicScale();
+    await MusicScaleCommandService.saveMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload: getPayload(), idempotencyKey: 'cross-command', authUid: 'u1', correlationId: 'save' });
+    await MusicScaleCommandService.publishMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload: getPayload(), idempotencyKey: 'cross-command', authUid: 'u1', correlationId: 'publish' });
+    expect(Array.from(dbState.keys()).filter(key => key.includes('/_commandReceipts/'))).toHaveLength(2);
+  });
+
+  it('26. receipt de publish nunca é interpretado como save', async () => {
+    setupBasicScale();
+    await MusicScaleCommandService.publishMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload: getPayload(), idempotencyKey: 'publish-first', authUid: 'u1', correlationId: 'publish' });
+    const result = await MusicScaleCommandService.saveMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload: getPayload({ observations: 'after publish' }), idempotencyKey: 'publish-first', authUid: 'u1', correlationId: 'save' });
+    expect(result.fromCache).toBe(false);
+    expect(Array.from(dbState.keys()).filter(key => key.includes('/_commandReceipts/'))).toHaveLength(2);
+  });
+
+  it('27. rejeita previous BandScale cross-tenant sem qualquer write', async () => {
+    setupBasicScale();
+    const scale = dbState.get('scales/scale-1')!.data;
+    dbState.set('scales/scale-1', { data: { ...scale, bandScaleId: 'band-corrupt' }, version: 1 });
+    dbState.set('bandScales/band-corrupt', { data: { organizationId: 'org-b', musicScaleId: 'scale-1' }, version: 1 });
+    const scaleBefore = JSON.stringify(dbState.get('scales/scale-1'));
+    const bandBefore = JSON.stringify(dbState.get('bandScales/band-corrupt'));
+    await expect(MusicScaleCommandService.saveMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload: { scalePatch: {}, bandScaleId: null }, idempotencyKey: 'corrupt-previous', authUid: 'u1', correlationId: 'save' }))
+      .rejects.toMatchObject({ code: 'TENANT_SCOPE_MISMATCH' });
+    expect(JSON.stringify(dbState.get('scales/scale-1'))).toBe(scaleBefore);
+    expect(JSON.stringify(dbState.get('bandScales/band-corrupt'))).toBe(bandBefore);
+    expect(Array.from(dbState.keys()).some(key => key.includes('/_commandReceipts/'))).toBe(false);
+  });
+
+  it('28. não sobrescreve next BandScale vinculada a outra MusicScale', async () => {
+    setupBasicScale();
+    dbState.set('bandScales/band-1', { data: { organizationId: 'org-1', musicScaleId: 'scale-other' }, version: 1 });
+    const scaleBefore = JSON.stringify(dbState.get('scales/scale-1'));
+    await expect(MusicScaleCommandService.saveMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload: { scalePatch: {}, bandScaleId: 'band-1' }, idempotencyKey: 'already-linked', authUid: 'u1', correlationId: 'save' }))
+      .rejects.toMatchObject({ code: 'BAND_SCALE_ALREADY_LINKED' });
+    expect(JSON.stringify(dbState.get('scales/scale-1'))).toBe(scaleBefore);
+    expect(dbState.get('bandScales/band-1')!.data.musicScaleId).toBe('scale-other');
+  });
+
+  it('29. preserva metadata canônica lastModified*', async () => {
+    setupBasicScale();
+    dbState.set('users/u1', { data: { displayName: 'Canonical User', photoURL: 'https://example.test/photo.png' }, version: 1 });
+    await MusicScaleCommandService.saveMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload: getPayload({ observations: 'metadata' }), idempotencyKey: 'metadata', authUid: 'u1', correlationId: 'save' });
+    const saved = dbState.get('scales/scale-1')!.data;
+    expect(saved.lastModifiedAt).toBeDefined();
+    expect(saved.lastModifiedBy).toEqual({ uid: 'u1', displayName: 'Canonical User', photoURL: 'https://example.test/photo.png' });
+  });
+
+  it('30. lastScheduledAt é monotônico e tenant-bound', async () => {
+    setupBasicScale();
+    dbState.set('songs/song-1', { data: { organizationId: 'org-1', lastScheduledAt: '2026-01-01' }, version: 1 });
+    dbState.set('songs/song-cross', { data: { organizationId: 'org-b', lastScheduledAt: '2025-01-01' }, version: 1 });
+    const scale = dbState.get('scales/scale-1')!.data;
+    dbState.set('scales/scale-1', { data: { ...scale, songIds: ['song-1', 'song-1', 'song-cross'] }, version: 1 });
+    await MusicScaleCommandService.saveMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload: getPayload({ date: '2026-12-01' }), idempotencyKey: 'schedule-newer', authUid: 'u1', correlationId: 'save' });
+    expect(dbState.get('songs/song-1')!.data.lastScheduledAt).toBe('2026-12-01');
+    expect(dbState.get('songs/song-cross')!.data.lastScheduledAt).toBe('2025-01-01');
+    await MusicScaleCommandService.saveMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload: getPayload({ date: '2025-12-01' }), idempotencyKey: 'schedule-older', authUid: 'u1', correlationId: 'save' });
+    expect(dbState.get('songs/song-1')!.data.lastScheduledAt).toBe('2026-12-01');
+  });
+
+  it('31. falha best-effort de lastScheduledAt não desfaz save confirmado', async () => {
+    setupBasicScale();
+    dbState.set('songs/song-1', { data: { organizationId: 'org-1' }, version: 1 });
+    const originalRunTransaction = mockDbCommandService.runTransaction.bind(mockDbCommandService);
+    let calls = 0;
+    mockDbCommandService.runTransaction = async callback => {
+      calls++;
+      if (calls > 1) throw new Error('SIDE_EFFECT_FAILURE');
+      return originalRunTransaction(callback);
+    };
+    try {
+      const result = await MusicScaleCommandService.saveMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload: getPayload({ observations: 'saved despite side effect' }), idempotencyKey: 'side-effect-failure', authUid: 'u1', correlationId: 'save' });
+      expect(result.fromCache).toBe(false);
+      expect(dbState.get('scales/scale-1')!.data.observations).toBe('saved despite side effect');
+    } finally {
+      mockDbCommandService.runTransaction = originalRunTransaction;
+    }
+  });
+
+  it('32. relink e unlink mantêm backlinks consistentes', async () => {
+    setupBasicScale();
+    const scale = dbState.get('scales/scale-1')!.data;
+    dbState.set('scales/scale-1', { data: { ...scale, bandScaleId: 'band-old' }, version: 1 });
+    dbState.set('bandScales/band-old', { data: { organizationId: 'org-1', musicScaleId: 'scale-1' }, version: 1 });
+    dbState.set('bandScales/band-new', { data: { organizationId: 'org-1', musicScaleId: null }, version: 1 });
+    await MusicScaleCommandService.saveMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload: { scalePatch: {}, bandScaleId: 'band-new' }, idempotencyKey: 'relink', authUid: 'u1', correlationId: 'save' });
+    expect(dbState.get('bandScales/band-old')!.data.musicScaleId).toBeNull();
+    expect(dbState.get('bandScales/band-new')!.data.musicScaleId).toBe('scale-1');
+    await MusicScaleCommandService.saveMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload: { scalePatch: {}, bandScaleId: null }, idempotencyKey: 'unlink', authUid: 'u1', correlationId: 'save' });
+    expect(dbState.get('scales/scale-1')!.data.bandScaleId).toBeNull();
+    expect(dbState.get('bandScales/band-new')!.data.musicScaleId).toBeNull();
   });
 
 });
