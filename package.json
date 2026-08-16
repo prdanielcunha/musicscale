@@ -34,7 +34,8 @@
     "test:release": "npm run test:release:core && npm run test:release:scale-review && npm run test:starter-pack-ui && npm run test:ui && npm run test:functions && npm run test:song-discovery && npm run test:curation-approval && npm run test:scale-release && npm run lint && npm run build",
     "test:e2e:run": "npx playwright test",
     "test:ci:portable": "npm run lint && npm run test:ui && npm run test:release:core",
-    "ci:vercel": "npm run test:ci:portable && npm run build"
+    "test:ci:emulator": "bash scripts/qa-vercel-emulator.sh",
+    "ci:vercel": "npm run test:ci:emulator && npm run test:ci:portable && npm run build"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",
