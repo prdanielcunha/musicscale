@@ -1143,12 +1143,6 @@ app.use((err: any, req: any, res: any, next: any) => {
       if (!orgId) return res.status(400).json({ error: "X-Organization-Id is required", correlationId });
       if (!idempotencyKey) return res.status(400).json({ error: "Idempotency-Key is required", correlationId });
 
-      const organizationSnapshot = await db.collection("organizations").doc(orgId).get();
-      const organizationStatus = String(organizationSnapshot.data()?.status || "").trim().toLowerCase();
-      if (!organizationSnapshot.exists || !["active", "ativo"].includes(organizationStatus)) {
-        return res.status(403).json({ error: "ORGANIZATION_INACTIVE", correlationId });
-      }
-
       const authorization = await resolveOrganizationAuthorization(authHeader, orgId, db, admin.auth());
       if (authorization.error || !authorization.context) {
         return res.status(authorization.statusCode || 403).json({ error: authorization.error || "FORBIDDEN", correlationId });

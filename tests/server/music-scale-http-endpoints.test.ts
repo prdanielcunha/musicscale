@@ -196,6 +196,8 @@ describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
     scaleStatus?: 'draft' | 'published' | 'cancelled' | 'completed';
     membership?: boolean;
     systemRole?: string;
+    omitOrgStatus?: boolean;
+    orgArchived?: boolean;
   } = {}) => {
     const userId = params.userId || 'user_123';
     const orgId = params.orgId || 'org_123';
@@ -218,16 +220,18 @@ describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
     });
 
     // Seed Org
-    mockDbState.set(`organizations/${orgId}`, {
+    const organizationData: Record<string, any> = {
       name: 'Test Org',
-      status: orgStatus,
       ownerUid: isOwner ? userId : 'other_owner',
       ownerUserId: isOwner ? userId : 'other_owner',
+      archived: params.orgArchived === true,
       featureFlags: {
         'musicscale.musicScalePublishCommandV1': flagPublish,
         'musicscale.scaleResponsesV1': flagResponse,
       },
-    });
+    };
+    if (!params.omitOrgStatus) organizationData.status = orgStatus;
+    mockDbState.set(`organizations/${orgId}`, organizationData);
 
     // Seed Membership
     if (params.membership !== false) {
@@ -305,6 +309,21 @@ describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
     mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
     seedStandardUserAndOrg({ role: 'member', isOwner: true, membership: false });
     expect((await patchScale()).status).toBe(200);
+  });
+
+  it('save accepts a legacy organization without status when canonical leader membership is active', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    seedStandardUserAndOrg({ role: 'leader', isOwner: false, omitOrgStatus: true });
+    expect((await patchScale()).status).toBe(200);
+  });
+
+  it.each([
+    { label: 'status archived', options: { orgStatus: 'archived' } },
+    { label: 'archived flag', options: { orgArchived: true } },
+  ])('save denies organization with $label', async ({ options }) => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    seedStandardUserAndOrg({ role: 'leader', isOwner: false, ...options });
+    expect((await patchScale()).status).toBe(404);
   });
 
   it.each(['global_admin', 'ecosystem_owner'])('save authorizes canonical %s without membership', async systemRole => {
