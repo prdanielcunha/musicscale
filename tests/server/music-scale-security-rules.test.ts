@@ -5,8 +5,9 @@ import {
   RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
-import { describe, it, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { resolve } from 'path';
+import { buildEffectiveAccessContext, hasMusicScaleCapability } from '../../utils/rbac';
 
 interface DocData {
   recipientId?: string;
@@ -433,6 +434,27 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
       await assertFails(db.doc('organizations/org-1/musicscale_members/new-member').set({ roleId: 'role-owner' }));
       await assertFails(db.doc('organizations/org-1/musicscale_members/member-1').update({ roleId: 'role-owner' }));
       await assertFails(db.doc('organizations/org-1/musicscale_members/member-1').delete());
+    });
+  });
+
+  describe.skipIf(!hasEmulatorHost)('1d. Existing MusicScale save incident reproduction', () => {
+    it('captures permission-denied from the legacy client writer although canonical capability allows update', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-save').set({ status: 'active', ownerUid: 'owner-save' });
+        await adminDb.doc('organizations/org-save/members/leader-save').set({
+          uid: 'leader-save', organizationId: 'org-save', status: 'active', organizationRole: 'leader'
+        });
+        await adminDb.doc('scales/scale-save').set({
+          organizationId: 'org-save', status: 'draft', observations: 'before'
+        });
+      });
+
+      const effectiveContext = buildEffectiveAccessContext('leader-save', 'org-save', null, 'leader', 'active');
+      expect(hasMusicScaleCapability(effectiveContext, 'scales.update')).toBe(true);
+      await assertFails(
+        getAuthedFirestore({ uid: 'leader-save' }).doc('scales/scale-save').update({ observations: 'after' })
+      );
     });
   });
 

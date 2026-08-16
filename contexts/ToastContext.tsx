@@ -7,6 +7,7 @@ import React, {
   ReactNode,
 } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { createPortal } from "react-dom";
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
 import { emotionTracker } from "../services/emotionTelemetry";
 
@@ -79,7 +80,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({
         () => {
           setToasts((prev) => prev.filter((t) => t.id !== id));
         },
-        toast.duration || (toast.type === "success" ? 3000 : 4000),
+        toast.duration || (toast.type === "success" ? 3000 : toast.type === "error" ? 8000 : 4000),
       );
     }
   }, []);
@@ -134,7 +135,8 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-[9999] pointer-events-none w-max">
+      {typeof document !== "undefined" && createPortal(<>
+      <div data-testid="toast-success-viewport" className="fixed bottom-[max(2.5rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-[9999] pointer-events-none w-max">
         <AnimatePresence>
           {toasts
             .filter((t) => t.type === "success")
@@ -161,7 +163,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({
         </AnimatePresence>
       </div>
 
-      <div className="fixed top-4 right-4 sm:top-8 sm:right-8 z-[9999] flex flex-col gap-3 pointer-events-none w-full max-w-[400px] px-4 sm:px-0">
+      <div data-testid="toast-alert-viewport" className="fixed top-[max(1rem,env(safe-area-inset-top))] right-0 sm:top-[max(2rem,env(safe-area-inset-top))] sm:right-8 z-[9999] flex flex-col gap-3 pointer-events-none w-full max-w-[400px] px-4 sm:px-0">
         <AnimatePresence>
           {toasts
             .filter((t) => t.type !== "success")
@@ -247,6 +249,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({
             ))}
         </AnimatePresence>
       </div>
+      </>, document.body)}
     </ToastContext.Provider>
   );
 };
