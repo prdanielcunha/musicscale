@@ -1,4 +1,5 @@
 import { logger } from '../../lib/logger.js';
+import { resolveMusicScaleMemberProfile } from './musicScaleMemberProjection.js';
 
 export interface AuthenticatedOrganizationContext {
   uid: string;
@@ -90,7 +91,7 @@ export async function resolveOrganizationAuthorization(
       }
     };
 
-    let roleIdToFetch = null;
+    let canonicalMembershipData: any = null;
 
     // 1. Check canonical membership
     const canonicalMemberRef = dbInstance.collection('organizations').doc(organizationId).collection('members').doc(uid);
@@ -101,9 +102,9 @@ export async function resolveOrganizationAuthorization(
       const status = (memberData?.status || '').trim().toLowerCase();
       if (status === 'active' || status === 'ativo') {
         isActive = true;
+        canonicalMembershipData = memberData;
         organizationRole = (memberData?.organizationRole || memberData?.role || '').trim().toLowerCase() || null;
         extractCapabilities(memberData);
-        roleIdToFetch = memberData?.roleId || memberData?.internalRoleId || null;
       }
     } else {
       // 2. Fallback to legacy
@@ -127,14 +128,17 @@ export async function resolveOrganizationAuthorization(
           isActive = true;
           organizationRole = (legacyData.organizationRole || legacyData.role || '').trim().toLowerCase() || null;
           extractCapabilities(legacyData);
-          roleIdToFetch = legacyData.roleId || legacyData.internalRoleId || null;
         }
       }
     }
 
-    if (isActive && roleIdToFetch) {
+    const musicScaleProfile = isActive
+      ? await resolveMusicScaleMemberProfile(dbInstance, organizationId, uid, canonicalMembershipData)
+      : { roleId: null, source: 'none' as const };
+
+    if (isActive && musicScaleProfile.roleId) {
       try {
-        const roleDoc = await dbInstance.collection('roles').doc(roleIdToFetch).get();
+        const roleDoc = await dbInstance.collection('roles').doc(musicScaleProfile.roleId).get();
         if (roleDoc.exists) {
           const roleData = roleDoc.data();
           if (roleData?.organizationId === organizationId) {
@@ -144,7 +148,7 @@ export async function resolveOrganizationAuthorization(
           }
         }
       } catch (e) {
-        logger.error(`[organizationAuthorization] Error fetching role ${roleIdToFetch}:`, e);
+        logger.error(`[organizationAuthorization] Error fetching MusicScale role:`, e);
       }
     }
 

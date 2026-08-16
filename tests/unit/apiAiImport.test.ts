@@ -3,6 +3,11 @@ import request from 'supertest';
 import app from '../../server';
 import { areKeysEnharmonicallyEquivalent } from '../../utils/chordEngine';
 
+vi.hoisted(() => {
+  process.env.VERCEL = 'true';
+  process.env.GEMINI_API_KEY = 'test-gemini-key';
+});
+
 // Create a state object that we can mutate in tests
 const geminiMockState = vi.hoisted(() => ({
   text: JSON.stringify({

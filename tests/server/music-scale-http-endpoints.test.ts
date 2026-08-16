@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
+import { MusicScaleCommandService } from '../../services/server/scale/musicScaleCommandService.js';
+
+vi.hoisted(() => {
+  process.env.VERCEL = 'true';
+});
 
 // Define the mock database state and verifyIdToken mock
 const mockDbState = new Map<string, any>();
@@ -167,9 +172,6 @@ vi.mock('firebase-admin/firestore', () => {
   };
 });
 
-// Set process.env.VERCEL so startLocalServer is NOT started
-process.env.VERCEL = 'true';
-
 // Import our Express application
 import app from '../../server.js';
 
@@ -192,6 +194,10 @@ describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
     scaleOrgId?: string;
     bandScaleId?: string;
     scaleStatus?: 'draft' | 'published' | 'cancelled' | 'completed';
+    membership?: boolean;
+    systemRole?: string;
+    omitOrgStatus?: boolean;
+    orgArchived?: boolean;
   } = {}) => {
     const userId = params.userId || 'user_123';
     const orgId = params.orgId || 'org_123';
@@ -210,29 +216,33 @@ describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
       uid: userId,
       email: 'user@test.com',
       displayName: 'Test User',
-      systemRole: 'member',
+      systemRole: params.systemRole || 'member',
     });
 
     // Seed Org
-    mockDbState.set(`organizations/${orgId}`, {
+    const organizationData: Record<string, any> = {
       name: 'Test Org',
-      status: orgStatus,
       ownerUid: isOwner ? userId : 'other_owner',
       ownerUserId: isOwner ? userId : 'other_owner',
+      archived: params.orgArchived === true,
       featureFlags: {
         'musicscale.musicScalePublishCommandV1': flagPublish,
         'musicscale.scaleResponsesV1': flagResponse,
       },
-    });
+    };
+    if (!params.omitOrgStatus) organizationData.status = orgStatus;
+    mockDbState.set(`organizations/${orgId}`, organizationData);
 
     // Seed Membership
-    mockDbState.set(`organizations/${orgId}/members/${userId}`, {
-      userId,
-      organizationId: orgId,
-      status: 'active',
-      role,
-      organizationRole: role,
-    });
+    if (params.membership !== false) {
+      mockDbState.set(`organizations/${orgId}/members/${userId}`, {
+        userId,
+        organizationId: orgId,
+        status: 'active',
+        role,
+        organizationRole: role,
+      });
+    }
 
     // Seed Location and Event Type
     mockDbState.set(`locations/loc_123`, { organizationId: scaleOrgId, name: 'Sede', active: true });
@@ -279,6 +289,86 @@ describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
       ],
     });
   };
+
+  const patchScale = (payload: Record<string, unknown> = { scalePatch: { observations: 'saved' } }) => request(app)
+    .patch('/api/v1/music-scales/scale_123')
+    .set('authorization', 'Bearer valid-token')
+    .set('x-organization-id', 'org_123')
+    .set('idempotency-key', `save_${Math.random()}`)
+    .send(payload);
+
+  it.each(['owner', 'admin', 'leader'])('save authorizes canonical active %s', async role => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    seedStandardUserAndOrg({ role, isOwner: role === 'owner' });
+    const res = await patchScale();
+    expect(res.status).toBe(200);
+    expect(mockDbState.get('scales/scale_123')).toMatchObject({ observations: 'saved', status: 'draft', organizationId: 'org_123' });
+  });
+
+  it('save authorizes organization owner without membership', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    seedStandardUserAndOrg({ role: 'member', isOwner: true, membership: false });
+    expect((await patchScale()).status).toBe(200);
+  });
+
+  it('save accepts a legacy organization without status when canonical leader membership is active', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    seedStandardUserAndOrg({ role: 'leader', isOwner: false, omitOrgStatus: true });
+    expect((await patchScale()).status).toBe(200);
+  });
+
+  it.each([
+    { label: 'status archived', options: { orgStatus: 'archived' } },
+    { label: 'archived flag', options: { orgArchived: true } },
+  ])('save denies organization with $label', async ({ options }) => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    seedStandardUserAndOrg({ role: 'leader', isOwner: false, ...options });
+    expect((await patchScale()).status).toBe(404);
+  });
+
+  it.each(['global_admin', 'ecosystem_owner'])('save authorizes canonical %s without membership', async systemRole => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    seedStandardUserAndOrg({ isOwner: false, membership: false, systemRole });
+    expect((await patchScale()).status).toBe(200);
+  });
+
+  it.each(['member', 'visitor'])('save denies canonical %s without scales.update', async role => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    seedStandardUserAndOrg({ role, isOwner: false });
+    expect((await patchScale()).status).toBe(403);
+  });
+
+  it('save denies inactive membership and cross-tenant target', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    seedStandardUserAndOrg({ role: 'leader', isOwner: false });
+    mockDbState.set('organizations/org_123/members/user_123', { status: 'inactive', organizationRole: 'leader' });
+    expect((await patchScale()).status).toBe(403);
+
+    seedStandardUserAndOrg({ role: 'leader', isOwner: false, scaleOrgId: 'org_other' });
+    expect((await patchScale()).status).toBe(403);
+  });
+
+  it('save denies an unaffiliated ordinary user', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    seedStandardUserAndOrg({ isOwner: false, membership: false });
+    expect((await patchScale()).status).toBe(403);
+  });
+
+  it('save maps already-linked to 409 and sanitizes unexpected 500 errors', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    seedStandardUserAndOrg({ role: 'leader', isOwner: false });
+    mockDbState.set('bandScales/band_scale_123', { organizationId: 'org_123', musicScaleId: 'scale-other', assignments: [] });
+    const linked = await patchScale({ scalePatch: {}, bandScaleId: 'band_scale_123' });
+    expect(linked.status).toBe(409);
+    expect(linked.body).toMatchObject({ error: 'BAND_SCALE_ALREADY_LINKED', code: 'BAND_SCALE_ALREADY_LINKED' });
+
+    const spy = vi.spyOn(MusicScaleCommandService, 'saveMusicScale').mockRejectedValueOnce(new Error('sensitive admin detail'));
+    const unexpected = await patchScale();
+    spy.mockRestore();
+    expect(unexpected.status).toBe(500);
+    expect(unexpected.body).toMatchObject({ error: 'SAVE_FAILED', code: 'SAVE_FAILED' });
+    expect(JSON.stringify(unexpected.body)).not.toContain('sensitive admin detail');
+  });
 
   it('1. sem Authorization -> deve retornar 401', async () => {
     const res = await request(app)
@@ -467,6 +557,10 @@ describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
     
     // Seed Org and User (who is not in assignments of band_scale_123)
     seedStandardUserAndOrg({ userId: 'user_not_escalado', role: 'member', isOwner: false, scaleStatus: 'published' });
+
+    // Keep this authorization/business-rule scenario independent from wall-clock time.
+    const seededScale = mockDbState.get('scales/scale_123');
+    mockDbState.set('scales/scale_123', { ...seededScale, date: '2099-08-10', time: '19:00' });
 
     // Try to post response
     const res = await request(app)

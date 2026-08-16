@@ -21,7 +21,7 @@ test.describe('Auxiliary Areas and Account', () => {
   test('Should open Account Profile', async ({ page }, testInfo) => {
     await loginAsLeaderA(page);
     await page.goto('/profile');
-    await expect(page.getByText('Líder Família A').first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Líder Família A', level: 1 })).toBeVisible();
     await captureFullPage(page, testInfo, 'account-profile');
   });
 });

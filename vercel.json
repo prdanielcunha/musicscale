@@ -1,4 +1,15 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run ci:vercel",
+  "ignoreCommand": "node -e \"process.exit(1)\"",
+  "git": {
+    "deploymentEnabled": {
+      "*": false,
+      "qa-validation": true,
+      "main": true,
+      "production": true
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",

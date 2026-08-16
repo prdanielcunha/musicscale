@@ -1,3 +1,5 @@
+import { resolveMusicScaleMemberProfile } from './musicScaleMemberProjection.js';
+
 export type AiFeature =
   | "aiImport"
   | "aiStructuring"
@@ -65,20 +67,6 @@ function resolveOrganizationRole(data: any): string | null {
 
   const legacy = typeof data?.role === "string"
     ? data.role.trim().toLowerCase()
-    : "";
-
-  return legacy || null;
-}
-
-function resolveRoleId(data: any): string | null {
-  const canonical = typeof data?.roleId === "string"
-    ? data.roleId.trim()
-    : "";
-
-  if (canonical) return canonical;
-
-  const legacy = typeof data?.internalRoleId === "string"
-    ? data.internalRoleId.trim()
     : "";
 
   return legacy || null;
@@ -220,6 +208,7 @@ export async function authorizeAiRequest(input: AuthorizeAiRequestInput): Promis
   let organizationRole: string | null = null;
   let roleId: string | null = null;
   let membershipSources: any[] = [];
+  let canonicalMembershipData: any = null;
 
   if (isGlobal) {
     isActiveMember = true;
@@ -237,8 +226,8 @@ export async function authorizeAiRequest(input: AuthorizeAiRequestInput): Promis
       const st = String(cData?.status || "").trim().toLowerCase();
       if (st === 'active' || st === 'ativo') {
         isActiveMember = true;
+        canonicalMembershipData = cData;
         organizationRole = resolveOrganizationRole(cData);
-        roleId = resolveRoleId(cData);
         membershipSources.push(cData?.capabilities, cData?.permissions, cData?.effectiveCapabilities);
       }
     } else {
@@ -264,7 +253,6 @@ export async function authorizeAiRequest(input: AuthorizeAiRequestInput): Promis
         if (st === 'active' || st === 'ativo') {
           isActiveMember = true;
           organizationRole = resolveOrganizationRole(lData);
-          roleId = resolveRoleId(lData);
           membershipSources.push(lData?.capabilities, lData?.permissions, lData?.effectiveCapabilities);
         }
       }
@@ -278,6 +266,12 @@ export async function authorizeAiRequest(input: AuthorizeAiRequestInput): Promis
 
   if (!isActiveMember) {
     return { ok: false, statusCode: 403, error: "FORBIDDEN" };
+  }
+
+  try {
+    roleId = (await resolveMusicScaleMemberProfile(dbInstance, organizationId, uid, canonicalMembershipData)).roleId;
+  } catch (e) {
+    return { ok: false, statusCode: 503, error: "SERVICE_UNAVAILABLE" };
   }
 
   // INTERNAL PERMISSIONS

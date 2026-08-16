@@ -376,7 +376,7 @@ const CollapsibleNavItem: React.FC<{
 
 const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClick }) => {
   const { user, userProfile, organization, isAdmin, isCurationAdmin } = useAuth();
-  const { navigateToEcosystem, isDegraded } = useEcosystem();
+  const { navigateToEcosystem, isDegraded, context: ecosystemContext } = useEcosystem();
   const { t } = useTranslation();
   const { hasCapability } = useCapability();
   const { allowed: finopsAllowed, loading: finopsLoading } = useFinOpsDiagnosticsAccess();
@@ -391,8 +391,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
       }
       try {
         const q = query(
-          collection(db, 'organization_join_requests'), 
-          where('organizationId', '==', userProfile.organizationId),
+          collection(db, 'organizations', userProfile.organizationId, 'join_requests'),
           where('status', '==', 'pending'),
           limit(1)
         );
@@ -643,7 +642,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
                   {displayName}
                 </p>
                 {(() => {
-                  const displayRole = getPrimaryDisplayRole(userProfile, organization);
+                  const displayRole = getPrimaryDisplayRole(userProfile, organization, ecosystemContext?.ecosystemRole);
                   const isPremiumSys = displayRole.scope === 'ecosystem';
                   const rawPlanName = organization?.plan || organization?.subscriptionPlan || 'Starter';
                   const planName = rawPlanName;

@@ -161,7 +161,7 @@ class MockCollection {
           if (id === 'admin_org_uid') return new MockDoc(id, { status: ' ATIVO ', organizationRole: 'admin' });
           if (id === 'member_uid') return new MockDoc(id, { status: 'active', organizationRole: 'member' });
           if (id === 'diff_org_role_uid') return new MockDoc(id, { status: 'active', roleId: 'role_diff_org' });
-          if (id === 'manage_rep_uid') return new MockDoc(id, { status: 'active', roleId: 'role_manage_rep' });
+          if (id === 'manage_rep_uid') return new MockDoc(id, { status: 'active', organizationRole: 'member', roleId: 'role_diff_org' });
           if (id === 'manage_chords_uid') return new MockDoc(id, { status: 'active', roleId: 'role_manage_chords' });
           if (id === 'rep_or_chords_uid') return new MockDoc(id, { status: 'active', roleId: 'role_manage_chords' });
           if (id === 'admin_name_uid') return new MockDoc(id, { status: 'active', roleId: 'role_admin_name' });
@@ -211,9 +211,14 @@ class MockCollection {
           return new MockDoc(id, null, false);
         }
 
+        if (this.name === 'musicscale_members') {
+          if (id === 'manage_rep_uid') return new MockDoc(id, { uid: id, organizationId: 'org123', roleId: 'role_manage_rep' });
+          return new MockDoc(id, null, false);
+        }
+
         if (this.name === 'organization_members') {
-          if (id === 'legacy_uid_org_uid_org123') return new MockDoc(id, { status: 'active', organizationRole: 'member', roleId: 'role_manage_rep' });
-          if (id === 'org123_legacy_org_uid_uid') return new MockDoc(id, { status: 'ativo', organizationRole: 'member', roleId: 'role_manage_rep' });
+          if (id === 'legacy_uid_org_uid_org123') return new MockDoc(id, { uid: 'legacy_uid_org_uid', organizationId: 'org123', status: 'active', organizationRole: 'member', roleId: 'role_manage_rep' });
+          if (id === 'org123_legacy_org_uid_uid') return new MockDoc(id, { uid: 'legacy_org_uid_uid', organizationId: 'org123', status: 'ativo', organizationRole: 'member', roleId: 'role_manage_rep' });
           if (id === 'legacy_inactive_uid_org123') return new MockDoc(id, { status: 'pending' });
           if (id === 'inactive_canon_uid_org123') return new MockDoc(id, { status: 'active' }); // Should be ignored because canon exists
           if (id === 'new_test_uid8_org123') return new MockDoc(id, { status: 'active', role: 'admin' });

@@ -1,12 +1,12 @@
 import { logger } from "../lib/logger";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import Spinner from "../components/common/Spinner";
 import { useEcosystem } from "../contexts/EcosystemContext";
-import { ecosystemBridge } from "../services/ecosystem/EcosystemBridge";
 import TenantOnboarding from "./TenantOnboarding";
 import { MissingSubscriptionScreen } from "../components/premium/MissingSubscriptionScreen";
+import { resolveSubscriptionAccess } from "../utils/subscriptionAccessResolver";
 
 export default function StartGateway() {
   const {
@@ -16,18 +16,22 @@ export default function StartGateway() {
     organization,
     subscription,
     isSubscriptionLoaded,
-    isAdmin,
-    isOwner,
+    entitlements,
+    isEntitlementsLoaded,
     isGlobalAdmin,
     needsRepair
   } = useAuth();
   const { context: ecoContext } = useEcosystem();
-  
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const hasActiveSub = subscription?.status === "active" || subscription?.status === "trialing" || subscription?.status === "trial" || subscription?.status === "pro";
-  
-  const bypassSubscription = isGlobalAdmin;
+  const [isRefreshing] = useState(false);
+
+  const resolution = resolveSubscriptionAccess(
+    loading,
+    isSubscriptionLoaded,
+    isEntitlementsLoaded,
+    { entitlements, organization, subscription },
+    isGlobalAdmin
+  );
 
   console.log("[MusicScale Gate Debug]", {
     firebaseUserUid: user?.uid,
@@ -39,13 +43,15 @@ export default function StartGateway() {
     ecosystemRole: ecoContext?.ecosystemRole,
     systemRole: ecoContext?.systemRole,
     roleInCurrentOrganization: ecoContext?.roleInCurrentOrganization,
-    subscriptionStatus: ecoContext?.subscriptionStatus,
+    subscriptionStatus: subscription?.status,
+    entitlementStatus: entitlements?.status,
     plan: ecoContext?.plan,
-    bypassSubscription,
+    accessStatus: resolution.status,
+    accessReason: resolution.reason,
     isGlobalAdmin
   });
 
-  if (loading || isRefreshing || (user && userProfile && !isSubscriptionLoaded)) {
+  if (loading || isRefreshing || (user && userProfile && !resolution.loaded)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-900">
         <Spinner />
@@ -63,7 +69,7 @@ export default function StartGateway() {
   if (needsRepair) {
     return <Navigate to="/" replace />; // Gatekeeper has RepairNeededScreen
   }
-  
+
   // Wait for local organization cache to hydrate if we have an ecosystem org
   if (!organization && ecoContext?.currentOrganizationId) {
     return (
@@ -80,17 +86,19 @@ export default function StartGateway() {
     return <TenantOnboarding />;
   }
 
-  // 4. Se TEM organização, verificamos a assinatura centralizada
-  if (!hasActiveSub && !bypassSubscription) {
+  // 4. Use the same centralized subscription/entitlement resolver as AppLayout.
+  // The Hub-backed entitlements path is authoritative; the legacy local subscription
+  // document may be unavailable to the browser under hardened Firestore Rules.
+  if (!resolution.valid) {
     logger.debug("[GATEKEEPER_STATUS] Acesso negado no StartGateway.", {
-      statusCentralizado: subscription?.status,
+      statusCentralizado: resolution.status,
+      reason: resolution.reason,
       organizationId: organization?.id
     });
-    return <MissingSubscriptionScreen />;
+    return <MissingSubscriptionScreen resolution={resolution} />;
   }
 
-  // 5. Usuário com acesso liberado (trialing/active/bypass)
+  // 5. Usuário com acesso liberado
   logger.debug("[StartGateway] Redirecting to workspace.");
   return <Navigate to="/" replace />;
 }
-

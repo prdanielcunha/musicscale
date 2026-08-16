@@ -1451,5 +1451,8 @@
       "transposeSuccess": "A cifra foi atualizada de {{from}} para {{to}}. {{count}} acordes foram ajustados.",
       "transposeSuccessOne": "A cifra foi atualizada de {{from}} para {{to}}. 1 acorde foi ajustado."
     }
+  },
+  "profile": {
+    "invite_person": "Convidar pessoa"
   }
 }
