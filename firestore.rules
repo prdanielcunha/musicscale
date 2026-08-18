@@ -45,6 +45,14 @@ service cloud.firestore {
       );
     }
 
+    function hasAnyMembershipDocument(orgId) {
+      return (orgId is string) && (
+        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) ||
+        exists(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)) ||
+        exists(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid))
+      );
+    }
+
     function isOwnerOfOrg(orgId) {
       return exists(/databases/$(database)/documents/organizations/$(orgId)) && (
         get(/databases/$(database)/documents/organizations/$(orgId)).data.get('ownerUid', '') == request.auth.uid || 
@@ -61,7 +69,12 @@ service cloud.firestore {
         orgId == request.auth.uid || 
         checkMemberExists(orgId) || 
         isOwnerOfOrg(orgId) ||
-        (isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('organizationId', '') == orgId)
+        (
+          isAuthenticated() &&
+          !hasAnyMembershipDocument(orgId) &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('organizationId', '') == orgId
+        )
       );
     }
 
@@ -83,6 +96,7 @@ service cloud.firestore {
         get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('status', '') in ['active', 'ativo'] &&
         get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('role', '') == role
       ) || (
+        !hasAnyMembershipDocument(orgId) &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('organizationId', '') == orgId &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == role
@@ -98,24 +112,32 @@ service cloud.firestore {
     function hasCanonicalPermission(orgId, permission) {
       return hasCanonicalOrganizationRole(orgId, ['owner', 'admin']) ||
         (
-          permission in ['canManageRepertoire', 'canManageScales', 'canManageRoles', 'canManageSettings', 'canManageChords'] &&
+          permission in ['canManageRepertoire', 'canManageScales', 'canManageChords'] &&
           hasCanonicalOrganizationRole(orgId, ['worship_leader', 'leader', 'pastor', 'minister'])
-        ) ||
-        (
-          permission == 'canManageChords' &&
-          hasCanonicalOrganizationRole(orgId, ['member', 'musician', 'singer'])
         );
+    }
+
+    function hasLegacyUsersOnlyPermission(orgId, permission) {
+      return !hasAnyMembershipDocument(orgId) &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('organizationId', '') == orgId &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') in
+          ['owner', 'admin', 'worship_leader', 'leader', 'Lider', 'Líder', 'pastor', 'Pastor', 'Ministro', 'ministro', 'minister', 'Minister'] &&
+        permission in ['canManageRepertoire', 'canManageScales', 'canManageChords'];
     }
 
     function isMemberWithExplicitPermission(orgId, permission) {
       return (
         exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('status', '') in ['active', 'ativo'] &&
         get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('permissions', {}).get(permission, false) == true
       ) || (
         exists(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)) && 
+        get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('status', '') in ['active', 'ativo'] &&
         get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('permissions', {}).get(permission, false) == true
       ) || (
         exists(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)) && 
+        get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('status', '') in ['active', 'ativo'] &&
         get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('permissions', {}).get(permission, false) == true
       );
     }
@@ -389,9 +411,9 @@ service cloud.firestore {
 
     match /songs/{songId} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
-      allow create: if isAuthenticated() && (hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageChords') || hasPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasPermission(incoming().get('organizationId', ''), 'canManageChords')) && isOrgActive(incoming().get('organizationId', ''));
-      allow update: if isAuthenticated() && (hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageChords') || hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageChords')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
-      allow delete: if isAuthenticated() && (hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && (hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasLegacyUsersOnlyPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasPermission(incoming().get('organizationId', ''), 'canManageChords')) && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && (hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasLegacyUsersOnlyPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageChords')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && (hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasLegacyUsersOnlyPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
     }
 
     // ==========================================
@@ -423,7 +445,7 @@ service cloud.firestore {
     }
     match /scales/{scaleId} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
-      allow create: if isAuthenticated() && (hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageScales') || hasPermission(incoming().get('organizationId', ''), 'canManageScales')) && isOrgActive(incoming().get('organizationId', ''));
+      allow create: if isAuthenticated() && (hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageScales') || hasLegacyUsersOnlyPermission(incoming().get('organizationId', ''), 'canManageScales') || hasPermission(incoming().get('organizationId', ''), 'canManageScales')) && isOrgActive(incoming().get('organizationId', ''));
       allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
       allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
     }

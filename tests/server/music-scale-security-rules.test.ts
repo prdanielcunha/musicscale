@@ -490,19 +490,95 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
       await assertSucceeds(song.delete());
     });
 
-    it.each(['pending', 'inactive'])('blocks a %s canonical member from tenant scale reads', async (status) => {
+    it.each(['pending', 'inactive'])('blocks %s canonical membership even with explicit permissions', async (status) => {
       await testEnv.withSecurityRulesDisabled(async (context) => {
         const adminDb = context.firestore();
         await adminDb.doc('organizations/org-locked').set({ status: 'active', ownerUid: 'owner-locked' });
-        await adminDb.doc(`organizations/org-locked/members/member-${status}`).set({
-          uid: `member-${status}`, organizationId: 'org-locked', status, organizationRole: 'member'
+        await adminDb.doc(`organizations/org-locked/members/leader-${status}`).set({
+          uid: `leader-${status}`, organizationId: 'org-locked', status, organizationRole: 'leader',
+          permissions: { canManageScales: true, canManageRepertoire: true, canManageChords: true }
         });
-        await adminDb.doc('scales/private-scale').set({ organizationId: 'org-locked', status: 'published' });
+        await adminDb.doc('songs/locked-song').set({ organizationId: 'org-locked', title: 'Locked' });
       });
 
-      await assertFails(
-        getAuthedFirestore({ uid: `member-${status}` }).doc('scales/private-scale').get()
-      );
+      const db = getAuthedFirestore({ uid: `leader-${status}` });
+      await assertFails(db.doc(`scales/blocked-${status}`).set({ organizationId: 'org-locked', songIds: ['song-1'] }));
+      await assertFails(db.doc(`songs/blocked-${status}`).set({ organizationId: 'org-locked', title: 'Blocked' }));
+      await assertFails(db.doc('songs/locked-song').update({ title: 'Bypassed' }));
+    });
+
+    it.each(['pending', 'inactive'])('blocks stale users fallback when canonical membership is %s', async (status) => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-stale').set({ status: 'active', ownerUid: 'owner-stale' });
+        await adminDb.doc(`organizations/org-stale/members/stale-${status}`).set({
+          uid: `stale-${status}`, organizationId: 'org-stale', status, organizationRole: 'member'
+        });
+        await adminDb.doc(`users/stale-${status}`).set({ organizationId: 'org-stale', role: 'leader' });
+        await adminDb.doc('scales/stale-private-scale').set({ organizationId: 'org-stale', status: 'published' });
+        await adminDb.doc('songs/stale-song').set({ organizationId: 'org-stale', title: 'Original' });
+      });
+
+      const db = getAuthedFirestore({ uid: `stale-${status}` });
+      await assertFails(db.doc('scales/stale-private-scale').get());
+      await assertFails(db.doc(`scales/stale-create-${status}`).set({ organizationId: 'org-stale', songIds: ['song-1'] }));
+      await assertFails(db.doc(`songs/stale-create-${status}`).set({ organizationId: 'org-stale', title: 'Blocked' }));
+      await assertFails(db.doc('songs/stale-song').update({ title: 'Bypassed' }));
+    });
+
+    it('preserves users-only legacy compatibility when no membership document exists', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-users-only').set({ status: 'active', ownerUid: 'owner-users-only' });
+        await adminDb.doc('users/legacy-leader').set({ organizationId: 'org-users-only', role: 'leader' });
+        await adminDb.doc('scales/legacy-scale').set({ organizationId: 'org-users-only', status: 'published' });
+      });
+
+      const db = getAuthedFirestore({ uid: 'legacy-leader' });
+      await assertSucceeds(db.doc('scales/legacy-scale').get());
+      await assertSucceeds(db.doc('scales/legacy-create').set({ organizationId: 'org-users-only', songIds: ['song-1'] }));
+      const song = db.doc('songs/legacy-song');
+      await assertSucceeds(song.set({ organizationId: 'org-users-only', title: 'Legacy' }));
+      await assertSucceeds(song.update({ title: 'Legacy edited' }));
+    });
+
+    it.each(['member', 'musician', 'singer'])('keeps active canonical %s read-only for songs and scales', async (role) => {
+      const uid = `common-${role}`;
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-common').set({ status: 'active', ownerUid: 'owner-common' });
+        await adminDb.doc(`organizations/org-common/members/${uid}`).set({
+          uid, organizationId: 'org-common', status: 'active', organizationRole: role
+        });
+        await adminDb.doc(`songs/common-song-${role}`).set({ organizationId: 'org-common', title: 'Readable' });
+      });
+
+      const db = getAuthedFirestore({ uid });
+      const existingSong = db.doc(`songs/common-song-${role}`);
+      await assertSucceeds(existingSong.get());
+      await assertFails(db.doc(`songs/common-create-${role}`).set({ organizationId: 'org-common', title: 'Blocked' }));
+      await assertFails(existingSong.update({ title: 'Blocked' }));
+      await assertFails(existingSong.delete());
+      await assertFails(db.doc(`scales/common-create-${role}`).set({ organizationId: 'org-common', songIds: ['song-1'] }));
+    });
+
+    it('preserves tenant isolation and immutable song organizationId for an active canonical leader', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-a').set({ status: 'active', ownerUid: 'owner-a' });
+        await adminDb.doc('organizations/org-b').set({ status: 'active', ownerUid: 'owner-b' });
+        await adminDb.doc('organizations/org-a/members/leader-a').set({
+          uid: 'leader-a', organizationId: 'org-a', status: 'active', organizationRole: 'leader'
+        });
+        await adminDb.doc('songs/song-a').set({ organizationId: 'org-a', title: 'A' });
+        await adminDb.doc('songs/song-b').set({ organizationId: 'org-b', title: 'B' });
+      });
+
+      const db = getAuthedFirestore({ uid: 'leader-a' });
+      await assertFails(db.doc('songs/song-b').get());
+      await assertFails(db.doc('songs/song-b').update({ title: 'Cross tenant' }));
+      await assertFails(db.doc('songs/new-song-b').set({ organizationId: 'org-b', title: 'Cross tenant' }));
+      await assertFails(db.doc('songs/song-a').update({ organizationId: 'org-b' }));
     });
   });
 
