@@ -562,6 +562,66 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
       await assertFails(db.doc(`scales/common-create-${role}`).set({ organizationId: 'org-common', songIds: ['song-1'] }));
     });
 
+    it.each(['member', 'musician', 'singer'])('does not elevate canonical role-only %s through legacy chord permissions', async (role) => {
+      const uid = `role-only-${role}`;
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-role-only').set({ status: 'active', ownerUid: 'owner-role-only' });
+        await adminDb.doc(`organizations/org-role-only/members/${uid}`).set({
+          uid, organizationId: 'org-role-only', status: 'active', role
+        });
+        await adminDb.doc(`songs/role-only-song-${role}`).set({ organizationId: 'org-role-only', title: 'Readable' });
+      });
+
+      const db = getAuthedFirestore({ uid });
+      const song = db.doc(`songs/role-only-song-${role}`);
+      await assertSucceeds(song.get());
+      await assertFails(db.doc(`songs/role-only-create-${role}`).set({ organizationId: 'org-role-only', title: 'Blocked' }));
+      await assertFails(song.update({ title: 'Blocked' }));
+      if (role === 'member') {
+        await assertFails(song.delete());
+        await assertFails(db.doc('scales/role-only-create').set({ organizationId: 'org-role-only', songIds: ['song-1'] }));
+      }
+    });
+
+    it('keeps a canonical dual-field member read-only', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-dual').set({ status: 'active', ownerUid: 'owner-dual' });
+        await adminDb.doc('organizations/org-dual/members/dual-member').set({
+          uid: 'dual-member', organizationId: 'org-dual', status: 'active', organizationRole: 'member', role: 'member'
+        });
+        await adminDb.doc('songs/dual-song').set({ organizationId: 'org-dual', title: 'Readable' });
+      });
+
+      const db = getAuthedFirestore({ uid: 'dual-member' });
+      const song = db.doc('songs/dual-song');
+      await assertSucceeds(song.get());
+      await assertFails(db.doc('songs/dual-create').set({ organizationId: 'org-dual', title: 'Blocked' }));
+      await assertFails(song.update({ title: 'Blocked' }));
+      await assertFails(song.delete());
+      await assertFails(db.doc('scales/dual-create').set({ organizationId: 'org-dual', songIds: ['song-1'] }));
+    });
+
+    it('preserves legacy mirror member chord contribution compatibility', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-legacy-mirror').set({ status: 'active', ownerUid: 'owner-legacy-mirror' });
+        await adminDb.doc('organization_members/legacy-mirror_org-legacy-mirror').set({
+          uid: 'legacy-mirror', organizationId: 'org-legacy-mirror', status: 'active', role: 'member'
+        });
+        await adminDb.doc('songs/legacy-mirror-song').set({ organizationId: 'org-legacy-mirror', title: 'Legacy' });
+      });
+
+      const db = getAuthedFirestore({ uid: 'legacy-mirror' });
+      const song = db.doc('songs/legacy-mirror-song');
+      await assertSucceeds(song.get());
+      await assertSucceeds(db.doc('songs/legacy-mirror-create').set({ organizationId: 'org-legacy-mirror', title: 'Created' }));
+      await assertSucceeds(song.update({ title: 'Updated' }));
+      await assertFails(song.delete());
+      await assertFails(db.doc('scales/legacy-mirror-create').set({ organizationId: 'org-legacy-mirror', songIds: ['song-1'] }));
+    });
+
     it('preserves tenant isolation and immutable song organizationId for an active canonical leader', async () => {
       await testEnv.withSecurityRulesDisabled(async (context) => {
         const adminDb = context.firestore();

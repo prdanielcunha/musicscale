@@ -162,6 +162,30 @@ service cloud.firestore {
              isMemberWithRole(orgId, 'Dono');
     }
 
+    function isLegacyChordContributorWithRole(orgId, role) {
+      return (
+        exists(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)) &&
+        get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('status', '') in ['active', 'ativo'] &&
+        get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('role', '') == role
+      ) || (
+        exists(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)) &&
+        get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('status', '') in ['active', 'ativo'] &&
+        get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('role', '') == role
+      ) || (
+        !hasAnyMembershipDocument(orgId) &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('organizationId', '') == orgId &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == role
+      );
+    }
+
+    function hasLegacyCommonChordContribution(orgId) {
+      return isLegacyChordContributorWithRole(orgId, 'member') ||
+        isLegacyChordContributorWithRole(orgId, 'Membro') ||
+        isLegacyChordContributorWithRole(orgId, 'musician') ||
+        isLegacyChordContributorWithRole(orgId, 'singer');
+    }
+
     function hasPermission(orgId, permission) {
       return isSystemAdmin() || 
              isOrgAdmin(orgId) || 
@@ -194,10 +218,10 @@ service cloud.firestore {
                  isMemberWithRole(orgId, 'ministro') ||
                  isMemberWithRole(orgId, 'minister') ||
                  isMemberWithRole(orgId, 'Minister') ||
-                 isMemberWithRole(orgId, 'member') || 
-                 isMemberWithRole(orgId, 'Membro') ||
-                 isMemberWithRole(orgId, 'musician') ||
-                 isMemberWithRole(orgId, 'singer')
+                 isLegacyChordContributorWithRole(orgId, 'member') ||
+                 isLegacyChordContributorWithRole(orgId, 'Membro') ||
+                 isLegacyChordContributorWithRole(orgId, 'musician') ||
+                 isLegacyChordContributorWithRole(orgId, 'singer')
                )
              );
     }
@@ -411,8 +435,8 @@ service cloud.firestore {
 
     match /songs/{songId} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
-      allow create: if isAuthenticated() && (hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasLegacyUsersOnlyPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasPermission(incoming().get('organizationId', ''), 'canManageChords')) && isOrgActive(incoming().get('organizationId', ''));
-      allow update: if isAuthenticated() && (hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasLegacyUsersOnlyPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageChords')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && (hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasLegacyUsersOnlyPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasLegacyCommonChordContribution(incoming().get('organizationId', '')) || hasPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasPermission(incoming().get('organizationId', ''), 'canManageChords')) && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && (hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasLegacyUsersOnlyPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasLegacyCommonChordContribution(resource.data.get('organizationId', '')) || hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageChords')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
       allow delete: if isAuthenticated() && (hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasLegacyUsersOnlyPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
     }
 
