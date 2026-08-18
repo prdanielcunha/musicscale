@@ -458,6 +458,54 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
     });
   });
 
+  describe.skipIf(!hasEmulatorHost)('1e. Canonical membership launch boundaries', () => {
+    it('allows an active canonical leader to create the first scale', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-launch').set({ status: 'active', ownerUid: 'owner-launch' });
+        await adminDb.doc('organizations/org-launch/members/leader-launch').set({
+          uid: 'leader-launch', organizationId: 'org-launch', status: 'active', organizationRole: 'leader'
+        });
+      });
+
+      await assertSucceeds(
+        getAuthedFirestore({ uid: 'leader-launch' }).doc('scales/first-scale').set({
+          organizationId: 'org-launch', status: 'draft', songIds: ['song-1'], date: '2026-08-23'
+        })
+      );
+    });
+
+    it('allows an active canonical leader to maintain the launch repertoire', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-repertoire').set({ status: 'active', ownerUid: 'owner-repertoire' });
+        await adminDb.doc('organizations/org-repertoire/members/leader-repertoire').set({
+          uid: 'leader-repertoire', organizationId: 'org-repertoire', status: 'active', organizationRole: 'leader'
+        });
+      });
+
+      const song = getAuthedFirestore({ uid: 'leader-repertoire' }).doc('songs/launch-song');
+      await assertSucceeds(song.set({ organizationId: 'org-repertoire', title: 'Launch song' }));
+      await assertSucceeds(song.update({ title: 'Launch song edited' }));
+      await assertSucceeds(song.delete());
+    });
+
+    it.each(['pending', 'inactive'])('blocks a %s canonical member from tenant scale reads', async (status) => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-locked').set({ status: 'active', ownerUid: 'owner-locked' });
+        await adminDb.doc(`organizations/org-locked/members/member-${status}`).set({
+          uid: `member-${status}`, organizationId: 'org-locked', status, organizationRole: 'member'
+        });
+        await adminDb.doc('scales/private-scale').set({ organizationId: 'org-locked', status: 'published' });
+      });
+
+      await assertFails(
+        getAuthedFirestore({ uid: `member-${status}` }).doc('scales/private-scale').get()
+      );
+    });
+  });
+
   describe.skipIf(!hasEmulatorHost)('1c. Invitation authority is server-only', () => {
     const seedOrganization = async () => testEnv.withSecurityRulesDisabled(async context => {
       await context.firestore().doc('organizations/org-1').set({ status: 'active', ownerUid: 'owner-1' });

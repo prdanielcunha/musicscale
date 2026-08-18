@@ -30,9 +30,18 @@ service cloud.firestore {
 
     function checkMemberExists(orgId) {
       return (orgId is string) && (
-        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) ||
-        exists(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)) ||
-        exists(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid))
+        (
+          exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('status', '') in ['active', 'ativo']
+        ) ||
+        (
+          exists(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)) &&
+          get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('status', '') in ['active', 'ativo']
+        ) ||
+        (
+          exists(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)) &&
+          get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('status', '') in ['active', 'ativo']
+        )
       );
     }
 
@@ -63,18 +72,39 @@ service cloud.firestore {
     function isMemberWithRole(orgId, role) {
       return (
         exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('status', '') in ['active', 'ativo'] &&
         get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('role', '') == role
       ) || (
         exists(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)) && 
+        get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('status', '') in ['active', 'ativo'] &&
         get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('role', '') == role
       ) || (
         exists(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)) && 
+        get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('status', '') in ['active', 'ativo'] &&
         get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('role', '') == role
       ) || (
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('organizationId', '') == orgId &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == role
       );
+    }
+
+    function hasCanonicalOrganizationRole(orgId, roles) {
+      return exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('status', '') in ['active', 'ativo'] &&
+        get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('organizationRole', '') in roles;
+    }
+
+    function hasCanonicalPermission(orgId, permission) {
+      return hasCanonicalOrganizationRole(orgId, ['owner', 'admin']) ||
+        (
+          permission in ['canManageRepertoire', 'canManageScales', 'canManageRoles', 'canManageSettings', 'canManageChords'] &&
+          hasCanonicalOrganizationRole(orgId, ['worship_leader', 'leader', 'pastor', 'minister'])
+        ) ||
+        (
+          permission == 'canManageChords' &&
+          hasCanonicalOrganizationRole(orgId, ['member', 'musician', 'singer'])
+        );
     }
 
     function isMemberWithExplicitPermission(orgId, permission) {
@@ -359,9 +389,9 @@ service cloud.firestore {
 
     match /songs/{songId} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
-      allow create: if isAuthenticated() && (hasPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasPermission(incoming().get('organizationId', ''), 'canManageChords')) && isOrgActive(incoming().get('organizationId', ''));
-      allow update: if isAuthenticated() && (hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageChords')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
-      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && (hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageChords') || hasPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasPermission(incoming().get('organizationId', ''), 'canManageChords')) && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && (hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageChords') || hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageChords')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && (hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
     }
 
     // ==========================================
@@ -393,7 +423,7 @@ service cloud.firestore {
     }
     match /scales/{scaleId} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
-      allow create: if isAuthenticated() && hasPermission(incoming().get('organizationId', ''), 'canManageScales') && isOrgActive(incoming().get('organizationId', ''));
+      allow create: if isAuthenticated() && (hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageScales') || hasPermission(incoming().get('organizationId', ''), 'canManageScales')) && isOrgActive(incoming().get('organizationId', ''));
       allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
       allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
     }
