@@ -27,10 +27,12 @@ describeEmulator('Global Library Search (Emulator)', () => {
         rules: fs.readFileSync('firestore.rules', 'utf8'),
       },
     });
-  });
+  }, 30_000);
 
   afterAll(async () => {
-    await testEnv.cleanup();
+    if (testEnv) {
+      await testEnv.cleanup();
+    }
   });
 
   beforeEach(async () => {
