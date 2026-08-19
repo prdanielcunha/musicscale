@@ -1,12 +1,7 @@
 import { logger } from "../lib/logger";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  signInWithGoogle,
-  signInWithEmail,
-  signUpWithEmail,
-  getFirebaseErrorMessage,
-} from "../services/authService";
+import { getFirebaseErrorMessage } from "../utils/firebaseAuthErrorMessage";
 import Spinner from "../components/common/Spinner";
 import Button from "../components/common/Button";
 import Modal from "../components/common/Modal";
@@ -87,6 +82,7 @@ export default function LoginPage() {
     try {
       setLoading(true);
       setError("");
+      const { signInWithGoogle } = await import("../services/authService");
       const authResult = await signInWithGoogle();
       
       const params = new URLSearchParams(window.location.search);
@@ -114,6 +110,7 @@ export default function LoginPage() {
     try {
       setLoading(true);
       setError("");
+      const { signInWithEmail, signUpWithEmail } = await import("../services/authService");
       
       let authResult;
       if (isRegister) {
