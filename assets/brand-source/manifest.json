@@ -5,7 +5,7 @@
     {
       "path": "public/LogoIComp_Horiz.png",
       "operation": "delete",
-      "transportFile": null,
+      "sourceFile": null,
       "byteSize": null,
       "sha256": null,
       "width": null,
@@ -15,7 +15,7 @@
     {
       "path": "public/LogoIcon-192.png",
       "operation": "add",
-      "transportFile": ".codex-binary-bridge/p2.3/public__LogoIcon-192.png.b64",
+      "sourceFile": "assets/brand-source/LogoIcon-192.png.b64",
       "byteSize": 31479,
       "sha256": "afe43373f9554bd690dc6fa462f6fd401be1788fd96a2a6da6692ed1a01e219b",
       "width": 192,
@@ -25,7 +25,7 @@
     {
       "path": "public/LogoIcon-maskable-512.png",
       "operation": "add",
-      "transportFile": ".codex-binary-bridge/p2.3/public__LogoIcon-maskable-512.png.b64",
+      "sourceFile": "assets/brand-source/LogoIcon-maskable-512.png.b64",
       "byteSize": 82018,
       "sha256": "acf393d978f6b193d7a965dbc06e417bd3e4ff2eb9c8a231138c37eae0e7adf6",
       "width": 512,
@@ -35,7 +35,7 @@
     {
       "path": "public/LogoIcon.png",
       "operation": "replace",
-      "transportFile": ".codex-binary-bridge/p2.3/public__LogoIcon.png.b64",
+      "sourceFile": "assets/brand-source/LogoIcon.png.b64",
       "byteSize": 129184,
       "sha256": "25ac3cd20857b498f8b9174adcb2331a835404c0f6020756e0460ad9d80c6e54",
       "width": 512,
