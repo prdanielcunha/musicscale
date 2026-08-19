@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 
 export const OrganizationSelector: React.FC = () => {
   const { effectiveOrganizationId, effectiveOrganizationName, user } = useAuth();
-  const { context: ecoContext, isStandalone } = useEcosystem();
+  const { context: ecoContext, isStandalone, switchOrganization } = useEcosystem();
   const api = useApi();
   const { t } = useTranslation();
   
@@ -52,31 +52,17 @@ export const OrganizationSelector: React.FC = () => {
     setIsOpen(false);
     setSwitchingOrgId(orgId);
 
-    // Save immediately to local storage
-    localStorage.setItem('activeOrganizationId', orgId);
-
-    // Remove client context cache of current user
-    if (user) {
-      localStorage.removeItem(`musicscale_cached_context_${user.uid}`);
-    }
-
-    // Persist remotely with race timeout
-    const persistPromise = (async () => {
-      if (user && api) {
-        await api.users.update(user.uid, { activeOrganizationId: orgId });
-      }
-    })();
-
-    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 800));
-
-    try {
-      await Promise.race([persistPromise, timeoutPromise]);
-    } catch (err) {
-      console.warn("Failed to persist organization change remotely:", err);
-    }
-
     if (isStandalone) {
-      window.location.reload();
+      const switched = await switchOrganization(orgId);
+      if (switched && user && api) {
+        try {
+          await api.users.update(user.uid, { activeOrganizationId: orgId });
+        } catch (err) {
+          // Preference persistence is not authorization; retain the validated in-memory tenant.
+          console.warn("Failed to persist organization change remotely:", err);
+        }
+      }
+      setSwitchingOrgId(null);
     } else {
       // Send intent to MillionsNest
       ecosystemBridge.publishEvent({

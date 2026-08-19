@@ -61,6 +61,8 @@ vi.mock('firebase/firestore', () => ({
 
 import { EcosystemProvider, useEcosystem } from '../../contexts/EcosystemContext';
 
+let latestEcosystem: ReturnType<typeof useEcosystem>;
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((resolver) => { resolve = resolver; });
@@ -92,6 +94,7 @@ const response = (body: any, ok = true) => Promise.resolve({ ok, json: async () 
 
 function Probe() {
   const value = useEcosystem();
+  latestEcosystem = value;
   return <pre data-testid="context">{JSON.stringify(value)}</pre>;
 }
 
@@ -200,5 +203,98 @@ describe('EcosystemProvider canonical bootstrap fast path', () => {
 
     await waitFor(() => expect(screen.getByTestId('context').textContent).toContain('"isDegraded":true'));
     expect(screen.getByTestId('context').textContent).toContain('"canManageOrganization":false');
+  });
+});
+
+describe('EcosystemProvider canonical organization switching', () => {
+  async function bootstrap(capabilities: string[] = []) {
+    mocks.profiles.set('user-1', { activeOrganizationId: 'org-a', organizationRole: 'admin' });
+    mocks.organizations.set('org-a', { name: 'Organization A' });
+    vi.mocked(fetch).mockImplementation(() => response(canonical('user-1', 'org-a', capabilities)));
+    localStorage.setItem('activeOrganizationId', 'org-a');
+    await startUser('user-1');
+    await waitFor(() => expect(latestEcosystem.context?.currentOrganizationId).toBe('org-a'));
+  }
+
+  it('commits a valid canonical switch without an early local preference write or reload', async () => {
+    await bootstrap(['songs.create', 'songs.update']);
+    const target = deferred<Response>();
+    vi.mocked(fetch).mockImplementation(() => target.promise);
+
+    let switching!: Promise<boolean>;
+    act(() => { switching = latestEcosystem.switchOrganization('org-b'); });
+    expect(latestEcosystem.context?.currentOrganizationId).toBe('org-a');
+    expect(localStorage.getItem('activeOrganizationId')).toBe('org-a');
+
+    await act(async () => {
+      target.resolve(await response(canonical('user-1', 'org-b')));
+      expect(await switching).toBe(true);
+    });
+    expect(latestEcosystem.context?.currentOrganizationId).toBe('org-b');
+    expect(latestEcosystem.context?.permissions.canManageRepertoire).toBe(false);
+    expect(latestEcosystem.context?.permissions.canManageChords).toBe(false);
+    expect(localStorage.getItem('activeOrganizationId')).toBe('org-b');
+    expect(latestEcosystem.context?.isStandalone).toBe(true);
+  });
+
+  it.each([
+    ['mismatched identity', canonical('other-user', 'org-b')],
+    ['pending membership', { ...canonical('user-1', 'org-b'), membershipStatus: 'pending', effectiveContext: { ...canonical('user-1', 'org-b').effectiveContext, membershipStatus: 'pending' } }],
+  ])('rejects %s without changing tenant or permissions', async (_label, body) => {
+    await bootstrap(['songs.create', 'songs.update']);
+    vi.mocked(fetch).mockImplementation(() => response(body));
+    await act(async () => { expect(await latestEcosystem.switchOrganization('org-b')).toBe(false); });
+    expect(latestEcosystem.context?.currentOrganizationId).toBe('org-a');
+    expect(latestEcosystem.context?.permissions.canManageRepertoire).toBe(true);
+    expect(localStorage.getItem('activeOrganizationId')).toBe('org-a');
+  });
+
+  it('upgrades permissions only from the target canonical capabilities', async () => {
+    await bootstrap();
+    vi.mocked(fetch).mockImplementation(() => response(canonical('user-1', 'org-b', [
+      'organization.settings.manage', 'organization.members.manage',
+      'scales.create', 'scales.update', 'songs.create', 'songs.update',
+    ])));
+    await act(async () => { expect(await latestEcosystem.switchOrganization('org-b')).toBe(true); });
+    expect(latestEcosystem.context?.permissions).toMatchObject({
+      canManageOrganization: true,
+      canManageMembers: true,
+      canManageScales: true,
+      canManageRepertoire: true,
+      canManageChords: true,
+    });
+  });
+
+  it('prevents a slow obsolete switch from overwriting a newer tenant', async () => {
+    await bootstrap();
+    const slowB = deferred<Response>();
+    vi.mocked(fetch).mockImplementation(url => String(url).includes('org-b')
+      ? slowB.promise
+      : response(canonical('user-1', 'org-c')));
+
+    let switchB!: Promise<boolean>;
+    act(() => { switchB = latestEcosystem.switchOrganization('org-b'); });
+    await act(async () => { expect(await latestEcosystem.switchOrganization('org-c')).toBe(true); });
+    await act(async () => {
+      slowB.resolve(await response(canonical('user-1', 'org-b')));
+      expect(await switchB).toBe(false);
+    });
+    expect(latestEcosystem.context?.currentOrganizationId).toBe('org-c');
+    expect(localStorage.getItem('activeOrganizationId')).toBe('org-c');
+  });
+
+  it('invalidates a pending switch when authentication changes', async () => {
+    await bootstrap();
+    const pending = deferred<Response>();
+    vi.mocked(fetch).mockImplementation(() => pending.promise);
+    let switching!: Promise<boolean>;
+    act(() => { switching = latestEcosystem.switchOrganization('org-b'); });
+    mocks.currentUser = null;
+    await act(async () => {
+      pending.resolve(await response(canonical('user-1', 'org-b')));
+      expect(await switching).toBe(false);
+    });
+    expect(latestEcosystem.context?.currentOrganizationId).toBe('org-a');
+    expect(localStorage.getItem('activeOrganizationId')).toBe('org-a');
   });
 });

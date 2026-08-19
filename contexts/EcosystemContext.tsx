@@ -1,5 +1,5 @@
 import { markStartupMetric } from '../lib/startupTelemetry';
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState, useMemo, useRef } from 'react';
 import { ecosystemBridge } from '../services/ecosystem/EcosystemBridge';
 import { consumeHandoff } from '../services/ecosystem/handoffHelper';
 import { EcosystemContextPayload, EcosystemEvent } from '../services/ecosystem/types';
@@ -18,6 +18,7 @@ interface EcosystemContextValue {
   navigateToEcosystem: (path?: string) => void;
   isStandalone: boolean;
   isDegraded: boolean;
+  switchOrganization: (orgId: string) => Promise<boolean>;
 }
 
 const EcosystemContext = createContext<EcosystemContextValue>({
@@ -28,6 +29,7 @@ const EcosystemContext = createContext<EcosystemContextValue>({
   navigateToEcosystem: () => {},
   isStandalone: false,
   isDegraded: false,
+  switchOrganization: async () => false,
 });
 
 export const useEcosystem = () => useContext(EcosystemContext);
@@ -69,13 +71,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isContextSyncing, setIsContextSyncing] = useState(false);
   const [context, setContext] = useState<EcosystemContextPayload | null>(null);
   const [isDegraded, setIsDegraded] = useState(false);
+  const switchGeneration = useRef(0);
+  const contextRef = useRef<EcosystemContextPayload | null>(null);
+  const releasedCanonicalOrgIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    contextRef.current = context;
+  }, [context]);
 
   useEffect(() => {
     let mounted = true;
     let unsubscribeAuth: any = null;
     let activeControllers: AbortController[] = [];
     let activeGeneration = 0;
-    let releasedCanonicalOrgId: string | null = null;
 
     const bootstrapModule = async () => {
       markStartupMetric('ecosystem_context_started_ms');
@@ -90,6 +98,8 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
            
            // If standalone, we must sync the real user context from the backend whenever auth changes.
            unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+               ++switchGeneration.current;
+               releasedCanonicalOrgIdRef.current = null;
                const currentGeneration = ++activeGeneration;
                if (user) {
                    if (mounted) setIsContextSyncing(true);
@@ -173,7 +183,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                  auth.currentUser?.uid !== user.uid
                                ) return;
 
-                               releasedCanonicalOrgId = candidateOrgId;
+                               releasedCanonicalOrgIdRef.current = candidateOrgId;
                                const canonicalRole = canonicalContext.organizationRole || canonicalContext.effectiveContext?.organizationRole || 'visitor';
                                const initialOrganization = {
                                    id: candidateOrgId,
@@ -485,8 +495,8 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         }
 
                         // A released canonical tenant remains active while discovery only enriches its catalog.
-                        if (releasedCanonicalOrgId) {
-                            orgId = releasedCanonicalOrgId;
+                        if (releasedCanonicalOrgIdRef.current) {
+                            orgId = releasedCanonicalOrgIdRef.current;
                         }
 
                         // Fetch canonical server-resolved access context from the secure endpoint
@@ -611,14 +621,14 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                              setContext((prev: any) => ({
                                  ...payload,
                                  ...data,
-                                 ...(releasedCanonicalOrgId ? {
-                                     currentOrganizationId: releasedCanonicalOrgId,
-                                     currentOrganizationName: organizationsAvailable.find((organization) => organization.id === releasedCanonicalOrgId)?.name || prev?.currentOrganizationName || releasedCanonicalOrgId,
+                                 ...(releasedCanonicalOrgIdRef.current ? {
+                                     currentOrganizationId: releasedCanonicalOrgIdRef.current,
+                                     currentOrganizationName: organizationsAvailable.find((organization) => organization.id === releasedCanonicalOrgIdRef.current)?.name || prev?.currentOrganizationName || releasedCanonicalOrgIdRef.current,
                                      roleInCurrentOrganization: prev?.roleInCurrentOrganization,
                                      serverContext: prev?.serverContext,
                                  } : {}),
                                  isStandalone: true,
-                                 permissions: releasedCanonicalOrgId ? prev?.permissions : permissions
+                                 permissions: releasedCanonicalOrgIdRef.current ? prev?.permissions : permissions
                              }));
                          }
                     } catch (e) {
@@ -703,6 +713,67 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, []);
 
+  const switchOrganization = useCallback(async (orgId: string): Promise<boolean> => {
+    const activeContext = contextRef.current;
+    const user = auth.currentUser;
+    if (!activeContext?.isStandalone || !user || !orgId || activeContext.currentOrganizationId === orgId) {
+      return false;
+    }
+
+    const requestGeneration = ++switchGeneration.current;
+    const expectedUid = user.uid;
+    markStartupMetric('organization_switch_started_ms');
+
+    try {
+      const token = await user.getIdToken(false);
+      if (requestGeneration !== switchGeneration.current || auth.currentUser?.uid !== expectedUid) return false;
+
+      const response = await fetch(`/api/v1/ecosystem/access-context?organizationId=${encodeURIComponent(orgId)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error(`Canonical access context failed with status ${response.status}`);
+
+      const canonicalContext = await response.json();
+      const effectiveContext = canonicalContext?.effectiveContext;
+      const membershipStatus = String(effectiveContext?.membershipStatus || canonicalContext?.membershipStatus || '').toLowerCase();
+      const isAuthorized = isValidCanonicalResponse(canonicalContext, expectedUid, orgId)
+        && effectiveContext?.resolutionStatus === 'resolved'
+        && (effectiveContext?.isGlobalAccess === true || ['active', 'ativo'].includes(membershipStatus));
+
+      if (!isAuthorized) throw new Error('Canonical access context rejected the organization switch');
+      if (requestGeneration !== switchGeneration.current || auth.currentUser?.uid !== expectedUid) return false;
+
+      const organization = activeContext.organizationsAvailable.find(candidate => candidate.id === orgId);
+      const canonicalRole = canonicalContext.organizationRole || effectiveContext.organizationRole || 'visitor';
+      const permissions = getCanonicalPermissions(canonicalContext);
+      const nextContext = {
+        ...activeContext,
+        currentOrganizationId: orgId,
+        currentOrganizationName: organization?.name || orgId,
+        currentOrganizationSlug: organization?.slug || '',
+        roleInCurrentOrganization: canonicalRole,
+        serverContext: canonicalContext,
+        permissions,
+      };
+
+      // Publish the tenant and its canonical permissions together, then persist preference/cache.
+      contextRef.current = nextContext;
+      releasedCanonicalOrgIdRef.current = orgId;
+      setContext(nextContext);
+      setIsDegraded(false);
+      localStorage.setItem('activeOrganizationId', orgId);
+      localStorage.setItem(`musicscale_cached_context_${expectedUid}`, JSON.stringify(nextContext));
+      markStartupMetric('organization_switch_completed_ms');
+      return true;
+    } catch (error) {
+      if (requestGeneration === switchGeneration.current && auth.currentUser?.uid === expectedUid) {
+        console.warn('[EcosystemContext] Organization switch failed:', error);
+        markStartupMetric('organization_switch_failed_ms');
+      }
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     const handleSyncOrg = (event: Event) => {
        const customEvent = event as CustomEvent<EcosystemContextPayload>;
@@ -755,8 +826,9 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       publishEvent, 
       navigateToEcosystem,
       isStandalone: !!context?.isStandalone,
-      isDegraded
-  }), [isInitialized, isContextSyncing, context, isDegraded]);
+      isDegraded,
+      switchOrganization
+  }), [isInitialized, isContextSyncing, context, isDegraded, switchOrganization]);
 
   if (!isInitialized || !context || isContextSyncing) {
     return (
