@@ -1,18 +1,27 @@
 import React from 'react';
-import { cleanup, render, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   organizationId: 'org-a',
+  entitlementsByOrganization: new Map<string, Promise<any>>(),
   unsubscribes: [] as ReturnType<typeof vi.fn>[],
-  fetchEntitlements: vi.fn(async (organizationId: string) => ({
-    organizationId,
-    plan: 'starter',
-    status: 'active',
-    limits: {},
-    features: {},
-  })),
+  fetchEntitlements: vi.fn((organizationId: string) => mocks.entitlementsByOrganization.get(organizationId)
+    || Promise.resolve(entitlement(organizationId, 'starter'))),
 }));
+
+function entitlement(organizationId: string, plan: 'starter' | 'pro') {
+  return {
+    organizationId, plan, status: 'active', limits: {},
+    features: { libraryAccess: plan === 'pro' },
+  };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(resolver => { resolve = resolver; });
+  return { promise, resolve };
+}
 
 vi.mock('../../contexts/EcosystemContext', () => ({
   useEcosystem: () => ({
@@ -21,6 +30,7 @@ vi.mock('../../contexts/EcosystemContext', () => ({
       currentOrganizationId: mocks.organizationId,
       currentOrganizationName: mocks.organizationId,
       roleInCurrentOrganization: 'member',
+      plan: 'starter',
       permissions: {},
     },
   }),
@@ -50,12 +60,18 @@ vi.mock('../../services/entitlementsService', () => ({
 }));
 
 import { onSnapshot } from 'firebase/firestore';
-import { AuthProvider } from '../../contexts/AuthContext';
+import { AuthProvider, useFeatures } from '../../contexts/AuthContext';
+
+function FeatureProbe() {
+  const features = useFeatures();
+  return <div data-testid="plan">{features.effectivePlan}</div>;
+}
 
 afterEach(() => {
   cleanup();
   mocks.organizationId = 'org-a';
   mocks.unsubscribes = [];
+  mocks.entitlementsByOrganization.clear();
   mocks.fetchEntitlements.mockClear();
 });
 
@@ -78,5 +94,31 @@ describe('AuthContext tenant reaction', () => {
       'organizations/org-b', 'subscriptions/org-b',
     ]);
     expect(mocks.fetchEntitlements).toHaveBeenCalledWith('org-b');
+  });
+
+  it('isolates a Pro tenant immediately and hydrates the target Starter plan', async () => {
+    mocks.entitlementsByOrganization.set('org-a', Promise.resolve(entitlement('org-a', 'pro')));
+    const target = deferred<any>();
+    mocks.entitlementsByOrganization.set('org-b', target.promise);
+    const rendered = render(<AuthProvider><FeatureProbe /></AuthProvider>);
+    await waitFor(() => expect(screen.getByTestId('plan')).toHaveTextContent('pro'));
+
+    mocks.organizationId = 'org-b';
+    rendered.rerender(<AuthProvider><FeatureProbe /></AuthProvider>);
+    expect(screen.getByTestId('plan')).toHaveTextContent('starter');
+
+    target.resolve(entitlement('org-b', 'starter'));
+    await waitFor(() => expect(screen.getByTestId('plan')).toHaveTextContent('starter'));
+  });
+
+  it('hydrates the target Pro plan ahead of neutral ecosystem fallback state', async () => {
+    const target = deferred<any>();
+    mocks.entitlementsByOrganization.set('org-b', target.promise);
+    mocks.organizationId = 'org-b';
+    render(<AuthProvider><FeatureProbe /></AuthProvider>);
+    expect(screen.getByTestId('plan')).toHaveTextContent('starter');
+
+    target.resolve(entitlement('org-b', 'pro'));
+    await waitFor(() => expect(screen.getByTestId('plan')).toHaveTextContent('pro'));
   });
 });

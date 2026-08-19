@@ -17,6 +17,13 @@ vi.mock('../../services/ecosystem/EcosystemBridge', () => ({
       currentOrganizationId: '',
       organizationsAvailable: [],
       permissions: {},
+      token: 'runtime-token-must-not-be-cached',
+      plan: 'pro',
+      subscriptionStatus: 'active',
+      entitlements: { plan: 'pro', organizationId: 'org-a' },
+      capabilities: ['legacy-capability'],
+      needsRepair: true,
+      repairReasons: ['legacy-repair'],
       isStandalone: true,
     })),
     publishEvent: vi.fn(),
@@ -210,6 +217,7 @@ describe('EcosystemProvider canonical organization switching', () => {
   async function bootstrap(capabilities: string[] = []) {
     mocks.profiles.set('user-1', { activeOrganizationId: 'org-a', organizationRole: 'admin' });
     mocks.organizations.set('org-a', { name: 'Organization A' });
+    mocks.discoveryPromise = new Promise(() => {});
     vi.mocked(fetch).mockImplementation(() => response(canonical('user-1', 'org-a', capabilities)));
     localStorage.setItem('activeOrganizationId', 'org-a');
     await startUser('user-1');
@@ -233,12 +241,49 @@ describe('EcosystemProvider canonical organization switching', () => {
     expect(latestEcosystem.context?.currentOrganizationId).toBe('org-b');
     expect(latestEcosystem.context?.permissions.canManageRepertoire).toBe(false);
     expect(latestEcosystem.context?.permissions.canManageChords).toBe(false);
+    expect(latestEcosystem.context).toMatchObject({
+      plan: 'starter',
+      subscriptionStatus: 'inactive',
+      entitlements: {},
+      capabilities: [],
+      needsRepair: false,
+      repairReasons: [],
+    });
     expect(localStorage.getItem('activeOrganizationId')).toBe('org-b');
     expect(latestEcosystem.context?.isStandalone).toBe(true);
   });
 
+  it('writes only the established sanitized cache contract', async () => {
+    await bootstrap();
+    vi.mocked(fetch).mockImplementation(() => response(canonical('user-1', 'org-b')));
+    await act(async () => { expect(await latestEcosystem.switchOrganization('org-b')).toBe(true); });
+
+    const cached = JSON.parse(localStorage.getItem('musicscale_cached_context_user-1') || '{}');
+    expect(Object.keys(cached).sort()).toEqual([
+      'currentOrganizationId', 'currentOrganizationName', 'displayName', 'ecosystemRole',
+      'organizationsAvailable', 'plan', 'roleInCurrentOrganization', 'subscriptionStatus', 'uid',
+    ].sort());
+    expect(cached).not.toHaveProperty('token');
+    expect(cached).not.toHaveProperty('serverContext');
+    expect(cached).not.toHaveProperty('effectiveContext');
+  });
+
+  it('keeps a canonical switch successful when local persistence fails', async () => {
+    await bootstrap(['songs.create', 'songs.update']);
+    vi.mocked(fetch).mockImplementation(() => response(canonical('user-1', 'org-b', ['scales.create', 'scales.update'])));
+    const storageSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota', 'QuotaExceededError');
+    });
+
+    await act(async () => { expect(await latestEcosystem.switchOrganization('org-b')).toBe(true); });
+    expect(latestEcosystem.context?.currentOrganizationId).toBe('org-b');
+    expect(latestEcosystem.context?.permissions.canManageScales).toBe(true);
+    storageSpy.mockRestore();
+  });
+
   it.each([
     ['mismatched identity', canonical('other-user', 'org-b')],
+    ['mismatched organization', canonical('user-1', 'other-org')],
     ['pending membership', { ...canonical('user-1', 'org-b'), membershipStatus: 'pending', effectiveContext: { ...canonical('user-1', 'org-b').effectiveContext, membershipStatus: 'pending' } }],
   ])('rejects %s without changing tenant or permissions', async (_label, body) => {
     await bootstrap(['songs.create', 'songs.update']);

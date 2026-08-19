@@ -66,6 +66,18 @@ const getCanonicalPermissions = (serverContext: any) => {
   };
 };
 
+const getSanitizedContextCache = (context: any) => ({
+  uid: context.uid,
+  displayName: context.displayName,
+  ecosystemRole: context.ecosystemRole,
+  currentOrganizationId: context.currentOrganizationId,
+  currentOrganizationName: context.currentOrganizationName,
+  roleInCurrentOrganization: context.roleInCurrentOrganization,
+  plan: context.plan,
+  subscriptionStatus: context.subscriptionStatus,
+  organizationsAvailable: context.organizationsAvailable,
+});
+
 export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isContextSyncing, setIsContextSyncing] = useState(false);
@@ -594,17 +606,12 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
                         if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid && orgId && orgId !== 'offline_default') {
                             try {
-                                const cachePayload = {
-                                    uid: user.uid,
-                                    displayName,
-                                    ecosystemRole: systemRole,
-                                    currentOrganizationId: orgId,
-                                    currentOrganizationName: orgName,
-                                    roleInCurrentOrganization: roleInOrg,
-                                    plan,
-                                    subscriptionStatus: status,
-                                    organizationsAvailable
-                                };
+                                const cachePayload = getSanitizedContextCache({
+                                    uid: user.uid, displayName, ecosystemRole: systemRole,
+                                    currentOrganizationId: orgId, currentOrganizationName: orgName,
+                                    roleInCurrentOrganization: roleInOrg, plan,
+                                    subscriptionStatus: status, organizationsAvailable
+                                });
                                 localStorage.setItem('musicscale_cached_context_' + user.uid, JSON.stringify(cachePayload));
                             } catch (cacheErr) {
                                 console.warn("[MusicScale Ecosystem] Failed to update client context cache:", cacheErr);
@@ -752,6 +759,16 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         currentOrganizationName: organization?.name || orgId,
         currentOrganizationSlug: organization?.slug || '',
         roleInCurrentOrganization: canonicalRole,
+        // Billing and repair state are hydrated by the target-scoped AuthContext effects.
+        // The access-context endpoint does not authoritatively resolve these values.
+        plan: 'starter',
+        subscriptionStatus: 'inactive',
+        entitlements: {},
+        capabilities: Array.isArray(effectiveContext.effectiveCapabilities)
+          ? [...effectiveContext.effectiveCapabilities]
+          : [],
+        needsRepair: false,
+        repairReasons: [],
         serverContext: canonicalContext,
         permissions,
       };
@@ -761,8 +778,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       releasedCanonicalOrgIdRef.current = orgId;
       setContext(nextContext);
       setIsDegraded(false);
-      localStorage.setItem('activeOrganizationId', orgId);
-      localStorage.setItem(`musicscale_cached_context_${expectedUid}`, JSON.stringify(nextContext));
+      try {
+        localStorage.setItem('activeOrganizationId', orgId);
+      } catch (error) {
+        console.warn('[EcosystemContext] Failed to persist active organization preference:', error);
+      }
+      try {
+        localStorage.setItem(
+          `musicscale_cached_context_${expectedUid}`,
+          JSON.stringify(getSanitizedContextCache(nextContext))
+        );
+      } catch (error) {
+        console.warn('[EcosystemContext] Failed to persist sanitized organization context cache:', error);
+      }
       markStartupMetric('organization_switch_completed_ms');
       return true;
     } catch (error) {
