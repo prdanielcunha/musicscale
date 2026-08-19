@@ -37,7 +37,8 @@
     "test:e2e:run": "npx playwright test",
     "test:ci:portable": "npm run lint && npm run test:ui && npm run test:release:core",
     "test:ci:emulator": "bash scripts/qa-vercel-emulator.sh",
-    "ci:vercel": "npm run assets:materialize && npm run test:ci:emulator && npm run test:ci:portable && npm run build"
+    "ci:vercel": "npm run assets:materialize && npm run test:ci:emulator && npm run test:ci:portable && npm run build",
+    "test:perf:shell-split": "tsx test_ms_perf_shell_split.ts"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",

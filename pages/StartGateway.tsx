@@ -1,10 +1,10 @@
 import { logger } from "../lib/logger";
-import React, { useState } from "react";
+import React, { lazy, Suspense, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import Spinner from "../components/common/Spinner";
 import { useEcosystem } from "../contexts/EcosystemContext";
-import TenantOnboarding from "./TenantOnboarding";
+const TenantOnboarding = lazy(() => import("./TenantOnboarding"));
 import { MissingSubscriptionScreen } from "../components/premium/MissingSubscriptionScreen";
 import { resolveSubscriptionAccess } from "../utils/subscriptionAccessResolver";
 
@@ -83,7 +83,11 @@ export default function StartGateway() {
   // 3. Organization existente?
   if (!organization && !ecoContext?.currentOrganizationId) {
     logger.debug("[StartGateway] No organization context found. Showing internal exact screen.");
-    return <TenantOnboarding />;
+    return (
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900"><Spinner /></div>}>
+        <TenantOnboarding />
+      </Suspense>
+    );
   }
 
   // 4. Use the same centralized subscription/entitlement resolver as AppLayout.
