@@ -1,38 +1,43 @@
 import { logger } from '../lib/logger';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Suggestion } from '../types';
 import * as suggestionApi from '../services/suggestionsService';
 import { useAuth } from '../contexts/AuthContext';
 
 export const useSuggestions = () => {
-    const { user, userRole, userProfile } = useAuth();
+    const { user, effectiveOrganizationId } = useAuth();
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const generationRef = useRef(0);
 
     useEffect(() => {
+        const currentGeneration = ++generationRef.current;
         let mounted = true;
         let unsubscribe: (() => void) | undefined;
         let timeoutId: NodeJS.Timeout;
 
-        if (user && userProfile?.organizationId) {
-            // Set loading to true only on initial user load or when re-subscribing
+        // Never retain data or errors from the previously active tenant.
+        setSuggestions([]);
+        setError(null);
+
+        if (user && effectiveOrganizationId) {
             setLoading(true);
             
             // Add a small delay before subscribing to prevent rapid mount/unmount crashes (React 18 strict mode / fast refresh)
             timeoutId = setTimeout(() => {
                 if (!mounted) return;
                 unsubscribe = suggestionApi.onSuggestionsUpdate(
-                    userProfile.organizationId,
+                    effectiveOrganizationId,
                     (newSuggestions) => {
-                        if (!mounted) return;
+                        if (!mounted || generationRef.current !== currentGeneration) return;
                         setSuggestions(newSuggestions);
                         setLoading(false); // Stop loading once first data batch arrives
                         setError(null);
                     },
                     (err) => {
-                        if (!mounted) return;
+                        if (!mounted || generationRef.current !== currentGeneration) return;
                         setError('Falha ao carregar indicações em tempo real.');
                         logger.error("Failed to load suggestions via hook", err);
                         setLoading(false);
@@ -43,6 +48,7 @@ export const useSuggestions = () => {
             // Cleanup listener on unmount or user change
             return () => {
                 mounted = false;
+                generationRef.current++;
                 clearTimeout(timeoutId);
                 if (unsubscribe) {
                     try {
@@ -57,7 +63,7 @@ export const useSuggestions = () => {
             setSuggestions([]);
             setLoading(false);
         }
-    }, [user, userRole, userProfile?.organizationId]);
+    }, [user, effectiveOrganizationId]);
 
     // This function is now a no-op because the real-time listener handles all updates automatically.
     // It's kept to satisfy the interface expected by consumers like ModalContext.

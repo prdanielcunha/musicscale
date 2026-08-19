@@ -247,7 +247,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, effectiveOrganizationId } = useAuth();
   const api = useApi();
   const { refreshData, songs, tags, scales, bandScales, populatedBandScales, instruments, eventTypes, locations, eventNames } = useMusic();
   const { refreshSuggestions } = useSuggestionsContext();
@@ -941,10 +941,10 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const openSuggestionForm = useCallback(() => { closeAllModals(); setSuggestionFormOpen(true); }, [closeAllModals]);
 
   const handleSaveSuggestion = useCallback(async (songs: {title: string, artist: string, link: string}[]) => {
-    if (!user || !userProfile?.organizationId || songs.length === 0) return;
+    if (!user || !effectiveOrganizationId || songs.length === 0) return;
     setIsSubmitting(true);
     try {
-        await suggestionApi.addSuggestion(user, userProfile.organizationId, { songs });
+        await suggestionApi.addSuggestion(user, effectiveOrganizationId, { songs });
         await refreshSuggestions();
         setSuggestionFormOpen(false);
         setSuccessConfig({
@@ -966,7 +966,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } finally {
         setIsSubmitting(false);
     }
-  }, [user, userProfile, refreshSuggestions, closeAllModals, navigate]);
+  }, [user, effectiveOrganizationId, refreshSuggestions, closeAllModals, navigate]);
   
   // Help Handler
   const openHelpModal = useCallback((section: string) => {
