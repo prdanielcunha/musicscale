@@ -40,6 +40,30 @@ const DENIED_PERMISSIONS = {
   canManageChords: false,
 };
 
+const getCanonicalPermissions = (serverContext: any) => {
+  const accessContext = serverContext?.effectiveContext;
+  if (!accessContext) return DENIED_PERMISSIONS;
+  const membershipStatus = String(accessContext.membershipStatus || serverContext.membershipStatus || '').toLowerCase();
+  if (!accessContext.isGlobalAccess && !['active', 'ativo'].includes(membershipStatus)) {
+    return DENIED_PERMISSIONS;
+  }
+
+  const normalizedAccessContext = {
+    ...accessContext,
+    capabilities: accessContext.capabilities instanceof Set
+      ? accessContext.capabilities
+      : new Set(accessContext.effectiveCapabilities || []),
+  };
+
+  return {
+    canManageOrganization: hasMusicScaleCapability(normalizedAccessContext, 'organization.settings.manage'),
+    canManageMembers: hasMusicScaleCapability(normalizedAccessContext, 'organization.members.manage'),
+    canManageScales: canManageMusicScales(normalizedAccessContext) || canManageBandScales(normalizedAccessContext),
+    canManageRepertoire: canManageSongs(normalizedAccessContext),
+    canManageChords: true,
+  };
+};
+
 export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isContextSyncing, setIsContextSyncing] = useState(false);
@@ -51,6 +75,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     let unsubscribeAuth: any = null;
     let activeControllers: AbortController[] = [];
     let activeGeneration = 0;
+    let releasedCanonicalOrgId: string | null = null;
 
     const bootstrapModule = async () => {
       markStartupMetric('ecosystem_context_started_ms');
@@ -125,13 +150,59 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                            
                            markStartupMetric('ecosystem_access_context_started_ms');
                            earlyTimeoutId = setTimeout(() => earlyAbortController?.abort(), 5000);
-                           earlyCanonicalPromise = earlyTokenPromise.then(token => {
+                           earlyCanonicalPromise = earlyTokenPromise.then(async token => {
                                if (!token || !mounted || earlyAbortController?.signal.aborted || currentGeneration !== activeGeneration) return null;
-                               return fetch(`/api/v1/ecosystem/access-context?organizationId=${candidateOrgId}`, {
+                               const response = await fetch(`/api/v1/ecosystem/access-context?organizationId=${candidateOrgId}`, {
                                    headers: { 'Authorization': `Bearer ${token}` },
                                    signal: earlyAbortController.signal
                                }).catch(() => null);
+                               if (!response?.ok) return null;
+                               return response.json().catch(() => null);
                            }).finally(() => { clearTimeout(earlyTimeoutId); });
+
+                           void earlyCanonicalPromise.then((canonicalContext) => {
+                               if (
+                                 !isValidCanonicalResponse(canonicalContext, user.uid, candidateOrgId) ||
+                                 canonicalContext.effectiveContext?.resolutionStatus !== 'resolved' ||
+                                 (!canonicalContext.effectiveContext?.isGlobalAccess &&
+                                   !['active', 'ativo'].includes(String(
+                                     canonicalContext.effectiveContext?.membershipStatus || canonicalContext.membershipStatus || ''
+                                   ).toLowerCase())) ||
+                                 !mounted ||
+                                 currentGeneration !== activeGeneration ||
+                                 auth.currentUser?.uid !== user.uid
+                               ) return;
+
+                               releasedCanonicalOrgId = candidateOrgId;
+                               const canonicalRole = canonicalContext.organizationRole || canonicalContext.effectiveContext?.organizationRole || 'visitor';
+                               const initialOrganization = {
+                                   id: candidateOrgId,
+                                   name: candidateOrgId,
+                                   role: canonicalRole,
+                               };
+
+                               setContext((previous: any) => ({
+                                   ...payload,
+                                   uid: user.uid,
+                                   email: user.email,
+                                   displayName,
+                                   ecosystemRole: canonicalContext.systemRole || systemRole,
+                                   currentOrganizationId: candidateOrgId,
+                                   currentOrganizationName: candidateOrgId,
+                                   roleInCurrentOrganization: canonicalRole,
+                                   organizationsAvailable: [initialOrganization],
+                                   serverContext: canonicalContext,
+                                   isStandalone: true,
+                                   permissions: getCanonicalPermissions(canonicalContext),
+                               }));
+                               setIsDegraded(false);
+                               setIsContextSyncing(false);
+                               setIsInitialized(true);
+                               markStartupMetric('ecosystem_access_context_completed_ms');
+                               markStartupMetric('ecosystem_context_completed_ms', { standalone: true });
+                           }).catch(() => {
+                               // Discovery and the existing least-privilege fallback remain responsible for failures.
+                           });
                        }
 
                        const getReusableOrganizationSnapshot = async (targetOrgId: string) => {
@@ -413,15 +484,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                             await checkAndAddOrg(userHasLegacy, roleInOrg, true);
                         }
 
+                        // A released canonical tenant remains active while discovery only enriches its catalog.
+                        if (releasedCanonicalOrgId) {
+                            orgId = releasedCanonicalOrgId;
+                        }
+
                         // Fetch canonical server-resolved access context from the secure endpoint
                         let serverContext = null;
                         if (orgId && orgId !== 'offline_default') {
                             let earlySuccess = false;
                             if (orgId === candidateOrgId && earlyCanonicalPromise) {
                                 try {
-                                    const apiRes = await earlyCanonicalPromise;
-                                    if (apiRes && apiRes.ok) {
-                                        const resJson = await apiRes.json();
+                                    const resJson = await earlyCanonicalPromise;
+                                    if (resJson) {
                                         if (isValidCanonicalResponse(resJson, user.uid, orgId)) {
                                             serverContext = resJson;
                                             systemRole = resJson.systemRole || systemRole;
@@ -527,20 +602,8 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         }
 
                         if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid) {
-                             let permissions = DENIED_PERMISSIONS;
-                             if (serverContext && serverContext.effectiveContext) {
-                                 const accessCtx = serverContext.effectiveContext;
-                                 if (!(accessCtx.capabilities instanceof Set)) {
-                                     accessCtx.capabilities = new Set(accessCtx.effectiveCapabilities || []);
-                                 }
-                                 permissions = {
-                                     canManageOrganization: hasMusicScaleCapability(accessCtx, 'organization.settings.manage'),
-                                     canManageMembers: hasMusicScaleCapability(accessCtx, 'organization.members.manage'),
-                                     canManageScales: canManageMusicScales(accessCtx) || canManageBandScales(accessCtx),
-                                     canManageRepertoire: canManageSongs(accessCtx),
-                                     canManageChords: true
-                                 };
-                             } else {
+                             const permissions = getCanonicalPermissions(serverContext);
+                             if (!serverContext?.effectiveContext) {
                                  if (orgId && orgId !== 'offline_default') {
                                      setIsDegraded(true);
                                  }
@@ -548,8 +611,14 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                              setContext((prev: any) => ({
                                  ...payload,
                                  ...data,
+                                 ...(releasedCanonicalOrgId ? {
+                                     currentOrganizationId: releasedCanonicalOrgId,
+                                     currentOrganizationName: organizationsAvailable.find((organization) => organization.id === releasedCanonicalOrgId)?.name || prev?.currentOrganizationName || releasedCanonicalOrgId,
+                                     roleInCurrentOrganization: prev?.roleInCurrentOrganization,
+                                     serverContext: prev?.serverContext,
+                                 } : {}),
                                  isStandalone: true,
-                                 permissions
+                                 permissions: releasedCanonicalOrgId ? prev?.permissions : permissions
                              }));
                          }
                     } catch (e) {
