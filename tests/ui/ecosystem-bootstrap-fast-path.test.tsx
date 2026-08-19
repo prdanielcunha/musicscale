@@ -131,11 +131,17 @@ describe('EcosystemProvider canonical bootstrap fast path', () => {
     await waitFor(() => expect(rendered.textContent).toContain('"currentOrganizationId":"org-1"'));
     expect(rendered.textContent).toContain('"isInitialized":true');
     expect(rendered.textContent).toContain('"isContextSyncing":false');
+    expect(rendered.textContent).toContain('"canManageRepertoire":false');
+    expect(rendered.textContent).toContain('"canManageChords":false');
+    expect(rendered.textContent).toContain('"canManageScales":false');
   });
 
-  it('does not release mismatched canonical identity or cached management permissions', async () => {
+  it('does not release mismatched canonical identity or cached chord management permissions', async () => {
     localStorage.setItem('musicscale_cached_context_user-1', JSON.stringify({
-      uid: 'user-1', currentOrganizationId: 'org-1', permissions: { canManageOrganization: true },
+      uid: 'user-1', currentOrganizationId: 'org-1', permissions: {
+        canManageOrganization: true,
+        canManageChords: true,
+      },
     }));
     mocks.profiles.set('user-1', { activeOrganizationId: 'org-1', organizationRole: 'owner' });
     mocks.discoveryPromise = new Promise(() => {});
@@ -177,6 +183,8 @@ describe('EcosystemProvider canonical bootstrap fast path', () => {
 
     await startUser('user-1');
     await waitFor(() => expect(screen.getByTestId('context').textContent).toContain('"canManageOrganization":true'));
+    expect(screen.getByTestId('context').textContent).toContain('"canManageRepertoire":true');
+    expect(screen.getByTestId('context').textContent).toContain('"canManageChords":true');
 
     await act(async () => { discovery.resolve({ docs: [] }); });
     await waitFor(() => expect(screen.getByTestId('context').textContent).toContain('Organization One'));

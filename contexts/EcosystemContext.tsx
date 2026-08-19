@@ -60,7 +60,7 @@ const getCanonicalPermissions = (serverContext: any) => {
     canManageMembers: hasMusicScaleCapability(normalizedAccessContext, 'organization.members.manage'),
     canManageScales: canManageMusicScales(normalizedAccessContext) || canManageBandScales(normalizedAccessContext),
     canManageRepertoire: canManageSongs(normalizedAccessContext),
-    canManageChords: true,
+    canManageChords: canManageSongs(normalizedAccessContext),
   };
 };
 
