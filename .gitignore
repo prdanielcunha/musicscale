@@ -34,3 +34,8 @@ visual-evidence/
 tests/e2e/artifacts/
 *.webm
 trace.zip
+
+# Deterministically materialized MusicScale brand assets
+/public/LogoIcon.png
+/public/LogoIcon-192.png
+/public/LogoIcon-maskable-512.png

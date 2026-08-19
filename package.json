@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "assets:materialize": "tsx scripts/materialize-brand-assets.ts",
+    "dev": "npm run assets:materialize && tsx server.ts",
+    "build": "npm run assets:materialize && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && tsx test_ms_perf_brand_assets.ts --require-dist",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
@@ -29,13 +30,14 @@
     "test:scale-dashboard": "vitest run tests/ui/music-scale-dashboard-release.test.tsx",
     "test:scale-security": "vitest run tests/server/music-scale-security-rules.test.ts",
     "test:scale-release": "npm run test:scale-cycle && npm run test:scale-notifications && npm run test:scale-presence && npm run test:scale-calendar && npm run test:scale-dashboard && npm run test:scale-security",
-    "test:release:core": "tsx test_handoff.ts && tsx test_ms_perf_2.ts && tsx test_ms_perf_3.ts && tsx test_ms_perf_4b.ts && tsx test_ms_perf_5.ts && tsx test_ms_perf_6.ts && tsx test_tenant_boundaries.ts && tsx test_onboarding_experience.ts",
+    "test:perf:brand-assets": "npm run assets:materialize && tsx test_ms_perf_brand_assets.ts",
+    "test:release:core": "npm run assets:materialize && tsx test_handoff.ts && tsx test_ms_perf_2.ts && tsx test_ms_perf_3.ts && tsx test_ms_perf_4b.ts && tsx test_ms_perf_5.ts && tsx test_ms_perf_6.ts && tsx test_ms_perf_brand_assets.ts && tsx test_tenant_boundaries.ts && tsx test_onboarding_experience.ts",
     "test:release:scale-review": "tsx scripts/test_ms_first_value_01c.ts && tsx scripts/test_ms_scale_review_02.ts",
     "test:release": "npm run test:release:core && npm run test:release:scale-review && npm run test:starter-pack-ui && npm run test:ui && npm run test:functions && npm run test:song-discovery && npm run test:curation-approval && npm run test:scale-release && npm run lint && npm run build",
     "test:e2e:run": "npx playwright test",
     "test:ci:portable": "npm run lint && npm run test:ui && npm run test:release:core",
     "test:ci:emulator": "bash scripts/qa-vercel-emulator.sh",
-    "ci:vercel": "npm run test:ci:emulator && npm run test:ci:portable && npm run build"
+    "ci:vercel": "npm run assets:materialize && npm run test:ci:emulator && npm run test:ci:portable && npm run build"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",
