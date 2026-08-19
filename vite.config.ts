@@ -21,6 +21,8 @@ export default defineConfig(({ mode }) => {
         tailwindcss(),
         VitePWA({
           registerType: 'autoUpdate',
+          // PNG icons are already covered by globPatterns; avoid adding the same URLs twice.
+          includeManifestIcons: false,
           workbox: {
             maximumFileSizeToCacheInBytes: 6000000,
             globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
@@ -65,7 +67,7 @@ export default defineConfig(({ mode }) => {
             start_url: '/',
             icons: [
               {
-                src: '/LogoIcon.png',
+                src: '/LogoIcon-192.png',
                 sizes: '192x192',
                 type: 'image/png'
               },
@@ -73,6 +75,12 @@ export default defineConfig(({ mode }) => {
                 src: '/LogoIcon.png',
                 sizes: '512x512',
                 type: 'image/png'
+              },
+              {
+                src: '/LogoIcon-maskable-512.png',
+                sizes: '512x512',
+                type: 'image/png',
+                purpose: 'maskable'
               }
             ]
           }
