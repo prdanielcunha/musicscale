@@ -97,6 +97,14 @@ const renderWithRouter = (ui: React.ReactElement) => {
   );
 };
 
+const suggestionFor = (id: string, title: string) => ({
+  id,
+  isRead: false,
+  isArchived: false,
+  songs: [{ id: `${id}-song`, title, artist: 'Artista', link: '' }],
+  createdBy: { name: 'Autor' },
+}) as any;
+
 import { PopulatedScaleWithAssignmentsAndStatus } from '../../utils/homeExperience';
 import { EventName } from '../../types';
 
@@ -213,8 +221,69 @@ describe('Dashboard & Upcoming Event Logic', () => {
   describe('Dashboard UI Rendering', () => {
     it('renderiza loading', () => {
       mockUseMusic.mockReturnValue({ populatedScales: [], populatedBandScales: [], songs: [], loading: true, error: null });
+      mockUseSuggestionsContext.mockReturnValue({ suggestions: [], loading: true });
       console.log("music:", mockUseMusic()); console.log("sugg:", mockUseSuggestionsContext()); renderWithRouter(<DashboardPage />);
       expect(screen.getByLabelText(i18n.t('dashboard.loading'))).toBeInTheDocument();
+    });
+
+    it('renderiza a tela principal enquanto sugestões ainda estão carregando', () => {
+      mockUseSuggestionsContext.mockReturnValue({
+        suggestions: [suggestionFor('stale-a', 'Sugestão antiga A')],
+        loading: true,
+      });
+
+      renderWithRouter(<DashboardPage />);
+
+      expect(screen.queryByLabelText(i18n.t('dashboard.loading'))).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: i18n.t('dashboard.explore.libraryCta') })).toBeInTheDocument();
+      expect(screen.queryByText('Sugestão antiga A')).not.toBeInTheDocument();
+    });
+
+    it('mostra sugestões quando o listener resolve sem bloquear/remontar a tela principal', () => {
+      mockUseSuggestionsContext.mockReturnValue({ suggestions: [], loading: true });
+      const rendered = renderWithRouter(<DashboardPage />);
+      const libraryButton = screen.getByRole('button', { name: i18n.t('dashboard.explore.libraryCta') });
+
+      mockUseSuggestionsContext.mockReturnValue({
+        suggestions: [suggestionFor('b-1', 'Sugestão da organização B')],
+        loading: false,
+      });
+
+      rendered.rerender(
+        <I18nextProvider i18n={i18n}>
+          <MemoryRouter><DashboardPage /></MemoryRouter>
+        </I18nextProvider>
+      );
+
+      expect(screen.getByText('Sugestão da organização B')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: i18n.t('dashboard.explore.libraryCta') })).toBe(libraryButton);
+    });
+
+    it('falha do listener de sugestões não bloqueia o Dashboard', () => {
+      mockUseSuggestionsContext.mockReturnValue({ suggestions: [], loading: false, error: 'Falha nas sugestões' });
+      renderWithRouter(<DashboardPage />);
+
+      expect(screen.queryByLabelText(i18n.t('dashboard.loading'))).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: i18n.t('dashboard.explore.libraryCta') })).toBeInTheDocument();
+    });
+
+    it('não exibe payload defensivamente stale de A enquanto B ainda carrega', () => {
+      mockUseSuggestionsContext.mockReturnValue({
+        suggestions: [suggestionFor('a-late', 'Payload tardio de A')],
+        loading: true,
+      });
+      renderWithRouter(<DashboardPage />);
+
+      expect(screen.queryByText('Payload tardio de A')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: i18n.t('dashboard.explore.libraryCta') })).toBeInTheDocument();
+    });
+
+    it('ações que não dependem de sugestões permanecem utilizáveis enquanto elas carregam', () => {
+      mockUseSuggestionsContext.mockReturnValue({ suggestions: [], loading: true });
+      renderWithRouter(<DashboardPage />);
+
+      fireEvent.click(screen.getByRole('button', { name: i18n.t('dashboard.explore.libraryCta') }));
+      expect(mockNavigate).toHaveBeenCalledWith('/library');
     });
 
     it('renderiza erro', () => {
