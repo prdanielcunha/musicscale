@@ -127,7 +127,7 @@ describe('MusicDataProvider offline stage fallback', () => {
     expect(result.current.bandScales).toEqual([{ id: 'band-sensitive' }]);
   });
 
-  it('refreshes canonical data when connectivity returns while keeping fallback eligible during refresh', async () => {
+  it('keeps offline stage data visible through reconnect until canonical refresh is healthy', async () => {
     const refreshData = vi.fn(async () => {});
     testState.isOffline = true;
     testState.musicData = canonicalData({
@@ -149,7 +149,16 @@ describe('MusicDataProvider offline stage fallback', () => {
     });
 
     await waitFor(() => expect(refreshData).toHaveBeenCalledTimes(1));
-    expect(result.current.songs[0].id).toBe('canonical-song');
+    expect(result.current.songs[0].id).toBe('offline-song');
+
+    act(() => {
+      testState.musicData = canonicalData({ refreshData });
+      rerender();
+    });
+
+    await waitFor(() => expect(result.current.songs[0]?.id).toBe('canonical-song'));
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
   });
 
   it('rejects a late cache read from organization A after canonical context switches to B', async () => {
