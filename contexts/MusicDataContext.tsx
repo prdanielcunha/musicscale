@@ -1,6 +1,6 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import type { Scale, EventType, Location, PopulatedScale, EventName, Tag, PopulatedSong, Role, Instrument, BandScale, PopulatedBandScale, UserProfile, FixedBandScale } from '../types';
-import { useMusicData } from '../hooks/useMusicData';
+import { useMusicData, type UsersStatus } from '../hooks/useMusicData';
 
 interface MusicDataContextType {
   songs: PopulatedSong[];
@@ -15,6 +15,7 @@ interface MusicDataContextType {
   roles: Role[];
   instruments: Instrument[];
   allUsers: UserProfile[];
+  usersStatus: UsersStatus;
   fixedBandScales: FixedBandScale[];
   loading: boolean;
   error: string | null;

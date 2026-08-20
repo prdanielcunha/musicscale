@@ -9,6 +9,8 @@ import { useApi } from '../contexts/ApiContext';
 import { scaleRetentionService } from '../services/offline/ScaleRetentionService';
 import { readMusicDataCache, writeMusicDataCache } from '../lib/musicDataCache';
 
+export type UsersStatus = 'idle' | 'loading' | 'ready' | 'error';
+
 export const useMusicData = () => {
   const { user, effectiveOrganizationId } = useAuth();
   const api = useApi();
@@ -30,6 +32,7 @@ export const useMusicData = () => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [usersStatus, setUsersStatus] = useState<UsersStatus>('idle');
   const [fixedBandScales, setFixedBandScales] = useState<FixedBandScale[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -54,6 +57,9 @@ export const useMusicData = () => {
   const fetchData = useCallback(async () => {
     if (!api || !user || !effectiveOrganizationId) {
       logger.debug("[useMusicData] Missing api or orgId, skipping fetch");
+      if (!user || !effectiveOrganizationId) {
+        setUsersStatus('idle');
+      }
       setLoading(false);
       return;
     }
@@ -69,6 +75,7 @@ export const useMusicData = () => {
        activeContextKeyRef.current = currentContextKey;
        isOperationalRef.current = false;
        clearData();
+       setUsersStatus('loading');
        setError(null);
     }
     
@@ -78,6 +85,7 @@ export const useMusicData = () => {
     // Read new cache
     const cacheResult = readMusicDataCache<any>(localStorage, uid, orgId);
     let hasUsableCache = false;
+    let hasUsableUsersCache = false;
 
     recordStartupGauge('cache_hit', !!cacheResult.data ? 1 : 0, {
       cache_hit: !!cacheResult.data,
@@ -105,7 +113,11 @@ export const useMusicData = () => {
         setTags(data.tags || []);
         setRoles(data.roles || []);
         setInstruments(data.instruments || []);
-        setAllUsers(data.allUsers || []);
+        if (Array.isArray(data.allUsers)) {
+          hasUsableUsersCache = true;
+          setAllUsers(data.allUsers);
+          setUsersStatus('ready');
+        }
         setFixedBandScales(data.fixedBandScales || []);
         setPopulatedScales(data.populatedScales || []);
         setPopulatedBandScales(data.populatedBandScales || []);
@@ -159,11 +171,27 @@ export const useMusicData = () => {
       wrap('eventNames', api.eventNames.list()),
       wrap('tags', api.tags.list())
     ];
+
+    // Exactly one users request per generation. It remains secondary but its
+    // readiness is independent from unrelated secondary resources.
+    const usersPromise = wrap('users', api.users.list());
+    void usersPromise
+      .then((result) => {
+        if (generationRef.current !== currentGeneration) return;
+        setAllUsers(result.data);
+        setUsersStatus('ready');
+      })
+      .catch(() => {
+        if (generationRef.current !== currentGeneration) return;
+        if (!hasUsableUsersCache) {
+          setUsersStatus('error');
+        }
+      });
     
     const secondaryPromises = [
       wrap('roles', api.roles.list()),
       wrap('instruments', api.instruments.list()),
-      wrap('users', api.users.list()),
+      usersPromise,
       wrap('fixedBandScales', api.fixedBandScales.list())
     ];
 
@@ -287,7 +315,7 @@ export const useMusicData = () => {
           const failedNames = failedSecondary.map((r: any) => r.reason?.message || 'unknown');
           logger.warn(`[useMusicData] Secondary batch failed for: ${failedNames.join(', ')}`);
           markStartupFailure('secondary_data_failed');
-          return; // stop here, don't overwrite cache, don't replace with empty arrays
+          return; // successful users data was already applied independently
       }
 
       const getSecondaryData = (name: string) => {
@@ -386,6 +414,7 @@ export const useMusicData = () => {
           return { ...u, roleId: resolvedRoleId };
       });
       setAllUsers(normalizedUsers);
+      setUsersStatus('ready');
       setInstruments(instrumentsData);
       setFixedBandScales(fixedBandScalesData);
 
@@ -473,6 +502,7 @@ export const useMusicData = () => {
       activeContextKeyRef.current = null;
       isOperationalRef.current = false;
       clearData();
+      setUsersStatus('idle');
       setLoading(false);
     }
     return () => {
@@ -500,6 +530,7 @@ export const useMusicData = () => {
     roles,
     instruments,
     allUsers,
+    usersStatus,
     fixedBandScales,
     loading,
     error,
@@ -507,6 +538,6 @@ export const useMusicData = () => {
   }), [
     songs, scales, populatedScales, bandScales, populatedBandScales,
     eventTypes, locations, eventNames, tags, roles, instruments,
-    allUsers, fixedBandScales, loading, error, refreshDataWithUser
+    allUsers, usersStatus, fixedBandScales, loading, error, refreshDataWithUser
   ]);
 };
