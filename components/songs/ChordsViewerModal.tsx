@@ -490,35 +490,64 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   }, [isOpen, isEditing, scaleContext, onNavigate]);
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    let disposed = false;
     let wakeLock: any = null;
+    let requestInFlight = false;
+
+    const releaseWakeLock = (sentinel: any) => {
+      if (!sentinel) return;
+      sentinel.release().catch(console.warn);
+    };
+
     const requestWakeLock = async () => {
+      if (
+        disposed ||
+        requestInFlight ||
+        document.visibilityState !== "visible" ||
+        !("wakeLock" in navigator)
+      ) {
+        return;
+      }
+
+      requestInFlight = true;
       try {
-        if ("wakeLock" in navigator) {
-          wakeLock = await (navigator as any).wakeLock.request("screen");
+        const sentinel = await (navigator as any).wakeLock.request("screen");
+
+        if (disposed) {
+          releaseWakeLock(sentinel);
+          return;
         }
+
+        if (wakeLock && wakeLock !== sentinel) {
+          releaseWakeLock(wakeLock);
+        }
+        wakeLock = sentinel;
       } catch (err: any) {
-        console.warn(`WakeLock error: ${err.name}, ${err.message}`);
+        if (!disposed) {
+          console.warn(`WakeLock error: ${err.name}, ${err.message}`);
+        }
+      } finally {
+        requestInFlight = false;
       }
     };
 
-    if (isOpen) {
-      requestWakeLock();
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === "visible") {
-          requestWakeLock();
-        }
-      };
-      document.addEventListener("visibilitychange", handleVisibilityChange);
-      return () => {
-        if (wakeLock) {
-          wakeLock.release().catch(console.warn);
-        }
-        document.removeEventListener(
-          "visibilitychange",
-          handleVisibilityChange,
-        );
-      };
-    }
+    void requestWakeLock();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void requestWakeLock();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      disposed = true;
+      const currentWakeLock = wakeLock;
+      wakeLock = null;
+      releaseWakeLock(currentWakeLock);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [isOpen]);
 
   const scrollAnimationRef = useRef<number>();
