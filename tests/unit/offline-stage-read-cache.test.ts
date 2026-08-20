@@ -133,65 +133,115 @@ describe('offline stage read cache', () => {
     expect(sanitizedScale.songs[0].createdBy.uid).toBe('');
   });
 
-  it('uses tenant-prefixed cache keys and never deletes another organization cache', async () => {
-    const now = Date.UTC(2026, 7, 20, 12, 0, 0);
-    await writeOfflineStageReadCache('org-A', [song('org-A')], [scale('org-A')], now);
-    await writeOfflineStageReadCache('org-B', [song('org-B')], [scale('org-B')], now + 1);
+  it('uses UID+tenant-prefixed keys and never exposes another user or organization pack', async () => {
+    const now = Date.now();
+    await writeOfflineStageReadCache('user-A', 'org-A', [song('org-A')], [scale('org-A')], now);
+    await writeOfflineStageReadCache('user-B', 'org-A', [song('org-A')], [scale('org-A')], now + 1);
+    await writeOfflineStageReadCache('user-A', 'org-B', [song('org-B')], [scale('org-B')], now + 2);
 
-    expect(dbState.songs.map((row) => row.id).sort()).toEqual(['org-A::song-1', 'org-B::song-1']);
-    expect(dbState.scales.map((row) => row.id).sort()).toEqual(['org-A::scale-1', 'org-B::scale-1']);
+    expect(dbState.songs.map((row) => row.id).sort()).toEqual([
+      'user-A::org-A::song-1',
+      'user-A::org-B::song-1',
+      'user-B::org-A::song-1',
+    ]);
 
-    const snapshotA = await readOfflineStageReadCache('org-A', now + 2);
-    const snapshotB = await readOfflineStageReadCache('org-B', now + 2);
-    expect(snapshotA?.songs.every((entry) => entry.organizationId === 'org-A')).toBe(true);
-    expect(snapshotB?.songs.every((entry) => entry.organizationId === 'org-B')).toBe(true);
+    const userAOrgA = await readOfflineStageReadCache('user-A', 'org-A', now + 3);
+    const userBOrgA = await readOfflineStageReadCache('user-B', 'org-A', now + 3);
+    const userAOrgB = await readOfflineStageReadCache('user-A', 'org-B', now + 3);
+
+    expect(userAOrgA?.songs.every((entry) => entry.organizationId === 'org-A')).toBe(true);
+    expect(userBOrgA?.songs.every((entry) => entry.organizationId === 'org-A')).toBe(true);
+    expect(userAOrgB?.songs.every((entry) => entry.organizationId === 'org-B')).toBe(true);
+    expect(await readOfflineStageReadCache('user-C', 'org-A', now + 3)).toBeNull();
   });
 
-  it('atomically replaces the active organization pack so deleted entities do not resurrect offline', async () => {
-    const now = Date.UTC(2026, 7, 20, 12, 0, 0);
+  it('atomically replaces only the active UID+tenant pack so deleted entities do not resurrect', async () => {
+    const now = Date.now();
     await writeOfflineStageReadCache(
+      'user-A',
       'org-A',
       [song('org-A', 'song-1'), song('org-A', 'song-2')],
       [scale('org-A', 'scale-1')],
       now,
     );
-    await writeOfflineStageReadCache('org-A', [song('org-A', 'song-2')], [], now + 1000);
+    await writeOfflineStageReadCache(
+      'user-B',
+      'org-A',
+      [song('org-A', 'song-1')],
+      [scale('org-A', 'scale-1')],
+      now + 1,
+    );
+    await writeOfflineStageReadCache('user-A', 'org-A', [song('org-A', 'song-2')], [], now + 2);
 
-    expect(dbState.songs.map((row) => row.id)).toEqual(['org-A::song-2']);
-    expect(dbState.scales).toEqual([]);
-    const snapshot = await readOfflineStageReadCache('org-A', now + 2000);
+    const userARows = dbState.songs.filter((row) => row.userId === 'user-A');
+    const userBRows = dbState.songs.filter((row) => row.userId === 'user-B');
+    expect(userARows.map((row) => row.id)).toEqual(['user-A::org-A::song-2']);
+    expect(userBRows.map((row) => row.id)).toEqual(['user-B::org-A::song-1']);
+
+    const snapshot = await readOfflineStageReadCache('user-A', 'org-A', now + 3);
     expect(snapshot?.songs.map((entry) => entry.id)).toEqual(['song-2']);
     expect(snapshot?.populatedScales).toEqual([]);
   });
 
   it('rejects expired packs instead of silently treating old stage data as current', async () => {
-    const now = Date.UTC(2026, 7, 20, 12, 0, 0);
-    await writeOfflineStageReadCache('org-A', [song('org-A')], [scale('org-A')], now);
+    const now = Date.now();
+    await writeOfflineStageReadCache('user-A', 'org-A', [song('org-A')], [scale('org-A')], now);
 
     const expired = await readOfflineStageReadCache(
+      'user-A',
       'org-A',
       now + STAGE_CACHE_MAX_AGE_MS + 1,
     );
     expect(expired).toBeNull();
   });
 
+  it('does not write a pack with an invalid future source timestamp', async () => {
+    const now = Date.now();
+    await writeOfflineStageReadCache(
+      'user-A',
+      'org-A',
+      [song('org-A')],
+      [scale('org-A')],
+      now + 10 * 60 * 1000,
+    );
+
+    expect(dbState.songs).toEqual([]);
+    expect(dbState.scales).toEqual([]);
+  });
+
   it('rejects tampered tenant identity or non-canonical cache keys', async () => {
-    const now = Date.UTC(2026, 7, 20, 12, 0, 0);
-    await writeOfflineStageReadCache('org-A', [song('org-A')], [scale('org-A')], now);
+    const now = Date.now();
+    await writeOfflineStageReadCache('user-A', 'org-A', [song('org-A')], [scale('org-A')], now);
 
     dbState.songs[0].data.organizationId = 'org-B';
-    expect(await readOfflineStageReadCache('org-A', now + 1)).toBeNull();
+    expect(await readOfflineStageReadCache('user-A', 'org-A', now + 1)).toBeNull();
 
     dbState.songs[0].data.organizationId = 'org-A';
     dbState.songs[0].id = 'song-1';
-    expect(await readOfflineStageReadCache('org-A', now + 1)).toBeNull();
+    expect(await readOfflineStageReadCache('user-A', 'org-A', now + 1)).toBeNull();
+  });
+
+  it('refuses to persist a scale whose tenant scope is not proven', async () => {
+    const now = Date.now();
+    await writeOfflineStageReadCache(
+      'user-A',
+      'org-A',
+      [song('org-A')],
+      [scale('org-B')],
+      now,
+    );
+
+    expect(dbState.scales).toEqual([]);
+    const snapshot = await readOfflineStageReadCache('user-A', 'org-A', now + 1);
+    expect(snapshot?.songs).toHaveLength(1);
+    expect(snapshot?.populatedScales).toEqual([]);
   });
 
   it('reconstructs only stage-safe taxonomy and raw scale data', async () => {
-    const now = Date.UTC(2026, 7, 20, 12, 0, 0);
-    await writeOfflineStageReadCache('org-A', [song('org-A')], [scale('org-A')], now);
+    const now = Date.now();
+    await writeOfflineStageReadCache('user-A', 'org-A', [song('org-A')], [scale('org-A')], now);
 
-    const snapshot = await readOfflineStageReadCache('org-A', now + 1);
+    const snapshot = await readOfflineStageReadCache('user-A', 'org-A', now + 1);
     expect(snapshot).not.toBeNull();
     expect(snapshot?.eventTypes).toEqual([{ id: 'event-type-1', name: 'Culto' }]);
     expect(snapshot?.locations).toEqual([{ id: 'location-1', name: 'Templo' }]);
