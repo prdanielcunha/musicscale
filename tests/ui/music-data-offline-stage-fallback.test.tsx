@@ -174,6 +174,44 @@ describe('MusicDataProvider offline stage fallback', () => {
     expect(result.current.error).toBeNull();
   });
 
+  it('does not blank an error-backed offline fallback before reconnect revalidation settles', async () => {
+    let resolveRefresh!: () => void;
+    const refreshData = vi.fn(() => new Promise<void>((resolve) => {
+      resolveRefresh = resolve;
+    }));
+    testState.isOffline = true;
+    testState.musicData = canonicalData({
+      loading: false,
+      error: 'Offline network failure',
+      songs: [],
+      scales: [],
+      populatedScales: [],
+      refreshData,
+    });
+    testState.readCache.mockResolvedValue(offlineSnapshot());
+
+    const { result, rerender } = renderHook(() => useMusic(), { wrapper });
+    await waitFor(() => expect(result.current.songs[0]?.id).toBe('offline-song'));
+
+    act(() => {
+      testState.isOffline = false;
+      rerender();
+    });
+
+    await waitFor(() => expect(refreshData).toHaveBeenCalledTimes(1));
+    expect(result.current.songs[0]?.id).toBe('offline-song');
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      testState.musicData = canonicalData({ refreshData });
+      resolveRefresh();
+      rerender();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.songs[0]?.id).toBe('canonical-song'));
+  });
+
   it('drops fallback if reconnect settles with an online canonical error', async () => {
     const refreshData = vi.fn(async () => {});
     testState.isOffline = true;
