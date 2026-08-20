@@ -145,6 +145,8 @@ const defaultSettings = {
   chordsColorIndex: 0,
 };
 
+const MAX_AUTOSCROLL_FRAME_DELTA_MS = 100;
+
 const ColorPicker: React.FC<{
   label: string;
   colors: string[];
@@ -525,6 +527,21 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<number | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const resetAutoScrollClock = () => {
+      lastTimeRef.current = undefined;
+      if (scrollContainerRef.current) {
+        scrollPosRef.current = scrollContainerRef.current.scrollTop;
+      }
+    };
+
+    document.addEventListener("visibilitychange", resetAutoScrollClock);
+    return () =>
+      document.removeEventListener("visibilitychange", resetAutoScrollClock);
+  }, [isOpen]);
+
   const [activeSection, setActiveSection] = useState<string>("");
   const sectionRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
 
@@ -676,7 +693,10 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       if (!scrollContainer) return;
       
       if (lastTimeRef.current === undefined) lastTimeRef.current = timestamp;
-      const elapsed = timestamp - lastTimeRef.current;
+      const elapsed = Math.min(
+        Math.max(timestamp - lastTimeRef.current, 0),
+        MAX_AUTOSCROLL_FRAME_DELTA_MS,
+      );
 
       const pxPerSecond = speedLevel > 0 ? 15 + Math.pow(speedLevel, 2.2) * 8 : 0;
       const scrollDelta = (pxPerSecond / 1000) * elapsed;
