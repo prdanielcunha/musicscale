@@ -162,14 +162,68 @@ export const useMusicData = () => {
 
     markStartupMetric('initial_data_started_ms');
     // Start all requests in parallel
+    let latestEventNamesData: EventName[] = cacheResult.data?.eventNames || [];
+    let latestTagsData: Tag[] = cacheResult.data?.tags || [];
+
+    // Taxonomy enrichments start with the critical wave, but never gate the
+    // first operational screen. Each request is created exactly once per
+    // generation and only patches the already-derived objects it owns.
+    const eventNamesPromise = wrap('eventNames', api.eventNames.list());
+    const tagsPromise = wrap('tags', api.tags.list());
+
+    void eventNamesPromise
+      .then((result) => {
+        if (generationRef.current !== currentGeneration) return;
+        latestEventNamesData = result.data;
+        setEventNames(result.data);
+        setPopulatedScales(current => current.map(scale => ({
+          ...scale,
+          eventName: result.data.find((eventName: EventName) => eventName.id === scale.eventNameId),
+          bandScale: scale.bandScale ? {
+            ...scale.bandScale,
+            eventName: result.data.find((eventName: EventName) => eventName.id === scale.bandScale?.eventNameId),
+          } : undefined,
+        })));
+        setPopulatedBandScales(current => current.map(scale => ({
+          ...scale,
+          eventName: result.data.find((eventName: EventName) => eventName.id === scale.eventNameId),
+        })));
+      })
+      .catch(() => {
+        if (generationRef.current !== currentGeneration) return;
+        logger.warn('[useMusicData] Progressive enrichment failed for: eventNames');
+        markStartupFailure('secondary_data_failed');
+      });
+
+    void tagsPromise
+      .then((result) => {
+        if (generationRef.current !== currentGeneration) return;
+        latestTagsData = result.data;
+        const enrichSongTags = (song: PopulatedSong): PopulatedSong => ({
+          ...song,
+          tags: (song.tagIds || [])
+            .map((id: string) => result.data.find((tag: Tag) => tag.id === id))
+            .filter((tag: Tag | undefined): tag is Tag => !!tag),
+        });
+        setTags(result.data);
+        setSongs(current => current.map(enrichSongTags));
+        setPopulatedScales(current => current.map(scale => ({
+          ...scale,
+          songs: scale.songs.map(enrichSongTags),
+        })));
+      })
+      .catch(() => {
+        if (generationRef.current !== currentGeneration) return;
+        logger.warn('[useMusicData] Progressive enrichment failed for: tags');
+        markStartupFailure('secondary_data_failed');
+      });
+
     const criticalPromises = [
       wrap('songs', api.songs.list()),
       wrap('scales', api.scales.list()),
       wrap('bandScales', api.bandScales.list()),
       wrap('eventTypes', api.eventTypes.list()),
-      wrap('locations', api.locations.list()),
-      wrap('eventNames', api.eventNames.list()),
-      wrap('tags', api.tags.list())
+      wrap('locations', api.locations.list())
     ];
 
     // Exactly one users request per generation. It remains secondary but its
@@ -227,13 +281,11 @@ export const useMusicData = () => {
       const bandScalesData = getCriticalData('bandScales');
       const eventTypesData = getCriticalData('eventTypes');
       const locationsData = getCriticalData('locations');
-      const eventNamesData = getCriticalData('eventNames');
-      const tagsData = getCriticalData('tags');
 
       const populatedSongs = songsData.map((song: any): PopulatedSong => ({
         ...song,
         lastPlayed: song.lastPlayed || null,
-        tags: (song.tagIds || []).map((id: string) => tagsData.find((t: any) => t.id === id)).filter((t: any): t is Tag => !!t),
+        tags: (song.tagIds || []).map((id: string) => latestTagsData.find((t: any) => t.id === id)).filter((t: any): t is Tag => !!t),
       }));
 
       let initialPopulatedBandScalesResult: PopulatedBandScale[] = [];
@@ -250,7 +302,7 @@ export const useMusicData = () => {
               ...bs,
               eventType,
               location,
-              eventName: eventNamesData.find((en: any) => en.id === bs.eventNameId),
+              eventName: latestEventNamesData.find((en: any) => en.id === bs.eventNameId),
               assignments: [], // Empty for now, will be filled in secondary wave
             };
           }).filter((ps: any): ps is PopulatedBandScale => !!ps);
@@ -270,7 +322,7 @@ export const useMusicData = () => {
                     ...scale,
                     songs: scaleSongs,
                     eventType: eventType,
-                    eventName: eventNamesData.find((en: any) => en.id === scale.eventNameId),
+                    eventName: latestEventNamesData.find((en: any) => en.id === scale.eventNameId),
                     location: location,
                     bandScale: initialPopulatedBandScalesResult.find((bs: any) => bs.id === scale.bandScaleId) || undefined
                 };
@@ -284,8 +336,6 @@ export const useMusicData = () => {
       setBandScales(bandScalesData);
       setEventTypes(eventTypesData);
       setLocations(locationsData);
-      setEventNames(eventNamesData);
-      setTags(tagsData);
       
       if (!hasUsableCache) {
           setPopulatedScales(initialPopulatedScalesResult);
@@ -419,6 +469,12 @@ export const useMusicData = () => {
       setFixedBandScales(fixedBandScalesData);
 
       // Rebuild arrays with full data
+      const secondaryPopulatedSongs = songsData.map((song: any): PopulatedSong => ({
+        ...song,
+        lastPlayed: song.lastPlayed || null,
+        tags: (song.tagIds || []).map((id: string) => latestTagsData.find((tag: Tag) => tag.id === id)).filter((tag: Tag | undefined): tag is Tag => !!tag),
+      }));
+
       const finalPopulatedBandScalesResult = bandScalesData.map((bs: any): PopulatedBandScale | null => {
         const eventType = eventTypesData.find((et: any) => et.id === bs.eventTypeId);
         const location = locationsData.find((l: any) => l.id === bs.locationId);
@@ -434,7 +490,7 @@ export const useMusicData = () => {
           ...bs,
           eventType,
           location,
-          eventName: eventNamesData.find((en: any) => en.id === bs.eventNameId),
+          eventName: latestEventNamesData.find((en: any) => en.id === bs.eventNameId),
           assignments,
         };
       }).filter((ps: any): ps is PopulatedBandScale => !!ps);
@@ -442,7 +498,7 @@ export const useMusicData = () => {
       const finalPopulatedScalesResult = scalesData
         .map((scale: any): PopulatedScale | null => {
             const scaleSongs = (scale.songIds || []).map((id: string) => {
-              const s = populatedSongs.find((s: any) => s.id === id);
+              const s = secondaryPopulatedSongs.find((s: any) => s.id === id);
               if (!s) return null;
               return applyScaleSongSettings(s, scale.songSettings?.[id]);
             }).filter((s: any): s is PopulatedSong => !!s);
@@ -454,7 +510,7 @@ export const useMusicData = () => {
                 ...scale,
                 songs: scaleSongs,
                 eventType: eventType,
-                eventName: eventNamesData.find((en: any) => en.id === scale.eventNameId),
+                eventName: latestEventNamesData.find((en: any) => en.id === scale.eventNameId),
                 location: location,
                 bandScale: finalPopulatedBandScalesResult.find((bs: any) => bs.id === scale.bandScaleId) || undefined
             };
@@ -466,21 +522,47 @@ export const useMusicData = () => {
       setPopulatedScales(finalPopulatedScalesResult);
 
       markStartupMetric('initial_data_completed_ms');
+      // Cache only after both progressive requests settle, so a successful
+      // late enrichment is persisted and a failed refresh retains cached
+      // taxonomy instead of fabricating empty replacement data.
+      await Promise.allSettled([eventNamesPromise, tagsPromise]);
+      if (generationRef.current !== currentGeneration) return;
+
+      const cachedSongs = songsData.map((song: any): PopulatedSong => ({
+        ...song,
+        lastPlayed: song.lastPlayed || null,
+        tags: (song.tagIds || []).map((id: string) => latestTagsData.find((tag: Tag) => tag.id === id)).filter((tag: Tag | undefined): tag is Tag => !!tag),
+      }));
+      const cachedPopulatedBandScales = finalPopulatedBandScalesResult.map(scale => ({
+        ...scale,
+        eventName: latestEventNamesData.find(eventName => eventName.id === scale.eventNameId),
+      }));
+      const cachedPopulatedScales = finalPopulatedScalesResult.map(scale => ({
+        ...scale,
+        eventName: latestEventNamesData.find(eventName => eventName.id === scale.eventNameId),
+        songs: scale.songs.map(song => ({
+          ...song,
+          tags: (song.tagIds || []).map(id => latestTagsData.find(tag => tag.id === id)).filter((tag): tag is Tag => !!tag),
+        })),
+        bandScale: scale.bandScale
+          ? cachedPopulatedBandScales.find(bandScale => bandScale.id === scale.bandScale?.id)
+          : undefined,
+      }));
       // Write cache
       writeMusicDataCache(localStorage, uid, orgId, {
-        songs: populatedSongs,
+        songs: cachedSongs,
         scales: scalesData,
         bandScales: bandScalesData,
         eventTypes: eventTypesData,
         locations: locationsData,
-        eventNames: eventNamesData,
-        tags: tagsData,
+        eventNames: latestEventNamesData,
+        tags: latestTagsData,
         roles: allRolesArray,
         instruments: instrumentsData,
         allUsers: normalizedUsers,
         fixedBandScales: fixedBandScalesData,
-        populatedScales: finalPopulatedScalesResult,
-        populatedBandScales: finalPopulatedBandScalesResult,
+        populatedScales: cachedPopulatedScales,
+        populatedBandScales: cachedPopulatedBandScales,
       });
 
     } catch (err) {

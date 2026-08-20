@@ -84,6 +84,12 @@ describe('Home Experience Domain Logic', () => {
   describe('buildHomeEventSummaries', () => {
     const today = '2026-10-10';
 
+    it('uses event type before progressive event-name enrichment and upgrades afterward', () => {
+      const base = { id: '1', date: '2026-10-11', eventType: { id: 'type-1', name: 'Culto' } } as any;
+      expect(buildHomeEventSummaries([base], [], undefined, today)[0].title).toBe('Culto');
+      expect(buildHomeEventSummaries([{ ...base, eventName: { id: 'name-1', name: 'Santa Ceia' } }], [], undefined, today)[0].title).toBe('Santa Ceia');
+    });
+
     it('1. MusicScale sem data é ignorada', () => {
       const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
         { id: '1' } as any
