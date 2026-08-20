@@ -13,6 +13,12 @@ export type FirstValueJourneyTeamState =
   | "ready"
   | "unavailable";
 
+export type FirstValueJourneyTeamDataStatus =
+  | "idle"
+  | "loading"
+  | "ready"
+  | "error";
+
 export type FirstValueJourneyMilestoneId =
   | "repertoire"
   | "firstScale"
@@ -57,6 +63,7 @@ export interface FirstValueJourneyInput {
   organizationId: string | undefined;
   loading: boolean;
   currentUserId?: string;
+  teamDataStatus?: FirstValueJourneyTeamDataStatus;
 }
 
 export interface MinimalDraftScale {
@@ -146,11 +153,45 @@ const getScaleTimestamp = (
     scale.date
   );
 
+const buildMilestones = (
+  currentEssentialStep: FirstValueJourneyStep,
+  completedEssentialSteps: number,
+  canManageMembers: boolean
+): FirstValueJourneyMilestone[] => [
+  {
+    id: 'repertoire',
+    status: completedEssentialSteps >= 1 ? 'completed' : 'current'
+  },
+  {
+    id: 'firstScale',
+    status: completedEssentialSteps >= 2 ? 'completed' : (currentEssentialStep === 'firstScale' ? 'current' : 'pending')
+  },
+  {
+    id: 'team',
+    status: !canManageMembers ? 'optional' : (completedEssentialSteps >= 3 ? 'completed' : (currentEssentialStep === 'team' ? 'current' : 'pending'))
+  },
+  {
+    id: 'publish',
+    status: currentEssentialStep === 'publish' ? 'current' : 'pending'
+  }
+];
+
 export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstValueJourneyOutput {
-  const { songs, scales, allUsers, canEditScales, canCreateSongs, canManageMembers, organizationId, loading, currentUserId } = input;
-  
+  const {
+    songs,
+    scales,
+    allUsers,
+    canEditScales,
+    canCreateSongs,
+    canManageMembers,
+    organizationId,
+    loading,
+    currentUserId,
+    teamDataStatus = 'ready'
+  } = input;
+
   const totalEssentialSteps = 4;
-  
+
   if (loading || !organizationId) {
     return {
       isEligible: false,
@@ -162,7 +203,7 @@ export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstV
       milestones: [],
       draftScale: null,
       hasTeam: false,
-      teamState: "empty",
+      teamState: "unavailable",
       teamSetupSummary: null,
       canManageMembers
     };
@@ -180,43 +221,39 @@ export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstV
       milestones: [],
       draftScale: null,
       hasTeam: false,
-      teamState: "empty",
+      teamState: "unavailable",
       teamSetupSummary: null,
       canManageMembers
     };
   }
 
   const hasSongs = Array.isArray(songs) && songs.length > 0;
-  
   const validScales = Array.isArray(scales) ? scales.filter(s => s.status !== 'cancelled') : [];
   const hasValidScales = validScales.length > 0;
-  
   const hasPublishedScale = validScales.some(s => s.status === 'published' || !s.status);
-  
-  const drafts = validScales.filter(s => s.status === 'draft');
-  const sortedDrafts = [...drafts].sort((a, b) => {
-    return getScaleTimestamp(b) - getScaleTimestamp(a);
-  });
 
+  const drafts = validScales.filter(s => s.status === 'draft');
+  const sortedDrafts = [...drafts].sort((a, b) => getScaleTimestamp(b) - getScaleTimestamp(a));
   const mostRecentDraft = sortedDrafts[0] || null;
 
-  const usersArray = Array.isArray(allUsers) ? allUsers : [];
-  // Usa evaluateTeamSetup para derivar estado da equipe
-  const teamSetupSummary = evaluateTeamSetup(usersArray, currentUserId);
-  
-  const hasTeam = teamSetupSummary.additionalMembers > 0;
+  const teamDataReady = teamDataStatus === 'ready';
+  const teamSetupSummary = teamDataReady
+    ? evaluateTeamSetup(Array.isArray(allUsers) ? allUsers : [], currentUserId)
+    : null;
+  const hasTeam = teamSetupSummary ? teamSetupSummary.additionalMembers > 0 : false;
 
-  let teamState: FirstValueJourneyTeamState = "empty";
-  if (!canManageMembers) {
-    teamState = "unavailable";
-  } else if (teamSetupSummary.isTeamConfigured) {
-    teamState = "ready";
-  } else if (teamSetupSummary.additionalMembers > 0 && teamSetupSummary.configuredMembers === 0) {
-    teamState = "incomplete";
-  } else if (teamSetupSummary.additionalMembers === 0) {
-    teamState = "empty";
+  let teamState: FirstValueJourneyTeamState = "unavailable";
+  if (teamDataReady && canManageMembers && teamSetupSummary) {
+    if (teamSetupSummary.isTeamConfigured) {
+      teamState = "ready";
+    } else if (teamSetupSummary.additionalMembers > 0 && teamSetupSummary.configuredMembers === 0) {
+      teamState = "incomplete";
+    } else if (teamSetupSummary.additionalMembers === 0) {
+      teamState = "empty";
+    }
   }
 
+  // Established organizations must never wait for team/user data.
   if (hasPublishedScale) {
     return {
       isEligible: true,
@@ -228,50 +265,105 @@ export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstV
       milestones: [],
       draftScale: null,
       hasTeam,
-      teamState,
+      teamState: canManageMembers ? teamState : "unavailable",
       teamSetupSummary,
       canManageMembers
     };
   }
 
-  let currentEssentialStep: FirstValueJourneyStep = 'repertoire';
-  let completedEssentialSteps = 0;
-
+  // These decisions do not depend on the team roster.
   if (!hasSongs) {
-    currentEssentialStep = 'repertoire';
-    completedEssentialSteps = 0;
-  } else if (!hasValidScales) {
-    currentEssentialStep = 'firstScale';
-    completedEssentialSteps = 1;
-  } else if (!canManageMembers) {
-    currentEssentialStep = 'publish';
-    completedEssentialSteps = 2;
-  } else if (!teamSetupSummary.isTeamConfigured) {
-    currentEssentialStep = 'team';
-    completedEssentialSteps = 2;
-  } else {
-    currentEssentialStep = 'publish';
-    completedEssentialSteps = 3;
+    const currentEssentialStep: FirstValueJourneyStep = 'repertoire';
+    return {
+      isEligible: true,
+      isLoading: false,
+      isCompleted: false,
+      currentEssentialStep,
+      completedEssentialSteps: 0,
+      totalEssentialSteps,
+      milestones: buildMilestones(currentEssentialStep, 0, canManageMembers),
+      draftScale: mostRecentDraft,
+      hasTeam,
+      teamState: canManageMembers ? teamState : "unavailable",
+      teamSetupSummary,
+      canManageMembers
+    };
   }
 
-  const milestones: FirstValueJourneyMilestone[] = [
-    {
-      id: 'repertoire',
-      status: completedEssentialSteps >= 1 ? 'completed' : 'current'
-    },
-    {
-      id: 'firstScale',
-      status: completedEssentialSteps >= 2 ? 'completed' : (currentEssentialStep === 'firstScale' ? 'current' : 'pending')
-    },
-    {
-      id: 'team',
-      status: !canManageMembers ? 'optional' : (completedEssentialSteps >= 3 ? 'completed' : (currentEssentialStep === 'team' ? 'current' : 'pending'))
-    },
-    {
-      id: 'publish',
-      status: currentEssentialStep === 'publish' ? 'current' : 'pending'
-    }
-  ];
+  if (!hasValidScales) {
+    const currentEssentialStep: FirstValueJourneyStep = 'firstScale';
+    return {
+      isEligible: true,
+      isLoading: false,
+      isCompleted: false,
+      currentEssentialStep,
+      completedEssentialSteps: 1,
+      totalEssentialSteps,
+      milestones: buildMilestones(currentEssentialStep, 1, canManageMembers),
+      draftScale: mostRecentDraft,
+      hasTeam,
+      teamState: canManageMembers ? teamState : "unavailable",
+      teamSetupSummary,
+      canManageMembers
+    };
+  }
+
+  if (!canManageMembers) {
+    const currentEssentialStep: FirstValueJourneyStep = 'publish';
+    return {
+      isEligible: true,
+      isLoading: false,
+      isCompleted: false,
+      currentEssentialStep,
+      completedEssentialSteps: 2,
+      totalEssentialSteps,
+      milestones: buildMilestones(currentEssentialStep, 2, false),
+      draftScale: mostRecentDraft,
+      hasTeam: false,
+      teamState: "unavailable",
+      teamSetupSummary: null,
+      canManageMembers
+    };
+  }
+
+  // Only the team-vs-publish branch waits for the users roster.
+  if (teamDataStatus === 'idle' || teamDataStatus === 'loading') {
+    return {
+      isEligible: true,
+      isLoading: true,
+      isCompleted: false,
+      currentEssentialStep: null,
+      completedEssentialSteps: 2,
+      totalEssentialSteps,
+      milestones: [],
+      draftScale: mostRecentDraft,
+      hasTeam: false,
+      teamState: "unavailable",
+      teamSetupSummary: null,
+      canManageMembers
+    };
+  }
+
+  // A users-query failure must not fabricate an empty team or freeze the Dashboard.
+  if (teamDataStatus === 'error' || !teamSetupSummary) {
+    return {
+      isEligible: false,
+      isLoading: false,
+      isCompleted: false,
+      currentEssentialStep: null,
+      completedEssentialSteps: 2,
+      totalEssentialSteps,
+      milestones: [],
+      draftScale: mostRecentDraft,
+      hasTeam: false,
+      teamState: "unavailable",
+      teamSetupSummary: null,
+      canManageMembers
+    };
+  }
+
+  const currentEssentialStep: FirstValueJourneyStep = teamSetupSummary.isTeamConfigured ? 'publish' : 'team';
+  const completedEssentialSteps = teamSetupSummary.isTeamConfigured ? 3 : 2;
 
   return {
     isEligible: true,
@@ -280,7 +372,7 @@ export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstV
     currentEssentialStep,
     completedEssentialSteps,
     totalEssentialSteps,
-    milestones,
+    milestones: buildMilestones(currentEssentialStep, completedEssentialSteps, canManageMembers),
     draftScale: mostRecentDraft,
     hasTeam,
     teamState,
