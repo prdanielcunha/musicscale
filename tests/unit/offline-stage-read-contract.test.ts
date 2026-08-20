@@ -58,8 +58,15 @@ describe('P3.5 offline stage read contract', () => {
     expect(providerSource).toContain('blockedByOnlineCanonicalErrorRef');
     expect(providerSource).toContain('if (isOffline || musicData.loading) return;');
     expect(providerSource).toContain('setOfflineFallbackActive(!blockedByOnlineCanonicalErrorRef.current);');
-    expect(providerSource).toContain('if (!musicData.loading) {');
-    expect(providerSource).toContain('setOfflineFallbackActive(false);');
+  });
+
+  it('holds an already-authorized offline fallback through reconnect revalidation only', () => {
+    expect(providerSource).toContain('reconnectGenerationRef');
+    expect(providerSource).toContain('reconnectPendingRef');
+    expect(providerSource).toContain('const preserveFallback = offlineFallbackActive;');
+    expect(providerSource).toContain('void musicData.refreshData().finally(() => {');
+    expect(providerSource).toContain('if (reconnectGenerationRef.current !== generation) return;');
+    expect(providerSource).toContain('if (reconnectPendingRef.current || reconnectPending)');
   });
 
   it('keeps member, role, instrument and band assignment data out of fallback context', () => {
@@ -74,7 +81,7 @@ describe('P3.5 offline stage read contract', () => {
   });
 
   it('refreshes canonical data after reconnect instead of treating IndexedDB as source of truth', () => {
-    expect(providerSource).toContain('if (wasOffline && !isOffline && userId && effectiveOrganizationId)');
-    expect(providerSource).toContain('void musicData.refreshData();');
+    expect(providerSource).toContain('if (wasOffline && userId && effectiveOrganizationId)');
+    expect(providerSource).toContain('void musicData.refreshData().finally(() => {');
   });
 });
