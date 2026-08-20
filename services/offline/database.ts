@@ -47,12 +47,17 @@ export class MusicScaleDatabase extends Dexie {
 
 export const offlineDB = new MusicScaleDatabase();
 
+// P3.2 diagnostic probe only: requiring an organizationId here lets the full
+// TypeScript/Vercel pipeline prove whether any compiled production caller still
+// depends on this legacy producer API. This branch is not intended for merge.
 export async function queueSyncOperation(
+  organizationId: string,
   entity: SyncOperation['entity'],
   action: SyncOperation['action'],
   documentId: string,
   data?: any
 ) {
+  void organizationId;
   await offlineDB.syncQueue.add({
     id: uuidv4(),
     entity,
