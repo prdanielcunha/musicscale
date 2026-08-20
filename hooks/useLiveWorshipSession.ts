@@ -4,25 +4,28 @@ import { useApi } from '../contexts/ApiContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCapability } from './useCapability';
 import type { LiveWorshipSession, WorshipCue } from '../types';
+import {
+    deriveLiveWorshipAuthority,
+    getActiveLiveWorshipSession,
+    type LiveWorshipSessionStatus,
+} from '../utils/liveWorshipAuthority';
 
-export type LiveWorshipSessionStatus = 'idle' | 'loading' | 'ready' | 'error';
+export type { LiveWorshipSessionStatus } from '../utils/liveWorshipAuthority';
 
 export function useLiveWorshipSession(scaleId?: string) {
     const api = useApi();
     const { user } = useAuth();
     const { hasCapability } = useCapability();
     const canManageLiveSession = hasCapability('musicscale.scales.manage');
-    const [liveSession, setLiveSession] = useState<LiveWorshipSession | null>(null);
-    const [isLeader, setIsLeader] = useState(false);
+    const [sessionRecord, setSessionRecord] = useState<LiveWorshipSession | null>(null);
     const [sessionStatus, setSessionStatus] = useState<LiveWorshipSessionStatus>('idle');
 
     useEffect(() => {
         let active = true;
 
-        // A tenant/scale/user transition must never keep leadership from the
-        // previous realtime subscription visible while the next one resolves.
-        setLiveSession(null);
-        setIsLeader(false);
+        // A tenant/scale/user transition must never expose the previous
+        // subscription while the next realtime scope resolves.
+        setSessionRecord(null);
 
         if (!api || !scaleId) {
             setSessionStatus('idle');
@@ -35,17 +38,13 @@ export function useLiveWorshipSession(scaleId?: string) {
         const unsubscribe = api.liveSessions.subscribe(
             (sessions) => {
                 if (!active) return;
-
-                const session = sessions[0] || null;
-                setLiveSession(session);
-                setIsLeader(!!session && !!user?.uid && session.leaderId === user.uid);
+                setSessionRecord(sessions[0] || null);
                 setSessionStatus('ready');
             },
             (error) => {
                 if (!active) return;
                 console.error('Error subscribing to live session:', error);
-                setLiveSession(null);
-                setIsLeader(false);
+                setSessionRecord(null);
                 setSessionStatus('error');
             },
             where('id', '==', scaleId),
@@ -57,73 +56,113 @@ export function useLiveWorshipSession(scaleId?: string) {
         };
     }, [api, scaleId, user?.uid]);
 
-    const activateSession = async (mode: 'worship' | 'rehearsal' = 'worship') => {
-        if (
-            !api ||
-            !scaleId ||
-            !user ||
-            !canManageLiveSession ||
-            sessionStatus !== 'ready' ||
-            (liveSession?.leaderId && liveSession.leaderId !== user.uid)
-        ) {
-            return;
-        }
+    const authority = deriveLiveWorshipAuthority({
+        session: sessionRecord,
+        status: sessionStatus,
+        userId: user?.uid,
+        canManageLiveSession,
+    });
+    const liveSession = getActiveLiveWorshipSession(sessionRecord, sessionStatus);
 
-        await api.upsertLiveSession(scaleId, {
-            mode,
-            leaderId: user.uid,
-            lastUpdated: Date.now(),
-        });
+    const activateSession = async (mode: 'worship' | 'rehearsal' = 'worship') => {
+        if (!api || !scaleId || !user || !authority.canStartLiveSession) return false;
+
+        try {
+            await api.upsertLiveSession(scaleId, {
+                mode,
+                leaderId: user.uid,
+                activeCue: null,
+                activeSongId: null,
+                lastUpdated: Date.now(),
+            });
+            return true;
+        } catch (error) {
+            console.error('Error activating live session:', error);
+            return false;
+        }
     };
 
     const deactivateSession = async () => {
-        if (!api || !scaleId || !canManageLiveSession || !isLeader || sessionStatus !== 'ready') return;
-        await api.upsertLiveSession(scaleId, { leaderId: null });
+        if (!api || !scaleId || !authority.canControlLiveSession) return false;
+        try {
+            await api.upsertLiveSession(scaleId, { leaderId: null, activeCue: null });
+            return true;
+        } catch (error) {
+            console.error('Error deactivating live session:', error);
+            return false;
+        }
     };
 
     const pushCue = async (cueType: WorshipCue['type'], message?: string) => {
-        if (!api || !scaleId || !canManageLiveSession || !isLeader || sessionStatus !== 'ready') return;
+        if (!api || !scaleId || !authority.canControlLiveSession) return false;
 
-        await api.upsertLiveSession(scaleId, {
-            activeCue: {
-                id: crypto.randomUUID(),
-                type: cueType,
-                message,
-                timestamp: Date.now(),
-            },
-        });
+        try {
+            await api.upsertLiveSession(scaleId, {
+                activeCue: {
+                    id: crypto.randomUUID(),
+                    type: cueType,
+                    message,
+                    timestamp: Date.now(),
+                },
+            });
+            return true;
+        } catch (error) {
+            console.error('Error pushing live cue:', error);
+            return false;
+        }
     };
 
     const changeSong = async (songId: string) => {
-        if (!api || !scaleId || !canManageLiveSession || !isLeader || sessionStatus !== 'ready') return;
+        if (!api || !scaleId || !authority.canControlLiveSession) return false;
 
-        await api.upsertLiveSession(scaleId, {
-            activeSongId: songId,
-        });
+        try {
+            await api.upsertLiveSession(scaleId, {
+                activeSongId: songId,
+            });
+            return true;
+        } catch (error) {
+            console.error('Error changing live song:', error);
+            return false;
+        }
     };
 
     const changeKeyOverride = async (songId: string, newKey: string) => {
-        if (!api || !scaleId || !canManageLiveSession || !isLeader || sessionStatus !== 'ready') return;
+        if (!api || !scaleId || !authority.canControlLiveSession) return false;
         const currentOverrides = liveSession?.keyOverrides || {};
-        await api.upsertLiveSession(scaleId, {
-            keyOverrides: {
-                ...currentOverrides,
-                [songId]: newKey,
-            },
-        });
+        try {
+            await api.upsertLiveSession(scaleId, {
+                keyOverrides: {
+                    ...currentOverrides,
+                    [songId]: newKey,
+                },
+            });
+            return true;
+        } catch (error) {
+            console.error('Error changing live key override:', error);
+            return false;
+        }
     };
 
     const updateSongsOrder = async (newOrder: string[]) => {
-        if (!api || !scaleId || !canManageLiveSession || !isLeader || sessionStatus !== 'ready') return;
-        await api.upsertLiveSession(scaleId, {
-            songsOrder: newOrder,
-        });
+        if (!api || !scaleId || !authority.canControlLiveSession) return false;
+        try {
+            await api.upsertLiveSession(scaleId, {
+                songsOrder: newOrder,
+            });
+            return true;
+        } catch (error) {
+            console.error('Error updating live song order:', error);
+            return false;
+        }
     };
 
     return {
         liveSession,
-        isLeader,
+        isLeader: authority.isLeader,
+        isLive: authority.isLive,
         canManageLiveSession,
+        canStartLiveSession: authority.canStartLiveSession,
+        canControlLiveSession: authority.canControlLiveSession,
         sessionStatus,
         activateSession,
         deactivateSession,
