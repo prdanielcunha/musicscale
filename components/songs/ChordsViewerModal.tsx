@@ -146,6 +146,9 @@ const defaultSettings = {
 };
 
 const MAX_AUTOSCROLL_FRAME_DELTA_MS = 100;
+const TAP_MOVEMENT_TOLERANCE_PX = 18;
+const DOUBLE_TAP_MAX_DISTANCE_PX = 36;
+const DOUBLE_TAP_INTERVAL_MS = 300;
 
 const ColorPicker: React.FC<{
   label: string;
@@ -308,6 +311,9 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const scaleRef = useRef<number>(1);
   const initialPinchDistRef = useRef<number | null>(null);
   const lastTapRef = useRef<number>(0);
+  const lastTapXRef = useRef<number | null>(null);
+  const lastTapYRef = useRef<number | null>(null);
+  const touchGestureHadMultiplePointersRef = useRef(false);
 
   const [isWorshipFlow, setIsWorshipFlow] = useState(false);
 
@@ -319,25 +325,44 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     }
   }, [liveSession?.mode]);
 
+  const clearTapCandidate = () => {
+    lastTapRef.current = 0;
+    lastTapXRef.current = null;
+    lastTapYRef.current = null;
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isAutoScrolling) {
       setIsAutoScrolling(false);
     }
 
     if (e.touches.length === 1) {
+      touchGestureHadMultiplePointersRef.current = false;
       touchStartXRef.current = e.touches[0].clientX;
       touchStartYRef.current = e.touches[0].clientY;
-    } else if (e.touches.length === 2) {
-      const dist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY,
-      );
-      initialPinchDistRef.current = dist;
-      scaleRef.current = settings.fontSize;
+    } else {
+      touchGestureHadMultiplePointersRef.current = true;
+      touchStartXRef.current = null;
+      touchStartYRef.current = null;
+      clearTapCandidate();
+
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY,
+        );
+        initialPinchDistRef.current = dist;
+        scaleRef.current = settings.fontSize;
+      }
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length > 1) {
+      touchGestureHadMultiplePointersRef.current = true;
+      clearTapCandidate();
+    }
+
     if (e.touches.length === 2 && initialPinchDistRef.current !== null) {
       e.preventDefault();
       const currentDist = Math.hypot(
@@ -362,31 +387,73 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const handleTouchEnd = (e: React.TouchEvent) => {
     initialPinchDistRef.current = null;
 
-    const now = Date.now();
-    if (now - lastTapRef.current < 300 && e.changedTouches.length === 1) {
-      setIsWorshipFlow((prev) => {
-        const next = !prev;
-        if (next) {
-          setShowWorshipFlowBadge(true);
-          setTimeout(() => setShowWorshipFlowBadge(false), 3000);
-        }
-        return next;
-      });
-      if (!document.fullscreenElement && !isWorshipFlow) {
-        toggleFullscreen();
+    const finishTouchGesture = () => {
+      touchStartXRef.current = null;
+      touchStartYRef.current = null;
+      if (e.touches.length === 0) {
+        touchGestureHadMultiplePointersRef.current = false;
       }
-      lastTapRef.current = 0;
+    };
+
+    const changedTouch = e.changedTouches[0];
+    if (
+      !changedTouch ||
+      touchGestureHadMultiplePointersRef.current ||
+      touchStartXRef.current === null ||
+      touchStartYRef.current === null
+    ) {
+      clearTapCandidate();
+      finishTouchGesture();
       return;
     }
-    lastTapRef.current = now;
 
-    if (touchStartXRef.current === null || touchStartYRef.current === null)
-      return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-
+    const touchEndX = changedTouch.clientX;
+    const touchEndY = changedTouch.clientY;
     const deltaX = touchEndX - touchStartXRef.current;
     const deltaY = touchEndY - touchStartYRef.current;
+    const movement = Math.hypot(deltaX, deltaY);
+    const isStationaryTap = movement <= TAP_MOVEMENT_TOLERANCE_PX;
+
+    const now = Date.now();
+    if (isStationaryTap) {
+      const hasPreviousTap =
+        lastTapRef.current > 0 &&
+        lastTapXRef.current !== null &&
+        lastTapYRef.current !== null;
+      const previousTapDistance = hasPreviousTap
+        ? Math.hypot(
+            touchEndX - lastTapXRef.current!,
+            touchEndY - lastTapYRef.current!,
+          )
+        : Number.POSITIVE_INFINITY;
+
+      if (
+        hasPreviousTap &&
+        now - lastTapRef.current < DOUBLE_TAP_INTERVAL_MS &&
+        previousTapDistance <= DOUBLE_TAP_MAX_DISTANCE_PX
+      ) {
+        setIsWorshipFlow((prev) => {
+          const next = !prev;
+          if (next) {
+            setShowWorshipFlowBadge(true);
+            setTimeout(() => setShowWorshipFlowBadge(false), 3000);
+          }
+          return next;
+        });
+        if (!document.fullscreenElement && !isWorshipFlow) {
+          toggleFullscreen();
+        }
+        clearTapCandidate();
+        finishTouchGesture();
+        return;
+      }
+
+      lastTapRef.current = now;
+      lastTapXRef.current = touchEndX;
+      lastTapYRef.current = touchEndY;
+    } else {
+      clearTapCandidate();
+    }
 
     const swipeThreshold = isWorshipFlow ? 120 : 60;
     const maxVerticalDrift = 60;
@@ -405,8 +472,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         onNavigate("next");
       }
     }
-    touchStartXRef.current = null;
-    touchStartYRef.current = null;
+    finishTouchGesture();
   };
 
   useEffect(() => {
