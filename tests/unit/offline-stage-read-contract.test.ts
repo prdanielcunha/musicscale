@@ -29,16 +29,37 @@ describe('P3.5 offline stage read contract', () => {
     expect(databaseSource).not.toContain('this.version(2)');
   });
 
-  it('requires canonical organization context before reading or writing the stage cache', () => {
-    expect(providerSource).toContain('const { effectiveOrganizationId } = useAuth();');
-    expect(providerSource).toContain('if (!organizationId) return;');
+  it('requires canonical user and organization context before reading or writing stage cache', () => {
+    expect(providerSource).toContain('const { user, effectiveOrganizationId } = useAuth();');
+    expect(providerSource).toContain('const userId = user?.uid;');
+    expect(providerSource).toContain('if (!userId || !organizationId) return;');
+    expect(providerSource).toContain('offlineSnapshot?.userId === userId');
     expect(providerSource).toContain('offlineSnapshot?.organizationId === effectiveOrganizationId');
+    expect(cacheSource).toContain('row.userId === userId');
+    expect(cacheSource).toContain('row.organizationId === organizationId');
   });
 
   it('refuses mixed tenant canonical data before persistence', () => {
     expect(providerSource).toContain('song.organizationId === organizationId');
     expect(providerSource).toContain('scaleOrganizationId === organizationId');
     expect(providerSource).toContain('Refusing to persist stage cache with mixed tenant data.');
+    expect(cacheSource).toContain('isScaleProvenForOrganization');
+  });
+
+  it('inherits canonical cache age instead of rejuvenating stale stage data', () => {
+    expect(providerSource).toContain('readMusicDataCache<any>');
+    expect(providerSource).toContain('const sourceIssuedAt = sourceReadAt - sourceCache.ageMs;');
+    expect(providerSource).toContain('sourceIssuedAt,');
+    expect(cacheSource).toContain('STAGE_CACHE_MAX_AGE_MS');
+    expect(cacheSource).toContain('isValidTimestamp(updatedAt, Date.now())');
+  });
+
+  it('never turns an online canonical failure into cache-backed authorization', () => {
+    expect(providerSource).toContain('blockedByOnlineCanonicalErrorRef');
+    expect(providerSource).toContain('if (isOffline || musicData.loading) return;');
+    expect(providerSource).toContain('setOfflineFallbackActive(!blockedByOnlineCanonicalErrorRef.current);');
+    expect(providerSource).toContain('if (!musicData.loading) {');
+    expect(providerSource).toContain('setOfflineFallbackActive(false);');
   });
 
   it('keeps member, role, instrument and band assignment data out of fallback context', () => {
@@ -53,7 +74,7 @@ describe('P3.5 offline stage read contract', () => {
   });
 
   it('refreshes canonical data after reconnect instead of treating IndexedDB as source of truth', () => {
-    expect(providerSource).toContain('if (wasOffline && !isOffline && effectiveOrganizationId)');
+    expect(providerSource).toContain('if (wasOffline && !isOffline && userId && effectiveOrganizationId)');
     expect(providerSource).toContain('void musicData.refreshData();');
   });
 });
