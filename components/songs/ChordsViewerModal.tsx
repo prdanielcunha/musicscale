@@ -145,6 +145,8 @@ const defaultSettings = {
   chordsColorIndex: 0,
 };
 
+const MAX_AUTOSCROLL_FRAME_DELTA_MS = 100;
+
 const ColorPicker: React.FC<{
   label: string;
   colors: string[];
@@ -525,6 +527,21 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<number | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const resetAutoScrollClock = () => {
+      lastTimeRef.current = undefined;
+      if (scrollContainerRef.current) {
+        scrollPosRef.current = scrollContainerRef.current.scrollTop;
+      }
+    };
+
+    document.addEventListener("visibilitychange", resetAutoScrollClock);
+    return () =>
+      document.removeEventListener("visibilitychange", resetAutoScrollClock);
+  }, [isOpen]);
+
   const [activeSection, setActiveSection] = useState<string>("");
   const sectionRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
 
@@ -676,7 +693,10 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       if (!scrollContainer) return;
       
       if (lastTimeRef.current === undefined) lastTimeRef.current = timestamp;
-      const elapsed = timestamp - lastTimeRef.current;
+      const elapsed = Math.min(
+        Math.max(timestamp - lastTimeRef.current, 0),
+        MAX_AUTOSCROLL_FRAME_DELTA_MS,
+      );
 
       const pxPerSecond = speedLevel > 0 ? 15 + Math.pow(speedLevel, 2.2) * 8 : 0;
       const scrollDelta = (pxPerSecond / 1000) * elapsed;
@@ -948,9 +968,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                   <button
                     className="w-8 h-8 rounded-full flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 font-bold transition-colors"
                     onClick={() =>
-                      handleSettingsChange({
-                        fontSize: Math.min(48, settings.fontSize + 1),
-                      })
+                      handleSettingsChange({ fontSize: Math.min(48, settings.fontSize + 1) })
                     }
                   >
                     A+
@@ -963,9 +981,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                   <button
                     key={f.class}
                     className={`flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${settings.fontFamily === f.class ? "bg-[#2C2C2E] text-white shadow-md shadow-black/50" : "text-white/50 hover:text-white/80"}`}
-                    onClick={() =>
-                      handleSettingsChange({ fontFamily: f.class })
-                    }
+                    onClick={() => handleSettingsChange({ fontFamily: f.class })}
                   >
                     {f.name}
                   </button>
@@ -1000,21 +1016,13 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                   label="Cor da Letra"
                   colors={lyricsPalette}
                   selectedColor={activeLyricsColor}
-                  onSelect={(c) =>
-                    handleSettingsChange({
-                      lyricsColorIndex: lyricsPalette.indexOf(c) || 0,
-                    })
-                  }
+                  onSelect={(c) => handleSettingsChange({ lyricsColorIndex: lyricsPalette.indexOf(c) || 0 })}
                 />
                 <ColorPicker
                   label="Cor da Cifra"
                   colors={chordsPalette}
                   selectedColor={activeChordsColor}
-                  onSelect={(c) =>
-                    handleSettingsChange({
-                      chordsColorIndex: chordsPalette.indexOf(c) || 0,
-                    })
-                  }
+                  onSelect={(c) => handleSettingsChange({ chordsColorIndex: chordsPalette.indexOf(c) || 0 })}
                 />
               </div>
 
