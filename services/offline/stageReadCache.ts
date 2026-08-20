@@ -17,6 +17,7 @@ const FUTURE_CLOCK_SKEW_MS = 5 * 60 * 1000;
 interface StageCacheRow<T> {
   id: string;
   entityId: string;
+  userId: string;
   organizationId: string;
   version: number;
   updatedAt: number;
@@ -44,8 +45,8 @@ const EMPTY_ACTOR: CreatedBy = {
   photoURL: null,
 };
 
-function cacheKey(organizationId: string, entityId: string): string {
-  return `${organizationId}::${entityId}`;
+function cacheKey(userId: string, organizationId: string, entityId: string): string {
+  return `${userId}::${organizationId}::${entityId}`;
 }
 
 function sanitizeNamedResource<T extends { id: string; name: string }>(resource: T): T {
@@ -136,13 +137,15 @@ function isValidTimestamp(updatedAt: unknown, now: number): updatedAt is number 
 
 function isValidSongRow(
   row: StageCacheRow<PopulatedSong>,
+  userId: string,
   organizationId: string,
   now: number,
 ): boolean {
   return (
     row?.version === STAGE_CACHE_VERSION &&
+    row.userId === userId &&
     row.organizationId === organizationId &&
-    row.id === cacheKey(organizationId, row.entityId) &&
+    row.id === cacheKey(userId, organizationId, row.entityId) &&
     isValidTimestamp(row.updatedAt, now) &&
     !!row.data &&
     row.data.id === row.entityId &&
@@ -152,14 +155,16 @@ function isValidSongRow(
 
 function isValidScaleRow(
   row: StageCacheRow<PopulatedScale>,
+  userId: string,
   organizationId: string,
   now: number,
 ): boolean {
   const dataOrgId = (row?.data as PopulatedScale & { organizationId?: string } | undefined)?.organizationId;
   return (
     row?.version === STAGE_CACHE_VERSION &&
+    row.userId === userId &&
     row.organizationId === organizationId &&
-    row.id === cacheKey(organizationId, row.entityId) &&
+    row.id === cacheKey(userId, organizationId, row.entityId) &&
     isValidTimestamp(row.updatedAt, now) &&
     !!row.data &&
     row.data.id === row.entityId &&
@@ -183,12 +188,13 @@ function isScaleProvenForOrganization(
 }
 
 export async function writeOfflineStageReadCache(
+  userId: string,
   organizationId: string,
   songs: PopulatedSong[],
   populatedScales: PopulatedScale[],
-  now = Date.now(),
+  updatedAt = Date.now(),
 ): Promise<void> {
-  if (!organizationId) return;
+  if (!userId || !organizationId || !isValidTimestamp(updatedAt, Date.now())) return;
 
   const sanitizedSongs = songs
     .filter((song) => song?.id && song.organizationId === organizationId)
@@ -198,21 +204,23 @@ export async function writeOfflineStageReadCache(
     .map((scale) => sanitizeStageScale(scale, organizationId));
 
   const songRows: StageCacheRow<PopulatedSong>[] = sanitizedSongs.map((song) => ({
-    id: cacheKey(organizationId, song.id),
+    id: cacheKey(userId, organizationId, song.id),
     entityId: song.id,
+    userId,
     organizationId,
     version: STAGE_CACHE_VERSION,
-    updatedAt: now,
+    updatedAt,
     data: song,
     title: song.title,
     author: song.artist,
   }));
   const scaleRows: StageCacheRow<PopulatedScale>[] = sanitizedScales.map((scale) => ({
-    id: cacheKey(organizationId, scale.id),
+    id: cacheKey(userId, organizationId, scale.id),
     entityId: scale.id,
+    userId,
     organizationId,
     version: STAGE_CACHE_VERSION,
-    updatedAt: now,
+    updatedAt,
     data: scale,
     date: scale.date,
     eventTypeId: scale.eventType?.id,
@@ -225,11 +233,11 @@ export async function writeOfflineStageReadCache(
     ]);
 
     const priorSongKeys = existingSongs
-      .filter((row: any) => row?.organizationId === organizationId)
+      .filter((row: any) => row?.userId === userId && row?.organizationId === organizationId)
       .map((row: any) => row.id)
       .filter((id: unknown): id is string => typeof id === 'string');
     const priorScaleKeys = existingScales
-      .filter((row: any) => row?.organizationId === organizationId)
+      .filter((row: any) => row?.userId === userId && row?.organizationId === organizationId)
       .map((row: any) => row.id)
       .filter((id: unknown): id is string => typeof id === 'string');
 
@@ -241,36 +249,37 @@ export async function writeOfflineStageReadCache(
 }
 
 export async function readOfflineStageReadCache(
+  userId: string,
   organizationId: string,
   now = Date.now(),
 ): Promise<OfflineStageReadSnapshot | null> {
-  if (!organizationId) return null;
+  if (!userId || !organizationId) return null;
 
   const [allSongRows, allScaleRows] = await Promise.all([
     offlineDB.cachedSongs.toArray(),
     offlineDB.cachedScales.toArray(),
   ]);
 
-  const organizationSongRows = allSongRows.filter(
-    (row: any) => row?.organizationId === organizationId,
+  const scopedSongRows = allSongRows.filter(
+    (row: any) => row?.userId === userId && row?.organizationId === organizationId,
   ) as StageCacheRow<PopulatedSong>[];
-  const organizationScaleRows = allScaleRows.filter(
-    (row: any) => row?.organizationId === organizationId,
+  const scopedScaleRows = allScaleRows.filter(
+    (row: any) => row?.userId === userId && row?.organizationId === organizationId,
   ) as StageCacheRow<PopulatedScale>[];
 
-  if (organizationSongRows.length === 0 && organizationScaleRows.length === 0) {
+  if (scopedSongRows.length === 0 && scopedScaleRows.length === 0) {
     return null;
   }
 
   if (
-    organizationSongRows.some((row) => !isValidSongRow(row, organizationId, now)) ||
-    organizationScaleRows.some((row) => !isValidScaleRow(row, organizationId, now))
+    scopedSongRows.some((row) => !isValidSongRow(row, userId, organizationId, now)) ||
+    scopedScaleRows.some((row) => !isValidScaleRow(row, userId, organizationId, now))
   ) {
     return null;
   }
 
-  const songs = organizationSongRows.map((row) => row.data);
-  const populatedScales = organizationScaleRows
+  const songs = scopedSongRows.map((row) => row.data);
+  const populatedScales = scopedScaleRows
     .map((row) => row.data)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
@@ -281,8 +290,8 @@ export async function readOfflineStageReadCache(
   );
   const tags = uniqueById(songs.flatMap((song) => song.tags || []));
   const timestamps = [
-    ...organizationSongRows.map((row) => row.updatedAt),
-    ...organizationScaleRows.map((row) => row.updatedAt),
+    ...scopedSongRows.map((row) => row.updatedAt),
+    ...scopedScaleRows.map((row) => row.updatedAt),
   ];
 
   return {
