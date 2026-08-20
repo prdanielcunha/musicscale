@@ -46,7 +46,10 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
   const userId = user?.uid;
   const [offlineSnapshot, setOfflineSnapshot] = useState<ScopedOfflineSnapshot | null>(null);
   const [offlineFallbackActive, setOfflineFallbackActive] = useState(false);
+  const [reconnectPending, setReconnectPending] = useState(false);
   const cacheReadGenerationRef = useRef(0);
+  const reconnectGenerationRef = useRef(0);
+  const reconnectPendingRef = useRef(false);
   const wasOfflineRef = useRef(isOffline);
   const blockedByOnlineCanonicalErrorRef = useRef(false);
 
@@ -56,6 +59,9 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     const generation = ++cacheReadGenerationRef.current;
     const organizationId = effectiveOrganizationId;
 
+    reconnectGenerationRef.current++;
+    reconnectPendingRef.current = false;
+    setReconnectPending(false);
     setOfflineSnapshot(null);
     setOfflineFallbackActive(false);
     if (!userId || !organizationId) return;
@@ -148,9 +154,43 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     blockedByOnlineCanonicalErrorRef.current = !!musicData.error;
   }, [isOffline, musicData.loading, musicData.error]);
 
+  // Reconnect is an explicit revalidation window. If stage fallback was already
+  // active while offline, preserve it until refreshData settles. Scope changes
+  // invalidate the generation so a late refresh cannot hold another context.
+  useEffect(() => {
+    const wasOffline = wasOfflineRef.current;
+    wasOfflineRef.current = isOffline;
+
+    if (isOffline) {
+      reconnectGenerationRef.current++;
+      reconnectPendingRef.current = false;
+      setReconnectPending(false);
+      return;
+    }
+
+    if (wasOffline && userId && effectiveOrganizationId) {
+      const generation = ++reconnectGenerationRef.current;
+      const preserveFallback = offlineFallbackActive;
+      reconnectPendingRef.current = preserveFallback;
+      setReconnectPending(preserveFallback);
+
+      void musicData.refreshData().finally(() => {
+        if (reconnectGenerationRef.current !== generation) return;
+        reconnectPendingRef.current = false;
+        setReconnectPending(false);
+      });
+    }
+  }, [
+    isOffline,
+    userId,
+    effectiveOrganizationId,
+    musicData.refreshData,
+    offlineFallbackActive,
+  ]);
+
   // Once a fallback becomes necessary while genuinely offline, keep it visible
   // through the reconnect refresh. Release it as soon as canonical data is
-  // healthy, or when an online refresh settles with an error.
+  // healthy, or when an online refresh has settled with an error.
   useEffect(() => {
     const hasScopedSnapshot =
       offlineSnapshot?.userId === userId &&
@@ -171,39 +211,36 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
       return;
     }
 
+    if (reconnectPendingRef.current || reconnectPending) {
+      return;
+    }
+
     if (!musicData.loading) {
       setOfflineFallbackActive(false);
     }
-    // online + loading intentionally preserves the previous value during the
-    // reconnect refresh so the stage view does not blank between states.
   }, [
     offlineSnapshot,
     userId,
     effectiveOrganizationId,
     isOffline,
+    reconnectPending,
     musicData.loading,
     musicData.error,
   ]);
 
-  // A reconnect revalidates against canonical Firestore data. Cached stage
-  // content remains visible only while that canonical refresh is still loading.
   useEffect(() => {
-    const wasOffline = wasOfflineRef.current;
-    wasOfflineRef.current = isOffline;
-
-    if (wasOffline && !isOffline && userId && effectiveOrganizationId) {
-      void musicData.refreshData();
-    }
-  }, [isOffline, userId, effectiveOrganizationId, musicData.refreshData]);
-
-  useEffect(() => {
-    if (!isOffline && !musicData.loading) {
+    if (
+      !isOffline &&
+      !musicData.loading &&
+      !reconnectPendingRef.current &&
+      !reconnectPending
+    ) {
       if (!musicData.error) {
         setOfflineSnapshot(null);
       }
       setOfflineFallbackActive(false);
     }
-  }, [isOffline, musicData.loading, musicData.error]);
+  }, [isOffline, reconnectPending, musicData.loading, musicData.error]);
 
   const contextValue = useMemo<MusicDataContextType>(() => {
     const scopedOfflineData =
