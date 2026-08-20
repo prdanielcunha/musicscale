@@ -8,6 +8,7 @@ import {
   writeOfflineStageReadCache,
   type OfflineStageReadSnapshot,
 } from '../services/offline/stageReadCache';
+import { readMusicDataCache } from '../lib/musicDataCache';
 import { logger } from '../lib/logger';
 
 interface MusicDataContextType {
@@ -33,33 +34,36 @@ interface MusicDataContextType {
 const MusicDataContext = createContext<MusicDataContextType | undefined>(undefined);
 
 interface ScopedOfflineSnapshot {
+  userId: string;
   organizationId: string;
   data: OfflineStageReadSnapshot;
 }
 
 export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const musicData = useMusicData();
-  const { effectiveOrganizationId } = useAuth();
+  const { user, effectiveOrganizationId } = useAuth();
   const { isOffline } = useOffline();
+  const userId = user?.uid;
   const [offlineSnapshot, setOfflineSnapshot] = useState<ScopedOfflineSnapshot | null>(null);
   const [offlineFallbackActive, setOfflineFallbackActive] = useState(false);
   const cacheReadGenerationRef = useRef(0);
   const wasOfflineRef = useRef(isOffline);
+  const blockedByOnlineCanonicalErrorRef = useRef(false);
 
-  // IndexedDB is a read fallback only. It never establishes tenant authority:
-  // the active organization must already come from the canonical auth context.
+  // IndexedDB is a read fallback only. It never establishes user or tenant
+  // authority: both scopes must already come from the canonical auth context.
   useEffect(() => {
     const generation = ++cacheReadGenerationRef.current;
     const organizationId = effectiveOrganizationId;
 
     setOfflineSnapshot(null);
     setOfflineFallbackActive(false);
-    if (!organizationId) return;
+    if (!userId || !organizationId) return;
 
-    void readOfflineStageReadCache(organizationId)
+    void readOfflineStageReadCache(userId, organizationId)
       .then((snapshot) => {
         if (cacheReadGenerationRef.current !== generation) return;
-        setOfflineSnapshot(snapshot ? { organizationId, data: snapshot } : null);
+        setOfflineSnapshot(snapshot ? { userId, organizationId, data: snapshot } : null);
       })
       .catch((error) => {
         if (cacheReadGenerationRef.current !== generation) return;
@@ -72,13 +76,14 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
         cacheReadGenerationRef.current++;
       }
     };
-  }, [effectiveOrganizationId]);
+  }, [userId, effectiveOrganizationId]);
 
   // Persist only already-authorized, tenant-proven canonical read data. The
-  // cache service removes member/role/audit actors and band assignments.
+  // stage cache inherits the issuedAt of the canonical UID+tenant cache instead
+  // of becoming artificially newer every time the provider mounts.
   useEffect(() => {
     const organizationId = effectiveOrganizationId;
-    if (!organizationId || isOffline || musicData.loading || musicData.error) return;
+    if (!userId || !organizationId || isOffline || musicData.loading || musicData.error) return;
 
     const songsAreScoped = musicData.songs.every(
       (song) => song.organizationId === organizationId,
@@ -97,10 +102,28 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
 
     const timer = window.setTimeout(() => {
+      const sourceReadAt = Date.now();
+      const sourceCache = readMusicDataCache<any>(
+        window.localStorage,
+        userId,
+        organizationId,
+        sourceReadAt,
+      );
+
+      if (
+        (sourceCache.status !== 'fresh' && sourceCache.status !== 'stale') ||
+        !sourceCache.data
+      ) {
+        return;
+      }
+
+      const sourceIssuedAt = sourceReadAt - sourceCache.ageMs;
       void writeOfflineStageReadCache(
+        userId,
         organizationId,
         musicData.songs,
         musicData.populatedScales,
+        sourceIssuedAt,
       ).catch((error) => {
         logger.warn('[MusicDataProvider] Offline stage cache write failed.', error);
       });
@@ -108,6 +131,7 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
 
     return () => window.clearTimeout(timer);
   }, [
+    userId,
     effectiveOrganizationId,
     isOffline,
     musicData.loading,
@@ -116,25 +140,45 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     musicData.populatedScales,
   ]);
 
-  // Once a fallback becomes necessary, keep it visible through the reconnect
-  // refresh. It is released only after canonical data is healthy again.
+  // A canonical error observed while online may represent permission-denied or
+  // another current authority failure. Going offline afterwards must never turn
+  // that denial into cache-backed access. A healthy canonical read clears it.
   useEffect(() => {
-    const hasScopedSnapshot = offlineSnapshot?.organizationId === effectiveOrganizationId;
+    if (isOffline || musicData.loading) return;
+    blockedByOnlineCanonicalErrorRef.current = !!musicData.error;
+  }, [isOffline, musicData.loading, musicData.error]);
+
+  // Once a fallback becomes necessary while genuinely offline, keep it visible
+  // through the reconnect refresh. Release it as soon as canonical data is
+  // healthy, or when an online refresh settles with an error.
+  useEffect(() => {
+    const hasScopedSnapshot =
+      offlineSnapshot?.userId === userId &&
+      offlineSnapshot?.organizationId === effectiveOrganizationId;
+
     if (!hasScopedSnapshot) {
       setOfflineFallbackActive(false);
       return;
     }
 
-    if (musicData.error || (isOffline && musicData.loading)) {
-      setOfflineFallbackActive(true);
+    if (!musicData.loading && !musicData.error) {
+      setOfflineFallbackActive(false);
       return;
     }
 
-    if (!musicData.loading && !musicData.error) {
+    if (isOffline) {
+      setOfflineFallbackActive(!blockedByOnlineCanonicalErrorRef.current);
+      return;
+    }
+
+    if (!musicData.loading) {
       setOfflineFallbackActive(false);
     }
+    // online + loading intentionally preserves the previous value during the
+    // reconnect refresh so the stage view does not blank between states.
   }, [
     offlineSnapshot,
+    userId,
     effectiveOrganizationId,
     isOffline,
     musicData.loading,
@@ -142,24 +186,28 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
   ]);
 
   // A reconnect revalidates against canonical Firestore data. Cached stage
-  // content remains visible if it had already become the active fallback.
+  // content remains visible only while that canonical refresh is still loading.
   useEffect(() => {
     const wasOffline = wasOfflineRef.current;
     wasOfflineRef.current = isOffline;
 
-    if (wasOffline && !isOffline && effectiveOrganizationId) {
+    if (wasOffline && !isOffline && userId && effectiveOrganizationId) {
       void musicData.refreshData();
     }
-  }, [isOffline, effectiveOrganizationId, musicData.refreshData]);
+  }, [isOffline, userId, effectiveOrganizationId, musicData.refreshData]);
 
   useEffect(() => {
-    if (!isOffline && !musicData.loading && !musicData.error) {
-      setOfflineSnapshot(null);
+    if (!isOffline && !musicData.loading) {
+      if (!musicData.error) {
+        setOfflineSnapshot(null);
+      }
+      setOfflineFallbackActive(false);
     }
   }, [isOffline, musicData.loading, musicData.error]);
 
   const contextValue = useMemo<MusicDataContextType>(() => {
     const scopedOfflineData =
+      offlineSnapshot?.userId === userId &&
       offlineSnapshot?.organizationId === effectiveOrganizationId
         ? offlineSnapshot.data
         : null;
@@ -187,7 +235,13 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
       loading: false,
       error: null,
     };
-  }, [musicData, offlineSnapshot, effectiveOrganizationId, offlineFallbackActive]);
+  }, [
+    musicData,
+    offlineSnapshot,
+    userId,
+    effectiveOrganizationId,
+    offlineFallbackActive,
+  ]);
 
   return (
     <MusicDataContext.Provider value={contextValue}>
