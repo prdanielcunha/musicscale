@@ -1,14 +1,12 @@
-import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore';
-import { db } from '../firebase';
 import { offlineDB } from './database';
 import { ecosystemBridge } from '../ecosystem/EcosystemBridge';
 
 export class ScaleRetentionService {
   private static instance: ScaleRetentionService;
-  
-  // Rule: Keep only the scales from the last 6 months (about 180 days)
+
+  // Local cache rule: keep scales from the last 6 months.
   private readonly RETENTION_MONTHS = 6;
-  // Safety window: never delete scales newer than this many days, to ensure timezone/leap year anomalies don't wipe recent active scales
+  // Never remove cache entries newer than this safety window.
   private readonly SAFETY_DAYS = 170;
 
   private constructor() {}
@@ -22,111 +20,79 @@ export class ScaleRetentionService {
 
   public async runRetentionCleanup(orgId: string): Promise<void> {
     if (!orgId) return;
-    
-    if (!navigator.onLine) {
-       console.debug('[RetentionService] Offline, skipping retention cleanup.');
-       return;
-    }
 
     try {
       const now = new Date();
-      const cutoffDate = new Date(now.setMonth(now.getMonth() - this.RETENTION_MONTHS));
+      const cutoffDate = new Date(now);
+      cutoffDate.setMonth(cutoffDate.getMonth() - this.RETENTION_MONTHS);
       const cutoffIsoString = cutoffDate.toISOString().split('T')[0];
 
-      // Extremely basic safety check to prevent logic bugs wiping db
-      const safetyCheckDate = new Date();
+      const safetyCheckDate = new Date(now);
       safetyCheckDate.setDate(safetyCheckDate.getDate() - this.SAFETY_DAYS);
       const safetyIsoString = safetyCheckDate.toISOString().split('T')[0];
-      
+
       if (cutoffIsoString >= safetyIsoString) {
-          console.warn('[RetentionService] Safety check failed. Cutoff date is too close to today.', { cutoffIsoString, safetyIsoString });
-          return;
+        console.warn('[RetentionService] Safety check failed. Cutoff date is too close to today.', { cutoffIsoString, safetyIsoString });
+        return;
       }
 
-      console.info(`[RetentionService] Starting cleanup for organization ${orgId}. Cutoff date: ${cutoffIsoString}`);
+      console.info(`[RetentionService] Starting local cache cleanup for organization ${orgId}. Cutoff date: ${cutoffIsoString}`);
 
-      const musicScalesDeleted = await this.cleanupCollection(orgId, 'scales', cutoffIsoString);
-      const bandScalesDeleted = await this.cleanupCollection(orgId, 'bandScales', cutoffIsoString);
-      
-      if (musicScalesDeleted > 0 || bandScalesDeleted > 0) {
-         ecosystemBridge.publishEvent({
-            type: 'telemetry',
-            payload: {
-               action: 'retention_cleanup',
-               musicScalesDeleted,
-               bandScalesDeleted,
-               orgId,
-               cutoffIsoString
-            },
-            timestamp: Date.now()
-         });
-         console.info(`[RetentionService] Cleanup complete. Removed ${musicScalesDeleted} music scales and ${bandScalesDeleted} band scales.`);
+      const cachedScalesDeleted = await this.cleanupLocalScales(orgId, cutoffIsoString);
+
+      if (cachedScalesDeleted > 0) {
+        ecosystemBridge.publishEvent({
+          type: 'telemetry',
+          payload: {
+            action: 'retention_cleanup',
+            cachedScalesDeleted,
+            orgId,
+            cutoffIsoString
+          },
+          timestamp: Date.now()
+        });
+        console.info(`[RetentionService] Local cache cleanup complete. Removed ${cachedScalesDeleted} cached scales.`);
       }
-
     } catch (error) {
-      console.error('[RetentionService] Error during retention cleanup:', error);
+      console.error('[RetentionService] Error during local cache cleanup:', error);
       ecosystemBridge.publishEvent({
         type: 'error',
         payload: {
-            type: 'retention_cleanup_error',
-            message: error instanceof Error ? error.message : String(error)
+          type: 'retention_cleanup_error',
+          message: error instanceof Error ? error.message : String(error)
         },
         timestamp: Date.now()
       });
     }
   }
 
-  private async cleanupCollection(orgId: string, collectionName: 'scales' | 'bandScales', cutoffIsoString: string): Promise<number> {
-    const scalesRef = collection(db, collectionName);
-    
-    // Using date string since eventDate might map to "date" in the entity.
-    // In our types.ts: Scale has `date: string`.
-    const q = query(scalesRef, where('organizationId', '==', orgId));
-    const snapshot = await getDocs(q);
+  private async cleanupLocalScales(orgId: string, cutoffIsoString: string): Promise<number> {
+    const cachedScales = await offlineDB.cachedScales.toArray();
+    const idsToDelete = cachedScales
+      .filter((scale) => (
+        typeof scale?.id === 'string' &&
+        scale.id.length > 0 &&
+        typeof scale.organizationId === 'string' &&
+        scale.organizationId === orgId &&
+        this.isValidIsoDate(scale.date) &&
+        scale.date < cutoffIsoString
+      ))
+      .map((scale) => scale.id as string);
 
-    const matchDocs = snapshot.docs.filter(doc => {
-       const data = doc.data();
-       return data.date && data.date < cutoffIsoString;
-    });
-
-    if (matchDocs.length === 0) {
-      return 0;
+    if (idsToDelete.length > 0) {
+      await offlineDB.cachedScales.bulkDelete(idsToDelete);
     }
 
-    let deletedCount = 0;
-    
-    // Firestore max batch size is 500, we use safe chunks
-    const chunkArray = <T>(arr: T[], size: number): T[][] => {
-       return Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
-    };
+    return idsToDelete.length;
+  }
 
-    const batches = chunkArray(matchDocs, 200);
-
-    for (const batchDocs of batches) {
-       const batch = writeBatch(db);
-       const idsToDelete: string[] = [];
-
-       for (const document of batchDocs) {
-          batch.delete(doc(db, collectionName, document.id));
-          idsToDelete.push(document.id);
-          deletedCount++;
-       }
-
-       // Perform remote delete
-       await batch.commit();
-
-       // Perform local delete inside IndexedDB
-       if (idsToDelete.length > 0) {
-          if (collectionName === 'scales') {
-             await offlineDB.cachedScales.bulkDelete(idsToDelete);
-          } else {
-             // If we had cachedBandScales...
-             // For now we just clear what we can. 
-          }
-       }
+  private isValidIsoDate(value: unknown): value is string {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return false;
     }
-    
-    return deletedCount;
+
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
   }
 }
 
