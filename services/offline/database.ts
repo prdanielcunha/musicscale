@@ -23,9 +23,13 @@ export interface PerformanceRecoveryState {
   timestamp: number;
 }
 
+type LegacySyncQueueProcessorView = Omit<Table<SyncOperation, string>, 'add' | 'bulkAdd' | 'put' | 'bulkPut'>;
+
 export class MusicScaleDatabase extends Dexie {
-  // Sync queue
-  syncQueue!: Table<SyncOperation, string>;
+  // P3.2 diagnostic probe: production code outside this file should only be able
+  // to process existing legacy records, not enqueue new ones directly. The local
+  // producer below casts explicitly so TypeScript will expose any other writers.
+  syncQueue!: LegacySyncQueueProcessorView;
   
   // High availability cached data (IndexedDB so we can load huge lists easily without crashing Quota)
   cachedSongs!: Table<any, string>;
@@ -58,7 +62,7 @@ export async function queueSyncOperation(
   data?: any
 ) {
   void organizationId;
-  await offlineDB.syncQueue.add({
+  await (offlineDB.syncQueue as Table<SyncOperation, string>).add({
     id: uuidv4(),
     entity,
     action,
