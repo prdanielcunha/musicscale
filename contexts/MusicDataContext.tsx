@@ -42,6 +42,7 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
   const { effectiveOrganizationId } = useAuth();
   const { isOffline } = useOffline();
   const [offlineSnapshot, setOfflineSnapshot] = useState<ScopedOfflineSnapshot | null>(null);
+  const [offlineFallbackActive, setOfflineFallbackActive] = useState(false);
   const cacheReadGenerationRef = useRef(0);
   const wasOfflineRef = useRef(isOffline);
 
@@ -52,6 +53,7 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     const organizationId = effectiveOrganizationId;
 
     setOfflineSnapshot(null);
+    setOfflineFallbackActive(false);
     if (!organizationId) return;
 
     void readOfflineStageReadCache(organizationId)
@@ -114,8 +116,33 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     musicData.populatedScales,
   ]);
 
+  // Once a fallback becomes necessary, keep it visible through the reconnect
+  // refresh. It is released only after canonical data is healthy again.
+  useEffect(() => {
+    const hasScopedSnapshot = offlineSnapshot?.organizationId === effectiveOrganizationId;
+    if (!hasScopedSnapshot) {
+      setOfflineFallbackActive(false);
+      return;
+    }
+
+    if (musicData.error || (isOffline && musicData.loading)) {
+      setOfflineFallbackActive(true);
+      return;
+    }
+
+    if (!musicData.loading && !musicData.error) {
+      setOfflineFallbackActive(false);
+    }
+  }, [
+    offlineSnapshot,
+    effectiveOrganizationId,
+    isOffline,
+    musicData.loading,
+    musicData.error,
+  ]);
+
   // A reconnect revalidates against canonical Firestore data. Cached stage
-  // content can remain visible while that refresh is in progress.
+  // content remains visible if it had already become the active fallback.
   useEffect(() => {
     const wasOffline = wasOfflineRef.current;
     wasOfflineRef.current = isOffline;
@@ -136,11 +163,8 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
       offlineSnapshot?.organizationId === effectiveOrganizationId
         ? offlineSnapshot.data
         : null;
-    const shouldUseOfflineFallback =
-      !!scopedOfflineData &&
-      (!!musicData.error || (isOffline && musicData.loading));
 
-    if (!shouldUseOfflineFallback || !scopedOfflineData) {
+    if (!offlineFallbackActive || !scopedOfflineData) {
       return musicData;
     }
 
@@ -163,7 +187,7 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
       loading: false,
       error: null,
     };
-  }, [musicData, offlineSnapshot, effectiveOrganizationId, isOffline]);
+  }, [musicData, offlineSnapshot, effectiveOrganizationId, offlineFallbackActive]);
 
   return (
     <MusicDataContext.Provider value={contextValue}>
