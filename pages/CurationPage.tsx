@@ -431,13 +431,13 @@ export default function CurationPage() {
             candidateId={selectedCandidateId} 
             onClose={closeDetails} 
             onApproveSuccess={(id) => {
-                setCandidates(prev => prev.map(c => c.id === id ? { ...c, status: 'approved' } : c));
+                setCandidates(prev => prev.map(c => c.candidateId === id ? { ...c, status: 'approved' } : c));
             }}
             onLinkSuccess={(id) => {
-                setCandidates(prev => prev.map(c => c.id === id ? { ...c, status: 'linked' } : c));
+                setCandidates(prev => prev.map(c => c.candidateId === id ? { ...c, status: 'linked' } : c));
             }}
             onRejectSuccess={(id) => {
-                setCandidates(prev => prev.map(c => c.id === id ? { ...c, status: 'rejected' } : c));
+                setCandidates(prev => prev.map(c => c.candidateId === id ? { ...c, status: 'rejected' } : c));
             }}
          />
       )}
