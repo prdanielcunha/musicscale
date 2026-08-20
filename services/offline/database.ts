@@ -14,6 +14,7 @@ export interface SyncOperation {
 
 export interface PerformanceRecoveryState {
   id: string;
+  organizationId?: string;
   scaleId?: string;
   songId?: string;
   scrollPosition?: number;
@@ -32,7 +33,8 @@ export class MusicScaleDatabase extends Dexie {
   cachedSongs!: Table<any, string>;
   cachedScales!: Table<any, string>;
 
-  // Performance mode state
+  // Performance mode state. organizationId is intentionally not indexed: adding
+  // tenant scope to the value does not require an IndexedDB schema migration.
   performanceState!: Table<PerformanceRecoveryState, string>;
 
   constructor() {
