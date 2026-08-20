@@ -169,6 +169,19 @@ function isValidScaleRow(
   );
 }
 
+function isScaleProvenForOrganization(
+  scale: PopulatedScale,
+  organizationId: string,
+): boolean {
+  const scaleOrganizationId = (scale as PopulatedScale & { organizationId?: string }).organizationId;
+  return (
+    !!scale?.id &&
+    scaleOrganizationId === organizationId &&
+    Array.isArray(scale.songs) &&
+    scale.songs.every((song) => song.organizationId === organizationId)
+  );
+}
+
 export async function writeOfflineStageReadCache(
   organizationId: string,
   songs: PopulatedSong[],
@@ -181,7 +194,7 @@ export async function writeOfflineStageReadCache(
     .filter((song) => song?.id && song.organizationId === organizationId)
     .map((song) => sanitizeStageSong(song, organizationId));
   const sanitizedScales = populatedScales
-    .filter((scale) => !!scale?.id)
+    .filter((scale) => isScaleProvenForOrganization(scale, organizationId))
     .map((scale) => sanitizeStageScale(scale, organizationId));
 
   const songRows: StageCacheRow<PopulatedSong>[] = sanitizedSongs.map((song) => ({
