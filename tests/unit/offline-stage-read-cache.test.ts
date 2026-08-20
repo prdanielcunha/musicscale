@@ -1,31 +1,44 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PopulatedScale, PopulatedSong } from '../../types';
 
-const dbState = vi.hoisted(() => ({
-  songs: [] as any[],
-  scales: [] as any[],
-}));
+const { dbState, cachedSongs, cachedScales, transaction } = vi.hoisted(() => {
+  const state = {
+    songs: [] as any[],
+    scales: [] as any[],
+  };
 
-const createTable = (key: 'songs' | 'scales') => ({
-  toArray: vi.fn(async () => [...dbState[key]]),
-  bulkDelete: vi.fn(async (ids: string[]) => {
-    dbState[key] = dbState[key].filter((row) => !ids.includes(row.id));
-  }),
-  bulkPut: vi.fn(async (rows: any[]) => {
-    const ids = new Set(rows.map((row) => row.id));
-    dbState[key] = dbState[key].filter((row) => !ids.has(row.id));
-    dbState[key].push(...rows);
-  }),
+  const createTable = (key: 'songs' | 'scales') => ({
+    toArray: vi.fn(async () => [...state[key]]),
+    bulkDelete: vi.fn(async (ids: string[]) => {
+      state[key] = state[key].filter((row) => !ids.includes(row.id));
+    }),
+    bulkPut: vi.fn(async (rows: any[]) => {
+      const ids = new Set(rows.map((row) => row.id));
+      state[key] = state[key].filter((row) => !ids.has(row.id));
+      state[key].push(...rows);
+    }),
+  });
+
+  return {
+    dbState: state,
+    cachedSongs: createTable('songs'),
+    cachedScales: createTable('scales'),
+    transaction: vi.fn(
+      async (
+        _mode: string,
+        _songs: unknown,
+        _scales: unknown,
+        callback: () => Promise<void>,
+      ) => callback(),
+    ),
+  };
 });
-
-const cachedSongs = createTable('songs');
-const cachedScales = createTable('scales');
 
 vi.mock('../../services/offline/database', () => ({
   offlineDB: {
     cachedSongs,
     cachedScales,
-    transaction: vi.fn(async (_mode: string, _songs: unknown, _scales: unknown, callback: () => Promise<void>) => callback()),
+    transaction,
   },
 }));
 
