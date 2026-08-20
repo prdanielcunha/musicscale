@@ -143,7 +143,7 @@ export async function bulkImportCandidates(db: Firestore, candidateIds: string[]
                  }
              }
 
-             payload.status = 'published';
+             payload.status = 'active';
              payload.createdAt = Date.now();
              payload.updatedAt = Date.now();
              payload.importCount = data.occurrences?.length || data.occurrenceCount || 1;
