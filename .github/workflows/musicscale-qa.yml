@@ -116,3 +116,27 @@ jobs:
         name: test-results
         path: test-results/
         retention-days: 30
+
+  functions:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js 22 for Functions
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: 'npm'
+        cache-dependency-path: functions/package-lock.json
+
+    - name: Install Functions dependencies
+      run: npm ci --prefix functions
+
+    - name: Lint Functions
+      run: npm --prefix functions run lint
+
+    - name: Test Functions
+      run: npm --prefix functions test
+
+    - name: Build Functions
+      run: npm --prefix functions run build
