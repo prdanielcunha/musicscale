@@ -1,5 +1,6 @@
 import * as crypto from 'crypto';
 import { compareSongs } from '../../utils/songDiscovery/matcher.js';
+import { buildGlobalSongSearchFields } from '../../utils/searchEngine.js';
 
 function normalizedOptionalString(value: unknown, fieldName: string, errorCode: any): string | null {
     if (value === undefined || value === null) return null;
@@ -267,7 +268,11 @@ export class CurationApprovalService {
                 status: 'active',
                 importCount: 0
             };
-            t.set(globalSongRef, newGlobalSong);
+            const indexedGlobalSong = {
+                ...newGlobalSong,
+                ...buildGlobalSongSearchFields(newGlobalSong),
+            };
+            t.set(globalSongRef, indexedGlobalSong);
 
             t.update(candidateRef, {
                 status: 'approved',
