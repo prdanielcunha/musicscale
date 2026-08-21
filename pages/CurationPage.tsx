@@ -24,10 +24,6 @@ export default function CurationPage() {
   const [filter, setFilter] = useState<string>("all");
 
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
-  const [candidateDetails, setCandidateDetails] = useState<any>(null);
-  const [occurrences, setOccurrences] = useState<any[]>([]);
-  const [matches, setMatches] = useState<any[]>([]);
 
   // Reprocess state
   const [showScannerModal, setShowScannerModal] = useState(false);
@@ -122,23 +118,8 @@ export default function CurationPage() {
     }
   }, [candidateId]);
 
-  const openDetails = async (id: string) => {
+  const openDetails = (id: string) => {
       setSelectedCandidateId(id);
-      setDetailsLoading(true);
-      try {
-          const [details, occs, mtchs] = await Promise.all([
-             curationService.fetchCandidateDetails(id),
-             curationService.fetchOccurrences(id),
-             curationService.fetchMatches(id)
-          ]);
-          setCandidateDetails(details);
-          setOccurrences(occs);
-          setMatches(mtchs);
-      } catch(e) {
-          console.error(e);
-      } finally {
-          setDetailsLoading(false);
-      }
   };
 
   const closeDetails = () => {
