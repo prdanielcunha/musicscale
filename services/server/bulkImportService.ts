@@ -2,6 +2,31 @@ import { Firestore, FieldValue } from 'firebase-admin/firestore';
 import { runSongDiscoveryProcessor } from './songDiscoveryProcessor.js';
 import { sanitizeFirestoreData } from './firestoreSanitizer.js';
 
+function normalizeSongIdentityValue(value: unknown): string {
+    return typeof value === 'string'
+        ? value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+        : '';
+}
+
+async function findExactGlobalSongMatch(db: Firestore, title: unknown, artist: unknown) {
+    const normalizedTitle = normalizeSongIdentityValue(title);
+    const normalizedArtist = normalizeSongIdentityValue(artist);
+
+    if (!normalizedTitle || !normalizedArtist) return null;
+
+    const sameTitleQuery = await db.collection('globalSongs')
+        .where('normalizedTitle', '==', normalizedTitle)
+        .get();
+
+    return sameTitleQuery.docs.find((doc) => {
+        const existing = doc.data();
+        const existingNormalizedArtist = normalizeSongIdentityValue(
+            existing.normalizedArtist || existing.artist
+        );
+        return existingNormalizedArtist === normalizedArtist;
+    }) || null;
+}
+
 export async function preVerifyCandidates(db: Firestore, target: string, candidateIds: string[] = []) {
     let idsToCheck = candidateIds;
 
@@ -43,17 +68,10 @@ export async function preVerifyCandidates(db: Firestore, target: string, candida
             continue;
         }
 
-        const normalizedTitle = typeof data.title === 'string' 
-                ? data.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
-                : '';
-                
-        const exactMatchQuery = await db.collection('globalSongs')
-            .where('normalizedTitle', '==', normalizedTitle)
-            .limit(1)
-            .get();
+        const exactMatchDoc = await findExactGlobalSongMatch(db, data.title, data.artist);
 
-        if (!exactMatchQuery.empty) {
-             const existing = exactMatchQuery.docs[0].data();
+        if (exactMatchDoc) {
+             const existing = exactMatchDoc.data();
              results.push({
                  candidateId: candId,
                  title: data.title,
@@ -61,11 +79,11 @@ export async function preVerifyCandidates(db: Firestore, target: string, candida
                  sourceOrganizationName: data.organizationName || '',
                  state: 'already_exists',
                  matchedGlobalSong: {
-                     id: exactMatchQuery.docs[0].id,
+                     id: exactMatchDoc.id,
                      title: existing.title,
                      artist: existing.artist
                  },
-                 reason: 'Música com o mesmo título já foi importada ou existia na Biblioteca.'
+                 reason: 'Música com o mesmo título e artista já foi importada ou existia na Biblioteca.'
              });
              continue;
         }
@@ -76,7 +94,7 @@ export async function preVerifyCandidates(db: Firestore, target: string, candida
             artist: data.artist,
             sourceOrganizationName: data.organizationName || '',
             state: 'ready_to_import',
-            reason: 'Nenhuma correspondência exata de título encontrada. Pronta para criação.'
+            reason: 'Nenhuma correspondência exata de título e artista encontrada. Pronta para criação.'
         });
     }
 
@@ -104,19 +122,12 @@ export async function bulkImportCandidates(db: Firestore, candidateIds: string[]
              }
 
              // Re-verify inside the import execution
-             const normalizedTitle = typeof data.title === 'string' 
-                    ? data.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
-                    : '';
-             
-             const exactMatchQuery = await db.collection('globalSongs')
-                .where('normalizedTitle', '==', normalizedTitle)
-                .limit(1)
-                .get();
+             const exactMatchDoc = await findExactGlobalSongMatch(db, data.title, data.artist);
 
-             if (!exactMatchQuery.empty) {
+             if (exactMatchDoc) {
                  // Already exists, update candidate to already_exists / matched_existing concept 
                  // and keep pending or convert to something else
-                 const globalId = exactMatchQuery.docs[0].id;
+                 const globalId = exactMatchDoc.id;
                  await candRef.update(sanitizeFirestoreData({
                      classification: 'matched_existing',
                      'analysisSummary.classification': 'exact_match',
