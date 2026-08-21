@@ -76,6 +76,8 @@ describe('P4 bulk import canonical search indexing', () => {
       normalizedArtist: 'joao',
       key: 'E',
       originalKey: 'F#',
+      lyrics: 'Calvário e fé',
+      chords: 'C G\nAmazing grace',
       status: 'pending_review',
       classification: 'likely_unique'
     };
@@ -94,11 +96,14 @@ describe('P4 bulk import canonical search indexing', () => {
       title: 'Águas de Março',
       artist: 'JOÃO',
       status: 'active',
-      searchVersion: 2
+      searchVersion: 3
     });
     expect(saved.searchTokens).toEqual(expect.arrayContaining([
-      'aguas', 'de', 'marco', 'joao', 'e', 'f#'
+      'aguas', 'de', 'marco', 'joao', 'e', 'f#', 'calvario'
     ]));
+    expect(saved.searchContentTokens).toEqual([
+      'calvario', 'e', 'fe', 'amazing', 'grace'
+    ]);
     expect(saved.searchTitlePrefixes).toEqual(expect.arrayContaining([
       'agu', 'agua', 'aguas', 'mar', 'marc', 'marco'
     ]));
@@ -119,6 +124,7 @@ describe('P4 bulk import canonical search indexing', () => {
     expect(source).toContain("import { buildGlobalSongSearchFields } from '../../utils/searchEngine.js'");
     expect(source).toContain('Object.assign(payload, buildGlobalSongSearchFields(payload));');
     expect(source).not.toContain('payload.searchTokens =');
+    expect(source).not.toContain('payload.searchContentTokens =');
     expect(source).not.toContain('payload.searchTitlePrefixes =');
     expect(source).not.toContain('payload.searchArtistPrefixes =');
     expect(source).not.toContain('payload.searchTitleGrams =');

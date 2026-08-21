@@ -1,4 +1,8 @@
 import { Song } from "../types";
+import { buildGlobalSongContentSearchTokens } from "./globalSongSearchContent";
+import { normalizeSearchText } from "./searchNormalization";
+
+export { normalizeSearchText } from "./searchNormalization";
 
 export function getSearchableLyrics(song: any): string {
   if (!song) return "";
@@ -13,22 +17,6 @@ export function getSearchableChords(song: any): string {
 export function getSearchableAliases(song: any): string {
   if (!song) return "";
   return String(song.aliases || song.keywords || "").trim();
-}
-
-export function normalizeSearchText(input: unknown): string {
-  if (typeof input !== "string") {
-    if (input == null) return "";
-    return String(input).trim().toLowerCase();
-  }
-  return input
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
-    .toLowerCase()
-    .replace(/['"´`\u2018-\u201D]/g, " ") // Remove quotes/apostrophes
-    .replace(/[^\p{L}\p{N}]/gu, " ") // Replace punctuation with space, keep letters and numbers
-    .replace(/[\u200B-\u200D\uFEFF]/g, " ") // invisible chars
-    .replace(/\s+/g, " ") // Replace multiple spaces with single space
-    .trim();
 }
 
 export function normalizeMusicalKey(input: unknown): string {
@@ -64,7 +52,7 @@ export interface SongSearchDocument<T = any> {
   originalKeyNormalized?: string;
 }
 
-export const GLOBAL_SEARCH_VERSION = 2;
+export const GLOBAL_SEARCH_VERSION = 3;
 
 export function isValidMusicalKeyQuery(query: string): boolean {
   if (!query) return false;
@@ -91,6 +79,7 @@ export function buildTrigrams(text: string): string[] {
 export interface GlobalSongSearchFields {
   searchVersion: number;
   searchTokens: string[];
+  searchContentTokens: string[];
   searchTitlePrefixes: string[];
   searchArtistPrefixes: string[];
   searchTitleGrams: string[];
@@ -129,6 +118,7 @@ export function buildGlobalSongSearchFields(song: any): GlobalSongSearchFields {
   if (selectedKeyNormalized) keyTokens.add(selectedKeyNormalized);
 
   const searchKeyTokens = Array.from(keyTokens);
+  const searchContentTokens = buildGlobalSongContentSearchTokens(song);
 
   const stopWords = new Set(["o", "a", "e", "é", "do", "da", "de", "no", "na", "os", "as", "um", "uns", "com", "que", "para", "por"]);
 
@@ -170,6 +160,7 @@ export function buildGlobalSongSearchFields(song: any): GlobalSongSearchFields {
   return {
     searchVersion,
     searchTokens,
+    searchContentTokens,
     searchTitlePrefixes,
     searchArtistPrefixes,
     searchTitleGrams,
