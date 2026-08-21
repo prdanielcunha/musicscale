@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { normalizeSearchText, normalizeMusicalKey, buildSearchIndex, searchSongs, getSearchSnippet } from "../../utils/searchEngine";
+import {
+  GLOBAL_SEARCH_VERSION,
+  buildGlobalSongSearchFields,
+  buildSearchIndex,
+  getSearchSnippet,
+  normalizeMusicalKey,
+  normalizeSearchText,
+  searchSongs,
+} from "../../utils/searchEngine";
 
 describe("searchEngine", () => {
   describe("normalizeSearchText", () => {
@@ -144,6 +152,52 @@ describe("searchEngine", () => {
       const res = searchSongs(docs, "mizericordia");
       expect(res.length).toBe(1);
       expect(res[0].matchOrigin).toBe("title");
+    });
+  });
+
+  describe("Global persisted search fields v3", () => {
+    it("bumps the canonical version and preserves all legacy field families", () => {
+      const fields = buildGlobalSongSearchFields({
+        title: "Águas de Março",
+        artist: "JOÃO",
+        lyrics: "Calvário e fé",
+        key: "E",
+      });
+
+      expect(GLOBAL_SEARCH_VERSION).toBe(3);
+      expect(fields.searchVersion).toBe(3);
+      expect(fields.searchTokens.length).toBeGreaterThan(0);
+      expect(fields.searchContentTokens).toEqual(["calvario", "e", "fe"]);
+      expect(fields.searchTitlePrefixes.length).toBeGreaterThan(0);
+      expect(fields.searchArtistPrefixes.length).toBeGreaterThan(0);
+      expect(fields.searchTitleGrams.length).toBeGreaterThan(0);
+      expect(fields.searchArtistGrams.length).toBeGreaterThan(0);
+      expect(fields.searchKeyTokens).toContain("E");
+    });
+
+    it("keeps late content tokens beyond the legacy 150-token cap", () => {
+      const uniqueTokens = Array.from({ length: 151 }, (_, index) => `palavra${index}`);
+      const fields = buildGlobalSongSearchFields({
+        title: "Busca",
+        artist: "Banda",
+        lyrics: [...uniqueTokens, "muralhas"].join(" "),
+      });
+
+      expect(fields.searchContentTokens).toHaveLength(152);
+      expect(fields.searchContentTokens[150]).toBe("palavra150");
+      expect(fields.searchContentTokens[151]).toBe("muralhas");
+      expect(fields.searchTokens).toHaveLength(150);
+      expect(fields.searchTokens).not.toContain("muralhas");
+    });
+
+    it("indexes singable chord text without raw chord symbols", () => {
+      const fields = buildGlobalSongSearchFields({
+        chords: "C G\nPorque Ele vive\n[G]Amazing [C]grace",
+      });
+
+      expect(fields.searchContentTokens).toEqual(["porque", "ele", "vive", "amazing", "grace"]);
+      expect(fields.searchContentTokens).not.toContain("c");
+      expect(fields.searchContentTokens).not.toContain("g");
     });
   });
 });

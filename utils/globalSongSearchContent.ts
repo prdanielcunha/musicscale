@@ -1,5 +1,5 @@
 import { classifyLine, generateLyricsOnly, LineType } from "./chordEngine";
-import { normalizeSearchText } from "./searchEngine";
+import { normalizeSearchText } from "./searchNormalization";
 
 export interface GlobalSongSearchableContent {
   lyricsText: string;
