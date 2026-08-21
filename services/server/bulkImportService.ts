@@ -1,6 +1,7 @@
 import { Firestore, FieldValue } from 'firebase-admin/firestore';
 import { runSongDiscoveryProcessor } from './songDiscoveryProcessor.js';
 import { sanitizeFirestoreData } from './firestoreSanitizer.js';
+import { buildGlobalSongSearchFields } from '../../utils/searchEngine.js';
 
 function normalizeSongIdentityValue(value: unknown): string {
     return typeof value === 'string'
@@ -158,6 +159,7 @@ export async function bulkImportCandidates(db: Firestore, candidateIds: string[]
              payload.createdAt = Date.now();
              payload.updatedAt = Date.now();
              payload.importCount = data.occurrences?.length || data.occurrenceCount || 1;
+             Object.assign(payload, buildGlobalSongSearchFields(payload));
 
              await globalRef.set(sanitizeFirestoreData(payload));
 
