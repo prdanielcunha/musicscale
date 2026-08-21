@@ -124,8 +124,6 @@ export async function processSuggestionCreatedNotification(
   }
 }
 
-const DEPLOY_VERSION = process.env.GITHUB_SHA || 'local';
-
 export const onBandScaleWritten = onDocumentWritten(
   {
     document: 'bandScales/{scaleId}',
