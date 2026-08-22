@@ -1,4 +1,13 @@
 import { deriveGlobalSongContentMetrics } from '../../utils/globalSongContentMetrics.js';
+import { buildGlobalSongSearchFields } from '../../utils/searchEngine.js';
+
+function areDerivedValuesEqual(current: unknown, expected: unknown): boolean {
+  if (Array.isArray(current) || Array.isArray(expected)) {
+    if (!Array.isArray(current) || !Array.isArray(expected)) return false;
+    return current.length === expected.length && current.every((value, index) => value === expected[index]);
+  }
+  return current === expected;
+}
 
 export async function processGlobalSongContentMetricsWritten(
   snapshot?: any
@@ -8,18 +17,22 @@ export async function processGlobalSongContentMetricsWritten(
   const data = snapshot.data();
   if (!data) return;
 
-  const metrics = deriveGlobalSongContentMetrics({
-    chords: data.chords,
-    lyrics: data.lyrics,
-  });
+  const expectedDerivedFields: Record<string, unknown> = {
+    ...deriveGlobalSongContentMetrics({
+      chords: data.chords,
+      lyrics: data.lyrics,
+    }),
+    ...buildGlobalSongSearchFields(data),
+  };
 
-  if (
-    data.hasChords === metrics.hasChords &&
-    data.hasLyrics === metrics.hasLyrics &&
-    data.isComplete === metrics.isComplete
-  ) {
-    return;
+  const updates: Record<string, unknown> = {};
+  for (const [field, expectedValue] of Object.entries(expectedDerivedFields)) {
+    if (!areDerivedValuesEqual(data[field], expectedValue)) {
+      updates[field] = expectedValue;
+    }
   }
 
-  await snapshot.ref.update(metrics);
+  if (Object.keys(updates).length === 0) return;
+
+  await snapshot.ref.update(updates);
 }
