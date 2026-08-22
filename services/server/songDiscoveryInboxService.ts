@@ -1,7 +1,22 @@
-import { getFirestore } from 'firebase-admin/firestore';
-import { adminDb } from '../../services/firebaseAdmin.js';
 import { normalizeBaseText } from '../../utils/songDiscovery/textNormalization.js';
-import { sanitizeFirestoreData } from './firestoreSanitizer.js';
+
+interface SongDiscoveryDocumentSnapshot {
+    exists: boolean;
+    data(): unknown;
+}
+
+interface SongDiscoveryTransaction {
+    get(ref: unknown): Promise<SongDiscoveryDocumentSnapshot>;
+    update(ref: unknown, data: object): unknown;
+    set(ref: unknown, data: object): unknown;
+}
+
+interface SongDiscoveryFirestore {
+    collection(path: string): {
+        doc(id: string): unknown;
+    };
+    runTransaction<T>(callback: (transaction: SongDiscoveryTransaction) => Promise<T>): Promise<T>;
+}
 
 export interface SongDiscoveryInboxRecord {
     inboxId: string; // deterministically orgId_songId
@@ -23,15 +38,18 @@ export interface SongDiscoveryInboxRecord {
 }
 
 export class SongDiscoveryInboxService {
-    private db: FirebaseFirestore.Firestore;
+    private readonly db: SongDiscoveryFirestore;
 
-    constructor(injectedDb?: any) {
-        this.db = injectedDb || adminDb || getFirestore();
+    constructor(injectedDb: SongDiscoveryFirestore) {
+        if (!injectedDb) {
+            throw new Error('SongDiscoveryInboxService requires an injected Firestore instance');
+        }
+        this.db = injectedDb;
     }
 
     public async registerInboxRecord(
-        songId: string, 
-        organizationId: string, 
+        songId: string,
+        organizationId: string,
         songData: any
     ): Promise<{ outcome: 'queued' | 'already_queued' | 'ignored' | 'error'; reason?: string; isNew?: boolean }> {
         // Validate eligibility
@@ -45,13 +63,13 @@ export class SongDiscoveryInboxService {
         }
 
         const normalizedTitle = normalizeBaseText(songData.title);
-        
+
         // Artist might be missing from some old data
         const artist = songData.artist || 'Desconhecido';
-        
+
         const inboxId = `${organizationId}_${songId}`;
         const ref = this.db.collection('songDiscoveryInbox').doc(inboxId);
-        
+
         const sourceCreatedAt = songData.createdAt || Date.now();
         const sourceUpdatedAt = songData.updatedAt || Date.now();
 
@@ -66,17 +84,17 @@ export class SongDiscoveryInboxService {
                 if (existing.status === 'ignored' || existing.status === 'failed') {
                     newStatus = 'pending';
                 }
-                
+
                 finalStatus = newStatus;
 
-                t.update(ref, sanitizeFirestoreData({
+                t.update(ref, {
                     title: songData.title,
                     normalizedTitle,
                     artist,
                     sourceUpdatedAt,
                     status: newStatus,
                     updatedAt: Date.now()
-                }));
+                });
             } else {
                 isNew = true;
                 const record: SongDiscoveryInboxRecord = {
@@ -93,12 +111,12 @@ export class SongDiscoveryInboxService {
                     createdAt: Date.now(),
                     updatedAt: Date.now()
                 };
-                t.set(ref, sanitizeFirestoreData(record));
+                t.set(ref, record);
             }
         });
 
         if (finalStatus !== 'pending' && !isNew) {
-             return { outcome: 'already_queued', reason: `Already in status ${finalStatus}` };
+            return { outcome: 'already_queued', reason: `Already in status ${finalStatus}` };
         }
 
         return { outcome: 'queued', isNew };
