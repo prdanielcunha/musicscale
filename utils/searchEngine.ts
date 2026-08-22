@@ -1,8 +1,7 @@
-import { Song } from "../types";
-import { buildGlobalSongContentSearchTokens } from "./globalSongSearchContent";
-import { normalizeSearchText } from "./searchNormalization";
+import { buildGlobalSongContentSearchTokens } from "./globalSongSearchContent.js";
+import { normalizeSearchText } from "./searchNormalization.js";
 
-export { normalizeSearchText } from "./searchNormalization";
+export { normalizeSearchText } from "./searchNormalization.js";
 
 export function getSearchableLyrics(song: any): string {
   if (!song) return "";
