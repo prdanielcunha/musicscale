@@ -12,7 +12,7 @@ import { InboxAnalysisModal } from '../components/curation/InboxAnalysisModal';
 import { ImportCandidatesModal } from '../components/curation/ImportCandidatesModal';
 
 export default function CurationPage() {
-  const { isCurationAdmin } = useAuth();
+  const { isCurationAdmin, user } = useAuth();
   const { candidateId } = useParams<{ candidateId?: string }>();
   const navigate = useNavigate();
 
@@ -24,10 +24,6 @@ export default function CurationPage() {
   const [filter, setFilter] = useState<string>("all");
 
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
-  const [candidateDetails, setCandidateDetails] = useState<any>(null);
-  const [occurrences, setOccurrences] = useState<any[]>([]);
-  const [matches, setMatches] = useState<any[]>([]);
 
   // Reprocess state
   const [showScannerModal, setShowScannerModal] = useState(false);
@@ -36,7 +32,11 @@ export default function CurationPage() {
 
   const fetchInboxCount = async () => {
      try {
-         const res = await fetch('/api/admin/inbox-count');
+         const token = await user?.getIdToken();
+         if (!token) return;
+         const res = await fetch('/api/admin/inbox-count', {
+             headers: { 'Authorization': `Bearer ${token}` }
+         });
          if (res.ok) {
              const data = await res.json();
              setInboxCount(data.count || 0);
@@ -110,7 +110,7 @@ export default function CurationPage() {
     if (isCurationAdmin) {
        fetchInboxCount();
     }
-  }, [filter, isCurationAdmin]);
+  }, [filter, isCurationAdmin, user]);
 
   useEffect(() => {
     if (candidateId) {
@@ -118,23 +118,8 @@ export default function CurationPage() {
     }
   }, [candidateId]);
 
-  const openDetails = async (id: string) => {
+  const openDetails = (id: string) => {
       setSelectedCandidateId(id);
-      setDetailsLoading(true);
-      try {
-          const [details, occs, mtchs] = await Promise.all([
-             curationService.fetchCandidateDetails(id),
-             curationService.fetchOccurrences(id),
-             curationService.fetchMatches(id)
-          ]);
-          setCandidateDetails(details);
-          setOccurrences(occs);
-          setMatches(mtchs);
-      } catch(e) {
-          console.error(e);
-      } finally {
-          setDetailsLoading(false);
-      }
   };
 
   const closeDetails = () => {
@@ -168,7 +153,12 @@ export default function CurationPage() {
                 if (window.confirm("Isso reprocessará candidatos (isso pode demorar). Deseja continuar?")) {
                   try {
                     setLoading(true);
-                    const res = await fetch('/api/admin/reanalyze-candidates', { method: 'POST' });
+                    const token = await user?.getIdToken();
+                    if (!token) throw new Error("Sessão inválida. Entre novamente para continuar.");
+                    const res = await fetch('/api/admin/reanalyze-candidates', {
+                      method: 'POST',
+                      headers: { 'Authorization': `Bearer ${token}` }
+                    });
                     const dat = await res.json();
                     if (dat.success) {
                       alert(`Reanálise concluída! ${dat.result.reanalyzed} candidatas processadas.`);
@@ -199,7 +189,12 @@ export default function CurationPage() {
                 if (window.confirm("Isso reprocessará todas as músicas da Biblioteca Viva para garantir a normalização. Deseja continuar?")) {
                   try {
                     setLoading(true);
-                    const res = await fetch('/api/admin/backfill-global-titles', { method: 'POST' });
+                    const token = await user?.getIdToken();
+                    if (!token) throw new Error("Sessão inválida. Entre novamente para continuar.");
+                    const res = await fetch('/api/admin/backfill-global-titles', {
+                      method: 'POST',
+                      headers: { 'Authorization': `Bearer ${token}` }
+                    });
                     const dat = await res.json();
                     if (dat.success) {
                       alert(`Backfill concluído! ${dat.result.updated} atualizadas de ${dat.result.processed} verificadas.`);
@@ -431,13 +426,13 @@ export default function CurationPage() {
             candidateId={selectedCandidateId} 
             onClose={closeDetails} 
             onApproveSuccess={(id) => {
-                setCandidates(prev => prev.map(c => c.id === id ? { ...c, status: 'approved' } : c));
+                setCandidates(prev => prev.map(c => c.candidateId === id ? { ...c, status: 'approved' } : c));
             }}
             onLinkSuccess={(id) => {
-                setCandidates(prev => prev.map(c => c.id === id ? { ...c, status: 'linked' } : c));
+                setCandidates(prev => prev.map(c => c.candidateId === id ? { ...c, status: 'linked' } : c));
             }}
             onRejectSuccess={(id) => {
-                setCandidates(prev => prev.map(c => c.id === id ? { ...c, status: 'rejected' } : c));
+                setCandidates(prev => prev.map(c => c.candidateId === id ? { ...c, status: 'rejected' } : c));
             }}
          />
       )}

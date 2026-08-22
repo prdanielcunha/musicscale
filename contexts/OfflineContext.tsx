@@ -1,10 +1,4 @@
 import React, { useEffect, createContext, useContext, useState } from "react";
-import { useAuth } from "./AuthContext";
-import {
-  processSyncQueue,
-  triggerBackgroundSync,
-} from "../services/offline/syncManager";
-import { useToast } from "./ToastContext";
 
 export interface OfflineContextType {
   isOffline: boolean;
@@ -24,15 +18,33 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const [syncPending, setSyncPending] = useState(false);
   const [isSlowConnection, setIsSlowConnection] = useState(false);
-  const { organization } = useAuth();
-  const { toast } = useToast();
+  // P3.2 keeps the public context shape stable while the unsafe legacy custom
+  // Firestore replay queue is quarantined. Native Firestore persistence remains
+  // responsible for its own offline synchronization.
+  const syncPending = false;
 
   useEffect(() => {
+    const connection =
+      (navigator as any).connection ||
+      (navigator as any).mozConnection ||
+      (navigator as any).webkitConnection;
+
+    const checkConnectionQuality = () => {
+      if (!connection) {
+        setIsSlowConnection(false);
+        return;
+      }
+
+      setIsSlowConnection(
+        connection.effectiveType === "2g" ||
+        connection.effectiveType === "slow-2g",
+      );
+    };
+
     const handleOnline = () => {
       setIsOffline(false);
-      if (organization?.id) triggerBackgroundSync(organization.id);
+      checkConnectionQuality();
     };
 
     const handleOffline = () => {
@@ -40,64 +52,30 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({
       setIsSlowConnection(false);
     };
 
-    const checkConnectionQuality = () => {
-      const connection =
-        (navigator as any).connection ||
-        (navigator as any).mozConnection ||
-        (navigator as any).webkitConnection;
-      if (connection) {
-        if (
-          connection.effectiveType === "2g" ||
-          connection.effectiveType === "slow-2g"
-        ) {
-          setIsSlowConnection(true);
-        } else {
-          setIsSlowConnection(false);
-        }
-      }
-    };
-
-    const handleSync = async () => {
-      if (!organization?.id || isOffline) return;
-      setSyncPending(true);
-      await processSyncQueue(organization.id);
-      setSyncPending(false);
-    };
-
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-    window.addEventListener("musicscale:sync", handleSync);
 
-    const connection =
-      (navigator as any).connection ||
-      (navigator as any).mozConnection ||
-      (navigator as any).webkitConnection;
     if (connection) {
       connection.addEventListener("change", checkConnectionQuality);
       checkConnectionQuality();
     }
 
-    // Initial sync check
-    if (navigator.onLine && organization?.id) {
-      handleSync();
-    }
-
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
-      window.removeEventListener("musicscale:sync", handleSync);
       if (connection) {
         connection.removeEventListener("change", checkConnectionQuality);
       }
     };
-  }, [organization?.id, isOffline]);
+  }, []);
 
-  const value = React.useMemo(() => ({ isOffline, syncPending, isSlowConnection }), [isOffline, syncPending, isSlowConnection]);
+  const value = React.useMemo(
+    () => ({ isOffline, syncPending, isSlowConnection }),
+    [isOffline, isSlowConnection],
+  );
 
   return (
-    <OfflineContext.Provider
-      value={value}
-    >
+    <OfflineContext.Provider value={value}>
       {children}
     </OfflineContext.Provider>
   );

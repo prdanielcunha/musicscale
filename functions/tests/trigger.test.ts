@@ -4,7 +4,6 @@ import { processLocalSongWritten } from '../src/processor.js';
 async function runTriggerTests() {
   console.log('Running Trigger Processor tests...');
 
-  let writtenData: any = null;
   let updatedData: any = null;
   let existingDoc: any = null;
   
@@ -24,7 +23,7 @@ async function runTriggerTests() {
         transactionCalls++;
         const t = {
           get _get() {
-            return async (ref: any) => {
+            return async () => {
               return {
                 exists: !!existingDoc,
                 data: () => existingDoc
@@ -32,7 +31,7 @@ async function runTriggerTests() {
             };
           },
           get _set() {
-            return (ref: any, data: any) => { setCalls++; currentCollectionPath = ref.collectionPath; currentDocumentId = ref.id; currentFullPath = ref.path; writtenData = data; };
+            return (ref: any) => { setCalls++; currentCollectionPath = ref.collectionPath; currentDocumentId = ref.id; currentFullPath = ref.path; };
           },
           get _update() {
             return (ref: any, data: any) => { updateCalls++; currentCollectionPath = ref.collectionPath; currentDocumentId = ref.id; currentFullPath = ref.path; updatedData = { ...existingDoc, ...data }; };
@@ -69,7 +68,6 @@ async function runTriggerTests() {
 
   function resetMocks() {
     mockDb = new MockDb();
-    writtenData = null;
     updatedData = null;
     existingDoc = null;
     currentCollectionPath = '';
@@ -135,7 +133,7 @@ async function runTriggerTests() {
 
   // 9. prova comportamental do mock: referência com collectionPath incorreto faz a asserção canônica do path falhar
   resetMocks();
-  mockDb.collection = (colPath: string) => ({
+  mockDb.collection = () => ({
     doc: (id: string) => ({
       collectionPath: 'wrongCollection',
       id,

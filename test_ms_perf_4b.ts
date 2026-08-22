@@ -164,11 +164,53 @@ function runTests() {
         }
     };
     assert(isValidCanonicalResponse(validFullRes, 'user123', 'org123') === true, "Fully valid response should be accepted");
-    // 10. cache sanitizado não pode incluir serverContext;
-    const cachePayloadBlockMatch = contextFile.match(/const cachePayload = \{[^}]+\}/);
-    assert(cachePayloadBlockMatch !== null && !cachePayloadBlockMatch[0].includes("serverContext"), "Sanitized cache cannot include serverContext");
-    // 11. restauração deve sobrescrever serverContext com null;
-    assert(contextFile.includes('serverContext: null,'), "Cache restore must overwrite serverContext with null");
+    // 10. cache sanitizado deve usar exclusivamente o contrato explícito do helper dedicado;
+    const sanitizedHelperMatch = contextFile.match(
+        /const getSanitizedContextCache\s*=\s*\([^)]*\)\s*=>\s*\(\{([\s\S]*?)\n\}\);/
+    );
+    assert(sanitizedHelperMatch !== null, "Dedicated getSanitizedContextCache helper must exist");
+    const sanitizedHelperBody = sanitizedHelperMatch![1];
+    const sanitizedFields = Array.from(
+        sanitizedHelperBody.matchAll(/^\s*([A-Za-z_$][\w$]*)\s*:/gm),
+        match => match[1]
+    );
+    const approvedSanitizedFields = [
+        'uid',
+        'displayName',
+        'ecosystemRole',
+        'currentOrganizationId',
+        'currentOrganizationName',
+        'roleInCurrentOrganization',
+        'plan',
+        'subscriptionStatus',
+        'organizationsAvailable'
+    ];
+    assert(
+        JSON.stringify(sanitizedFields) === JSON.stringify(approvedSanitizedFields),
+        "Sanitized cache helper must contain only the approved cache fields"
+    );
+    for (const forbiddenField of [
+        'token', 'serverContext', 'effectiveContext', 'permissions',
+        'entitlements', 'capabilities', 'canonicalContext', 'rawCanonicalResponse'
+    ]) {
+        assert(
+            !new RegExp(`\\b${forbiddenField}\\b`).test(sanitizedHelperBody),
+            `Sanitized cache helper cannot include ${forbiddenField}`
+        );
+    }
+    assert(
+        /const cachePayload\s*=\s*getSanitizedContextCache\s*\(\{[\s\S]*?\}\);[\s\S]*?localStorage\.setItem\('musicscale_cached_context_' \+ user\.uid, JSON\.stringify\(cachePayload\)\)/.test(contextFile),
+        "Bootstrap cache persistence must use getSanitizedContextCache"
+    );
+    assert(
+        /`musicscale_cached_context_\$\{expectedUid\}`,[\s\S]*?JSON\.stringify\(getSanitizedContextCache\(nextContext\)\)/.test(contextFile),
+        "Canonical organization switch cache persistence must use getSanitizedContextCache"
+    );
+    // 11. restauração offline deve negar contexto e permissões de runtime;
+    assert(
+        /\.\.\.parsed,[\s\S]{0,300}?serverContext:\s*null,[\s\S]{0,200}?permissions:\s*DENIED_PERMISSIONS/.test(contextFile),
+        "Cache restore must explicitly clear serverContext and deny permissions"
+    );
     // 12. localStorage.setItem deve estar protegido pela geração ativa;
     assert(contextFile.includes("if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid && orgId && orgId !== 'offline_default') {") && contextFile.includes("localStorage.setItem('musicscale_cached_context_' + user.uid"), "localStorage.setItem must be protected by active generation and conditions");
     // 13. incremento da geração deve ocorrer antes de if (user);

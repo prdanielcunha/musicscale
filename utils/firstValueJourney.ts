@@ -13,6 +13,12 @@ export type FirstValueJourneyTeamState =
   | "ready"
   | "unavailable";
 
+export type FirstValueJourneyTeamDataStatus =
+  | "idle"
+  | "loading"
+  | "ready"
+  | "error";
+
 export type FirstValueJourneyMilestoneId =
   | "repertoire"
   | "firstScale"
@@ -57,6 +63,7 @@ export interface FirstValueJourneyInput {
   organizationId: string | undefined;
   loading: boolean;
   currentUserId?: string;
+  teamDataStatus?: FirstValueJourneyTeamDataStatus;
 }
 
 export interface MinimalDraftScale {
@@ -147,7 +154,7 @@ const getScaleTimestamp = (
   );
 
 export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstValueJourneyOutput {
-  const { songs, scales, allUsers, canEditScales, canCreateSongs, canManageMembers, organizationId, loading, currentUserId } = input;
+  const { songs, scales, allUsers, canEditScales, canCreateSongs, canManageMembers, organizationId, loading, currentUserId, teamDataStatus = 'ready' } = input;
   
   const totalEssentialSteps = 4;
   
@@ -199,6 +206,59 @@ export function evaluateFirstValueJourney(input: FirstValueJourneyInput): FirstV
   });
 
   const mostRecentDraft = sortedDrafts[0] || null;
+
+  const requiresTeamData = hasSongs && hasValidScales && !hasPublishedScale && canManageMembers;
+
+  if (hasPublishedScale && teamDataStatus !== 'ready') {
+    return {
+      isEligible: true,
+      isLoading: false,
+      isCompleted: true,
+      currentEssentialStep: null,
+      completedEssentialSteps: totalEssentialSteps,
+      totalEssentialSteps,
+      milestones: [],
+      draftScale: null,
+      hasTeam: false,
+      teamState: "unavailable",
+      teamSetupSummary: null,
+      canManageMembers
+    };
+  }
+
+  if (requiresTeamData && (teamDataStatus === 'idle' || teamDataStatus === 'loading')) {
+    return {
+      isEligible: true,
+      isLoading: true,
+      isCompleted: false,
+      currentEssentialStep: null,
+      completedEssentialSteps: 2,
+      totalEssentialSteps,
+      milestones: [],
+      draftScale: mostRecentDraft,
+      hasTeam: false,
+      teamState: "unavailable",
+      teamSetupSummary: null,
+      canManageMembers
+    };
+  }
+
+  if (requiresTeamData && teamDataStatus === 'error') {
+    return {
+      isEligible: false,
+      isLoading: false,
+      isCompleted: false,
+      currentEssentialStep: null,
+      completedEssentialSteps: 2,
+      totalEssentialSteps,
+      milestones: [],
+      draftScale: mostRecentDraft,
+      hasTeam: false,
+      teamState: "unavailable",
+      teamSetupSummary: null,
+      canManageMembers
+    };
+  }
 
   const usersArray = Array.isArray(allUsers) ? allUsers : [];
   // Usa evaluateTeamSetup para derivar estado da equipe

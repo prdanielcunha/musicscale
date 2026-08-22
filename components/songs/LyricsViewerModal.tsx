@@ -25,6 +25,9 @@ const DEFAULT_SETTINGS: LyricsSettings = {
   lineSpacing: 'relaxed',
 };
 
+const MAX_AUTOSCROLL_FRAME_DELTA_MS = 100;
+const AUTOSCROLL_BASELINE_FPS = 60;
+
 const useFullscreen = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -67,9 +70,10 @@ const LyricsViewerModal: React.FC<LyricsViewerModalProps> = ({
 
   const [showSettings, setShowSettings] = useState(false);
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
-  const [scrollSpeed, setScrollSpeed] = useState(1.5); // pixels per frame
+  const [scrollSpeed, setScrollSpeed] = useState(1.5);
   const contentRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const lastFrameTimeRef = useRef<number | null>(null);
   const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   useEffect(() => {
@@ -103,23 +107,60 @@ const LyricsViewerModal: React.FC<LyricsViewerModalProps> = ({
   };
 
   // Autoscroll Logic
-  const autoScroll = useCallback(() => {
-    if (contentRef.current && isAutoScrolling) {
-      contentRef.current.scrollTop += scrollSpeed;
-      animationFrameRef.current = requestAnimationFrame(autoScroll);
+  const autoScroll = useCallback((timestamp: number) => {
+    const content = contentRef.current;
+    if (!content || !isAutoScrolling) return;
+
+    const previousTimestamp = lastFrameTimeRef.current;
+    lastFrameTimeRef.current = timestamp;
+    const elapsedMs = previousTimestamp === null
+      ? 0
+      : Math.min(
+          Math.max(timestamp - previousTimestamp, 0),
+          MAX_AUTOSCROLL_FRAME_DELTA_MS,
+        );
+    const pixelsPerSecond = scrollSpeed * AUTOSCROLL_BASELINE_FPS;
+    content.scrollTop += (pixelsPerSecond / 1000) * elapsedMs;
+
+    if (content.scrollTop + content.clientHeight >= content.scrollHeight - 1) {
+      setIsAutoScrolling(false);
+      animationFrameRef.current = null;
+      lastFrameTimeRef.current = null;
+      return;
     }
+
+    animationFrameRef.current = requestAnimationFrame(autoScroll);
   }, [isAutoScrolling, scrollSpeed]);
 
   useEffect(() => {
     if (isAutoScrolling) {
+      lastFrameTimeRef.current = null;
       animationFrameRef.current = requestAnimationFrame(autoScroll);
-    } else if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
+    } else {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      animationFrameRef.current = null;
+      lastFrameTimeRef.current = null;
     }
     return () => {
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      animationFrameRef.current = null;
+      lastFrameTimeRef.current = null;
     };
   }, [isAutoScrolling, autoScroll]);
+
+  useEffect(() => {
+    const resetAutoScrollClock = () => {
+      lastFrameTimeRef.current = null;
+    };
+
+    document.addEventListener("visibilitychange", resetAutoScrollClock);
+    return () =>
+      document.removeEventListener("visibilitychange", resetAutoScrollClock);
+  }, []);
 
   // Handle double tap to toggle fullscreen/nav logic if needed
   const [isNavVisible, setIsNavVisible] = useState(true);

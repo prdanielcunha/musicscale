@@ -199,6 +199,9 @@ export interface GlobalSong {
   bpm?: number;
   lyrics?: string;
   chords?: string;
+  hasChords?: boolean;
+  hasLyrics?: boolean;
+  isComplete?: boolean;
   chordsUrl?: string;
   videoUrl?: string;
   language?: 'pt' | 'en' | 'es' | 'other' | 'unknown';
