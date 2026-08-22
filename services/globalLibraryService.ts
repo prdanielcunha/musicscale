@@ -94,65 +94,53 @@ export const getGlobalSongs = async (
   if (searchTerm.trim()) {
     const normalizedTerm = normalizeSearchText(searchTerm);
     const queryTokens = normalizedTerm ? normalizedTerm.split(" ").filter(t => t.length > 0) : [];
+    const meaningfulContentTokens = Array.from(new Set(queryTokens.filter(token => token.length >= 2))).slice(0, 10);
+    const queryTrigrams = buildTrigrams(searchTerm);
     const isKey = isValidMusicalKeyQuery(searchTerm);
     const normalizedKey = isKey ? normalizeMusicalKey(searchTerm) : "";
 
-    const queries = [];
+    const fetchQueries = async (queriesToRun: any[]): Promise<GlobalSong[]> => {
+      if (queriesToRun.length === 0) return [];
+      const snapshots = await Promise.all(queriesToRun.map(searchQuery => getDocs(searchQuery)));
+      const fetched: GlobalSong[] = [];
+      for (const snap of snapshots) {
+        snap.docs.forEach(docSnap => {
+          fetched.push({ id: docSnap.id, ...(docSnap.data() as any) } as GlobalSong);
+        });
+      }
+      return fetched;
+    };
 
-    // 1. Key token match (only if it is a valid musical key)
+    const primaryQueries: any[] = [];
+
+    // Stage 1: musical key and title. These are the highest-priority matches.
     if (isKey && normalizedKey) {
-      queries.push(query(
+      primaryQueries.push(query(
         collRef,
         where('searchKeyTokens', 'array-contains', normalizedKey),
         limit(200)
       ));
     }
 
-    // 2. Exact word tokens match
     if (queryTokens.length > 0) {
-      queries.push(query(
-        collRef,
-        where('searchTokens', 'array-contains-any', queryTokens.slice(0, 10)),
-        limit(200)
-      ));
-    }
-
-    // 3. Title prefix match
-    if (queryTokens.length > 0) {
-      queries.push(query(
+      primaryQueries.push(query(
         collRef,
         where('searchTitlePrefixes', 'array-contains-any', queryTokens.slice(0, 10)),
         limit(200)
       ));
     }
 
-    // 4. Artist prefix match
-    if (queryTokens.length > 0) {
-      queries.push(query(
-        collRef,
-        where('searchArtistPrefixes', 'array-contains-any', queryTokens.slice(0, 10)),
-        limit(200)
-      ));
-    }
-
-    // 5. Trigram matches (Title and Artist)
-    const queryTrigrams = buildTrigrams(searchTerm);
     if (queryTrigrams.length > 0) {
-      queries.push(query(
+      primaryQueries.push(query(
         collRef,
         where('searchTitleGrams', 'array-contains-any', queryTrigrams.slice(0, 10)),
         limit(200)
       ));
-      queries.push(query(
-        collRef,
-        where('searchArtistGrams', 'array-contains-any', queryTrigrams.slice(0, 10)),
-        limit(200)
-      ));
     }
 
-    // 6. Legacy prefix fallback query (normalizedTitle)
+    // Legacy title-prefix fallback remains until all historical documents have converged.
     if (normalizedTerm) {
-      queries.push(query(
+      primaryQueries.push(query(
         collRef,
         where('normalizedTitle', '>=', normalizedTerm),
         where('normalizedTitle', '<=', normalizedTerm + '\uf8ff'),
@@ -160,17 +148,55 @@ export const getGlobalSongs = async (
       ));
     }
 
-    // Execute queries in parallel
-    const snapshots = await Promise.all(queries.map(q => getDocs(q)));
-    const allFetched: GlobalSong[] = [];
-
-    for (const snap of snapshots) {
-      snap.docs.forEach(docSnap => {
-        allFetched.push({ id: docSnap.id, ...(docSnap.data() as any) } as GlobalSong);
-      });
+    let allFetched = await fetchQueries(primaryQueries);
+    let songs = mergeGlobalSearchCandidates(allFetched, searchTerm);
+    if (songs.length >= pageSize) {
+      return { songs: songs.slice(0, pageSize), lastVisible: null };
     }
 
-    const songs = mergeGlobalSearchCandidates(allFetched, searchTerm);
+    // Stage 2: artist/band. Do not pay for content queries when title/artist already fill the page.
+    const artistQueries: any[] = [];
+    if (queryTokens.length > 0) {
+      artistQueries.push(query(
+        collRef,
+        where('searchArtistPrefixes', 'array-contains-any', queryTokens.slice(0, 10)),
+        limit(200)
+      ));
+    }
+    if (queryTrigrams.length > 0) {
+      artistQueries.push(query(
+        collRef,
+        where('searchArtistGrams', 'array-contains-any', queryTrigrams.slice(0, 10)),
+        limit(200)
+      ));
+    }
+
+    allFetched = allFetched.concat(await fetchQueries(artistQueries));
+    songs = mergeGlobalSearchCandidates(allFetched, searchTerm);
+    if (songs.length >= pageSize) {
+      return { songs: songs.slice(0, pageSize), lastVisible: null };
+    }
+
+    // Stage 3: full searchable song content plus the legacy token family for aliases/version
+    // and pre-v3 compatibility. Two-character words are intentionally preserved (e.g. "fé", "eu", "tu").
+    const contentQueries: any[] = [];
+    if (meaningfulContentTokens.length > 0) {
+      contentQueries.push(query(
+        collRef,
+        where('searchContentTokens', 'array-contains-any', meaningfulContentTokens),
+        limit(200)
+      ));
+    }
+    if (queryTokens.length > 0) {
+      contentQueries.push(query(
+        collRef,
+        where('searchTokens', 'array-contains-any', queryTokens.slice(0, 10)),
+        limit(200)
+      ));
+    }
+
+    allFetched = allFetched.concat(await fetchQueries(contentQueries));
+    songs = mergeGlobalSearchCandidates(allFetched, searchTerm);
 
     return {
       songs: songs.slice(0, pageSize),
