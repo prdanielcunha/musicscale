@@ -5,6 +5,7 @@ import Spinner from "../components/common/Spinner";
 import { curationService } from "../services/curationService";
 import { QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext";
+import { isBulkImportEligibleCandidate } from "../utils/curation/bulkImportEligibility";
 
 import { CandidateDetailsModal } from '../components/curation/CandidateDetailsModal';
 import { OrganizationScannerModal } from '../components/curation/OrganizationScannerModal';
@@ -73,11 +74,14 @@ export default function CurationPage() {
       }
 
       const res = await curationService.fetchCandidates(filters);
+      const visibleCandidates = filter === 'likely_unique'
+        ? res.candidates.filter(isBulkImportEligibleCandidate)
+        : res.candidates;
 
       if (isLoadMore) {
-          setCandidates(prev => [...prev, ...res.candidates]);
+          setCandidates(prev => [...prev, ...visibleCandidates]);
       } else {
-          setCandidates(res.candidates);
+          setCandidates(visibleCandidates);
       }
       
       setLastDoc(res.lastDoc as any);
@@ -127,6 +131,13 @@ export default function CurationPage() {
       if (candidateId) {
           navigate('/curation');
       }
+  };
+
+  const handleCandidateResolved = (id: string, status: 'approved' | 'linked' | 'rejected') => {
+      setSelectedCandidateIds(prev => prev.filter(candidateId => candidateId !== id));
+      setCandidates(prev => filter === 'likely_unique'
+        ? prev.filter(candidate => candidate.candidateId !== id)
+        : prev.map(candidate => candidate.candidateId === id ? { ...candidate, status } : candidate));
   };
 
   return (
@@ -241,7 +252,9 @@ export default function CurationPage() {
               <div className="flex flex-wrap gap-2 items-center">
                   <button 
                       onClick={() => {
-                          const pageIds = candidates.map(c => c.candidateId);
+                          const pageIds = candidates
+                            .filter(isBulkImportEligibleCandidate)
+                            .map(candidate => candidate.candidateId);
                           const newSelection = [...new Set([...selectedCandidateIds, ...pageIds])];
                           setSelectedCandidateIds(newSelection);
                       }}
@@ -325,7 +338,7 @@ export default function CurationPage() {
                                       candidate.classification;
 
                   const isSelected = selectedCandidateIds.includes(candidate.candidateId);
-                  const isSelectable = filter === 'likely_unique' && candidate.classification === 'likely_unique';
+                  const isSelectable = filter === 'likely_unique' && isBulkImportEligibleCandidate(candidate);
 
                   return (
                   <div key={candidate.candidateId} className={`relative bg-white dark:bg-[#1A1A1A] border ${isSelected ? 'border-primary ring-1 ring-primary' : 'border-slate-200 dark:border-white/10'} rounded-2xl p-5 hover:border-primary/50 transition-colors shadow-sm flex flex-col justify-between group`}>
@@ -425,15 +438,9 @@ export default function CurationPage() {
          <CandidateDetailsModal 
             candidateId={selectedCandidateId} 
             onClose={closeDetails} 
-            onApproveSuccess={(id) => {
-                setCandidates(prev => prev.map(c => c.candidateId === id ? { ...c, status: 'approved' } : c));
-            }}
-            onLinkSuccess={(id) => {
-                setCandidates(prev => prev.map(c => c.candidateId === id ? { ...c, status: 'linked' } : c));
-            }}
-            onRejectSuccess={(id) => {
-                setCandidates(prev => prev.map(c => c.candidateId === id ? { ...c, status: 'rejected' } : c));
-            }}
+            onApproveSuccess={(id) => handleCandidateResolved(id, 'approved')}
+            onLinkSuccess={(id) => handleCandidateResolved(id, 'linked')}
+            onRejectSuccess={(id) => handleCandidateResolved(id, 'rejected')}
          />
       )}
 

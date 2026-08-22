@@ -23,9 +23,13 @@ describe('P4 curation status reconciliation contract', () => {
   });
 
   it('reconciles approve, link, and reject cards by candidateId', () => {
-    expect(pageSource).toContain("c.candidateId === id ? { ...c, status: 'approved' } : c");
-    expect(pageSource).toContain("c.candidateId === id ? { ...c, status: 'linked' } : c");
-    expect(pageSource).toContain("c.candidateId === id ? { ...c, status: 'rejected' } : c");
-    expect(pageSource).not.toMatch(/c\.id === id \? \{ \.\.\.c, status: '(approved|linked|rejected)' \}/);
+    expect(pageSource).toContain('const handleCandidateResolved =');
+    expect(pageSource).toContain('setSelectedCandidateIds(prev => prev.filter(candidateId => candidateId !== id))');
+    expect(pageSource).toContain('prev.filter(candidate => candidate.candidateId !== id)');
+    expect(pageSource).toContain('candidate.candidateId === id ? { ...candidate, status } : candidate');
+    expect(pageSource).toContain("handleCandidateResolved(id, 'approved')");
+    expect(pageSource).toContain("handleCandidateResolved(id, 'linked')");
+    expect(pageSource).toContain("handleCandidateResolved(id, 'rejected')");
+    expect(pageSource).not.toMatch(/candidate\.id === id \? \{ \.\.\.candidate, status/);
   });
 });
