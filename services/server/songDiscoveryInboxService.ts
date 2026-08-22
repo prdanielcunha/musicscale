@@ -7,8 +7,8 @@ interface SongDiscoveryDocumentSnapshot {
 
 interface SongDiscoveryTransaction {
     get(ref: unknown): Promise<SongDiscoveryDocumentSnapshot>;
-    update(ref: unknown, data: Record<string, unknown>): unknown;
-    set(ref: unknown, data: Record<string, unknown>): unknown;
+    update(ref: unknown, data: object): unknown;
+    set(ref: unknown, data: object): unknown;
 }
 
 interface SongDiscoveryFirestore {
