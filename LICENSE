@@ -1,0 +1,96 @@
+MusicScale Proprietary Source-Available License
+Version 1.0 — August 2026
+
+Copyright (c) 2026 Daniel Cunha. All rights reserved.
+
+IMPORTANT: THIS IS NOT AN OPEN-SOURCE LICENSE.
+
+The source code, documentation, user interfaces, designs, assets, database structures,
+workflows, and other materials in this repository (collectively, the "Software") are
+proprietary and protected by applicable copyright and other intellectual property laws.
+Making this repository publicly visible does not place the Software in the public domain
+and does not grant an open-source license.
+
+1. LIMITED PERMISSION
+
+Subject to this License, you may view the Software and may make a local copy solely for:
+
+(a) personal, non-commercial evaluation;
+(b) good-faith security research and vulnerability reporting; or
+(c) preparing a contribution intended for the official MusicScale repository.
+
+This limited permission does not authorize production use, operation for third parties,
+redistribution, commercialization, or creation of a competing product or service.
+
+Rights that GitHub must provide to GitHub users to view and fork a public repository
+under GitHub's Terms of Service are unaffected by this License. No additional rights are
+implied by public visibility.
+
+2. PROHIBITED USES
+
+Without prior written permission from the copyright holder, you may not:
+
+(a) use the Software, in whole or in substantial part, in production or in a commercial,
+    revenue-generating, organizational, or business service;
+(b) sell, rent, sublicense, license, monetize, host for third parties, or commercially
+    exploit the Software;
+(c) redistribute the Software or substantial portions of it, whether modified or
+    unmodified, except through a contribution submitted to the official MusicScale
+    repository;
+(d) use the Software or substantial portions of it to create, operate, market, or provide
+    a competing or substantially similar application, SaaS, hosted service, or product;
+(e) remove, obscure, or alter copyright, proprietary, attribution, or license notices;
+(f) represent that you are affiliated with, endorsed by, or authorized to act for
+    MusicScale or MillionsNest when you are not; or
+(g) use the MusicScale or MillionsNest names, logos, trade dress, or other brand assets
+    except to truthfully identify the project for reference or contribution purposes.
+
+3. MODIFICATIONS FOR EVALUATION OR CONTRIBUTION
+
+You may modify your permitted local copy only to evaluate the Software, conduct good-faith
+security research, or prepare a contribution to the official repository. Possession of a
+modified copy does not grant any right to deploy, redistribute, commercialize, sublicense,
+or operate that modified copy as a product or service.
+
+4. CONTRIBUTIONS
+
+A contribution submitted to the official MusicScale repository is governed by the
+repository's CONTRIBUTING.md in addition to this License. No contribution changes the
+proprietary licensing of the pre-existing Software unless the copyright holder expressly
+agrees in writing.
+
+5. NO TRADEMARK LICENSE
+
+No license or right is granted to any trademark, service mark, logo, product name, company
+name, domain name, or trade dress associated with MusicScale or MillionsNest.
+
+6. RESERVATION OF RIGHTS
+
+Except for the narrow permissions expressly stated above and rights necessarily granted by
+GitHub's Terms of Service for public repositories, all rights are reserved by the copyright
+holder. No patent, trademark, sublicensing, distribution, production-use, or commercial-use
+license is granted by implication, estoppel, or otherwise.
+
+7. TERMINATION
+
+Your permissions under this License terminate automatically if you breach its terms. Upon
+termination, you must stop every use that depended on this License and delete copies made
+under its limited permission, except to the extent retention is required by law or a copy
+exists independently under GitHub platform rights that cannot be restricted by this License.
+
+8. DISCLAIMER OF WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTIES OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
+NONINFRINGEMENT, ACCURACY, OR AVAILABILITY.
+
+9. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE COPYRIGHT HOLDER AND CONTRIBUTORS SHALL NOT BE
+LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM OR RELATED TO THE SOFTWARE OR
+ITS USE.
+
+10. SEPARATE COMMERCIAL LICENSING
+
+Commercial, production, redistribution, integration, white-label, or other rights may be
+available only under a separate written agreement with the copyright holder.
