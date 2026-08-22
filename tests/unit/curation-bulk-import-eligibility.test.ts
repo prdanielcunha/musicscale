@@ -27,15 +27,16 @@ describe('curation bulk import eligibility', () => {
     })).toBe(false);
   });
 
-  it('keeps CurationPage query and selection paths on the canonical eligibility rule', () => {
+  it('keeps every CurationPage selection path on the canonical eligibility rule', () => {
     const source = fs.readFileSync(
       path.resolve(process.cwd(), 'pages/CurationPage.tsx'),
       'utf8',
     );
 
-    expect(source).toContain("filters.status = BULK_IMPORT_ELIGIBLE_STATUS");
+    expect(source).toContain('res.candidates.filter(isBulkImportEligibleCandidate)');
     expect(source).toContain('candidates.filter(isBulkImportEligibleCandidate)');
     expect(source).toContain("filter === 'likely_unique' && isBulkImportEligibleCandidate(candidate)");
     expect(source).toContain('handleCandidateResolved(id,');
+    expect(source).not.toContain('filters.status = BULK_IMPORT_ELIGIBLE_STATUS');
   });
 });
