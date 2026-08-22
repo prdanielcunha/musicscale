@@ -7,6 +7,9 @@ on:
     branches: [ main, production ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: musicscale-qa-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -17,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -121,6 +126,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
 
     - name: Set up Node.js 22 for Functions
       uses: actions/setup-node@v4
