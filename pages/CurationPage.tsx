@@ -5,10 +5,7 @@ import Spinner from "../components/common/Spinner";
 import { curationService } from "../services/curationService";
 import { QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext";
-import {
-  BULK_IMPORT_ELIGIBLE_STATUS,
-  isBulkImportEligibleCandidate,
-} from "../utils/curation/bulkImportEligibility";
+import { isBulkImportEligibleCandidate } from "../utils/curation/bulkImportEligibility";
 
 import { CandidateDetailsModal } from '../components/curation/CandidateDetailsModal';
 import { OrganizationScannerModal } from '../components/curation/OrganizationScannerModal';
@@ -66,7 +63,6 @@ export default function CurationPage() {
            filters.status = 'pending_review';
       } else if (filter === 'likely_unique') {
            filters.classification = 'likely_unique';
-           filters.status = BULK_IMPORT_ELIGIBLE_STATUS;
       } else if (filter === 'possible_duplicate') {
            filters.classification = 'possible_duplicate';
       } else if (filter === 'matched_existing') {
@@ -78,11 +74,14 @@ export default function CurationPage() {
       }
 
       const res = await curationService.fetchCandidates(filters);
+      const visibleCandidates = filter === 'likely_unique'
+        ? res.candidates.filter(isBulkImportEligibleCandidate)
+        : res.candidates;
 
       if (isLoadMore) {
-          setCandidates(prev => [...prev, ...res.candidates]);
+          setCandidates(prev => [...prev, ...visibleCandidates]);
       } else {
-          setCandidates(res.candidates);
+          setCandidates(visibleCandidates);
       }
       
       setLastDoc(res.lastDoc as any);
