@@ -1,5 +1,8 @@
 # MusicScale (music-scale-manager)
 
+> [!IMPORTANT]
+> **Publicly viewable source, proprietary software.** This repository is **not open source**. Public visibility does not grant permission to commercialize, redistribute, host, sublicense, white-label, or create a competing product from the MusicScale code. See [`LICENSE`](./LICENSE), [`SECURITY.md`](./SECURITY.md), and [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
 ## 1. Visão Geral
 O **MusicScale** é uma plataforma SaaS para gestão de ministérios de louvor, oferecendo gestão de repertório, escalas de banda e programação, visualizador para performance ao vivo (letras, cifras, auto-scroll e BPM), bem como um repositório central de músicas (Biblioteca Viva).
 
@@ -42,6 +45,8 @@ npm run dev
 npm run build
 ```
 
+A instalação local acima é disponibilizada para desenvolvimento autorizado, avaliação, pesquisa de segurança e contribuição conforme os limites da licença. Ela não concede autorização para colocar cópias do MusicScale em produção ou oferecer o software a terceiros.
+
 ## 7. Testes e Qualidade
 O projeto possui gates rigorosos de lançamento, divididos em scripts do `package.json`.
 
@@ -68,6 +73,8 @@ Baseie-se no `.env.example`. NUNCA exponha credenciais, secrets ou tokens de pro
 * **Client-Side (Públicas, prefixo `VITE_`):** `VITE_APP_URL`, variáveis de Emulador E2E (`VITE_E2E_MODE`, etc).
 * **Server-Side (Secrets):** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `FIREBASE_SERVICE_ACCOUNT`, `GEMINI_MODEL`, `AI_FINOPS_HMAC_SECRET`, etc.
 
+Segredos reais devem existir somente nos cofres/configurações apropriados (por exemplo GitHub Actions, Vercel, Firebase/Google Cloud) e nunca em commits, issues, PRs, logs públicos ou artifacts.
+
 ## 9. Arquitetura Resumida
 A arquitetura é offline-first baseada no banco **Cloud Firestore**. Todas as operações persistem nativamente. A aplicação Node atua como ponte para integrações de segurança e uso de tokens/chaves privadas (IA e Stripe), protegendo os segredos do client-side. A leitura mais profunda da arquitetura encontra-se em `docs/ARCHITECTURE_CURRENT.md`.
 
@@ -86,7 +93,17 @@ O `Firebase Auth` (com validações da MillionsNest) assegura o fluxo de usuári
 ## 13. Deploy
 A execução do comando `npm run build` cria um bundle otimizado. No ambiente produtivo, o ponto de partida é o arquivo `dist/server.cjs`, gerado pelo Esbuild.
 
-## 14. Documentação Adicional
+Publicar um PR ou ter acesso ao código não autoriza nenhum deploy. Alterações em produção, dados, regras, índices, Functions ou credenciais exigem autorização operacional separada.
+
+## 14. Segurança, licença e contribuições
+
+* Vulnerabilidades: [`SECURITY.md`](./SECURITY.md)
+* Licença proprietária/source-available: [`LICENSE`](./LICENSE)
+* Regras para contribuições: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+
+O uso de **MusicScale**, **MillionsNest**, logotipos e demais elementos de marca não é concedido pela disponibilização pública deste código.
+
+## 15. Documentação Adicional
 Consulte os documentos em `/docs` para manuais técnicos focados:
 * `docs/ARCHITECTURE_CURRENT.md`
 * `docs/AI_CHANGE_PROTOCOL.md`
