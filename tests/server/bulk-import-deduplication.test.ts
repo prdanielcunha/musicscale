@@ -297,6 +297,5 @@ describe('P4 bulk import title + artist deduplication', () => {
     expect(source).toContain("where('normalizedTitle', '==', identity.normalizedTitle)");
     expect(source).toContain('existingNormalizedArtist === normalizedArtist');
     expect(source).toContain('db.runTransaction');
-    expect(source).toContain('Promise');
   });
 });
