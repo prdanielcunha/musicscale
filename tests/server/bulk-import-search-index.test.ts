@@ -5,26 +5,28 @@ import { bulkImportCandidates } from '../../services/server/bulkImportService.js
 
 function createDb(candidate: Record<string, any>) {
   const candidateUpdates: any[] = [];
-  const globalSets: any[] = [];
+  const globalSets: Array<{ id: string; payload: any }> = [];
   const auditLogs: any[] = [];
+  const storedGlobalSongs = new Map<string, Record<string, any>>();
+
+  const candidateRef = {
+    id: 'candidate-1',
+    async get() {
+      return { exists: true, data: () => candidate };
+    },
+    async update(payload: any) {
+      candidateUpdates.push(payload);
+      Object.assign(candidate, payload);
+    }
+  };
 
   const db: any = {
     collection(name: string) {
       if (name === 'globalLibraryCandidates') {
         return {
           doc(id: string) {
-            return {
-              id,
-              async get() {
-                return {
-                  exists: id === 'candidate-1',
-                  data: () => candidate
-                };
-              },
-              async update(payload: any) {
-                candidateUpdates.push(payload);
-              }
-            };
+            if (id !== 'candidate-1') throw new Error(`Unexpected candidate: ${id}`);
+            return candidateRef;
           }
         };
       }
@@ -37,15 +39,24 @@ function createDb(candidate: Record<string, any>) {
             }
             return {
               async get() {
-                return { empty: true, docs: [] };
+                const docs = Array.from(storedGlobalSongs.entries())
+                  .filter(([, song]) => song.normalizedTitle === value)
+                  .map(([id, song]) => ({ id, data: () => song }));
+                return { empty: docs.length === 0, docs };
               }
             };
           },
-          doc() {
+          doc(id?: string) {
+            if (!id) throw new Error('Expected deterministic global song id');
             return {
-              id: 'created-global',
+              id,
+              async get() {
+                const value = storedGlobalSongs.get(id);
+                return { exists: Boolean(value), data: () => value };
+              },
               async set(payload: any) {
-                globalSets.push(payload);
+                globalSets.push({ id, payload });
+                storedGlobalSongs.set(id, { ...payload });
               }
             };
           }
@@ -54,13 +65,31 @@ function createDb(candidate: Record<string, any>) {
 
       if (name === 'curationAuditLogs') {
         return {
-          async add(payload: any) {
-            auditLogs.push(payload);
+          doc() {
+            return {
+              id: 'audit-1',
+              async set(payload: any) {
+                auditLogs.push(payload);
+              }
+            };
           }
         };
       }
 
       throw new Error(`Unexpected collection: ${name}`);
+    },
+    async runTransaction(callback: (transaction: any) => Promise<any>) {
+      return callback({
+        get(target: any) {
+          return target.get();
+        },
+        update(ref: any, payload: any) {
+          return ref.update(payload);
+        },
+        set(ref: any, payload: any) {
+          return ref.set(payload);
+        }
+      });
     }
   };
 
@@ -85,16 +114,17 @@ describe('P4 bulk import canonical search indexing', () => {
 
     const result = await bulkImportCandidates(db, ['candidate-1'], 'curator-1');
 
-    expect(result[0]).toMatchObject({
-      status: 'imported',
-      globalSongId: 'created-global'
-    });
+    expect(result[0]).toMatchObject({ status: 'imported' });
+    expect(result[0].globalSongId).toMatch(/^bulk_[a-f0-9]{64}$/);
     expect(globalSets).toHaveLength(1);
+    expect(globalSets[0].id).toBe(result[0].globalSongId);
 
-    const saved = globalSets[0];
+    const saved = globalSets[0].payload;
     expect(saved).toMatchObject({
       title: 'Águas de Março',
       artist: 'JOÃO',
+      normalizedTitle: 'aguas de marco',
+      normalizedArtist: 'joao',
       status: 'active',
       searchVersion: 3
     });

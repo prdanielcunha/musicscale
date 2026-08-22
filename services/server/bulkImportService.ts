@@ -1,3 +1,4 @@
+import * as crypto from 'node:crypto';
 import { Firestore, FieldValue } from 'firebase-admin/firestore';
 import { runSongDiscoveryProcessor } from './songDiscoveryProcessor.js';
 import { sanitizeFirestoreData } from './firestoreSanitizer.js';
@@ -9,23 +10,43 @@ function normalizeSongIdentityValue(value: unknown): string {
         : '';
 }
 
-async function findExactGlobalSongMatch(db: Firestore, title: unknown, artist: unknown) {
+function buildBulkGlobalSongIdentity(title: unknown, artist: unknown) {
     const normalizedTitle = normalizeSongIdentityValue(title);
     const normalizedArtist = normalizeSongIdentityValue(artist);
 
     if (!normalizedTitle || !normalizedArtist) return null;
 
-    const sameTitleQuery = await db.collection('globalSongs')
-        .where('normalizedTitle', '==', normalizedTitle)
-        .get();
+    const digest = crypto
+        .createHash('sha256')
+        .update(`${normalizedTitle}\u0000${normalizedArtist}`)
+        .digest('hex');
 
-    return sameTitleQuery.docs.find((doc) => {
+    return {
+        normalizedTitle,
+        normalizedArtist,
+        globalSongId: `bulk_${digest}`
+    };
+}
+
+function findExactGlobalSongMatchInDocs(docs: any[], normalizedArtist: string) {
+    return docs.find((doc) => {
         const existing = doc.data();
         const existingNormalizedArtist = normalizeSongIdentityValue(
             existing.normalizedArtist || existing.artist
         );
         return existingNormalizedArtist === normalizedArtist;
     }) || null;
+}
+
+async function findExactGlobalSongMatch(db: Firestore, title: unknown, artist: unknown) {
+    const identity = buildBulkGlobalSongIdentity(title, artist);
+    if (!identity) return null;
+
+    const sameTitleQuery = await db.collection('globalSongs')
+        .where('normalizedTitle', '==', identity.normalizedTitle)
+        .get();
+
+    return findExactGlobalSongMatchInDocs(sameTitleQuery.docs, identity.normalizedArtist);
 }
 
 export async function preVerifyCandidates(db: Firestore, target: string, candidateIds: string[] = []) {
@@ -107,82 +128,138 @@ export async function bulkImportCandidates(db: Firestore, candidateIds: string[]
 
     for (const candId of candidateIds) {
         try {
-             const candRef = db.collection('globalLibraryCandidates').doc(candId);
-             
-             // Use transaction or simple check? Simple check first, but let's do a robust sequence.
-             const candDoc = await candRef.get();
-             if (!candDoc.exists) {
-                 importResults.push({ id: candId, status: 'error', reason: 'Not found' });
-                 continue;
-             }
+            const candRef = db.collection('globalLibraryCandidates').doc(candId);
+            const auditRef = db.collection('curationAuditLogs').doc();
 
-             const data = candDoc.data()!;
-             if (data.status !== 'pending_review' && data.status !== 'unresolved') {
-                 importResults.push({ id: candId, status: 'ignored', reason: 'Status is not pending_review' });
-                 continue;
-             }
+            const result = await db.runTransaction(async (transaction) => {
+                const candDoc = await transaction.get(candRef);
+                if (!candDoc.exists) {
+                    return { id: candId, status: 'error', reason: 'Not found' };
+                }
 
-             // Re-verify inside the import execution
-             const exactMatchDoc = await findExactGlobalSongMatch(db, data.title, data.artist);
+                const data = candDoc.data()!;
 
-             if (exactMatchDoc) {
-                 // Already exists, update candidate to already_exists / matched_existing concept 
-                 // and keep pending or convert to something else
-                 const globalId = exactMatchDoc.id;
-                 await candRef.update(sanitizeFirestoreData({
-                     classification: 'matched_existing',
-                     'analysisSummary.classification': 'exact_match',
-                     'analysisSummary.matchedGlobalSongId': globalId,
-                     updatedAt: Date.now()
-                 }));
-                 importResults.push({ id: candId, status: 'already_exists', reason: 'Concurrent creation detected' });
-                 continue;
-             }
+                if (data.status === 'approved' && data.approvedGlobalSongId) {
+                    return {
+                        id: candId,
+                        status: 'already_exists',
+                        globalSongId: data.approvedGlobalSongId,
+                        reason: 'Candidate already approved'
+                    };
+                }
 
-             // Create Global Song
-             const globalRef = db.collection('globalSongs').doc();
-             
-             const whitelist = [
-                 'title', 'normalizedTitle', 'artist', 'normalizedArtist', 'key', 'originalKey', 
-                 'bpm', 'rhythm', 'chords', 'lyrics', 'sections', 'language', 'tags', 'tagIds', 
-                 'videoUrl', 'videos', 'fingerprints'
-             ];
+                if (data.status !== 'pending_review' && data.status !== 'unresolved') {
+                    return { id: candId, status: 'ignored', reason: 'Status is not pending_review' };
+                }
 
-             const payload: any = {};
-             for (const field of whitelist) {
-                 if (data[field] !== undefined) {
-                     payload[field] = data[field];
-                 }
-             }
+                const identity = buildBulkGlobalSongIdentity(data.title, data.artist);
+                if (!identity) {
+                    return { id: candId, status: 'error', reason: 'Missing title or artist' };
+                }
 
-             payload.status = 'active';
-             payload.createdAt = Date.now();
-             payload.updatedAt = Date.now();
-             payload.importCount = data.occurrences?.length || data.occurrenceCount || 1;
-             Object.assign(payload, buildGlobalSongSearchFields(payload));
+                const titleQuery = db.collection('globalSongs')
+                    .where('normalizedTitle', '==', identity.normalizedTitle);
+                const sameTitleQuery = await transaction.get(titleQuery);
 
-             await globalRef.set(sanitizeFirestoreData(payload));
+                const deterministicGlobalRef = db.collection('globalSongs').doc(identity.globalSongId);
+                const deterministicGlobalSnap = await transaction.get(deterministicGlobalRef);
 
-             // Update candidate
-             await candRef.update(sanitizeFirestoreData({
-                 status: 'approved',
-                 approvedGlobalSongId: globalRef.id,
-                 updatedAt: Date.now()
-             }));
+                const exactMatchDoc = findExactGlobalSongMatchInDocs(
+                    sameTitleQuery.docs,
+                    identity.normalizedArtist
+                );
 
-             // Log to private audit
-             await db.collection('curationAuditLogs').add(sanitizeFirestoreData({
-                 candidateId: candId,
-                 action: 'BULK_IMPORT',
-                 globalSongId: globalRef.id,
-                 resolvedBy,
-                 timestamp: Date.now()
-             }));
+                if (exactMatchDoc) {
+                    const globalId = exactMatchDoc.id;
+                    transaction.update(candRef, sanitizeFirestoreData({
+                        classification: 'matched_existing',
+                        'analysisSummary.classification': 'exact_match',
+                        'analysisSummary.matchedGlobalSongId': globalId,
+                        updatedAt: Date.now()
+                    }));
+                    return {
+                        id: candId,
+                        status: 'already_exists',
+                        globalSongId: globalId,
+                        reason: 'Exact title and artist already exist'
+                    };
+                }
 
-             importResults.push({ id: candId, status: 'imported', globalSongId: globalRef.id });
+                if (deterministicGlobalSnap.exists) {
+                    const existing = deterministicGlobalSnap.data()!;
+                    const existingArtist = normalizeSongIdentityValue(
+                        existing.normalizedArtist || existing.artist
+                    );
+                    const existingTitle = normalizeSongIdentityValue(
+                        existing.normalizedTitle || existing.title
+                    );
 
+                    if (
+                        existingTitle !== identity.normalizedTitle ||
+                        existingArtist !== identity.normalizedArtist
+                    ) {
+                        throw new Error('Bulk import identity collision');
+                    }
+
+                    transaction.update(candRef, sanitizeFirestoreData({
+                        classification: 'matched_existing',
+                        'analysisSummary.classification': 'exact_match',
+                        'analysisSummary.matchedGlobalSongId': deterministicGlobalRef.id,
+                        updatedAt: Date.now()
+                    }));
+                    return {
+                        id: candId,
+                        status: 'already_exists',
+                        globalSongId: deterministicGlobalRef.id,
+                        reason: 'Concurrent creation converged'
+                    };
+                }
+
+                const whitelist = [
+                    'title', 'normalizedTitle', 'artist', 'normalizedArtist', 'key', 'originalKey', 
+                    'bpm', 'rhythm', 'chords', 'lyrics', 'sections', 'language', 'tags', 'tagIds', 
+                    'videoUrl', 'videos', 'fingerprints'
+                ];
+
+                const payload: any = {};
+                for (const field of whitelist) {
+                    if (data[field] !== undefined) {
+                        payload[field] = data[field];
+                    }
+                }
+
+                payload.normalizedTitle = identity.normalizedTitle;
+                payload.normalizedArtist = identity.normalizedArtist;
+                payload.status = 'active';
+                payload.createdAt = Date.now();
+                payload.updatedAt = Date.now();
+                payload.importCount = data.occurrences?.length || data.occurrenceCount || 1;
+                Object.assign(payload, buildGlobalSongSearchFields(payload));
+
+                transaction.set(deterministicGlobalRef, sanitizeFirestoreData(payload));
+                transaction.update(candRef, sanitizeFirestoreData({
+                    status: 'approved',
+                    approvedGlobalSongId: deterministicGlobalRef.id,
+                    updatedAt: Date.now()
+                }));
+                transaction.set(auditRef, sanitizeFirestoreData({
+                    candidateId: candId,
+                    action: 'BULK_IMPORT',
+                    globalSongId: deterministicGlobalRef.id,
+                    resolvedBy,
+                    timestamp: Date.now()
+                }));
+
+                return {
+                    id: candId,
+                    status: 'imported',
+                    globalSongId: deterministicGlobalRef.id
+                };
+            });
+
+            importResults.push(result);
         } catch (err: any) {
-             importResults.push({ id: candId, status: 'error', reason: err.message });
+            importResults.push({ id: candId, status: 'error', reason: err.message });
         }
     }
 
