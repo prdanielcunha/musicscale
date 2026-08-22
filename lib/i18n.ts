@@ -4,6 +4,7 @@ import LanguageDetector from "i18next-browser-languagedetector";
 import pt from "../locales/pt.json";
 import en from "../locales/en.json";
 import es from "../locales/es.json";
+import { curationTranslations } from "../locales/curation";
 import { trackMissingKey } from "../utils/languageDiagnostics";
 
 i18n
@@ -11,9 +12,9 @@ i18n
   .use(initReactI18next)
   .init({
     resources: {
-      pt: { translation: pt },
-      en: { translation: en },
-      es: { translation: es }
+      pt: { translation: { ...pt, curation: curationTranslations.pt } },
+      en: { translation: { ...en, curation: curationTranslations.en } },
+      es: { translation: { ...es, curation: curationTranslations.es } }
     },
     fallbackLng: "pt", // Fallback consistently
     interpolation: {
