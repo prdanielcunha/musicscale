@@ -1,18 +1,42 @@
 import { adminDb } from '../../services/firebaseAdmin.js';
+import { buildGlobalSongSearchFields, type GlobalSongSearchFields } from '../../utils/searchEngine.js';
 import { normalizeBaseText } from '../../utils/songDiscovery/textNormalization.js';
+
+function arraysEqual(left: unknown, right: string[]): boolean {
+    return Array.isArray(left)
+        && left.length === right.length
+        && left.every((value, index) => value === right[index]);
+}
+
+function collectSearchFieldUpdates(data: any, canonical: GlobalSongSearchFields): Record<string, any> {
+    const updates: Record<string, any> = {};
+
+    if (data.searchVersion !== canonical.searchVersion) updates.searchVersion = canonical.searchVersion;
+    if (!arraysEqual(data.searchTokens, canonical.searchTokens)) updates.searchTokens = canonical.searchTokens;
+    if (!arraysEqual(data.searchContentTokens, canonical.searchContentTokens)) updates.searchContentTokens = canonical.searchContentTokens;
+    if (!arraysEqual(data.searchTitlePrefixes, canonical.searchTitlePrefixes)) updates.searchTitlePrefixes = canonical.searchTitlePrefixes;
+    if (!arraysEqual(data.searchArtistPrefixes, canonical.searchArtistPrefixes)) updates.searchArtistPrefixes = canonical.searchArtistPrefixes;
+    if (!arraysEqual(data.searchTitleGrams, canonical.searchTitleGrams)) updates.searchTitleGrams = canonical.searchTitleGrams;
+    if (!arraysEqual(data.searchArtistGrams, canonical.searchArtistGrams)) updates.searchArtistGrams = canonical.searchArtistGrams;
+    if (!arraysEqual(data.searchKeyTokens, canonical.searchKeyTokens)) updates.searchKeyTokens = canonical.searchKeyTokens;
+
+    return updates;
+}
 
 export async function backfillGlobalSongs(dbInstance = adminDb) {
     if (!dbInstance) {
         throw new Error('Database instance missing.');
     }
 
-    console.log('[Backfill] Starting globalSongs normalizedTitle backfill...');
+    console.log('[Backfill] Starting globalSongs canonical normalization + search index backfill...');
     const limitAmount = 200;
     let query = dbInstance.collection('globalSongs').orderBy('__name__').limit(limitAmount);
     let keepGoing = true;
 
     let processedCount = 0;
     let updatedCount = 0;
+    let normalizedUpdatedCount = 0;
+    let searchUpdatedCount = 0;
 
     while (keepGoing) {
         const snapshot = await query.get();
@@ -27,13 +51,13 @@ export async function backfillGlobalSongs(dbInstance = adminDb) {
             const data = doc.data();
             processedCount++;
 
-            let needsUpdate = false;
-            const updates: any = {};
+            const updates: Record<string, any> = {};
+            let normalizedChanged = false;
 
             const correctNormalizedTitle = normalizeBaseText(data.title || '');
             if (!data.normalizedTitle || data.normalizedTitle !== correctNormalizedTitle) {
                 updates.normalizedTitle = correctNormalizedTitle;
-                needsUpdate = true;
+                normalizedChanged = true;
             }
 
             if (data.artist) {
@@ -41,14 +65,21 @@ export async function backfillGlobalSongs(dbInstance = adminDb) {
                 const currentPrimaryArtist = data.normalizedArtists && data.normalizedArtists.length > 0 ? data.normalizedArtists[0] : null;
                 if (currentPrimaryArtist !== correctNormalizedArtist) {
                     updates.normalizedArtists = [correctNormalizedArtist];
-                    needsUpdate = true;
+                    normalizedChanged = true;
                 }
             }
 
-            if (needsUpdate) {
+            const canonicalSearchFields = buildGlobalSongSearchFields(data);
+            const searchUpdates = collectSearchFieldUpdates(data, canonicalSearchFields);
+            const searchChanged = Object.keys(searchUpdates).length > 0;
+            Object.assign(updates, searchUpdates);
+
+            if (Object.keys(updates).length > 0) {
                 batch.update(doc.ref, updates);
                 batchUpdates++;
                 updatedCount++;
+                if (normalizedChanged) normalizedUpdatedCount++;
+                if (searchChanged) searchUpdatedCount++;
             }
         }
 
@@ -64,6 +95,11 @@ export async function backfillGlobalSongs(dbInstance = adminDb) {
         }
     }
 
-    console.log(`[Backfill] Finished globalSongs backfill. Processed: ${processedCount}. Updated: ${updatedCount}.`);
-    return { processed: processedCount, updated: updatedCount };
+    console.log(`[Backfill] Finished globalSongs backfill. Processed: ${processedCount}. Updated: ${updatedCount}. Search updated: ${searchUpdatedCount}.`);
+    return {
+        processed: processedCount,
+        updated: updatedCount,
+        normalizedUpdated: normalizedUpdatedCount,
+        searchUpdated: searchUpdatedCount,
+    };
 }
