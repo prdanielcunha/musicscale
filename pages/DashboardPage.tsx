@@ -101,9 +101,9 @@ export const DashboardPage: React.FC = () => {
 
   // Secondary content calculations (kept as before)
   const unreadSuggestions = useMemo(() => {
-    if (!suggestions) return [];
+    if (suggestionsLoading || !suggestions) return [];
     return suggestions.filter((s) => !s.isRead && !s.isArchived);
-  }, [suggestions]);
+  }, [suggestions, suggestionsLoading]);
 
   const recentlyAddedSongs = useMemo(() => {
     if (!songs) return [];
@@ -169,7 +169,7 @@ export const DashboardPage: React.FC = () => {
     return result.slice(0, 3);
   }, [songs, populatedScales, recentlyAddedSongs]);
 
-  if (experienceLoading || musicLoading || suggestionsLoading) {
+  if (experienceLoading || musicLoading) {
     return (
       <div className="relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 animate-fade-in" aria-busy="true" aria-label={t('dashboard.loading', 'Carregando...')}>
         <header className="space-y-2">

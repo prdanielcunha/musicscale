@@ -1,8 +1,7 @@
 import Dexie, { type Table } from 'dexie';
-import { v4 as uuidv4 } from 'uuid';
 
 export interface SyncOperation {
-  id: string; // uuid
+  id: string;
   entity: 'songs' | 'scales' | 'bandScales';
   action: 'create' | 'update' | 'delete';
   documentId: string;
@@ -15,6 +14,7 @@ export interface SyncOperation {
 
 export interface PerformanceRecoveryState {
   id: string;
+  organizationId?: string;
   scaleId?: string;
   songId?: string;
   scrollPosition?: number;
@@ -24,14 +24,17 @@ export interface PerformanceRecoveryState {
 }
 
 export class MusicScaleDatabase extends Dexie {
-  // Sync queue
+  // Legacy inert storage. Existing records are deliberately preserved for
+  // backwards safety, but P3.2 exposes no producer or processor that can replay
+  // these unscoped operations to Firestore.
   syncQueue!: Table<SyncOperation, string>;
-  
+
   // High availability cached data (IndexedDB so we can load huge lists easily without crashing Quota)
   cachedSongs!: Table<any, string>;
   cachedScales!: Table<any, string>;
-  
-  // Performance mode state
+
+  // Performance mode state. organizationId is intentionally not indexed: adding
+  // tenant scope to the value does not require an IndexedDB schema migration.
   performanceState!: Table<PerformanceRecoveryState, string>;
 
   constructor() {
@@ -46,46 +49,6 @@ export class MusicScaleDatabase extends Dexie {
 }
 
 export const offlineDB = new MusicScaleDatabase();
-
-export async function queueSyncOperation(
-  entity: SyncOperation['entity'],
-  action: SyncOperation['action'],
-  documentId: string,
-  data?: any
-) {
-  await offlineDB.syncQueue.add({
-    id: uuidv4(),
-    entity,
-    action,
-    documentId,
-    data,
-    timestamp: Date.now(),
-    status: 'pending',
-    retryCount: 0
-  });
-
-  // Attempt sync immediately if online
-  if (navigator.onLine) {
-    triggerBackgroundSync();
-  }
-}
-
-export async function triggerBackgroundSync() {
-  if (typeof window !== 'undefined' && 'serviceWorker' in navigator && (navigator as any).serviceWorker.ready) {
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      if ((registration as any).sync) {
-        await (registration as any).sync.register('sync-musicscale');
-        return;
-      }
-    } catch(e) {
-      console.warn("Background Sync not supported by browser, falling back to foreground sync.");
-    }
-  }
-  
-  // Foreground sync fallback
-  window.dispatchEvent(new Event('musicscale:sync'));
-}
 
 export async function savePerformanceState(state: Partial<PerformanceRecoveryState>) {
   await offlineDB.performanceState.put({

@@ -6,7 +6,7 @@ import { evaluateFirstValueJourney, FirstValueJourneyOutput } from '../utils/fir
 
 export function useFirstScaleExperience(): FirstValueJourneyOutput {
   const { organization, user } = useAuth();
-  const { songs, scales, allUsers, loading } = useMusic();
+  const { songs, scales, allUsers, usersStatus, loading } = useMusic();
   const { hasCapability } = useCapability();
   const canEditScales = hasCapability('musicscale.scales.manage');
   const canManageMembers = hasCapability('musicscale.members.manage');
@@ -22,7 +22,7 @@ export function useFirstScaleExperience(): FirstValueJourneyOutput {
     milestones: [],
     draftScale: null,
     hasTeam: false,
-    teamState: "empty",
+    teamState: "unavailable",
     teamSetupSummary: null,
     canManageMembers
   });
@@ -37,10 +37,11 @@ export function useFirstScaleExperience(): FirstValueJourneyOutput {
       canManageMembers,
       organizationId: organization?.id,
       loading: loading || !user,
-      currentUserId: user?.uid
+      currentUserId: user?.uid,
+      teamDataStatus: usersStatus
     });
     setState(result);
-  }, [songs, scales, allUsers, canEditScales, canCreateSongs, canManageMembers, organization?.id, user, loading]);
+  }, [songs, scales, allUsers, usersStatus, canEditScales, canCreateSongs, canManageMembers, organization?.id, user, loading]);
 
   return state;
 }

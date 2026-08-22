@@ -7,6 +7,7 @@ if (getApps().length === 0) {
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import * as logger from 'firebase-functions/logger';
 import { processLocalSongWritten } from './processor.js'; 
+import { processGlobalSongContentMetricsWritten } from './globalSongMetricsProcessor.js';
 
 export * from './notifications.js';
 
@@ -51,5 +52,23 @@ export const onLocalSongWritten = onDocumentWritten(
       });
       throw error; 
     }
+  }
+);
+
+export const onGlobalSongWritten = onDocumentWritten(
+  {
+    document: 'globalSongs/{songId}',
+    retry: true,
+    memory: '256MiB',
+    maxInstances: 10,
+    concurrency: 1
+  },
+  async (event) => {
+    const change = event.data;
+    if (!change) return;
+
+    await processGlobalSongContentMetricsWritten(
+      change.after.exists ? change.after : undefined
+    );
   }
 );

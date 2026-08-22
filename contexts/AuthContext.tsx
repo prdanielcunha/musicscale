@@ -108,6 +108,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [userRole, setUserRole] = useState<Role | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
+  const [subscriptionOrganizationId, setSubscriptionOrganizationId] = useState<string | null>(null);
   const [isSubscriptionLoaded, setIsSubscriptionLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   
@@ -116,7 +117,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Deriving active context purely from EcosystemContext canonical payload
   const effectiveOrganizationId = ecoContext?.currentOrganizationId || null;
-  const effectiveOrganizationName = organization?.name || ecoContext?.currentOrganizationName || 'Sua Organização';
+  const scopedOrganization = organization?.id === effectiveOrganizationId ? organization : null;
+  const scopedSubscription = subscriptionOrganizationId === effectiveOrganizationId ? subscription : null;
+  const scopedEntitlements = entitlements?.organizationId === effectiveOrganizationId ? entitlements : null;
+  const effectiveOrganizationName = scopedOrganization?.name || ecoContext?.currentOrganizationName || 'Sua Organização';
   const roleInOrg = ecoContext?.roleInCurrentOrganization || 'visitor';
   const roleLower = String(roleInOrg).toLowerCase();
   const isOwner = ['owner', 'dono'].includes(roleLower);
@@ -231,6 +235,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
        const subRef = doc(db, 'subscriptions', effectiveOrganizationId);
        unsubscribeSub = onSnapshot(subRef, (docSnap) => {
+           setSubscriptionOrganizationId(effectiveOrganizationId);
            if (docSnap.exists()) {
                setSubscription(docSnap.data() as SubscriptionData);
            } else {
@@ -238,9 +243,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
            }
            setIsSubscriptionLoaded(true);
        }, (error) => {
+           setSubscriptionOrganizationId(effectiveOrganizationId);
            setIsSubscriptionLoaded(true);
        });
     } else {
+       setSubscriptionOrganizationId(null);
        setIsSubscriptionLoaded(true);
     }
 
@@ -273,11 +280,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [effectiveOrganizationId]);
 
   const effectiveEntitlements = useMemo(() => {
-     if (!entitlements) return null;
+     if (!scopedEntitlements) return null;
      const isGlobalAdmin = isCanonicalGlobalAdminRole(resolveCanonicalGlobalRole({ ecoContext, userProfile }));
      if (isGlobalAdmin) {
        return {
-          ...entitlements,
+          ...scopedEntitlements,
           plan: 'pro' as const,
           status: 'active' as const,
           limits: { users: -1, songs: -1, scales: -1, bandScales: -1, libraryImportsPerMonth: -1 },
@@ -289,8 +296,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }
        };
      }
-     return entitlements;
-  }, [entitlements, ecoContext, userProfile]);
+     return scopedEntitlements;
+  }, [scopedEntitlements, ecoContext, userProfile]);
 
     const isGlobalAdmin = isCanonicalGlobalAdminRole(resolveCanonicalGlobalRole({ ecoContext, userProfile }));
     const isCurationAdmin = isGlobalAdmin;
@@ -299,8 +306,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     user,
     userProfile,
     userRole,
-    organization,
-    subscription,
+    organization: scopedOrganization,
+    subscription: scopedSubscription,
     isSubscriptionLoaded,
     loading: loading || !isEcosystemReady,
     permissions,
@@ -357,7 +364,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     isGlobalAdmin,
     isCurationAdmin
   }), [
-    user, userProfile, userRole, organization, subscription, isSubscriptionLoaded,
+    user, userProfile, userRole, scopedOrganization, scopedSubscription, isSubscriptionLoaded,
     loading, isEcosystemReady, permissions, isOwner, isAdmin,
     effectiveEntitlements, isEntitlementsLoaded, effectiveOrganizationId,
     effectiveOrganizationName, needsRepair, repairReasons, fetchUserData, isGlobalAdmin, isCurationAdmin
@@ -383,7 +390,7 @@ export const useFeatures = () => {
     const { context: ecoContext } = useEcosystem();
     
     const isGlobalAdmin = isCanonicalGlobalAdminRole(resolveCanonicalGlobalRole({ ecoContext, userProfile }));
-    const activePlan = isGlobalAdmin ? 'pro' : (ecoContext?.plan || organization?.plan || entitlements?.plan || (subscription?.plan === 'pro' ? 'pro' : 'starter'));
+    const activePlan = isGlobalAdmin ? 'pro' : (entitlements?.plan || organization?.plan || ecoContext?.plan || (subscription?.plan === 'pro' ? 'pro' : 'starter'));
     const status = isGlobalAdmin ? 'active' : (entitlements?.status || subscription?.status || 'inactive');
     
     const canAccessGlobalLibrary = () => {
@@ -416,7 +423,7 @@ export const useLimits = () => {
     const { context: ecoContext } = useEcosystem();
     
     const isGlobalAdmin = isCanonicalGlobalAdminRole(resolveCanonicalGlobalRole({ ecoContext, userProfile }));
-    const activePlan = isGlobalAdmin ? 'pro' : (ecoContext?.plan || organization?.plan || entitlements?.plan || (subscription?.plan === 'pro' ? 'pro' : 'starter'));
+    const activePlan = isGlobalAdmin ? 'pro' : (entitlements?.plan || organization?.plan || ecoContext?.plan || (subscription?.plan === 'pro' ? 'pro' : 'starter'));
     
     const limits = useMemo(() => {
       if (isGlobalAdmin) {

@@ -13,6 +13,7 @@ import { db } from "./firebase";
 import { getUserProfileData } from "./firestoreService";
 import { auth } from "./firebase";
 import { createOrgQuery } from "../lib/firestore-utils";
+import { buildGlobalSongSearchFields } from "../utils/searchEngine";
 
 export interface BackupData {
   metadata: {
@@ -461,15 +462,15 @@ export const restoreBackup = async (options: RestoreOptions): Promise<void> => {
     // In a real system we'd query existing `normalizedTitle+normalizedArtist` globally first.
 
     // Fetch existing global songs to avoid dupes purely in memory
-    const existingGlobalSongs = new Map<string, string>();
+    const existingGlobalSongs = new Map<string, { id: string; data: any }>();
     try {
       // If the library is huge, this is inefficient, but for this level it works.
       const existingSnap = await getDocs(collection(db, "globalSongs"));
-      existingSnap.forEach((doc) => {
-        const data = doc.data();
+      existingSnap.forEach((document) => {
+        const data = document.data();
         existingGlobalSongs.set(
           `${data.normalizedTitle}|${data.normalizedArtist}`,
-          doc.id,
+          { id: document.id, data },
         );
       });
     } catch (e) {
@@ -485,13 +486,21 @@ export const restoreBackup = async (options: RestoreOptions): Promise<void> => {
       if (processedKeys.has(key)) return; // Prevent dupes within the import bulk itself
       processedKeys.add(key);
 
-      if (existingGlobalSongs.has(key)) {
+      const existing = existingGlobalSongs.get(key);
+      if (existing) {
+        const combinedData = { ...existing.data, ...s };
         songsToUpdate.push({
-          id: existingGlobalSongs.get(key)!,
-          data: s,
+          id: existing.id,
+          data: {
+            ...s,
+            ...buildGlobalSongSearchFields(combinedData),
+          },
         });
       } else {
-        songsToCreate.push(s);
+        songsToCreate.push({
+          ...s,
+          ...buildGlobalSongSearchFields(s),
+        });
       }
     });
 

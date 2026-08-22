@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { initializeTestEnvironment, RulesTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, setDoc, getDocs, collection, query, writeBatch } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { buildGlobalSongSearchFields } from '../../utils/searchEngine';
 import * as fs from 'fs';
 
@@ -187,7 +187,67 @@ describeEmulator('Global Library Search (Emulator)', () => {
     expect(result.songs[0].id).toBe('best_match');
   });
 
-  it('14. should test direct call to mergeGlobalSearchCandidates', async () => {
+  it('14. finds a late lyrics word beyond the legacy 150-token cap', async () => {
+    const uniqueTokens = Array.from({ length: 151 }, (_, index) => `palavra${index}`);
+    await createSong('late-content', {
+      title: 'Canção Longa',
+      artist: 'Banda A',
+      lyrics: [...uniqueTokens, 'muralhas'].join(' '),
+    });
+
+    const result = await getGlobalSongs('muralhas');
+    expect(result.songs.map(song => song.id)).toContain('late-content');
+  });
+
+  it('15. finds singable text embedded in chords without indexing raw chord symbols', async () => {
+    await createSong('chord-content', {
+      title: 'Outra Canção',
+      artist: 'Banda B',
+      chords: 'C G\nGraça me alcançou\nAm F',
+    });
+
+    const result = await getGlobalSongs('alcançou');
+    expect(result.songs.map(song => song.id)).toContain('chord-content');
+  });
+
+  it('16. normalizes punctuation and diacritics for phrase content search', async () => {
+    await createSong('phrase-content', {
+      title: 'Memória',
+      artist: 'Banda C',
+      lyrics: 'No Calvário, encontrei fé! E a graça me alcançou.',
+    });
+
+    const result = await getGlobalSongs('calvario encontrei fe');
+    expect(result.songs).toHaveLength(1);
+    expect(result.songs[0].id).toBe('phrase-content');
+  });
+
+  it('17. preserves meaningful two-character content words and title priority', async () => {
+    await createSong('faith-content', {
+      title: 'Esperança',
+      artist: 'Banda D',
+      lyrics: 'Eu vivo pela fé',
+    });
+    const faithResult = await getGlobalSongs('fé');
+    expect(faithResult.songs.map(song => song.id)).toContain('faith-content');
+
+    await createSong('title-first', {
+      title: 'Muralhas',
+      artist: 'Banda E',
+      lyrics: 'Outro texto',
+    });
+    await createSong('content-second', {
+      title: 'Outra História',
+      artist: 'Banda F',
+      lyrics: 'As muralhas vão cair',
+    });
+
+    const prioritized = await getGlobalSongs('muralhas', undefined, 1);
+    expect(prioritized.songs).toHaveLength(1);
+    expect(prioritized.songs[0].id).toBe('title-first');
+  });
+
+  it('18. should test direct call to mergeGlobalSearchCandidates', async () => {
     const { mergeGlobalSearchCandidates } = await import('../../services/globalLibraryService');
     const candidates = [
       { id: 's1', title: 'Jesus Esta Aqui', artist: 'Banda A', status: 'active' },

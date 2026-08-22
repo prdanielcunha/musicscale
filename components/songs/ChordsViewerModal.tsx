@@ -23,9 +23,9 @@ import { FullscreenExitIcon } from "../icons/FullscreenExitIcon";
 import { useTranslation } from "react-i18next";
 import {
   savePerformanceState,
-  clearPerformanceState,
   getPerformanceState,
 } from "../../services/offline/database";
+import { getSafeRecoveryScrollPosition } from "../../utils/performanceRecovery";
 import { useMusic } from "../../contexts/MusicDataContext";
 import { useModals } from "../../contexts/ModalContext";
 import { AiContextualSuggestions } from "../scales/AiContextualSuggestions";
@@ -139,11 +139,16 @@ const fontFamilies = [
 ];
 
 const defaultSettings = {
-  fontSize: 24, // Bigger for stage readability defaults
-  fontFamily: "font-sans", // Sans is usually better for rapid reading than Mono for most users, though Mono works for chords. We'll set Modern as default.
+  fontSize: 24,
+  fontFamily: "font-sans",
   lyricsColorIndex: 0,
   chordsColorIndex: 0,
 };
+
+const MAX_AUTOSCROLL_FRAME_DELTA_MS = 100;
+const TAP_MOVEMENT_TOLERANCE_PX = 18;
+const DOUBLE_TAP_MAX_DISTANCE_PX = 36;
+const DOUBLE_TAP_INTERVAL_MS = 300;
 
 const ColorPicker: React.FC<{
   label: string;
@@ -274,12 +279,10 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedChords, setEditedChords] = useState("");
 
-  // UI Visibility (Performance Mode)
   const [isUIVisible, setIsUIVisible] = useState(true);
   const [activeTab, setActiveTab] = useState<"none" | "font">("none");
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Fullscreen toggle
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch((err) => {
@@ -303,16 +306,17 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  // Swipe Navigation & Pinch-to-zoom & Double Tap
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const scaleRef = useRef<number>(1);
   const initialPinchDistRef = useRef<number | null>(null);
   const lastTapRef = useRef<number>(0);
+  const lastTapXRef = useRef<number | null>(null);
+  const lastTapYRef = useRef<number | null>(null);
+  const touchGestureHadMultiplePointersRef = useRef(false);
 
   const [isWorshipFlow, setIsWorshipFlow] = useState(false);
 
-  // Synchronize with Live Session Mode
   useEffect(() => {
     if (liveSession?.mode === 'worship') {
         setIsWorshipFlow(true);
@@ -321,37 +325,52 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     }
   }, [liveSession?.mode]);
 
+  const clearTapCandidate = () => {
+    lastTapRef.current = 0;
+    lastTapXRef.current = null;
+    lastTapYRef.current = null;
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
-    // If auto-scrolling is active, pause it intelligently on user interaction
     if (isAutoScrolling) {
       setIsAutoScrolling(false);
-      // Show feedback
     }
 
     if (e.touches.length === 1) {
+      touchGestureHadMultiplePointersRef.current = false;
       touchStartXRef.current = e.touches[0].clientX;
       touchStartYRef.current = e.touches[0].clientY;
-    } else if (e.touches.length === 2) {
-      // Pinch-to-zoom init
-      const dist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY,
-      );
-      initialPinchDistRef.current = dist;
-      scaleRef.current = settings.fontSize;
+    } else {
+      touchGestureHadMultiplePointersRef.current = true;
+      touchStartXRef.current = null;
+      touchStartYRef.current = null;
+      clearTapCandidate();
+
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY,
+        );
+        initialPinchDistRef.current = dist;
+        scaleRef.current = settings.fontSize;
+      }
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length > 1) {
+      touchGestureHadMultiplePointersRef.current = true;
+      clearTapCandidate();
+    }
+
     if (e.touches.length === 2 && initialPinchDistRef.current !== null) {
-      e.preventDefault(); // prevent native zoom
+      e.preventDefault();
       const currentDist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY,
       );
       const delta = currentDist - initialPinchDistRef.current;
 
-      // Calculate new font size based on pinch distance delta
       const newSize = Math.min(
         Math.max(12, scaleRef.current + delta * 0.05),
         48,
@@ -368,35 +387,74 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const handleTouchEnd = (e: React.TouchEvent) => {
     initialPinchDistRef.current = null;
 
-    // Double tap detection
-    const now = Date.now();
-    if (now - lastTapRef.current < 300 && e.changedTouches.length === 1) {
-      // Double tap!
-      setIsWorshipFlow((prev) => {
-        const next = !prev;
-        if (next) {
-          setShowWorshipFlowBadge(true);
-          setTimeout(() => setShowWorshipFlowBadge(false), 3000);
-        }
-        return next;
-      });
-      if (!document.fullscreenElement && !isWorshipFlow) {
-        toggleFullscreen();
+    const finishTouchGesture = () => {
+      touchStartXRef.current = null;
+      touchStartYRef.current = null;
+      if (e.touches.length === 0) {
+        touchGestureHadMultiplePointersRef.current = false;
       }
-      lastTapRef.current = 0; // reset
+    };
+
+    const changedTouch = e.changedTouches[0];
+    if (
+      !changedTouch ||
+      touchGestureHadMultiplePointersRef.current ||
+      touchStartXRef.current === null ||
+      touchStartYRef.current === null
+    ) {
+      clearTapCandidate();
+      finishTouchGesture();
       return;
     }
-    lastTapRef.current = now;
 
-    if (touchStartXRef.current === null || touchStartYRef.current === null)
-      return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-
+    const touchEndX = changedTouch.clientX;
+    const touchEndY = changedTouch.clientY;
     const deltaX = touchEndX - touchStartXRef.current;
     const deltaY = touchEndY - touchStartYRef.current;
+    const movement = Math.hypot(deltaX, deltaY);
+    const isStationaryTap = movement <= TAP_MOVEMENT_TOLERANCE_PX;
 
-    // Gesture Safety: Strict thresholds for horizontal swipes to prevent accidental page turns while scrolling
+    const now = Date.now();
+    if (isStationaryTap) {
+      const hasPreviousTap =
+        lastTapRef.current > 0 &&
+        lastTapXRef.current !== null &&
+        lastTapYRef.current !== null;
+      const previousTapDistance = hasPreviousTap
+        ? Math.hypot(
+            touchEndX - lastTapXRef.current!,
+            touchEndY - lastTapYRef.current!,
+          )
+        : Number.POSITIVE_INFINITY;
+
+      if (
+        hasPreviousTap &&
+        now - lastTapRef.current < DOUBLE_TAP_INTERVAL_MS &&
+        previousTapDistance <= DOUBLE_TAP_MAX_DISTANCE_PX
+      ) {
+        setIsWorshipFlow((prev) => {
+          const next = !prev;
+          if (next) {
+            setShowWorshipFlowBadge(true);
+            setTimeout(() => setShowWorshipFlowBadge(false), 3000);
+          }
+          return next;
+        });
+        if (!document.fullscreenElement && !isWorshipFlow) {
+          toggleFullscreen();
+        }
+        clearTapCandidate();
+        finishTouchGesture();
+        return;
+      }
+
+      lastTapRef.current = now;
+      lastTapXRef.current = touchEndX;
+      lastTapYRef.current = touchEndY;
+    } else {
+      clearTapCandidate();
+    }
+
     const swipeThreshold = isWorshipFlow ? 120 : 60;
     const maxVerticalDrift = 60;
 
@@ -414,11 +472,9 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         onNavigate("next");
       }
     }
-    touchStartXRef.current = null;
-    touchStartYRef.current = null;
+    finishTouchGesture();
   };
 
-  // Prevention of accidental refresh/exit during performance
   useEffect(() => {
     if (!isOpen) return;
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -429,7 +485,6 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isOpen]);
 
-  // Bluetooth Pedal & Keyboard Support
   useEffect(() => {
     if (!isOpen) return;
 
@@ -442,7 +497,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         return;
       }
 
-      const scrollAmount = window.innerHeight * 0.6; // slightly larger for page turn feeling
+      const scrollAmount = window.innerHeight * 0.6;
       const scrollContainer = scrollContainerRef.current;
 
       const goNext = () => {
@@ -457,7 +512,6 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         }
       };
 
-      // 1: Left/Right always change songs (common pedal mapping for next/prev task)
       if (e.key === "ArrowRight") {
         e.preventDefault();
         goNext();
@@ -469,13 +523,10 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         return;
       }
 
-      // 2: Up/Down / PageUp/PageDown always scroll (common pedal mapping for scrolling)
-      // Intelligent boundary: If scroll is at absolute bottom, and pedal presses down, go to next song.
       if (scrollContainer && (e.key === "ArrowDown" || e.key === "PageDown")) {
         e.preventDefault();
         const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
         if (scrollTop + clientHeight >= scrollHeight - 20) {
-          // Reached bottom, move to next song
           goNext();
         } else {
           scrollContainer.scrollBy({ top: scrollAmount, behavior: "smooth" });
@@ -487,7 +538,6 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         e.preventDefault();
         const { scrollTop } = scrollContainer;
         if (scrollTop <= 10) {
-          // Reached top, move to previous song
           goPrev();
         } else {
           scrollContainer.scrollBy({ top: -scrollAmount, behavior: "smooth" });
@@ -495,7 +545,6 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         return;
       }
 
-      // Spacebar toggle auto-scroll
       if (e.key === " ") {
           e.preventDefault();
           setIsAutoScrolling((prev) => !prev);
@@ -506,37 +555,65 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, isEditing, scaleContext, onNavigate]);
 
-  // WakeLock API for Active Screen Lock
   useEffect(() => {
+    if (!isOpen) return;
+
+    let disposed = false;
     let wakeLock: any = null;
+    let requestInFlight = false;
+
+    const releaseWakeLock = (sentinel: any) => {
+      if (!sentinel) return;
+      sentinel.release().catch(console.warn);
+    };
+
     const requestWakeLock = async () => {
+      if (
+        disposed ||
+        requestInFlight ||
+        document.visibilityState !== "visible" ||
+        !("wakeLock" in navigator)
+      ) {
+        return;
+      }
+
+      requestInFlight = true;
       try {
-        if ("wakeLock" in navigator) {
-          wakeLock = await (navigator as any).wakeLock.request("screen");
+        const sentinel = await (navigator as any).wakeLock.request("screen");
+
+        if (disposed) {
+          releaseWakeLock(sentinel);
+          return;
         }
+
+        if (wakeLock && wakeLock !== sentinel) {
+          releaseWakeLock(wakeLock);
+        }
+        wakeLock = sentinel;
       } catch (err: any) {
-        console.warn(`WakeLock error: ${err.name}, ${err.message}`);
+        if (!disposed) {
+          console.warn(`WakeLock error: ${err.name}, ${err.message}`);
+        }
+      } finally {
+        requestInFlight = false;
       }
     };
 
-    if (isOpen) {
-      requestWakeLock();
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === "visible") {
-          requestWakeLock();
-        }
-      };
-      document.addEventListener("visibilitychange", handleVisibilityChange);
-      return () => {
-        if (wakeLock) {
-          wakeLock.release().catch(console.warn);
-        }
-        document.removeEventListener(
-          "visibilitychange",
-          handleVisibilityChange,
-        );
-      };
-    }
+    void requestWakeLock();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void requestWakeLock();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      disposed = true;
+      const currentWakeLock = wakeLock;
+      wakeLock = null;
+      releaseWakeLock(currentWakeLock);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [isOpen]);
 
   const scrollAnimationRef = useRef<number>();
@@ -545,7 +622,21 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<number | null>(null);
 
-  // Section Tracking
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const resetAutoScrollClock = () => {
+      lastTimeRef.current = undefined;
+      if (scrollContainerRef.current) {
+        scrollPosRef.current = scrollContainerRef.current.scrollTop;
+      }
+    };
+
+    document.addEventListener("visibilitychange", resetAutoScrollClock);
+    return () =>
+      document.removeEventListener("visibilitychange", resetAutoScrollClock);
+  }, [isOpen]);
+
   const [activeSection, setActiveSection] = useState<string>("");
   const sectionRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
 
@@ -555,27 +646,29 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     if (!scrollContainerRef.current) return;
     const container = scrollContainerRef.current;
     const scrollPos = container.scrollTop;
+    const organizationId = effectiveOrganizationId;
+    const songId = song?.id;
+    const scaleId = scaleContext?.scaleId;
 
-    // Throttle scroll state save for recovery
-    if (song?.id) {
+    if (organizationId && songId) {
       if (saveScrollTimeoutRef.current) {
         window.clearTimeout(saveScrollTimeoutRef.current);
       }
       saveScrollTimeoutRef.current = window.setTimeout(() => {
-        savePerformanceState({
-          songId: song.id,
-          scaleId: scaleContext?.scaleId,
+        saveScrollTimeoutRef.current = null;
+        void savePerformanceState({
+          organizationId,
+          songId,
+          scaleId,
           scrollPosition: scrollPos,
         });
-        // Dispatch a silent background sync event for UX layer
         window.dispatchEvent(new Event("musicscale:local_save"));
       }, 1000);
     }
 
     let closestSection = "";
-    const offset = 150; // top offset
+    const offset = 150;
 
-    // Sort keys to parse in order
     const keys = Array.from(sectionRefs.current.keys()).sort(
       (a: number, b: number) => a - b,
     );
@@ -589,7 +682,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     if (closestSection && closestSection !== activeSection) {
       setActiveSection(closestSection);
     }
-  }, [activeSection]);
+  }, [activeSection, effectiveOrganizationId, song?.id, scaleContext?.scaleId]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -600,42 +693,73 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   }, [handleScroll]);
 
   useEffect(() => {
+    return () => {
+      if (saveScrollTimeoutRef.current) {
+        window.clearTimeout(saveScrollTimeoutRef.current);
+        saveScrollTimeoutRef.current = null;
+      }
+    };
+  }, [effectiveOrganizationId, song?.id, scaleContext?.scaleId]);
+
+  useEffect(() => {
     if (!isOpen) return;
 
+    const organizationId = effectiveOrganizationId;
+    const songId = song?.id;
+    const scaleId = scaleContext?.scaleId;
+    let cancelled = false;
+    let restoreFrame: number | null = null;
+    let restoreFallback: number | null = null;
+
+    const setScrollPosition = (position: number) => {
+      if (cancelled || !scrollContainerRef.current) return;
+      scrollContainerRef.current.scrollTop = position;
+    };
+
     const restoreState = async () => {
+      if (!organizationId || !songId) {
+        setScrollPosition(0);
+        return;
+      }
+
       try {
         const state = await getPerformanceState();
-        if (state && state.songId === song?.id && state.scrollPosition > 0) {
-          // Ultra-fast recovery: requestAnimationFrame ensures DOM has painted
-          requestAnimationFrame(() => {
-            if (scrollContainerRef.current) {
-              scrollContainerRef.current.scrollTop = state.scrollPosition;
-            }
-            // Fallback in case first frame wasn't fully laid out
-            setTimeout(() => {
-               if (scrollContainerRef.current) {
-                 scrollContainerRef.current.scrollTop = state.scrollPosition;
-               }
+        if (cancelled) return;
+
+        const scrollPosition = getSafeRecoveryScrollPosition(state, {
+          organizationId,
+          songId,
+          scaleId,
+        });
+
+        if (scrollPosition > 0) {
+          restoreFrame = requestAnimationFrame(() => {
+            setScrollPosition(scrollPosition);
+            restoreFallback = window.setTimeout(() => {
+              setScrollPosition(scrollPosition);
             }, 50);
           });
         } else {
-          if (scrollContainerRef.current)
-            scrollContainerRef.current.scrollTop = 0;
+          setScrollPosition(0);
         }
       } catch (e) {
-        if (scrollContainerRef.current)
-          scrollContainerRef.current.scrollTop = 0;
+        setScrollPosition(0);
       }
     };
 
-    setTranspose(0);
     setIsAutoScrolling(false);
     setIsEditing(false);
     setEditedChords("");
     setIsUIVisible(true);
     setActiveTab("none");
-    restoreState();
-  }, [song?.id, isOpen]);
+    void restoreState();
+
+    return () => {
+      cancelled = true;
+      if (restoreFrame !== null) cancelAnimationFrame(restoreFrame);
+      if (restoreFallback !== null) window.clearTimeout(restoreFallback);
+    };
+  }, [song?.id, scaleContext?.scaleId, effectiveOrganizationId, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -664,10 +788,11 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       if (!scrollContainer) return;
       
       if (lastTimeRef.current === undefined) lastTimeRef.current = timestamp;
-      const elapsed = timestamp - lastTimeRef.current;
+      const elapsed = Math.min(
+        Math.max(timestamp - lastTimeRef.current, 0),
+        MAX_AUTOSCROLL_FRAME_DELTA_MS,
+      );
 
-      // Cinematic, smoother scroll curve
-      // Faster speeds for better UX
       const pxPerSecond = speedLevel > 0 ? 15 + Math.pow(speedLevel, 2.2) * 8 : 0;
       const scrollDelta = (pxPerSecond / 1000) * elapsed;
       
@@ -729,7 +854,6 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         return;
       }
     }
-    // Save scroll state before closing
     if (song?.id && scrollContainerRef.current) {
       sessionStorage.setItem(
         `scroll_${song.id}`,
@@ -741,13 +865,11 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
 
   const handleScreenClick = (e: React.MouseEvent) => {
     if (isEditing) return;
-    // Don't toggle if clicking on interactive elements
     if (
       (e.target as HTMLElement).closest("button, .dock, .top-bar, .popup-panel")
     )
       return;
 
-    // Worship flow prevents accidental UI toggles
     if (isWorshipFlow) {
       setShowWorshipFlowBadge(true);
       setTimeout(() => setShowWorshipFlowBadge(false), 3000);
@@ -833,7 +955,6 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     <div
       className={`fixed inset-0 z-[120] overflow-hidden flex flex-col font-sans transition-colors duration-300 ${isWorshipFlow ? "bg-[#0A0A0C]" : "bg-[#0A0A0C]"}`}
     >
-      {/* Top Bar - Premium Glass */}
       <div
         className={`top-bar absolute top-0 w-full z-40 px-4 md:px-6 h-20 md:h-24 bg-[#0A0A0C]/85 backdrop-blur-2xl border-b border-white/[0.04] shadow-sm flex items-center justify-between transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${isUIVisible || isEditing ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"}`}
       >
@@ -916,7 +1037,6 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
             </span>
           </button>
 
-          {/* Format Settings Pop-up */}
           {activeTab === "font" && (
             <div
               className="popup-panel absolute top-14 right-0 z-50 bg-[#0A0A0C]/90 backdrop-blur-3xl border border-white/[0.08] rounded-3xl p-5 shadow-[0_16px_40px_rgba(0,0,0,0.6)] flex flex-col gap-6 w-[320px] transition-all duration-300 transform origin-top-right animate-scale-in"
@@ -1065,7 +1185,6 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         </div>
       </div>
 
-      {/* Main Content Area */}
       <div
         ref={scrollContainerRef}
         className={`flex-1 w-full h-full overflow-y-auto cursor-pointer hide-scrollbar touch-pan-y ${isWorshipFlow ? "bg-black" : ""}`}
@@ -1259,13 +1378,11 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         </AnimatePresence>
       </div>
 
-      {/* Bottom HUD - Premium Float Dock */}
       {!isEditing && (
         <div
           className={`dock fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 z-40 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-auto ${isUIVisible || isAutoScrolling ? "translate-y-0 opacity-100 scale-100" : "translate-y-20 opacity-0 scale-95"}`}
         >
           <div className="flex items-center gap-2 p-2 bg-[#0A0A0C]/85 backdrop-blur-3xl border border-white/[0.08] shadow-[0_16px_40px_rgba(0,0,0,0.6)] rounded-full isolate relative">
-            {/* Transpose */}
             <div className="flex items-center bg-[#000000]/50 rounded-full ml-1 border border-white/[0.04] shadow-inner">
               <button
                 className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 rounded-l-full transition-colors font-medium text-lg px-2"
@@ -1303,7 +1420,6 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
               </button>
             </div>
 
-            {/* Playback (Auto-scroll) */}
             {!scaleContext && (
                <div className="w-1" />
             )}
@@ -1322,7 +1438,6 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
               )}
             </button>
 
-            {/* Speed */}
             <div className="flex items-center bg-[#000000]/50 rounded-full border border-white/[0.04] shadow-inner mr-1">
               <button
                 className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 rounded-l-full transition-colors font-medium text-lg px-2"
@@ -1356,7 +1471,6 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         </div>
       )}
 
-      {/* Navegação de Escala Premium */}
       {scaleContext && isUIVisible && !isEditing && (
          <>
            <ScaleSongNavigation 
@@ -1374,7 +1488,6 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
          </>
       )}
 
-      {/* Editing Footer */}
       {isEditing && (
         <div className="absolute bottom-0 w-full pointer-events-auto bg-white/95 dark:bg-[#0A0A0C]/95 backdrop-blur-2xl p-4 border-t border-slate-200/50 dark:border-white/5 shadow-2xl flex flex-wrap gap-3 items-center justify-end z-50">
           <Button
@@ -1421,7 +1534,6 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         </div>
       )}
 
-      {/* Live Worship Director (Only if part of a scale) */}
       {scaleContext?.scaleId && song && (
         <LiveWorshipDirector
           scaleId={scaleContext.scaleId}
