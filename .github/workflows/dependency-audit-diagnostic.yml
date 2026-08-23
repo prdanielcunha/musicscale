@@ -3,6 +3,8 @@ name: Dependency Audit Diagnostic
 on:
   push:
     branches: [ chatgpt/dependency-audit ]
+  pull_request:
+    branches: [ main ]
 
 permissions:
   contents: read
