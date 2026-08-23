@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Spinner from '../common/Spinner';
 import { useAuth } from '../../contexts/AuthContext';
 import { CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
@@ -26,6 +27,7 @@ interface VerificationResult {
 
 export function ImportCandidatesModal({ onClose, target, selectedCandidateIds, onSuccess }: ImportCandidatesModalProps) {
     const { user } = useAuth();
+    const { t } = useTranslation();
     const [step, setStep] = useState<'verifying' | 'summary' | 'importing' | 'completed'>('verifying');
     const [results, setResults] = useState<VerificationResult[]>([]);
     const [stats, setStats] = useState({
@@ -55,7 +57,7 @@ export function ImportCandidatesModal({ onClose, target, selectedCandidateIds, o
                 });
 
                 if (!res.ok) {
-                    throw new Error('Falha ao verificar candidatas');
+                    throw new Error(t('curation.modals.import.verifyFailure'));
                 }
 
                 const data = await res.json();
@@ -77,7 +79,7 @@ export function ImportCandidatesModal({ onClose, target, selectedCandidateIds, o
 
             } catch (err) {
                 console.error(err);
-                alert("Erro ao pré-verificar: " + String(err));
+                alert(t('curation.modals.import.preVerifyError', { error: String(err) }));
                 onClose();
             }
         };
@@ -118,10 +120,13 @@ export function ImportCandidatesModal({ onClose, target, selectedCandidateIds, o
             setStep('completed');
         } catch (e) {
             console.error(e);
-            alert("Erro durante importação em lote.");
+            alert(t('curation.modals.import.batchError'));
             setStep('completed');
         }
     };
+
+    const getStateLabel = (state: VerificationResult['state']) =>
+        t(`curation.modals.import.state.${state}`);
 
     const renderVerificationList = () => {
         const filtered = results.filter(r => {
@@ -134,12 +139,12 @@ export function ImportCandidatesModal({ onClose, target, selectedCandidateIds, o
             <div className="mt-6 flex flex-col h-[50vh] min-h-[300px]">
                 <div className="flex gap-2 overflow-x-auto pb-3 shrink-0 scrollbar-thin">
                     {[
-                        { id: 'all', label: 'Todas', count: results.length },
-                        { id: 'ready_to_import', label: 'Prontas', count: stats.ready, color: 'text-green-600 bg-green-50' },
-                        { id: 'already_exists', label: 'Já existem', count: stats.exists, color: 'text-indigo-600 bg-indigo-50' },
-                        { id: 'possible_duplicate', label: 'Duplicadas', count: stats.duplicate, color: 'text-amber-600 bg-amber-50' },
-                        { id: 'insufficient_data', label: 'Insuficientes', count: stats.insufficient, color: 'text-orange-600 bg-orange-50' },
-                        { id: 'error', label: 'Erros/Inválidas', count: stats.errors + stats.invalid, color: 'text-red-600 bg-red-50' }
+                        { id: 'all', label: t('curation.modals.common.all'), count: results.length },
+                        { id: 'ready_to_import', label: t('curation.modals.import.filters.ready'), count: stats.ready, color: 'text-green-600 bg-green-50' },
+                        { id: 'already_exists', label: t('curation.modals.import.filters.exists'), count: stats.exists, color: 'text-indigo-600 bg-indigo-50' },
+                        { id: 'possible_duplicate', label: t('curation.modals.import.filters.duplicate'), count: stats.duplicate, color: 'text-amber-600 bg-amber-50' },
+                        { id: 'insufficient_data', label: t('curation.modals.import.filters.insufficient'), count: stats.insufficient, color: 'text-orange-600 bg-orange-50' },
+                        { id: 'error', label: t('curation.modals.import.filters.errors'), count: stats.errors + stats.invalid, color: 'text-red-600 bg-red-50' }
                     ].filter(f => f.count > 0 || f.id === 'all').map(f => (
                         <button
                             key={f.id}
@@ -168,14 +173,14 @@ export function ImportCandidatesModal({ onClose, target, selectedCandidateIds, o
                                     r.state === 'insufficient_data' ? 'bg-orange-100 text-orange-700' :
                                     'bg-red-100 text-red-700'
                                 }`}>
-                                    {r.state.replace(/_/g, ' ')}
+                                    {getStateLabel(r.state)}
                                 </span>
                             </div>
                             
                             {r.matchedGlobalSong && (
                                 <div className="text-xs text-slate-600 dark:text-slate-400 bg-black/5 dark:bg-white/5 rounded p-2 flex justify-between items-center">
                                     <div>
-                                        <span className="font-semibold block mb-0.5">Correspondência encontrada:</span>
+                                        <span className="font-semibold block mb-0.5">{t('curation.modals.import.matchFound')}</span>
                                         {r.matchedGlobalSong.title} — {r.matchedGlobalSong.artist}
                                     </div>
                                 </div>
@@ -195,7 +200,7 @@ export function ImportCandidatesModal({ onClose, target, selectedCandidateIds, o
             <div className="bg-white dark:bg-[#1A1D24] rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl relative z-10 animate-fade-in flex flex-col max-h-[90vh]">
                 <div className="p-6 border-b border-slate-100 dark:border-white/10 flex justify-between items-center shrink-0">
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                        Importação para Biblioteca Viva
+                        {t('curation.modals.import.title')}
                     </h2>
                     {step !== 'importing' && step !== 'completed' && (
                         <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-full transition-colors">
@@ -208,8 +213,12 @@ export function ImportCandidatesModal({ onClose, target, selectedCandidateIds, o
                     {step === 'verifying' && (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
                             <Spinner size="lg" className="mb-4" />
-                            <h3 className="font-bold text-lg text-slate-900 dark:text-white">Verificando elegibilidade...</h3>
-                            <p className="text-slate-500 mt-2 text-sm max-w-sm">Comparando {target === 'all' ? 'todas as elegíveis' : `${selectedCandidateIds.length} selecionadas`} contra a Biblioteca global atualizada.</p>
+                            <h3 className="font-bold text-lg text-slate-900 dark:text-white">{t('curation.modals.import.verifying')}</h3>
+                            <p className="text-slate-500 mt-2 text-sm max-w-sm">
+                                {target === 'all'
+                                    ? t('curation.modals.import.verifyingAll')
+                                    : t('curation.modals.import.verifyingSelected', { count: selectedCandidateIds.length })}
+                            </p>
                         </div>
                     )}
 
@@ -218,19 +227,19 @@ export function ImportCandidatesModal({ onClose, target, selectedCandidateIds, o
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 <div className="bg-green-50 dark:bg-green-500/10 p-3 rounded-xl border border-green-100 dark:border-green-500/20 text-center">
                                      <div className="text-2xl font-bold text-green-600">{stats.ready}</div>
-                                     <div className="text-xs font-semibold text-green-700 uppercase mt-1">Prontas</div>
+                                     <div className="text-xs font-semibold text-green-700 uppercase mt-1">{t('curation.modals.import.stats.ready')}</div>
                                 </div>
                                 <div className="bg-indigo-50 dark:bg-indigo-500/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 text-center">
                                      <div className="text-2xl font-bold text-indigo-600">{stats.exists}</div>
-                                     <div className="text-xs font-semibold text-indigo-700 uppercase mt-1">Já Existem</div>
+                                     <div className="text-xs font-semibold text-indigo-700 uppercase mt-1">{t('curation.modals.import.stats.exists')}</div>
                                 </div>
                                 <div className="bg-amber-50 dark:bg-amber-500/10 p-3 rounded-xl border border-amber-100 dark:border-amber-500/20 text-center">
                                      <div className="text-2xl font-bold text-amber-600">{stats.duplicate}</div>
-                                     <div className="text-xs font-semibold text-amber-700 uppercase mt-1">Duplicadas</div>
+                                     <div className="text-xs font-semibold text-amber-700 uppercase mt-1">{t('curation.modals.import.stats.duplicate')}</div>
                                 </div>
                                 <div className="bg-red-50 dark:bg-red-500/10 p-3 rounded-xl border border-red-100 dark:border-red-500/20 text-center">
                                      <div className="text-2xl font-bold text-red-600">{stats.errors + stats.invalid + stats.insufficient}</div>
-                                     <div className="text-xs font-semibold text-red-700 uppercase mt-1">Invalid/Outros</div>
+                                     <div className="text-xs font-semibold text-red-700 uppercase mt-1">{t('curation.modals.import.stats.invalid')}</div>
                                 </div>
                             </div>
                             
@@ -241,8 +250,8 @@ export function ImportCandidatesModal({ onClose, target, selectedCandidateIds, o
                     {step === 'importing' && (
                          <div className="flex flex-col items-center justify-center py-12 text-center">
                              <Spinner size="lg" className="mb-4" />
-                             <h3 className="font-bold text-lg text-slate-900 dark:text-white">Importando...</h3>
-                             <p className="text-slate-500 my-2 text-sm">{progress.current} de {progress.total} inseridas</p>
+                             <h3 className="font-bold text-lg text-slate-900 dark:text-white">{t('curation.modals.import.importing')}</h3>
+                             <p className="text-slate-500 my-2 text-sm">{t('curation.modals.import.progress', progress)}</p>
                              <div className="w-full max-w-sm h-2 bg-slate-100 rounded-full overflow-hidden mt-4">
                                  <div className="h-full bg-primary transition-all duration-300" style={{ width: `${Math.max(5, (progress.current / progress.total) * 100)}%` }} />
                              </div>
@@ -252,13 +261,13 @@ export function ImportCandidatesModal({ onClose, target, selectedCandidateIds, o
                     {step === 'completed' && (
                         <div className="flex flex-col items-center justify-center py-8 text-center bg-green-50 dark:bg-green-500/5 rounded-2xl">
                             <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
-                            <h3 className="text-2xl font-bold text-green-700 dark:text-green-400">Importação Concluída</h3>
+                            <h3 className="text-2xl font-bold text-green-700 dark:text-green-400">{t('curation.modals.import.completed')}</h3>
                             <p className="text-green-600/80 mt-2">
-                                {importResults.filter(r => r.status === 'imported').length} músicas inseridas com sucesso.
+                                {t('curation.modals.import.completedCount', { count: importResults.filter(r => r.status === 'imported').length })}
                             </p>
                             <div className="mt-8">
                                 <button onClick={() => { onClose(); onSuccess(); }} className="px-6 py-2.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-sm transition-all focus:ring-4 focus:ring-green-500/20 active:scale-95">
-                                    Fechar e Atualizar Lista
+                                    {t('curation.modals.import.closeRefresh')}
                                 </button>
                             </div>
                         </div>
@@ -268,14 +277,14 @@ export function ImportCandidatesModal({ onClose, target, selectedCandidateIds, o
                 {step === 'summary' && (
                     <div className="p-6 border-t border-slate-100 dark:border-white/10 flex justify-end gap-3 shrink-0 bg-slate-50 dark:bg-white/[0.02]">
                         <button onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-colors">
-                            Cancelar
+                            {t('curation.modals.common.cancel')}
                         </button>
                         <button 
                             onClick={handleImport}
                             disabled={stats.ready === 0}
                             className="px-6 py-2.5 text-sm font-bold text-white bg-primary disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 rounded-xl transition-all shadow-sm active:scale-[0.98]"
                         >
-                            Importar {stats.ready} Músicas
+                            {t('curation.modals.import.importCount', { count: stats.ready })}
                         </button>
                     </div>
                 )}

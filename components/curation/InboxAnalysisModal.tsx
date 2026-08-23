@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'motion/react';
 import Spinner from '../common/Spinner';
@@ -10,6 +11,7 @@ interface Props {
 
 export function InboxAnalysisModal({ onClose, initialInboxCount }: Props) {
     const { user } = useAuth();
+    const { t } = useTranslation();
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [stats, setStats] = useState({
         processed: 0,
@@ -48,7 +50,7 @@ export function InboxAnalysisModal({ onClose, initialInboxCount }: Props) {
 
                if (!res.ok) {
                    const errData = await res.json().catch(() => ({}));
-                   setErrorMessage(errData.error || errData.details || "A análise falhou ao processar um lote.");
+                   setErrorMessage(errData.error || errData.details || t('curation.modals.inbox.batchError'));
                    break;
                }
 
@@ -83,7 +85,7 @@ export function InboxAnalysisModal({ onClose, initialInboxCount }: Props) {
                if (analyzeResults.length === 0) break;
             }
         } catch(e: any) {
-            setErrorMessage(e.message || "Erro na conexão ou análise.");
+            setErrorMessage(e.message || t('curation.modals.inbox.connectionError'));
         } finally {
             setIsAnalyzing(false);
         }
@@ -92,14 +94,8 @@ export function InboxAnalysisModal({ onClose, initialInboxCount }: Props) {
     const displayResults = results.filter(r => filter === 'all' || r.classification === filter);
 
     const getClassificationLabel = (c: string) => {
-        switch(c) {
-            case 'ignored': return 'Ignorada';
-            case 'error': return 'Erro';
-            case 'likely_unique': return 'Provável inédita';
-            case 'possible_duplicate': return 'Possível duplicada';
-            case 'matched_existing': return 'Match existente';
-            default: return c;
-        }
+        const known = ['ignored', 'error', 'likely_unique', 'possible_duplicate', 'matched_existing'];
+        return known.includes(c) ? t(`curation.modals.inbox.classification.${c}`) : c;
     };
 
     const getClassificationColor = (c: string) => {
@@ -123,9 +119,9 @@ export function InboxAnalysisModal({ onClose, initialInboxCount }: Props) {
             >
                 <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-white/10">
                     <div>
-                        <h2 className="text-xl font-bold font-sans text-slate-900 dark:text-white">Análise de Caixa de Entrada</h2>
+                        <h2 className="text-xl font-bold font-sans text-slate-900 dark:text-white">{t('curation.modals.inbox.title')}</h2>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                            Processando músicas pendentes para curadoria.
+                            {t('curation.modals.inbox.subtitle')}
                         </p>
                     </div>
                     <button 
@@ -145,7 +141,7 @@ export function InboxAnalysisModal({ onClose, initialInboxCount }: Props) {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                         <div>
-                            <span className="font-semibold block mb-0.5">Erro no processamento</span>
+                            <span className="font-semibold block mb-0.5">{t('curation.modals.common.processingError')}</span>
                             {errorMessage}
                         </div>
                     </div>
@@ -154,14 +150,14 @@ export function InboxAnalysisModal({ onClose, initialInboxCount }: Props) {
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-900/30 flex items-center justify-between">
                     <div className="text-sm text-blue-800 dark:text-blue-300">
                         {isAnalyzing ? (
-                            <span className="flex items-center gap-2"><Spinner size="sm" /> Preparando análise...</span>
+                            <span className="flex items-center gap-2"><Spinner size="sm" /> {t('curation.modals.inbox.preparing')}</span>
                         ) : (
-                            <span className="font-bold">Análise concluída</span>
+                            <span className="font-bold">{t('curation.modals.inbox.completed')}</span>
                         )}
                     </div>
                     {isAnalyzing && (
                         <div className="text-sm font-medium text-blue-700 dark:text-blue-200">
-                            Processadas: {stats.processed} / Restante: {stats.queued}
+                            {t('curation.modals.inbox.progress', { processed: stats.processed, queued: stats.queued })}
                         </div>
                     )}
                 </div>
@@ -169,27 +165,27 @@ export function InboxAnalysisModal({ onClose, initialInboxCount }: Props) {
                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-px bg-slate-200 dark:bg-white/10 border-b border-slate-200 dark:border-white/10">
                     <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                         <div className="text-2xl font-semibold text-slate-900 dark:text-white">{stats.processed}</div>
-                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Processadas</div>
+                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.inbox.metrics.processed')}</div>
                     </div>
                     <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                         <div className="text-2xl font-semibold text-indigo-500">{stats.likely_unique}</div>
-                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Inéditas</div>
+                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.inbox.metrics.unique')}</div>
                     </div>
                     <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                         <div className="text-2xl font-semibold text-amber-500">{stats.possible_duplicate}</div>
-                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Duplicadas</div>
+                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.inbox.metrics.duplicate')}</div>
                     </div>
                     <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                         <div className="text-2xl font-semibold text-green-500">{stats.matched_existing}</div>
-                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Matches</div>
+                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.inbox.metrics.matches')}</div>
                     </div>
                     <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                         <div className="text-2xl font-semibold text-slate-400">{stats.ignored}</div>
-                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Ignoradas</div>
+                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.inbox.metrics.ignored')}</div>
                     </div>
                     <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                         <div className="text-2xl font-semibold text-red-500">{stats.error}</div>
-                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Erros</div>
+                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.inbox.metrics.errors')}</div>
                     </div>
                 </div>
 
@@ -204,12 +200,12 @@ export function InboxAnalysisModal({ onClose, initialInboxCount }: Props) {
 
                 <div className="flex gap-2 p-4 border-b border-slate-200 dark:border-white/10 overflow-x-auto hide-scrollbar bg-slate-50 dark:bg-white/[0.02]">
                     {[
-                        { id: 'all', label: 'Todas' },
-                        { id: 'likely_unique', label: 'Prováveis Inéditas' },
-                        { id: 'possible_duplicate', label: 'Possíveis Duplicadas' },
-                        { id: 'matched_existing', label: 'Matches Existentes' },
-                        { id: 'ignored', label: 'Ignoradas' },
-                        { id: 'error', label: 'Erros' }
+                        { id: 'all', label: t('curation.modals.common.all') },
+                        { id: 'likely_unique', label: t('curation.modals.inbox.filters.unique') },
+                        { id: 'possible_duplicate', label: t('curation.modals.inbox.filters.duplicate') },
+                        { id: 'matched_existing', label: t('curation.modals.inbox.filters.matches') },
+                        { id: 'ignored', label: t('curation.modals.inbox.filters.ignored') },
+                        { id: 'error', label: t('curation.modals.inbox.filters.errors') }
                     ]
                     .filter(f => f.id === 'all' || (stats[f.id as keyof typeof stats] !== undefined && stats[f.id as keyof typeof stats] > 0))
                     .map(f => (
@@ -235,7 +231,7 @@ export function InboxAnalysisModal({ onClose, initialInboxCount }: Props) {
                             ) : (
                                 <svg className="w-12 h-12 mb-3 opacity-20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
                             )}
-                            <p className="text-sm">Nenhum resultado para exibir no momento.</p>
+                            <p className="text-sm">{t('curation.modals.inbox.empty')}</p>
                         </div>
                     ) : (
                         displayResults.map((r, i) => (
@@ -252,7 +248,7 @@ export function InboxAnalysisModal({ onClose, initialInboxCount }: Props) {
                                     </div>
                                     {r.candidateId && (
                                         <a href={`/curation/${r.candidateId}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
-                                            Abrir na Curadoria ↗
+                                            {t('curation.modals.common.openInCuration')}
                                         </a>
                                     )}
                                 </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEcosystem } from '../../contexts/EcosystemContext';
 import { motion } from 'motion/react';
@@ -11,6 +12,7 @@ interface Props {
 export function OrganizationScannerModal({ onClose }: Props) {
     const { user } = useAuth();
     const { context: ecoContext } = useEcosystem();
+    const { t } = useTranslation();
     const [organizations, setOrganizations] = useState<any[]>([]);
     const [selectedOrgId, setSelectedOrgId] = useState('');
     const [approxCount, setApproxCount] = useState<number | null>(null);
@@ -146,7 +148,7 @@ export function OrganizationScannerModal({ onClose }: Props) {
                if (!res.ok) {
                    const errData = await res.json().catch(() => ({}));
                    console.error("Analyze chunk failed:", errData);
-                   setErrorMessage(errData.error || errData.details || "A análise falhou ao processar um lote.");
+                   setErrorMessage(errData.error || errData.details || t('curation.modals.scanner.analyzeBatchError'));
                    break;
                }
 
@@ -167,7 +169,7 @@ export function OrganizationScannerModal({ onClose }: Props) {
                
                if (analyzeResults.length === 0) {
                    if (remaining === stats.na_caixa) {
-                       setErrorMessage("Nenhuma entrada pendente encontrada para esta organização.");
+                       setErrorMessage(t('curation.modals.scanner.noPending'));
                    }
                    break;
                }
@@ -200,7 +202,7 @@ export function OrganizationScannerModal({ onClose }: Props) {
             }
         } catch(e: any) {
             console.error(e);
-            setErrorMessage(e.message || "Erro na conexão ou análise.");
+            setErrorMessage(e.message || t('curation.modals.scanner.analyzeConnectionError'));
         } finally {
             setIsAnalyzing(false);
         }
@@ -239,7 +241,7 @@ export function OrganizationScannerModal({ onClose }: Props) {
                 if (!res.ok) {
                      const errData = await res.json().catch(() => ({}));
                      console.error("Scan chunk failed:", errData);
-                     setErrorMessage(errData.error || errData.details || "A varredura falhou ao processar um lote de músicas no servidor.");
+                     setErrorMessage(errData.error || errData.details || t('curation.modals.scanner.scanBatchError'));
                      break;
                 }
                 
@@ -273,7 +275,7 @@ export function OrganizationScannerModal({ onClose }: Props) {
 
         } catch (e: any) {
             console.error("Error during scan string:", e);
-            setErrorMessage(e?.message || "Erro de conexão de rede ao realizar a varredura.");
+            setErrorMessage(e?.message || t('curation.modals.scanner.scanConnectionError'));
         } finally {
             setIsScanning(false);
         }
@@ -290,17 +292,8 @@ export function OrganizationScannerModal({ onClose }: Props) {
         });
 
     const getClassificationLabel = (c: string) => {
-        switch(c) {
-            case 'na_caixa': return 'Enviada à Caixa de Entrada';
-            case 'ja_na_caixa': return 'Já estava na Caixa';
-            case 'ignorada': return 'Ignorada';
-            case 'erro': return 'Erro';
-            case 'inedita': return 'Provável Inédita';
-            case 'duplicada': return 'Possível Duplicada';
-            case 'match_existente': return 'Match Encontrado';
-            case 'dados_insuficientes': return 'Dados Insuficientes';
-            default: return c;
-        }
+        const known = ['na_caixa', 'ja_na_caixa', 'ignorada', 'erro', 'inedita', 'duplicada', 'match_existente', 'dados_insuficientes'];
+        return known.includes(c) ? t(`curation.modals.scanner.classification.${c}`) : c;
     };
 
     const getClassificationColor = (c: string) => {
@@ -327,9 +320,9 @@ export function OrganizationScannerModal({ onClose }: Props) {
             >
                 <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-white/10">
                     <div>
-                        <h2 className="text-xl font-bold font-sans text-slate-900 dark:text-white">Varredura de Repertório</h2>
+                        <h2 className="text-xl font-bold font-sans text-slate-900 dark:text-white">{t('curation.modals.scanner.title')}</h2>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                            Análise automática do repositório local e integração com a Biblioteca Viva.
+                            {t('curation.modals.scanner.subtitle')}
                         </p>
                     </div>
                     <button 
@@ -347,7 +340,7 @@ export function OrganizationScannerModal({ onClose }: Props) {
                     <div className="flex flex-col sm:flex-row items-end gap-4">
                         <div className="flex-1 w-full relative">
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                                Organização Alvo
+                                {t('curation.modals.scanner.targetOrganization')}
                             </label>
                             <select 
                                 value={selectedOrgId}
@@ -355,7 +348,7 @@ export function OrganizationScannerModal({ onClose }: Props) {
                                 disabled={isScanning}
                                 className="w-full h-10 px-3 bg-white dark:bg-[#0A0A0C] border border-slate-300 dark:border-white/10 rounded-lg text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white"
                             >
-                                <option value="" disabled>Selecione uma organization...</option>
+                                <option value="" disabled>{t('curation.modals.scanner.selectOrganization')}</option>
                                 {organizations.map((org: any) => (
                                     <option key={org.id} value={org.id}>{org.name || org.id}</option>
                                 ))}
@@ -371,10 +364,10 @@ export function OrganizationScannerModal({ onClose }: Props) {
                                 {isScanning ? (
                                     <>
                                         <Spinner size="sm" />
-                                        <span>Varrendo...</span>
+                                        <span>{t('curation.modals.scanner.scanning')}</span>
                                     </>
                                 ) : (
-                                    'Iniciar Varredura'
+                                    t('curation.modals.scanner.start')
                                 )}
                             </button>
                         </div>
@@ -382,11 +375,11 @@ export function OrganizationScannerModal({ onClose }: Props) {
 
                     <div className="mt-3 text-sm text-slate-600 dark:text-slate-400">
                         {loadingCount ? (
-                            <span className="flex items-center gap-2"><Spinner size="sm" /> Calculando volume...</span>
+                            <span className="flex items-center gap-2"><Spinner size="sm" /> {t('curation.modals.scanner.calculating')}</span>
                         ) : selectedOrgId ? (
-                            <span>Aproximadamente <strong>{approxCount}</strong> músicas locais estimadas.</span>
+                            <span>{t('curation.modals.scanner.approximateCount', { count: approxCount ?? 0 })}</span>
                         ) : (
-                            <span>Selecione para estimar o volume de músicas locas.</span>
+                            <span>{t('curation.modals.scanner.selectToEstimate')}</span>
                         )}
                     </div>
                 </div>
@@ -397,79 +390,76 @@ export function OrganizationScannerModal({ onClose }: Props) {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                         <div>
-                            <span className="font-semibold block mb-0.5">Erro no processamento</span>
+                            <span className="font-semibold block mb-0.5">{t('curation.modals.common.processingError')}</span>
                             {errorMessage}
                         </div>
                     </div>
                 )}
 
-                {/* CTA Analyze */}
                 {!isScanning && stats.na_caixa > 0 && (
                      <div className="p-4 flex-col sm:flex-row gap-3 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-900/30 flex items-center justify-between">
                          <div className="text-sm text-blue-800 dark:text-blue-300 text-center sm:text-left">
-                             Há <span className="font-bold">{stats.na_caixa} músicas</span> na fila aguardando curadoria.
+                             {t('curation.modals.scanner.queueMessage', { count: stats.na_caixa })}
                          </div>
                          <button 
                              onClick={handleAnalyzeNow}
                              disabled={isAnalyzing}
                              className="px-6 py-2.5 w-full sm:w-auto bg-blue-600 text-white font-bold text-sm rounded-xl hover:bg-blue-700 active:scale-[0.98] shadow-sm transition-all"
                          >
-                             {isAnalyzing ? <span className="flex items-center justify-center gap-2"><Spinner size="sm" /> Analisando...</span> : `Analisar agora ${stats.na_caixa} músicas`}
+                             {isAnalyzing ? <span className="flex items-center justify-center gap-2"><Spinner size="sm" /> {t('curation.modals.scanner.analyzing')}</span> : t('curation.modals.scanner.analyzeNow', { count: stats.na_caixa })}
                          </button>
                      </div>
                 )}
 
-                {/* Metrics */}
                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-px bg-slate-200 dark:bg-white/10 border-b border-slate-200 dark:border-white/10">
                     <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                         <div className="text-2xl font-semibold text-slate-900 dark:text-white">{stats.examined}</div>
-                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Examinadas</div>
+                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.scanner.metrics.examined')}</div>
                     </div>
                     {stats.na_caixa > 0 && (
                         <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                             <div className="text-2xl font-semibold text-blue-500">{stats.na_caixa}</div>
-                            <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Na Caixa</div>
+                            <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.scanner.metrics.queued')}</div>
                         </div>
                     )}
                     {stats.ja_na_caixa > 0 && (
                         <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                             <div className="text-2xl font-semibold text-blue-400">{stats.ja_na_caixa}</div>
-                            <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Já na Caixa</div>
+                            <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.scanner.metrics.alreadyQueued')}</div>
                         </div>
                     )}
                     {(stats.inedita > 0 || stats.duplicada > 0 || stats.match_existente > 0) && (
                         <>
                             <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                                 <div className="text-2xl font-semibold text-indigo-500">{stats.inedita}</div>
-                                <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Inéditas</div>
+                                <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.scanner.metrics.unique')}</div>
                             </div>
                             <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                                 <div className="text-2xl font-semibold text-amber-500">{stats.duplicada}</div>
-                                <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Duplicadas</div>
+                                <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.scanner.metrics.duplicate')}</div>
                             </div>
                             <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                                 <div className="text-2xl font-semibold text-green-500">{stats.match_existente}</div>
-                                <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Matches</div>
+                                <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.scanner.metrics.matches')}</div>
                             </div>
                         </>
                     )}
                     {stats.dados_insuficientes > 0 && (
                         <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                             <div className="text-2xl font-semibold text-orange-500">{stats.dados_insuficientes}</div>
-                            <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Insuficientes</div>
+                            <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.scanner.metrics.insufficient')}</div>
                         </div>
                     )}
                     <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                         <div className="text-2xl font-semibold text-slate-400">{stats.ignorada}</div>
-                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Ignoradas</div>
+                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.scanner.metrics.ignored')}</div>
                     </div>
                     <div className="bg-white dark:bg-[#1A1D24] p-4 text-center">
                         <div className="text-2xl font-semibold text-red-500">{stats.erro}</div>
-                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">Erros</div>
+                        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mt-1">{t('curation.modals.scanner.metrics.errors')}</div>
                     </div>
                 </div>
 
-                {/* Progress Bar during scan */}
                 {isScanning && approxCount !== null && approxCount > 0 && (
                     <div className="h-1 bg-slate-100 dark:bg-white/5 w-full">
                         <div 
@@ -479,18 +469,17 @@ export function OrganizationScannerModal({ onClose }: Props) {
                     </div>
                 )}
 
-                {/* Filters */}
                 <div className="flex gap-2 p-4 border-b border-slate-200 dark:border-white/10 overflow-x-auto hide-scrollbar bg-slate-50 dark:bg-white/[0.02]">
                     {[
-                        { id: 'all', label: 'Todas' },
-                        { id: 'inedita', label: 'Inéditas' },
-                        { id: 'duplicada', label: 'Duplicadas' },
-                        { id: 'match_existente', label: 'Matches' },
-                        { id: 'dados_insuficientes', label: 'Dados Insuficientes' },
-                        { id: 'na_caixa', label: 'Na Caixa' },
-                        { id: 'ja_na_caixa', label: 'Já na Caixa' },
-                        { id: 'ignorada', label: 'Ignoradas' },
-                        { id: 'erro', label: 'Erros' }
+                        { id: 'all', label: t('curation.modals.common.all') },
+                        { id: 'inedita', label: t('curation.modals.scanner.filters.unique') },
+                        { id: 'duplicada', label: t('curation.modals.scanner.filters.duplicate') },
+                        { id: 'match_existente', label: t('curation.modals.scanner.filters.matches') },
+                        { id: 'dados_insuficientes', label: t('curation.modals.scanner.filters.insufficient') },
+                        { id: 'na_caixa', label: t('curation.modals.scanner.filters.queued') },
+                        { id: 'ja_na_caixa', label: t('curation.modals.scanner.filters.alreadyQueued') },
+                        { id: 'ignorada', label: t('curation.modals.scanner.filters.ignored') },
+                        { id: 'erro', label: t('curation.modals.scanner.filters.errors') }
                     ]
                     .filter(f => f.id === 'all' || (stats[f.id as keyof typeof stats] !== undefined && stats[f.id as keyof typeof stats] > 0))
                     .map(f => (
@@ -508,7 +497,6 @@ export function OrganizationScannerModal({ onClose }: Props) {
                     ))}
                 </div>
 
-                {/* Results List */}
                 <div className="flex-1 overflow-y-auto p-4 pb-28 sm:pb-6 space-y-2 bg-slate-50 dark:bg-[#0A0A0C]">
                     {displayResults.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 py-12">
@@ -517,7 +505,7 @@ export function OrganizationScannerModal({ onClose }: Props) {
                             ) : (
                                 <svg className="w-12 h-12 mb-3 opacity-20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
                             )}
-                            <p className="text-sm">Nenhum resultado para exibir no momento.</p>
+                            <p className="text-sm">{t('curation.modals.scanner.empty')}</p>
                         </div>
                     ) : (
                         displayResults.map((r, i) => (
@@ -533,7 +521,7 @@ export function OrganizationScannerModal({ onClose }: Props) {
                                     )}
                                     {r.errorMsg && (
                                         <div className="text-[11px] text-red-500 font-medium truncate mt-1" title={r.errorMsg}>
-                                            Erro: {r.errorMsg}
+                                            {t('curation.modals.scanner.resultError', { error: r.errorMsg })}
                                         </div>
                                     )}
                                 </div>
@@ -543,7 +531,7 @@ export function OrganizationScannerModal({ onClose }: Props) {
                                     </div>
                                     {r.candidateId && (
                                         <a href={`/curation/${r.candidateId}`} target="_blank" rel="noreferrer" className="flex items-center justify-center h-8 px-3 rounded text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors shrink-0">
-                                            Revisar ↗
+                                            {t('curation.modals.common.review')}
                                         </a>
                                     )}
                                 </div>
