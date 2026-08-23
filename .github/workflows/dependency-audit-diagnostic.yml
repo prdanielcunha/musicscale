@@ -27,44 +27,56 @@ jobs:
       - name: Install locked dependency graph
         run: npm ci
 
-      - name: Trace critical dependency
-        shell: bash
-        run: |
-          echo '=== BEFORE ==='
-          npm explain websocket-driver || true
-          npm ls websocket-driver --all || true
+      - name: Apply already-proven critical patch in workspace
+        run: npm update websocket-driver --package-lock-only --ignore-scripts
 
-      - name: Prove minimal lock refresh
-        shell: bash
-        run: |
-          npm update websocket-driver --package-lock-only --ignore-scripts
-          echo '=== PACKAGE-LOCK DIFF ==='
-          git diff -- package-lock.json
-          echo '=== LOCKED VERSION AFTER UPDATE ==='
-          node <<'NODE'
-          const lock = require('./package-lock.json');
-          console.log(JSON.stringify(lock.packages?.['node_modules/websocket-driver'] || {}, null, 2));
-          NODE
+      - name: Snapshot lock before non-forced audit fix
+        run: cp package-lock.json /tmp/package-lock-before-audit-fix.json
 
-      - name: Audit production dependencies after minimal refresh
+      - name: Test non-forced package-lock-only audit fix
         shell: bash
         run: |
-          npm audit --omit=dev --json > audit-prod-after.json || true
+          npm audit fix --package-lock-only --ignore-scripts || true
+          git diff --exit-code -- package.json
           node <<'NODE'
           const fs = require('fs');
-          const report = JSON.parse(fs.readFileSync('audit-prod-after.json', 'utf8'));
-          console.log('=== PRODUCTION AFTER MINIMAL REFRESH ===');
-          console.log(JSON.stringify(report.metadata?.vulnerabilities || {}, null, 2));
-          const critical = Object.entries(report.vulnerabilities || {}).filter(([, item]) => item.severity === 'critical');
-          console.log('=== CRITICAL ENTRIES ===');
-          console.log(JSON.stringify(critical, null, 2));
+          const before = JSON.parse(fs.readFileSync('/tmp/package-lock-before-audit-fix.json', 'utf8'));
+          const after = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const names = new Set([...Object.keys(before.packages || {}), ...Object.keys(after.packages || {})]);
+          const changed = [];
+          for (const name of [...names].sort()) {
+            const a = before.packages?.[name];
+            const b = after.packages?.[name];
+            const av = a?.version ?? null;
+            const bv = b?.version ?? null;
+            if (av !== bv) changed.push({ package: name || '<root>', before: av, after: bv });
+          }
+          console.log('=== LOCK VERSION CHANGES FROM NON-FORCED AUDIT FIX ===');
+          console.log(JSON.stringify(changed, null, 2));
+          console.log(`Changed package entries: ${changed.length}`);
           NODE
 
-      - name: Upload diagnostic lock and audit
+      - name: Audit production graph after non-forced fix
+        shell: bash
+        run: |
+          npm audit --omit=dev --json > audit-prod-nonforced.json || true
+          node <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('audit-prod-nonforced.json', 'utf8'));
+          console.log('=== PRODUCTION AFTER NON-FORCED FIX ===');
+          console.log(JSON.stringify(report.metadata?.vulnerabilities || {}, null, 2));
+          const severe = Object.entries(report.vulnerabilities || {})
+            .filter(([, item]) => item.severity === 'critical' || item.severity === 'high')
+            .map(([name, item]) => ({ name, severity: item.severity, range: item.range, fixAvailable: item.fixAvailable, via: item.via }));
+          console.log('=== REMAINING HIGH/CRITICAL ===');
+          console.log(JSON.stringify(severe, null, 2));
+          NODE
+
+      - name: Upload non-forced diagnostic result
         uses: actions/upload-artifact@v4
         with:
-          name: websocket-driver-minimal-refresh
+          name: npm-audit-nonforced-diagnostic
           path: |
             package-lock.json
-            audit-prod-after.json
+            audit-prod-nonforced.json
           retention-days: 1
