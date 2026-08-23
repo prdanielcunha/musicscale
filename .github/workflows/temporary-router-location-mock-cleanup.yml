@@ -1,0 +1,72 @@
+name: Temporary Router Location Mock Cleanup
+
+on:
+  push:
+    branches:
+      - chatgpt/security-lock-refresh-clean
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/security-lock-refresh-clean
+
+      - name: Remove obsolete unstable_mask fields from test-only location mocks
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          paths = [
+              Path('tests/ui/users-existing-member-setup-integration.test.tsx'),
+              Path('tests/ui/users-team-setup-progress-integration.test.tsx'),
+          ]
+          pattern = re.compile(
+              r',\n(?P<indent>\s+)unstable_mask: \{\n'
+              r'(?P=indent)  pathname: "/users",\n'
+              r'(?P=indent)  search: "",\n'
+              r'(?P=indent)  hash: ""\n'
+              r'(?P=indent)\}'
+          )
+
+          removed = 0
+          for path in paths:
+              source = path.read_text()
+              updated, count = pattern.subn('', source)
+              if count == 0:
+                  raise SystemExit(f'No legacy unstable_mask block found in {path}')
+              path.write_text(updated)
+              removed += count
+
+          if removed != 3:
+              raise SystemExit(f'Expected exactly 3 unstable_mask blocks, removed {removed}')
+
+          for path in paths:
+              if 'unstable_mask' in path.read_text():
+                  raise SystemExit(f'unstable_mask still present in {path}')
+
+          print(f'Removed exactly {removed} obsolete test-only unstable_mask blocks.')
+          PY
+
+      - name: Verify scope
+        shell: bash
+        run: |
+          git diff --check
+          git diff -- tests/ui/users-existing-member-setup-integration.test.tsx tests/ui/users-team-setup-progress-integration.test.tsx
+
+      - name: Self-remove workflow and commit final cleanup
+        shell: bash
+        run: |
+          rm .github/workflows/temporary-router-location-mock-cleanup.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/ui/users-existing-member-setup-integration.test.tsx tests/ui/users-team-setup-progress-integration.test.tsx .github/workflows/temporary-router-location-mock-cleanup.yml
+          git diff --cached --check
+          git commit -m "test(router): align location mocks with current public type"
+          git push origin HEAD:chatgpt/security-lock-refresh-clean
