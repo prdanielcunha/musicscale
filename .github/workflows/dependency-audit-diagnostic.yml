@@ -30,58 +30,41 @@ jobs:
       - name: Trace critical dependency
         shell: bash
         run: |
-          echo '=== NPM EXPLAIN websocket-driver ==='
+          echo '=== BEFORE ==='
           npm explain websocket-driver || true
-          echo '=== NPM LS websocket-driver ==='
           npm ls websocket-driver --all || true
-          echo '=== NPM VIEW websocket-driver ==='
-          npm view websocket-driver version versions --json || true
 
-      - name: Audit all dependencies
+      - name: Prove minimal lock refresh
         shell: bash
         run: |
-          npm audit --json > audit-all.json || true
+          npm update websocket-driver --package-lock-only --ignore-scripts
+          echo '=== PACKAGE-LOCK DIFF ==='
+          git diff -- package-lock.json
+          echo '=== LOCKED VERSION AFTER UPDATE ==='
+          node <<'NODE'
+          const lock = require('./package-lock.json');
+          console.log(JSON.stringify(lock.packages?.['node_modules/websocket-driver'] || {}, null, 2));
+          NODE
+
+      - name: Audit production dependencies after minimal refresh
+        shell: bash
+        run: |
+          npm audit --omit=dev --json > audit-prod-after.json || true
           node <<'NODE'
           const fs = require('fs');
-          const report = JSON.parse(fs.readFileSync('audit-all.json', 'utf8'));
-          console.log('=== ALL DEPENDENCIES ===');
+          const report = JSON.parse(fs.readFileSync('audit-prod-after.json', 'utf8'));
+          console.log('=== PRODUCTION AFTER MINIMAL REFRESH ===');
           console.log(JSON.stringify(report.metadata?.vulnerabilities || {}, null, 2));
-          for (const [name, item] of Object.entries(report.vulnerabilities || {})) {
-            console.log(JSON.stringify({ name, severity: item.severity, isDirect: item.isDirect, range: item.range, nodes: item.nodes, fixAvailable: item.fixAvailable, via: item.via }, null, 2));
-          }
+          const critical = Object.entries(report.vulnerabilities || {}).filter(([, item]) => item.severity === 'critical');
+          console.log('=== CRITICAL ENTRIES ===');
+          console.log(JSON.stringify(critical, null, 2));
           NODE
 
-      - name: Audit production dependencies only
-        shell: bash
-        run: |
-          npm audit --omit=dev --json > audit-prod.json || true
-          node <<'NODE'
-          const fs = require('fs');
-          const report = JSON.parse(fs.readFileSync('audit-prod.json', 'utf8'));
-          console.log('=== PRODUCTION DEPENDENCIES ===');
-          console.log(JSON.stringify(report.metadata?.vulnerabilities || {}, null, 2));
-          for (const [name, item] of Object.entries(report.vulnerabilities || {})) {
-            console.log(JSON.stringify({ name, severity: item.severity, isDirect: item.isDirect, range: item.range, nodes: item.nodes, fixAvailable: item.fixAvailable, via: item.via }, null, 2));
-          }
-          NODE
-
-      - name: Preview non-forced audit fix
-        shell: bash
-        run: |
-          npm audit fix --dry-run --json > audit-fix-dry-run.json || true
-          node <<'NODE'
-          const fs = require('fs');
-          const report = JSON.parse(fs.readFileSync('audit-fix-dry-run.json', 'utf8'));
-          console.log('=== AUDIT FIX DRY RUN ===');
-          console.log(JSON.stringify({ added: report.added, removed: report.removed, changed: report.changed, metadata: report.metadata }, null, 2));
-          NODE
-
-      - name: Upload raw audit reports
+      - name: Upload diagnostic lock and audit
         uses: actions/upload-artifact@v4
         with:
-          name: npm-audit-diagnostic
+          name: websocket-driver-minimal-refresh
           path: |
-            audit-all.json
-            audit-prod.json
-            audit-fix-dry-run.json
+            package-lock.json
+            audit-prod-after.json
           retention-days: 1
