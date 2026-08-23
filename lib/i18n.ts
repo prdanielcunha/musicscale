@@ -5,6 +5,7 @@ import pt from "../locales/pt.json";
 import en from "../locales/en.json";
 import es from "../locales/es.json";
 import { curationTranslations } from "../locales/curation";
+import { curationModalTranslations } from "../locales/curationModals";
 import { trackMissingKey } from "../utils/languageDiagnostics";
 
 i18n
@@ -12,9 +13,9 @@ i18n
   .use(initReactI18next)
   .init({
     resources: {
-      pt: { translation: { ...pt, curation: curationTranslations.pt } },
-      en: { translation: { ...en, curation: curationTranslations.en } },
-      es: { translation: { ...es, curation: curationTranslations.es } }
+      pt: { translation: { ...pt, curation: { ...curationTranslations.pt, modals: curationModalTranslations.pt } } },
+      en: { translation: { ...en, curation: { ...curationTranslations.en, modals: curationModalTranslations.en } } },
+      es: { translation: { ...es, curation: { ...curationTranslations.es, modals: curationModalTranslations.es } } }
     },
     fallbackLng: "pt", // Fallback consistently
     interpolation: {
