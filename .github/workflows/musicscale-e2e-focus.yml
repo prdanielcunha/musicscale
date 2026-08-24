@@ -12,6 +12,9 @@ on:
       - '.github/workflows/musicscale-e2e-focus.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: musicscale-focused-e2e-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -22,6 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

@@ -1,0 +1,11 @@
+# Default owner
+* @prdanielcunha
+
+# Security- and production-sensitive areas
+/firestore.rules @prdanielcunha
+/server.ts @prdanielcunha
+/.github/workflows/ @prdanielcunha
+/functions/ @prdanielcunha
+/services/server/ @prdanielcunha
+/services/firebase.ts @prdanielcunha
+/services/firebaseAdmin.ts @prdanielcunha

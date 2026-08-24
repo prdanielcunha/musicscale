@@ -3,7 +3,7 @@ import {
   AiFinOpsRepositoryInput,
   beginAiFinOpsReservation,
   finalizeAiFinOpsReservation,
-} from "./aiFinOpsRepository.js";
+} from "./aiFinOpsConcurrentReservation.js";
 import {
   AiPlan,
   AiSourceType,
