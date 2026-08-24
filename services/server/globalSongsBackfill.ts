@@ -1,6 +1,7 @@
 import { adminDb } from '../../services/firebaseAdmin.js';
 import { buildGlobalSongSearchFields, type GlobalSongSearchFields } from '../../utils/searchEngine.js';
 import { normalizeBaseText } from '../../utils/songDiscovery/textNormalization.js';
+import { deriveGlobalSongContentMetrics } from '../../utils/globalSongContentMetrics.js';
 
 function arraysEqual(left: unknown, right: string[]): boolean {
     return Array.isArray(left)
@@ -23,12 +24,26 @@ function collectSearchFieldUpdates(data: any, canonical: GlobalSongSearchFields)
     return updates;
 }
 
+function collectContentMetricUpdates(data: any): Record<string, boolean> {
+    const canonical = deriveGlobalSongContentMetrics({
+        chords: data.chords,
+        lyrics: data.lyrics,
+    });
+    const updates: Record<string, boolean> = {};
+
+    if (data.hasChords !== canonical.hasChords) updates.hasChords = canonical.hasChords;
+    if (data.hasLyrics !== canonical.hasLyrics) updates.hasLyrics = canonical.hasLyrics;
+    if (data.isComplete !== canonical.isComplete) updates.isComplete = canonical.isComplete;
+
+    return updates;
+}
+
 export async function backfillGlobalSongs(dbInstance = adminDb) {
     if (!dbInstance) {
         throw new Error('Database instance missing.');
     }
 
-    console.log('[Backfill] Starting globalSongs canonical normalization + search index backfill...');
+    console.log('[Backfill] Starting globalSongs canonical normalization + search index + content metrics backfill...');
     const limitAmount = 200;
     let query = dbInstance.collection('globalSongs').orderBy('__name__').limit(limitAmount);
     let keepGoing = true;
@@ -37,6 +52,7 @@ export async function backfillGlobalSongs(dbInstance = adminDb) {
     let updatedCount = 0;
     let normalizedUpdatedCount = 0;
     let searchUpdatedCount = 0;
+    let contentMetricsUpdatedCount = 0;
 
     while (keepGoing) {
         const snapshot = await query.get();
@@ -74,12 +90,17 @@ export async function backfillGlobalSongs(dbInstance = adminDb) {
             const searchChanged = Object.keys(searchUpdates).length > 0;
             Object.assign(updates, searchUpdates);
 
+            const contentMetricUpdates = collectContentMetricUpdates(data);
+            const contentMetricsChanged = Object.keys(contentMetricUpdates).length > 0;
+            Object.assign(updates, contentMetricUpdates);
+
             if (Object.keys(updates).length > 0) {
                 batch.update(doc.ref, updates);
                 batchUpdates++;
                 updatedCount++;
                 if (normalizedChanged) normalizedUpdatedCount++;
                 if (searchChanged) searchUpdatedCount++;
+                if (contentMetricsChanged) contentMetricsUpdatedCount++;
             }
         }
 
@@ -95,11 +116,12 @@ export async function backfillGlobalSongs(dbInstance = adminDb) {
         }
     }
 
-    console.log(`[Backfill] Finished globalSongs backfill. Processed: ${processedCount}. Updated: ${updatedCount}. Search updated: ${searchUpdatedCount}.`);
+    console.log(`[Backfill] Finished globalSongs backfill. Processed: ${processedCount}. Updated: ${updatedCount}. Search updated: ${searchUpdatedCount}. Content metrics updated: ${contentMetricsUpdatedCount}.`);
     return {
         processed: processedCount,
         updated: updatedCount,
         normalizedUpdated: normalizedUpdatedCount,
         searchUpdated: searchUpdatedCount,
+        contentMetricsUpdated: contentMetricsUpdatedCount,
     };
 }
