@@ -20,12 +20,7 @@ function createLocation(
     search: "",
     hash: "",
     state,
-    key,
-    unstable_mask: {
-      pathname: "/users",
-      search: "",
-      hash: ""
-    }
+    key
   };
 }
 
@@ -82,12 +77,7 @@ vi.mock('react-router-dom', async () => {
       search: "",
       hash: "",
       state: null,
-      key: "existing-member-default",
-      unstable_mask: {
-        pathname: "/users",
-        search: "",
-        hash: ""
-      }
+      key: "existing-member-default"
     })
   };
 });

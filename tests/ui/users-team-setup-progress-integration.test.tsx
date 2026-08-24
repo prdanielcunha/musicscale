@@ -68,12 +68,7 @@ function createLocation(state: unknown, key = "location-1"): ReturnType<typeof u
     search: "",
     hash: "",
     state,
-    key,
-    unstable_mask: {
-      pathname: "/users",
-      search: "",
-      hash: ""
-    }
+    key
   };
 }
 let mockLocation: ReturnType<typeof useLocation> = createLocation(null);
