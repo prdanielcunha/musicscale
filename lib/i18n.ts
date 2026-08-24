@@ -8,6 +8,23 @@ import { curationTranslations } from "../locales/curation";
 import { curationModalTranslations } from "../locales/curationModals";
 import { trackMissingKey } from "../utils/languageDiagnostics";
 
+const SUPPORTED_DOCUMENT_LANGUAGES = new Set(["pt", "en", "es"]);
+
+const resolveDocumentLanguage = (language?: string) => {
+  const baseLanguage = language?.toLowerCase().split("-")[0];
+  return baseLanguage && SUPPORTED_DOCUMENT_LANGUAGES.has(baseLanguage) ? baseLanguage : "pt";
+};
+
+const syncDocumentLanguage = (language?: string) => {
+  if (typeof document === "undefined") return;
+  document.documentElement.lang = resolveDocumentLanguage(language);
+};
+
+i18n.on("languageChanged", syncDocumentLanguage);
+i18n.on("initialized", () => {
+  syncDocumentLanguage(i18n.resolvedLanguage || i18n.language);
+});
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
