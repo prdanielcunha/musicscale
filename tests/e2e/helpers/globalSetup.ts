@@ -122,7 +122,7 @@ export default async function globalSetup() {
 
   // Subscriptions
   const futureDate = new Date();
-  futureDate.setDate(futureDate.getDate() + 30);
+  futureDate.setUTCDate(futureDate.getUTCDate() + 30);
   const currentPeriodEnd = admin.firestore.Timestamp.fromDate(futureDate);
   
   await db.doc('subscriptions/org_a').set({
@@ -211,7 +211,7 @@ export default async function globalSetup() {
 
   // Scales Org A
   const scaleDate = new Date();
-  scaleDate.setDate(scaleDate.getDate() + 7);
+  scaleDate.setUTCDate(scaleDate.getUTCDate() + 7);
   await db.doc('scales/scale_a_published').set({
     organizationId: 'org_a',
     title: 'Culto de Domingo',

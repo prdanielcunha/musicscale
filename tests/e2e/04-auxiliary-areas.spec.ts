@@ -6,7 +6,10 @@ test.describe('Auxiliary Areas and Account', () => {
   test('Should open Notifications', async ({ page }, testInfo) => {
     await loginAsLeaderA(page);
     await page.goto('/notifications');
-    await expect(page.getByText('Nova notificação sintética').first()).toBeVisible();
+    await page.waitForURL('**/notifications');
+    const notificationsMain = page.locator('main');
+    await expect(notificationsMain.getByRole('heading', { name: 'Notificações', level: 1 })).toBeVisible({ timeout: 30_000 });
+    await expect(notificationsMain.getByText('Teste E2E', { exact: true })).toBeVisible({ timeout: 30_000 });
     await captureFullPage(page, testInfo, 'notifications');
   });
 
