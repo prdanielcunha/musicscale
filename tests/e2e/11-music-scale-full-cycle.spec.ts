@@ -75,8 +75,12 @@ test.describe('MusicScale full cycle', () => {
 
     const btnDraft = scaleEditor.getByTestId('save-scale-draft');
     await expect(btnDraft).toBeVisible();
+    const saveDraftPromise = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/music-scales/${scaleId}`) && response.request().method() === 'PATCH'
+    );
     await btnDraft.click();
-    await expect(scaleEditor).toBeHidden();
+    expect((await saveDraftPromise).status()).toBe(200);
+    await expect(scaleEditor).toBeHidden({ timeout: 15_000 });
     await expect(page.getByText(/Rascunho|Draft/i).first()).toBeVisible();
 
     expect(await countNotificationsForScale('org_a', scaleId)).toBe(0);
@@ -165,7 +169,9 @@ test.describe('MusicScale full cycle', () => {
       response.url().includes(`/api/v1/music-scales/${scaleId}/my-response`) && response.request().method() === 'POST'
     );
     await btnAccept.click();
-    expect((await acceptPromise).status()).toBe(200);
+    const acceptResponse = await acceptPromise;
+    expect(acceptResponse.status()).toBe(200);
+    const acceptResult = await acceptResponse.json();
     await expect(page.getByText(/Presença confirmada/i).first()).toBeVisible();
 
     const responsesAccepted = await getScaleResponses(scaleId);
@@ -177,7 +183,7 @@ test.describe('MusicScale full cycle', () => {
 
     const historyAccepted = await getScaleResponseHistory(scaleId);
     expect(historyAccepted.length).toBeGreaterThan(0);
-    expect(historyAccepted[historyAccepted.length - 1].newStatus).toBe('accepted');
+    expect(historyAccepted.find(entry => entry.correlationId === acceptResult.correlationId)?.newStatus).toBe('accepted');
 
     const btnChange = page.getByTestId('change-response');
     await expect(btnChange).toBeVisible();
@@ -189,7 +195,9 @@ test.describe('MusicScale full cycle', () => {
       response.url().includes(`/api/v1/music-scales/${scaleId}/my-response`) && response.request().method() === 'POST'
     );
     await btnMaybe.click();
-    expect((await maybePromise).status()).toBe(200);
+    const maybeResponse = await maybePromise;
+    expect(maybeResponse.status()).toBe(200);
+    const maybeResult = await maybeResponse.json();
     await expect(page.getByText(/Você ainda não confirmou|Ainda não confirmada/i).first()).toBeVisible();
 
     const responsesMaybe = await getScaleResponses(scaleId);
@@ -200,7 +208,7 @@ test.describe('MusicScale full cycle', () => {
 
     const historyMaybe = await getScaleResponseHistory(scaleId);
     expect(historyMaybe.length).toBeGreaterThan(historyAccepted.length);
-    expect(historyMaybe[historyMaybe.length - 1].newStatus).toBe('maybe');
+    expect(historyMaybe.find(entry => entry.correlationId === maybeResult.correlationId)?.newStatus).toBe('maybe');
 
     await expect(btnChange).toBeVisible();
     await btnChange.click();
@@ -218,7 +226,9 @@ test.describe('MusicScale full cycle', () => {
       response.url().includes(`/api/v1/music-scales/${scaleId}/my-response`) && response.request().method() === 'POST'
     );
     await submitReason.click();
-    expect((await declinePromise).status()).toBe(200);
+    const declineResponse = await declinePromise;
+    expect(declineResponse.status()).toBe(200);
+    const declineResult = await declineResponse.json();
     await expect(page.getByText(/Você informou que não poderá/i).first()).toBeVisible();
 
     const responsesDeclined = await getScaleResponses(scaleId);
@@ -230,9 +240,9 @@ test.describe('MusicScale full cycle', () => {
 
     const historyDeclined = await getScaleResponseHistory(scaleId);
     expect(historyDeclined.length).toBeGreaterThan(historyMaybe.length);
-    const lastHist = historyDeclined[historyDeclined.length - 1];
-    expect(lastHist.newStatus).toBe('declined');
-    expect(lastHist.reasonProvided).toBe(true);
+    const declinedHistory = historyDeclined.find(entry => entry.correlationId === declineResult.correlationId);
+    expect(declinedHistory?.newStatus).toBe('declined');
+    expect(declinedHistory?.reasonProvided).toBe(true);
   });
 
   test('C. líder visualiza resumo', async ({ page }, testInfo) => {

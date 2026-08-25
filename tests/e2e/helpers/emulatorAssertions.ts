@@ -64,6 +64,7 @@ export interface ResponseHistoryData {
   eventAssignmentIds: string[];
   newStatus: string;
   reasonProvided: boolean;
+  correlationId: string;
   createdAt: any;
 }
 
