@@ -386,7 +386,7 @@ describe('Dashboard Home Experience UI', () => {
     expect(props.musicScaleId).toBe('s1');
     expect(props.assignments).toEqual([{ userId: 'u1', functionName: 'Vocal', active: true }]);
     expect(props.eventStart).toBeInstanceOf(Date);
-    expect(props.eventStart.toISOString()).toContain('19:00:00');
+    expect(props.eventStart.getHours()).toBe(19);
     expect(props.isBandScale).toBeUndefined();
   });
 
