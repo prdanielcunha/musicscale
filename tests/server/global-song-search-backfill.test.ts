@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { backfillGlobalSongs } from '../../services/server/globalSongsBackfill.js';
 import { buildGlobalSongSearchFields } from '../../utils/searchEngine.js';
 import { normalizeBaseText } from '../../utils/songDiscovery/textNormalization.js';
+import { deriveGlobalSongContentMetrics } from '../../utils/globalSongContentMetrics.js';
 
 function createDb(fixtures: Array<{ id: string; data: Record<string, any> }>) {
     const docs = fixtures.map((fixture) => ({
@@ -71,8 +72,8 @@ function createDb(fixtures: Array<{ id: string; data: Record<string, any> }>) {
     };
 }
 
-describe('P4 globalSongs search v3 backfill', () => {
-    it('adds canonical v3 search fields and preserves content beyond the legacy 150-token cap', async () => {
+describe('P4 globalSongs search v3 + content metrics backfill', () => {
+    it('adds canonical search fields and content metrics while preserving content beyond the legacy 150-token cap', async () => {
         const uniqueTokens = Array.from({ length: 151 }, (_, index) => `palavra${index}`);
         const lyrics = [...uniqueTokens, 'muralhas'].join(' ');
         const fake = createDb([{
@@ -93,6 +94,7 @@ describe('P4 globalSongs search v3 backfill', () => {
             updated: 1,
             normalizedUpdated: 1,
             searchUpdated: 1,
+            contentMetricsUpdated: 1,
         });
         expect(fake.updates).toHaveLength(1);
         expect(fake.updates[0].data.searchVersion).toBe(3);
@@ -102,6 +104,9 @@ describe('P4 globalSongs search v3 backfill', () => {
         expect(fake.updates[0].data.searchTokens).toHaveLength(150);
         expect(fake.updates[0].data.searchTokens).not.toContain('muralhas');
         expect(fake.updates[0].data.normalizedTitle).toBe(normalizeBaseText('Águas de Março'));
+        expect(fake.updates[0].data.hasChords).toBe(true);
+        expect(fake.updates[0].data.hasLyrics).toBe(true);
+        expect(fake.updates[0].data.isComplete).toBe(true);
         expect(fake.limits[0]).toBe(200);
     });
 
@@ -113,8 +118,12 @@ describe('P4 globalSongs search v3 backfill', () => {
             normalizedTitle: normalizeBaseText('Amazing Grace'),
             normalizedArtists: [normalizeBaseText('Artist')],
         };
-        const canonical = buildGlobalSongSearchFields(song);
-        const fake = createDb([{ id: 'song-b', data: { ...song, ...canonical } }]);
+        const canonicalSearch = buildGlobalSongSearchFields(song);
+        const canonicalMetrics = deriveGlobalSongContentMetrics(song);
+        const fake = createDb([{
+            id: 'song-b',
+            data: { ...song, ...canonicalSearch, ...canonicalMetrics },
+        }]);
 
         const result = await backfillGlobalSongs(fake.db);
 
@@ -123,9 +132,44 @@ describe('P4 globalSongs search v3 backfill', () => {
             updated: 0,
             normalizedUpdated: 0,
             searchUpdated: 0,
+            contentMetricsUpdated: 0,
         });
         expect(fake.updates).toHaveLength(0);
         expect(fake.commitCount).toBe(0);
+    });
+
+    it('backfills content metrics independently when Search v3 is already converged', async () => {
+        const song = {
+            title: 'Somente Cifra',
+            artist: 'Artist',
+            chords: 'C G\nGraça me alcançou',
+            lyrics: '',
+            normalizedTitle: normalizeBaseText('Somente Cifra'),
+            normalizedArtists: [normalizeBaseText('Artist')],
+        };
+        const canonicalSearch = buildGlobalSongSearchFields(song);
+        const fake = createDb([{
+            id: 'song-c',
+            data: { ...song, ...canonicalSearch },
+        }]);
+
+        const result = await backfillGlobalSongs(fake.db);
+
+        expect(result).toEqual({
+            processed: 1,
+            updated: 1,
+            normalizedUpdated: 0,
+            searchUpdated: 0,
+            contentMetricsUpdated: 1,
+        });
+        expect(fake.updates).toEqual([{
+            id: 'song-c',
+            data: {
+                hasChords: true,
+                hasLyrics: false,
+                isComplete: false,
+            },
+        }]);
     });
 
     it('paginates through the collection in bounded pages of 200', async () => {
@@ -139,6 +183,7 @@ describe('P4 globalSongs search v3 backfill', () => {
 
         expect(result.processed).toBe(201);
         expect(result.updated).toBe(201);
+        expect(result.contentMetricsUpdated).toBe(201);
         expect(fake.getCount).toBe(2);
         expect(fake.cursors).toEqual(['song-199']);
         expect(fake.limits.filter((value) => value === 200).length).toBeGreaterThanOrEqual(2);
