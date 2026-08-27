@@ -1,42 +1,5 @@
 import { adminDb } from '../../services/firebaseAdmin.js';
-import { buildGlobalSongSearchFields, type GlobalSongSearchFields } from '../../utils/searchEngine.js';
-import { normalizeBaseText } from '../../utils/songDiscovery/textNormalization.js';
-import { deriveGlobalSongContentMetrics } from '../../utils/globalSongContentMetrics.js';
-
-function arraysEqual(left: unknown, right: string[]): boolean {
-    return Array.isArray(left)
-        && left.length === right.length
-        && left.every((value, index) => value === right[index]);
-}
-
-function collectSearchFieldUpdates(data: any, canonical: GlobalSongSearchFields): Record<string, any> {
-    const updates: Record<string, any> = {};
-
-    if (data.searchVersion !== canonical.searchVersion) updates.searchVersion = canonical.searchVersion;
-    if (!arraysEqual(data.searchTokens, canonical.searchTokens)) updates.searchTokens = canonical.searchTokens;
-    if (!arraysEqual(data.searchContentTokens, canonical.searchContentTokens)) updates.searchContentTokens = canonical.searchContentTokens;
-    if (!arraysEqual(data.searchTitlePrefixes, canonical.searchTitlePrefixes)) updates.searchTitlePrefixes = canonical.searchTitlePrefixes;
-    if (!arraysEqual(data.searchArtistPrefixes, canonical.searchArtistPrefixes)) updates.searchArtistPrefixes = canonical.searchArtistPrefixes;
-    if (!arraysEqual(data.searchTitleGrams, canonical.searchTitleGrams)) updates.searchTitleGrams = canonical.searchTitleGrams;
-    if (!arraysEqual(data.searchArtistGrams, canonical.searchArtistGrams)) updates.searchArtistGrams = canonical.searchArtistGrams;
-    if (!arraysEqual(data.searchKeyTokens, canonical.searchKeyTokens)) updates.searchKeyTokens = canonical.searchKeyTokens;
-
-    return updates;
-}
-
-function collectContentMetricUpdates(data: any): Record<string, boolean> {
-    const canonical = deriveGlobalSongContentMetrics({
-        chords: data.chords,
-        lyrics: data.lyrics,
-    });
-    const updates: Record<string, boolean> = {};
-
-    if (data.hasChords !== canonical.hasChords) updates.hasChords = canonical.hasChords;
-    if (data.hasLyrics !== canonical.hasLyrics) updates.hasLyrics = canonical.hasLyrics;
-    if (data.isComplete !== canonical.isComplete) updates.isComplete = canonical.isComplete;
-
-    return updates;
-}
+import { analyzeGlobalSongBackfillDocument } from './globalSongBackfillAnalysis.js';
 
 export interface GlobalSongsBackfillOptions {
     /** Computes the canonical delta without creating a Firestore batch or writing data. */
@@ -76,42 +39,17 @@ export async function backfillGlobalSongs(
             const data = doc.data();
             processedCount++;
 
-            const updates: Record<string, any> = {};
-            let normalizedChanged = false;
+            const analysis = analyzeGlobalSongBackfillDocument(data);
 
-            const correctNormalizedTitle = normalizeBaseText(data.title || '');
-            if (!data.normalizedTitle || data.normalizedTitle !== correctNormalizedTitle) {
-                updates.normalizedTitle = correctNormalizedTitle;
-                normalizedChanged = true;
-            }
-
-            if (data.artist) {
-                const correctNormalizedArtist = normalizeBaseText(data.artist);
-                const currentPrimaryArtist = data.normalizedArtists && data.normalizedArtists.length > 0 ? data.normalizedArtists[0] : null;
-                if (currentPrimaryArtist !== correctNormalizedArtist) {
-                    updates.normalizedArtists = [correctNormalizedArtist];
-                    normalizedChanged = true;
-                }
-            }
-
-            const canonicalSearchFields = buildGlobalSongSearchFields(data);
-            const searchUpdates = collectSearchFieldUpdates(data, canonicalSearchFields);
-            const searchChanged = Object.keys(searchUpdates).length > 0;
-            Object.assign(updates, searchUpdates);
-
-            const contentMetricUpdates = collectContentMetricUpdates(data);
-            const contentMetricsChanged = Object.keys(contentMetricUpdates).length > 0;
-            Object.assign(updates, contentMetricUpdates);
-
-            if (Object.keys(updates).length > 0) {
+            if (analysis.requiresUpdate) {
                 if (!dryRun) {
-                    batch.update(doc.ref, updates);
+                    batch.update(doc.ref, analysis.updates);
                 }
                 batchUpdates++;
                 updatedCount++;
-                if (normalizedChanged) normalizedUpdatedCount++;
-                if (searchChanged) searchUpdatedCount++;
-                if (contentMetricsChanged) contentMetricsUpdatedCount++;
+                if (Object.keys(analysis.normalized.updates).length > 0) normalizedUpdatedCount++;
+                if (Object.keys(analysis.search.updates).length > 0) searchUpdatedCount++;
+                if (Object.keys(analysis.contentMetrics.updates).length > 0) contentMetricsUpdatedCount++;
             }
         }
 

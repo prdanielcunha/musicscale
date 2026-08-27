@@ -4,6 +4,8 @@ import {
     MachineDryRunError,
     runGlobalSongMetricsMachineDryRun,
 } from '../../services/server/globalSongMetricsMachineDryRun.js';
+import { buildGlobalSongSearchFields } from '../../utils/searchEngine.js';
+import { normalizeBaseText } from '../../utils/songDiscovery/textNormalization.js';
 import { deriveGlobalSongContentMetrics } from '../../utils/globalSongContentMetrics.js';
 
 function createReadOnlyDb(fixtures: Array<{ id: string; data: Record<string, unknown> }>) {
@@ -63,26 +65,69 @@ describe('P4.7 machine-auth global song metrics dry-run', () => {
         expect(fake.collectionCalls).toBe(0);
     });
 
-    it('only reads, while distinguishing converged and divergent metric documents', async () => {
-        const converged = {
+    it('only reads, while reporting converged, divergent, and canonical delta counters', async () => {
+        const convergedSource = {
+            title: 'Amazing Grace',
+            artist: 'John Newton',
             chords: 'C G',
             lyrics: 'Amazing grace',
-            ...deriveGlobalSongContentMetrics({ chords: 'C G', lyrics: 'Amazing grace' }),
+        };
+        const converged = {
+            ...convergedSource,
+            normalizedTitle: normalizeBaseText(convergedSource.title),
+            normalizedArtists: [normalizeBaseText(convergedSource.artist)],
+            ...buildGlobalSongSearchFields(convergedSource),
+            ...deriveGlobalSongContentMetrics(convergedSource),
         };
         const fake = createReadOnlyDb([
             { id: 'converged', data: converged },
             { id: 'divergent', data: { chords: '', lyrics: 'Lyrics only', hasChords: true } },
         ]);
 
-        await expect(runGlobalSongMetricsMachineDryRun(fake.db, {
+        const result = await runGlobalSongMetricsMachineDryRun(fake.db, {
             actualProjectId: 'millionsnest',
-        })).resolves.toEqual({
+            now: () => 100,
+        });
+        expect(result).toMatchObject({
+            total: 2,
             processed: 2,
-            metricsConverged: 1,
-            metricsDivergent: 1,
-            pagesRead: 1,
+            pages: 1,
+            pageSize: 200,
+            converged: 1,
+            divergent: 1,
+            estimatedReads: 2,
+            estimatedWrites: 1,
+            durationMs: 0,
+            errors: [],
             truncated: false,
             lastCursor: 'divergent',
+        });
+
+        expect(result.deltas).toEqual({
+            normalized: {
+                documents: 1,
+                missingFields: { normalizedTitle: 1 },
+                mismatchedFields: {},
+            },
+            search: {
+                documents: 1,
+                missingFields: {
+                    searchVersion: 1,
+                    searchTokens: 1,
+                    searchContentTokens: 1,
+                    searchTitlePrefixes: 1,
+                    searchArtistPrefixes: 1,
+                    searchTitleGrams: 1,
+                    searchArtistGrams: 1,
+                    searchKeyTokens: 1,
+                },
+                mismatchedFields: {},
+            },
+            contentMetrics: {
+                documents: 1,
+                missingFields: { hasLyrics: 1, isComplete: 1 },
+                mismatchedFields: { hasChords: 1 },
+            },
         });
 
         const source = readFileSync('services/server/globalSongMetricsMachineDryRun.ts', 'utf8');
@@ -99,11 +144,18 @@ describe('P4.7 machine-auth global song metrics dry-run', () => {
             actualProjectId: 'millionsnest',
             pageSize: 2,
             maxPages: 2,
-        })).resolves.toEqual({
+            now: () => 100,
+        })).resolves.toMatchObject({
+            total: 3,
             processed: 3,
-            metricsConverged: 0,
-            metricsDivergent: 3,
-            pagesRead: 2,
+            pages: 2,
+            pageSize: 2,
+            converged: 0,
+            divergent: 3,
+            estimatedReads: 3,
+            estimatedWrites: 3,
+            durationMs: 0,
+            errors: [],
             truncated: false,
             lastCursor: 'song-3',
         });

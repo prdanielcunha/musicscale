@@ -1,4 +1,4 @@
-import { deriveGlobalSongContentMetrics } from '../../utils/globalSongContentMetrics.js';
+import { analyzeGlobalSongBackfillDocument, type GlobalSongCanonicalDelta } from './globalSongBackfillAnalysis.js';
 
 export const EXPECTED_MACHINE_FIREBASE_PROJECT_ID = 'millionsnest';
 
@@ -19,6 +19,7 @@ export interface GlobalSongMetricsMachineDryRunOptions {
     expectedProjectId?: string;
     pageSize?: number;
     maxPages?: number;
+    now?: () => number;
 }
 
 interface QuerySnapshotLike {
@@ -49,15 +50,25 @@ function normalizeBoundedInteger(value: number | undefined, fallback: number, ma
     return value;
 }
 
-function metricsMatch(data: Record<string, unknown>): boolean {
-    const canonical = deriveGlobalSongContentMetrics({
-        chords: data.chords,
-        lyrics: data.lyrics,
-    });
+interface DeltaCounters {
+    documents: number;
+    missingFields: Record<string, number>;
+    mismatchedFields: Record<string, number>;
+}
 
-    return data.hasChords === canonical.hasChords
-        && data.hasLyrics === canonical.hasLyrics
-        && data.isComplete === canonical.isComplete;
+function createDeltaCounters(): DeltaCounters {
+    return { documents: 0, missingFields: {}, mismatchedFields: {} };
+}
+
+function incrementFields(target: Record<string, number>, fields: string[]): void {
+    for (const field of fields) target[field] = (target[field] || 0) + 1;
+}
+
+function accumulateDelta(target: DeltaCounters, delta: GlobalSongCanonicalDelta): void {
+    if (Object.keys(delta.updates).length === 0) return;
+    target.documents++;
+    incrementFields(target.missingFields, delta.missingFields);
+    incrementFields(target.mismatchedFields, delta.mismatchedFields);
 }
 
 /**
@@ -84,61 +95,65 @@ export async function runGlobalSongMetricsMachineDryRun(
     const expectedProjectId = options.expectedProjectId || EXPECTED_MACHINE_FIREBASE_PROJECT_ID;
     assertExpectedMachineProject(expectedProjectId, options.actualProjectId);
 
+    const now = options.now || Date.now;
+    const startedAt = now();
     const pageSize = normalizeBoundedInteger(options.pageSize, 200, 200);
     const maxPages = normalizeBoundedInteger(options.maxPages, 1000, 1000);
     let query = db.collection('globalSongs').orderBy('__name__').limit(pageSize);
     let processed = 0;
-    let metricsConverged = 0;
-    let metricsDivergent = 0;
-    let pagesRead = 0;
+    let converged = 0;
+    let divergent = 0;
+    let pages = 0;
     let lastCursor: string | undefined;
+    const deltas = {
+        normalized: createDeltaCounters(),
+        search: createDeltaCounters(),
+        contentMetrics: createDeltaCounters(),
+    };
+
+    const result = (truncated: boolean) => ({
+        total: processed,
+        processed,
+        pages,
+        pageSize,
+        converged,
+        divergent,
+        deltas,
+        estimatedWrites: divergent,
+        estimatedReads: processed,
+        durationMs: Math.max(0, now() - startedAt),
+        errors: [] as string[],
+        truncated,
+        ...(lastCursor ? { lastCursor } : {}),
+    });
 
     try {
         for (let page = 0; page < maxPages; page++) {
             const snapshot = await query.get();
-            pagesRead++;
+            pages++;
 
             if (snapshot.empty) {
-                return {
-                    processed,
-                    metricsConverged,
-                    metricsDivergent,
-                    pagesRead,
-                    truncated: false,
-                };
+                return result(false);
             }
 
             for (const doc of snapshot.docs) {
                 processed++;
-                if (metricsMatch(doc.data())) {
-                    metricsConverged++;
-                } else {
-                    metricsDivergent++;
-                }
+                const analysis = analyzeGlobalSongBackfillDocument(doc.data());
+                if (analysis.requiresUpdate) divergent++;
+                else converged++;
+                accumulateDelta(deltas.normalized, analysis.normalized);
+                accumulateDelta(deltas.search, analysis.search);
+                accumulateDelta(deltas.contentMetrics, analysis.contentMetrics);
             }
 
             const lastDoc = snapshot.docs[snapshot.docs.length - 1];
             lastCursor = lastDoc.id;
             if (snapshot.size < pageSize) {
-                return {
-                    processed,
-                    metricsConverged,
-                    metricsDivergent,
-                    pagesRead,
-                    truncated: false,
-                    lastCursor,
-                };
+                return result(false);
             }
 
             if (page + 1 === maxPages) {
-                return {
-                    processed,
-                    metricsConverged,
-                    metricsDivergent,
-                    pagesRead,
-                    truncated: true,
-                    lastCursor,
-                };
+                return result(true);
             }
 
             query = db.collection('globalSongs').orderBy('__name__').startAfter(lastDoc).limit(pageSize);
