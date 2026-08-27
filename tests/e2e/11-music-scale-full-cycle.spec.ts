@@ -157,13 +157,20 @@ test.describe('MusicScale full cycle', () => {
     await expect(notifItem).toBeVisible();
     await notifItem.click();
 
-    const viewFullBtn = page.getByRole('button', { name: /Ver escala completa/i });
+    const notificationDetail = page.getByRole('dialog');
+    // The notification modal derives this role from the durable assignment. It
+    // is the semantic readiness condition for opening the full scale, unlike
+    // the detail page's independently hydrated team summary.
+    await expect(notificationDetail.getByText('Vocal', { exact: true })).toBeVisible();
+
+    const viewFullBtn = notificationDetail.getByRole('button', { name: /Ver escala completa/i });
     await expect(viewFullBtn).toBeVisible();
     await viewFullBtn.click();
     await page.waitForURL(`**/scales/${scaleId}`);
-    await expect(page.getByText('Vocal', { exact: true }).first()).toBeVisible();
 
     const btnAccept = page.getByTestId('response-accepted');
+    // The response action is rendered only after the routed detail view has
+    // hydrated the musician's active assignment and response listener.
     await expect(btnAccept).toBeVisible();
     const acceptPromise = page.waitForResponse(response =>
       response.url().includes(`/api/v1/music-scales/${scaleId}/my-response`) && response.request().method() === 'POST'

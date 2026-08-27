@@ -122,7 +122,11 @@ describe('Music Scale Publish Integrity', () => {
       await waitFor(() => {
         expect(resultDiv.textContent).toContain('publish-unavailable');
       });
-      expect(btnPublish).not.toBeDisabled();
+      // The result is written before the finally block clears loading. Wait for
+      // the completed interaction, rather than observing an intermediate render.
+      await waitFor(() => {
+        expect(btnPublish).not.toBeDisabled();
+      });
     }
 
     expect(mockApi.scales.create).toHaveBeenCalledTimes(0);
