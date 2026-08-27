@@ -15,6 +15,7 @@ function createDb(fixtures: Array<{ id: string; data: Record<string, any> }>) {
     const cursors: string[] = [];
     let getCount = 0;
     let commitCount = 0;
+    let batchCount = 0;
 
     const makeQuery = (cursorId?: string, requestedLimit = docs.length) => ({
         orderBy(field: string) {
@@ -49,6 +50,7 @@ function createDb(fixtures: Array<{ id: string; data: Record<string, any> }>) {
             return makeQuery();
         },
         batch() {
+            batchCount++;
             const pending: Array<{ id: string; data: Record<string, any> }> = [];
             return {
                 update(ref: any, data: Record<string, any>) {
@@ -69,6 +71,7 @@ function createDb(fixtures: Array<{ id: string; data: Record<string, any> }>) {
         cursors,
         get getCount() { return getCount; },
         get commitCount() { return commitCount; },
+        get batchCount() { return batchCount; },
     };
 }
 
@@ -170,6 +173,31 @@ describe('P4 globalSongs search v3 + content metrics backfill', () => {
                 isComplete: false,
             },
         }]);
+    });
+
+    it('reports the canonical delta in dry-run mode without creating a Firestore batch', async () => {
+        const fake = createDb([{
+            id: 'song-d',
+            data: {
+                title: 'Prévia Segura',
+                artist: 'Artist',
+                chords: 'D A\nCantarei',
+                lyrics: '',
+            },
+        }]);
+
+        const result = await backfillGlobalSongs(fake.db, { dryRun: true });
+
+        expect(result).toEqual({
+            processed: 1,
+            updated: 1,
+            normalizedUpdated: 1,
+            searchUpdated: 1,
+            contentMetricsUpdated: 1,
+        });
+        expect(fake.batchCount).toBe(0);
+        expect(fake.commitCount).toBe(0);
+        expect(fake.updates).toHaveLength(0);
     });
 
     it('paginates through the collection in bounded pages of 200', async () => {

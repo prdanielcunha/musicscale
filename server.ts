@@ -196,6 +196,15 @@ app.use((err: any, req: any, res: any, next: any) => {
     }
   });
 
+  app.post("/api/admin/backfill-global-titles/dry-run", requireEcosystemRole, async (req: any, res: any) => {
+    try {
+        const result = await backfillGlobalSongs(db, { dryRun: true });
+        res.json({ success: true, dryRun: true, result });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+  });
+
   function resolveFinOpsDiagnosticsEnvironment(): {
     environment: "preview" | "staging" | "development" | "production" | "unknown";
     isProduction: boolean;

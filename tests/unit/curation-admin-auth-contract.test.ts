@@ -15,6 +15,8 @@ describe('P4 curation admin authentication contract', () => {
     expect(serverSource).toContain("app.get(\"/api/admin/inbox-count\", requireEcosystemRole");
     expect(serverSource).toContain("app.post(\"/api/admin/reanalyze-candidates\", requireEcosystemRole");
     expect(serverSource).toContain("app.post(\"/api/admin/backfill-global-titles\", requireEcosystemRole");
+    expect(serverSource).toContain("app.post(\"/api/admin/backfill-global-titles/dry-run\", requireEcosystemRole");
+    expect(serverSource).toContain('backfillGlobalSongs(db, { dryRun: true })');
     expect(authSource).toContain('authHeader.startsWith("Bearer ")');
   });
 
