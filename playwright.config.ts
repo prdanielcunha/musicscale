@@ -22,6 +22,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
     locale: 'pt-BR',
+    timezoneId: 'America/Sao_Paulo',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
