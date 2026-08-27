@@ -38,12 +38,21 @@ function collectContentMetricUpdates(data: any): Record<string, boolean> {
     return updates;
 }
 
-export async function backfillGlobalSongs(dbInstance = adminDb) {
+export interface GlobalSongsBackfillOptions {
+    /** Computes the canonical delta without creating a Firestore batch or writing data. */
+    dryRun?: boolean;
+}
+
+export async function backfillGlobalSongs(
+    dbInstance = adminDb,
+    options: GlobalSongsBackfillOptions = {},
+) {
     if (!dbInstance) {
         throw new Error('Database instance missing.');
     }
 
-    console.log('[Backfill] Starting globalSongs canonical normalization + search index + content metrics backfill...');
+    const dryRun = options.dryRun === true;
+    console.log(`[Backfill] Starting ${dryRun ? 'dry-run ' : ''}globalSongs canonical normalization + search index + content metrics backfill...`);
     const limitAmount = 200;
     let query = dbInstance.collection('globalSongs').orderBy('__name__').limit(limitAmount);
     let keepGoing = true;
@@ -60,7 +69,7 @@ export async function backfillGlobalSongs(dbInstance = adminDb) {
             break;
         }
 
-        const batch = dbInstance.batch();
+        const batch = dryRun ? undefined : dbInstance.batch();
         let batchUpdates = 0;
 
         for (const doc of snapshot.docs) {
@@ -95,7 +104,9 @@ export async function backfillGlobalSongs(dbInstance = adminDb) {
             Object.assign(updates, contentMetricUpdates);
 
             if (Object.keys(updates).length > 0) {
-                batch.update(doc.ref, updates);
+                if (!dryRun) {
+                    batch.update(doc.ref, updates);
+                }
                 batchUpdates++;
                 updatedCount++;
                 if (normalizedChanged) normalizedUpdatedCount++;
@@ -104,7 +115,7 @@ export async function backfillGlobalSongs(dbInstance = adminDb) {
             }
         }
 
-        if (batchUpdates > 0) {
+        if (!dryRun && batchUpdates > 0) {
             await batch.commit();
         }
 
