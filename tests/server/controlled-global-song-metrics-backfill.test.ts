@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
     CONTROLLED_BACKFILL_DOCUMENT_CAP,
@@ -78,6 +80,22 @@ function controlledOptions(guard = validGuard) {
 }
 
 describe('P4.7 controlled bounded global-song metrics backfill', () => {
+    it('defaults the production dispatcher to a no-write WIF authentication mode', () => {
+        const dispatcher = readFileSync(
+            resolve(process.cwd(), '.github/workflows/controlled-global-song-metrics-backfill.yml'),
+            'utf8',
+        );
+        const executor = readFileSync(
+            resolve(process.cwd(), '.github/workflows/controlled-global-song-metrics-backfill-executor.yml'),
+            'utf8',
+        );
+
+        expect(dispatcher).toContain('default: auth_only');
+        expect(dispatcher).toContain('execution_mode: ${{ inputs.execution_mode }}');
+        expect(executor).toContain('gcloud auth application-default print-access-token >/dev/null');
+        expect(executor).toContain("if: inputs.execution_mode == 'backfill'");
+    });
+
     it('fails every execution guard before accessing Firestore', async () => {
         const fake = createDb([]);
 

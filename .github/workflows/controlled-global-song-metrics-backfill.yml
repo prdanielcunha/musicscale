@@ -7,6 +7,14 @@ on:
         description: "Exact production commit SHA approved for this one-shot bounded backfill"
         required: true
         type: string
+      execution_mode:
+        description: "Default verifies temporary WIF authentication only; backfill is explicit."
+        required: false
+        default: auth_only
+        type: choice
+        options:
+          - auth_only
+          - backfill
 
 permissions:
   contents: read
@@ -25,6 +33,7 @@ jobs:
     uses: ./.github/workflows/controlled-global-song-metrics-backfill-executor.yml
     with:
       authorized_sha: ${{ inputs.authorized_sha }}
+      execution_mode: ${{ inputs.execution_mode }}
     permissions:
       contents: read
       id-token: write

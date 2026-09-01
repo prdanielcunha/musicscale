@@ -7,6 +7,10 @@ on:
         description: "Exact production commit SHA approved by the caller"
         required: true
         type: string
+      execution_mode:
+        description: "auth_only validates temporary WIF without a production write"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -100,7 +104,11 @@ jobs:
           workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production-writer-v2
           audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production-writer-v2
 
+      - name: Verify temporary WIF authentication without a production write
+        run: gcloud auth application-default print-access-token >/dev/null
+
       - name: Execute controlled bounded backfill
+        if: inputs.execution_mode == 'backfill'
         env:
           FIREBASE_PROJECT_ID: millionsnest
           GCLOUD_PROJECT: millionsnest
