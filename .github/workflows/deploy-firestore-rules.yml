@@ -2,9 +2,16 @@ name: Deploy Firestore Rules
 
 on:
   workflow_dispatch:
+    inputs:
+      smoke_only:
+        description: 'Authenticate with OIDC only; never deploy Firebase resources'
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -17,10 +24,10 @@ jobs:
     environment: firebase-production
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
 
@@ -29,9 +36,19 @@ jobs:
 
       - name: Google Auth
         id: auth
-        uses: google-github-actions/auth@v3
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
-          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_MILLIONSNEST }}'
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/ms-rules-prod-v1/providers/github
+          service_account: ms-rules-prod-wif-v1@millionsnest.iam.gserviceaccount.com
+          audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/ms-rules-prod-v1/providers/github
+
+      - name: OIDC authentication smoke
+        if: inputs.smoke_only
+        run: |
+          gcloud auth list --filter=status:ACTIVE --format='value(account)'
+          gcloud auth print-access-token >/dev/null
+          echo 'OIDC authentication smoke passed; no Firebase deployment was requested.'
 
       - name: Deploy Firestore Rules
+        if: inputs.smoke_only != true
         run: firebase deploy --only firestore:rules --project millionsnest --non-interactive
