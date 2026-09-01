@@ -1,0 +1,110 @@
+name: Controlled Global Song Metrics Backfill Executor
+
+on:
+  workflow_call:
+    inputs:
+      authorized_sha:
+        description: "Exact production commit SHA approved by the caller"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  controlled_backfill:
+    runs-on: ubuntu-latest
+    environment: firebase-production
+    steps:
+      - name: Check dispatched SHA
+        env:
+          AUTHORIZED_SHA: ${{ inputs.authorized_sha }}
+          DISPATCHED_SHA: ${{ github.sha }}
+        run: |
+          test "${#AUTHORIZED_SHA}" -eq 40
+          test "$AUTHORIZED_SHA" = "$DISPATCHED_SHA"
+
+      - name: Checkout approved commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Verify checked out SHA
+        env:
+          AUTHORIZED_SHA: ${{ inputs.authorized_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$AUTHORIZED_SHA"
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Validate the exact GitHub-issued context before the auth action contacts
+      # STS. The provider must enforce the same conditions independently.
+      - name: Verify GitHub OIDC attestation before WIF
+        env:
+          EXPECTED_AUDIENCE: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production-writer-v2
+          EXPECTED_REPOSITORY: prdanielcunha/musicscale
+          EXPECTED_REPOSITORY_ID: "1301923154"
+          EXPECTED_REPOSITORY_OWNER_ID: "236886753"
+          EXPECTED_REF: refs/heads/production
+          EXPECTED_ENVIRONMENT: firebase-production
+          EXPECTED_EVENT: workflow_dispatch
+          EXPECTED_SUBJECT: repo:prdanielcunha/musicscale:environment:firebase-production
+          EXPECTED_JOB_WORKFLOW_REF: prdanielcunha/musicscale/.github/workflows/controlled-global-song-metrics-backfill-executor.yml@refs/heads/production
+          EXPECTED_SHA: ${{ inputs.authorized_sha }}
+        run: |
+          node <<'NODE'
+          const expected = {
+            aud: process.env.EXPECTED_AUDIENCE,
+            repository: process.env.EXPECTED_REPOSITORY,
+            repository_id: process.env.EXPECTED_REPOSITORY_ID,
+            repository_owner_id: process.env.EXPECTED_REPOSITORY_OWNER_ID,
+            ref: process.env.EXPECTED_REF,
+            environment: process.env.EXPECTED_ENVIRONMENT,
+            event_name: process.env.EXPECTED_EVENT,
+            sub: process.env.EXPECTED_SUBJECT,
+            job_workflow_ref: process.env.EXPECTED_JOB_WORKFLOW_REF,
+            sha: process.env.EXPECTED_SHA,
+            workflow_sha: process.env.EXPECTED_SHA,
+            job_workflow_sha: process.env.EXPECTED_SHA,
+          };
+
+          const endpoint = new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);
+          endpoint.searchParams.set('audience', expected.aud);
+          const response = await fetch(endpoint, {
+            headers: { Authorization: `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` },
+          });
+          if (!response.ok) throw new Error('GITHUB_OIDC_TOKEN_REQUEST_FAILED');
+
+          const { value: token } = await response.json();
+          const payload = token?.split('.')[1];
+          if (!payload) throw new Error('GITHUB_OIDC_TOKEN_MALFORMED');
+          const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+
+          for (const [claim, value] of Object.entries(expected)) {
+            if (claims[claim] !== value) throw new Error(`GITHUB_OIDC_${claim.toUpperCase()}_MISMATCH`);
+          }
+          console.log('GitHub OIDC attestation claims verified.');
+          NODE
+
+      - name: Authenticate with dedicated direct WIF write identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production-writer-v2
+          audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production-writer-v2
+
+      - name: Execute controlled bounded backfill
+        env:
+          FIREBASE_PROJECT_ID: millionsnest
+          GCLOUD_PROJECT: millionsnest
+          GOOGLE_CLOUD_PROJECT: millionsnest
+          MACHINE_AUTHORIZED_SHA: ${{ inputs.authorized_sha }}
+          MACHINE_GITHUB_ENVIRONMENT: firebase-production
+        run: npm run machine:global-song-metrics:controlled-backfill
