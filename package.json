@@ -22,6 +22,7 @@
     "test:e2e:report": "npx playwright show-report",
     "test:qa": "npm run lint && npm run build && npm run test:ui && npm run test:e2e",
     "test:functions": "npm --prefix functions test",
+    "test:reviewer-high": "node --test tests/scripts/reviewer-high-attestation.test.mjs",
     "test:song-discovery": "tsx run_song_discovery_tests.ts",
     "test:starter-pack-ui": "vitest run tests/ui/starter-pack-visibility.test.tsx",
     "test:curation-approval": "vitest run tests/server/curation-approval-service.test.ts",

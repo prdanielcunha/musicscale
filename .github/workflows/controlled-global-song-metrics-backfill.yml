@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  statuses: read
   id-token: write
 
 concurrency:
@@ -27,4 +28,5 @@ jobs:
       authorized_sha: ${{ inputs.authorized_sha }}
     permissions:
       contents: read
+      statuses: read
       id-token: write

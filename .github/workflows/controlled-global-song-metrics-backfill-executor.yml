@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  statuses: read
   id-token: write
 
 jobs:
@@ -41,6 +42,17 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      # This is a machine-enforced production gate. Nexus creates the
+      # reviewer-high commit status only after an independent HIGH reviewer approves
+      # this exact immutable execution contract.
+      - name: Verify independent reviewer-high attestation before OIDC
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          AUTHORIZED_SHA: ${{ inputs.authorized_sha }}
+          REVIEWER_HIGH_WORKFLOW_PATH: .github/workflows/controlled-global-song-metrics-backfill-executor.yml
+          REVIEWER_HIGH_WORKFLOW_REF: refs/heads/production
+        run: node scripts/verify-reviewer-high-attestation.mjs
 
       - name: Install dependencies
         run: npm ci
