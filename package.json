@@ -22,6 +22,7 @@
     "test:e2e:report": "npx playwright show-report",
     "test:qa": "npm run lint && npm run build && npm run test:ui && npm run test:e2e",
     "test:functions": "npm --prefix functions test",
+    "test:reviewer-high-attestor": "vitest run tests/scripts/reviewer-high-attestor.test.mjs",
     "test:song-discovery": "tsx run_song_discovery_tests.ts",
     "test:starter-pack-ui": "vitest run tests/ui/starter-pack-visibility.test.tsx",
     "test:curation-approval": "vitest run tests/server/curation-approval-service.test.ts",
@@ -42,7 +43,8 @@
     "ci:vercel": "npm run assets:materialize && npm run test:ci:emulator && npm run test:ci:portable && npm run build",
     "test:perf:shell-split": "tsx test_ms_perf_shell_split.ts",
     "test:perf:login-deferral": "tsx test_ms_perf_login_deferral.ts",
-    "test:ui:login-deferral": "vitest run tests/ui/login-auth-deferral.test.tsx tests/ui/login-auth-chunk-failure.test.tsx"
+    "test:ui:login-deferral": "vitest run tests/ui/login-auth-deferral.test.tsx tests/ui/login-auth-chunk-failure.test.tsx",
+    "test:reviewer-high-attestation": "vitest run tests/scripts/reviewer-high-attestation.test.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",
