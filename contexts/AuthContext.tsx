@@ -1,6 +1,6 @@
 import { markStartupMetric } from '../lib/startupTelemetry';
 import { logger } from '../lib/logger';
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../services/firebase';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, getDocFromServer, onSnapshot } from 'firebase/firestore';
@@ -114,6 +114,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   
   const [entitlements, setEntitlements] = useState<MusicScaleEntitlements | null>(null);
   const [isEntitlementsLoaded, setIsEntitlementsLoaded] = useState(false);
+  const ecosystemRoleRef = useRef<string>(ecoContext?.ecosystemRole || 'user');
+
+  useEffect(() => {
+    ecosystemRoleRef.current = ecoContext?.ecosystemRole || 'user';
+  }, [ecoContext?.ecosystemRole]);
 
   // Deriving active context purely from EcosystemContext canonical payload
   const effectiveOrganizationId = ecoContext?.currentOrganizationId || null;
@@ -159,7 +164,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           displayName: currentUser.displayName || '',
           photoURL: currentUser.photoURL || '',
           roleId: 'visitor',
-          systemRole: ecoContext?.ecosystemRole || 'user'
+          systemRole: ecosystemRoleRef.current
         };
       } else {
         // Sync minimal heartbeat in background (fire-and-forget) to not block UI
@@ -175,13 +180,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         displayName: currentUser.displayName || '',
         photoURL: currentUser.photoURL || '',
         roleId: 'visitor',
-        systemRole: ecoContext?.ecosystemRole || 'user'
+        systemRole: ecosystemRoleRef.current
       });
     } finally {
       markStartupMetric('auth_profile_completed_ms');
       setLoading(false);
     }
-  }, [ecoContext]);
+  }, []);
 
   useEffect(() => {
     if (!isEcosystemReady) return;

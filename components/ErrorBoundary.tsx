@@ -2,7 +2,7 @@ import { logger } from "../lib/logger";
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import Button from "./common/Button";
 
-const BugIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+const WarningIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="24"
@@ -18,6 +18,17 @@ const BugIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
   </svg>
 );
+
+const isChunkLoadError = (error: Error | null) => {
+  if (!error) return false;
+  const message = error.message || error.toString();
+  return (
+    message.includes("Failed to fetch dynamically imported module") ||
+    message.includes("ChunkLoadError") ||
+    message.includes("Importing a module script failed") ||
+    message.includes("dynamically imported module")
+  );
+};
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -49,24 +60,21 @@ export default class ErrorBoundary extends Component<
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     logger.error("Uncaught error:", error, errorInfo);
-    
-    // Check if this is a chunk load error (Vite dynamic import failure)
-    const errorMessage = error.message || error.toString();
-    if (
-      errorMessage.includes('Failed to fetch dynamically imported module') ||
-      errorMessage.includes('ChunkLoadError') ||
-      errorMessage.includes('Importing a module script failed') ||
-      errorMessage.includes('dynamically imported module')
-    ) {
-      const RELOAD_FLAG = 'musicscale_chunk_reloaded';
+
+    if (isChunkLoadError(error)) {
+      const RELOAD_FLAG = "musicscale_chunk_reloaded";
       const lastReload = sessionStorage.getItem(RELOAD_FLAG);
       const now = Date.now();
-      if (!lastReload || now - parseInt(lastReload) > 10000) {
+      const lastReloadAt = lastReload ? Number(lastReload) : 0;
+
+      // A stale SPA shell can reference a chunk from the previous deployment.
+      // Recover once with a cache-busting reload, but never enter a reload loop.
+      if (!Number.isFinite(lastReloadAt) || now - lastReloadAt > 10000) {
         sessionStorage.setItem(RELOAD_FLAG, now.toString());
-        console.warn('ErrorBoundary: Chunk load failed, forcing reload once...');
+        logger.warn("ErrorBoundary: stale chunk detected; performing one guarded reload.");
         const newUrl = new URL(window.location.href);
-        newUrl.searchParams.set('v', now.toString());
-        window.location.href = newUrl.toString();
+        newUrl.searchParams.set("v", now.toString());
+        window.location.replace(newUrl.toString());
       }
     }
   }
@@ -76,30 +84,38 @@ export default class ErrorBoundary extends Component<
   };
 
   public render() {
-    // FIX: Correctly accessing inherited props and state properties from the base React.Component class.
     const { children } = this.props;
     const { hasError, error } = this.state;
 
     if (hasError) {
+      const chunkFailure = isChunkLoadError(error);
+
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-gray-900 p-4 text-center">
-          <div className="p-4 bg-red-100 dark:bg-red-900/30 rounded-full mb-4">
-            <BugIcon className="w-10 h-10 text-red-600 dark:text-red-400" />
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-[#070709] p-6 text-center">
+          <div className="w-full max-w-md rounded-[28px] border border-black/[0.06] dark:border-white/[0.08] bg-white dark:bg-[#111113] p-7 sm:p-9 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:shadow-[0_20px_70px_rgba(0,0,0,0.35)]">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 mb-5">
+              <WarningIcon className="w-7 h-7" />
+            </div>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white mb-2">
+              {chunkFailure ? "Atualizando o MusicScale" : "Não foi possível concluir esta tela"}
+            </h1>
+            <p className="text-sm sm:text-base leading-relaxed text-slate-600 dark:text-slate-400 mb-6">
+              {chunkFailure
+                ? "Uma versão mais recente do aplicativo pode ter sido publicada. Recarregue para continuar com segurança."
+                : "Seus dados continuam protegidos. Recarregue o aplicativo e tente novamente."}
+            </p>
+            <Button onClick={this.handleReload} className="w-full justify-center">
+              Recarregar MusicScale
+            </Button>
+
+            {import.meta.env.DEV && error && (
+              <pre className="mt-6 p-4 bg-slate-100 dark:bg-black/40 rounded-xl text-left text-xs text-red-600 dark:text-red-400 overflow-auto max-h-64">
+                {error.toString()}
+                <br />
+                {error.stack}
+              </pre>
+            )}
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-            Algo deu errado
-          </h1>
-          <p className="text-slate-600 dark:text-gray-300 max-w-md mb-6">
-            Ocorreu um erro inesperado. Tente recarregar a página.
-          </p>
-          <Button onClick={this.handleReload}>Recarregar Página</Button>
-          {error && (
-            <pre className="mt-8 p-4 bg-slate-200 dark:bg-black/50 rounded-lg text-left text-xs text-red-600 dark:text-red-400 overflow-auto max-w-2xl max-h-64">
-              {error.toString()}
-              <br />
-              {error.stack}
-            </pre>
-          )}
         </div>
       );
     }

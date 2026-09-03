@@ -346,22 +346,54 @@ const AppLayout: React.FC = () => {
 
 function Gatekeeper({ children }: { children: React.ReactNode }) {
     const { user, userProfile, loading, organization, subscription, needsRepair } = useAuth();
-    const [timeoutError, setTimeoutError] = useState(false);
+    const [bootstrapTimedOut, setBootstrapTimedOut] = useState(false);
+    const isBootstrapping = loading || !!(user && !userProfile);
 
     useEffect(() => {
-        if (loading || (user && !userProfile)) {
-            const timer = setTimeout(() => {
-                setTimeoutError(true);
-            }, 15000); // 15s absolute timeout for Auth/Organization resolution
-            return () => clearTimeout(timer);
+        if (!isBootstrapping) {
+            setBootstrapTimedOut(false);
+            return;
         }
-    }, [loading, user, userProfile]);
 
-    if (timeoutError) {
-        throw new Error('BOOTSTRAP_TIMEOUT: Loading took longer than 15s');
+        const timer = window.setTimeout(() => {
+            setBootstrapTimedOut(true);
+            logger.warn('[Gatekeeper] Bootstrap exceeded 15s; keeping fail-closed recovery screen instead of crashing.');
+        }, 15000);
+
+        return () => window.clearTimeout(timer);
+    }, [isBootstrapping]);
+
+    if (bootstrapTimedOut && isBootstrapping) {
+        return (
+            <div className="flex min-h-[100dvh] w-full items-center justify-center bg-[#070709] px-6 py-10 text-center">
+                <div className="w-full max-w-md rounded-[28px] border border-white/[0.08] bg-[#111113] p-7 sm:p-9 shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
+                    <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-300">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M20 6v5h-5" />
+                            <path d="M4 18v-5h5" />
+                            <path d="M18.5 9A7 7 0 0 0 6 6.5L4 9" />
+                            <path d="M5.5 15A7 7 0 0 0 18 17.5l2-2.5" />
+                        </svg>
+                    </div>
+                    <h1 className="mb-2 text-2xl font-black tracking-tight text-white">
+                        O MusicScale está demorando mais que o normal
+                    </h1>
+                    <p className="mb-6 text-sm leading-relaxed text-white/55 sm:text-base">
+                        Não liberamos uma tela parcial enquanto sua sessão está sendo validada. Seus dados continuam protegidos; tente recarregar para concluir o acesso.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                        className="w-full rounded-2xl bg-white px-5 py-3.5 text-sm font-black text-black transition hover:bg-white/90 active:scale-[0.99]"
+                    >
+                        Tentar novamente
+                    </button>
+                </div>
+            </div>
+        );
     }
 
-    if (loading || (user && !userProfile)) {
+    if (isBootstrapping) {
         return (
             <div className="flex bg-[#0a0a0b] dark:bg-[#050505] h-[100dvh] w-[100dvw] justify-center items-center flex-col relative overflow-hidden isolate">
                 {/* Immersive ambient noise for splash */}

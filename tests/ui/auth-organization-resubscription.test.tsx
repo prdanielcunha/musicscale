@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   organizationId: 'org-a',
+  ecosystemRole: 'user',
   entitlementsByOrganization: new Map<string, Promise<any>>(),
   unsubscribes: [] as ReturnType<typeof vi.fn>[],
   fetchEntitlements: vi.fn((organizationId: string) => mocks.entitlementsByOrganization.get(organizationId)
@@ -29,6 +30,7 @@ vi.mock('../../contexts/EcosystemContext', () => ({
     context: {
       currentOrganizationId: mocks.organizationId,
       currentOrganizationName: mocks.organizationId,
+      ecosystemRole: mocks.ecosystemRole,
       roleInCurrentOrganization: 'member',
       plan: 'starter',
       permissions: {},
@@ -59,6 +61,7 @@ vi.mock('../../services/entitlementsService', () => ({
   },
 }));
 
+import { onAuthStateChanged } from 'firebase/auth';
 import { onSnapshot } from 'firebase/firestore';
 import { AuthProvider, useFeatures } from '../../contexts/AuthContext';
 
@@ -70,12 +73,26 @@ function FeatureProbe() {
 afterEach(() => {
   cleanup();
   mocks.organizationId = 'org-a';
+  mocks.ecosystemRole = 'user';
   mocks.unsubscribes = [];
   mocks.entitlementsByOrganization.clear();
   mocks.fetchEntitlements.mockClear();
+  vi.mocked(onAuthStateChanged).mockClear();
+  vi.mocked(onSnapshot).mockClear();
 });
 
 describe('AuthContext tenant reaction', () => {
+  it('does not resubscribe Firebase Auth when ecosystem metadata enriches without an identity change', async () => {
+    const rendered = render(<AuthProvider><div>app</div></AuthProvider>);
+    await waitFor(() => expect(vi.mocked(onAuthStateChanged)).toHaveBeenCalledTimes(1));
+
+    mocks.ecosystemRole = 'global_admin';
+    rendered.rerender(<AuthProvider><div>app</div></AuthProvider>);
+
+    await Promise.resolve();
+    expect(vi.mocked(onAuthStateChanged)).toHaveBeenCalledTimes(1);
+  });
+
   it('replaces organization and subscription listeners and refetches entitlements', async () => {
     const rendered = render(<AuthProvider><div>app</div></AuthProvider>);
     await waitFor(() => expect(vi.mocked(onSnapshot)).toHaveBeenCalledTimes(2));
