@@ -1,4 +1,4 @@
-import { collection, doc, query, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, where, limit, startAfter, orderBy, DocumentData, QueryDocumentSnapshot, serverTimestamp, increment, writeBatch } from 'firebase/firestore';
+import { collection, doc, query, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, where, limit, startAfter, orderBy, DocumentData, QueryDocumentSnapshot, serverTimestamp, increment, writeBatch, getCountFromServer } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import type { GlobalSong, SongSubmission, Song, FreshnessMetadata } from '../types';
 import { 
@@ -232,28 +232,20 @@ export const getGlobalSongs = async (
 
 export const getGlobalLibraryMetrics = async () => {
   const collRef = collection(db, GLOBAL_SONGS_COLLECTION);
-  const q = query(collRef);
-  const snapshot = await getDocs(q);
-  
-  let total = 0;
-  let completa = 0;
-  let cifra = 0;
-  let letra = 0;
-  
-  snapshot.forEach(doc => {
-    const data = doc.data();
-    if (data.status !== 'active') return;
-    
-    total++;
-    const hasChords = !!(data.chords && typeof data.chords === 'string' && data.chords.trim());
-    const hasLyrics = !!(data.lyrics && typeof data.lyrics === 'string' && data.lyrics.trim());
-    
-    if (hasChords && hasLyrics) completa++;
-    if (hasChords) cifra++;
-    if (hasLyrics) letra++;
-  });
-  
-  return { total, completa, cifra, letra };
+
+  const [totalSnapshot, completeSnapshot, chordsSnapshot, lyricsSnapshot] = await Promise.all([
+    getCountFromServer(query(collRef, where('status', '==', 'active'))),
+    getCountFromServer(query(collRef, where('status', '==', 'active'), where('isComplete', '==', true))),
+    getCountFromServer(query(collRef, where('status', '==', 'active'), where('hasChords', '==', true))),
+    getCountFromServer(query(collRef, where('status', '==', 'active'), where('hasLyrics', '==', true))),
+  ]);
+
+  return {
+    total: totalSnapshot.data().count,
+    completa: completeSnapshot.data().count,
+    cifra: chordsSnapshot.data().count,
+    letra: lyricsSnapshot.data().count,
+  };
 };
 
 export const submitSong = async (submission: Omit<SongSubmission, 'id'>) => {
@@ -471,4 +463,3 @@ export const updateGlobalSongLanguageInBatch = async (
     await batch.commit();
   }
 };
-
