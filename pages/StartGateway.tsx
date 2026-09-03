@@ -102,7 +102,19 @@ export default function StartGateway() {
     return <MissingSubscriptionScreen resolution={resolution} />;
   }
 
-  // 5. Usuário com acesso liberado
+  // 5. A workspace criada automaticamente pelo Hub recebe um marcador explícito.
+  // Ela só entra no produto depois que o responsável informar a identidade real da igreja.
+  // Organizações antigas, sem esse marcador, continuam retrocompatíveis.
+  if (organization?.onboardingState === 'pending_profile') {
+    logger.debug("[StartGateway] Bootstrap workspace needs organization profile completion.");
+    return (
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900"><Spinner /></div>}>
+        <TenantOnboarding />
+      </Suspense>
+    );
+  }
+
+  // 6. Usuário com acesso liberado
   logger.debug("[StartGateway] Redirecting to workspace.");
   return <Navigate to="/" replace />;
 }

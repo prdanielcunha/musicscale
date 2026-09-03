@@ -1,5 +1,5 @@
 import { logger } from "../lib/logger";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
@@ -38,16 +38,17 @@ const TenantOnboarding: React.FC = () => {
 
   // Evaluate Subscription Status
   const hasActiveSub = subscription?.status === "active" || subscription?.status === "trialing" || subscription?.status === "trial" || subscription?.status === "pro";
+  const needsProfileCompletion = organization?.onboardingState === "pending_profile";
 
   // If organization is already complete, don't show onboarding
   useEffect(() => {
-    if (organization && organization.slug) {
+    if (organization && organization.slug && !needsProfileCompletion) {
       logger.debug(
         "[TenantOnboarding] Organization already complete, redirecting to home.",
       );
       navigate("/");
     }
-  }, [organization, navigate]);
+  }, [organization, needsProfileCompletion, navigate]);
 
   const [loading, setLoading] = useState(false);
   const [orgName, setOrgName] = useState("");
@@ -61,24 +62,40 @@ const TenantOnboarding: React.FC = () => {
 
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [slugChecking, setSlugChecking] = useState(false);
-  let slugTimeout: any = null;
+  const slugTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (organization && !organization.slug) {
+    return () => {
+      if (slugTimeoutRef.current) clearTimeout(slugTimeoutRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (organization && (!organization.slug || needsProfileCompletion)) {
       setMode("create");
-      if (organization.name) {
-        const existingName = organization.name || "";
-        setOrgName(existingName);
+
+      const existingName = organization.name === "My Workspace"
+        ? ""
+        : (organization.name || "");
+
+      setOrgName(existingName);
+      setCity(organization.city || "");
+      setState(organization.state || "");
+
+      if (existingName) {
         const generated = generateSlug(existingName);
         setSlug(generated);
-        checkSlugAvailability(generated);
+        void checkSlugAvailability(generated);
+      } else {
+        setSlug("");
+        setSlugAvailable(null);
       }
     } else if (!hasActiveSub && !organization) {
       setMode("premium_join");
     } else if (hasActiveSub && !organization) {
       setMode("create");
     }
-  }, [organization, hasActiveSub]);
+  }, [organization, hasActiveSub, needsProfileCompletion]);
 
   const checkSlugAvailability = async (currentSlug: string) => {
     if (!currentSlug) {
@@ -107,11 +124,22 @@ const TenantOnboarding: React.FC = () => {
       .replace(/(^-|-$)+/g, "");
   };
 
+  const scheduleSlugAvailabilityCheck = (value: string) => {
+    if (slugTimeoutRef.current) clearTimeout(slugTimeoutRef.current);
+    if (!value) {
+      setSlugAvailable(null);
+      setSlugChecking(false);
+      return;
+    }
+    slugTimeoutRef.current = setTimeout(() => {
+      void checkSlugAvailability(value);
+    }, 400);
+  };
+
   const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "");
     setSlug(val);
-    clearTimeout(slugTimeout);
-    slugTimeout = setTimeout(() => checkSlugAvailability(val), 500);
+    scheduleSlugAvailabilityCheck(val);
   };
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,8 +147,7 @@ const TenantOnboarding: React.FC = () => {
     setOrgName(newName);
     const autoSlug = generateSlug(newName);
     setSlug(autoSlug);
-    clearTimeout(slugTimeout);
-    slugTimeout = setTimeout(() => checkSlugAvailability(autoSlug), 500);
+    scheduleSlugAvailabilityCheck(autoSlug);
   };
 
   const handleCreateOrg = async () => {
@@ -342,13 +369,13 @@ const TenantOnboarding: React.FC = () => {
             </svg>
           </div>
           <h1 className="text-3xl font-extrabold text-[#1D1D1F] dark:text-white tracking-tight mb-2">
-            {organization && !organization.slug
+            {organization && (!organization.slug || needsProfileCompletion)
               ? "Complete seu Cadastro"
               : "Configure sua Igreja"}
           </h1>
           <p className="text-[#86868B] font-medium">
-            {organization && !organization.slug
-              ? "Faltam apenas alguns detalhes para configurar o ambiente."
+            {organization && (!organization.slug || needsProfileCompletion)
+              ? "Informe os dados da sua igreja para preparar o MusicScale."
               : "Crie ou conecte-se a uma organização MusicScale."}
           </p>
         </div>
@@ -498,19 +525,19 @@ const TenantOnboarding: React.FC = () => {
             <div className="pt-4 space-y-4">
               <Button
                 onClick={handleCreateOrg}
-                disabled={loading || slugAvailable === false}
+                disabled={loading || !orgName.trim() || !slug.trim() || slugChecking || slugAvailable === false}
                 size="lg"
                 className="w-full h-16 text-lg"
               >
                 {loading ? (
                   <Spinner size="sm" />
-                ) : organization && !organization.slug ? (
+                ) : organization && (!organization.slug || needsProfileCompletion) ? (
                   "Salvar Configuração"
                 ) : (
                   "Começar Agora"
                 )}
               </Button>
-              {(!organization || organization.slug) && (
+              {(!organization || (organization.slug && !needsProfileCompletion)) && (
                 <button
                   onClick={() => setMode("select")}
                   className="w-full py-2 text-[15px] font-semibold text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-white transition-colors"

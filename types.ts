@@ -67,6 +67,8 @@ export interface Organization {
   id: string;
   name: string;
   slug: string;
+  onboardingState?: 'pending_profile' | 'complete';
+  onboardingCompletedAt?: any;
   city?: string | null;
   state?: string | null;
   ownerUserId: string;

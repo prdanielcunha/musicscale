@@ -1775,6 +1775,8 @@ app.use((err: any, req: any, res: any, next: any) => {
               city: safeCity || null,
               state: safeState || null,
               slug: cleanSlug,
+              onboardingState: 'complete',
+              onboardingCompletedAt: admin.firestore.FieldValue.serverTimestamp(),
               updated_at: admin.firestore.FieldValue.serverTimestamp()
           };
           
