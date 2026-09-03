@@ -409,9 +409,13 @@ export default function LibraryPage() {
   // only while the user is typing. This removes the previous duplicate mount
   // request and prevents stale searches from winning a race.
   useEffect(() => {
+    // Invalidate any request from the previous access/search state immediately,
+    // rather than waiting for the debounce window to expire.
+    requestGenerationRef.current++;
+
     if (!hasAccess) {
-      requestGenerationRef.current++;
       pageLoadInFlightRef.current = false;
+      setLoading(false);
       setSongs([]);
       setLastVisible(undefined);
       setHasMore(true);
