@@ -78,6 +78,7 @@ afterEach(() => {
   mocks.entitlementsByOrganization.clear();
   mocks.fetchEntitlements.mockClear();
   vi.mocked(onAuthStateChanged).mockClear();
+  vi.mocked(onSnapshot).mockClear();
 });
 
 describe('AuthContext tenant reaction', () => {
