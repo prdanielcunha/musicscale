@@ -151,7 +151,7 @@ export const getGlobalSongs = async (
     let allFetched = await fetchQueries(primaryQueries);
     let songs = mergeGlobalSearchCandidates(allFetched, searchTerm);
     if (songs.length >= pageSize) {
-      return { songs: songs.slice(0, pageSize), lastVisible: null };
+      return { songs: songs.slice(0, pageSize), lastVisible: null, hasMore: false };
     }
 
     // Stage 2: artist/band. Do not pay for content queries when title/artist already fill the page.
@@ -174,7 +174,7 @@ export const getGlobalSongs = async (
     allFetched = allFetched.concat(await fetchQueries(artistQueries));
     songs = mergeGlobalSearchCandidates(allFetched, searchTerm);
     if (songs.length >= pageSize) {
-      return { songs: songs.slice(0, pageSize), lastVisible: null };
+      return { songs: songs.slice(0, pageSize), lastVisible: null, hasMore: false };
     }
 
     // Stage 3: full searchable song content plus the legacy token family for aliases/version
@@ -200,7 +200,8 @@ export const getGlobalSongs = async (
 
     return {
       songs: songs.slice(0, pageSize),
-      lastVisible: null
+      lastVisible: null,
+      hasMore: false
     };
   }
 
@@ -215,18 +216,24 @@ export const getGlobalSongs = async (
   }
 
   const snapshot = await getDocs(q);
-  // manual status filter to avoid composite index requirement
-  const allFetched = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }) as GlobalSong);
-  const songs = allFetched.filter(s => s.status === 'active').slice(0, pageSize);
+  // Manual status filtering avoids a composite index, but the cursor must still
+  // make forward progress through archived rows. When the page already contains
+  // pageSize active songs we cursor from the last returned active song (so no
+  // active rows are skipped). Otherwise we cursor from the last fetched document
+  // so archived rows cannot trap pagination on the same window.
+  const activeDocs = snapshot.docs.filter(docSnap => (docSnap.data() as any).status === 'active');
+  const selectedDocs = activeDocs.slice(0, pageSize);
+  const songs = selectedDocs.map(docSnap => ({ id: docSnap.id, ...(docSnap.data() as any) }) as GlobalSong);
 
-  const lastSong = songs[songs.length - 1];
-  const lastVisibleDoc = lastSong 
-    ? snapshot.docs.find(d => d.id === lastSong.id) 
-    : null;
+  const fetchLimit = pageSize + 10;
+  const lastVisibleDoc = selectedDocs.length === pageSize
+    ? selectedDocs[selectedDocs.length - 1]
+    : snapshot.docs[snapshot.docs.length - 1] || null;
 
   return {
     songs,
-    lastVisible: lastVisibleDoc || null
+    lastVisible: lastVisibleDoc,
+    hasMore: snapshot.docs.length === fetchLimit
   };
 };
 
