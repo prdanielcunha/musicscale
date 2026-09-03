@@ -1011,7 +1011,10 @@
       "starter_cta": "Fazer upgrade para Advanced — R$ 29,90/mês",
       "advanced_title": "Limite mensal de importações atingido",
       "advanced_text": "Sua organização já usou as 10 importações permitidas este mês no plano Advanced. Faça upgrade para o Pro para ter importações ilimitadas.",
-      "advanced_cta": "Fazer upgrade para Pro — R$ 34,90/mês"
+      "advanced_cta": "Fazer upgrade para Pro — R$ 34,90/mês",
+      "bulk_pro_only_title": "Importação em massa exclusiva do Pro",
+      "bulk_pro_only_text": "Importar várias músicas de uma vez é um recurso do Pro ativo. No Advanced, continue importando individualmente dentro do limite mensal.",
+      "bulk_pro_only_cta": "Ativar Pro — R$ 34,90/mês"
     },
     "locked": {
       "premium_badge": "Acervo premium do MusicScale",

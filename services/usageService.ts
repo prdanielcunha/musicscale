@@ -39,7 +39,7 @@ export interface ImportResult {
   importedCount: number;
   blockedCount: number;
   errorMessage?: string;
-  errorCode?: 'STARTER_BLOCKED' | 'ADVANCED_LIMIT_REACHED' | 'INSUFFICIENT_IMPORT_QUOTA' | 'UNKNOWN';
+  errorCode?: 'STARTER_BLOCKED' | 'ADVANCED_LIMIT_REACHED' | 'INSUFFICIENT_IMPORT_QUOTA' | 'BULK_IMPORT_PRO_ONLY' | 'UNKNOWN';
 }
 
 export async function importGlobalLibrarySongsWithUsageCheck(

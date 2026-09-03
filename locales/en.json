@@ -1012,7 +1012,10 @@
       "starter_cta": "Upgrade to Advanced — R$ 29.90/month",
       "advanced_title": "Monthly import limit reached",
       "advanced_text": "Your organization has already used the 10 imports allowed this month on the Advanced plan. Upgrade to Pro for unlimited imports.",
-      "advanced_cta": "Upgrade to Pro — R$ 34.90/month"
+      "advanced_cta": "Upgrade to Pro — R$ 34.90/month",
+      "bulk_pro_only_title": "Bulk import is exclusive to Pro",
+      "bulk_pro_only_text": "Importing multiple songs at once is available on an active Pro plan. On Advanced, keep importing individual songs within the monthly limit.",
+      "bulk_pro_only_cta": "Activate Pro — R$ 34.90/month"
     },
     "locked": {
       "premium_badge": "MusicScale Premium Collection",

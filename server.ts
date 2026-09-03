@@ -65,6 +65,7 @@ import { extractSongIdentity } from "./utils/songDiscovery/identityGenerator.js"
 import { preVerifyCandidates, bulkImportCandidates } from './services/server/bulkImportService.js';
 import { BandScaleCommandService } from './services/server/bandScale/bandScaleCommandService.js';
 import { beginAiImportFinOpsWritePath, finalizeAiImportFinOpsWritePath } from "./services/server/aiImportFinOpsWritePath.js";
+import { canUseBulkLibraryImport } from "./utils/libraryImportPolicy.js";
 
 if (fs.existsSync(".env.local")) {
   dotenv.config({ path: ".env.local" });
@@ -3545,20 +3546,42 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
 
       const orgData = orgDoc.exists ? orgDoc.data() : {};
       
-      // Attempt to resolve plan securely. 
-      // E.g. MillionsNest might store it in `apps.musicscale.plan` or `plan` or `subscription.plan`.
+      // Resolve the canonical MusicScale plan/status server-side.
+      // Bulk import is deliberately more restrictive: paid active Pro only.
       let verifiedPlan = isGlobalAdmin ? 'pro' : 'starter';
+      let verifiedStatus = isGlobalAdmin ? 'active' : 'inactive';
+
       if (!isGlobalAdmin) {
-        if (orgData?.plan) {
-          verifiedPlan = orgData.plan; // Base fallback
+        const msApp = orgData?.apps?.musicscale;
+        if (msApp?.status) {
+          const rawStatus = String(msApp.status).toLowerCase().trim();
+          if (rawStatus === 'active' || rawStatus === 'trialing') {
+            verifiedStatus = rawStatus;
+            verifiedPlan = String(msApp.plan || 'starter').toLowerCase().trim();
+          }
         }
-        if (orgData?.apps?.musicscale?.plan) {
-          verifiedPlan = orgData.apps.musicscale.plan;
+
+        if (verifiedStatus === 'inactive') {
+          try {
+            const subSnap = await db.collection('subscriptions').doc(organizationId).get();
+            if (subSnap.exists) {
+              const subData = subSnap.data() || {};
+              const rawStatus = String(subData.status || '').toLowerCase().trim();
+              if (rawStatus === 'active' || rawStatus === 'trialing') {
+                verifiedStatus = rawStatus;
+                verifiedPlan = String(subData.plan || 'starter').toLowerCase().trim();
+              }
+            }
+          } catch (subErr) {
+            logger.warn(`[Library Import] Failed to resolve subscription for ${organizationId}: ${subErr}`);
+          }
         }
-        if (verifiedPlan === 'trialing' || verifiedPlan === 'free') {
-          verifiedPlan = 'starter';
-        }
-        if (!['starter', 'advanced', 'pro'].includes(verifiedPlan)) {
+
+        if (verifiedPlan === 'premium' || verifiedPlan === 'pro_unlimited' || verifiedPlan === 'pro') {
+          verifiedPlan = 'pro';
+        } else if (verifiedPlan === 'medium' || verifiedPlan === 'advanced_features' || verifiedPlan === 'advanced') {
+          verifiedPlan = 'advanced';
+        } else {
           verifiedPlan = 'starter';
         }
       }
@@ -3575,6 +3598,21 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
           blockedCount: selectedSongs.length,
           errorCode: 'STARTER_BLOCKED',
           errorMessage: "A Biblioteca Viva requer no mínimo o plano Advanced."
+        });
+      }
+
+      // 2. Bulk import is a paid Pro feature. A Pro trial may test the library
+      // one song at a time, but cannot drain the catalog in a single/bulk request.
+      if (
+        selectedSongs.length > 1 &&
+        !canUseBulkLibraryImport(verifiedPlan, verifiedStatus, isGlobalAdmin)
+      ) {
+        return res.json({
+          success: false,
+          importedCount: 0,
+          blockedCount: selectedSongs.length,
+          errorCode: 'BULK_IMPORT_PRO_ONLY',
+          errorMessage: "A importação em massa da Biblioteca Viva é exclusiva do plano Pro ativo."
         });
       }
 

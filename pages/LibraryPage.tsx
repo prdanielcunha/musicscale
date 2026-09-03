@@ -64,6 +64,7 @@ import { getSongSimilarityScore } from "../lib/songMatch";
 import { useTranslation } from "react-i18next";
 import { AdminCrossOrgImportModal } from "../components/admin/AdminCrossOrgImportModal";
 import { buildSearchIndex, searchSongs } from "../utils/searchEngine";
+import { canUseBulkLibraryImport } from "../utils/libraryImportPolicy";
 
 const Popover: React.FC<{
   triggerRef: React.RefObject<HTMLElement>;
@@ -175,6 +176,11 @@ export default function LibraryPage() {
   const { refreshData, songs: localSongs } = useMusic();
   const { usage, limits } = useMusicScaleUsage();
   const { entitlements, refresh: refreshEntitlements } = useMusicScaleEntitlements();
+  const canBulkImportLibrary = canUseBulkLibraryImport(
+    entitlements?.plan,
+    entitlements?.status,
+    isEcosystemAdmin,
+  );
   const api = useApi();
   const navigate = useNavigate();
 
@@ -542,6 +548,15 @@ export default function LibraryPage() {
   };
 
   const executeImportMultiple = async (validSongs: GlobalSong[]) => {
+    if (!canBulkImportLibrary) {
+      setLimitBlockMeta({
+        title: t("library.limit_block.bulk_pro_only_title", "Importação em massa exclusiva do Pro"),
+        text: t("library.limit_block.bulk_pro_only_text", "Importar várias músicas de uma vez é um recurso do Pro ativo. No Advanced, continue importando individualmente dentro do limite mensal."),
+        cta: t("library.limit_block.bulk_pro_only_cta", "Ativar Pro — R$ 34,90/mês")
+      });
+      return;
+    }
+
     setIsImportingMultiple(true);
 
     try {
@@ -574,6 +589,12 @@ export default function LibraryPage() {
           });
         } else if (result.errorCode === 'INSUFFICIENT_IMPORT_QUOTA') {
           showToast(result.errorMessage || t("library.limit_exceeded", "Limite excedido."), "error");
+        } else if (result.errorCode === 'BULK_IMPORT_PRO_ONLY') {
+          setLimitBlockMeta({
+            title: t("library.limit_block.bulk_pro_only_title", "Importação em massa exclusiva do Pro"),
+            text: t("library.limit_block.bulk_pro_only_text", "Importar várias músicas de uma vez é um recurso do Pro ativo. No Advanced, continue importando individualmente dentro do limite mensal."),
+            cta: t("library.limit_block.bulk_pro_only_cta", "Ativar Pro — R$ 34,90/mês")
+          });
         }
         return;
       }
@@ -992,27 +1013,31 @@ export default function LibraryPage() {
             <div className="flex flex-wrap items-center gap-3 shrink-0">
               {!isSelectionMode ? (
                 <>
-                  <button
-                    onClick={() => {
-                        const confirmImportAll = window.confirm(
-                          `${t("library.confirm_import_all_title", "Importar músicas da Biblioteca Viva?")}\n\n${t("library.confirm_import_all_desc", "Vamos adicionar ao seu repertório as músicas visíveis que ainda não estão nele. Músicas já adicionadas serão ignoradas automaticamente.")}`
-                        );
-                        if (confirmImportAll) {
-                          handleImportMultiple(processedSongs);
-                        }
-                    }}
-                    disabled={processedSongs.length === 0 || isImportingMultiple}
-                    className="h-10 px-4 flex items-center gap-2 rounded-xl text-[13px] font-bold bg-white dark:bg-[#1A1A1C]/60 border border-black/[0.06] dark:border-white/[0.06] hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-blue-600 dark:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isImportingMultiple ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-                    {t("library.import_all", "Importar Todas")}
-                  </button>
-                  <button 
-                    onClick={() => setIsSelectionMode(true)}
-                    className="h-10 px-4 rounded-xl text-[13px] font-bold bg-white dark:bg-[#1A1A1C]/60 border border-black/[0.06] dark:border-white/[0.06] hover:bg-slate-50 dark:hover:bg-white/5 transition-all outline-none"
-                  >
-                    {t("library.select", "Selecionar")}
-                  </button>
+                  {canBulkImportLibrary && (
+                    <>
+                      <button
+                        onClick={() => {
+                            const confirmImportAll = window.confirm(
+                              `${t("library.confirm_import_all_title", "Importar músicas da Biblioteca Viva?")}\n\n${t("library.confirm_import_all_desc", "Vamos adicionar ao seu repertório as músicas visíveis que ainda não estão nele. Músicas já adicionadas serão ignoradas automaticamente.")}`
+                            );
+                            if (confirmImportAll) {
+                              handleImportMultiple(processedSongs);
+                            }
+                        }}
+                        disabled={processedSongs.length === 0 || isImportingMultiple}
+                        className="h-10 px-4 flex items-center gap-2 rounded-xl text-[13px] font-bold bg-white dark:bg-[#1A1A1C]/60 border border-black/[0.06] dark:border-white/[0.06] hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-blue-600 dark:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isImportingMultiple ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                        {t("library.import_all", "Importar Todas")}
+                      </button>
+                      <button 
+                        onClick={() => setIsSelectionMode(true)}
+                        className="h-10 px-4 rounded-xl text-[13px] font-bold bg-white dark:bg-[#1A1A1C]/60 border border-black/[0.06] dark:border-white/[0.06] hover:bg-slate-50 dark:hover:bg-white/5 transition-all outline-none"
+                      >
+                        {t("library.select", "Selecionar")}
+                      </button>
+                    </>
+                  )}
                 </>
               ) : (
                 <button 
