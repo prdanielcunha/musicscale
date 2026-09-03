@@ -205,7 +205,11 @@ const SongsPage: React.FC = () => {
   const [freshnessFilter, setFreshnessFilter] = useState<"all" | "new" | "old">("all");
 
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
-  const [renderLimit, setRenderLimit] = useState(30);
+  // Render ahead of the viewport so scrolling feels continuous even on slower devices.
+  // This is client-side windowing only; it does not increase Firestore reads.
+  const INITIAL_RENDER_LIMIT = 60;
+  const RENDER_BATCH_SIZE = 60;
+  const [renderLimit, setRenderLimit] = useState(INITIAL_RENDER_LIMIT);
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isStarterModalOpen, setIsStarterModalOpen] = useState(false);
@@ -281,10 +285,10 @@ const SongsPage: React.FC = () => {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          setRenderLimit((prev) => prev + 30);
+          setRenderLimit((prev) => prev + RENDER_BATCH_SIZE);
         }
       },
-      { rootMargin: "200px" }
+      { rootMargin: "1200px 0px", threshold: 0.01 }
     );
     if (loaderRef.current) observer.observe(loaderRef.current);
     return () => observer.disconnect();
@@ -292,7 +296,7 @@ const SongsPage: React.FC = () => {
 
   // Reset limit when filters change
   useEffect(() => {
-    setRenderLimit(30);
+    setRenderLimit(INITIAL_RENDER_LIMIT);
   }, [searchTerm, statusFilter, contentFilters, tagFilterIds, languageFilter, freshnessFilter]);
   const [isBulkManageOpen, setIsBulkManageOpen] = useState(false);
   const [isBulkApplyConfirmOpen, setIsBulkApplyConfirmOpen] = useState(false);
