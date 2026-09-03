@@ -47,6 +47,8 @@ jobs:
 
       # Validate the exact GitHub-issued context before the auth action contacts
       # STS. The provider must enforce the same conditions independently.
+      # Do not hardcode `sub` here: GitHub allows repository-level subject
+      # customization, while the canonical claims below remain stable and explicit.
       - name: Verify GitHub OIDC attestation before WIF
         env:
           EXPECTED_AUDIENCE: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production-writer-v2
@@ -56,7 +58,6 @@ jobs:
           EXPECTED_REF: refs/heads/production
           EXPECTED_ENVIRONMENT: firebase-production
           EXPECTED_EVENT: workflow_dispatch
-          EXPECTED_SUBJECT: repo:prdanielcunha/musicscale:environment:firebase-production
           EXPECTED_JOB_WORKFLOW_REF: prdanielcunha/musicscale/.github/workflows/controlled-global-song-metrics-backfill-executor.yml@refs/heads/production
           EXPECTED_SHA: ${{ inputs.authorized_sha }}
         run: |
@@ -69,7 +70,6 @@ jobs:
             ref: process.env.EXPECTED_REF,
             environment: process.env.EXPECTED_ENVIRONMENT,
             event_name: process.env.EXPECTED_EVENT,
-            sub: process.env.EXPECTED_SUBJECT,
             job_workflow_ref: process.env.EXPECTED_JOB_WORKFLOW_REF,
             sha: process.env.EXPECTED_SHA,
             workflow_sha: process.env.EXPECTED_SHA,
