@@ -210,6 +210,7 @@ export default function LibraryPage() {
   const [hasMore, setHasMore] = useState(true);
   const requestGenerationRef = useRef(0);
   const pageLoadInFlightRef = useRef(false);
+  const firstPageGenerationInFlightRef = useRef<number | null>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   // New precise state
@@ -361,13 +362,20 @@ export default function LibraryPage() {
     isFirstPage: boolean = false,
     term: string = searchTerm,
   ) => {
-    if (!isFirstPage && (!hasMore || pageLoadInFlightRef.current)) return;
+    if (!isFirstPage && (
+      !hasMore ||
+      pageLoadInFlightRef.current ||
+      firstPageGenerationInFlightRef.current === requestGenerationRef.current ||
+      !lastVisible
+    )) return;
 
     const requestGeneration = isFirstPage
       ? ++requestGenerationRef.current
       : requestGenerationRef.current;
 
-    if (!isFirstPage) {
+    if (isFirstPage) {
+      firstPageGenerationInFlightRef.current = requestGeneration;
+    } else {
       pageLoadInFlightRef.current = true;
     }
 
@@ -398,6 +406,9 @@ export default function LibraryPage() {
     } finally {
       if (requestGenerationRef.current === requestGeneration) {
         setLoading(false);
+        if (isFirstPage && firstPageGenerationInFlightRef.current === requestGeneration) {
+          firstPageGenerationInFlightRef.current = null;
+        }
       }
       if (!isFirstPage) {
         pageLoadInFlightRef.current = false;
@@ -415,6 +426,7 @@ export default function LibraryPage() {
 
     if (!hasAccess) {
       pageLoadInFlightRef.current = false;
+      firstPageGenerationInFlightRef.current = null;
       setLoading(false);
       setSongs([]);
       setLastVisible(undefined);
