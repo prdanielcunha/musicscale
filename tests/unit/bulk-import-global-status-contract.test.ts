@@ -23,7 +23,8 @@ describe('P4 bulk import global status contract', () => {
 
   it('keeps newly imported songs visible to the Living Library active-only read contract', () => {
     expect(librarySource).toContain("uniqueCandidates.filter(s => s.status === 'active')");
-    expect(librarySource).toContain("allFetched.filter(s => s.status === 'active').slice(0, pageSize)");
+    expect(librarySource).toContain("snapshot.docs.filter(docSnap => (docSnap.data() as any).status === 'active')");
+    expect(librarySource).toContain("activeDocs.slice(0, pageSize)");
     expect(librarySource).toContain("status: 'active',");
   });
 });
