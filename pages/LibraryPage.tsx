@@ -208,6 +208,9 @@ export default function LibraryPage() {
     QueryDocumentSnapshot<DocumentData> | undefined
   >(undefined);
   const [hasMore, setHasMore] = useState(true);
+  const requestGenerationRef = useRef(0);
+  const pageLoadInFlightRef = useRef(false);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   // New precise state
   const [viewMode, setViewMode] = useState<"grid" | "list">(
@@ -358,7 +361,16 @@ export default function LibraryPage() {
     isFirstPage: boolean = false,
     term: string = searchTerm,
   ) => {
-    if (loading || (!hasMore && !isFirstPage)) return;
+    if (!isFirstPage && (!hasMore || pageLoadInFlightRef.current)) return;
+
+    const requestGeneration = isFirstPage
+      ? ++requestGenerationRef.current
+      : requestGenerationRef.current;
+
+    if (!isFirstPage) {
+      pageLoadInFlightRef.current = true;
+    }
+
     setLoading(true);
     try {
       const result = await getGlobalSongs(
@@ -366,33 +378,78 @@ export default function LibraryPage() {
         isFirstPage ? undefined : lastVisible,
         30,
       );
-      setSongs((prev) =>
-        isFirstPage ? result.songs : [...prev, ...result.songs],
-      );
-      setLastVisible(result.lastVisible);
-      setHasMore(result.songs.length === 30);
+
+      // A slower, older search must never replace a newer result set.
+      if (requestGenerationRef.current !== requestGeneration) return;
+
+      setSongs((prev) => {
+        if (isFirstPage) return result.songs;
+
+        const seen = new Set(prev.map(song => song.id));
+        const appended = result.songs.filter(song => !seen.has(song.id));
+        return [...prev, ...appended];
+      });
+      setLastVisible(result.lastVisible || undefined);
+      setHasMore(result.hasMore ?? result.songs.length === 30);
     } catch (error) {
-      logger.error("Error loading library", error);
+      if (requestGenerationRef.current === requestGeneration) {
+        logger.error("Error loading library", error);
+      }
     } finally {
-      setLoading(false);
+      if (requestGenerationRef.current === requestGeneration) {
+        setLoading(false);
+      }
+      if (!isFirstPage) {
+        pageLoadInFlightRef.current = false;
+      }
     }
   };
 
+  // One canonical first-page request: immediate for the default list, debounced
+  // only while the user is typing. This removes the previous duplicate mount
+  // request and prevents stale searches from winning a race.
   useEffect(() => {
-    if (hasAccess) {
-      loadSongs(true, "");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasAccess]);
+    // Invalidate any request from the previous access/search state immediately,
+    // rather than waiting for the debounce window to expire.
+    requestGenerationRef.current++;
 
-  useEffect(() => {
-    if (!hasAccess) return;
-    const handler = setTimeout(() => {
-      loadSongs(true, searchTerm);
-    }, 400);
-    return () => clearTimeout(handler);
+    if (!hasAccess) {
+      pageLoadInFlightRef.current = false;
+      setLoading(false);
+      setSongs([]);
+      setLastVisible(undefined);
+      setHasMore(true);
+      return;
+    }
+
+    const delay = searchTerm.trim() ? 250 : 0;
+    const handler = window.setTimeout(() => {
+      void loadSongs(true, searchTerm);
+    }, delay);
+
+    return () => window.clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]);
+  }, [hasAccess, searchTerm]);
+
+  // Prefetch the next global-library window before the user reaches the end.
+  // The button remains as an accessible/manual fallback.
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel || !hasAccess || !hasMore || !!searchTerm.trim()) return;
+
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0]?.isIntersecting) {
+          void loadSongs(false, "");
+        }
+      },
+      { rootMargin: "1200px 0px", threshold: 0.01 },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasAccess, hasMore, searchTerm, lastVisible]);
 
     const executeImport = async (globalSong: GlobalSong) => {
     if (!organization?.id || !user || !entitlements) return;
@@ -1313,7 +1370,7 @@ export default function LibraryPage() {
               )}
 
               {hasMore && !searchTerm && (
-                <div className="pt-12 pb-12 flex justify-center">
+                <div ref={loadMoreSentinelRef} className="pt-12 pb-12 flex justify-center">
                   <Button
                     onClick={() => loadSongs()}
                     disabled={loading}
