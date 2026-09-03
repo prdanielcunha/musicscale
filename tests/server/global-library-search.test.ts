@@ -146,6 +146,34 @@ describeEmulator('Global Library Search (Emulator)', () => {
     expect(secondPage.songs.length).toBe(5);
   });
 
+  it('9b. pagination advances across archived-heavy windows without hiding later active songs', async () => {
+    // The first Firestore window contains fewer than pageSize active songs,
+    // but there are more active songs after archived rows.
+    for (let i = 0; i < 3; i++) {
+      await createSong(`top_active_${i}`, { title: `Top Active ${i}`, importCount: 100 - i });
+    }
+    for (let i = 0; i < 12; i++) {
+      await createSong(`archived_${i}`, {
+        title: `Archived ${i}`,
+        importCount: 90 - i,
+        status: 'archived',
+      });
+    }
+    for (let i = 0; i < 5; i++) {
+      await createSong(`later_active_${i}`, { title: `Later Active ${i}`, importCount: 50 - i });
+    }
+
+    const firstPage = await getGlobalSongs('', undefined, 5);
+    expect(firstPage.songs.length).toBeLessThanOrEqual(5);
+    expect(firstPage.hasMore).toBe(true);
+    expect(firstPage.lastVisible).toBeTruthy();
+
+    const secondPage = await getGlobalSongs('', firstPage.lastVisible || undefined, 5);
+    expect(secondPage.songs.map(song => song.id)).toEqual(
+      expect.arrayContaining(['later_active_0', 'later_active_1', 'later_active_2', 'later_active_3', 'later_active_4']),
+    );
+  });
+
   it('10. should find a song outside the first 30 when searching globally (candidate pool)', async () => {
     // Create 35 songs that don't match, and 1 that matches at the end
     for (let i = 0; i < 35; i++) {
