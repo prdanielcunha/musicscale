@@ -176,15 +176,30 @@ export function useMusicScaleUsage() {
       return;
     }
 
+    // Pro trial usage is a lifetime evaluation counter returned by the server,
+    // not a calendar-month counter. Refreshes after imports keep this value fresh.
+    if (entitlements.plan === 'pro' && entitlements.status === 'trialing') {
+      setRealUsage({
+        libraryImports: entitlements.usage?.libraryImports || 0,
+        users: entitlements.usage?.users
+      });
+      setUsageLoading(false);
+      return;
+    }
+
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+
     Promise.all([
       import('../services/usageService'),
       import('../services/firebase'),
       import('firebase/firestore')
     ]).then(([{ getCurrentMonthString }, { db }, { doc, onSnapshot }]) => {
+      if (cancelled) return;
       const monthStr = getCurrentMonthString();
       const usageDocRef = doc(db, 'organizations', entitlements.organizationId, 'monthly_usage', monthStr);
       
-      const unsubscribe = onSnapshot(usageDocRef, (snap: any) => {
+      unsubscribe = onSnapshot(usageDocRef, (snap: any) => {
         if (snap.exists()) {
           setRealUsage({ 
             libraryImports: snap.data()?.libraryImports || 0,
@@ -201,10 +216,19 @@ export function useMusicScaleUsage() {
         console.error("Failed to listen to org usage", err);
         setUsageLoading(false);
       });
-      
-      return () => unsubscribe();
     });
-  }, [entitlements?.organizationId]);
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [
+    entitlements?.organizationId,
+    entitlements?.plan,
+    entitlements?.status,
+    entitlements?.usage?.libraryImports,
+    entitlements?.usage?.users
+  ]);
   
   const incrementUsage = useCallback(async (): Promise<boolean> => {
     // This is now handled safely by importGlobalLibrarySongsWithUsageCheck

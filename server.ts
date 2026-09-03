@@ -77,6 +77,10 @@ const aiImportRateLimiter = new InMemoryAiRateLimiter();
 const app = express();
 const PORT = 3000;
 
+// Fair-use protection for the complete Pro catalog during the one-time evaluation.
+// Paid Pro remains unlimited. This cap is total for the trial, not calendar-month based.
+const PRO_TRIAL_LIBRARY_IMPORT_CAP = 20;
+
 // Enable CORS with support for multiple subdomains & credentials
 const allowedOrigins = [
   "https://musicscale.millionsnest.com",
@@ -1084,14 +1088,21 @@ app.use((err: any, req: any, res: any, next: any) => {
       // 3. Define the return structures safely
       const serverFeatures = PLAN_FEATURES[verifiedPlan as keyof typeof PLAN_FEATURES] || PLAN_FEATURES.starter;
       const serverLimits = PLAN_LIMITS[verifiedPlan as keyof typeof PLAN_LIMITS] || PLAN_LIMITS.starter;
+      const isProTrial = !isGlobalAdmin && verifiedPlan === 'pro' && verifiedStatus === 'trialing';
+      const effectiveServerLimits = isProTrial
+        ? { ...serverLimits, libraryImportsPerMonth: PRO_TRIAL_LIBRARY_IMPORT_CAP }
+        : serverLimits;
 
       const date = new Date();
       const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const usageDocRef = db.collection('organizations').doc(orgId).collection('monthly_usage').doc(monthStr);
+      const trialUsageDocRef = db.collection('organizations').doc(orgId).collection('trial_usage').doc('musicscale');
       let libraryImports = 0;
       
       try {
-        const usageSnap = await usageDocRef.get();
+        const usageSnap = isProTrial
+          ? await trialUsageDocRef.get()
+          : await usageDocRef.get();
         if (usageSnap.exists) {
           libraryImports = usageSnap.data()?.libraryImports || 0;
         }
@@ -1109,7 +1120,7 @@ app.use((err: any, req: any, res: any, next: any) => {
         entitlementSource,
         reason,
         features: serverFeatures,
-        limits: serverLimits,
+        limits: effectiveServerLimits,
         usage: { libraryImports },
         supportTier: verifiedPlan === 'pro' ? 'priority' : verifiedPlan === 'advanced' ? 'basic_priority' : 'standard',
         currentPeriodEnd,
@@ -3545,20 +3556,51 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
 
       const orgData = orgDoc.exists ? orgDoc.data() : {};
       
-      // Attempt to resolve plan securely. 
-      // E.g. MillionsNest might store it in `apps.musicscale.plan` or `plan` or `subscription.plan`.
+      // Resolve both plan and billing status from canonical entitlement sources.
+      // Trial status is security-sensitive here because paid Pro is unlimited while
+      // Pro evaluation has a bounded catalog-import allowance.
       let verifiedPlan = isGlobalAdmin ? 'pro' : 'starter';
+      let verifiedStatus = isGlobalAdmin ? 'active' : 'inactive';
+
       if (!isGlobalAdmin) {
         if (orgData?.plan) {
-          verifiedPlan = orgData.plan; // Base fallback
+          verifiedPlan = String(orgData.plan).toLowerCase().trim();
         }
-        if (orgData?.apps?.musicscale?.plan) {
-          verifiedPlan = orgData.apps.musicscale.plan;
+
+        const msApp = orgData?.apps?.musicscale;
+        if (msApp?.plan) {
+          verifiedPlan = String(msApp.plan).toLowerCase().trim();
         }
-        if (verifiedPlan === 'trialing' || verifiedPlan === 'free') {
-          verifiedPlan = 'starter';
+        if (msApp?.status) {
+          const appStatus = String(msApp.status).toLowerCase().trim();
+          if (appStatus === 'active' || appStatus === 'trialing') {
+            verifiedStatus = appStatus;
+          }
         }
-        if (!['starter', 'advanced', 'pro'].includes(verifiedPlan)) {
+
+        if (verifiedStatus === 'inactive') {
+          try {
+            const subSnap = await db.collection('subscriptions').doc(organizationId).get();
+            if (subSnap.exists) {
+              const subData = subSnap.data() || {};
+              const subStatus = String(subData.status || '').toLowerCase().trim();
+              if (subStatus === 'active' || subStatus === 'trialing') {
+                verifiedStatus = subStatus;
+                if (subData.plan) {
+                  verifiedPlan = String(subData.plan).toLowerCase().trim();
+                }
+              }
+            }
+          } catch (subErr) {
+            logger.warn(`[LibraryImport] Failed to resolve subscription status for org ${organizationId}: ${subErr}`);
+          }
+        }
+
+        if (verifiedPlan === 'premium' || verifiedPlan === 'pro_unlimited') {
+          verifiedPlan = 'pro';
+        } else if (verifiedPlan === 'medium' || verifiedPlan === 'advanced_features') {
+          verifiedPlan = 'advanced';
+        } else if (!['starter', 'advanced', 'pro'].includes(verifiedPlan)) {
           verifiedPlan = 'starter';
         }
       }
@@ -3566,6 +3608,7 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
       const serverFeatures = PLAN_FEATURES[verifiedPlan as keyof typeof PLAN_FEATURES];
       const serverLimits = PLAN_LIMITS[verifiedPlan as keyof typeof PLAN_LIMITS];
       const serverIsPro = isGlobalAdmin || verifiedPlan === 'pro' || serverLimits.libraryImportsPerMonth === -1 || serverFeatures.libraryComplete;
+      const isProTrial = !isGlobalAdmin && verifiedPlan === 'pro' && verifiedStatus === 'trialing';
 
       // 1. Starter check
       if (verifiedPlan === 'starter' || !serverFeatures.libraryAccess) {
@@ -3581,17 +3624,31 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
       const date = new Date();
       const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       
-      // Use clean 4-segment path: organizations/{orgId}/monthly_usage/{YYYY-MM}
+      // Normal billing usage is monthly. Pro-trial fair use is a separate lifetime
+      // counter so a 7-day evaluation crossing month-end cannot reset the cap.
       const usageDocRef = db.collection('organizations').doc(organizationId).collection('monthly_usage').doc(monthStr);
+      const trialUsageDocRef = db.collection('organizations').doc(organizationId).collection('trial_usage').doc('musicscale');
       let successCount = 0;
 
       try {
         await db.runTransaction(async (transaction) => {
-          // 1. Get current usage
+          // 1. Get current usage. Pro trial uses a lifetime counter; all other
+          // plans keep the existing monthly accounting.
           const usageSnap = await transaction.get(usageDocRef);
-          let currentUsage = usageSnap.exists ? (usageSnap.data()?.libraryImports || 0) : 0;
+          const trialUsageSnap = isProTrial
+            ? await transaction.get(trialUsageDocRef)
+            : null;
+          const currentUsage = usageSnap.exists ? (usageSnap.data()?.libraryImports || 0) : 0;
+          const currentTrialUsage = trialUsageSnap?.exists
+            ? (trialUsageSnap.data()?.libraryImports || 0)
+            : 0;
           
-          if (!serverIsPro && shouldConsumeLimit) {
+          if (isProTrial && shouldConsumeLimit) {
+            const available = Math.max(0, PRO_TRIAL_LIBRARY_IMPORT_CAP - currentTrialUsage);
+            if (available === 0 || selectedSongs.length > available) {
+              throw new Error(`PRO_TRIAL_LIBRARY_LIMIT_REACHED:${available}`);
+            }
+          } else if (!serverIsPro && shouldConsumeLimit) {
             const maxAllowed = serverLimits.libraryImportsPerMonth || 0;
             const available = Math.max(0, maxAllowed - currentUsage);
 
@@ -3604,7 +3661,7 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
             }
           }
 
-          // 2. Increment Usage ONLY IF shouldConsumeLimit
+          // 2. Increment Usage ONLY IF shouldConsumeLimit.
           if (shouldConsumeLimit) {
             const newUsage = currentUsage + selectedSongs.length;
             if (usageSnap.exists) {
@@ -3620,6 +3677,25 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp()
               });
+            }
+
+            if (isProTrial) {
+              const newTrialUsage = currentTrialUsage + selectedSongs.length;
+              if (trialUsageSnap?.exists) {
+                transaction.update(trialUsageDocRef, {
+                  libraryImports: newTrialUsage,
+                  updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+              } else {
+                transaction.set(trialUsageDocRef, {
+                  organizationId,
+                  app: 'musicscale',
+                  libraryImports: newTrialUsage,
+                  cap: PRO_TRIAL_LIBRARY_IMPORT_CAP,
+                  createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                  updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+              }
             }
           }
 
@@ -3695,6 +3771,19 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
         });
 
       } catch (txnError: any) {
+        if (txnError.message.startsWith("PRO_TRIAL_LIBRARY_LIMIT_REACHED:")) {
+          const available = Math.max(0, parseInt(txnError.message.split(":")[1] || "0", 10) || 0);
+          return res.json({
+            success: false,
+            importedCount: 0,
+            blockedCount: selectedSongs.length,
+            errorCode: 'PRO_TRIAL_LIBRARY_LIMIT_REACHED',
+            errorMessage: available > 0
+              ? `Durante o teste Pro de 7 dias, restam ${available} importações da Biblioteca Viva. Selecione até ${available} músicas.`
+              : `Durante o teste Pro de 7 dias, a Biblioteca Viva permite até ${PRO_TRIAL_LIBRARY_IMPORT_CAP} importações. Após a ativação paga do Pro, as importações ficam ilimitadas.`
+          });
+        }
+
         if (txnError.message === "ADVANCED_LIMIT_REACHED") {
           return res.json({
             success: false,

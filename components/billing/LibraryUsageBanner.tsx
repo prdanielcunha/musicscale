@@ -6,7 +6,7 @@ import { entitlementsService } from '../../services/entitlementsService';
 
 export function LibraryUsageBanner() {
   const { t } = useTranslation();
-  const { plan, loading: planLoading } = useMusicScalePlan();
+  const { plan, status, loading: planLoading } = useMusicScalePlan();
   const { usage, limits, loading: usageLoading } = useMusicScaleUsage();
   
   const hasLibrary = useMusicScaleFeature('libraryAccess');
@@ -58,6 +58,12 @@ export function LibraryUsageBanner() {
 
   // Pro
   if (plan === 'pro') {
+    const isTrial = status === 'trialing';
+    const trialUsed = usage?.libraryImports || 0;
+    const trialLimit = limits?.libraryImportsPerMonth ?? 20;
+    const trialRemaining = Math.max(0, trialLimit - trialUsed);
+    const trialPercentage = trialLimit > 0 ? Math.min(100, (trialUsed / trialLimit) * 100) : 100;
+
     return (
       <div className="relative overflow-hidden bg-white dark:bg-[#131315] border border-black/5 dark:border-white/10 rounded-[28px] p-5 sm:p-6 flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-5 shadow-sm dark:shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
         <div className="absolute -inset-[100%] bg-gradient-to-r from-transparent via-white/5 to-transparent rotate-45 pointer-events-none"></div>
@@ -65,16 +71,30 @@ export function LibraryUsageBanner() {
           <div className="w-12 h-12 rounded-[16px] bg-slate-100 dark:bg-white/5 shadow-inner border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0">
             <Sparkles className="w-6 h-6 text-slate-800 dark:text-slate-200" />
           </div>
-          <div>
+          <div className="flex-1 max-w-md">
             <h4 className="text-base font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5 mb-1">
               {t("billing.library_complete", "Biblioteca Viva completa")}
               <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-slate-900 text-white dark:bg-white dark:text-black shadow-sm">
-                Pro
+                {isTrial ? t("billing.pro_trial_badge", "Pro • teste") : "Pro"}
               </span>
             </h4>
-            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-sm">
-              {t("billing.unlimited_imports_desc", "Importações ilimitadas liberadas. Adicione músicas prontas sem restrições.")}
-            </p>
+            {isTrial ? (
+              <>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                  {t("billing.pro_trial_library_desc", "Durante os 7 dias de avaliação, você pode importar até 20 músicas da Biblioteca Viva. Depois da ativação paga do Pro, as importações ficam ilimitadas.")}
+                </p>
+                <div className="mt-3 h-2 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${trialPercentage}%` }} />
+                </div>
+                <p className="mt-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                  {t("billing.pro_trial_library_remaining", "{{remaining}} importações restantes no teste", { remaining: trialRemaining })}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-sm">
+                {t("billing.unlimited_imports_desc", "Importações ilimitadas liberadas. Adicione músicas prontas sem restrições.")}
+              </p>
+            )}
           </div>
         </div>
       </div>
