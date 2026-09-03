@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
     CONTROLLED_BACKFILL_DOCUMENT_CAP,
@@ -78,6 +80,24 @@ function controlledOptions(guard = validGuard) {
 }
 
 describe('P4.7 controlled bounded global-song metrics backfill', () => {
+    it('keeps canonical OIDC claims without a brittle hardcoded subject assertion', () => {
+        const executor = readFileSync(
+            resolve(process.cwd(), '.github/workflows/controlled-global-song-metrics-backfill-executor.yml'),
+            'utf8',
+        );
+
+        expect(executor).not.toContain('EXPECTED_SUBJECT');
+        expect(executor).not.toContain('sub: process.env.EXPECTED_SUBJECT');
+        expect(executor).toContain('EXPECTED_REPOSITORY_ID: "1301923154"');
+        expect(executor).toContain('EXPECTED_REPOSITORY_OWNER_ID: "236886753"');
+        expect(executor).toContain('EXPECTED_REF: refs/heads/production');
+        expect(executor).toContain('EXPECTED_ENVIRONMENT: firebase-production');
+        expect(executor).toContain('EXPECTED_EVENT: workflow_dispatch');
+        expect(executor).toContain('EXPECTED_JOB_WORKFLOW_REF: prdanielcunha/musicscale/.github/workflows/controlled-global-song-metrics-backfill-executor.yml@refs/heads/production');
+        expect(executor).toContain('workflow_sha: process.env.EXPECTED_SHA');
+        expect(executor).toContain('job_workflow_sha: process.env.EXPECTED_SHA');
+    });
+
     it('fails every execution guard before accessing Firestore', async () => {
         const fake = createDb([]);
 
