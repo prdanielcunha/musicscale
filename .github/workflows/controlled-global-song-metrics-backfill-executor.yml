@@ -51,7 +51,7 @@ jobs:
       # customization, while the canonical claims below remain stable and explicit.
       - name: Verify GitHub OIDC attestation before WIF
         env:
-          EXPECTED_AUDIENCE: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production-writer-v2
+          EXPECTED_AUDIENCE: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production
           EXPECTED_REPOSITORY: prdanielcunha/musicscale
           EXPECTED_REPOSITORY_ID: "1301923154"
           EXPECTED_REPOSITORY_OWNER_ID: "236886753"
@@ -94,11 +94,11 @@ jobs:
           console.log('GitHub OIDC attestation claims verified.');
           NODE
 
-      - name: Authenticate with dedicated direct WIF write identity
+      - name: Authenticate with proven production direct WIF identity
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
-          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production-writer-v2
-          audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production-writer-v2
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production
+          audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production
 
       - name: Execute controlled bounded backfill
         env:
