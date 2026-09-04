@@ -900,14 +900,22 @@ app.use((err: any, req: any, res: any, next: any) => {
           };
 
           // 5. Calculate access context and capabilities using precedence
-          const { buildEffectiveAccessContext } = rbacModule;
+          const {
+              buildEffectiveAccessContext,
+              resolveExplicitMusicScaleCapabilities
+          } = rbacModule;
+          const canonicalMembershipData =
+              directMemberData || crossMemberData1 || crossMemberData2 || null;
+          const explicitCapabilities =
+              resolveExplicitMusicScaleCapabilities(canonicalMembershipData);
           const accessCtx = buildEffectiveAccessContext(
               authUid,
               orgId,
               systemRole,
               orgRole,
               membershipStatus,
-              musicScaleProfile
+              musicScaleProfile,
+              explicitCapabilities
           );
           const resolveTime = performance.now();
 
