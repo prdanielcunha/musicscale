@@ -27,7 +27,8 @@ export type MusicScaleCapability =
   | 'scaleResponses.respondOwn'
   | 'scaleResponses.readManaged'
   | 'organization.settings.manage'
-  | 'organization.members.manage';
+  | 'organization.members.manage'
+  | 'musicscale.live.conduct';
 
 export type EffectiveEcosystemContext = {
   userId: string;
@@ -90,6 +91,22 @@ export function normalizeOrganizationRole(role: string | null | undefined): stri
   return r;
 }
 
+const EXPLICIT_MUSIC_SCALE_CAPABILITIES = [
+  'musicscale.live.conduct',
+] as const satisfies readonly MusicScaleCapability[];
+
+export function resolveExplicitMusicScaleCapabilities(
+  membershipData: any,
+): MusicScaleCapability[] {
+  const permissions =
+    membershipData?.permissions && typeof membershipData.permissions === 'object'
+      ? membershipData.permissions
+      : {};
+  return EXPLICIT_MUSIC_SCALE_CAPABILITIES.filter(
+    (capability) => permissions?.[capability] === true,
+  );
+}
+
 export function resolveCapabilities(systemRole: string | null, orgRole: string | null): Set<MusicScaleCapability> {
   const normalizedSystem = normalizeSystemRole(systemRole);
   const normalizedOrg = normalizeOrganizationRole(orgRole);
@@ -107,7 +124,8 @@ export function resolveCapabilities(systemRole: string | null, orgRole: string |
       'taxonomy.roles.manage', 'taxonomy.instruments.manage', 'taxonomy.skills.manage',
       'taxonomy.eventTypes.manage', 'taxonomy.eventNames.manage', 'taxonomy.locations.manage', 'taxonomy.tags.manage',
       'notifications.readOwn', 'scaleResponses.respondOwn', 'scaleResponses.readManaged',
-      'organization.settings.manage', 'organization.members.manage'
+      'organization.settings.manage', 'organization.members.manage',
+      'musicscale.live.conduct'
     ];
     allCaps.forEach(c => capabilities.add(c));
     return capabilities;
@@ -123,7 +141,8 @@ export function resolveCapabilities(systemRole: string | null, orgRole: string |
       'taxonomy.roles.manage', 'taxonomy.instruments.manage', 'taxonomy.skills.manage',
       'taxonomy.eventTypes.manage', 'taxonomy.eventNames.manage', 'taxonomy.locations.manage', 'taxonomy.tags.manage',
       'notifications.readOwn', 'scaleResponses.respondOwn', 'scaleResponses.readManaged',
-      'organization.settings.manage', 'organization.members.manage'
+      'organization.settings.manage', 'organization.members.manage',
+      'musicscale.live.conduct'
     ];
     orgAdminCaps.forEach(c => capabilities.add(c));
     return capabilities;
@@ -138,7 +157,8 @@ export function resolveCapabilities(systemRole: string | null, orgRole: string |
       'musicians.read', 'musicians.manageMusicalProfile', 'musicians.assignToScale',
       'taxonomy.roles.manage', 'taxonomy.instruments.manage', 'taxonomy.skills.manage',
       'taxonomy.eventTypes.manage', 'taxonomy.eventNames.manage', 'taxonomy.locations.manage', 'taxonomy.tags.manage',
-      'notifications.readOwn', 'scaleResponses.respondOwn', 'scaleResponses.readManaged'
+      'notifications.readOwn', 'scaleResponses.respondOwn', 'scaleResponses.readManaged',
+      'musicscale.live.conduct'
     ];
     leaderCaps.forEach(c => capabilities.add(c));
     return capabilities;
@@ -166,7 +186,8 @@ export function buildEffectiveAccessContext(
   systemRole: string | null,
   orgRole: string | null,
   membershipStatus: string | null = 'active',
-  musicScaleProfile: { ministryRoles: string[]; instrumentIds: string[]; skillIds: string[] } | null = null
+  musicScaleProfile: { ministryRoles: string[]; instrumentIds: string[]; skillIds: string[] } | null = null,
+  explicitCapabilities: readonly MusicScaleCapability[] = [],
 ): EffectiveAccessContext & EffectiveEcosystemContext {
   const normalizedSystem = normalizeSystemRole(systemRole);
   const normalizedOrg = orgRole ? normalizeOrganizationRole(orgRole) : null;
@@ -189,7 +210,8 @@ export function buildEffectiveAccessContext(
     'taxonomy.roles.manage', 'taxonomy.instruments.manage', 'taxonomy.skills.manage',
     'taxonomy.eventTypes.manage', 'taxonomy.eventNames.manage', 'taxonomy.locations.manage', 'taxonomy.tags.manage',
     'notifications.readOwn', 'scaleResponses.respondOwn', 'scaleResponses.readManaged',
-    'organization.settings.manage', 'organization.members.manage'
+    'organization.settings.manage', 'organization.members.manage',
+    'musicscale.live.conduct'
   ];
 
   if (isGlobal) {
@@ -256,6 +278,17 @@ export function buildEffectiveAccessContext(
     isOrganizationFullAccess = false;
     resolutionStatus = 'incomplete';
     // Empty capabilities, blocking unauthorized actions
+  }
+
+  const membershipIsActive = ['active', 'ativo'].includes(
+    String(membershipStatus || '').trim().toLowerCase(),
+  );
+  if (membershipIsActive) {
+    for (const capability of explicitCapabilities) {
+      if (EXPLICIT_MUSIC_SCALE_CAPABILITIES.includes(capability as any)) {
+        capsSet.add(capability);
+      }
+    }
   }
 
   const effectiveCapabilities = Array.from(capsSet);
