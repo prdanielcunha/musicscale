@@ -48,6 +48,24 @@ describe("explicit live conductor capability", () => {
     expect(hasMusicScaleCapability(context, "musicscale.live.conduct")).toBe(false);
   });
 
+  it("lets Hub manager/secretary roles resolve safely as base members", () => {
+    for (const role of ["manager", "secretary"]) {
+      const context = buildEffectiveAccessContext(
+        `${role}-1`,
+        "org-1",
+        "user",
+        role,
+        "active",
+        null,
+        ["musicscale.live.conduct"],
+      );
+      expect(context.resolutionStatus).toBe("resolved");
+      expect(hasMusicScaleCapability(context, "scales.read")).toBe(true);
+      expect(hasMusicScaleCapability(context, "scales.update")).toBe(false);
+      expect(hasMusicScaleCapability(context, "musicscale.live.conduct")).toBe(true);
+    }
+  });
+
   it("keeps leaders able to conduct through their existing role", () => {
     const context = buildEffectiveAccessContext(
       "leader-1",
