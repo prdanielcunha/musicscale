@@ -30,6 +30,7 @@ import { VideoIcon } from "../icons/VideoIcon";
 import { LyricsIcon } from "../icons/LyricsIcon";
 import WebViewerModal from "../common/WebViewerModal";
 import LyricsViewerModal from "./LyricsViewerModal";
+import TechnicalPartsModal from "./TechnicalPartsModal";
 import Metronome from "../common/Metronome";
 import { useToast } from "../../contexts/ToastContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -314,6 +315,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
   const [isChordsViewerOpen, setIsChordsViewerOpen] = useState(false);
   const [isWebViewerOpen, setIsWebViewerOpen] = useState(false);
   const [isLyricsViewerOpen, setIsLyricsViewerOpen] = useState(false);
+  const [isTechnicalPartsOpen, setIsTechnicalPartsOpen] = useState(false);
 
   // Sharing
   const shareRef = useRef<HTMLDivElement>(null);
@@ -358,6 +360,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
       setIsChordsViewerOpen(false);
       setIsWebViewerOpen(false);
       setIsLyricsViewerOpen(false);
+      setIsTechnicalPartsOpen(false);
     }
   }, [initialSong, songs, startInPerformanceMode, openMode, scaleContext]);
 
@@ -618,7 +621,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
                     Abrir Performance
                  </button>
 
-                 <div className="grid grid-cols-2 gap-3">
+                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {(song.chords || song.chordsUrl) && (
                        <button onClick={() => song.chords ? setIsChordsViewerOpen(true) : setIsWebViewerOpen(true)} className="h-12 rounded-[14px] bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] text-white font-semibold text-[14px] flex items-center justify-center gap-2 transition-all active:scale-[0.98]">
                           <ChordsIcon className="w-4 h-4 text-indigo-400" /> Cifra
@@ -627,6 +630,17 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
                     {song.lyrics && (
                        <button onClick={() => setIsLyricsViewerOpen(true)} className="h-12 rounded-[14px] bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] text-white font-semibold text-[14px] flex items-center justify-center gap-2 transition-all active:scale-[0.98]">
                           <LyricsIcon className="w-4 h-4 text-emerald-400" /> Letra
+                       </button>
+                    )}
+                    {(song.tabs || []).some((part) => part?.content?.trim()) && (
+                       <button
+                         onClick={() => setIsTechnicalPartsOpen(true)}
+                         className="col-span-2 sm:col-span-1 h-12 rounded-[14px] bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] text-white font-semibold text-[14px] flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                       >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-4 h-4 text-violet-300" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" d="M7 4v16M17 4v16M4 8h16M4 16h16M9.5 6l5 12" />
+                          </svg>
+                          {t("technicalParts.button", "Partes")}
                        </button>
                     )}
                  </div>
@@ -789,6 +803,12 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
         song={song}
         scaleContext={scaleContext}
         onNavigate={onNavigate}
+      />
+
+      <TechnicalPartsModal
+        isOpen={isTechnicalPartsOpen}
+        onClose={() => setIsTechnicalPartsOpen(false)}
+        song={song}
       />
 
       {song.chordsUrl && !song.chords && (
