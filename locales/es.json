@@ -469,6 +469,14 @@
     "missing_detected": "Claves de traducción no encontradas detectadas.",
     "scan_completed": "Diagnóstico de Idioma Completo"
   },
+  "technicalParts": {
+    "button": "Partes",
+    "eyebrow": "Partes técnicas",
+    "part": "Parte",
+    "close": "Cerrar partes técnicas",
+    "original_fingering": "Digitación original",
+    "key_notice": "Esta parte técnica conserva la digitación original. La cifra actual puede estar en otro tono."
+  },
   "performance": {
     "double_tap_to_unlock": "Toca dos veces la pantalla para salir",
     "start_worship": "Iniciar Culto",
