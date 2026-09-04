@@ -470,6 +470,14 @@
     "missing_detected": "Missing translation keys detected during session.",
     "scan_completed": "Diagnostic Scan Finished"
   },
+  "technicalParts": {
+    "button": "Parts",
+    "eyebrow": "Technical parts",
+    "part": "Part",
+    "close": "Close technical parts",
+    "original_fingering": "Original fingering",
+    "key_notice": "This technical part preserves the original fingering. The current chord chart may be in another key."
+  },
   "performance": {
     "double_tap_to_unlock": "Double tap the screen to exit",
     "start_worship": "Start Service",
@@ -501,7 +509,12 @@
     "spontaneous_short": "Spon.",
     "end_short": "End",
     "live_setlist": "Live Setlist",
-    "play_spontaneous_placeholder": "Play spontaneous..."
+    "live_sections": "Live sections",
+    "play_spontaneous_placeholder": "Play spontaneous...",
+    "following_direction": "Following direction",
+    "free_navigation": "Free",
+    "follow_direction_hint": "Tap to browse freely without leaving the live session",
+    "free_direction_hint": "Tap to return to the current directed position"
   },
   "onboarding": {
     "breadcrumbs": "Setlist · Event · Team",

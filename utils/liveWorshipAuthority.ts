@@ -32,7 +32,10 @@ export function deriveLiveWorshipAuthority({
     isLeader,
     canStartLiveSession:
       canManageLiveSession && isReady && (!leaderId || isLeader),
-    canControlLiveSession: canManageLiveSession && isReady && isLeader,
+    // The persisted leaderId remains the session host for backward compatibility,
+    // but live direction is collaborative: every authorized conductor can control
+    // an active session without taking ownership away from the current host.
+    canControlLiveSession: canManageLiveSession && isReady && isLive,
   };
 }
 

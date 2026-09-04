@@ -469,6 +469,14 @@
     "missing_detected": "Claves de traducción no encontradas detectadas.",
     "scan_completed": "Diagnóstico de Idioma Completo"
   },
+  "technicalParts": {
+    "button": "Partes",
+    "eyebrow": "Partes técnicas",
+    "part": "Parte",
+    "close": "Cerrar partes técnicas",
+    "original_fingering": "Digitación original",
+    "key_notice": "Esta parte técnica conserva la digitación original. La cifra actual puede estar en otro tono."
+  },
   "performance": {
     "double_tap_to_unlock": "Toca dos veces la pantalla para salir",
     "start_worship": "Iniciar Culto",
@@ -500,7 +508,12 @@
     "spontaneous_short": "Espontáneo",
     "end_short": "Terminar",
     "live_setlist": "Setlist Vivo",
-    "play_spontaneous_placeholder": "Tocar espontáneo..."
+    "live_sections": "Secciones en vivo",
+    "play_spontaneous_placeholder": "Tocar espontáneo...",
+    "following_direction": "Siguiendo dirección",
+    "free_navigation": "Libre",
+    "follow_direction_hint": "Toque para navegar libremente sin salir de la sesión",
+    "free_direction_hint": "Toque para volver a la posición actual de la dirección"
   },
   "onboarding": {
     "breadcrumbs": "Repertorio · Evento · Equipo",

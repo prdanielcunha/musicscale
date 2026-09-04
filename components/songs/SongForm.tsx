@@ -120,6 +120,10 @@ const SongForm: React.FC<SongFormProps> = ({
 
     if (songToEdit) {
       const updatedSong: Song = {
+        // Preserve every field that the editor does not own (AI metadata,
+        // imported technical parts/tabs, sections, source provenance, etc.).
+        // The explicit fields below remain authoritative for what this form edits.
+        ...songToEdit,
         id: songToEdit.id,
         organizationId: songToEdit.organizationId,
         title: formData.title,
@@ -138,6 +142,7 @@ const SongForm: React.FC<SongFormProps> = ({
         createdAt: songToEdit.createdAt,
         lastPlayed: songToEdit.lastPlayed,
         createdBy: songToEdit.createdBy,
+        tabs: songToEdit.tabs || [],
         freshness: finalFreshness,
         metadata: {
           ...(songToEdit.metadata || {}),

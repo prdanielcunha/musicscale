@@ -11,6 +11,10 @@ const directorSource = fs.readFileSync(
   path.join(root, 'components/songs/LiveWorshipDirector.tsx'),
   'utf8',
 );
+const followSource = fs.readFileSync(
+  path.join(root, 'hooks/useLiveDirectionFollow.ts'),
+  'utf8',
+);
 
 describe('Live Worship leadership contract', () => {
   it('clears previous realtime record and rejects callbacks after subscription cleanup', () => {
@@ -20,7 +24,8 @@ describe('Live Worship leadership contract', () => {
     expect(hookSource).toContain('active = false;');
   });
 
-  it('derives write authority from canonical scales.manage capability', () => {
+  it('prefers the dedicated conductor capability while preserving scales.manage compatibility', () => {
+    expect(hookSource).toContain("hasCapability('musicscale.live.conduct')");
     expect(hookSource).toContain("hasCapability('musicscale.scales.manage')");
     expect(hookSource).toContain('authority.canStartLiveSession');
     expect(hookSource).toContain('authority.canControlLiveSession');
@@ -32,12 +37,20 @@ describe('Live Worship leadership contract', () => {
     expect(hookSource).toContain('activeSongId: null');
   });
 
-  it('shows start controls to an authorized manager when realtime state is ready and no leader is active', () => {
+  it('shows the direction panel to authorized shared conductors or session starters', () => {
     expect(directorSource).toContain('const showLeaderPanel =');
     expect(directorSource).toContain('canManageLiveSession &&');
     expect(directorSource).toContain('sessionStatus === "ready"');
-    expect(directorSource).toContain('(isLeader || canStartLiveSession)');
+    expect(directorSource).toContain('(canControlLiveSession || canStartLiveSession)');
     expect(directorSource).not.toContain('{isLeader && (');
+  });
+
+  it('provides a quick follow/free control without leaving the live session', () => {
+    expect(directorSource).toContain('isFollowingDirection');
+    expect(followSource).toContain('musicscale:live-follow:');
+    expect(directorSource).toContain('toggleFollowingDirection');
+    expect(directorSource).toContain('following_direction');
+    expect(directorSource).toContain('free_navigation');
   });
 
   it('follows song/cue state only while a leader is actually live', () => {

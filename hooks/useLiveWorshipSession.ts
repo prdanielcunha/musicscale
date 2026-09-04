@@ -16,7 +16,12 @@ export function useLiveWorshipSession(scaleId?: string) {
     const api = useApi();
     const { user } = useAuth();
     const { hasCapability } = useCapability();
-    const canManageLiveSession = hasCapability('musicscale.scales.manage');
+    // Dedicated Stage capability is preferred. Existing scale managers keep
+    // every Live Worship ability as a non-regression compatibility fallback
+    // until role presets are migrated to musicscale.live.conduct.
+    const canManageLiveSession =
+        hasCapability('musicscale.live.conduct') ||
+        hasCapability('musicscale.scales.manage');
     const [sessionRecord, setSessionRecord] = useState<LiveWorshipSession | null>(null);
     const [sessionStatus, setSessionStatus] = useState<LiveWorshipSessionStatus>('idle');
 
@@ -73,6 +78,7 @@ export function useLiveWorshipSession(scaleId?: string) {
                 leaderId: user.uid,
                 activeCue: null,
                 activeSongId: null,
+                activeSection: null,
                 lastUpdated: Date.now(),
             });
             return true;
@@ -85,7 +91,11 @@ export function useLiveWorshipSession(scaleId?: string) {
     const deactivateSession = async () => {
         if (!api || !scaleId || !authority.canControlLiveSession) return false;
         try {
-            await api.upsertLiveSession(scaleId, { leaderId: null, activeCue: null });
+            await api.upsertLiveSession(scaleId, {
+                leaderId: null,
+                activeCue: null,
+                activeSection: null,
+            });
             return true;
         } catch (error) {
             console.error('Error deactivating live session:', error);
@@ -118,10 +128,36 @@ export function useLiveWorshipSession(scaleId?: string) {
         try {
             await api.upsertLiveSession(scaleId, {
                 activeSongId: songId,
+                activeSection: null,
             });
             return true;
         } catch (error) {
             console.error('Error changing live song:', error);
+            return false;
+        }
+    };
+
+    const changeSection = async (
+        songId: string,
+        sectionIndex: number,
+        label: string,
+    ) => {
+        if (!api || !scaleId || !user || !authority.canControlLiveSession) return false;
+
+        try {
+            await api.upsertLiveSession(scaleId, {
+                activeSection: {
+                    songId,
+                    sectionIndex,
+                    label,
+                    commandId: crypto.randomUUID(),
+                    timestamp: Date.now(),
+                    actorId: user.uid,
+                },
+            });
+            return true;
+        } catch (error) {
+            console.error('Error changing live section:', error);
             return false;
         }
     };
@@ -161,6 +197,7 @@ export function useLiveWorshipSession(scaleId?: string) {
         isLeader: authority.isLeader,
         isLive: authority.isLive,
         canManageLiveSession,
+        canConductLiveSession: canManageLiveSession,
         canStartLiveSession: authority.canStartLiveSession,
         canControlLiveSession: authority.canControlLiveSession,
         sessionStatus,
@@ -168,6 +205,7 @@ export function useLiveWorshipSession(scaleId?: string) {
         deactivateSession,
         pushCue,
         changeSong,
+        changeSection,
         changeKeyOverride,
         updateSongsOrder,
     };

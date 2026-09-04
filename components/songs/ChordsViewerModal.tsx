@@ -31,6 +31,7 @@ import { useModals } from "../../contexts/ModalContext";
 import { AiContextualSuggestions } from "../scales/AiContextualSuggestions";
 import { LiveWorshipDirector } from "./LiveWorshipDirector";
 import { useLiveWorshipSession } from "../../hooks/useLiveWorshipSession";
+import { useLiveDirectionFollow } from "../../hooks/useLiveDirectionFollow";
 import { ScaleSongNavigation, ScaleSongNavigationMobile } from "./ScaleSongNavigation";
 
 // --- Adaptive UI & Battery Detection (Experimental API) ---
@@ -263,6 +264,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const { liveSession, isLeader, changeKeyOverride } = useLiveWorshipSession(
     scaleContext?.scaleId,
   );
+  const { isFollowingDirection } = useLiveDirectionFollow(scaleContext?.scaleId);
 
   useEffect(() => {
     if (song && liveSession?.keyOverrides?.[song.id]) {
@@ -893,6 +895,77 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     return parsedLines;
   }, [song, transpose]);
 
+  const sectionNavigatorItems = useMemo(
+    () =>
+      parsedContent
+        .map((line, index) =>
+          line.type === "section"
+            ? {
+                index,
+                label: line.content.replace(/^\[?|\]?:?$/g, "").trim(),
+              }
+            : null,
+        )
+        .filter(
+          (section): section is { index: number; label: string } =>
+            !!section && !!section.label,
+        ),
+    [parsedContent],
+  );
+
+  const scrollToSectionIndex = useCallback((sectionIndex: number) => {
+    const container = scrollContainerRef.current;
+    const target = sectionRefs.current.get(sectionIndex);
+    if (!container || !target) return false;
+
+    setIsAutoScrolling(false);
+    const targetTop = Math.max(0, target.offsetTop - 126);
+    container.scrollTo({ top: targetTop, behavior: "smooth" });
+    return true;
+  }, []);
+
+  const lastHandledLiveSectionCommandRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const target = liveSession?.activeSection;
+    if (
+      !isOpen ||
+      !isFollowingDirection ||
+      !song ||
+      !target ||
+      target.songId !== song.id
+    ) {
+      return;
+    }
+
+    if (lastHandledLiveSectionCommandRef.current === target.commandId) return;
+    lastHandledLiveSectionCommandRef.current = target.commandId;
+
+    let frame: number | null = null;
+    let fallback: number | null = null;
+    frame = requestAnimationFrame(() => {
+      if (!scrollToSectionIndex(target.sectionIndex)) {
+        fallback = window.setTimeout(() => {
+          scrollToSectionIndex(target.sectionIndex);
+        }, 80);
+      }
+    });
+
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      if (fallback !== null) window.clearTimeout(fallback);
+    };
+  }, [
+    isOpen,
+    isFollowingDirection,
+    liveSession?.activeSection?.commandId,
+    liveSession?.activeSection?.songId,
+    liveSession?.activeSection?.sectionIndex,
+    parsedContent,
+    scrollToSectionIndex,
+    song?.id,
+  ]);
+
   const [isFixingChords, setIsFixingChords] = useState(false);
   const [originalBackup, setOriginalBackup] = useState<string | null>(null);
 
@@ -1184,6 +1257,36 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
           )}
         </div>
       </div>
+
+      {!isEditing && isUIVisible && sectionNavigatorItems.length > 1 && (
+        <div className="fixed top-20 md:top-24 inset-x-0 z-[38] pointer-events-none">
+          <div className="mx-auto max-w-4xl px-3 md:px-6 pt-2">
+            <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto hide-scrollbar rounded-full border border-white/[0.07] bg-[#0A0A0C]/[0.82] backdrop-blur-2xl p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.24)]">
+              {sectionNavigatorItems.map((section) => {
+                const normalizedActive = activeSection.replace(/^\[?|\]?:?$/g, "").trim().toLowerCase();
+                const isActive = normalizedActive === section.label.toLowerCase();
+                return (
+                  <button
+                    key={`${section.index}-${section.label}`}
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      scrollToSectionIndex(section.index);
+                    }}
+                    className={`shrink-0 h-8 px-3.5 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-[0.11em] transition-all active:scale-[0.97] ${
+                      isActive
+                        ? "bg-white text-black shadow-[0_6px_18px_rgba(255,255,255,0.08)]"
+                        : "text-white/45 hover:text-white/80 hover:bg-white/[0.055]"
+                    }`}
+                  >
+                    {section.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div
         ref={scrollContainerRef}

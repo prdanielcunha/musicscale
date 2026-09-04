@@ -92,7 +92,7 @@ export const parseChordsAndLyrics = (text: string) => {
     .map((line) => {
       const trimmed = line.trim();
       const sectionMatch = trimmed.match(
-        /^\[?(Intro|Coro|Refrão|Ponte|Verso|Final|Interlúdio|Instrumental|Pré-Coro|Solo)[^\]]*\]?[:.-]?$/i
+        /^\[?(Intro|Coro|Refrão|Ponte|Verso|Final|Outro|Interlúdio|Instrumental|Pré-Coro|Pre-Chorus|Solo|Ministração|Ministracao|Vamp)[^\]]*\]?[:.-]?$/i
       );
 
       if (sectionMatch && !isChordLine(line)) {
