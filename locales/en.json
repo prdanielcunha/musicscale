@@ -867,7 +867,10 @@
     "current_plan": "Current plan",
     "spots_left": "{{count}} spot left",
     "spots_left_plural": "{{count}} spots left",
-    "users_in_plan": "{{used}} of {{limit}} users in plan"
+    "users_in_plan": "{{used}} of {{limit}} users in plan",
+    "pro_trial_badge": "Pro • trial",
+    "pro_trial_library_desc": "During the 7-day trial, you can import up to 20 songs from the Living Library. After paid Pro activation, imports are unlimited.",
+    "pro_trial_library_remaining": "{{remaining}} trial imports remaining"
   },
   "modals": {
     "delete_song_title": "Delete song?",
@@ -1012,7 +1015,10 @@
       "starter_cta": "Upgrade to Advanced — R$ 29.90/month",
       "advanced_title": "Monthly import limit reached",
       "advanced_text": "Your organization has already used the 10 imports allowed this month on the Advanced plan. Upgrade to Pro for unlimited imports.",
-      "advanced_cta": "Upgrade to Pro — R$ 34.90/month"
+      "advanced_cta": "Upgrade to Pro — R$ 34.90/month",
+      "trial_title": "Living Library trial limit",
+      "trial_text": "During the 7-day Pro trial, you can import up to 20 songs from the Living Library. After paid Pro activation, imports are unlimited.",
+      "trial_cta": "Manage subscription"
     },
     "locked": {
       "premium_badge": "MusicScale Premium Collection",
@@ -1034,7 +1040,8 @@
     "loading": "Loading...",
     "load_more": "Load more songs",
     "local_search_hint": "Showing fast local results. Clear the search and click 'Load more' to expand.",
-    "in_lyrics": "In lyrics:"
+    "in_lyrics": "In lyrics:",
+    "trial_bulk_disabled": "During the Pro trial, import individually the songs your team will actually use."
   },
   "notifications": {
     "scale_published": "New music scale published",

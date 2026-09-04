@@ -866,7 +866,10 @@
     "current_plan": "Plan actual",
     "spots_left": "{{count}} espacio restante",
     "spots_left_plural": "{{count}} espacios restantes",
-    "users_in_plan": "{{used}} de {{limit}} usuarios en el plan"
+    "users_in_plan": "{{used}} de {{limit}} usuarios en el plan",
+    "pro_trial_badge": "Pro • prueba",
+    "pro_trial_library_desc": "Durante la prueba de 7 días, puedes importar hasta 20 canciones de la Biblioteca Viva. Después de activar Pro de pago, las importaciones son ilimitadas.",
+    "pro_trial_library_remaining": "Quedan {{remaining}} importaciones en la prueba"
   },
   "modals": {
     "delete_song_title": "¿Eliminar canción?",
@@ -1009,7 +1012,10 @@
       "starter_cta": "Actualizar a Advanced — R$ 29,90/mes",
       "advanced_title": "Límite mensual de importaciones alcanzado",
       "advanced_text": "Tu organización ya ha utilizado las 10 importaciones permitidas este mes en el plan Advanced. Actualiza al Pro para importaciones ilimitadas.",
-      "advanced_cta": "Actualizar a Pro — R$ 34,90/mes"
+      "advanced_cta": "Actualizar a Pro — R$ 34,90/mes",
+      "trial_title": "Límite de prueba de la Biblioteca Viva",
+      "trial_text": "Durante la prueba Pro de 7 días, puedes importar hasta 20 canciones de la Biblioteca Viva. Después de activar Pro de pago, las importaciones son ilimitadas.",
+      "trial_cta": "Gestionar suscripción"
     },
     "locked": {
       "premium_badge": "Acervo Premium de MusicScale",
@@ -1031,7 +1037,8 @@
     "loading": "Cargando...",
     "load_more": "Cargar más canciones",
     "local_search_hint": "Mostrando resultados locales rápidos. Borre la búsqueda y haga clic en 'Cargar más' para ampliar.",
-    "in_lyrics": "En la letra:"
+    "in_lyrics": "En la letra:",
+    "trial_bulk_disabled": "Durante la prueba Pro, importa individualmente las canciones que tu equipo realmente utilizará."
   },
   "notifications": {
     "scale_published": "Nueva escala de música publicada",

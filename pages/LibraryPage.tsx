@@ -181,6 +181,10 @@ export default function LibraryPage() {
   const { allowance, loading: allowanceLoading, error: allowanceError, refreshAllowance } = useStarterPackAllowance();
   const [isStarterModalOpen, setIsStarterModalOpen] = useState(false);
   const hasAccess = canAccessGlobalLibrary();
+  const isProTrial =
+    !isEcosystemAdmin &&
+    entitlements?.plan === "pro" &&
+    entitlements?.status === "trialing";
 
   const [songs, setSongs] = useState<GlobalSong[]>([]);
   const [loading, setLoading] = useState(false);
@@ -255,6 +259,13 @@ export default function LibraryPage() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedSongIds, setSelectedSongIds] = useState<Set<string>>(new Set());
   const [isImportingMultiple, setIsImportingMultiple] = useState(false);
+
+  useEffect(() => {
+    if (isProTrial) {
+      setIsSelectionMode(false);
+      setSelectedSongIds(new Set());
+    }
+  }, [isProTrial]);
 
   // Bulk Updates State
   const [isStatusPopoverOpen, setIsStatusPopoverOpen] = useState(false);
@@ -493,6 +504,12 @@ export default function LibraryPage() {
             text: t("library.limit_block.advanced_text", "Sua organização já usou as 10 importações permitidas este mês no plano Advanced. Faça upgrade para o Pro para ter importações ilimitadas."),
             cta: t("library.limit_block.advanced_cta", "Fazer upgrade para Pro — R$ 34,90/mês")
           });
+        } else if (result.errorCode === 'PRO_TRIAL_LIBRARY_LIMIT_REACHED') {
+          setLimitBlockMeta({
+            title: t("library.limit_block.trial_title", "Limite de avaliação da Biblioteca Viva"),
+            text: result.errorMessage || t("library.limit_block.trial_text", "Durante os 7 dias do Pro, você pode importar até 20 músicas da Biblioteca Viva. Após a ativação paga, o Pro fica ilimitado."),
+            cta: t("library.limit_block.trial_cta", "Gerenciar assinatura")
+          });
         }
         return;
       }
@@ -571,6 +588,12 @@ export default function LibraryPage() {
             title: t("library.limit_block.advanced_title", "Limite mensal de importações atingido"),
             text: t("library.limit_block.advanced_text", "Sua organização já usou as 10 importações permitidas este mês no plano Advanced. Faça upgrade para o Pro para ter importações ilimitadas."),
             cta: t("library.limit_block.advanced_cta", "Fazer upgrade para Pro — R$ 34,90/mês")
+          });
+        } else if (result.errorCode === 'PRO_TRIAL_LIBRARY_LIMIT_REACHED') {
+          setLimitBlockMeta({
+            title: t("library.limit_block.trial_title", "Limite de avaliação da Biblioteca Viva"),
+            text: result.errorMessage || t("library.limit_block.trial_text", "Durante os 7 dias do Pro, você pode importar até 20 músicas da Biblioteca Viva. Após a ativação paga, o Pro fica ilimitado."),
+            cta: t("library.limit_block.trial_cta", "Gerenciar assinatura")
           });
         } else if (result.errorCode === 'INSUFFICIENT_IMPORT_QUOTA') {
           showToast(result.errorMessage || t("library.limit_exceeded", "Limite excedido."), "error");
@@ -990,7 +1013,11 @@ export default function LibraryPage() {
 
             {/* Selection & Sort Controls */}
             <div className="flex flex-wrap items-center gap-3 shrink-0">
-              {!isSelectionMode ? (
+              {isProTrial ? (
+                <div className="h-10 px-4 flex items-center rounded-xl text-[12px] font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20">
+                  {t("library.trial_bulk_disabled", "No teste Pro, importe individualmente as músicas que sua equipe realmente vai usar.")}
+                </div>
+              ) : !isSelectionMode ? (
                 <>
                   <button
                     onClick={() => {
@@ -1061,7 +1088,7 @@ export default function LibraryPage() {
           </div>
 
           {/* Mass Selection Action Bar */}
-          {isSelectionMode && (
+          {isSelectionMode && !isProTrial && (
              <div className="sticky top-20 z-30 flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-[20px] bg-white/95 dark:bg-[#151515]/95 backdrop-blur-xl border border-blue-500/20 dark:border-blue-400/20 shadow-[0_8px_30px_rgba(59,130,246,0.12)]">
                 <div className="flex items-center gap-4 w-full sm:w-auto">
                    <div className="flex items-center justify-center bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-black h-10 px-4 rounded-xl text-sm">
