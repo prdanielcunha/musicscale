@@ -471,6 +471,18 @@
     "missing_detected": "Chaves com tradução ausente encontradas.",
     "scan_completed": "Varredura Concluída"
   },
+  "pad": {
+    "label": "Ambient Pad",
+    "start": "Iniciar Pad",
+    "stop": "Parar Pad",
+    "follow_key": "Segue tom",
+    "manual_key": "Tom manual",
+    "volume": "Volume",
+    "volume_control": "Volume do Pad",
+    "return_to_song_key": "Voltar a seguir o tom da música",
+    "native_note": "Pad nativo do MusicScale: funciona offline e faz crossfade suave ao trocar de tom.",
+    "stage_open": "Abrir Pad de palco"
+  },
   "metronome": {
     "label": "Metrônomo",
     "bpm_control": "Ajustar BPM",
