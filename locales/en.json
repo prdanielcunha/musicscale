@@ -487,6 +487,7 @@
     "bpm_control": "Adjust BPM",
     "start": "Start metronome",
     "stop": "Stop metronome",
+    "audio_blocked": "The browser did not unlock audio. Tap Play again.",
     "tap": "Tap Tempo",
     "time_signature": "{{value}} beats per bar",
     "subdivision_hint": "Toggle click subdivision",
