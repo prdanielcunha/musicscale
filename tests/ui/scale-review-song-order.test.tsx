@@ -214,6 +214,27 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
     expect(downButtons[1]).not.toBeDisabled();
   });
 
+  it('6a. Shows the current order number prominently for every reviewed song', () => {
+    render(<TestWrapper />);
+
+    expect(screen.getByTestId('scale-review-position-song-1')).toHaveTextContent('1');
+    expect(screen.getByTestId('scale-review-position-song-2')).toHaveTextContent('2');
+    expect(screen.getByTestId('scale-review-position-song-3')).toHaveTextContent('3');
+    expect(screen.getByTestId('scale-review-position-song-4')).toHaveTextContent('4');
+  });
+
+  it('6b. Updates the visible order numbers after arrow reordering', async () => {
+    render(<TestWrapper />);
+
+    const downButtons = screen.getAllByRole('button', { name: /Descer música/i });
+    fireEvent.click(downButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('scale-review-position-song-2')).toHaveTextContent('1');
+      expect(screen.getByTestId('scale-review-position-song-1')).toHaveTextContent('2');
+    });
+  });
+
   // =========================================================================
   // SUB-SECTION 2: BUTTON TRIGGERED REORDERING (6 SCENARIOS)
   // =========================================================================
