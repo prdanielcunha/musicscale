@@ -20,7 +20,7 @@ beforeAll(async () => {
       rules: readFileSync(resolve(process.cwd(), "firestore.rules"), "utf8"),
     },
   });
-});
+}, 30_000);
 
 beforeEach(async () => {
   if (!env) return;
