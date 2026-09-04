@@ -125,10 +125,10 @@ describe("safe XLSX repertoire reader", () => {
     const sharedStringsXml =
       '<?xml version="1.0" encoding="UTF-8"?>' +
       '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-      sharedStrings.map((value) => \`<si><t>\${value}</t></si>\`).join("") +
+      sharedStrings.map((value) => `<si><t>${value}</t></si>`).join("") +
       "</sst>";
 
-    const worksheetXml = \`<?xml version="1.0" encoding="UTF-8"?>
+    const worksheetXml = `<?xml version="1.0" encoding="UTF-8"?>
       <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
         <sheetData>
           <row r="1">
@@ -150,7 +150,7 @@ describe("safe XLSX repertoire reader", () => {
             <c r="G2" t="s"><v>12</v></c>
           </row>
         </sheetData>
-      </worksheet>\`;
+      </worksheet>`;
 
     const archive = buildZip([
       {
