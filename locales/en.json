@@ -501,7 +501,11 @@
     "spontaneous_short": "Spon.",
     "end_short": "End",
     "live_setlist": "Live Setlist",
-    "play_spontaneous_placeholder": "Play spontaneous..."
+    "play_spontaneous_placeholder": "Play spontaneous...",
+    "following_direction": "Following direction",
+    "free_navigation": "Free",
+    "follow_direction_hint": "Tap to browse freely without leaving the live session",
+    "free_direction_hint": "Tap to return to the current directed position"
   },
   "onboarding": {
     "breadcrumbs": "Setlist · Event · Team",
