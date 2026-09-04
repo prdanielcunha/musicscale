@@ -490,9 +490,18 @@ service cloud.firestore {
 
     match /liveSessions/{id} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
-      allow create: if isAuthenticated() && hasPermission(incoming().get('organizationId', ''), 'canManageScales') && isOrgActive(incoming().get('organizationId', ''));
-      allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
-      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && (
+        hasPermission(incoming().get('organizationId', ''), 'canManageScales') ||
+        hasPermission(incoming().get('organizationId', ''), 'musicscale.live.conduct')
+      ) && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && (
+        hasPermission(resource.data.get('organizationId', ''), 'canManageScales') ||
+        hasPermission(resource.data.get('organizationId', ''), 'musicscale.live.conduct')
+      ) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && (
+        hasPermission(resource.data.get('organizationId', ''), 'canManageScales') ||
+        hasPermission(resource.data.get('organizationId', ''), 'musicscale.live.conduct')
+      ) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
     }
 
     match /roles/{roleId} {
