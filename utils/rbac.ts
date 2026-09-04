@@ -87,7 +87,7 @@ export function normalizeOrganizationRole(role: string | null | undefined): stri
   if (['owner', 'dono'].includes(r)) return 'owner';
   if (['admin', 'administrator', 'administrador'].includes(r)) return 'admin';
   if (['leader', 'lider', 'líder', 'lider / ministro', 'líder / ministro', 'minister', 'ministro', 'pastor', 'worship_leader', 'music_leader'].includes(r)) return 'leader';
-  if (['member', 'membro', 'musician', 'musico', 'músico', 'singer', 'cantor', 'vocal', 'músico / vocal', 'musico / vocal', 'integrante', 'voluntário'].includes(r)) return 'member';
+  if (['member', 'membro', 'musician', 'musico', 'músico', 'singer', 'cantor', 'vocal', 'músico / vocal', 'musico / vocal', 'integrante', 'voluntário', 'manager', 'secretary', 'operador', 'operador / secretaria', 'operador / secretária'].includes(r)) return 'member';
   return r;
 }
 
