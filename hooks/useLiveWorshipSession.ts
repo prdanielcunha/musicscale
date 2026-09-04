@@ -66,7 +66,6 @@ export function useLiveWorshipSession(scaleId?: string) {
         status: sessionStatus,
         userId: user?.uid,
         canManageLiveSession,
-        canConductLiveSession: canManageLiveSession,
     });
     const liveSession = getActiveLiveWorshipSession(sessionRecord, sessionStatus);
 
@@ -198,6 +197,7 @@ export function useLiveWorshipSession(scaleId?: string) {
         isLeader: authority.isLeader,
         isLive: authority.isLive,
         canManageLiveSession,
+        canConductLiveSession: canManageLiveSession,
         canStartLiveSession: authority.canStartLiveSession,
         canControlLiveSession: authority.canControlLiveSession,
         sessionStatus,
