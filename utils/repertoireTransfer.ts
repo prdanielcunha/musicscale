@@ -187,9 +187,9 @@ export function serializeRepertoireCsv(songs: Song[]): string {
   return "\uFEFF" + [headers, ...rows].map((row) => row.map(quoteCsv).join(";")).join("\r\n");
 }
 
-export function normalizeSongIdentity(title: string, artist: string) {
-  const normalize = (value: string) =>
-    value
+export function normalizeSongIdentity(title?: string | null, artist?: string | null) {
+  const normalize = (value?: string | null) =>
+    String(value ?? "")
       .trim()
       .toLowerCase()
       .normalize("NFD")
