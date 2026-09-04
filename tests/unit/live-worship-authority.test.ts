@@ -58,7 +58,7 @@ describe('Live Worship authority', () => {
     });
   });
 
-  it('allows only the current authorized leader to control a live session', () => {
+  it('keeps the session host able to control the active session', () => {
     expect(authority('ready', 'user-1', 'user-1', true)).toEqual({
       isLive: true,
       isLeader: true,
@@ -67,12 +67,12 @@ describe('Live Worship authority', () => {
     });
   });
 
-  it('does not let another authorized manager take over an active leader through UI state', () => {
+  it('allows another authorized conductor to collaborate without taking over the host', () => {
     expect(authority('ready', 'user-2', 'user-1', true)).toEqual({
       isLive: true,
       isLeader: false,
       canStartLiveSession: false,
-      canControlLiveSession: false,
+      canControlLiveSession: true,
     });
   });
 
