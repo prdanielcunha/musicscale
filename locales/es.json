@@ -469,6 +469,18 @@
     "missing_detected": "Claves de traducción no encontradas detectadas.",
     "scan_completed": "Diagnóstico de Idioma Completo"
   },
+  "pad": {
+    "label": "Ambient Pad",
+    "start": "Iniciar Pad",
+    "stop": "Detener Pad",
+    "follow_key": "Sigue tono",
+    "manual_key": "Tono manual",
+    "volume": "Volumen",
+    "volume_control": "Volumen del Pad",
+    "return_to_song_key": "Volver a seguir el tono de la canción",
+    "native_note": "Pad nativo de MusicScale: funciona sin conexión y hace crossfade suave entre tonos.",
+    "stage_open": "Abrir Pad de escenario"
+  },
   "metronome": {
     "label": "Metrónomo",
     "bpm_control": "Ajustar BPM",
@@ -482,6 +494,33 @@
     "volume": "Vol.",
     "volume_control": "Volumen del metrónomo",
     "stage_open": "Abrir metrónomo de escenario"
+  },
+  "repertoireTransfer": {
+    "title": "Transferir repertorio",
+    "toolbar": "Transferir",
+    "empty_cta": "¿Ya tienes repertorio? Tráelo a MusicScale",
+    "empty_desc": "Importa tu planilla con revisión de duplicados o exporta una copia portátil cuando quieras.",
+    "import_csv": "Traer repertorio",
+    "import_desc": "Importa CSV o XLSX de LouveApp, de otro sistema o planilla. Antes de guardar, MusicScale muestra duplicados y lo que se creará.",
+    "file_type": "Selecciona un archivo CSV o XLSX. El backup JSON existente sigue disponible sin cambios.",
+    "export_csv": "Exportar repertorio",
+    "export_desc": "Descarga una copia portátil con tono, BPM, letra, acordes, enlaces, versión, ritmo y partes técnicas.",
+    "csv_only": "En este primer importador seguro, selecciona un archivo CSV. El backup JSON existente sigue disponible sin cambios.",
+    "no_rows": "No encontramos canciones válidas. El archivo necesita una columna de título/canción.",
+    "read_error": "No pudimos leer este archivo.",
+    "rows_found": "{{count}} canciones encontradas",
+    "analyzing_file": "Archivo seleccionado",
+    "change": "Cambiar",
+    "ignored_columns": "Las columnas extra se conservarán como metadatos de importación y volverán a incluirse en las exportaciones CSV: {{columns}}",
+    "new_label": "Nuevas",
+    "duplicates": "Duplicadas",
+    "capacity": "Capacidad",
+    "unknown_artist": "Artista no informado",
+    "already_exists": "Ya existe",
+    "limit_notice": "Tu plan no admite todas las canciones seleccionadas. MusicScale importará solo hasta el límite actual sin borrar ninguna canción existente.",
+    "importing": "Importando",
+    "import_count": "Importar {{count}} canciones",
+    "import_error": "La importación se interrumpió. Las canciones completadas se conservaron y ninguna canción existente fue sobrescrita."
   },
   "technicalParts": {
     "button": "Partes",
