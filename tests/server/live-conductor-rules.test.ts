@@ -9,9 +9,11 @@ import { resolve } from "path";
 import { beforeAll, beforeEach, afterAll, describe, it } from "vitest";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
 
-let env: RulesTestEnvironment;
+let env: RulesTestEnvironment | null = null;
+const hasEmulatorHost = !!process.env.FIRESTORE_EMULATOR_HOST;
 
 beforeAll(async () => {
+  if (!hasEmulatorHost) return;
   env = await initializeTestEnvironment({
     projectId: "demo-musicscale-live-conductor-rules",
     firestore: {
@@ -21,18 +23,19 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  if (!env) return;
   await env.clearFirestore();
 });
 
 afterAll(async () => {
-  await env.cleanup();
+  if (env) await env.cleanup();
 });
 
 async function seedMember(
   uid: string,
   permissions: Record<string, boolean> = {},
 ) {
-  await env.withSecurityRulesDisabled(async (context) => {
+  await env!.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
     await setDoc(doc(db, "organizations/org-1"), {
       status: "active",
@@ -49,12 +52,12 @@ async function seedMember(
   });
 }
 
-describe("Live Worship conductor Firestore rules", () => {
+describe.skipIf(!hasEmulatorHost)("Live Worship conductor Firestore rules", () => {
   it("allows an explicitly enabled conductor to create a live session", async () => {
     await seedMember("conductor-1", {
       "musicscale.live.conduct": true,
     });
-    const db = env.authenticatedContext("conductor-1").firestore();
+    const db = env!.authenticatedContext("conductor-1").firestore();
 
     await assertSucceeds(
       setDoc(doc(db, "liveSessions/session-1"), {
@@ -69,7 +72,7 @@ describe("Live Worship conductor Firestore rules", () => {
 
   it("denies an ordinary member without scale-management or conductor permission", async () => {
     await seedMember("member-1");
-    const db = env.authenticatedContext("member-1").firestore();
+    const db = env!.authenticatedContext("member-1").firestore();
 
     await assertFails(
       setDoc(doc(db, "liveSessions/session-2"), {
@@ -86,7 +89,7 @@ describe("Live Worship conductor Firestore rules", () => {
     await seedMember("manager-1", {
       canManageScales: true,
     });
-    const db = env.authenticatedContext("manager-1").firestore();
+    const db = env!.authenticatedContext("manager-1").firestore();
 
     await assertSucceeds(
       setDoc(doc(db, "liveSessions/session-3"), {
@@ -103,7 +106,7 @@ describe("Live Worship conductor Firestore rules", () => {
     await seedMember("conductor-2", {
       "musicscale.live.conduct": true,
     });
-    await env.withSecurityRulesDisabled(async (context) => {
+    await env!.withSecurityRulesDisabled(async (context) => {
       await setDoc(doc(context.firestore(), "liveSessions/session-4"), {
         id: "session-4",
         scaleId: "scale-1",
@@ -113,7 +116,7 @@ describe("Live Worship conductor Firestore rules", () => {
       });
     });
 
-    const db = env.authenticatedContext("conductor-2").firestore();
+    const db = env!.authenticatedContext("conductor-2").firestore();
     await assertSucceeds(
       updateDoc(doc(db, "liveSessions/session-4"), {
         activeSongId: "song-2",
@@ -125,7 +128,7 @@ describe("Live Worship conductor Firestore rules", () => {
     await seedMember("conductor-3", {
       "musicscale.live.conduct": true,
     });
-    await env.withSecurityRulesDisabled(async (context) => {
+    await env!.withSecurityRulesDisabled(async (context) => {
       await setDoc(doc(context.firestore(), "liveSessions/session-5"), {
         id: "session-5",
         scaleId: "scale-1",
@@ -138,7 +141,7 @@ describe("Live Worship conductor Firestore rules", () => {
       });
     });
 
-    const db = env.authenticatedContext("conductor-3").firestore();
+    const db = env!.authenticatedContext("conductor-3").firestore();
     await assertFails(
       updateDoc(doc(db, "liveSessions/session-5"), {
         organizationId: "org-2",
