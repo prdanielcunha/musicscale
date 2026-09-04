@@ -84,6 +84,12 @@ describe.skipIf(!hasEmulatorHost)('Public analytics Firestore Rules', () => {
       metadata: { page: 'sales_landing' },
       injected: true,
     }));
+
+    await assertFails(setDoc(doc(db, 'analytics_events/out-of-range-demo-step'), {
+      ...baseEvent,
+      eventType: 'app_usage',
+      metadata: { action: 'sales_demo_step_selected', step: 6 },
+    }));
   });
 
   it('allows authenticated root analytics only for self or none user identity', async () => {
