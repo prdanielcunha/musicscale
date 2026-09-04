@@ -69,4 +69,28 @@ jobs:
 
       - name: Deploy Firestore Rules
         if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.smoke_only != true)
-        run: firebase deploy --only firestore:rules --project millionsnest --non-interactive
+        env:
+          GCLOUD_PROJECT: millionsnest
+          GOOGLE_CLOUD_PROJECT: millionsnest
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const admin = require('firebase-admin');
+
+          admin.initializeApp({
+            credential: admin.credential.applicationDefault(),
+            projectId: 'millionsnest',
+          });
+
+          const source = fs.readFileSync('firestore.rules', 'utf8');
+
+          (async () => {
+            const ruleset = await admin
+              .securityRules()
+              .releaseFirestoreRulesetFromSource(source);
+            console.log('Firestore Rules released:', ruleset.name);
+          })().catch((error) => {
+            console.error('Firestore Rules release failed:', error);
+            process.exit(1);
+          });
+          NODE
