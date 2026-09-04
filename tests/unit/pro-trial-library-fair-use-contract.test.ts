@@ -10,6 +10,8 @@ describe('Pro trial Living Library fair-use contract', () => {
     expect(server).toContain("verifiedPlan === 'pro' && verifiedStatus === 'trialing'");
     expect(server).toContain("collection('trial_usage').doc('musicscale')");
     expect(server).toContain('PRO_TRIAL_LIBRARY_LIMIT_REACHED');
+    expect(server).toContain("verifiedStatus !== 'active' && verifiedStatus !== 'trialing'");
+    expect(server).toContain("errorCode: 'SUBSCRIPTION_INACTIVE'");
     expect(server).toContain('effectiveServerLimits');
     expect(server).toContain('libraryImportsPerMonth: PRO_TRIAL_LIBRARY_IMPORT_CAP');
   });
