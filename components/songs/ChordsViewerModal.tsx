@@ -33,6 +33,7 @@ import { LiveWorshipDirector } from "./LiveWorshipDirector";
 import { useLiveWorshipSession } from "../../hooks/useLiveWorshipSession";
 import { useLiveDirectionFollow } from "../../hooks/useLiveDirectionFollow";
 import { ScaleSongNavigation, ScaleSongNavigationMobile } from "./ScaleSongNavigation";
+import Metronome from "../common/Metronome";
 
 // --- Adaptive UI & Battery Detection (Experimental API) ---
 const useAdaptivePerformance = () => {
@@ -284,6 +285,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const [isUIVisible, setIsUIVisible] = useState(true);
   const [activeTab, setActiveTab] = useState<"none" | "font">("none");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isStageMetronomeOpen, setIsStageMetronomeOpen] = useState(false);
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -1086,6 +1088,28 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
             </button>
           )}
           <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setIsStageMetronomeOpen((current) => !current);
+            }}
+            className={`w-10 h-10 md:w-11 md:h-11 flex items-center justify-center rounded-full border transition-all ${
+              isStageMetronomeOpen
+                ? "bg-white text-black border-white"
+                : "bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border-white/5"
+            }`}
+            title={t("metronome.stage_open", "Abrir metrônomo de palco")}
+            aria-pressed={isStageMetronomeOpen}
+          >
+            <div className="flex flex-col items-center justify-center leading-none">
+              <BpmIcon className="w-3.5 h-3.5" />
+              {song.bpm ? (
+                <span className="text-[7px] font-black mt-0.5">{song.bpm}</span>
+              ) : null}
+            </div>
+          </button>
+
+          <button
             onClick={toggleFullscreen}
             className="w-10 h-10 md:w-11 md:h-11 hidden md:flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 transition-all"
           >
@@ -1480,6 +1504,21 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
           </motion.div>
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {isStageMetronomeOpen && !isEditing && (
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="fixed left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-28 md:bottom-32 z-[145] md:w-[480px] rounded-[24px] border border-white/[0.08] bg-[#0D0D11]/[0.94] backdrop-blur-3xl shadow-[0_24px_80px_rgba(0,0,0,0.50)] p-4 md:p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Metronome initialBpm={song.bpm || 72} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {!isEditing && (
         <div
