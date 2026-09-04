@@ -469,6 +469,20 @@
     "missing_detected": "Claves de traducción no encontradas detectadas.",
     "scan_completed": "Diagnóstico de Idioma Completo"
   },
+  "metronome": {
+    "label": "Metrónomo",
+    "bpm_control": "Ajustar BPM",
+    "start": "Iniciar metrónomo",
+    "stop": "Detener metrónomo",
+    "tap": "Tap Tempo",
+    "time_signature": "{{value}} por compás",
+    "subdivision_hint": "Alternar subdivisión del click",
+    "quarter": "1/4",
+    "eighth": "1/8",
+    "volume": "Vol.",
+    "volume_control": "Volumen del metrónomo",
+    "stage_open": "Abrir metrónomo de escenario"
+  },
   "technicalParts": {
     "button": "Partes",
     "eyebrow": "Partes técnicas",
