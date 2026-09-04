@@ -27,8 +27,10 @@ const Metronome: React.FC<MetronomeProps> = ({ initialBpm }) => {
   const [subdivision, setSubdivision] = useState<1 | 2>(1);
   const [volume, setVolume] = useState(0.72);
   const [tapPulse, setTapPulse] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
 
   const audioContextRef = useRef<AudioContext | null>(null);
+  const startInFlightRef = useRef(false);
   const nextNoteTimeRef = useRef(0);
   const currentStepRef = useRef(0);
   const timerIDRef = useRef<number | null>(null);
@@ -63,6 +65,61 @@ const Metronome: React.FC<MetronomeProps> = ({ initialBpm }) => {
   useEffect(() => {
     volumeRef.current = volume;
   }, [volume]);
+
+  const disposeAudioContext = useCallback(() => {
+    const audioContext = audioContextRef.current;
+    audioContextRef.current = null;
+    if (audioContext && audioContext.state !== "closed") {
+      void audioContext.close().catch(() => undefined);
+    }
+  }, []);
+
+  const createUnlockedAudioContext = useCallback(async () => {
+    const AudioContextConstructor =
+      window.AudioContext || (window as any).webkitAudioContext;
+
+    if (!AudioContextConstructor) {
+      throw new Error("WEB_AUDIO_UNSUPPORTED");
+    }
+
+    // A fresh context on every new playback avoids reusing an iOS/WebKit
+    // context that may report "running" after backgrounding while remaining silent.
+    disposeAudioContext();
+
+    const audioContext = new AudioContextConstructor({
+      latencyHint: "interactive",
+    }) as AudioContext;
+    audioContextRef.current = audioContext;
+
+    // Prime the output synchronously from the user's click. This tiny silent
+    // buffer is a long-standing Safari/WebKit unlock pattern and does not
+    // create an audible extra tick.
+    const unlockBuffer = audioContext.createBuffer(1, 1, 22050);
+    const unlockSource = audioContext.createBufferSource();
+    const unlockGain = audioContext.createGain();
+    unlockGain.gain.value = 0.0001;
+    unlockSource.buffer = unlockBuffer;
+    unlockSource.connect(unlockGain);
+    unlockGain.connect(audioContext.destination);
+    unlockSource.start(0);
+
+    const state = String(audioContext.state);
+    if (state !== "running") {
+      const resumePromise = audioContext.resume();
+      await Promise.race([
+        resumePromise,
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => reject(new Error("AUDIO_RESUME_TIMEOUT")), 1200);
+        }),
+      ]);
+    }
+
+    if (String(audioContext.state) !== "running") {
+      throw new Error(`AUDIO_CONTEXT_${String(audioContext.state).toUpperCase()}`);
+    }
+
+    return audioContext;
+  }, [disposeAudioContext]);
 
   const playClick = useCallback(
     (time: number, isAccent: boolean, isSubdivision: boolean) => {
@@ -113,38 +170,58 @@ const Metronome: React.FC<MetronomeProps> = ({ initialBpm }) => {
 
   const stop = useCallback(() => {
     setIsPlaying(false);
+    startInFlightRef.current = false;
     if (timerIDRef.current !== null) {
       window.clearInterval(timerIDRef.current);
       timerIDRef.current = null;
     }
     currentStepRef.current = 0;
-  }, []);
+    disposeAudioContext();
+  }, [disposeAudioContext]);
 
-  const start = useCallback(() => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (
-        window.AudioContext || (window as any).webkitAudioContext
-      )();
-    }
-
-    const audioContext = audioContextRef.current;
-    if (audioContext.state === "suspended") {
-      void audioContext.resume();
-    }
+  const start = useCallback(async () => {
+    if (startInFlightRef.current) return;
+    startInFlightRef.current = true;
+    setAudioError(null);
 
     if (timerIDRef.current !== null) {
       window.clearInterval(timerIDRef.current);
+      timerIDRef.current = null;
     }
 
-    currentStepRef.current = 0;
-    nextNoteTimeRef.current = audioContext.currentTime + 0.055;
-    timerIDRef.current = window.setInterval(scheduler, 25);
-    setIsPlaying(true);
-  }, [scheduler]);
+    try {
+      const audioContext = await createUnlockedAudioContext();
+
+      currentStepRef.current = 0;
+      nextNoteTimeRef.current = audioContext.currentTime + 0.02;
+
+      // Schedule the first audible click immediately after the context is
+      // confirmed running; do not wait for the first 25ms interval.
+      scheduler();
+      timerIDRef.current = window.setInterval(scheduler, 25);
+      setIsPlaying(true);
+    } catch (error) {
+      console.error("[Metronome] Unable to start audio", error);
+      if (timerIDRef.current !== null) {
+        window.clearInterval(timerIDRef.current);
+        timerIDRef.current = null;
+      }
+      disposeAudioContext();
+      setIsPlaying(false);
+      setAudioError(
+        t(
+          "metronome.audio_blocked",
+          "O áudio não foi liberado pelo navegador. Toque em Play novamente.",
+        ),
+      );
+    } finally {
+      startInFlightRef.current = false;
+    }
+  }, [createUnlockedAudioContext, disposeAudioContext, scheduler, t]);
 
   const togglePlay = useCallback(() => {
     if (isPlaying) stop();
-    else start();
+    else void start();
   }, [isPlaying, start, stop]);
 
   const handleTapTempo = useCallback(() => {
@@ -180,11 +257,9 @@ const Metronome: React.FC<MetronomeProps> = ({ initialBpm }) => {
       if (tapPulseTimeoutRef.current !== null) {
         window.clearTimeout(tapPulseTimeoutRef.current);
       }
-      if (audioContextRef.current) {
-        void audioContextRef.current.close();
-      }
+      disposeAudioContext();
     };
-  }, []);
+  }, [disposeAudioContext]);
 
   return (
     <div className="w-full text-white select-none">
@@ -234,6 +309,15 @@ const Metronome: React.FC<MetronomeProps> = ({ initialBpm }) => {
           )}
         </button>
       </div>
+
+      {audioError && (
+        <p
+          className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.06] px-3 py-2 text-[10px] font-semibold leading-relaxed text-amber-100/85"
+          role="status"
+        >
+          {audioError}
+        </p>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
