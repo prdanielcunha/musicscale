@@ -219,7 +219,7 @@ const findFirstWorksheetPath = async (
         const normalizedTarget = normalizeZipPath(target);
         return normalizedTarget.startsWith("xl/")
           ? normalizedTarget
-          : normalizeZipPath(\`xl/\${normalizedTarget}\`);
+          : normalizeZipPath(`xl/${normalizedTarget}`);
       }
     }
   }
