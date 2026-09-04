@@ -41,6 +41,7 @@ import { Lock, AlertTriangle } from "lucide-react";
 import { UpgradePlanModal } from "../components/premium/EntitlementGates";
 import { RepertoireMetricsView } from "../components/songs/RepertoireMetricsView";
 import { RepertoireAuditorModal } from "../components/songs/RepertoireAuditorModal";
+import RepertoireTransferModal from "../components/songs/RepertoireTransferModal";
 import { getSongFreshnessStatus } from "../utils/songHelpers";
 import { updateSongFreshnessInBatch, updateSongLanguageInBatch, updateSongTagIdsInBatch } from "../services/musicBatchHelpers";
 import { FreshnessStatus } from "../types";
@@ -307,6 +308,7 @@ const SongsPage: React.FC = () => {
   
   
   const [isAuditorOpen, setIsAuditorOpen] = useState(false);
+  const [isTransferOpen, setIsTransferOpen] = useState(false);
 
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const filterPopoverRef = useRef<HTMLDivElement>(null);
@@ -545,6 +547,29 @@ const SongsPage: React.FC = () => {
             </h3>
           )}
 
+          {canManageRepertoire && (
+            <button
+              type="button"
+              onClick={() => setIsTransferOpen(true)}
+              className="w-full mb-6 rounded-[24px] border border-indigo-500/15 bg-gradient-to-r from-indigo-500/[0.07] via-violet-500/[0.035] to-transparent p-5 md:p-6 text-left group hover:border-indigo-400/25 transition-all shadow-[0_16px_45px_rgba(15,23,42,0.05)] dark:shadow-[0_18px_55px_rgba(0,0,0,0.22)]"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/15 flex items-center justify-center text-indigo-500 shrink-0">
+                  <span className="text-lg font-black">↕</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-[15px] md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                    {t("repertoireTransfer.empty_cta", "Já tem repertório? Traga para o MusicScale")}
+                  </h3>
+                  <p className="text-xs md:text-[13px] text-slate-500 dark:text-white/40 mt-1 leading-relaxed">
+                    {t("repertoireTransfer.empty_desc", "Importe sua planilha com revisão de duplicatas ou exporte uma cópia portátil quando quiser.")}
+                  </p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-indigo-400 group-hover:translate-x-1 transition-transform shrink-0" />
+              </div>
+            </button>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card
               onClick={() => openSongForm()}
@@ -601,6 +626,13 @@ const SongsPage: React.FC = () => {
             </Card>
           </div>
         </div>
+        <RepertoireTransferModal
+          isOpen={isTransferOpen}
+          onClose={() => setIsTransferOpen(false)}
+          songs={songs}
+          maxSongs={limits.maxSongs}
+          onImported={refreshData}
+        />
         <StarterRepertoireModal
           isOpen={isStarterModalOpen}
           onCancel={() => setIsStarterModalOpen(false)}
@@ -831,6 +863,15 @@ const SongsPage: React.FC = () => {
               Selecionar
             </Button>
           ) : null}
+
+          {canManageRepertoire && (
+            <Button
+              variant="secondary"
+              onClick={() => setIsTransferOpen(true)}
+            >
+              {t("repertoireTransfer.toolbar", "Transferir")}
+            </Button>
+          )}
 
           {canManageRepertoire && (
             <Button
@@ -1283,6 +1324,14 @@ const SongsPage: React.FC = () => {
         isOpen={showLimitModal} 
         onClose={() => setShowLimitModal(false)}
         featureKey={"songsLimit" as any} 
+      />
+
+      <RepertoireTransferModal
+        isOpen={isTransferOpen}
+        onClose={() => setIsTransferOpen(false)}
+        songs={songs}
+        maxSongs={limits.maxSongs}
+        onImported={refreshData}
       />
 
       <RepertoireAuditorModal
