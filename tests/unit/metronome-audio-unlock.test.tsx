@@ -20,7 +20,7 @@ describe("Metronome Web Audio unlock", () => {
   const originalWebkitAudioContext = (window as any).webkitAudioContext;
 
   let resumeController: ResumeController;
-  let resumeMock: ReturnType<typeof vi.fn>;
+  let resumeMock: ((...args: any[]) => Promise<void>) & { mock: any };
   let oscillatorStartMock: ReturnType<typeof vi.fn>;
   let closeMock: ReturnType<typeof vi.fn>;
 
@@ -35,16 +35,15 @@ describe("Metronome Web Audio unlock", () => {
       destination = {};
 
       constructor() {
-        resumeMock = vi.fn(
-          () =>
-            new Promise<void>((resolve, reject) => {
-              resumeController.resolve = () => {
-                this.state = "running";
-                resolve();
-              };
-              resumeController.reject = reject;
-            }),
-        );
+        resumeMock = vi.fn(() =>
+          new Promise<void>((resolve, reject) => {
+            resumeController.resolve = () => {
+              this.state = "running";
+              resolve();
+            };
+            resumeController.reject = reject;
+          }),
+        ) as any;
       }
 
       resume = () => resumeMock();
