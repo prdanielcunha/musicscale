@@ -470,6 +470,14 @@
     "missing_detected": "Missing translation keys detected during session.",
     "scan_completed": "Diagnostic Scan Finished"
   },
+  "technicalParts": {
+    "button": "Parts",
+    "eyebrow": "Technical parts",
+    "part": "Part",
+    "close": "Close technical parts",
+    "original_fingering": "Original fingering",
+    "key_notice": "This technical part preserves the original fingering. The current chord chart may be in another key."
+  },
   "performance": {
     "double_tap_to_unlock": "Double tap the screen to exit",
     "start_worship": "Start Service",
