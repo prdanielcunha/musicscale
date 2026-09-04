@@ -185,7 +185,7 @@ const quoteCsv = (value: unknown) => {
 };
 
 export function serializeRepertoireCsv(songs: Song[]): string {
-  const headers = [
+  const baseHeaders = [
     "Título",
     "Artista",
     "Tom",
@@ -200,22 +200,52 @@ export function serializeRepertoireCsv(songs: Song[]): string {
     "Partes Técnicas",
   ];
 
-  const rows = songs.map((song) => [
-    song.title,
-    song.artist,
-    song.key,
-    song.bpm ?? "",
-    song.lyrics || "",
-    song.chords || "",
-    song.chordsUrl || "",
-    song.videoUrl || "",
-    song.language || "unknown",
-    song.version || "",
-    song.rhythm || "",
-    JSON.stringify(song.tabs || []),
-  ]);
+  const extraHeaders = Array.from(
+    new Set(
+      songs.flatMap((song) => {
+        const extra = song.metadata?.importExtraColumns;
+        if (!extra || typeof extra !== "object" || Array.isArray(extra)) {
+          return [];
+        }
+        return Object.keys(extra);
+      }),
+    ),
+  )
+    .filter((header) => !!header.trim() && !baseHeaders.includes(header))
+    .sort((a, b) => a.localeCompare(b));
 
-  return "\uFEFF" + [headers, ...rows].map((row) => row.map(quoteCsv).join(";")).join("\r\n");
+  const headers = [...baseHeaders, ...extraHeaders];
+  const rows = songs.map((song) => {
+    const extra =
+      song.metadata?.importExtraColumns &&
+      typeof song.metadata.importExtraColumns === "object" &&
+      !Array.isArray(song.metadata.importExtraColumns)
+        ? song.metadata.importExtraColumns
+        : {};
+
+    return [
+      song.title,
+      song.artist,
+      song.key,
+      song.bpm ?? "",
+      song.lyrics || "",
+      song.chords || "",
+      song.chordsUrl || "",
+      song.videoUrl || "",
+      song.language || "unknown",
+      song.version || "",
+      song.rhythm || "",
+      JSON.stringify(song.tabs || []),
+      ...extraHeaders.map((header) => extra[header] ?? ""),
+    ];
+  });
+
+  return (
+    "\uFEFF" +
+    [headers, ...rows]
+      .map((row) => row.map(quoteCsv).join(";"))
+      .join("\r\n")
+  );
 }
 
 export function normalizeSongIdentity(title?: string | null, artist?: string | null) {
