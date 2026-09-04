@@ -24,6 +24,7 @@ export const LiveWorshipDirector: React.FC<LiveWorshipDirectorProps> = ({
     isLive,
     canManageLiveSession,
     canStartLiveSession,
+    canControlLiveSession,
     sessionStatus,
     pushCue,
     activateSession,
@@ -33,17 +34,41 @@ export const LiveWorshipDirector: React.FC<LiveWorshipDirectorProps> = ({
   const [cueStack, setCueStack] = useState<
     { id: string; type: string; message?: string }[]
   >([]);
+  const [isFollowingDirection, setIsFollowingDirection] = useState(true);
+
+  useEffect(() => {
+    const storageKey = `musicscale:live-follow:${scaleId}`;
+    const storedPreference = sessionStorage.getItem(storageKey);
+    setIsFollowingDirection(storedPreference !== "free");
+  }, [scaleId]);
+
+  const toggleFollowingDirection = () => {
+    setIsFollowingDirection((current) => {
+      const next = !current;
+      sessionStorage.setItem(
+        `musicscale:live-follow:${scaleId}`,
+        next ? "follow" : "free",
+      );
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (
       isLive &&
-      !isLeader &&
+      isFollowingDirection &&
       liveSession?.activeSongId &&
       liveSession.activeSongId !== currentSongId
     ) {
       onNavigateToSong(liveSession.activeSongId);
     }
-  }, [isLive, isLeader, liveSession?.activeSongId, currentSongId, onNavigateToSong]);
+  }, [
+    isLive,
+    isFollowingDirection,
+    liveSession?.activeSongId,
+    currentSongId,
+    onNavigateToSong,
+  ]);
 
   useEffect(() => {
     if (!isLive) {
@@ -85,10 +110,43 @@ export const LiveWorshipDirector: React.FC<LiveWorshipDirectorProps> = ({
   const showLeaderPanel =
     canManageLiveSession &&
     sessionStatus === "ready" &&
-    (isLeader || canStartLiveSession);
+    (canControlLiveSession || canStartLiveSession);
 
   return (
     <>
+      {isLive && (
+        <motion.button
+          type="button"
+          onClick={toggleFollowingDirection}
+          aria-pressed={isFollowingDirection}
+          title={
+            isFollowingDirection
+              ? t("performance.follow_direction_hint", "Toque para navegar livremente sem sair da sessão")
+              : t("performance.free_direction_hint", "Toque para voltar à posição atual da direção")
+          }
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`fixed right-4 md:right-6 top-28 z-[145] h-10 px-3.5 rounded-full border backdrop-blur-2xl shadow-[0_12px_36px_rgba(0,0,0,0.28)] flex items-center gap-2 transition-all active:scale-[0.98] ${
+            isFollowingDirection
+              ? "bg-emerald-500/12 border-emerald-400/25 text-emerald-100 hover:bg-emerald-500/18"
+              : "bg-[#151518]/90 border-white/[0.10] text-white/72 hover:bg-[#1C1C20]"
+          }`}
+        >
+          <span
+            className={`w-2 h-2 rounded-full ${
+              isFollowingDirection
+                ? "bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.65)]"
+                : "bg-white/30"
+            }`}
+          />
+          <span className="text-[10px] md:text-[11px] font-bold tracking-[0.12em] uppercase whitespace-nowrap">
+            {isFollowingDirection
+              ? t("performance.following_direction", "Seguindo direção")
+              : t("performance.free_navigation", "Livre")}
+          </span>
+        </motion.button>
+      )}
+
       <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[140] pointer-events-none flex flex-col gap-2 items-center w-full max-w-sm px-4">
         <AnimatePresence>
           {cueStack.map((cue) => (
