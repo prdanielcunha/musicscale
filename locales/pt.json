@@ -471,6 +471,20 @@
     "missing_detected": "Chaves com tradução ausente encontradas.",
     "scan_completed": "Varredura Concluída"
   },
+  "metronome": {
+    "label": "Metrônomo",
+    "bpm_control": "Ajustar BPM",
+    "start": "Iniciar metrônomo",
+    "stop": "Parar metrônomo",
+    "tap": "Tap Tempo",
+    "time_signature": "{{value}} por compasso",
+    "subdivision_hint": "Alternar subdivisão do click",
+    "quarter": "1/4",
+    "eighth": "1/8",
+    "volume": "Vol.",
+    "volume_control": "Volume do metrônomo",
+    "stage_open": "Abrir metrônomo de palco"
+  },
   "technicalParts": {
     "button": "Partes",
     "eyebrow": "Partes técnicas",
