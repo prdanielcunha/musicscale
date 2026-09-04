@@ -500,7 +500,11 @@
     "spontaneous_short": "Espontáneo",
     "end_short": "Terminar",
     "live_setlist": "Setlist Vivo",
-    "play_spontaneous_placeholder": "Tocar espontáneo..."
+    "play_spontaneous_placeholder": "Tocar espontáneo...",
+    "following_direction": "Siguiendo dirección",
+    "free_navigation": "Libre",
+    "follow_direction_hint": "Toque para navegar libremente sin salir de la sesión",
+    "free_direction_hint": "Toque para volver a la posición actual de la dirección"
   },
   "onboarding": {
     "breadcrumbs": "Repertorio · Evento · Equipo",
