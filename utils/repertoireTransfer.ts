@@ -112,43 +112,71 @@ const parseTabs = (value: string): { section: string; content: string }[] => {
   }
 };
 
+const cellToString = (value: unknown) => {
+  if (value === null || value === undefined) return "";
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
+};
+
+export function parseRepertoireMatrix(matrix: unknown[][]): {
+  rows: RepertoireTransferRow[];
+  unknownHeaders: string[];
+} {
+  if (matrix.length < 2) return { rows: [], unknownHeaders: [] };
+
+  const headers = matrix[0].map((cell) => cellToString(cell).trim());
+  const resolved = headers.map(resolveHeader);
+  const unknownIndexes = headers
+    .map((header, index) => ({ header, index }))
+    .filter(({ header, index }) => !!header && !resolved[index]);
+  const unknownHeaders = unknownIndexes.map(({ header }) => header);
+
+  const rows = matrix
+    .slice(1)
+    .map((cells) => {
+      const data: Partial<Record<RepertoireKnownField, string>> = {};
+      resolved.forEach((field, index) => {
+        if (field) data[field] = cellToString(cells[index] ?? "");
+      });
+
+      const extra: Record<string, string> = {};
+      for (const { header, index } of unknownIndexes) {
+        const value = cellToString(cells[index] ?? "").trim();
+        if (value) extra[header] = value;
+      }
+
+      const bpmRaw = String(data.bpm || "").replace(",", ".").trim();
+      const bpmNumber = bpmRaw ? Number(bpmRaw) : null;
+
+      return {
+        title: String(data.title || "").trim(),
+        artist: String(data.artist || "").trim(),
+        key: String(data.key || "").trim(),
+        bpm:
+          bpmNumber && Number.isFinite(bpmNumber)
+            ? Math.round(bpmNumber)
+            : null,
+        lyrics: String(data.lyrics || "").replace(/\\n/g, "\n").trim(),
+        chords: String(data.chords || "").replace(/\\n/g, "\n").trim(),
+        chordsUrl: String(data.chordsUrl || "").trim(),
+        videoUrl: String(data.videoUrl || "").trim(),
+        language: String(data.language || "unknown").trim() || "unknown",
+        version: String(data.version || "Original").trim() || "Original",
+        rhythm: String(data.rhythm || "").trim(),
+        tabs: parseTabs(String(data.tabs || "")),
+        extra,
+      };
+    })
+    .filter((row) => row.title);
+
+  return { rows, unknownHeaders };
+}
+
 export function parseRepertoireCsv(text: string): {
   rows: RepertoireTransferRow[];
   unknownHeaders: string[];
 } {
-  const matrix = parseCsv(text);
-  if (matrix.length < 2) return { rows: [], unknownHeaders: [] };
-
-  const headers = matrix[0];
-  const resolved = headers.map(resolveHeader);
-  const unknownHeaders = headers.filter((header, index) => !resolved[index] && header.trim());
-
-  const rows = matrix.slice(1).map((cells) => {
-    const data: Partial<Record<keyof RepertoireTransferRow, string>> = {};
-    resolved.forEach((field, index) => {
-      if (field) data[field] = cells[index] || "";
-    });
-
-    const bpmRaw = String(data.bpm || "").replace(",", ".").trim();
-    const bpmNumber = bpmRaw ? Number(bpmRaw) : null;
-
-    return {
-      title: String(data.title || "").trim(),
-      artist: String(data.artist || "").trim(),
-      key: String(data.key || "").trim(),
-      bpm: bpmNumber && Number.isFinite(bpmNumber) ? Math.round(bpmNumber) : null,
-      lyrics: String(data.lyrics || "").replace(/\\n/g, "\n").trim(),
-      chords: String(data.chords || "").replace(/\\n/g, "\n").trim(),
-      chordsUrl: String(data.chordsUrl || "").trim(),
-      videoUrl: String(data.videoUrl || "").trim(),
-      language: String(data.language || "unknown").trim() || "unknown",
-      version: String(data.version || "Original").trim() || "Original",
-      rhythm: String(data.rhythm || "").trim(),
-      tabs: parseTabs(String(data.tabs || "")),
-    };
-  }).filter((row) => row.title);
-
-  return { rows, unknownHeaders };
+  return parseRepertoireMatrix(parseCsv(text));
 }
 
 const quoteCsv = (value: unknown) => {
