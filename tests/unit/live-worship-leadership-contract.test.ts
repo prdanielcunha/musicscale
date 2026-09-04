@@ -11,6 +11,10 @@ const directorSource = fs.readFileSync(
   path.join(root, 'components/songs/LiveWorshipDirector.tsx'),
   'utf8',
 );
+const followSource = fs.readFileSync(
+  path.join(root, 'hooks/useLiveDirectionFollow.ts'),
+  'utf8',
+);
 
 describe('Live Worship leadership contract', () => {
   it('clears previous realtime record and rejects callbacks after subscription cleanup', () => {
@@ -43,7 +47,7 @@ describe('Live Worship leadership contract', () => {
 
   it('provides a quick follow/free control without leaving the live session', () => {
     expect(directorSource).toContain('isFollowingDirection');
-    expect(directorSource).toContain('musicscale:live-follow:');
+    expect(followSource).toContain('musicscale:live-follow:');
     expect(directorSource).toContain('toggleFollowingDirection');
     expect(directorSource).toContain('following_direction');
     expect(directorSource).toContain('free_navigation');
