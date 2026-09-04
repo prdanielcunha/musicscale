@@ -3605,6 +3605,16 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
         }
       }
       
+      if (!isGlobalAdmin && verifiedStatus !== 'active' && verifiedStatus !== 'trialing') {
+        return res.json({
+          success: false,
+          importedCount: 0,
+          blockedCount: selectedSongs.length,
+          errorCode: 'SUBSCRIPTION_INACTIVE',
+          errorMessage: "Sua assinatura do MusicScale não está ativa."
+        });
+      }
+
       const serverFeatures = PLAN_FEATURES[verifiedPlan as keyof typeof PLAN_FEATURES];
       const serverLimits = PLAN_LIMITS[verifiedPlan as keyof typeof PLAN_LIMITS];
       const serverIsPro = isGlobalAdmin || verifiedPlan === 'pro' || serverLimits.libraryImportsPerMonth === -1 || serverFeatures.libraryComplete;

@@ -521,6 +521,8 @@ export default function LibraryPage() {
               : t("library.limit_block.bulk_pro_only_text", "Importar várias músicas de uma vez é um recurso exclusivo do Pro. Continue importando individualmente no seu plano."),
             cta: t("library.limit_block.bulk_pro_only_cta", "Ativar Pro — R$ 34,90/mês")
           });
+        } else if (result.errorCode === 'SUBSCRIPTION_INACTIVE') {
+          showToast(result.errorMessage || "Sua assinatura do MusicScale não está ativa.", "error");
         }
         return;
       }
@@ -619,6 +621,8 @@ export default function LibraryPage() {
           });
         } else if (result.errorCode === 'INSUFFICIENT_IMPORT_QUOTA') {
           showToast(result.errorMessage || t("library.limit_exceeded", "Limite excedido."), "error");
+        } else if (result.errorCode === 'SUBSCRIPTION_INACTIVE') {
+          showToast(result.errorMessage || "Sua assinatura do MusicScale não está ativa.", "error");
         }
         return;
       }
