@@ -488,6 +488,7 @@
     "bpm_control": "Ajustar BPM",
     "start": "Iniciar metrônomo",
     "stop": "Parar metrônomo",
+    "audio_blocked": "O áudio não foi liberado pelo navegador. Toque em Play novamente.",
     "tap": "Tap Tempo",
     "time_signature": "{{value}} por compasso",
     "subdivision_hint": "Alternar subdivisão do click",
