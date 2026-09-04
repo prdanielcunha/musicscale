@@ -470,6 +470,20 @@
     "missing_detected": "Missing translation keys detected during session.",
     "scan_completed": "Diagnostic Scan Finished"
   },
+  "metronome": {
+    "label": "Metronome",
+    "bpm_control": "Adjust BPM",
+    "start": "Start metronome",
+    "stop": "Stop metronome",
+    "tap": "Tap Tempo",
+    "time_signature": "{{value}} beats per bar",
+    "subdivision_hint": "Toggle click subdivision",
+    "quarter": "1/4",
+    "eighth": "1/8",
+    "volume": "Vol.",
+    "volume_control": "Metronome volume",
+    "stage_open": "Open stage metronome"
+  },
   "technicalParts": {
     "button": "Parts",
     "eyebrow": "Technical parts",
