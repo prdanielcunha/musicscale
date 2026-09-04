@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLiveWorshipSession } from "../../hooks/useLiveWorshipSession";
+import { useLiveDirectionFollow } from "../../hooks/useLiveDirectionFollow";
+import { parseChordsAndLyrics } from "./ChordsRenderer";
 import { PopulatedSong } from "../../types";
 import { useTranslation } from "react-i18next";
 
@@ -30,29 +32,12 @@ export const LiveWorshipDirector: React.FC<LiveWorshipDirectorProps> = ({
     activateSession,
     deactivateSession,
     changeSong,
+    changeSection,
   } = useLiveWorshipSession(scaleId);
+  const { isFollowingDirection, toggleFollowingDirection } = useLiveDirectionFollow(scaleId);
   const [cueStack, setCueStack] = useState<
     { id: string; type: string; message?: string }[]
   >([]);
-  const [isFollowingDirection, setIsFollowingDirection] = useState(true);
-
-  useEffect(() => {
-    const storageKey = `musicscale:live-follow:${scaleId}`;
-    const storedPreference = sessionStorage.getItem(storageKey);
-    setIsFollowingDirection(storedPreference !== "free");
-  }, [scaleId]);
-
-  const toggleFollowingDirection = () => {
-    setIsFollowingDirection((current) => {
-      const next = !current;
-      sessionStorage.setItem(
-        `musicscale:live-follow:${scaleId}`,
-        next ? "follow" : "free",
-      );
-      return next;
-    });
-  };
-
   useEffect(() => {
     if (
       isLive &&
@@ -93,6 +78,27 @@ export const LiveWorshipDirector: React.FC<LiveWorshipDirectorProps> = ({
 
   const [spontaneousSearch, setSpontaneousSearch] = useState("");
 
+  const currentSong = songs.find((candidate) => candidate.id === currentSongId) || null;
+  const currentSections = currentSong?.chords
+    ? parseChordsAndLyrics(currentSong.chords)
+        .map((line, index) =>
+          line.type === "section"
+            ? {
+                index,
+                label: line.content.replace(/^\[?|\]?:?$/g, "").trim(),
+              }
+            : null,
+        )
+        .filter(
+          (section): section is { index: number; label: string } =>
+            !!section && !!section.label,
+        )
+    : [];
+
+  const handleSectionDirection = async (sectionIndex: number, label: string) => {
+    await changeSection(currentSongId, sectionIndex, label);
+  };
+
   const handleSongSelect = async (songId: string) => {
     const changed = await changeSong(songId);
     if (changed) onNavigateToSong(songId);
@@ -129,7 +135,7 @@ export const LiveWorshipDirector: React.FC<LiveWorshipDirectorProps> = ({
           className={`fixed right-4 md:right-6 top-28 z-[145] h-10 px-3.5 rounded-full border backdrop-blur-2xl shadow-[0_12px_36px_rgba(0,0,0,0.28)] flex items-center gap-2 transition-all active:scale-[0.98] ${
             isFollowingDirection
               ? "bg-emerald-500/12 border-emerald-400/25 text-emerald-100 hover:bg-emerald-500/18"
-              : "bg-[#151518]/90 border-white/[0.10] text-white/72 hover:bg-[#1C1C20]"
+              : "bg-[#151518]/90 border-white/[0.10] text-white/[0.72] hover:bg-[#1C1C20]"
           }`}
         >
           <span
@@ -207,6 +213,27 @@ export const LiveWorshipDirector: React.FC<LiveWorshipDirectorProps> = ({
               </div>
             ) : (
               <>
+                {currentSections.length > 0 && (
+                  <>
+                    <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/35 mt-1">
+                      {t("performance.live_sections", "Seções ao vivo")}
+                    </span>
+                    <div className="flex gap-1.5 overflow-x-auto hide-scrollbar pb-1">
+                      {currentSections.map((section) => (
+                        <button
+                          key={`${section.index}-${section.label}`}
+                          type="button"
+                          onClick={() => void handleSectionDirection(section.index, section.label)}
+                          className="shrink-0 h-8 px-3 rounded-full bg-white/[0.045] hover:bg-white/[0.10] border border-white/[0.07] text-white/70 hover:text-white text-[9px] font-bold uppercase tracking-[0.10em] transition-all active:scale-[0.97]"
+                        >
+                          {section.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="h-px w-full bg-white/[0.06] my-1" />
+                  </>
+                )}
+
                 <div className="grid grid-cols-2 gap-2 mt-2">
                   <button
                     onClick={() => void pushCue("chorus")}
