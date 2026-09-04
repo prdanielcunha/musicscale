@@ -1,6 +1,12 @@
 name: Deploy Firestore Rules
 
 on:
+  push:
+    branches:
+      - production
+    paths:
+      - 'firestore.rules'
+      - '.github/workflows/deploy-firestore-rules.yml'
   workflow_dispatch:
     inputs:
       smoke_only:
@@ -31,8 +37,20 @@ jobs:
         with:
           node-version: 22
 
-      - name: Setup npm install
+      - name: Setup Java for Firestore Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Setup Firebase CLI
         run: npm install -g firebase-tools
+
+      - name: Validate Firestore Rules in Emulator
+        run: firebase emulators:exec --only firestore "npm run test:emulator:security" --project demo-musicscale-rules-deploy
 
       - name: Google Auth
         id: auth
@@ -43,12 +61,12 @@ jobs:
           audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/ms-rules-prod-v1/providers/github
 
       - name: OIDC authentication smoke
-        if: inputs.smoke_only
+        if: github.event_name == 'workflow_dispatch' && inputs.smoke_only == true
         run: |
           gcloud auth list --filter=status:ACTIVE --format='value(account)'
           gcloud auth print-access-token >/dev/null
           echo 'OIDC authentication smoke passed; no Firebase deployment was requested.'
 
       - name: Deploy Firestore Rules
-        if: inputs.smoke_only != true
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.smoke_only != true)
         run: firebase deploy --only firestore:rules --project millionsnest --non-interactive
