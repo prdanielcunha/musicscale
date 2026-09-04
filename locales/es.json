@@ -469,6 +469,18 @@
     "missing_detected": "Claves de traducción no encontradas detectadas.",
     "scan_completed": "Diagnóstico de Idioma Completo"
   },
+  "pad": {
+    "label": "Ambient Pad",
+    "start": "Iniciar Pad",
+    "stop": "Detener Pad",
+    "follow_key": "Sigue tono",
+    "manual_key": "Tono manual",
+    "volume": "Volumen",
+    "volume_control": "Volumen del Pad",
+    "return_to_song_key": "Volver a seguir el tono de la canción",
+    "native_note": "Pad nativo de MusicScale: funciona sin conexión y hace crossfade suave entre tonos.",
+    "stage_open": "Abrir Pad de escenario"
+  },
   "metronome": {
     "label": "Metrónomo",
     "bpm_control": "Ajustar BPM",
