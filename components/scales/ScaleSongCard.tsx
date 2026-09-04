@@ -198,7 +198,7 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
     >
       <div className="flex items-center justify-between gap-3">
         {(mode === 'setlist' || mode === 'review') && (
-          <div className="flex items-center">
+          <div className="flex items-center shrink-0">
             <div 
               className="flex items-center justify-center min-w-[44px] min-h-[44px] -ml-2 mr-1 cursor-grab active:cursor-grabbing touch-none"
               draggable
@@ -213,9 +213,19 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
             >
               <GripVertical className="w-4 h-4 text-slate-400" />
             </div>
-            <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 text-[10px] font-bold text-slate-500 mr-3">
-              {(index ?? 0) + 1}
-            </span>
+            {mode === 'review' ? (
+              <div
+                data-testid={`scale-review-position-${song.id}`}
+                className="shrink-0 min-w-8 h-8 px-2 flex items-center justify-center rounded-xl border border-primary/15 bg-primary/[0.08] dark:bg-primary/[0.12] text-[12px] font-black tabular-nums text-primary-dark dark:text-primary-light mr-3 shadow-sm"
+                title={t('scaleModal.songOrderPosition', 'Posição na ordem do culto')}
+              >
+                {(index ?? 0) + 1}
+              </div>
+            ) : (
+              <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 text-[10px] font-bold text-slate-500 mr-3">
+                {(index ?? 0) + 1}
+              </span>
+            )}
           </div>
         )}
 
@@ -251,31 +261,37 @@ export const ScaleSongCard: React.FC<ScaleSongCardProps> = ({
         )}
 
         {mode === 'review' && (
-          <div className="flex items-center gap-0.5 ml-2" onClick={preventProp}>
-             <button 
-               type="button" 
-               onClick={onMoveUp} 
-               disabled={isFirst} 
-               aria-label={t('scaleModal.moveSongUp', { song: song.title })} 
-               className="flex items-center justify-center min-w-[44px] min-h-[44px] text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"
+          <div className="flex items-center gap-2 ml-1 sm:ml-2" onClick={preventProp}>
+             <div
+               className="flex items-center p-1 rounded-xl border border-slate-200/90 dark:border-white/10 bg-slate-50/90 dark:bg-white/[0.04] shadow-sm"
+               aria-label={t('scaleModal.changeSongOrder', 'Alterar ordem da música')}
              >
-               <ChevronDown className="w-4 h-4 rotate-180"/>
-             </button>
-             <button 
-               type="button" 
-               onClick={onMoveDown} 
-               disabled={isLast} 
-               aria-label={t('scaleModal.moveSongDown', { song: song.title })} 
-               className="flex items-center justify-center min-w-[44px] min-h-[44px] text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"
-             >
-               <ChevronDown className="w-4 h-4"/>
-             </button>
+               <button 
+                 type="button" 
+                 onClick={onMoveUp} 
+                 disabled={isFirst} 
+                 aria-label={t('scaleModal.moveSongUp', { song: song.title })} 
+                 className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg text-slate-600 dark:text-slate-300 hover:text-primary-dark dark:hover:text-primary-light hover:bg-white dark:hover:bg-white/[0.08] disabled:opacity-25 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all"
+               >
+                 <ChevronDown className="w-5 h-5 rotate-180"/>
+               </button>
+               <div className="w-px h-5 bg-slate-200 dark:bg-white/10" aria-hidden="true" />
+               <button 
+                 type="button" 
+                 onClick={onMoveDown} 
+                 disabled={isLast} 
+                 aria-label={t('scaleModal.moveSongDown', { song: song.title })} 
+                 className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg text-slate-600 dark:text-slate-300 hover:text-primary-dark dark:hover:text-primary-light hover:bg-white dark:hover:bg-white/[0.08] disabled:opacity-25 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all"
+               >
+                 <ChevronDown className="w-5 h-5"/>
+               </button>
+             </div>
              {onToggle && (
                <button 
                  type="button" 
                  onClick={onToggle} 
                  aria-label={t('scaleModal.removeSong', { song: song.title })}
-                 className="flex items-center justify-center min-w-[44px] min-h-[44px] text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg ml-1"
+                 className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors"
                >
                  <XCircleIcon className="w-5 h-5"/>
                </button>
