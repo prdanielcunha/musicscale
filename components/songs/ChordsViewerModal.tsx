@@ -1261,7 +1261,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       {!isEditing && isUIVisible && sectionNavigatorItems.length > 1 && (
         <div className="fixed top-20 md:top-24 inset-x-0 z-[38] pointer-events-none">
           <div className="mx-auto max-w-4xl px-3 md:px-6 pt-2">
-            <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto hide-scrollbar rounded-full border border-white/[0.07] bg-[#0A0A0C]/82 backdrop-blur-2xl p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.24)]">
+            <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto hide-scrollbar rounded-full border border-white/[0.07] bg-[#0A0A0C]/[0.82] backdrop-blur-2xl p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.24)]">
               {sectionNavigatorItems.map((section) => {
                 const normalizedActive = activeSection.replace(/^\[?|\]?:?$/g, "").trim().toLowerCase();
                 const isActive = normalizedActive === section.label.toLowerCase();
