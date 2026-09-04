@@ -13,7 +13,10 @@ export interface RepertoireTransferRow {
   version: string;
   rhythm: string;
   tabs: { section: string; content: string }[];
+  extra: Record<string, string>;
 }
+
+type RepertoireKnownField = Exclude<keyof RepertoireTransferRow, "extra">;
 
 const normalizeHeader = (value: string) =>
   value
@@ -23,25 +26,25 @@ const normalizeHeader = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "");
 
-const HEADER_ALIASES: Record<keyof Omit<RepertoireTransferRow, "tabs"> | "tabs", string[]> = {
+const HEADER_ALIASES: Record<RepertoireKnownField, string[]> = {
   title: ["titulo", "title", "musica", "music", "cancion", "song", "nome", "nomedamusica"],
   artist: ["artista", "artist", "cantor", "banda", "autor", "ministerio", "interprete"],
-  key: ["tom", "key", "tono", "ton"],
+  key: ["tom", "key", "tono", "ton", "tomoriginal", "originalkey"],
   bpm: ["bpm", "tempo"],
   lyrics: ["letra", "lyrics", "letras"],
   chords: ["cifra", "chords", "acordes", "chordchart"],
-  chordsUrl: ["linkdacifra", "urlcifra", "chordsurl", "cifraurl", "linkcifra"],
-  videoUrl: ["video", "videourl", "youtube", "linkvideo", "referencia", "reference"],
+  chordsUrl: ["linkdacifra", "urlcifra", "chordsurl", "cifraurl", "linkcifra", "cifralink"],
+  videoUrl: ["video", "videourl", "youtube", "linkvideo", "referencia", "reference", "linkdovideo", "linkyoutube"],
   language: ["idioma", "language", "lenguaje"],
   version: ["versao", "version", "arranjo", "arrangement"],
   rhythm: ["ritmo", "rhythm", "estilo"],
   tabs: ["partestecnicas", "tabs", "tablatura", "tablaturas", "solos", "riffs"],
 };
 
-function resolveHeader(header: string): keyof RepertoireTransferRow | null {
+function resolveHeader(header: string): RepertoireKnownField | null {
   const normalized = normalizeHeader(header);
   for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
-    if (aliases.includes(normalized)) return field as keyof RepertoireTransferRow;
+    if (aliases.includes(normalized)) return field as RepertoireKnownField;
   }
   return null;
 }
