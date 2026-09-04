@@ -85,6 +85,35 @@ describe.skipIf(!hasEmulatorHost)("Live Worship conductor Firestore rules", () =
     );
   });
 
+  it("preserves canonical leader role authority without an explicit permission", async () => {
+    await env!.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, "organizations/org-1"), {
+        status: "active",
+        name: "Org 1",
+      });
+      await setDoc(doc(db, "organizations/org-1/members/leader-1"), {
+        uid: "leader-1",
+        organizationId: "org-1",
+        status: "active",
+        role: "leader",
+        organizationRole: "leader",
+        permissions: {},
+      });
+    });
+
+    const db = env!.authenticatedContext("leader-1").firestore();
+    await assertSucceeds(
+      setDoc(doc(db, "liveSessions/session-leader"), {
+        id: "session-leader",
+        scaleId: "scale-1",
+        organizationId: "org-1",
+        activeSongId: null,
+        leaderId: "leader-1",
+      }),
+    );
+  });
+
   it("preserves the existing canManageScales path", async () => {
     await seedMember("manager-1", {
       canManageScales: true,
