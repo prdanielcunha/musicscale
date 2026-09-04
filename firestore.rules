@@ -142,6 +142,26 @@ service cloud.firestore {
       );
     }
 
+    function hasCanonicalLiveSessionAuthority(orgId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('status', '') in ['active', 'ativo'] &&
+        (
+          get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('organizationRole', '') in
+            ['owner', 'admin', 'leader', 'worship_leader', 'pastor', 'minister', 'ministro', 'Ministro'] ||
+          get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('role', '') in
+            ['owner', 'Owner', 'admin', 'Admin', 'worship_leader', 'leader', 'Lider', 'Líder', 'pastor', 'Pastor', 'minister', 'Minister', 'ministro', 'Ministro'] ||
+          get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('permissions', {}).get('canManageScales', false) == true ||
+          get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('permissions', {}).get('musicscale.live.conduct', false) == true
+        );
+    }
+
+    function hasLiveSessionAuthority(orgId) {
+      return hasCanonicalLiveSessionAuthority(orgId) ||
+        hasPermission(orgId, 'canManageScales') ||
+        hasPermission(orgId, 'musicscale.live.conduct');
+    }
+
     function isOrgAdmin(orgId) {
       return isSystemAdmin() || orgId == request.auth.uid || 
              isMemberWithRole(orgId, 'admin') || 
@@ -490,18 +510,18 @@ service cloud.firestore {
 
     match /liveSessions/{id} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
-      allow create: if isAuthenticated() && (
-        hasPermission(incoming().get('organizationId', ''), 'canManageScales') ||
-        hasPermission(incoming().get('organizationId', ''), 'musicscale.live.conduct')
-      ) && isOrgActive(incoming().get('organizationId', ''));
-      allow update: if isAuthenticated() && (
-        hasPermission(resource.data.get('organizationId', ''), 'canManageScales') ||
-        hasPermission(resource.data.get('organizationId', ''), 'musicscale.live.conduct')
-      ) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
-      allow delete: if isAuthenticated() && (
-        hasPermission(resource.data.get('organizationId', ''), 'canManageScales') ||
-        hasPermission(resource.data.get('organizationId', ''), 'musicscale.live.conduct')
-      ) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() &&
+        hasLiveSessionAuthority(incoming().get('organizationId', '')) &&
+        isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() &&
+        hasLiveSessionAuthority(resource.data.get('organizationId', '')) &&
+        checkOrgAccess(resource.data.get('organizationId', '')) &&
+        isOrgActive(resource.data.get('organizationId', '')) &&
+        (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() &&
+        hasLiveSessionAuthority(resource.data.get('organizationId', '')) &&
+        checkOrgAccess(resource.data.get('organizationId', '')) &&
+        isOrgActive(resource.data.get('organizationId', ''));
     }
 
     match /roles/{roleId} {
