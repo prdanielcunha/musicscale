@@ -510,6 +510,8 @@ export default function LibraryPage() {
             text: result.errorMessage || t("library.limit_block.trial_text", "Durante os 7 dias do Pro, você pode importar até 20 músicas da Biblioteca Viva. Após a ativação paga, o Pro fica ilimitado."),
             cta: t("library.limit_block.trial_cta", "Gerenciar assinatura")
           });
+        } else if (result.errorCode === 'SUBSCRIPTION_INACTIVE') {
+          showToast(result.errorMessage || "Sua assinatura do MusicScale não está ativa.", "error");
         }
         return;
       }
@@ -595,6 +597,8 @@ export default function LibraryPage() {
             text: result.errorMessage || t("library.limit_block.trial_text", "Durante os 7 dias do Pro, você pode importar até 20 músicas da Biblioteca Viva. Após a ativação paga, o Pro fica ilimitado."),
             cta: t("library.limit_block.trial_cta", "Gerenciar assinatura")
           });
+        } else if (result.errorCode === 'SUBSCRIPTION_INACTIVE') {
+          showToast(result.errorMessage || "Sua assinatura do MusicScale não está ativa.", "error");
         } else if (result.errorCode === 'INSUFFICIENT_IMPORT_QUOTA') {
           showToast(result.errorMessage || t("library.limit_exceeded", "Limite excedido."), "error");
         }
