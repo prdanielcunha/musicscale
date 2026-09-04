@@ -16,7 +16,12 @@ export function useLiveWorshipSession(scaleId?: string) {
     const api = useApi();
     const { user } = useAuth();
     const { hasCapability } = useCapability();
-    const canManageLiveSession = hasCapability('musicscale.scales.manage');
+    // Dedicated Stage capability is preferred. Existing scale managers keep
+    // every Live Worship ability as a non-regression compatibility fallback
+    // until role presets are migrated to musicscale.live.conduct.
+    const canManageLiveSession =
+        hasCapability('musicscale.live.conduct') ||
+        hasCapability('musicscale.scales.manage');
     const [sessionRecord, setSessionRecord] = useState<LiveWorshipSession | null>(null);
     const [sessionStatus, setSessionStatus] = useState<LiveWorshipSessionStatus>('idle');
 
@@ -61,6 +66,7 @@ export function useLiveWorshipSession(scaleId?: string) {
         status: sessionStatus,
         userId: user?.uid,
         canManageLiveSession,
+        canConductLiveSession: canManageLiveSession,
     });
     const liveSession = getActiveLiveWorshipSession(sessionRecord, sessionStatus);
 
