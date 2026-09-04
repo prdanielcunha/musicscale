@@ -161,13 +161,14 @@ const decompressEntry = async (
     throw new Error("XLSX_BROWSER_UNSUPPORTED");
   }
 
-  const source = compressed.buffer.slice(
-    compressed.byteOffset,
-    compressed.byteOffset + compressed.byteLength,
-  ) as ArrayBuffer;
-  const stream = new Blob([source])
-    .stream()
-    .pipeThrough(new DecompressionStream("deflate-raw"));
+  const source = compressed.slice();
+  const input = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(source);
+      controller.close();
+    },
+  });
+  const stream = input.pipeThrough(new DecompressionStream("deflate-raw"));
   const decompressed = new Uint8Array(await new Response(stream).arrayBuffer());
 
   if (
