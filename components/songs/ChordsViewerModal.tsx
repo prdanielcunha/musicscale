@@ -34,6 +34,7 @@ import { useLiveWorshipSession } from "../../hooks/useLiveWorshipSession";
 import { useLiveDirectionFollow } from "../../hooks/useLiveDirectionFollow";
 import { ScaleSongNavigation, ScaleSongNavigationMobile } from "./ScaleSongNavigation";
 import Metronome from "../common/Metronome";
+import StagePadPlayer from "./StagePadPlayer";
 
 // --- Adaptive UI & Battery Detection (Experimental API) ---
 const useAdaptivePerformance = () => {
@@ -286,6 +287,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const [activeTab, setActiveTab] = useState<"none" | "font">("none");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isStageMetronomeOpen, setIsStageMetronomeOpen] = useState(false);
+  const [isStagePadOpen, setIsStagePadOpen] = useState(false);
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -1091,7 +1093,11 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              setIsStageMetronomeOpen((current) => !current);
+              setIsStageMetronomeOpen((current) => {
+                const next = !current;
+                if (next) setIsStagePadOpen(false);
+                return next;
+              });
             }}
             className={`w-10 h-10 md:w-11 md:h-11 flex items-center justify-center rounded-full border transition-all ${
               isStageMetronomeOpen
@@ -1106,6 +1112,32 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
               {song.bpm ? (
                 <span className="text-[7px] font-black mt-0.5">{song.bpm}</span>
               ) : null}
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setIsStagePadOpen((current) => {
+                const next = !current;
+                if (next) setIsStageMetronomeOpen(false);
+                return next;
+              });
+            }}
+            className={`w-10 h-10 md:w-11 md:h-11 flex items-center justify-center rounded-full border transition-all ${
+              isStagePadOpen
+                ? "bg-violet-200 text-black border-violet-100"
+                : "bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border-white/5"
+            }`}
+            title={t("pad.stage_open", "Abrir Pad de palco")}
+            aria-pressed={isStagePadOpen}
+          >
+            <div className="flex flex-col items-center justify-center leading-none">
+              <span className="text-[9px] font-black tracking-[-0.02em]">PAD</span>
+              <span className="text-[7px] font-black mt-0.5">
+                {song ? parseKey(song.key || "C") : "C"}
+              </span>
             </div>
           </button>
 
@@ -1504,6 +1536,21 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
           </motion.div>
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {isStagePadOpen && !isEditing && (
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="fixed left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-28 md:bottom-32 z-[145] md:w-[520px] rounded-[24px] border border-violet-200/[0.09] bg-[#0D0D11]/[0.95] backdrop-blur-3xl shadow-[0_24px_80px_rgba(0,0,0,0.52)] p-4 md:p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <StagePadPlayer songKey={song.key} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isStageMetronomeOpen && !isEditing && (
