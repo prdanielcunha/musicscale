@@ -185,6 +185,9 @@ export default function LibraryPage() {
     !isEcosystemAdmin &&
     entitlements?.plan === "pro" &&
     entitlements?.status === "trialing";
+  const canBulkImportLibrary =
+    isEcosystemAdmin ||
+    (entitlements?.plan === "pro" && entitlements?.status === "active");
 
   const [songs, setSongs] = useState<GlobalSong[]>([]);
   const [loading, setLoading] = useState(false);
@@ -510,6 +513,14 @@ export default function LibraryPage() {
             text: result.errorMessage || t("library.limit_block.trial_text", "Durante os 7 dias do Pro, você pode importar até 20 músicas da Biblioteca Viva. Após a ativação paga, o Pro fica ilimitado."),
             cta: t("library.limit_block.trial_cta", "Gerenciar assinatura")
           });
+        } else if (result.errorCode === 'BULK_IMPORT_PRO_ONLY') {
+          setLimitBlockMeta({
+            title: t("library.limit_block.bulk_pro_only_title", "Importação em massa exclusiva do Pro"),
+            text: isProTrial
+              ? t("library.limit_block.bulk_pro_trial_text", "Durante o teste Pro, importe as músicas individualmente. A importação em massa é liberada após a ativação paga do Pro.")
+              : t("library.limit_block.bulk_pro_only_text", "Importar várias músicas de uma vez é um recurso exclusivo do Pro. Continue importando individualmente no seu plano."),
+            cta: t("library.limit_block.bulk_pro_only_cta", "Ativar Pro — R$ 34,90/mês")
+          });
         }
         return;
       }
@@ -559,6 +570,17 @@ export default function LibraryPage() {
   };
 
   const executeImportMultiple = async (validSongs: GlobalSong[]) => {
+    if (!canBulkImportLibrary) {
+      setLimitBlockMeta({
+        title: t("library.limit_block.bulk_pro_only_title", "Importação em massa exclusiva do Pro"),
+        text: isProTrial
+          ? t("library.limit_block.bulk_pro_trial_text", "Durante o teste Pro, importe as músicas individualmente. A importação em massa é liberada após a ativação paga do Pro.")
+          : t("library.limit_block.bulk_pro_only_text", "Importar várias músicas de uma vez é um recurso exclusivo do Pro. Continue importando individualmente no seu plano."),
+        cta: t("library.limit_block.bulk_pro_only_cta", "Ativar Pro — R$ 34,90/mês")
+      });
+      return;
+    }
+
     setIsImportingMultiple(true);
 
     try {
@@ -1013,9 +1035,11 @@ export default function LibraryPage() {
 
             {/* Selection & Sort Controls */}
             <div className="flex flex-wrap items-center gap-3 shrink-0">
-              {isProTrial ? (
+              {!canBulkImportLibrary ? (
                 <div className="h-10 px-4 flex items-center rounded-xl text-[12px] font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20">
-                  {t("library.trial_bulk_disabled", "No teste Pro, importe individualmente as músicas que sua equipe realmente vai usar.")}
+                  {isProTrial
+                    ? t("library.trial_bulk_disabled", "No teste Pro, importe individualmente as músicas que sua equipe realmente vai usar.")
+                    : t("library.bulk_pro_only_hint", "Importação em massa é exclusiva do Pro. Importe músicas individualmente no seu plano.")}
                 </div>
               ) : !isSelectionMode ? (
                 <>

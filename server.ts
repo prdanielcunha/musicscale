@@ -3621,6 +3621,21 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
         });
       }
 
+      // 2. Importing multiple Living Library songs in one operation is reserved
+      // for paid active Pro. Advanced and Pro trial keep individual imports only.
+      const canBulkImportLibrary =
+        isGlobalAdmin ||
+        (verifiedPlan === 'pro' && verifiedStatus === 'active');
+      if (selectedSongs.length > 1 && !canBulkImportLibrary) {
+        return res.json({
+          success: false,
+          importedCount: 0,
+          blockedCount: selectedSongs.length,
+          errorCode: 'BULK_IMPORT_PRO_ONLY',
+          errorMessage: "A importação em massa da Biblioteca Viva é exclusiva do plano Pro ativo."
+        });
+      }
+
       const date = new Date();
       const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       

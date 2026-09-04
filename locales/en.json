@@ -1018,7 +1018,11 @@
       "advanced_cta": "Upgrade to Pro — R$ 34.90/month",
       "trial_title": "Living Library trial limit",
       "trial_text": "During the 7-day Pro trial, you can import up to 20 songs from the Living Library. After paid Pro activation, imports are unlimited.",
-      "trial_cta": "Manage subscription"
+      "trial_cta": "Manage subscription",
+      "bulk_pro_only_title": "Bulk import is exclusive to Pro",
+      "bulk_pro_only_text": "Importing multiple songs at once is exclusive to Pro. Keep importing songs individually on your plan.",
+      "bulk_pro_trial_text": "During the Pro trial, import songs individually. Bulk import unlocks after paid Pro activation.",
+      "bulk_pro_only_cta": "Activate Pro — R$ 34.90/month"
     },
     "locked": {
       "premium_badge": "MusicScale Premium Collection",
@@ -1041,7 +1045,8 @@
     "load_more": "Load more songs",
     "local_search_hint": "Showing fast local results. Clear the search and click 'Load more' to expand.",
     "in_lyrics": "In lyrics:",
-    "trial_bulk_disabled": "During the Pro trial, import individually the songs your team will actually use."
+    "trial_bulk_disabled": "During the Pro trial, import individually the songs your team will actually use.",
+    "bulk_pro_only_hint": "Bulk import is exclusive to Pro. Import songs individually on your plan."
   },
   "notifications": {
     "scale_published": "New music scale published",
