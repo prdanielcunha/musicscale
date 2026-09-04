@@ -10,6 +10,7 @@ export type MusicScaleCapability =
   | 'musicscale.scales.manage'
   | 'musicscale.members.manage'
   | 'musicscale.performance.use'
+  | 'musicscale.live.conduct'
   | 'musicscale.taxonomy.manage'
   | 'manageOrganization';
 
