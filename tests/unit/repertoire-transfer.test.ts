@@ -9,7 +9,7 @@ describe("repertoire transfer", () => {
   it("parses Portuguese and common migration headers without losing multiline musical content", () => {
     const csv = [
       '"Título";"Artista";"Tom";"BPM";"Letra";"Cifra";"Partes Técnicas"',
-      '"Santo";"Banda";"D";"72";"Linha 1\nLinha 2";"[Intro]\nD G";"[{\"section\":\"Solo\",\"content\":\"e|--5--\"}]"',
+      '"Santo";"Banda";"D";"72";"Linha 1\nLinha 2";"[Intro]\nD G";"[{""section"":""Solo"",""content"":""e|--5--""}]"',
     ].join("\r\n");
 
     const result = parseRepertoireCsv(csv);
@@ -31,6 +31,9 @@ describe("repertoire transfer", () => {
   it("normalizes identity for safe duplicate detection", () => {
     expect(normalizeSongIdentity("  Graça ", "João")).toBe(
       normalizeSongIdentity("graca", "joao"),
+    );
+    expect(normalizeSongIdentity("Canção", undefined)).toBe(
+      normalizeSongIdentity("cancao", ""),
     );
   });
 
