@@ -214,6 +214,27 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
     expect(downButtons[1]).not.toBeDisabled();
   });
 
+  it('6a. Shows the current order number prominently for every reviewed song', () => {
+    render(<TestWrapper />);
+
+    expect(screen.getByTestId('scale-review-position-song-1')).toHaveTextContent('1');
+    expect(screen.getByTestId('scale-review-position-song-2')).toHaveTextContent('2');
+    expect(screen.getByTestId('scale-review-position-song-3')).toHaveTextContent('3');
+    expect(screen.getByTestId('scale-review-position-song-4')).toHaveTextContent('4');
+  });
+
+  it('6b. Updates the visible order numbers after arrow reordering', async () => {
+    render(<TestWrapper />);
+
+    const downButtons = screen.getAllByRole('button', { name: /Descer música/i });
+    fireEvent.click(downButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('scale-review-position-song-2')).toHaveTextContent('1');
+      expect(screen.getByTestId('scale-review-position-song-1')).toHaveTextContent('2');
+    });
+  });
+
   // =========================================================================
   // SUB-SECTION 2: BUTTON TRIGGERED REORDERING (6 SCENARIOS)
   // =========================================================================
@@ -693,7 +714,7 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
     await waitFor(() => {
         const domCards = document.querySelectorAll('[data-song-id]');
         expect(Array.from(domCards).map(c => c.getAttribute('data-song-id'))).toEqual(['song-2', 'song-3', 'song-1', 'song-4']);
-        const labels = document.querySelectorAll('.rounded-full.bg-slate-100');
+        const labels = document.querySelectorAll('[data-testid^="scale-review-position-"]');
         expect(Array.from(labels).map(l => l.textContent)).toEqual(['1', '2', '3', '4']);
     });
     
@@ -720,7 +741,7 @@ describe('Scale Review Stage Song Reordering Integration Tests (24 scenarios)', 
         expect(ids.length).toBe(4);
         expect(new Set(ids).size).toBe(4);
         
-        const labels = document.querySelectorAll('.rounded-full.bg-slate-100');
+        const labels = document.querySelectorAll('[data-testid^="scale-review-position-"]');
         expect(Array.from(labels).map(l => l.textContent)).toEqual(['1', '2', '3', '4']);
         
         // title and songSettings association check

@@ -852,6 +852,8 @@
     "reorderSong": "Reorder {{song}}",
     "moveSongUp": "Move {{song}} up",
     "moveSongDown": "Move {{song}} down",
+    "songOrderPosition": "Position in the worship order",
+    "changeSongOrder": "Change song order",
     "reviewInstruction": "Drag the songs or use the arrows to set the worship order.",
     "publishUnavailable": "Publish unavailable",
     "publishUnavailableDescription": "Publishing is not yet available for this organization. Save as draft to continue later.",

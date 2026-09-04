@@ -853,6 +853,8 @@
     "reorderSong": "Reordenar {{song}}",
     "moveSongUp": "Mover {{song}} para cima",
     "moveSongDown": "Mover {{song}} para baixo",
+    "songOrderPosition": "Posição na ordem do culto",
+    "changeSongOrder": "Alterar ordem da música",
     "reviewInstruction": "Arraste as músicas ou use as setas para definir a ordem do culto.",
     "publishUnavailable": "Publicação indisponível",
     "publishUnavailableDescription": "A publicação ainda não está disponível para esta organização. Salve como rascunho para continuar depois.",
