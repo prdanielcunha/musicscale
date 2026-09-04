@@ -470,6 +470,18 @@
     "missing_detected": "Missing translation keys detected during session.",
     "scan_completed": "Diagnostic Scan Finished"
   },
+  "pad": {
+    "label": "Ambient Pad",
+    "start": "Start Pad",
+    "stop": "Stop Pad",
+    "follow_key": "Follow key",
+    "manual_key": "Manual key",
+    "volume": "Volume",
+    "volume_control": "Pad volume",
+    "return_to_song_key": "Return to following the song key",
+    "native_note": "MusicScale native Pad: works offline and crossfades smoothly between keys.",
+    "stage_open": "Open stage Pad"
+  },
   "metronome": {
     "label": "Metronome",
     "bpm_control": "Adjust BPM",
