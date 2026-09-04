@@ -7,11 +7,13 @@ import Spinner from "../common/Spinner";
 import {
   normalizeSongIdentity,
   parseRepertoireCsv,
+  parseRepertoireMatrix,
   serializeRepertoireCsv,
   type RepertoireTransferRow,
 } from "../../utils/repertoireTransfer";
 import { useApi } from "../../contexts/ApiContext";
 import { useAuth } from "../../contexts/AuthContext";
+import { readFirstXlsxWorksheet } from "../../utils/xlsxRepertoire";
 
 interface RepertoireTransferModalProps {
   isOpen: boolean;
@@ -62,6 +64,7 @@ const RepertoireTransferModal: React.FC<RepertoireTransferModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [detectedSource, setDetectedSource] = useState<"csv" | "xlsx" | null>(null);
 
   const existingIdentities = useMemo(
     () => new Set(songs.map((song) => normalizeSongIdentity(song.title, song.artist))),
@@ -83,6 +86,7 @@ const RepertoireTransferModal: React.FC<RepertoireTransferModalProps> = ({
     setUnknownHeaders([]);
     setError(null);
     setProgress(0);
+    setDetectedSource(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -102,20 +106,26 @@ const RepertoireTransferModal: React.FC<RepertoireTransferModalProps> = ({
     setError(null);
     setFileName(file.name);
 
-    if (!file.name.toLowerCase().endsWith(".csv")) {
+    const lowerName = file.name.toLowerCase();
+    const isCsv = lowerName.endsWith(".csv");
+    const isXlsx = lowerName.endsWith(".xlsx");
+
+    if (!isCsv && !isXlsx) {
       setPreview([]);
       setError(
         t(
-          "repertoireTransfer.csv_only",
-          "Neste primeiro importador seguro, selecione um arquivo CSV. O backup JSON existente continua disponível sem alterações.",
+          "repertoireTransfer.file_type",
+          "Selecione um arquivo CSV ou XLSX. O backup JSON existente continua disponível sem alterações.",
         ),
       );
       return;
     }
 
     try {
-      const text = await file.text();
-      const result = parseRepertoireCsv(text);
+      const result = isXlsx
+        ? parseRepertoireMatrix(await readFirstXlsxWorksheet(file))
+        : parseRepertoireCsv(await file.text());
+      setDetectedSource(isXlsx ? "xlsx" : "csv");
       if (result.rows.length === 0) {
         throw new Error(
           t(
@@ -190,12 +200,14 @@ const RepertoireTransferModal: React.FC<RepertoireTransferModalProps> = ({
             : "unknown",
           tabs: row.tabs,
           metadata: {
-            importSource: "repertoire_csv",
+            importSource:
+              detectedSource === "xlsx" ? "repertoire_xlsx" : "repertoire_csv",
             importedAt: new Date().toISOString(),
             originalFileName: fileName,
+            importExtraColumns: row.extra,
           },
           aiProcessed: false,
-          sourceType: "csv",
+          sourceType: detectedSource === "xlsx" ? "xlsx" : "csv",
           freshness: {
             status: "new",
             source: "manual",
@@ -248,7 +260,7 @@ const RepertoireTransferModal: React.FC<RepertoireTransferModalProps> = ({
               <p className="text-xs leading-relaxed text-white/42 mt-1.5">
                 {t(
                   "repertoireTransfer.import_desc",
-                  "Importe CSV de outro sistema ou planilha. Antes de salvar, o MusicScale mostra duplicatas e o que será criado.",
+                  "Importe CSV ou XLSX do LouveApp, de outro sistema ou planilha. Antes de salvar, o MusicScale mostra duplicatas e o que será criado.",
                 )}
               </p>
             </button>
@@ -277,7 +289,7 @@ const RepertoireTransferModal: React.FC<RepertoireTransferModalProps> = ({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -313,7 +325,7 @@ const RepertoireTransferModal: React.FC<RepertoireTransferModalProps> = ({
             <p className="text-[11px] leading-relaxed text-white/32">
               {t(
                 "repertoireTransfer.ignored_columns",
-                "Colunas extras foram preservadas no arquivo original e ignoradas na importação: {{columns}}",
+                "Colunas extras serão preservadas como metadados de importação e voltarão no CSV exportado: {{columns}}",
                 { columns: unknownHeaders.join(", ") },
               )}
             </p>
