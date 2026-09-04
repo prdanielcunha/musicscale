@@ -31,7 +31,7 @@ const decodeXmlEntities = (value: string) =>
 const xmlAttribute = (attributes: string, name: string) => {
   const escaped = name.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
   const match = attributes.match(
-    new RegExp(\`(?:^|\\s)\${escaped}=(?:"([^"]*)"|'([^']*)')\`, "i"),
+    new RegExp(`(?:^|\\s)${escaped}=(?:"([^"]*)"|\'([^\']*)\')`, "i"),
   );
   return match ? decodeXmlEntities(match[1] ?? match[2] ?? "") : null;
 };
