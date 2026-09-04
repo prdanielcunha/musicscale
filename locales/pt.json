@@ -1017,7 +1017,11 @@
       "advanced_cta": "Fazer upgrade para Pro — R$ 34,90/mês",
       "trial_title": "Limite de avaliação da Biblioteca Viva",
       "trial_text": "Durante os 7 dias do Pro, você pode importar até 20 músicas da Biblioteca Viva. Após a ativação paga, o Pro fica ilimitado.",
-      "trial_cta": "Gerenciar assinatura"
+      "trial_cta": "Gerenciar assinatura",
+      "bulk_pro_only_title": "Importação em massa exclusiva do Pro",
+      "bulk_pro_only_text": "Importar várias músicas de uma vez é um recurso exclusivo do Pro. Continue importando individualmente no seu plano.",
+      "bulk_pro_trial_text": "Durante o teste Pro, importe as músicas individualmente. A importação em massa é liberada após a ativação paga do Pro.",
+      "bulk_pro_only_cta": "Ativar Pro — R$ 34,90/mês"
     },
     "locked": {
       "premium_badge": "Acervo premium do MusicScale",
@@ -1040,7 +1044,8 @@
     "load_more": "Carregar mais músicas",
     "local_search_hint": "Exibindo resultados locais rápidos. Limpe a busca e clique em 'Carregar mais' para ampliar a base.",
     "in_lyrics": "Na letra:",
-    "trial_bulk_disabled": "No teste Pro, importe individualmente as músicas que sua equipe realmente vai usar."
+    "trial_bulk_disabled": "No teste Pro, importe individualmente as músicas que sua equipe realmente vai usar.",
+    "bulk_pro_only_hint": "Importação em massa é exclusiva do Pro. Importe músicas individualmente no seu plano."
   },
   "notifications": {
     "scale_published": "Nova escala de música publicada",
