@@ -340,11 +340,21 @@ export interface WorshipCue {
   timestamp: number;
 }
 
+export interface LiveWorshipSectionTarget {
+  songId: string;
+  sectionIndex: number;
+  label: string;
+  commandId: string;
+  timestamp: number;
+  actorId?: string | null;
+}
+
 export interface LiveWorshipSession {
   id: string; // usually same as scaleId
   scaleId: string;
   activeSongId: string | null;
   activeCue: WorshipCue | null;
+  activeSection?: LiveWorshipSectionTarget | null;
   keyOverrides: Record<string, string>; // { songId: newKey }
   songsOrder: string[]; // array of songIds
   spontaneousSongs: { id: string; title: string; chords: string }[];
