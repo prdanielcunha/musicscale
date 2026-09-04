@@ -558,8 +558,94 @@ service cloud.firestore {
     // ==========================================
     // 7. ECOSYSTEM INFRASTRUCTURE COLLECTIONS
     // ==========================================
+    function hasValidAnalyticsEnvelope() {
+      return request.resource.data.keys().hasOnly([
+        'eventType',
+        'organizationId',
+        'userId',
+        'sessionId',
+        'app',
+        'metadata',
+        'timestamp'
+      ]) &&
+      request.resource.data.keys().hasAll([
+        'eventType',
+        'organizationId',
+        'userId',
+        'sessionId',
+        'app',
+        'metadata',
+        'timestamp'
+      ]) &&
+      request.resource.data.eventType is string &&
+      request.resource.data.eventType.size() > 0 &&
+      request.resource.data.eventType.size() <= 64 &&
+      request.resource.data.organizationId is string &&
+      request.resource.data.organizationId.size() <= 128 &&
+      request.resource.data.userId is string &&
+      request.resource.data.userId.size() <= 128 &&
+      request.resource.data.sessionId is string &&
+      request.resource.data.sessionId.size() > 0 &&
+      request.resource.data.sessionId.size() <= 128 &&
+      request.resource.data.app is string &&
+      request.resource.data.app.size() > 0 &&
+      request.resource.data.app.size() <= 64 &&
+      request.resource.data.metadata is map &&
+      request.resource.data.timestamp is timestamp;
+    }
+
+    function isValidPublicMusicScaleAnalytics() {
+      let data = request.resource.data;
+      let isPublicIdentity =
+        data.organizationId == 'none' &&
+        data.userId == 'none' &&
+        data.app == 'musicscale';
+
+      let isLandingView =
+        data.eventType == 'page_view' &&
+        data.metadata.keys().hasOnly(['page']) &&
+        data.metadata.get('page', '') == 'sales_landing';
+
+      let isTrialPlanChoice =
+        data.eventType == 'trial_cta_clicked' &&
+        data.metadata.keys().hasOnly(['action', 'source']) &&
+        data.metadata.get('action', '') == 'choose_plan' &&
+        data.metadata.get('source', '') == 'sales_landing_primary';
+
+      let isDemoOpened =
+        data.eventType == 'app_usage' &&
+        data.metadata.keys().hasOnly(['action', 'source']) &&
+        data.metadata.get('action', '') == 'sales_demo_opened' &&
+        data.metadata.get('source', '') == 'sales_landing';
+
+      let isDemoStep =
+        data.eventType == 'app_usage' &&
+        data.metadata.keys().hasOnly(['action', 'step']) &&
+        data.metadata.get('action', '') == 'sales_demo_step_selected' &&
+        data.metadata.get('step', 0) is int &&
+        data.metadata.get('step', 0) >= 1 &&
+        data.metadata.get('step', 0) <= 5;
+
+      return isPublicIdentity && (
+        isLandingView ||
+        isTrialPlanChoice ||
+        isDemoOpened ||
+        isDemoStep
+      );
+    }
+
+    function isValidAuthenticatedAnalytics() {
+      return isAuthenticated() && (
+        request.resource.data.userId == 'none' ||
+        request.resource.data.userId == request.auth.uid
+      );
+    }
+
     match /analytics_events/{eventId} {
-      allow create: if true;
+      allow create: if hasValidAnalyticsEnvelope() && (
+        isValidAuthenticatedAnalytics() ||
+        isValidPublicMusicScaleAnalytics()
+      );
       allow read: if isSystemAdmin();
       allow update, delete: if false;
     }
