@@ -53,10 +53,17 @@ describe("repertoire transfer", () => {
         chordsUrl: "",
         videoUrl: "",
         tabs: [{ section: "Solo", content: "e|--3--" }],
+        metadata: {
+          importExtraColumns: {
+            "Link Áudio": "https://audio.example",
+          },
+        },
       } as any,
     ]);
 
     expect(csv).toContain('"Partes Técnicas"');
+    expect(csv).toContain('"Link Áudio"');
+    expect(csv).toContain('"https://audio.example"');
     expect(csv).toContain('e|--3--');
     expect(csv).toContain('"68"');
   });
