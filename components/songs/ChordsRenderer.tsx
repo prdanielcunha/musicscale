@@ -1,4 +1,5 @@
 import React from 'react';
+import { splitSongSectionLine } from "../../utils/songSections";
 import { motion } from 'motion/react';
 
 export const getNotesArray = () => [
@@ -57,10 +58,11 @@ export const transposeChord = (line: string, amount: number): string => {
 export const isChordLine = (line: string): boolean => {
   const trimmedLine = line.trim();
   if (trimmedLine === "") return false;
-  const noPrefixLine = trimmedLine.replace(
-    /^\[?(Intro|Coro|Refrão|Ponte|Verso|Final|Interlúdio|Instrumental)\]?\s*[:.-]?\s*/i,
-    ""
-  );
+
+  const section = splitSongSectionLine(trimmedLine);
+  if (section && !section.remainder) return false;
+
+  const noPrefixLine = section?.remainder || trimmedLine;
   const words = noPrefixLine.split(/[\s|\[\]]+/);
   if (words.length === 0 || (words.length === 1 && words[0] === ""))
     return false;
@@ -85,23 +87,33 @@ export const isChordLine = (line: string): boolean => {
 };
 
 export const parseChordsAndLyrics = (text: string) => {
-  if (!text || typeof text !== 'string') return [];
+  if (!text || typeof text !== "string") return [];
+
   return text
     .replace(/\r/g, "")
     .split("\n")
-    .map((line) => {
-      const trimmed = line.trim();
-      const sectionMatch = trimmed.match(
-        /^\[?(Intro|Coro|Refrão|Ponte|Verso|Final|Outro|Interlúdio|Instrumental|Pré-Coro|Pre-Chorus|Solo|Ministração|Ministracao|Vamp)[^\]]*\]?[:.-]?$/i
-      );
+    .flatMap((line) => {
+      const section = splitSongSectionLine(line);
 
-      if (sectionMatch && !isChordLine(line)) {
-        return { type: "section", content: line };
+      if (section) {
+        const parsed = [
+          { type: "section" as const, content: `[${section.label}]` },
+        ];
+
+        if (section.remainder) {
+          parsed.push({
+            type: isChordLine(section.remainder) ? "chord" : "lyric",
+            content: section.remainder,
+          } as any);
+        }
+
+        return parsed;
       }
-      return {
-        type: isChordLine(line) ? "chord" : "lyric",
+
+      return [{
+        type: isChordLine(line) ? "chord" as const : "lyric" as const,
         content: line,
-      };
+      }];
     });
 };
 
