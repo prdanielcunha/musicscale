@@ -424,6 +424,7 @@ export interface Scale {
   organizationId?: string;
   date: string; // ISO date string YYYY-MM-DD
   time?: string; // Optional time string HH:mm
+  timeZone?: string; // IANA time zone for the event (e.g. America/Sao_Paulo)
   arrivalDate?: string;
   arrivalTime?: string;
   rehearsalDate?: string;
@@ -448,6 +449,7 @@ export interface Scale {
 export interface MusicScalePublishPatch {
   date?: string;
   time?: string | null;
+  timeZone?: string;
   eventTypeId?: string;
   locationId?: string;
   eventNameId?: string | null;
@@ -473,6 +475,7 @@ export interface BandScale {
   organizationId?: string;
   date?: string; // ISO date string YYYY-MM-DD
   time?: string; // Optional time string HH:mm
+  timeZone?: string; // IANA time zone for the event
   observations?: string;
   assignments: BandMember[];
   eventTypeId?: string;

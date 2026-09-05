@@ -35,6 +35,7 @@ import { useLiveDirectionFollow } from "../../hooks/useLiveDirectionFollow";
 import { ScaleSongNavigation, ScaleSongNavigationMobile } from "./ScaleSongNavigation";
 import Metronome from "../common/Metronome";
 import StagePadPlayer from "./StagePadPlayer";
+import { formatPadDisplayKey } from "../../services/stagePadEngine";
 
 // --- Adaptive UI & Battery Detection (Experimental API) ---
 const useAdaptivePerformance = () => {
@@ -126,7 +127,6 @@ const EditIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 
 import {
   getNotesArray,
-  parseKey,
   getKeyDifference,
   transposeChord,
   isChordLine,
@@ -1143,7 +1143,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
             <div className="flex flex-col items-center justify-center leading-none">
               <span className="text-[9px] font-black tracking-[-0.02em]">PAD</span>
               <span className="text-[7px] font-black mt-0.5">
-                {parseKey(effectivePerformanceKey)}
+                {formatPadDisplayKey(effectivePerformanceKey)}
               </span>
             </div>
           </button>

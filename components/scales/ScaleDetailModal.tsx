@@ -817,7 +817,7 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
                    <AssignmentResponseActions
                      musicScaleId={scale.id}
                      assignments={(scale as any).eventAssignments.filter((a: any) => a.userId === user.uid && a.active !== false)}
-                     eventStart={scale.date ? new Date(`${scale.date}T${scale.time || '00:00'}:00`) : undefined}
+                     eventStart={scale.date && scale.time ? new Date(`${scale.date}T${scale.time}:00`) : undefined}
                    />
                  </section>
                )}

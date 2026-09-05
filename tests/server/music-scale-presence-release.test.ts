@@ -299,12 +299,13 @@ vi.mock('firebase-admin/firestore', () => ({
 const dbState = globalThis.dbState;
 const txStats = globalThis.txStats;
 
-function setupMockScale(orgId: string, scaleId: string, assignments: Array<Record<string, unknown>>, date = '2026-12-25', time = '19:00') {
+function setupMockScale(orgId: string, scaleId: string, assignments: Array<Record<string, unknown>>, date = '2026-12-25', time = '19:00', timeZone = 'America/Sao_Paulo') {
   dbState.set(`scales/${scaleId}`, {
     data: {
       organizationId: orgId,
       date,
       time,
+      timeZone,
       status: 'published',
       eventAssignments: assignments,
     },
@@ -411,12 +412,49 @@ describe('MusicScale Presence Tracking (MusicScaleResponseService)', () => {
       MusicScaleResponseService.respondOwn(validParams('accepted'))
     ).rejects.toEqual(
       expect.objectContaining({
-        errorCode: 'EVENT_ALREADY_STARTED'
+        errorCode: 'RESPONSE_DEADLINE_PASSED'
       })
     );
 
     // Verify database was untouched
     expect(dbState.get('scales/scale-1/responses/assign-1')).toBeUndefined();
+  });
+
+  it('5a. Allows a response 6 minutes before the event in the church timezone', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-06T21:54:00.000Z')); // 18:54 in America/Sao_Paulo
+    try {
+      const assignments = [
+        { eventAssignmentId: 'assign-1', userId: 'user-1', active: true, functionId: 'inst-1', functionName: 'Guitar', assignmentRevision: 1 }
+      ];
+      setupMockScale('org-1', 'scale-1', assignments, '2026-09-06', '19:00', 'America/Sao_Paulo');
+
+      const result = await MusicScaleResponseService.respondOwn(validParams('accepted'));
+      expect(result.success).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('5b. Blocks a response exactly 5 minutes before the event in the church timezone', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-06T21:55:00.000Z')); // 18:55 in America/Sao_Paulo
+    try {
+      const assignments = [
+        { eventAssignmentId: 'assign-1', userId: 'user-1', active: true, functionId: 'inst-1', functionName: 'Guitar', assignmentRevision: 1 }
+      ];
+      setupMockScale('org-1', 'scale-1', assignments, '2026-09-06', '19:00', 'America/Sao_Paulo');
+
+      await expect(
+        MusicScaleResponseService.respondOwn(validParams('accepted'))
+      ).rejects.toEqual(
+        expect.objectContaining({
+          errorCode: 'RESPONSE_DEADLINE_PASSED'
+        })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('6. Idempotency handling: repeating same payload returns cached receipt result', async () => {

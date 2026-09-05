@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   STAGE_PAD_KEYS,
+  formatPadDisplayKey,
   normalizePadKey,
   stagePadEngine,
   type StagePadKey,
@@ -88,7 +89,7 @@ const StagePadPlayer: React.FC<StagePadPlayerProps> = ({ songKey }) => {
           </p>
           <div className="mt-1 flex items-center gap-2">
             <span className="text-[28px] leading-none font-black tracking-[-0.04em]">
-              {selectedKey}
+              {followSongKey ? formatPadDisplayKey(songKey) : selectedKey}
             </span>
             <span
               className={`h-6 px-2.5 rounded-full border flex items-center text-[9px] font-bold uppercase tracking-[0.11em] ${

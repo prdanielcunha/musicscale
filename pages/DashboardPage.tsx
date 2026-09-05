@@ -338,7 +338,9 @@ export const DashboardPage: React.FC = () => {
     const userAssignments = ((scale as any).eventAssignments || []).filter((a: EventAssignment) => a.userId === user?.uid && a.active !== false);
     if (userAssignments.length === 0) return null;
 
-    const eventStart = new Date(`${eventSummary.date}T${eventSummary.time || '00:00'}:00`);
+    const eventStart = eventSummary.time
+      ? new Date(`${eventSummary.date}T${eventSummary.time}:00`)
+      : undefined;
 
     return (
       <AssignmentResponseActions
