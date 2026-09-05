@@ -277,6 +277,8 @@
       "noSongs": "No songs added",
       "songsInScale": "Repertoire • {{count}} songs",
       "moreSongs": "songs",
+      "additionalSong": "additional song in the schedule",
+      "additionalSongs": "additional songs in the schedule",
       "yourFunction": "You will serve as: {{function}}",
       "confirmedPresence": "Presence confirmed",
       "declinedPresence": "Cannot attend",

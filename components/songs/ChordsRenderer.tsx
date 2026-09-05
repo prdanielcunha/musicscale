@@ -54,14 +54,125 @@ export const transposeChord = (line: string, amount: number): string => {
   });
 };
 
+export const foldSectionLabel = (value: string): string =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[–—]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const cleanSectionLabel = (value: string): string =>
+  String(value || "")
+    .trim()
+    .replace(/^\[|\]$/g, "")
+    .replace(/\s*[:.]\s*$/g, "")
+    .trim();
+
+export const isRecognizedSongSection = (value: string): boolean => {
+  const folded = foldSectionLabel(cleanSectionLabel(value))
+    .replace(/^tab(?:latura)?\s*[-:]\s*/, "")
+    .replace(/\s*\((?:\d+\s*x|x\s*\d+)\)\s*$/, "")
+    .replace(/\s+(?:x\s*)?\d+\s*x\s*$/, "")
+    .trim();
+
+  if (!folded) return false;
+
+  const patterns = [
+    /^(?:intro|introducao|introduccion|introduction)(?:\s+\d+)?$/,
+    /^(?:inicio|abertura|opening|start|comienzo|apertura)$/,
+    /^(?:parte|part)\s+(?:inicial|initial)$/,
+    /^(?:primeira|segunda|terceira|quarta|quinta|primera|segunda|tercera|cuarta|quinta)\s+(?:parte|estrofe|estrofa)$/,
+    /^(?:1|1a|1ª|1o|1º|2|2a|2ª|2o|2º|3|3a|3ª|3o|3º|4|4a|4ª|4o|4º|5|5a|5ª|5o|5º)\s+(?:parte|verso|verse|estrofe|estrofa)$/,
+    /^parte\s+(?:\d+|[a-e])$/,
+    /^part\s+(?:\d+|[a-e])$/,
+    /^(?:v|v\.|verso|verse)\s*\d+$/,
+    /^(?:(?:primeiro|segundo|terceiro|cuarto|quinto|primer|segundo|tercer|cuarto|quinto)\s+)?(?:verso|verse|estrofe|estrofa)(?:\s+\d+)?$/,
+    /^(?:pre[- ]?refrao|pre[- ]?coro|pre[- ]?chorus|prechorus)(?:\s+\d+)?$/,
+    /^(?:pos[- ]?refrao|post[- ]?chorus|postchorus)(?:\s+\d+)?$/,
+    /^(?:refrao|coro|chorus)(?:\s+\d+)?$/,
+    /^(?:ponte|puente|bridge)(?:\s+\d+)?$/,
+    /^(?:instrumental|interludio|interlude|turnaround)(?:\s+\d+)?$/,
+    /^(?:solo|riff)(?:\s+(?:intro|introducao|introduccion|guitarra|violao|baixo|teclado|instrumental))?(?:\s+\d+)?$/,
+    /^(?:ministracao|ministracion|espontaneo|spontaneous|vamp|tag|break)(?:\s+\d+)?$/,
+    /^(?:final|fim|encerramento|cierre|outro|ending|coda)(?:\s+\d+)?$/,
+  ];
+
+  return patterns.some((pattern) => pattern.test(folded));
+};
+
+interface SectionPrefixMatch {
+  label: string;
+  remainder: string;
+}
+
+export const splitSongSectionPrefix = (line: string): SectionPrefixMatch | null => {
+  const trimmed = String(line || "").trim();
+  if (!trimmed) return null;
+
+  const bracketed = trimmed.match(/^\[([^\]]+)\]\s*(.*)$/);
+  if (bracketed && isRecognizedSongSection(bracketed[1])) {
+    return {
+      label: cleanSectionLabel(bracketed[1]),
+      remainder: bracketed[2].trim(),
+    };
+  }
+
+  const wholeLabel = trimmed.replace(/\s*[:.]\s*$/, "");
+  if (isRecognizedSongSection(wholeLabel)) {
+    return {
+      label: cleanSectionLabel(wholeLabel),
+      remainder: "",
+    };
+  }
+
+  const colonSeparated = trimmed.match(/^(.{1,48}?)\s*[:]\s*(.+)$/);
+  if (
+    colonSeparated &&
+    isRecognizedSongSection(colonSeparated[1]) &&
+    colonSeparated[2].trim()
+  ) {
+    return {
+      label: cleanSectionLabel(colonSeparated[1]),
+      remainder: colonSeparated[2].trim(),
+    };
+  }
+
+  // Preserve legacy chord sources such as "Intro C G Am" while still
+  // refusing normal lyric sentences. We only split an undelimited prefix
+  // when the remainder is independently a chord line.
+  const parts = trimmed.split(/\s+/);
+  const maxPrefixWords = Math.min(parts.length - 1, 5);
+  for (let prefixSize = maxPrefixWords; prefixSize >= 1; prefixSize -= 1) {
+    const prefix = parts.slice(0, prefixSize).join(" ");
+    const remainder = parts.slice(prefixSize).join(" ");
+    if (
+      remainder &&
+      isRecognizedSongSection(prefix) &&
+      isChordLine(remainder)
+    ) {
+      return {
+        label: cleanSectionLabel(prefix),
+        remainder,
+      };
+    }
+  }
+
+  return null;
+};
+
 export const isChordLine = (line: string): boolean => {
   const trimmedLine = line.trim();
   if (trimmedLine === "") return false;
-  const noPrefixLine = trimmedLine.replace(
-    /^\[?(Intro|Coro|Refrão|Ponte|Verso|Final|Interlúdio|Instrumental)\]?\s*[:.-]?\s*/i,
-    ""
-  );
-  const words = noPrefixLine.split(/[\s|\[\]]+/);
+
+  const sectionPrefix = splitSongSectionPrefix(trimmedLine);
+  const chordCandidate =
+    sectionPrefix && sectionPrefix.remainder
+      ? sectionPrefix.remainder
+      : trimmedLine;
+
+  const words = chordCandidate.split(/[\s|\[\]]+/);
   if (words.length === 0 || (words.length === 1 && words[0] === ""))
     return false;
 
@@ -84,25 +195,117 @@ export const isChordLine = (line: string): boolean => {
   return true;
 };
 
-export const parseChordsAndLyrics = (text: string) => {
-  if (!text || typeof text !== 'string') return [];
-  return text
+export type ParsedSongLine = {
+  type: "section" | "chord" | "lyric";
+  content: string;
+};
+
+export const parseChordsAndLyrics = (text: string): ParsedSongLine[] => {
+  if (!text || typeof text !== "string") return [];
+
+  const parsed: ParsedSongLine[] = [];
+  const sourceLines = text.replace(/\r/g, "").split("\n");
+
+  sourceLines.forEach((line) => {
+    const section = splitSongSectionPrefix(line);
+
+    if (section) {
+      parsed.push({
+        type: "section",
+        content: `[${section.label}]`,
+      });
+
+      if (section.remainder) {
+        parsed.push({
+          type: isChordLine(section.remainder) ? "chord" : "lyric",
+          content: section.remainder,
+        });
+      }
+      return;
+    }
+
+    parsed.push({
+      type: isChordLine(line) ? "chord" : "lyric",
+      content: line,
+    });
+  });
+
+  return parsed;
+};
+
+export const parseLyricsAndSections = (text: string): ParsedSongLine[] => {
+  if (!text || typeof text !== "string") return [];
+
+  const parsed: ParsedSongLine[] = [];
+  text
     .replace(/\r/g, "")
     .split("\n")
-    .map((line) => {
-      const trimmed = line.trim();
-      const sectionMatch = trimmed.match(
-        /^\[?(Intro|Coro|Refrão|Ponte|Verso|Final|Outro|Interlúdio|Instrumental|Pré-Coro|Pre-Chorus|Solo|Ministração|Ministracao|Vamp)[^\]]*\]?[:.-]?$/i
-      );
-
-      if (sectionMatch && !isChordLine(line)) {
-        return { type: "section", content: line };
+    .forEach((line) => {
+      const section = splitSongSectionPrefix(line);
+      if (section) {
+        parsed.push({
+          type: "section",
+          content: `[${section.label}]`,
+        });
+        if (section.remainder) {
+          parsed.push({ type: "lyric", content: section.remainder });
+        }
+      } else {
+        parsed.push({ type: "lyric", content: line });
       }
-      return {
-        type: isChordLine(line) ? "chord" : "lyric",
-        content: line,
-      };
     });
+
+  return parsed;
+};
+
+export interface SongSectionNavigatorItem {
+  index: number;
+  label: string;
+  displayLabel: string;
+  occurrence: number;
+  totalOccurrences: number;
+}
+
+export const buildSongSectionNavigatorItems = (
+  parsedContent: ParsedSongLine[],
+): SongSectionNavigatorItem[] => {
+  const sections = parsedContent
+    .map((line, index) =>
+      line.type === "section"
+        ? {
+            index,
+            label: cleanSectionLabel(line.content),
+          }
+        : null,
+    )
+    .filter(
+      (section): section is { index: number; label: string } =>
+        !!section && !!section.label,
+    );
+
+  const totals = new Map<string, number>();
+  sections.forEach((section) => {
+    const key = foldSectionLabel(section.label);
+    totals.set(key, (totals.get(key) || 0) + 1);
+  });
+
+  const seen = new Map<string, number>();
+  return sections.map((section) => {
+    const key = foldSectionLabel(section.label);
+    const occurrence = (seen.get(key) || 0) + 1;
+    seen.set(key, occurrence);
+    const totalOccurrences = totals.get(key) || 1;
+
+    return {
+      ...section,
+      occurrence,
+      totalOccurrences,
+      displayLabel:
+        totalOccurrences > 1
+          ? `${section.label} ${occurrence}`
+          : section.label,
+    };
+  });
 };
 
 export const lightThemeColors = {

@@ -36,4 +36,13 @@ describe("Stage native pad", () => {
     expect(viewer).toContain("<Metronome");
     expect(viewer).toContain("setIsAutoScrolling");
   });
+
+  it("follows the effective Performance key instead of the raw song metadata key", () => {
+    expect(viewer).toContain("basePerformanceKey");
+    expect(viewer).toContain("song?.key || song?.selectedKey || song?.originalKey");
+    expect(viewer).toContain("effectivePerformanceKey");
+    expect(viewer).toContain("<StagePadPlayer songKey={effectivePerformanceKey}");
+    expect(viewer).toContain("parseKey(effectivePerformanceKey)");
+    expect(viewer).not.toContain("<StagePadPlayer songKey={song.key}");
+  });
 });

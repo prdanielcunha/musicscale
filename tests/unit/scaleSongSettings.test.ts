@@ -17,6 +17,36 @@ describe('scaleSongSettings logic', () => {
     expect(getEffectiveKey(song, undefined)).toBe('E');
   });
 
+  it('3a. key persistido prevalece sobre selectedKey legado divergente', () => {
+    const song = {
+      id: 's1',
+      title: 'Galileu',
+      key: 'C',
+      selectedKey: 'Am',
+      originalKey: 'C',
+      chords: '[Intro] C Am F7M',
+    } as any;
+
+    expect(getEffectiveKey(song, undefined)).toBe('C');
+  });
+
+  it('3b. ajuste local transpõe a partir do key canônico quando selectedKey legado está divergente', () => {
+    const song = {
+      id: 's1',
+      title: 'Galileu',
+      key: 'C',
+      selectedKey: 'Am',
+      originalKey: 'C',
+      chords: '[Intro] C G Am F',
+    } as any;
+
+    const adjusted = applyScaleSongSettings(song, { key: 'D' });
+    expect(adjusted.key).toBe('D');
+    expect(adjusted.selectedKey).toBe('D');
+    expect(adjusted.chords).toContain('[Intro]');
+    expect(adjusted.chords).toContain('D A Bm G');
+  });
+
   it('4. null permanece null (no setting)', () => {
     const result = normalizeScaleSongSettings(['s1'], { s1: { key: null } as any });
     expect(result['s1'].key).toBeNull();

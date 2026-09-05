@@ -12,4 +12,9 @@ describe('SongForm technical parts preservation', () => {
     expect(source).toContain('...songToEdit,');
     expect(source).toContain('tabs: songToEdit.tabs || []');
   });
+
+  it('keeps selectedKey synchronized when the editable key is saved', () => {
+    const occurrences = source.match(/selectedKey:\s*formData\.key/g) || [];
+    expect(occurrences.length).toBeGreaterThanOrEqual(2);
+  });
 });
