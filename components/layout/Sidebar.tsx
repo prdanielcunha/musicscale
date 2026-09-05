@@ -494,7 +494,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
 
   return (
     <div 
-      className="h-full flex flex-col bg-[#0a0a0c]/80 supports-[backdrop-filter]:bg-[#0a0a0c]/60 backdrop-blur-[32px] saturate-[180%] border border-white/[0.06] shadow-[0_8px_32px_rgba(0,0,0,0.4)] pt-2 md:pt-4 relative overflow-hidden rounded-[20px]"
+      className="h-full flex flex-col bg-[#0a0a0c]/88 supports-[backdrop-filter]:bg-[#0a0a0c]/72 backdrop-blur-xl md:backdrop-blur-[32px] saturate-[160%] md:saturate-[180%] border border-white/[0.06] shadow-[0_8px_32px_rgba(0,0,0,0.4)] pt-2 md:pt-4 relative overflow-hidden rounded-[20px]"
     >
       <style>{`
         .sidebar-scrollbar::-webkit-scrollbar {
