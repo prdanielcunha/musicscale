@@ -6,6 +6,7 @@ on:
       - production
     paths:
       - 'firestore.rules'
+      - 'package.json'
       - '.github/workflows/deploy-firestore-rules.yml'
   workflow_dispatch:
     inputs:
