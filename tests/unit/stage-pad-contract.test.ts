@@ -45,7 +45,7 @@ describe("Stage native pad", () => {
     expect(viewer).toContain("song?.key || song?.selectedKey || song?.originalKey");
     expect(viewer).toContain("effectivePerformanceKey");
     expect(viewer).toContain("<StagePadPlayer songKey={effectivePerformanceKey}");
-    expect(viewer).toContain("parseKey(effectivePerformanceKey)");
+    expect(viewer).toContain("formatPadDisplayKey(effectivePerformanceKey)");
     expect(viewer).not.toContain("<StagePadPlayer songKey={song.key}");
   });
 });
