@@ -324,12 +324,15 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
       <div className="pointer-events-auto z-[110] relative rounded-full">
         <button
           ref={triggerRef}
+          onPointerDown={(event) => {
+            if (event.pointerType === "touch") setIsOpen(true);
+          }}
           onClick={() => setIsOpen(true)}
           aria-expanded={isOpen}
           aria-haspopup="dialog"
           aria-controls="global-create-dialog"
           aria-label={t('globalCreate.trigger', 'Criar')}
-          className="flex items-center h-11 w-auto px-4 rounded-full bg-[linear-gradient(180deg,rgba(49,46,129,0.90)_0%,rgba(30,27,75,0.90)_100%)] backdrop-blur-xl text-white/90 shadow-[0_6px_16px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.08)] active:scale-[0.98] active:bg-[linear-gradient(180deg,rgba(55,48,163,0.90)_0%,rgba(49,46,129,0.90)_100%)] transition-all duration-300 ease-out border border-[#a5b4fc]/20 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
+          className="touch-manipulation flex items-center h-11 w-auto px-4 rounded-full bg-[linear-gradient(180deg,rgba(49,46,129,0.90)_0%,rgba(30,27,75,0.90)_100%)] backdrop-blur-xl text-white/90 shadow-[0_6px_16px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.08)] active:scale-[0.98] active:bg-[linear-gradient(180deg,rgba(55,48,163,0.90)_0%,rgba(49,46,129,0.90)_100%)] transition-all duration-150 ease-out border border-[#a5b4fc]/20 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
         >
           <Plus className="w-4 h-4 mr-1.5 text-[#a5b4fc]" />
           <span className="text-[13px] font-semibold">{t('globalCreate.trigger', 'Criar')}</span>
@@ -355,10 +358,10 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="global-create-title"
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                initial={{ opacity: 0, scale: 0.97, y: 8 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                transition={shouldReduceMotion ? { duration: 0 } : { type: "spring", damping: 25, stiffness: 300 }}
+                exit={{ opacity: 0, scale: 0.98, y: 6 }}
+                transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
                 style={{ transformOrigin: 'bottom right' }}
                 className="relative w-full max-w-[400px] bg-white dark:bg-[rgba(17,17,21,0.94)] dark:backdrop-blur-[28px] dark:saturate-[150%] rounded-[28px] border border-slate-200 dark:border-white/[0.09] shadow-[0_24px_64px_rgba(0,0,0,0.56),inset_0_1px_0_rgba(255,255,255,0.07)] flex flex-col overflow-hidden max-h-[min(70dvh,540px)]"
               >
