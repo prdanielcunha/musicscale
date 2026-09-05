@@ -96,15 +96,18 @@ export const parseChordsAndLyrics = (text: string) => {
       const section = splitSongSectionLine(line);
 
       if (section) {
-        const parsed = [
-          { type: "section" as const, content: `[${section.label}]` },
+        const parsed: Array<{
+          type: "section" | "chord" | "lyric";
+          content: string;
+        }> = [
+          { type: "section", content: `[${section.label}]` },
         ];
 
         if (section.remainder) {
           parsed.push({
             type: isChordLine(section.remainder) ? "chord" : "lyric",
             content: section.remainder,
-          } as any);
+          });
         }
 
         return parsed;
