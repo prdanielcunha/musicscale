@@ -278,6 +278,8 @@
       "noSongs": "Nenhuma música adicionada",
       "songsInScale": "Repertório • {{count}} músicas",
       "moreSongs": "músicas",
+      "songsShort": "músicas",
+      "songsCountLabel": "{{count}} músicas no repertório",
       "yourFunction": "Você servirá como: {{function}}",
       "confirmedPresence": "Presença confirmada",
       "declinedPresence": "Não poderei participar",
