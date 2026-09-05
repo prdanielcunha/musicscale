@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import type { PopulatedSong } from "../../types";
+import { splitSongSectionLine } from "../../utils/songSections";
 import { 
   CopyIcon, X, Settings2, Play, Pause, 
   AlignLeft, AlignCenter, Type, Minus, Plus, Maximize, Minimize 
@@ -185,6 +186,29 @@ const LyricsViewerModal: React.FC<LyricsViewerModalProps> = ({
     }
   };
 
+  const parsedLyrics = useMemo(() => {
+    if (!song?.lyrics) return [];
+
+    return song.lyrics.replace(/\r/g, "").split("\n").flatMap((line, index) => {
+      const section = splitSongSectionLine(line);
+      if (!section) {
+        return [{ type: "lyric" as const, content: line, key: `lyric-${index}` }];
+      }
+
+      const result: Array<{ type: "section" | "lyric"; content: string; key: string }> = [
+        { type: "section", content: section.label, key: `section-${index}` },
+      ];
+      if (section.remainder) {
+        result.push({
+          type: "lyric",
+          content: section.remainder,
+          key: `lyric-${index}-remainder`,
+        });
+      }
+      return result;
+    });
+  }, [song?.lyrics]);
+
   if (!isOpen || !song) return null;
 
   const fontSizes = {
@@ -348,7 +372,24 @@ const LyricsViewerModal: React.FC<LyricsViewerModalProps> = ({
                 className={`whitespace-pre-wrap font-sans text-white/95 font-semibold tracking-tight ${fontSizes[settings.lineSpacing]}`}
                 style={{ fontSize: `${settings.fontSize}px`, textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
               >
-                {song.lyrics || <span className="italic text-white/50">Nenhuma letra cadastrada para esta música.</span>}
+                {parsedLyrics.length > 0 ? (
+                  parsedLyrics.map((line) =>
+                    line.type === "section" ? (
+                      <div
+                        key={line.key}
+                        className="w-fit max-w-full mt-8 mb-4 px-3 py-1.5 rounded-xl border border-[#60a5fa]/20 bg-[#60a5fa]/[0.08] text-[#60a5fa] text-[0.72em] font-black uppercase tracking-[0.11em]"
+                      >
+                        {line.content}
+                      </div>
+                    ) : (
+                      <div key={line.key} className={line.content.trim() ? "" : "h-[0.9em]"}>
+                        {line.content || " "}
+                      </div>
+                    ),
+                  )
+                ) : (
+                  <span className="italic text-white/50">Nenhuma letra cadastrada para esta música.</span>
+                )}
               </div>
             </div>
           </div>
