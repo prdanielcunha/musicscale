@@ -75,12 +75,31 @@ class EntitlementsService {
       ? (rawPlan as MusicScalePlan)
       : 'starter';
 
-    // Status mapping - Only allow active, trialing, or canceled (for grace period)
+    // Preserve billing lifecycle states so the access gate can distinguish
+    // payment failures, expiry, cancellation grace and ordinary inactivity.
+    // The Hub/Stripe layer may emit a few equivalent aliases; normalize them
+    // without silently turning revenue-critical states into generic "inactive".
     let status = String(raw?.status || 'inactive').toLowerCase().trim();
-    if (!['active', 'trialing', 'canceled'].includes(status)) {
+    if (status === 'trial') status = 'trialing';
+    if (status === 'cancelled') status = 'canceled';
+    if (status === 'unpaid' || status === 'incomplete' || status === 'paused') status = 'past_due';
+    if (status === 'incomplete_expired') status = 'expired';
+
+    const allowedStatuses = [
+      'active',
+      'trialing',
+      'past_due',
+      'canceled',
+      'expired',
+      'inactive',
+      'none',
+    ] as const;
+
+    if (!(allowedStatuses as readonly string[]).includes(status)) {
       status = 'inactive';
     }
-    const finalStatus = status as "active" | "past_due" | "canceled" | "trialing" | "inactive" | "expired" | "none";
+
+    const finalStatus = status as MusicScaleEntitlements['status'];
 
     // Merge features with backend overrides
     const baseFeatures = PLAN_FEATURES[plan];
