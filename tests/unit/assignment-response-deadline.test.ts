@@ -30,3 +30,4 @@ describe("MusicScale response deadline", () => {
   it("does not invent a cutoff when the event start is unknown", () => {
     expect(isMusicScaleResponseDeadlinePassed(undefined)).toBe(false);
   });
+});
