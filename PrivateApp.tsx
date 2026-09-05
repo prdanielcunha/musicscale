@@ -170,13 +170,13 @@ const AppLayout: React.FC = () => {
             {/* Mobile Sidebar Overlay */}
             {!isSidebarCollapsed && (
                 <div 
-                    className="md:hidden fixed inset-0 z-[90] bg-black/60 backdrop-blur-md transition-opacity duration-300"
+                    className="md:hidden fixed inset-0 z-[90] bg-black/60 transition-opacity duration-150 touch-manipulation"
                     onClick={() => setSidebarCollapsed(true)}
                 />
             )}
 
             {/* Sidebar Container */}
-            <div className={`fixed inset-y-0 left-0 z-[100] transform md:relative md:transform-none md:block py-4 pl-4 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isSidebarCollapsed ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
+            <div className={`fixed inset-y-0 left-0 z-[100] transform md:relative md:transform-none md:block py-4 pl-4 transition-transform duration-150 md:duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${isSidebarCollapsed ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
                 <Sidebar 
                     isCollapsed={isSidebarCollapsed}
                     onToggle={handleSidebarToggle}
