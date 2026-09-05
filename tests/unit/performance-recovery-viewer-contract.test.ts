@@ -43,7 +43,7 @@ describe('P3.3 stage recovery viewer contract', () => {
       /savePerformanceState\(\{[\s\S]*?organizationId,[\s\S]*?songId,[\s\S]*?scaleId,[\s\S]*?scrollPosition:/,
     );
     expect(viewer.sourceText).toContain(
-      '[activeSection, effectiveOrganizationId, song?.id, scaleContext?.scaleId]',
+      '[activeSectionIndex, effectiveOrganizationId, song?.id, scaleContext?.scaleId]',
     );
   });
 

@@ -221,6 +221,25 @@ describe('Home Experience Domain Logic', () => {
       const summaries = buildHomeEventSummaries(musicScales, [], undefined, today);
       expect(summaries[0].teamCount).toBe(2);
     });
+
+    it('32. preserva a quantidade declarada da escala mesmo se uma música ainda não foi enriquecida', () => {
+      const musicScales: PopulatedScaleWithAssignmentsAndStatus[] = [
+        {
+          id: 'scale-1',
+          date: '2026-10-12',
+          songIds: ['song-1', 'song-2', 'song-3', 'song-4'],
+          songs: [
+            { id: 'song-1', title: 'Um' },
+            { id: 'song-2', title: 'Dois' },
+            { id: 'song-3', title: 'Três' },
+          ],
+        } as any,
+      ];
+
+      const [summary] = buildHomeEventSummaries(musicScales, [], undefined, today);
+      expect(summary.songCount).toBe(4);
+      expect(summary.songs).toHaveLength(3);
+    });
   });
 
   describe('selectMostRecentDraft', () => {

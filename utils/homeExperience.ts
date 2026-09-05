@@ -284,7 +284,13 @@ export function buildHomeEventSummaries(
 
     const title = scale.eventName?.name || scale.eventType?.name || '';
     const locationName = scale.location?.name;
-    const songCount = scale.songs ? scale.songs.length : 0;
+    const declaredSongCount = Array.isArray((scale as any).songIds)
+      ? (scale as any).songIds.length
+      : 0;
+    const songCount = Math.max(
+      declaredSongCount,
+      scale.songs ? scale.songs.length : 0,
+    );
 
     let teamCount = 0;
     let isUserAssigned = false;
@@ -480,7 +486,10 @@ function rawToSummary(
       date: raw.date || '',
       time: raw.time,
       locationName,
-      songCount: raw.songs ? raw.songs.length : 0,
+      songCount: Math.max(
+        Array.isArray((raw as any).songIds) ? (raw as any).songIds.length : 0,
+        raw.songs ? raw.songs.length : 0,
+      ),
       teamCount,
       status: raw.status,
       userFunctionNames,

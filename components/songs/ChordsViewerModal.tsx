@@ -131,6 +131,7 @@ import {
   transposeChord,
   isChordLine,
   parseChordsAndLyrics,
+  buildSongSectionNavigatorItems,
   lightThemeColors,
   darkThemeColors
 } from "./ChordsRenderer";
@@ -263,6 +264,10 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     chordsPalette[settings.chordsColorIndex ?? 0] || chordsPalette[0];
 
   const [transpose, setTranspose] = useState(0);
+  const basePerformanceKey = useMemo(
+    () => song?.key || song?.selectedKey || song?.originalKey || "C",
+    [song?.key, song?.selectedKey, song?.originalKey],
+  );
   const { liveSession, isLeader, changeKeyOverride } = useLiveWorshipSession(
     scaleContext?.scaleId,
   );
@@ -271,12 +276,12 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   useEffect(() => {
     if (song && liveSession?.keyOverrides?.[song.id]) {
       const targetKey = liveSession.keyOverrides[song.id];
-      const diff = getKeyDifference(song.key, targetKey);
+      const diff = getKeyDifference(basePerformanceKey, targetKey);
       setTranspose(diff);
     } else {
       setTranspose(0);
     }
-  }, [song, liveSession?.keyOverrides]);
+  }, [song?.id, basePerformanceKey, liveSession?.keyOverrides]);
 
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const [speedLevel, setSpeedLevel] = useState(3);
@@ -643,7 +648,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       document.removeEventListener("visibilitychange", resetAutoScrollClock);
   }, [isOpen]);
 
-  const [activeSection, setActiveSection] = useState<string>("");
+  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(null);
   const sectionRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
 
   const saveScrollTimeoutRef = useRef<number | null>(null);
@@ -672,23 +677,22 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       }, 1000);
     }
 
-    let closestSection = "";
+    let closestSectionIndex: number | null = null;
     const offset = 150;
 
-    const keys = Array.from(sectionRefs.current.keys()).sort(
-      (a: number, b: number) => a - b,
-    );
+    const keys = Array.from(sectionRefs.current.keys()) as number[];
+    keys.sort((a, b) => a - b);
     for (const key of keys) {
       const el = sectionRefs.current.get(key);
       if (el && el.offsetTop <= scrollPos + offset) {
-        closestSection = el.innerText;
+        closestSectionIndex = key;
       }
     }
 
-    if (closestSection && closestSection !== activeSection) {
-      setActiveSection(closestSection);
+    if (closestSectionIndex !== activeSectionIndex) {
+      setActiveSectionIndex(closestSectionIndex);
     }
-  }, [activeSection, effectiveOrganizationId, song?.id, scaleContext?.scaleId]);
+  }, [activeSectionIndex, effectiveOrganizationId, song?.id, scaleContext?.scaleId]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -758,6 +762,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     setEditedChords("");
     setIsUIVisible(true);
     setActiveTab("none");
+    setActiveSectionIndex(null);
     void restoreState();
 
     return () => {
@@ -899,22 +904,24 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     return parsedLines;
   }, [song, transpose]);
 
+  const effectivePerformanceKey = useMemo(
+    () => transposeChord(basePerformanceKey, transpose),
+    [basePerformanceKey, transpose],
+  );
+
   const sectionNavigatorItems = useMemo(
-    () =>
-      parsedContent
-        .map((line, index) =>
-          line.type === "section"
-            ? {
-                index,
-                label: line.content.replace(/^\[?|\]?:?$/g, "").trim(),
-              }
-            : null,
-        )
-        .filter(
-          (section): section is { index: number; label: string } =>
-            !!section && !!section.label,
-        ),
+    () => buildSongSectionNavigatorItems(parsedContent),
     [parsedContent],
+  );
+
+  const activeSectionItem = useMemo(
+    () =>
+      activeSectionIndex === null
+        ? null
+        : sectionNavigatorItems.find(
+            (section) => section.index === activeSectionIndex,
+          ) || null,
+    [activeSectionIndex, sectionNavigatorItems],
   );
 
   const scrollToSectionIndex = useCallback((sectionIndex: number) => {
@@ -1058,11 +1065,11 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
             <p className="text-[12px] md:text-[13px] font-medium text-white/60 truncate tracking-wide">
               {song.artist}
             </p>
-            {activeSection && (
+            {activeSectionItem && (
               <>
                 <span className="text-white/20 text-[10px]">•</span>
                 <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.15em] text-[#34d399] bg-[#34d399]/10 px-2 py-0.5 rounded-full border border-[#34d399]/20 hidden sm:block">
-                  {activeSection.replace(/^\[?|\]?:?$/g, "")}
+                  {activeSectionItem.displayLabel}
                 </p>
               </>
             )}
@@ -1136,7 +1143,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
             <div className="flex flex-col items-center justify-center leading-none">
               <span className="text-[9px] font-black tracking-[-0.02em]">PAD</span>
               <span className="text-[7px] font-black mt-0.5">
-                {song ? parseKey(song.key || "C") : "C"}
+                {parseKey(effectivePerformanceKey)}
               </span>
             </div>
           </button>
@@ -1319,8 +1326,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
           <div className="mx-auto max-w-4xl px-3 md:px-6 pt-2">
             <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto hide-scrollbar rounded-full border border-white/[0.07] bg-[#0A0A0C]/[0.82] backdrop-blur-2xl p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.24)]">
               {sectionNavigatorItems.map((section) => {
-                const normalizedActive = activeSection.replace(/^\[?|\]?:?$/g, "").trim().toLowerCase();
-                const isActive = normalizedActive === section.label.toLowerCase();
+                const isActive = activeSectionIndex === section.index;
                 return (
                   <button
                     key={`${section.index}-${section.label}`}
@@ -1335,7 +1341,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                         : "text-white/45 hover:text-white/80 hover:bg-white/[0.055]"
                     }`}
                   >
-                    {section.label}
+                    {section.displayLabel}
                   </button>
                 );
               })}
@@ -1547,7 +1553,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
             className="fixed left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-28 md:bottom-32 z-[145] md:w-[520px] rounded-[24px] border border-violet-200/[0.09] bg-[#0D0D11]/[0.95] backdrop-blur-3xl shadow-[0_24px_80px_rgba(0,0,0,0.52)] p-4 md:p-5"
             onClick={(event) => event.stopPropagation()}
           >
-            <StagePadPlayer songKey={song.key} />
+            <StagePadPlayer songKey={effectivePerformanceKey} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -1580,7 +1586,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                   const newT = transpose - 1;
                   setTranspose(newT);
                   if (song && isLeader) {
-                    changeKeyOverride(song.id, transposeChord(song.key, newT));
+                    changeKeyOverride(song.id, transposeChord(basePerformanceKey, newT));
                   }
                 }}
               >
@@ -1591,7 +1597,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                   Tom
                 </span>
                 <span className="text-[15px] font-bold text-white tracking-wider leading-none" data-testid="chords-viewer-transposed-key">
-                  {song ? transposeChord(song.key, transpose) : ""}
+                  {song ? effectivePerformanceKey : ""}
                 </span>
               </div>
               <button
@@ -1601,7 +1607,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                   const newT = transpose + 1;
                   setTranspose(newT);
                   if (song && isLeader) {
-                    changeKeyOverride(song.id, transposeChord(song.key, newT));
+                    changeKeyOverride(song.id, transposeChord(basePerformanceKey, newT));
                   }
                 }}
               >

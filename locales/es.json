@@ -277,6 +277,8 @@
       "noSongs": "Ninguna canción añadida",
       "songsInScale": "Repertorio • {{count}} canciones",
       "moreSongs": "canciones",
+      "additionalSong": "canción adicional en la escala",
+      "additionalSongs": "canciones adicionales en la escala",
       "yourFunction": "Servirás como: {{function}}",
       "confirmedPresence": "Presencia confirmada",
       "declinedPresence": "No podré asistir",

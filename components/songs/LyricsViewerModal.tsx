@@ -1,7 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import type { PopulatedSong } from "../../types";
+import {
+  parseLyricsAndSections,
+  buildSongSectionNavigatorItems,
+} from "./ChordsRenderer";
 import { 
   CopyIcon, X, Settings2, Play, Pause, 
   AlignLeft, AlignCenter, Type, Minus, Plus, Maximize, Minimize 
@@ -72,6 +76,16 @@ const LyricsViewerModal: React.FC<LyricsViewerModalProps> = ({
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(1.5);
   const contentRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
+  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(null);
+  const parsedLyrics = useMemo(
+    () => parseLyricsAndSections(song?.lyrics || ""),
+    [song?.lyrics],
+  );
+  const sectionNavigatorItems = useMemo(
+    () => buildSongSectionNavigatorItems(parsedLyrics),
+    [parsedLyrics],
+  );
   const animationFrameRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number | null>(null);
   const { isFullscreen, toggleFullscreen } = useFullscreen();
@@ -83,6 +97,7 @@ const LyricsViewerModal: React.FC<LyricsViewerModalProps> = ({
       document.body.style.overflow = "unset";
       setIsAutoScrolling(false);
       setShowSettings(false);
+      setActiveSectionIndex(null);
     }
     return () => {
       document.body.style.overflow = "unset";
@@ -99,6 +114,37 @@ const LyricsViewerModal: React.FC<LyricsViewerModalProps> = ({
   ) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
+
+  const updateActiveSection = useCallback(() => {
+    const container = contentRef.current;
+    if (!container) return;
+
+    const scrollPos = container.scrollTop;
+    const offset = 150;
+    let closest: number | null = null;
+
+    const keys = Array.from(sectionRefs.current.keys()) as number[];
+    keys.sort((a, b) => a - b);
+    for (const key of keys) {
+      const element = sectionRefs.current.get(key);
+      if (element && element.offsetTop <= scrollPos + offset) {
+        closest = key;
+      }
+    }
+
+    setActiveSectionIndex((current) => (current === closest ? current : closest));
+  }, []);
+
+  const scrollToSection = useCallback((sectionIndex: number) => {
+    const container = contentRef.current;
+    const target = sectionRefs.current.get(sectionIndex);
+    if (!container || !target) return;
+
+    setIsAutoScrolling(false);
+    const top = Math.max(0, target.offsetTop - 132);
+    container.scrollTo({ top, behavior: "smooth" });
+    setActiveSectionIndex(sectionIndex);
+  }, []);
 
   const handleCopy = () => {
     if (song?.lyrics) {
@@ -253,6 +299,29 @@ const LyricsViewerModal: React.FC<LyricsViewerModalProps> = ({
             </div>
           </motion.div>
 
+          {sectionNavigatorItems.length > 1 && (
+            <div className="absolute top-20 md:top-24 inset-x-0 z-[19] pointer-events-none">
+              <div className="mx-auto max-w-4xl px-3 sm:px-6 pt-2">
+                <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto hide-scrollbar rounded-full border border-white/[0.07] bg-[#0A0A0C]/[0.94] p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.28)]">
+                  {sectionNavigatorItems.map((section) => (
+                    <button
+                      key={`${section.index}-${section.displayLabel}`}
+                      type="button"
+                      onClick={() => scrollToSection(section.index)}
+                      className={`shrink-0 h-8 px-3.5 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.11em] transition-all active:scale-[0.97] ${
+                        activeSectionIndex === section.index
+                          ? "bg-white text-black"
+                          : "text-white/45 hover:text-white/80 hover:bg-white/[0.055]"
+                      }`}
+                    >
+                      {section.displayLabel}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Settings Popover/Drawer */}
           <AnimatePresence>
             {showSettings && (
@@ -340,7 +409,8 @@ const LyricsViewerModal: React.FC<LyricsViewerModalProps> = ({
           {/* Body/Content */}
           <div 
             ref={contentRef}
-            className={`flex-1 overflow-y-auto overscroll-y-contain px-4 sm:px-8 pt-24 sm:pt-32 pb-[50vh] z-0 ${settings.align === 'center' ? 'text-center' : 'text-left'}`}
+            className={`flex-1 overflow-y-auto overscroll-y-contain px-4 sm:px-8 ${sectionNavigatorItems.length > 1 ? "pt-36 sm:pt-40" : "pt-24 sm:pt-32"} pb-[50vh] z-0 ${settings.align === 'center' ? 'text-center' : 'text-left'}`}
+            onScroll={updateActiveSection}
             onClick={() => showSettings && setShowSettings(false)}
           >
             <div className={`max-w-4xl mx-auto transition-all duration-300`}>
@@ -348,7 +418,33 @@ const LyricsViewerModal: React.FC<LyricsViewerModalProps> = ({
                 className={`whitespace-pre-wrap font-sans text-white/95 font-semibold tracking-tight ${fontSizes[settings.lineSpacing]}`}
                 style={{ fontSize: `${settings.fontSize}px`, textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
               >
-                {song.lyrics || <span className="italic text-white/50">Nenhuma letra cadastrada para esta música.</span>}
+                {parsedLyrics.length > 0 ? (
+                  parsedLyrics.map((line, index) =>
+                    line.type === "section" ? (
+                      <div
+                        key={`section-${index}`}
+                        ref={(element) => {
+                          if (element) sectionRefs.current.set(index, element);
+                          else sectionRefs.current.delete(index);
+                        }}
+                        className="inline-flex items-center px-3 py-1.5 mt-8 mb-4 rounded-xl border border-white/[0.08] bg-white/[0.05] text-[0.72em] font-black uppercase tracking-[0.10em] text-indigo-200"
+                      >
+                        {line.content.replace(/^\[?|\]?:?$/g, "")}
+                      </div>
+                    ) : (
+                      <div
+                        key={`lyric-${index}`}
+                        className={line.content.trim() === "" ? "h-[1.2em]" : ""}
+                      >
+                        {line.content || " "}
+                      </div>
+                    ),
+                  )
+                ) : (
+                  <span className="italic text-white/50">
+                    Nenhuma letra cadastrada para esta música.
+                  </span>
+                )}
               </div>
             </div>
           </div>

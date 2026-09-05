@@ -132,7 +132,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   };
 
   const getEffectiveKey = (song: HomeEventSongSummary) => {
-    return song.localKey || song.selectedKey || song.key || song.originalKey || '';
+    return song.localKey || song.key || song.selectedKey || song.originalKey || '';
   };
 
   const renderRichEventCard = (targetEvent: HomeEventSummary | null, currentMode: string) => {
@@ -210,13 +210,21 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
           {/* Repertoire Setlist */}
           {targetEvent.type === 'music' && (
             <div className="pt-2">
-              <h3 className="text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
-                {t('dashboard.focus.repertoire', 'Repertório')}
-              </h3>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  {t('dashboard.focus.repertoire', 'Repertório')}
+                </h3>
+                <span
+                  className="shrink-0 rounded-full border border-slate-200/70 dark:border-white/[0.07] bg-slate-100/70 dark:bg-white/[0.035] px-2.5 py-1 text-[10px] font-bold tabular-nums text-slate-500 dark:text-slate-400"
+                  aria-label={t('dashboard.focus.songsInScale', 'Repertório • {{count}} músicas', { count: targetEvent.songCount })}
+                >
+                  {targetEvent.songCount} {t('dashboard.focus.moreSongs', 'músicas')}
+                </span>
+              </div>
               
               {targetEvent.songs && targetEvent.songs.length > 0 ? (
                 <div className="flex flex-col">
-                  {targetEvent.songs.slice(0, 3).map((song, idx) => {
+                  {targetEvent.songs.map((song, idx) => {
                     const effectiveKey = getEffectiveKey(song);
                     return (
                       <div key={song.id || idx} className="flex items-center justify-between group py-3 border-b border-slate-100 dark:border-slate-800/50 last:border-0 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] active:bg-slate-100 dark:active:bg-white/[0.04] transition-colors -mx-2 px-2 rounded-lg cursor-pointer" onClick={() => onOpenEvent(targetEvent)}>
@@ -232,10 +240,19 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                       </div>
                     );
                   })}
-                  {targetEvent.songCount > 3 && (
+                  {targetEvent.songCount > targetEvent.songs.length && (
                     <div className="pt-3">
-                      <button onClick={() => onOpenEvent(targetEvent)} className="text-[13px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-                        + {targetEvent.songCount - 3} {t('dashboard.focus.moreSongs', 'música(s)')}
+                      <button
+                        type="button"
+                        onClick={() => onOpenEvent(targetEvent)}
+                        className="w-full rounded-xl border border-indigo-500/10 bg-indigo-500/[0.04] px-3 py-2 text-left text-[12px] font-semibold text-indigo-600 dark:text-indigo-300 transition-colors hover:bg-indigo-500/[0.08]"
+                      >
+                        + {targetEvent.songCount - targetEvent.songs.length}{" "}
+                        {targetEvent.songCount - targetEvent.songs.length === 1
+                          ? t('dashboard.focus.additionalSong', 'música adicional na escala')
+                          : t('dashboard.focus.additionalSongs', 'músicas adicionais na escala')}
+                        {" · "}
+                        {t('dashboard.focus.viewScaleDetails', 'Ver detalhes')}
                       </button>
                     </div>
                   )}

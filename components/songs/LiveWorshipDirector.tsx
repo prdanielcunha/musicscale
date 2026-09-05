@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLiveWorshipSession } from "../../hooks/useLiveWorshipSession";
 import { useLiveDirectionFollow } from "../../hooks/useLiveDirectionFollow";
-import { parseChordsAndLyrics } from "./ChordsRenderer";
+import { parseChordsAndLyrics, buildSongSectionNavigatorItems } from "./ChordsRenderer";
 import { PopulatedSong } from "../../types";
 import { useTranslation } from "react-i18next";
 
@@ -80,19 +80,7 @@ export const LiveWorshipDirector: React.FC<LiveWorshipDirectorProps> = ({
 
   const currentSong = songs.find((candidate) => candidate.id === currentSongId) || null;
   const currentSections = currentSong?.chords
-    ? parseChordsAndLyrics(currentSong.chords)
-        .map((line, index) =>
-          line.type === "section"
-            ? {
-                index,
-                label: line.content.replace(/^\[?|\]?:?$/g, "").trim(),
-              }
-            : null,
-        )
-        .filter(
-          (section): section is { index: number; label: string } =>
-            !!section && !!section.label,
-        )
+    ? buildSongSectionNavigatorItems(parseChordsAndLyrics(currentSong.chords))
     : [];
 
   const handleSectionDirection = async (sectionIndex: number, label: string) => {
@@ -223,10 +211,10 @@ export const LiveWorshipDirector: React.FC<LiveWorshipDirectorProps> = ({
                         <button
                           key={`${section.index}-${section.label}`}
                           type="button"
-                          onClick={() => void handleSectionDirection(section.index, section.label)}
+                          onClick={() => void handleSectionDirection(section.index, section.displayLabel)}
                           className="shrink-0 h-8 px-3 rounded-full bg-white/[0.045] hover:bg-white/[0.10] border border-white/[0.07] text-white/70 hover:text-white text-[9px] font-bold uppercase tracking-[0.10em] transition-all active:scale-[0.97]"
                         >
-                          {section.label}
+                          {section.displayLabel}
                         </button>
                       ))}
                     </div>
