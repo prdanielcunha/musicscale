@@ -1199,6 +1199,7 @@
     "declinedSuccess": "Indisponibilidade informada ao líder",
     "yourFunction": "sua função",
     "eventStartedWarning": "O horário deste evento já começou e a resposta não pode mais ser alterada.",
+    "responseDeadlineWarning": "As confirmações encerram 5 minutos antes do evento.",
     "changeResponse": "Alterar resposta",
     "actionConfirm": "Confirmo",
     "actionMaybe": "Ainda não sei",
@@ -1239,6 +1240,7 @@
     "scaleResponses.errors.permissionDenied": "Acesso negado.",
     "scaleResponses.errors.notPublished": "A escala não está publicada.",
     "scaleResponses.errors.eventStarted": "O horário deste evento já começou e a resposta não pode mais ser alterada.",
+    "scaleResponses.errors.responseDeadlinePassed": "O prazo de confirmação encerra 5 minutos antes do evento.",
     "scaleResponses.errors.notAssigned": "Você não está escalado neste evento."
   },
   "firstValueJourney": {

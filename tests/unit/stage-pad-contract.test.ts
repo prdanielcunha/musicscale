@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { normalizePadKey, STAGE_PAD_KEYS } from "../../services/stagePadEngine";
+import { formatPadDisplayKey, normalizePadKey, STAGE_PAD_KEYS } from "../../services/stagePadEngine";
 
 const engine = fs.readFileSync(
   path.join(process.cwd(), "services/stagePadEngine.ts"),
@@ -17,6 +17,9 @@ describe("Stage native pad", () => {
     expect(STAGE_PAD_KEYS).toHaveLength(12);
     expect(normalizePadKey("Db")).toBe("C#");
     expect(normalizePadKey("G#m")).toBe("Ab");
+    expect(normalizePadKey("Am")).toBe("A");
+    expect(formatPadDisplayKey("Am")).toBe("Am");
+    expect(formatPadDisplayKey("A")).toBe("A");
     expect(normalizePadKey("Bb")).toBe("Bb");
   });
 

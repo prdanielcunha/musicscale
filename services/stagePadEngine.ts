@@ -54,6 +54,14 @@ const normalizePadKey = (value?: string | null): StagePadKey => {
     : "C";
 };
 
+export const formatPadDisplayKey = (value?: string | null): string => {
+  const clean = String(value || "C").trim();
+  const match = clean.match(/^([A-Ga-g](?:#|b)?)(m(?!aj))?/);
+  if (!match) return normalizePadKey(value);
+  const root = match[1].charAt(0).toUpperCase() + match[1].slice(1);
+  return `${root}${match[2] ? "m" : ""}`;
+};
+
 interface Voice {
   oscillators: OscillatorNode[];
   gain: GainNode;

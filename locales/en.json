@@ -1200,6 +1200,7 @@
     "declinedSuccess": "Unavailability reported to leader",
     "yourFunction": "your role",
     "eventStartedWarning": "This event has already started and the response cannot be changed.",
+    "responseDeadlineWarning": "Confirmations close 5 minutes before the event.",
     "changeResponse": "Change response",
     "actionConfirm": "I confirm",
     "actionMaybe": "Not sure yet",
@@ -1240,6 +1241,7 @@
     "scaleResponses.errors.permissionDenied": "Access denied.",
     "scaleResponses.errors.notPublished": "Scale is not published.",
     "scaleResponses.errors.eventStarted": "This event has already started and the response can no longer be changed.",
+    "scaleResponses.errors.responseDeadlinePassed": "The confirmation deadline is 5 minutes before the event.",
     "scaleResponses.errors.notAssigned": "You are not scheduled for this event."
   },
   "firstValueJourney": {

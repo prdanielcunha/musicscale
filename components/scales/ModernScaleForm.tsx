@@ -170,6 +170,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     return {
       date: data.date || "",
       time: data.time || "",
+      timeZone: data.timeZone || "",
       eventTypeId: data.eventTypeId || "",
       locationId: data.locationId || "",
       eventNameId: data.eventNameId || "",
@@ -348,6 +349,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     const baseData = {
       date: scaleToEdit?.date || new Date().toISOString().split("T")[0],
       time: scaleToEdit?.time || "",
+      timeZone: scaleToEdit?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo",
       eventTypeId: scaleToEdit?.eventTypeId || (scaleToEdit && "id" in scaleToEdit && scaleToEdit.id !== "CLONE" ? "" : (cultoType?.id || "")),
       locationId: scaleToEdit?.locationId || (scaleToEdit && "id" in scaleToEdit && scaleToEdit.id !== "CLONE" ? "" : (mainLocation?.id || "")),
       eventNameId: scaleToEdit?.eventNameId || "",
@@ -446,6 +448,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     const commonData = {
       date: formData.date,
       time: formData.time || null,
+      timeZone: formData.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo",
       eventTypeId: formData.eventTypeId,
       locationId: formData.locationId,
       eventNameId: formData.eventNameId || null,

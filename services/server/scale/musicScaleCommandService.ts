@@ -118,7 +118,7 @@ export class MusicScaleCommandService {
 
       const patchObj = patch as Record<string, unknown>;
       const allowedKeys = [
-        'date', 'time', 'eventTypeId', 'locationId',
+        'date', 'time', 'timeZone', 'eventTypeId', 'locationId',
         'eventNameId', 'observations', 'songIds',
         'songSettings', 'durationMinutes', 'bandScaleId'
       ];
@@ -155,6 +155,18 @@ export class MusicScaleCommandService {
         const [hour, minute] = time.split(':').map(Number);
         if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
           throw new ValidationError("Horário impossível.");
+        }
+      }
+
+      if (patchObj.timeZone !== undefined) {
+        const timeZone = patchObj.timeZone;
+        if (typeof timeZone !== 'string' || timeZone.trim() === '') {
+          throw new ValidationError("O campo timeZone deve ser um fuso IANA válido.");
+        }
+        try {
+          new Intl.DateTimeFormat('en-US', { timeZone }).format(new Date());
+        } catch {
+          throw new ValidationError("Fuso horário inválido.");
         }
       }
 
@@ -463,7 +475,7 @@ params: {
       const scalePatch = normalizedPayload.scalePatch;
       if (scalePatch) {
         const allowedKeys: (keyof MusicScalePublishPatch)[] = [
-          'date', 'time', 'eventTypeId', 'locationId', 
+          'date', 'time', 'timeZone', 'eventTypeId', 'locationId', 
           'eventNameId', 'observations', 'songIds', 
           'songSettings', 'durationMinutes', 'bandScaleId'
         ];

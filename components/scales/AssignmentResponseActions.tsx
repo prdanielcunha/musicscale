@@ -11,11 +11,12 @@ import Spinner from '../common/Spinner';
 import Modal from '../common/Modal';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { CheckCircle2, HelpCircle, XCircle, RefreshCw } from 'lucide-react';
+import { isMusicScaleResponseDeadlinePassed } from '../../utils/responseDeadline';
 
 interface AssignmentResponseActionsProps {
   musicScaleId: string;
   assignments: EventAssignment[]; // Only the assignments for the current user
-  eventStart?: Date; // To check if event has started
+  eventStart?: Date; // Used to enforce the T-5 minute response cutoff
   compact?: boolean;
 }
 
@@ -89,10 +90,10 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
   // Since user responds once for all their assignments in this scale, they should all have the same status
   const currentReason = currentResponse?.reason || '';
 
-  const hasEventStarted = eventStart && new Date() > eventStart;
+  const hasResponseDeadlinePassed = isMusicScaleResponseDeadlinePassed(eventStart);
 
   const handleRespond = async (status: 'accepted' | 'maybe' | 'declined', reason: string | null = null) => {
-    if (submittingStatus || hasEventStarted || !api) return;
+    if (submittingStatus || hasResponseDeadlinePassed || !api) return;
 
     setSubmittingStatus(status);
     const idempotencyKey = crypto.randomUUID();
@@ -142,10 +143,10 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
     : t('responses.yourFunction', 'sua função');
 
   const renderButtons = (showOnlyChange = false) => {
-    if (hasEventStarted) {
+    if (hasResponseDeadlinePassed) {
       return (
         <p className="text-xs text-slate-500 mt-3 bg-slate-900/50 p-3 rounded-lg border border-slate-800/50">
-          {t('responses.eventStartedWarning', 'O horário deste evento já começou e a resposta não pode mais ser alterada.')}
+          {t('responses.responseDeadlineWarning', 'As confirmações encerram 5 minutos antes do evento.')}
         </p>
       );
     }
@@ -214,10 +215,10 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
   };
 
   const renderChangeButtons = () => {
-      if (hasEventStarted) {
+      if (hasResponseDeadlinePassed) {
         return (
           <p className="text-xs text-slate-500 mt-4 bg-slate-900/50 p-3 rounded-lg border border-slate-800/50">
-            {t('responses.eventStartedWarning', 'O horário deste evento já começou e a resposta não pode mais ser alterada.')}
+            {t('responses.responseDeadlineWarning', 'As confirmações encerram 5 minutos antes do evento.')}
           </p>
         );
       }
