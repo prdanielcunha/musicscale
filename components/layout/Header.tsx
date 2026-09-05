@@ -76,8 +76,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             {onMenuClick && (
               <button
+                onPointerDown={(event) => {
+                  if (event.pointerType === "touch") onMenuClick();
+                }}
                 onClick={onMenuClick}
-                className="md:hidden flex items-center justify-center w-10 h-10 -ml-2 rounded-[14px] text-slate-300 active:scale-95 transition-all bg-white/[0.03] active:bg-white/[0.06] border border-white/[0.05]"
+                className="md:hidden touch-manipulation flex items-center justify-center w-10 h-10 -ml-2 rounded-[14px] text-slate-300 active:scale-95 transition-all duration-150 bg-white/[0.03] active:bg-white/[0.06] border border-white/[0.05]"
                 aria-label={t("nav.main_menu", "Menu Principal")}
               >
                 <MenuIcon className="w-[22px] h-[22px]" />
