@@ -210,13 +210,21 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
           {/* Repertoire Setlist */}
           {targetEvent.type === 'music' && (
             <div className="pt-2">
-              <h3 className="text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
-                {t('dashboard.focus.repertoire', 'Repertório')}
-              </h3>
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <h3 className="text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  {t('dashboard.focus.repertoire', 'Repertório')}
+                </h3>
+                <span
+                  className="shrink-0 rounded-full border border-white/[0.06] bg-white/[0.03] px-2.5 py-1 text-[10px] font-bold tabular-nums text-slate-500 dark:text-slate-400"
+                  aria-label={t('dashboard.focus.songsCountLabel', '{{count}} músicas no repertório', { count: targetEvent.songCount })}
+                >
+                  {targetEvent.songCount} {t('dashboard.focus.songsShort', 'músicas')}
+                </span>
+              </div>
               
               {targetEvent.songs && targetEvent.songs.length > 0 ? (
                 <div className="flex flex-col">
-                  {targetEvent.songs.slice(0, 3).map((song, idx) => {
+                  {targetEvent.songs.map((song, idx) => {
                     const effectiveKey = getEffectiveKey(song);
                     return (
                       <div key={song.id || idx} className="flex items-center justify-between group py-3 border-b border-slate-100 dark:border-slate-800/50 last:border-0 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] active:bg-slate-100 dark:active:bg-white/[0.04] transition-colors -mx-2 px-2 rounded-lg cursor-pointer" onClick={() => onOpenEvent(targetEvent)}>
@@ -232,11 +240,9 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                       </div>
                     );
                   })}
-                  {targetEvent.songCount > 3 && (
-                    <div className="pt-3">
-                      <button onClick={() => onOpenEvent(targetEvent)} className="text-[13px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-                        + {targetEvent.songCount - 3} {t('dashboard.focus.moreSongs', 'música(s)')}
-                      </button>
+                  {targetEvent.songCount > targetEvent.songs.length && (
+                    <div className="pt-3 text-[12px] font-semibold text-slate-500 dark:text-slate-400">
+                      + {targetEvent.songCount - targetEvent.songs.length} {t('dashboard.focus.moreSongs', 'música(s)')}
                     </div>
                   )}
                 </div>
