@@ -12,7 +12,7 @@ interface CheckoutProps {
 
 export const Checkout: React.FC<CheckoutProps> = ({
   planName = 'Advanced',
-  price = 'R$ 69,90 / mês',
+  price = 'R$ 23,92 / mês (plano anual)',
   billingCycle = 'yearly',
   activeOrganizationId = 'org_default',
   onConfirmCheckout,

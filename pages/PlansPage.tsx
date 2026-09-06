@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Crown, Sparkles, Zap, Shield, Check, ExternalLink } from 'lucide-react';
 import { useMusicScaleEntitlements, useMusicScalePlan, useMusicScaleUsage } from '../hooks/useMusicScaleEntitlements';
@@ -13,6 +13,64 @@ const PlansPage: React.FC = () => {
   const { entitlements, loading, refresh } = useMusicScaleEntitlements();
   const { plan: currentPlan, status } = useMusicScalePlan();
   const { usage, limits } = useMusicScaleUsage();
+  const [liveMonthlyPrices, setLiveMonthlyPrices] = useState<Partial<Record<MusicScalePlan, { price: number; currency: string }>>>({});
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadBillingCatalog = async () => {
+      try {
+        const baseUrl = entitlementsService.getMillionsNestBaseUrl();
+        const response = await fetch(`${baseUrl}/api/v1/billing/products`, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        const next: Partial<Record<MusicScalePlan, { price: number; currency: string }>> = {};
+
+        (['starter', 'advanced', 'pro'] as MusicScalePlan[]).forEach((planId) => {
+          const item = payload?.plans?.find(
+            (candidate: any) => candidate?.lookupKey === `musicscale_${planId}_monthly`
+          );
+          if (item && Number.isFinite(Number(item.price)) && Number(item.price) > 0) {
+            next[planId] = {
+              price: Number(item.price),
+              currency: String(item.currency || 'brl').toUpperCase(),
+            };
+          }
+        });
+
+        if (Object.keys(next).length > 0) setLiveMonthlyPrices(next);
+      } catch (error: any) {
+        if (error?.name !== 'AbortError') {
+          // MillionsNest remains billing authority. Keep local canonical fallbacks
+          // if the public catalog is temporarily unavailable.
+        }
+      }
+    };
+
+    void loadBillingCatalog();
+    return () => controller.abort();
+  }, []);
+
+  const formatPlanPrice = (planId: MusicScalePlan, fallback: string) => {
+    const live = liveMonthlyPrices[planId];
+    if (!live) return fallback;
+    try {
+      const locale = typeof navigator !== 'undefined' ? navigator.language : 'pt-BR';
+      return new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency: live.currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(live.price);
+    } catch {
+      return fallback;
+    }
+  };
 
   if (loading) {
     return (
@@ -48,7 +106,7 @@ const PlansPage: React.FC = () => {
     {
       id: 'starter',
       name: t('plans.starter.title_label', 'Starter'),
-      price: t('plans.starter.price_val', 'R$ 19,90'),
+      price: formatPlanPrice('starter', t('plans.starter.price_val', 'R$ 19,90')),
       description: t('plans.starter.description_val', 'Plano de entrada para ministérios iniciando a organização profissional de suas escalas.'),
       features: [
         t('plans.features.starter.1', 'Até 10 usuários ativos na organização'),
@@ -74,7 +132,7 @@ const PlansPage: React.FC = () => {
     {
       id: 'advanced',
       name: t('plans.advanced.title_label', 'Advanced'),
-      price: t('plans.advanced.price_val', 'R$ 29,90'),
+      price: formatPlanPrice('advanced', t('plans.advanced.price_val', 'R$ 29,90')),
       description: t('plans.advanced.description_val', 'Plano intermediário para equipes em crescimento que desejam o acervo da Biblioteca Viva.'),
       features: [
         t('plans.features.advanced.1', 'Tudo do plano Starter'),
@@ -98,7 +156,7 @@ const PlansPage: React.FC = () => {
     {
       id: 'pro',
       name: t('plans.pro.title_label', 'Pro'),
-      price: t('plans.pro.price_val', 'R$ 34,90'),
+      price: formatPlanPrice('pro', t('plans.pro.price_val', 'R$ 34,90')),
       description: t('plans.pro.description_val', 'Preço de lançamento. O potencial máximo com inteligência artificial e capacidade ilimitada.'),
       badge_label: t('plans.pro.badge_val', 'Lançamento'),
       features: [
@@ -223,7 +281,7 @@ const PlansPage: React.FC = () => {
                 {opt.id === 'pro' && (
                   <div className="absolute -top-4 left-0 right-0 flex justify-center z-20">
                     <span className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[11px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full shadow-lg shadow-indigo-500/30 flex items-center gap-1.5 ring-1 ring-white/20">
-                      <Sparkles className="w-3.5 h-3.5 animate-pulse" /> {t("plans.recommended_sold", "RECOMENDADO E MAIS VENDIDO")}
+                      <Sparkles className="w-3.5 h-3.5 animate-pulse" /> {t("plans.pro_highlight", "PLANO COMPLETO • LANÇAMENTO")}
                     </span>
                   </div>
                 )}
@@ -265,7 +323,6 @@ const PlansPage: React.FC = () => {
                   <div className="border-t border-b border-zinc-100 dark:border-zinc-800/80 py-4 flex flex-col gap-0.5 justify-center">
                     {opt.id === 'pro' && (
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-zinc-400 dark:text-zinc-500 line-through">{t("plans.pro_original_price", "De R$ 39,90")}</span>
                         <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-800/50">{t("plans.launch_promo", "Lançamento")}</span>
                       </div>
                     )}

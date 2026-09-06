@@ -19,8 +19,8 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan }) => {
       id: 'starter',
       name: 'Starter',
       userLimit: 'Até 10 usuários',
-      priceMonthly: 'R$ 49,90',
-      priceYearly: 'R$ 39,90',
+      priceMonthly: 'R$ 19,90',
+      priceYearly: 'R$ 15,92',
       periodMonthly: '/ mês',
       periodYearly: '/ mês (faturado anualmente)',
       lookupKeyMonthly: 'musicscale_starter_monthly',
@@ -37,16 +37,16 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan }) => {
     {
       id: 'advanced',
       name: 'Advanced',
-      userLimit: 'Até 30 usuários',
-      priceMonthly: 'R$ 89,90',
-      priceYearly: 'R$ 69,90',
+      userLimit: 'Até 20 usuários',
+      priceMonthly: 'R$ 29,90',
+      priceYearly: 'R$ 23,92',
       periodMonthly: '/ mês',
       periodYearly: '/ mês (faturado anualmente)',
       lookupKeyMonthly: 'musicscale_advanced_monthly',
       lookupKeyYearly: 'musicscale_advanced_yearly',
-      popular: true,
+      popular: false,
       features: [
-        'Até 30 integrantes incluídos',
+        'Até 20 integrantes incluídos',
         'Todos os recursos do Starter',
         'Biblioteca Viva de Cifras',
         'Gestão de múltiplos eventos',
@@ -56,20 +56,20 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan }) => {
     {
       id: 'pro',
       name: 'Pro',
-      userLimit: 'Até 100 usuários',
-      priceMonthly: 'R$ 149,90',
-      priceYearly: 'R$ 119,90',
+      userLimit: 'Usuários ilimitados',
+      priceMonthly: 'R$ 34,90',
+      priceYearly: 'R$ 27,92',
       periodMonthly: '/ mês',
       periodYearly: '/ mês (faturado anualmente)',
       lookupKeyMonthly: 'musicscale_pro_monthly',
       lookupKeyYearly: 'musicscale_pro_yearly',
       popular: false,
       features: [
-        'Até 100 integrantes incluídos',
+        'Usuários ilimitados por organização',
         'Todos os recursos do Advanced',
         'IA de auxílio de repertório',
-        'Relatórios e métricas de escala',
-        'Gerente de conta dedicado'
+        'Sugestões e insights com IA',
+        'Clonagem de escalas'
       ]
     }
   ];
@@ -88,7 +88,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan }) => {
           Planos e Preços
         </h2>
         <p className="text-zinc-400 max-w-2xl mx-auto text-base sm:text-lg">
-          Escolha o plano ideal para o tamanho do seu ministério. Todos os planos incluem 7 dias de teste gratuito sem compromisso.
+          Escolha o plano que combina com o momento do seu ministério. O teste de 7 dias respeita os recursos e limites do plano escolhido.
         </p>
 
         {/* Destaque Centralizado de Escopo de Preço */}
@@ -147,7 +147,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan }) => {
             >
               {plan.popular && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-amber-500 text-zinc-950 text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                  Mais Popular
+                  Plano completo
                 </div>
               )}
 

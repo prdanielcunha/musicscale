@@ -25,8 +25,8 @@ export const PLAN_PRICING_DETAILS: Record<MusicScalePlan, PlanPricingDetail> = {
     name: 'Pro',
     price: 'R$ 34,90',
     pricePeriod: 'mês',
-    badge: 'Mais Vendido / Recomendado',
-    isPopular: true,
+    badge: 'Lançamento',
+    isPopular: false,
   },
 };
 
