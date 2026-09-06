@@ -959,11 +959,104 @@
   },
   "plans": {
     "billing_active": "Your billing is up to date. All features available to your plan are operational.",
-    "billing_past_due": "Your payment is pending on MillionsNest. Access the billing platform immediately to avoid disruptions.",
-    "billing_inactive": "The license for this organization is inactive or suspended.",
+    "billing_past_due": "Your payment is pending on MillionsNest. Open the billing center to resolve it.",
+    "billing_inactive": "This organization's license is inactive or suspended.",
     "next_renewal": "Next renewal on:",
     "title": "Plans and Limits",
-    "subtitle": "Monitor and expand capacity."
+    "subtitle": "Your subscription and billing are managed centrally by MillionsNest. Displayed prices use the central catalog whenever available.",
+    "license_settings": "License Settings",
+    "plans_and_limits": "Plans and Ministry Limits",
+    "active_license": "Active License",
+    "billing_changes": "Manage billing in MillionsNest",
+    "sync_license": "Sync license",
+    "library_billing": "Library Usage",
+    "import_control": "Import Control",
+    "library_billing_desc": "Living Library imports follow your plan's monthly limits.",
+    "pro_highlight": "COMPLETE PLAN • LAUNCH",
+    "current_plan": "Your current plan",
+    "launch_promo": "Launch price",
+    "per_month": "/month",
+    "included_features": "Included features:",
+    "plan_limits": "Plan limits:",
+    "upgrade_pro": "UPGRADE TO PRO",
+    "change_to_plan": "Switch to {{name}}",
+    "active_on_org": "Active for this organization",
+    "starter": {
+      "title_label": "Starter",
+      "price_val": "R$ 19.90",
+      "description_val": "Entry plan for organizing rosters and repertoire with a simple workflow."
+    },
+    "advanced": {
+      "title_label": "Advanced",
+      "price_val": "R$ 29.90",
+      "description_val": "For growing teams that want limited access to the Living Library."
+    },
+    "pro": {
+      "title_label": "Pro",
+      "price_val": "R$ 34.90",
+      "description_val": "Launch price. Complete experience with AI and unlimited capacity.",
+      "badge_val": "Launch"
+    },
+    "features": {
+      "starter": {
+        "1": "Up to 10 active users per organization",
+        "2": "Unlimited repertoire songs",
+        "3": "Unlimited rosters and calendar",
+        "4": "Lyrics, chord charts, key, and BPM",
+        "5": "Roster sharing",
+        "6": "Reader on mobile, tablet, and desktop",
+        "7": "Cloud sync",
+        "8": "No Living Library",
+        "9": "No AI features",
+        "10": "No roster cloning",
+        "11": "No full history",
+        "12": "No advanced customization",
+        "13": "Standard support"
+      },
+      "advanced": {
+        "1": "Everything in Starter",
+        "2": "Up to 20 active users per organization",
+        "3": "Limited Living Library",
+        "4": "10 Living Library imports per month",
+        "5": "Full roster and repertoire history",
+        "6": "Advanced repertoire customization",
+        "7": "Special multi-band view",
+        "8": "No AI features",
+        "9": "No roster cloning",
+        "10": "No unlimited imports",
+        "11": "Basic priority support"
+      },
+      "pro": {
+        "1": "Everything in Advanced",
+        "2": "Unlimited users per organization",
+        "3": "Complete Living Library",
+        "4": "Unlimited Living Library imports on paid Pro",
+        "5": "AI-assisted song import",
+        "6": "AI-assisted structuring of lyrics, chord chart, key, and BPM",
+        "7": "AI repertoire and roster suggestions",
+        "8": "AI service-flow insights",
+        "9": "Roster cloning",
+        "10": "Future premium features",
+        "11": "Priority support"
+      }
+    },
+    "limits": {
+      "starter": {
+        "1": "Up to 10 active team members",
+        "2": "No Living Library access",
+        "3": "Standard support"
+      },
+      "advanced": {
+        "1": "Up to 20 active team members",
+        "2": "10 Living Library imports/month",
+        "3": "Basic priority support"
+      },
+      "pro": {
+        "1": "Unlimited team members",
+        "2": "Unlimited Living Library imports on paid Pro",
+        "3": "AI features enabled"
+      }
+    }
   },
   "library": {
     "title": "MusicScale Living Library",

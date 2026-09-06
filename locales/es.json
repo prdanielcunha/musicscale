@@ -957,12 +957,105 @@
     "bulk_similar_songs_found": "Canciones similares encontradas en la selección"
   },
   "plans": {
-    "billing_active": "Su facturación está al día. Todas las funciones liberadas para su plan están operativas.",
-    "billing_past_due": "Su pago está pendiente en MillionsNest. Acceda a la plataforma de cobro inmediatamente para evitar bloqueos.",
+    "billing_active": "Tu facturación está al día. Todos los recursos liberados para tu plan están operativos.",
+    "billing_past_due": "Tu pago está pendiente en MillionsNest. Abre la central de cobros para regularizarlo.",
     "billing_inactive": "La licencia de esta organización está inactiva o suspendida.",
     "next_renewal": "Próxima renovación el:",
     "title": "Planes y Límites",
-    "subtitle": "Monitorea y expande la capacidad."
+    "subtitle": "Tu suscripción y facturación son administradas centralmente por MillionsNest. Los precios mostrados usan el catálogo central cuando está disponible.",
+    "license_settings": "Configuración de Licencia",
+    "plans_and_limits": "Planes y Límites del Ministerio",
+    "active_license": "Licencia Activa",
+    "billing_changes": "Gestionar cobro en MillionsNest",
+    "sync_license": "Sincronizar licencia",
+    "library_billing": "Consumo de Biblioteca",
+    "import_control": "Control de importación",
+    "library_billing_desc": "Las importaciones de la Biblioteca Viva siguen los límites mensuales de tu plan.",
+    "pro_highlight": "PLAN COMPLETO • LANZAMIENTO",
+    "current_plan": "Tu plan actual",
+    "launch_promo": "Lanzamiento",
+    "per_month": "/mes",
+    "included_features": "Recursos incluidos:",
+    "plan_limits": "Límites del plan:",
+    "upgrade_pro": "ACTUALIZAR A PRO",
+    "change_to_plan": "Cambiar a {{name}}",
+    "active_on_org": "Activo en esta organización",
+    "starter": {
+      "title_label": "Starter",
+      "price_val": "R$ 19,90",
+      "description_val": "Plan inicial para organizar escalas y repertorio con un flujo simple."
+    },
+    "advanced": {
+      "title_label": "Advanced",
+      "price_val": "R$ 29,90",
+      "description_val": "Para equipos en crecimiento que desean acceso limitado a la Biblioteca Viva."
+    },
+    "pro": {
+      "title_label": "Pro",
+      "price_val": "R$ 34,90",
+      "description_val": "Precio de lanzamiento. Experiencia completa con IA y capacidad ilimitada.",
+      "badge_val": "Lanzamiento"
+    },
+    "features": {
+      "starter": {
+        "1": "Hasta 10 usuarios activos por organización",
+        "2": "Canciones ilimitadas en el repertorio",
+        "3": "Escalas y calendario ilimitados",
+        "4": "Letras, cifrados, tono y BPM",
+        "5": "Compartir escalas",
+        "6": "Lector en celular, tablet y computadora",
+        "7": "Sincronización en la nube",
+        "8": "Sin Biblioteca Viva",
+        "9": "Sin recursos de IA",
+        "10": "Sin clonación de escalas",
+        "11": "Sin historial completo",
+        "12": "Sin personalización avanzada",
+        "13": "Soporte estándar"
+      },
+      "advanced": {
+        "1": "Todo lo de Starter",
+        "2": "Hasta 20 usuarios activos por organización",
+        "3": "Biblioteca Viva limitada",
+        "4": "10 importaciones de la Biblioteca Viva por mes",
+        "5": "Historial completo de escalas y repertorio",
+        "6": "Personalización avanzada de repertorio",
+        "7": "Vista especial multi-bandas",
+        "8": "Sin recursos de IA",
+        "9": "Sin clonación de escalas",
+        "10": "Sin importaciones ilimitadas",
+        "11": "Soporte prioritario básico"
+      },
+      "pro": {
+        "1": "Todo lo de Advanced",
+        "2": "Usuarios ilimitados por organización",
+        "3": "Biblioteca Viva completa",
+        "4": "Importaciones ilimitadas de la Biblioteca Viva en Pro pagado",
+        "5": "Importación de canciones asistida por IA",
+        "6": "Estructuración asistida por IA de letra, cifrado, tono y BPM",
+        "7": "Sugerencias de repertorio y escalas con IA",
+        "8": "Insights del flujo del culto con IA",
+        "9": "Clonación de escalas",
+        "10": "Recursos premium futuros",
+        "11": "Soporte prioritario"
+      }
+    },
+    "limits": {
+      "starter": {
+        "1": "Hasta 10 miembros activos del equipo",
+        "2": "Sin acceso a la Biblioteca Viva",
+        "3": "Soporte estándar"
+      },
+      "advanced": {
+        "1": "Hasta 20 miembros activos del equipo",
+        "2": "10 importaciones/mes de la Biblioteca Viva",
+        "3": "Soporte prioritario básico"
+      },
+      "pro": {
+        "1": "Miembros ilimitados del equipo",
+        "2": "Importaciones ilimitadas de la Biblioteca Viva en Pro pagado",
+        "3": "Recursos de IA habilitados"
+      }
+    }
   },
   "library": {
     "title": "Biblioteca Viva MusicScale",

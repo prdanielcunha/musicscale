@@ -29,7 +29,7 @@ export const FAQ: React.FC = () => {
       qKey: 'landing:faq_q4',
       aKey: 'landing:faq_a4',
       defaultQ: 'Quais formas de pagamento são aceitas?',
-      defaultA: 'Aceitamos cartões de crédito das principais bandeiras e PIX na contratação de planos anuais.'
+      defaultA: 'As formas de pagamento disponíveis são exibidas no checkout seguro do MillionsNest no momento da contratação.'
     },
     {
       qKey: 'landing:faq_q5',

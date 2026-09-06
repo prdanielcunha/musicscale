@@ -37,7 +37,7 @@ export const SalesChat: React.FC<SalesChatProps> = ({
       qKey: 'landing:faq_q1',
       aKey: 'landing:faq_a1',
       question: 'Como funciona o teste grátis?',
-      answer: 'Você tem 7 dias de acesso completo sem compromisso.'
+      answer: 'Você tem 7 dias para testar os recursos e limites do plano escolhido.'
     },
     {
       id: 'invite_members',
