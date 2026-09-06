@@ -48,6 +48,9 @@ jobs:
     - name: Sales truth, pricing authority, and i18n contract
       run: npx tsx scripts/test_musicscale_sales_truth.ts
 
+    - name: Vercel deployment cost policy
+      run: npx tsx scripts/test_vercel_deployment_policy.ts
+
     - name: Run Vitest Unit & UI Tests
       run: npm run test:ui
 
