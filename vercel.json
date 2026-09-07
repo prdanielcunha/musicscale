@@ -1,13 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
-  "ignoreCommand": "node -e \"const ref=process.env.VERCEL_GIT_COMMIT_REF || ''; process.exit(['production','qa-validation'].includes(ref) ? 1 : 0)\"",
   "git": {
-    "deploymentEnabled": {
-      "production": true,
-      "qa-validation": true,
-      "main": false
-    }
+    "deploymentEnabled": false
   },
   "rewrites": [
     {
