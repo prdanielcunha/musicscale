@@ -65,6 +65,11 @@ jobs:
             | grep -E '^(run|firebasehosting|artifactregistry|cloudbuild|secretmanager)\.googleapis\.com$' || true
           echo "Existing Cloud Run services in us-central1:"
           gcloud run services list --project millionsnest --region us-central1 --format='value(metadata.name)' 2>/dev/null || true
+          echo "Firestore database locations:"
+          gcloud firestore databases list --project millionsnest --format='table(name,locationId,type)' 2>/dev/null || true
+          echo "Firebase Hosting sites:"
+          npm install -g firebase-tools@15.26.0 >/dev/null 2>&1 || true
+          firebase hosting:sites:list --project millionsnest 2>/dev/null || true
           echo "Relevant Secret Manager names (values are never read):"
           gcloud secrets list --project millionsnest --format='value(name)' 2>/dev/null \
             | grep -Ei 'musicscale|stripe|gemini|finops|millionsnest' || true
