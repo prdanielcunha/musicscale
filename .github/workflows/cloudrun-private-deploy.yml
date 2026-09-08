@@ -74,7 +74,7 @@ jobs:
             --timeout 60 \
             --no-allow-unauthenticated \
             --set-env-vars "FIREBASE_PROJECT_ID=millionsnest,DEPLOY_ENV=production,NODE_ENV=production,GEMINI_MODEL=gemini-3.5-flash,MILLIONSNEST_HUB_ORIGIN=https://www.millionsnest.com,AI_IMPORT_FINOPS_WRITE_PATH_ENABLED=false,AI_IMPORT_FINOPS_READ_PATH_ENABLED=false,AI_FINOPS_DIAGNOSTICS_ENABLED=false" \
-            --set-secrets "GEMINI_API_KEY=musicscale-gemini-api-key:latest,STRIPE_SECRET_KEY=millionsnest-stripe-secret-key:latest" \
+            --set-secrets "GEMINI_API_KEY=musicscale-gemini-api-key:latest,STRIPE_SECRET_KEY=musicscale-stripe-secret-key:latest" \
             --quiet
 
       - name: Verify Cloud Run readiness
