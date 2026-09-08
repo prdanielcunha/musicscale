@@ -18,7 +18,7 @@ assert.equal(rewrites.at(-1)?.destination, "/index.html", "SPA fallback must res
 
 const rc = JSON.parse(fs.readFileSync(".firebaserc", "utf8"));
 const sites = rc?.targets?.millionsnest?.hosting?.musicscale;
-assert.deepEqual(sites, ["musicscale-millionsnest"], "Hosting target must map to the dedicated MusicScale site");
+assert.deepEqual(sites, ["mn-musicscale-555464791734"], "Hosting target must map to the dedicated MusicScale site");
 
 const dockerfile = fs.readFileSync("Dockerfile", "utf8");
 assert.match(dockerfile, /npm ci --no-audit --no-fund/, "Container build must use deterministic npm ci");

@@ -6,7 +6,7 @@ This repository is being migrated from Vercel-first web delivery to **Firebase H
 
 - Firebase project: `millionsnest`
 - Hosting target: `musicscale`
-- Hosting site: `musicscale-millionsnest`
+- Hosting site: `mn-musicscale-555464791734`
 - Cloud Run API service: `musicscale-api`
 - Cloud Run region: `us-central1`
 - Public production domain after cutover: `musicscale.millionsnest.com`
