@@ -443,7 +443,7 @@ app.use((err: any, req: any, res: any, next: any) => {
 
   app.post("/api/admin/finops-diagnostics/run", requireEcosystemRole, async (req: any, res: any) => {
     try {
-      // Security check: VERCEL_ENV === "production" || NODE_ENV === "production" is strictly handled by resolveFinOpsDiagnosticsEnvironment
+      // Security check is provider-neutral and fails closed in production via resolveFinOpsDiagnosticsEnvironment
       const envInfo = resolveFinOpsDiagnosticsEnvironment();
       const environment = envInfo.environment;
       const isProduction = envInfo.isProduction;
