@@ -75,7 +75,7 @@ const fixChordsRateLimiter = new InMemoryAiRateLimiter();
 const aiImportRateLimiter = new InMemoryAiRateLimiter();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 
 // Fair-use protection for the complete Pro catalog during the one-time evaluation.
 // Paid Pro remains unlimited. This cap is total for the trial, not calendar-month based.
@@ -213,60 +213,56 @@ app.use((err: any, req: any, res: any, next: any) => {
     environment: "preview" | "staging" | "development" | "production" | "unknown";
     isProduction: boolean;
     isSafeNonProduction: boolean;
-    environmentSource: "VERCEL_ENV" | "AI_FINOPS_DIAGNOSTICS_ENV" | "none";
+    environmentSource: "DEPLOY_ENV" | "VERCEL_ENV" | "AI_FINOPS_DIAGNOSTICS_ENV" | "NODE_ENV" | "none";
     canRun: boolean;
   } {
+    // DEPLOY_ENV is provider-neutral and is set explicitly by Cloud Run deployments.
+    // Keep VERCEL_ENV for rollback compatibility while Vercel remains available.
+    const deployEnv = process.env.DEPLOY_ENV;
     const vercelEnv = process.env.VERCEL_ENV;
     const diagnosticsEnv = process.env.AI_FINOPS_DIAGNOSTICS_ENV;
 
-    if (vercelEnv === "production") {
+    const explicitEnvironment =
+      deployEnv === "production" || deployEnv === "preview" || deployEnv === "staging" || deployEnv === "development"
+        ? { value: deployEnv, source: "DEPLOY_ENV" as const }
+        : vercelEnv === "production" || vercelEnv === "preview" || vercelEnv === "development"
+          ? { value: vercelEnv, source: "VERCEL_ENV" as const }
+          : diagnosticsEnv === "production" || diagnosticsEnv === "preview" || diagnosticsEnv === "staging" || diagnosticsEnv === "development"
+            ? { value: diagnosticsEnv, source: "AI_FINOPS_DIAGNOSTICS_ENV" as const }
+            : null;
+
+    if (explicitEnvironment?.value === "production") {
       return {
         environment: "production",
         isProduction: true,
         isSafeNonProduction: false,
-        environmentSource: "VERCEL_ENV",
+        environmentSource: explicitEnvironment.source,
         canRun: false
       };
     }
 
-    if (vercelEnv === "preview") {
+    if (
+      explicitEnvironment?.value === "preview" ||
+      explicitEnvironment?.value === "staging" ||
+      explicitEnvironment?.value === "development"
+    ) {
       return {
-        environment: "preview",
+        environment: explicitEnvironment.value,
         isProduction: false,
         isSafeNonProduction: true,
-        environmentSource: "VERCEL_ENV",
+        environmentSource: explicitEnvironment.source,
         canRun: true
       };
     }
 
-    if (vercelEnv === "development") {
-      return {
-        environment: "development",
-        isProduction: false,
-        isSafeNonProduction: true,
-        environmentSource: "VERCEL_ENV",
-        canRun: true
-      };
-    }
-
-    // VERCEL_ENV is absent or unknown
-    if (diagnosticsEnv === "production") {
+    // Fail closed on any production Node runtime, even if provider metadata is absent.
+    if (process.env.NODE_ENV === "production") {
       return {
         environment: "production",
         isProduction: true,
         isSafeNonProduction: false,
-        environmentSource: "AI_FINOPS_DIAGNOSTICS_ENV",
+        environmentSource: "NODE_ENV",
         canRun: false
-      };
-    }
-
-    if (diagnosticsEnv === "preview" || diagnosticsEnv === "staging" || diagnosticsEnv === "development") {
-      return {
-        environment: diagnosticsEnv,
-        isProduction: false,
-        isSafeNonProduction: true,
-        environmentSource: "AI_FINOPS_DIAGNOSTICS_ENV",
-        canRun: true
       };
     }
 
@@ -447,7 +443,7 @@ app.use((err: any, req: any, res: any, next: any) => {
 
   app.post("/api/admin/finops-diagnostics/run", requireEcosystemRole, async (req: any, res: any) => {
     try {
-      // Security check: VERCEL_ENV === "production" || NODE_ENV === "production" is strictly handled by resolveFinOpsDiagnosticsEnvironment
+      // Security check is provider-neutral and fails closed in production via resolveFinOpsDiagnosticsEnvironment
       const envInfo = resolveFinOpsDiagnosticsEnvironment();
       const environment = envInfo.environment;
       const isProduction = envInfo.isProduction;
@@ -5661,7 +5657,7 @@ async function startLocalServer() {
   });
 }
 
-// Only start the local server if we are not running on Vercel
+// Vercel imports the Express app as a serverless handler. Cloud Run intentionally starts the HTTP server.
 if (!process.env.VERCEL) {
   startLocalServer().catch(err => {
     logger.error("Failed to start local server:", err);

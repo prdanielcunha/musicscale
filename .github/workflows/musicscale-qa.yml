@@ -51,6 +51,9 @@ jobs:
     - name: Vercel deployment cost policy
       run: npx tsx scripts/test_vercel_deployment_policy.ts
 
+    - name: Firebase Hosting and Cloud Run migration contract
+      run: npx tsx scripts/test_firebase_hosting_cloudrun_policy.ts
+
     - name: Run Vitest Unit & UI Tests
       run: npm run test:ui
 
