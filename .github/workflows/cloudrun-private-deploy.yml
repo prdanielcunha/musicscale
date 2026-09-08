@@ -1,0 +1,83 @@
+name: Cloud Run Private Deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: musicscale-cloudrun-private
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: millionsnest
+  REGION: us-central1
+  SERVICE: musicscale-api
+  IMAGE: us-central1-docker.pkg.dev/millionsnest/millionsnest-web/musicscale-api:${{ github.sha }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Authenticate with MillionsNest production WIF
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
+
+      - name: Configure Docker authentication
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Build MusicScale image
+        run: docker build -t "$IMAGE" .
+
+      - name: Local container smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --rm --name ms-smoke \
+            -e PORT=8080 \
+            -e FIREBASE_PROJECT_ID=millionsnest \
+            -e DEPLOY_ENV=production \
+            -p 18082:8080 "$IMAGE"
+          trap 'docker stop ms-smoke >/dev/null 2>&1 || true' EXIT
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18082/ >/dev/null; then
+              echo "MUSICSCALE_CONTAINER_SMOKE_OK"
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs ms-smoke
+          exit 1
+
+      - name: Push image
+        run: docker push "$IMAGE"
+
+      - name: Deploy private Cloud Run revision
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --image "$IMAGE" \
+            --service-account "mn-musicscale-runtime@millionsnest.iam.gserviceaccount.com" \
+            --port 8080 \
+            --cpu 1 \
+            --memory 1Gi \
+            --min-instances 0 \
+            --max-instances 3 \
+            --concurrency 40 \
+            --timeout 60 \
+            --no-allow-unauthenticated \
+            --set-env-vars "FIREBASE_PROJECT_ID=millionsnest,DEPLOY_ENV=production,NODE_ENV=production,GEMINI_MODEL=gemini-3.5-flash,MILLIONSNEST_HUB_ORIGIN=https://www.millionsnest.com,AI_IMPORT_FINOPS_WRITE_PATH_ENABLED=false,AI_IMPORT_FINOPS_READ_PATH_ENABLED=false,AI_FINOPS_DIAGNOSTICS_ENABLED=false" \
+            --set-secrets "GEMINI_API_KEY=musicscale-gemini-api-key:latest,STRIPE_SECRET_KEY=musicscale-stripe-secret-key:latest" \
+            --quiet
+
+      - name: Verify Cloud Run readiness
+        run: |
+          gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" \
+            --format='table(metadata.name,status.url,status.conditions[0].type,status.conditions[0].status)'
