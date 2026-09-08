@@ -38,20 +38,20 @@ jobs:
         run: npm run build
 
   google_cloud_read_only:
+    if: github.ref == 'refs/heads/production'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Authenticate to Google Cloud using existing MusicScale WIF
+      - name: Authenticate with MillionsNest production WIF
         id: auth
-        continue-on-error: true
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
-          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/ms-fn-prod-v1/providers/github
-          service_account: ms-fn-prod-wif-v1@millionsnest.iam.gserviceaccount.com
-          audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/ms-fn-prod-v1/providers/github
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
+          audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
 
       - name: Read-only infrastructure discovery
         if: steps.auth.outcome == 'success'
@@ -78,6 +78,6 @@ jobs:
       - name: Explain unavailable WIF without failing product QA
         if: steps.auth.outcome != 'success'
         run: |
-          echo "Existing WIF did not authorize this PR context."
+          echo "MillionsNest production WIF authentication failed."
           echo "This is expected when the provider is production-ref restricted."
           echo "Product QA remains authoritative; production deployment stays blocked until IAM is verified."
