@@ -3,6 +3,8 @@ name: Firebase Web Infrastructure Preflight
 on:
   pull_request:
     branches: [ main, production ]
+  push:
+    branches: [ production ]
   workflow_dispatch:
 
 permissions:
