@@ -1,6 +1,10 @@
 name: Cloud Run Private Deploy
 
 on:
+  push:
+    branches: [ production ]
+    paths:
+      - ".github/workflows/cloudrun-private-deploy.yml"
   workflow_dispatch:
 
 permissions:
@@ -29,13 +33,37 @@ jobs:
           workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
           service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
 
+      - name: Check required Secret Manager versions
+        id: secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          ready=true
+          for secret in musicscale-gemini-api-key musicscale-stripe-secret-key; do
+            version="$(gcloud secrets versions list "$secret" --project millionsnest --filter='state=ENABLED' --format='value(name)' --limit=1 2>/dev/null || true)"
+            if [ -z "$version" ]; then
+              echo "SECRET_NOT_READY=$secret"
+              ready=false
+            else
+              echo "SECRET_READY=$secret"
+            fi
+          done
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+
+      - name: Wait safely for secrets
+        if: steps.secrets.outputs.ready != 'true'
+        run: echo "Cloud Run deploy skipped until required Secret Manager versions exist."
+
       - name: Configure Docker authentication
+        if: steps.secrets.outputs.ready == 'true'
         run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
       - name: Build MusicScale image
+        if: steps.secrets.outputs.ready == 'true'
         run: docker build -t "$IMAGE" .
 
       - name: Local container smoke
+        if: steps.secrets.outputs.ready == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -56,9 +84,11 @@ jobs:
           exit 1
 
       - name: Push image
+        if: steps.secrets.outputs.ready == 'true'
         run: docker push "$IMAGE"
 
       - name: Deploy private Cloud Run revision
+        if: steps.secrets.outputs.ready == 'true'
         run: |
           gcloud run deploy "$SERVICE" \
             --project "$PROJECT_ID" \
@@ -78,6 +108,7 @@ jobs:
             --quiet
 
       - name: Verify Cloud Run readiness
+        if: steps.secrets.outputs.ready == 'true'
         run: |
           gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" \
             --format='table(metadata.name,status.url,status.conditions[0].type,status.conditions[0].status)'
