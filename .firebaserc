@@ -1,5 +1,14 @@
 {
   "projects": {
     "default": "millionsnest"
+  },
+  "targets": {
+    "millionsnest": {
+      "hosting": {
+        "musicscale": [
+          "musicscale-millionsnest"
+        ]
+      }
+    }
   }
 }
