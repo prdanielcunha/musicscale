@@ -5,6 +5,8 @@ import {
   createPreparationSnapshot,
   diffPreparationSnapshots,
   getPersonalPreparationEvents,
+  getPersonalPreparationMode,
+  requiresRepertoirePreparation,
 } from '../../utils/preparationIntelligence';
 
 const baseEvent = (overrides: Partial<HomeEventSummary> = {}): HomeEventSummary => ({
@@ -161,5 +163,27 @@ describe('Preparation Intelligence', () => {
 
     expect(view.status).toBe('needs-review');
     expect(view.changes.some(change => change.code === 'song-key-changed')).toBe(true);
+  });
+
+  it('adapts preparation mode to the user role without surveillance heuristics', () => {
+    expect(getPersonalPreparationMode(baseEvent({
+      userFunctionCategories: ['musical_instrument'],
+    }))).toBe('chords');
+
+    expect(getPersonalPreparationMode(baseEvent({
+      userFunctionCategories: ['vocal'],
+    }))).toBe('lyrics');
+
+    expect(getPersonalPreparationMode(baseEvent({
+      userFunctionCategories: ['technical'],
+    }))).toBe('detail');
+
+    expect(requiresRepertoirePreparation(baseEvent({
+      userFunctionCategories: ['technical'],
+    }))).toBe(false);
+
+    expect(requiresRepertoirePreparation(baseEvent({
+      userFunctionCategories: ['vocal'],
+    }))).toBe(true);
   });
 });
