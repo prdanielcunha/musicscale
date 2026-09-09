@@ -1316,7 +1316,9 @@
         "notesChanged": "The schedule notes were updated.",
         "roleChanged": "Your role: {{from}} → {{to}}."
       }
-    }
+    },
+    "scaleChangedTitle": "Your schedule changed",
+    "scaleChangedDescription": "The repertoire, key, role, or schedule details were updated. See exactly what changed."
   },
   "calendar": {
     "addToCalendar": "Add to Calendar",
