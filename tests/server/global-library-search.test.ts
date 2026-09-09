@@ -37,8 +37,14 @@ describeEmulator('Global Library Search (Emulator)', () => {
 
   beforeEach(async () => {
     await testEnv.clearFirestore();
-    // Use an authenticated admin context that has permission to write globalSongs
-    const context = testEnv.authenticatedContext('admin_user', { email: 'pastordanielpcunha@gmail.com' });
+    // Global library writes are authorized by canonical systemRole, never by email.
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users/admin_user'), {
+        systemRole: 'global_admin',
+        status: 'active'
+      });
+    });
+    const context = testEnv.authenticatedContext('admin_user');
     emulatorDb = context.firestore();
   });
 

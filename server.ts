@@ -984,8 +984,8 @@ app.use((err: any, req: any, res: any, next: any) => {
           if (userId && db) {
               const uDoc = await db.collection('users').doc(userId).get();
               if (uDoc.exists) {
-                  const sysRole = String(uDoc.data()?.systemRole || uDoc.data()?.role || uDoc.data()?.appRole || '').toLowerCase().trim();
-                  if (['ceo', 'global_admin', 'ecosystem_owner', 'founder'].includes(sysRole)) {
+                  const sysRole = String(uDoc.data()?.systemRole || '').toLowerCase().trim();
+                  if (['ceo', 'admin', 'global_admin', 'ecosystem_owner', 'founder', 'ecosystem_support'].includes(sysRole)) {
                       isGlobalAdmin = true;
                   }
               }
