@@ -7,6 +7,10 @@ export type PreparationChangeCode =
   | 'song-removed'
   | 'song-key-changed'
   | 'song-order-changed'
+  | 'song-bpm-changed'
+  | 'date-changed'
+  | 'event-title-changed'
+  | 'duration-changed'
   | 'time-changed'
   | 'location-changed'
   | 'role-changed';
@@ -16,12 +20,15 @@ export interface PreparationSongSnapshot {
   title: string;
   order: number;
   effectiveKey: string;
+  effectiveBpm: number | null;
 }
 
 export interface PreparationSnapshot {
   scaleId: string;
   date: string;
+  title: string;
   time: string | null;
+  durationMinutes: number | null;
   locationName: string | null;
   userFunctionNames: string[];
   userFunctionCategories: string[];
@@ -69,6 +76,13 @@ export function getEffectivePreparationKey(song: HomeEventSongSummary): string {
   ).trim();
 }
 
+export function getEffectivePreparationBpm(
+  song: HomeEventSongSummary
+): number | null {
+  const value = song.localBpm ?? song.bpm ?? null;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 function stableHash(value: string): string {
   // FNV-1a style 32-bit hash: deterministic, tiny and browser-safe.
   let hash = 0x811c9dc5;
@@ -97,13 +111,19 @@ export function createPreparationSnapshot(
       title: song.title,
       order: song.order,
       effectiveKey: getEffectivePreparationKey(song),
+      effectiveBpm: getEffectivePreparationBpm(song),
     }))
     .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 
   const canonical = JSON.stringify({
     scaleId: event.id,
     date: event.date,
+    title: event.title || '',
     time: event.time || null,
+    durationMinutes:
+      typeof event.durationMinutes === 'number' && Number.isFinite(event.durationMinutes)
+        ? event.durationMinutes
+        : null,
     locationName: event.locationName || null,
     userFunctionNames,
     userFunctionCategories,
@@ -113,7 +133,12 @@ export function createPreparationSnapshot(
   return {
     scaleId: event.id,
     date: event.date,
+    title: event.title || '',
     time: event.time || null,
+    durationMinutes:
+      typeof event.durationMinutes === 'number' && Number.isFinite(event.durationMinutes)
+        ? event.durationMinutes
+        : null,
     locationName: event.locationName || null,
     userFunctionNames,
     userFunctionCategories,
@@ -127,6 +152,36 @@ export function diffPreparationSnapshots(
   current: PreparationSnapshot
 ): PreparationChange[] {
   const changes: PreparationChange[] = [];
+
+  if (previous.date !== current.date) {
+    changes.push({
+      code: 'date-changed',
+      label: 'event-date',
+      from: previous.date,
+      to: current.date,
+    });
+  }
+
+  if ((previous.title || '') !== (current.title || '')) {
+    changes.push({
+      code: 'event-title-changed',
+      label: 'event-title',
+      from: previous.title || null,
+      to: current.title || null,
+    });
+  }
+
+  if (
+    (previous.durationMinutes ?? null) !==
+    (current.durationMinutes ?? null)
+  ) {
+    changes.push({
+      code: 'duration-changed',
+      label: 'event-duration',
+      from: previous.durationMinutes ?? null,
+      to: current.durationMinutes ?? null,
+    });
+  }
 
   if ((previous.time || null) !== (current.time || null)) {
     changes.push({
@@ -197,6 +252,16 @@ export function diffPreparationSnapshots(
         to: song.order,
       });
     }
+
+    if ((before.effectiveBpm ?? null) !== (song.effectiveBpm ?? null)) {
+      changes.push({
+        code: 'song-bpm-changed',
+        entityId: song.id,
+        label: song.title,
+        from: before.effectiveBpm ?? null,
+        to: song.effectiveBpm ?? null,
+      });
+    }
   });
 
   previous.songs.forEach(song => {
@@ -214,10 +279,14 @@ export function diffPreparationSnapshots(
     'song-added': 1,
     'song-removed': 2,
     'song-key-changed': 3,
-    'song-order-changed': 4,
-    'role-changed': 5,
-    'time-changed': 6,
-    'location-changed': 7,
+    'song-bpm-changed': 4,
+    'song-order-changed': 5,
+    'role-changed': 6,
+    'date-changed': 7,
+    'time-changed': 8,
+    'event-title-changed': 9,
+    'location-changed': 10,
+    'duration-changed': 11,
   };
 
   return changes.sort((a, b) => {
