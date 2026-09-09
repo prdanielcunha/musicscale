@@ -354,6 +354,42 @@
       "activityDescription": "Sugestões, músicas recentes e conteúdos que merecem atenção.",
       "activityExpand": "Mostrar atividade",
       "activityCollapse": "Ocultar atividade"
+    },
+    "preparation": {
+      "eyebrow": "Próximos 7 dias",
+      "title": "Sua semana de preparação",
+      "subtitle": "Tudo o que você precisa revisar antes de servir, sem procurar escala por escala.",
+      "commitmentCount_one": "{{count}} compromisso",
+      "commitmentCount_other": "{{count}} compromissos",
+      "today": "Hoje",
+      "tomorrow": "Amanhã",
+      "inDays": "Em {{count}} dias",
+      "statusPrepared": "Preparado",
+      "statusNeedsReview": "Mudanças para revisar",
+      "statusPreparing": "Em preparação",
+      "songCount_one": "{{count}} música",
+      "songCount_other": "{{count}} músicas",
+      "changesTitle_one": "{{count}} mudança desde sua revisão",
+      "changesTitle_other": "{{count}} mudanças desde sua revisão",
+      "moreChanges_one": "+ {{count}} mudança",
+      "moreChanges_other": "+ {{count}} mudanças",
+      "reviewChanges": "Revisar mudanças",
+      "reviewRepertoire": "Revisar repertório",
+      "startPreparation": "Preparar repertório",
+      "markPrepared": "Estou preparado",
+      "open": "Abrir",
+      "changesAcknowledged": "Alterações abertas para revisão.",
+      "preparedFeedback": "Preparação atualizada. Você está pronto para esta escala.",
+      "stateError": "Não foi possível atualizar sua preparação agora.",
+      "changes": {
+        "songAdded": "“{{song}}” foi adicionada.",
+        "songRemoved": "“{{song}}” foi removida.",
+        "songKeyChanged": "“{{song}}”: tom {{from}} → {{to}}.",
+        "songOrderChanged": "“{{song}}”: posição {{from}} → {{to}}.",
+        "timeChanged": "Horário: {{from}} → {{to}}.",
+        "locationChanged": "Local: {{from}} → {{to}}.",
+        "roleChanged": "Sua função: {{from}} → {{to}}."
+      }
     }
   },
   "songs": {
@@ -1260,8 +1296,28 @@
       "close": "Fechar",
       "calendarOpened": "Agenda aberta",
       "calendarFileCreated": "Arquivo de calendário criado",
-      "loading": "Carregando..."
-    }
+      "loading": "Carregando...",
+      "changedTitle": "Sua escala mudou",
+      "changes": {
+        "title": "O que mudou",
+        "subtitle": "Revise antes de ensaiar ou ministrar.",
+        "unknownSong": "Música",
+        "songAdded": "“{{song}}” foi adicionada.",
+        "songRemoved": "“{{song}}” foi removida.",
+        "songKeyChanged": "“{{song}}”: tom {{from}} → {{to}}.",
+        "songBpmChanged": "“{{song}}”: BPM {{from}} → {{to}}.",
+        "songOrderChanged": "“{{song}}”: posição {{from}} → {{to}}.",
+        "dateChanged": "Data: {{from}} → {{to}}.",
+        "timeChanged": "Horário: {{from}} → {{to}}.",
+        "locationChanged": "Local: {{from}} → {{to}}.",
+        "eventChanged": "Evento: {{from}} → {{to}}.",
+        "durationChanged": "Duração: {{from}} min → {{to}} min.",
+        "notesChanged": "As orientações da escala foram atualizadas.",
+        "roleChanged": "Sua função: {{from}} → {{to}}."
+      }
+    },
+    "scaleChangedTitle": "Sua escala mudou",
+    "scaleChangedDescription": "Repertório, tom, função ou detalhes da escala foram atualizados. Veja exatamente o que mudou."
   },
   "calendar": {
     "addToCalendar": "Adicionar à Agenda",

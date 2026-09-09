@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Mail, Trash2 } from 'lucide-react';
+import { X, Mail, Trash2, RefreshCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Scale } from '../../types';
@@ -8,6 +8,7 @@ import { Notification, useNotifications } from '../../contexts/NotificationConte
 import { useAuth } from '../../contexts/AuthContext';
 import AssignmentResponseActions from './AssignmentResponseActions';
 import AddToCalendarButton from '../common/AddToCalendarButton';
+import { useMusic } from '../../contexts/MusicDataContext';
 
 interface Props {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export const ScaleNotificationDetailModal: React.FC<Props> = ({ isOpen, onClose,
   const { user } = useAuth();
   const navigate = useNavigate();
   const { markAsUnread, deleteNotification } = useNotifications();
+  const { songs, locations, eventTypes, eventNames } = useMusic();
 
   const userAssignments = useMemo(() => {
     if (!scale || !user || !scale.eventAssignments || !Array.isArray(scale.eventAssignments)) return [];
@@ -36,6 +38,13 @@ export const ScaleNotificationDetailModal: React.FC<Props> = ({ isOpen, onClose,
 
   const headerTitle = useMemo(() => {
     if (!notification) return '';
+
+    if (notification.type === 'music_scale_changed') {
+      return t(
+        'notifications.scaleDetail.changedTitle',
+        'Sua escala mudou'
+      );
+    }
 
     if (userAssignments.length > 0) {
       const hasInstrument = userAssignments.some(a => a.functionCategory === 'musical_instrument');
@@ -106,6 +115,195 @@ export const ScaleNotificationDetailModal: React.FC<Props> = ({ isOpen, onClose,
     return new Date(`${scale.date}T${scale.time || '00:00'}:00`);
   }, [scale]);
 
+  const changeItems = useMemo(() => {
+    if (notification?.type !== 'music_scale_changed') return [];
+
+    const metadata = notification.metadata as Record<string, any> | undefined;
+    const summary = metadata?.preparationChangeSummary as Record<string, any> | undefined;
+    const items: string[] = [];
+
+    const songName = (songId: unknown) => {
+      if (typeof songId !== 'string') {
+        return t('notifications.scaleDetail.changes.unknownSong', 'Música');
+      }
+      return songs.find(song => song.id === songId)?.title ||
+        t('notifications.scaleDetail.changes.unknownSong', 'Música');
+    };
+
+    const locationName = (locationId: unknown) => {
+      if (typeof locationId !== 'string') return '—';
+      return locations.find(location => location.id === locationId)?.name || '—';
+    };
+
+    const eventName = (eventId: unknown) => {
+      if (typeof eventId !== 'string') return '—';
+      return eventNames.find(event => event.id === eventId)?.name ||
+        eventTypes.find(event => event.id === eventId)?.name ||
+        '—';
+    };
+
+    const formatDateValue = (value: unknown) => {
+      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return '—';
+      const date = new Date(`${value}T12:00:00`);
+      if (Number.isNaN(date.getTime())) return value;
+      return new Intl.DateTimeFormat(i18n.language, {
+        day: '2-digit',
+        month: 'short',
+      }).format(date);
+    };
+
+    if (summary?.version === 1 && summary?.songs && summary?.event) {
+      const added = Array.isArray(summary.songs.added) ? summary.songs.added : [];
+      added.forEach((songId: unknown) => {
+        items.push(t(
+          'notifications.scaleDetail.changes.songAdded',
+          '“{{song}}” foi adicionada.',
+          { song: songName(songId) }
+        ));
+      });
+
+      const removed = Array.isArray(summary.songs.removed) ? summary.songs.removed : [];
+      removed.forEach((songId: unknown) => {
+        items.push(t(
+          'notifications.scaleDetail.changes.songRemoved',
+          '“{{song}}” foi removida.',
+          { song: songName(songId) }
+        ));
+      });
+
+      const keyChanged = Array.isArray(summary.songs.keyChanged)
+        ? summary.songs.keyChanged
+        : [];
+      keyChanged.forEach((change: any) => {
+        items.push(t(
+          'notifications.scaleDetail.changes.songKeyChanged',
+          '“{{song}}”: tom {{from}} → {{to}}.',
+          {
+            song: songName(change?.songId),
+            from: change?.from || '—',
+            to: change?.to || '—',
+          }
+        ));
+      });
+
+      const bpmChanged = Array.isArray(summary.songs.bpmChanged)
+        ? summary.songs.bpmChanged
+        : [];
+      bpmChanged.forEach((change: any) => {
+        items.push(t(
+          'notifications.scaleDetail.changes.songBpmChanged',
+          '“{{song}}”: BPM {{from}} → {{to}}.',
+          {
+            song: songName(change?.songId),
+            from: change?.from ?? '—',
+            to: change?.to ?? '—',
+          }
+        ));
+      });
+
+      const reordered = Array.isArray(summary.songs.reordered)
+        ? summary.songs.reordered
+        : [];
+      reordered.forEach((change: any) => {
+        items.push(t(
+          'notifications.scaleDetail.changes.songOrderChanged',
+          '“{{song}}”: posição {{from}} → {{to}}.',
+          {
+            song: songName(change?.songId),
+            from: change?.from,
+            to: change?.to,
+          }
+        ));
+      });
+
+      if (summary.event.date) {
+        items.push(t(
+          'notifications.scaleDetail.changes.dateChanged',
+          'Data: {{from}} → {{to}}.',
+          {
+            from: formatDateValue(summary.event.date.from),
+            to: formatDateValue(summary.event.date.to),
+          }
+        ));
+      }
+
+      if (summary.event.time) {
+        items.push(t(
+          'notifications.scaleDetail.changes.timeChanged',
+          'Horário: {{from}} → {{to}}.',
+          {
+            from: summary.event.time.from || '—',
+            to: summary.event.time.to || '—',
+          }
+        ));
+      }
+
+      if (summary.event.locationId) {
+        items.push(t(
+          'notifications.scaleDetail.changes.locationChanged',
+          'Local: {{from}} → {{to}}.',
+          {
+            from: locationName(summary.event.locationId.from),
+            to: locationName(summary.event.locationId.to),
+          }
+        ));
+      }
+
+      if (summary.event.eventNameId || summary.event.eventTypeId) {
+        const eventChange = summary.event.eventNameId || summary.event.eventTypeId;
+        items.push(t(
+          'notifications.scaleDetail.changes.eventChanged',
+          'Evento: {{from}} → {{to}}.',
+          {
+            from: eventName(eventChange.from),
+            to: eventName(eventChange.to),
+          }
+        ));
+      }
+
+      if (summary.event.durationMinutes) {
+        items.push(t(
+          'notifications.scaleDetail.changes.durationChanged',
+          'Duração: {{from}} min → {{to}} min.',
+          {
+            from: summary.event.durationMinutes.from ?? '—',
+            to: summary.event.durationMinutes.to ?? '—',
+          }
+        ));
+      }
+
+      if (summary.event.notesChanged) {
+        items.push(t(
+          'notifications.scaleDetail.changes.notesChanged',
+          'As orientações da escala foram atualizadas.'
+        ));
+      }
+    }
+
+    if (metadata?.functionsChanged === true) {
+      const previous = Array.isArray(metadata.previousFunctionNames)
+        ? metadata.previousFunctionNames.filter(Boolean)
+        : [];
+      const current = Array.isArray(metadata.functionNames)
+        ? metadata.functionNames.filter(Boolean)
+        : [];
+      const formatter = new Intl.ListFormat(i18n.language, {
+        style: 'long',
+        type: 'conjunction'
+      });
+      items.push(t(
+        'notifications.scaleDetail.changes.roleChanged',
+        'Sua função: {{from}} → {{to}}.',
+        {
+          from: previous.length ? formatter.format(previous) : '—',
+          to: current.length ? formatter.format(current) : '—',
+        }
+      ));
+    }
+
+    return items;
+  }, [notification, songs, locations, eventTypes, eventNames, i18n.language, t]);
+
   const formattedSentAt = useMemo(() => {
     if (!notification) return '';
     try {
@@ -173,6 +371,41 @@ export const ScaleNotificationDetailModal: React.FC<Props> = ({ isOpen, onClose,
                     {eventName}
                   </h3>
                 </div>
+
+                {notification.type === 'music_scale_changed' && changeItems.length > 0 && (
+                  <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.07] p-4 sm:p-5">
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/[0.08]">
+                        <RefreshCcw className="h-4 w-4 text-amber-300" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-amber-100">
+                          {t(
+                            'notifications.scaleDetail.changes.title',
+                            'O que mudou'
+                          )}
+                        </h4>
+                        <p className="text-[11px] text-amber-200/60">
+                          {t(
+                            'notifications.scaleDetail.changes.subtitle',
+                            'Revise antes de ensaiar ou ministrar.'
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <ul className="space-y-2">
+                      {changeItems.map((item, index) => (
+                        <li
+                          key={`${index}-${item}`}
+                          className="flex items-start gap-2 text-sm leading-relaxed text-amber-50/85"
+                        >
+                          <span className="mt-[8px] h-1 w-1 shrink-0 rounded-full bg-amber-300" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {/* Quick Info Card */}
                 <div className="bg-white/[0.02] border border-white/[0.04] rounded-2xl p-4 sm:p-5">
