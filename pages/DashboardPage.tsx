@@ -6,6 +6,7 @@ import { useMusic } from '../contexts/MusicDataContext';
 import { useHomeExperience } from '../hooks/useHomeExperience';
 import { usePreparationIntelligence } from '../hooks/usePreparationIntelligence';
 import { getPersonalPreparationMode } from '../utils/preparationIntelligence';
+import { buildTeamAttentionEntries } from '../utils/teamAttention';
 import { useCapability } from '../hooks/useCapability';
 import { useModals } from '../contexts/ModalContext';
 import { useToast } from '../contexts/ToastContext';
@@ -13,6 +14,7 @@ import { useSuggestionsContext } from '../contexts/SuggestionContext';
 import { HomeFocusCard } from '../components/dashboard/HomeFocusCard';
 import { HomeUpcomingEvents } from '../components/dashboard/HomeUpcomingEvents';
 import { HomePreparationWeek } from '../components/dashboard/HomePreparationWeek';
+import { HomeTeamAttention } from '../components/dashboard/HomeTeamAttention';
 import { HomeSecondaryContent } from '../components/dashboard/HomeSecondaryContent';
 import { FirstScaleJourneyCard } from '../components/onboarding/FirstScaleJourneyCard';
 import { PlanUsageCompactCard } from '../components/billing/PlanUsageCompactCard';
@@ -84,6 +86,7 @@ export const DashboardPage: React.FC = () => {
   const { hasCapability } = useCapability();
   const canUsePerformance = hasCapability('musicscale.performance.use');
   const canImportSongs = hasCapability('musicscale.songs.edit');
+  const canManageScales = hasCapability('musicscale.scales.manage');
   
   const { experience, upcomingEvents, isLoading: experienceLoading } = useHomeExperience();
   const preparation = usePreparationIntelligence(upcomingEvents);
@@ -92,6 +95,39 @@ export const DashboardPage: React.FC = () => {
     : null;
   const additionalPreparationViews = preparation.views.filter(
     view => view.event.id !== experience.event?.id
+  );
+
+  const teamAttentionEntries = useMemo(() => {
+    const candidates = experience.draftEvent
+      ? [...upcomingEvents, experience.draftEvent]
+      : upcomingEvents;
+
+    const entries = buildTeamAttentionEntries(
+      candidates,
+      canManageScales
+    );
+
+    if (experience.mode === 'assigned-event') {
+      return entries;
+    }
+
+    return entries.filter(
+      entry => entry.event.id !== experience.event?.id
+    );
+  }, [
+    upcomingEvents,
+    experience.draftEvent,
+    experience.event?.id,
+    experience.mode,
+    canManageScales,
+  ]);
+
+  const genericUpcomingExclusions = useMemo(
+    () => Array.from(new Set([
+      ...preparation.views.map(view => view.event.id),
+      ...teamAttentionEntries.map(entry => entry.event.id),
+    ])),
+    [preparation.views, teamAttentionEntries]
   );
 
   const canOpenExplorePerformance = Boolean(
@@ -343,7 +379,7 @@ export const DashboardPage: React.FC = () => {
       handleOpenEvent(eventSummary);
     };
 
-    if (!hasCapability('musicscale.scales.manage')) {
+    if (!canManageScales) {
       runFallback('User lacks musicscale.scales.manage capability');
       return;
     }
@@ -517,7 +553,7 @@ export const DashboardPage: React.FC = () => {
           onReviewPreparationChanges={handleReviewPreparationChanges}
           onMarkPrepared={handleMarkPrepared}
           onCreateScale={() => {
-            if (!hasCapability('musicscale.scales.manage')) {
+            if (!canManageScales) {
               toast({ type: 'error', message: t('dashboard.attention.fallbackMessage', 'Não foi possível abrir a edição diretamente. Revise os detalhes da escala.') });
               return;
             }
@@ -538,12 +574,20 @@ export const DashboardPage: React.FC = () => {
         />
       )}
 
+      {experience.mode !== 'first-value' && teamAttentionEntries.length > 0 && (
+        <HomeTeamAttention
+          entries={teamAttentionEntries}
+          onResolve={handleResolveAttention}
+          onOpenAll={() => navigate('/scales')}
+        />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
         {experience.mode !== 'first-value' && experience.mode !== 'no-upcoming-event' && experience.mode !== 'create-next-event' && (
           <div className="pt-2">
             <HomeUpcomingEvents
               events={upcomingEvents}
-              excludeEventIds={preparation.views.map(view => view.event.id)}
+              excludeEventIds={genericUpcomingExclusions}
               onOpenEvent={handleOpenEvent}
             />
           </div>
