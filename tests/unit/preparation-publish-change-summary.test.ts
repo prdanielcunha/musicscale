@@ -20,7 +20,12 @@ function scale(overrides: Partial<Scale> = {}): Scale {
     durationMinutes: 90,
     status: 'published',
     publishRevision: 2,
-    createdBy: { uid: 'u1', name: 'Leader' },
+    createdBy: {
+      uid: 'u1',
+      name: 'Leader',
+      displayName: 'Leader',
+      photoURL: null,
+    },
     createdAt: '2026-09-01T00:00:00.000Z',
     ...overrides,
   };
