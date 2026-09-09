@@ -1296,7 +1296,25 @@
       "close": "Fechar",
       "calendarOpened": "Agenda aberta",
       "calendarFileCreated": "Arquivo de calendário criado",
-      "loading": "Carregando..."
+      "loading": "Carregando...",
+      "changedTitle": "Sua escala mudou",
+      "changes": {
+        "title": "O que mudou",
+        "subtitle": "Revise antes de ensaiar ou ministrar.",
+        "unknownSong": "Música",
+        "songAdded": "“{{song}}” foi adicionada.",
+        "songRemoved": "“{{song}}” foi removida.",
+        "songKeyChanged": "“{{song}}”: tom {{from}} → {{to}}.",
+        "songBpmChanged": "“{{song}}”: BPM {{from}} → {{to}}.",
+        "songOrderChanged": "“{{song}}”: posição {{from}} → {{to}}.",
+        "dateChanged": "Data: {{from}} → {{to}}.",
+        "timeChanged": "Horário: {{from}} → {{to}}.",
+        "locationChanged": "Local: {{from}} → {{to}}.",
+        "eventChanged": "Evento: {{from}} → {{to}}.",
+        "durationChanged": "Duração: {{from}} min → {{to}} min.",
+        "notesChanged": "As orientações da escala foram atualizadas.",
+        "roleChanged": "Sua função: {{from}} → {{to}}."
+      }
     }
   },
   "calendar": {
