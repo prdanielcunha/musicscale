@@ -585,10 +585,8 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                             }
                         }
 
-                        const resolvedSysRole2 = String(systemRole || '').toLowerCase().trim();
-                        if (['ceo', 'founder', 'ecosystem_owner', 'owner', 'dono'].includes(resolvedSysRole2)) {
-                            systemRole = 'ceo';
-                        }
+                        // Preserve the exact canonical ecosystem role loaded from users/{uid}.
+                        // Tenant ownership and catalog visibility must never rewrite system authority.
                         
                         const data = {
                            uid: user.uid,
