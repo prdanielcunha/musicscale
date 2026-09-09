@@ -6,10 +6,18 @@ import { readFileSync } from 'node:fs';
 import { MusicScaleCommandService } from './services/server/scale/musicScaleCommandService.js';
 
 describe('RBAC & Authorization Boundaries', () => {
-  it('Global Admin should have scales.publish capability', () => {
-    const ctx = buildEffectiveAccessContext('u1', 'o1', 'global_admin', null, 'active');
-    assert.strictEqual(ctx.isGlobalAccess, true);
-    assert.strictEqual(hasMusicScaleCapability(ctx, 'scales.publish'), true);
+  it('canonical ecosystem governance roles receive full cross-tenant MusicScale administration', () => {
+    for (const role of ['ceo', 'founder', 'ecosystem_owner', 'global_admin']) {
+      const ctx = buildEffectiveAccessContext(`global-${role}`, 'o1', role, null, 'active');
+      assert.strictEqual(ctx.isGlobalAccess, true, role);
+      assert.strictEqual(ctx.isGlobalFullAccess, true, role);
+      assert.strictEqual(ctx.isOrganizationAdmin, true, role);
+      assert.strictEqual(hasMusicScaleCapability(ctx, 'scales.publish'), true, role);
+      assert.strictEqual(hasMusicScaleCapability(ctx, 'songs.update'), true, role);
+      assert.strictEqual(hasMusicScaleCapability(ctx, 'organization.members.manage'), true, role);
+      assert.strictEqual(hasMusicScaleCapability(ctx, 'organization.settings.manage'), true, role);
+      assert.strictEqual(hasMusicScaleCapability(ctx, 'musicScale.fullAccess'), true, role);
+    }
   });
   
   it('Ecosystem Support has scoped cross-tenant MusicScale access without organization governance', () => {
