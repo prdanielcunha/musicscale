@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import { HomeExperience, HomeAttentionItem, HomeEventSummary, getLocalDateKey, HomeEventSongSummary, canUsePerformanceMode } from '../../utils/homeExperience';
-import { Play, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Play, AlertCircle, CheckCircle2, BookOpenCheck, RefreshCcw } from 'lucide-react';
+import type { EventPreparationView } from '../../utils/preparationIntelligence';
 
 interface HomeFocusCardProps {
   experience: HomeExperience;
@@ -11,6 +12,11 @@ interface HomeFocusCardProps {
   responseActions?: React.ReactNode;
   onOpenEvent: (event: HomeEventSummary) => void;
   onOpenPerformance: (event: HomeEventSummary) => void;
+  onOpenPreparation?: (event: HomeEventSummary) => void;
+  preparationView?: EventPreparationView | null;
+  preparationBusy?: boolean;
+  onReviewPreparationChanges?: (event: HomeEventSummary) => void | Promise<void>;
+  onMarkPrepared?: (event: HomeEventSummary) => void | Promise<void>;
   onCreateScale: () => void;
   onChooseScaleToRepeat: () => void;
   onResolveAttention?: (event: HomeEventSummary, firstAttentionItem: HomeAttentionItem) => void;
@@ -21,7 +27,12 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   canUsePerformance, 
   responseActions, 
   onOpenEvent, 
-  onOpenPerformance, 
+  onOpenPerformance,
+  onOpenPreparation,
+  preparationView,
+  preparationBusy = false,
+  onReviewPreparationChanges,
+  onMarkPrepared,
   onCreateScale, 
   onChooseScaleToRepeat,
   onResolveAttention,
@@ -125,6 +136,25 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
       };
     }
 
+    if (currentMode === 'assigned-event' && preparationView?.event.id === targetEvent.id) {
+      if (preparationView.status === 'needs-review') {
+        return {
+          label: t('dashboard.preparation.statusNeedsReview', 'Mudanças para revisar'),
+          style: 'bg-amber-500/[0.07] text-amber-700 dark:text-amber-300 border border-amber-500/15'
+        };
+      }
+      if (preparationView.status === 'prepared') {
+        return {
+          label: t('dashboard.preparation.statusPrepared', 'Preparado'),
+          style: 'bg-emerald-500/[0.05] text-emerald-700 dark:text-emerald-300 border border-emerald-500/10'
+        };
+      }
+      return {
+        label: t('dashboard.preparation.statusPreparing', 'Em preparação'),
+        style: 'bg-blue-500/[0.05] text-blue-700 dark:text-blue-300 border border-blue-500/10'
+      };
+    }
+
     return {
       label: t('dashboard.focus.repertoireReady', 'Escala pronta'),
       style: 'bg-emerald-500/[0.03] text-emerald-600 dark:text-emerald-400 border border-emerald-500/[0.08]'
@@ -155,6 +185,14 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
     const showPerformance = canUsePerformanceMode(targetEvent, canUsePerformance);
     const hasRole = targetEvent.isUserAssigned && targetEvent.userFunctionNames.length > 0;
+    const isTodayOrLive =
+      targetEvent.date === getLocalDateKey() ||
+      targetEvent.eventTemporalState === 'in-progress';
+    const targetPreparation =
+      preparationView?.event.id === targetEvent.id
+        ? preparationView
+        : null;
+    const hasPreparationChanges = Boolean(targetPreparation?.changes.length);
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 relative">
@@ -267,9 +305,60 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
           {/* Actions Button Bar */}
           <div className="flex flex-col sm:flex-row gap-3 pt-6 mt-auto">
-            {currentMode === 'assigned-event' || currentMode === 'leader-prepared' ? (
+            {currentMode === 'assigned-event' ? (
               <>
-                {showPerformance ? (
+                {targetEvent.type === 'music' && hasPreparationChanges && onReviewPreparationChanges ? (
+                  <Button
+                    onClick={() => void onReviewPreparationChanges(targetEvent)}
+                    disabled={preparationBusy}
+                    className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-amber-500/20 px-8"
+                    size="lg"
+                    variant="primary"
+                  >
+                    <RefreshCcw className="w-5 h-5 mr-2" />
+                    {t('dashboard.preparation.reviewChanges', 'Revisar mudanças')}
+                  </Button>
+                ) : showPerformance && isTodayOrLive ? (
+                  <Button onClick={() => onOpenPerformance(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
+                    <Play className="w-5 h-5 mr-2 fill-current" />
+                    {t('dashboard.focus.enterPerformance', 'Entrar no Modo Performance')}
+                  </Button>
+                ) : targetEvent.type === 'music' && onOpenPreparation ? (
+                  <Button onClick={() => onOpenPreparation(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
+                    <BookOpenCheck className="w-5 h-5 mr-2" />
+                    {targetPreparation?.status === 'prepared'
+                      ? t('dashboard.preparation.reviewRepertoire', 'Revisar repertório')
+                      : t('dashboard.preparation.startPreparation', 'Preparar repertório')}
+                  </Button>
+                ) : (
+                  <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
+                    {targetEvent.type === 'music' ? t('dashboard.focus.openRepertoire', 'Abrir repertório') : t('dashboard.focus.openScale', 'Abrir escala')}
+                  </Button>
+                )}
+
+                {targetEvent.type === 'music' &&
+                  targetPreparation?.status !== 'prepared' &&
+                  !hasPreparationChanges &&
+                  onMarkPrepared && (
+                    <Button
+                      onClick={() => void onMarkPrepared(targetEvent)}
+                      disabled={preparationBusy}
+                      className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] px-6"
+                      size="lg"
+                      variant="ghost"
+                    >
+                      <CheckCircle2 className="w-5 h-5 mr-2 text-emerald-500" />
+                      {t('dashboard.preparation.markPrepared', 'Estou preparado')}
+                    </Button>
+                  )}
+
+                <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all duration-300 ease-out font-medium px-6" size="lg" variant="ghost">
+                  {t('dashboard.focus.viewScaleDetails', 'Ver detalhes')}
+                </Button>
+              </>
+            ) : currentMode === 'leader-prepared' ? (
+              <>
+                {showPerformance && isTodayOrLive ? (
                   <Button onClick={() => onOpenPerformance(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
                     <Play className="w-5 h-5 mr-2 fill-current" />
                     {t('dashboard.focus.enterPerformance', 'Entrar no Modo Performance')}
