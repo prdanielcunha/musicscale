@@ -259,7 +259,9 @@ export function buildPreparationView(
 
   let status: PreparationStatus = 'preparing';
 
-  if (
+  if (changes.length > 0) {
+    status = 'needs-review';
+  } else if (
     storedState?.preparedFingerprint &&
     storedState.preparedFingerprint === snapshot.fingerprint
   ) {
