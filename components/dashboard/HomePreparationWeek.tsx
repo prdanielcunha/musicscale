@@ -11,8 +11,9 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { HomeEventSummary } from '../../utils/homeExperience';
-import type {
-  EventPreparationView,
+import {
+  requiresRepertoirePreparation,
+  type EventPreparationView,
 } from '../../utils/preparationIntelligence';
 import { describePreparationChange } from '../../utils/preparationPresentation';
 
@@ -94,6 +95,7 @@ export const HomePreparationWeek: React.FC<HomePreparationWeekProps> = ({
         {views.map(({ event, status, changes }) => {
           const busy = busyScaleId === event.id;
           const isMusic = event.type === 'music' && event.songCount > 0;
+          const needsRepertoirePreparation = requiresRepertoirePreparation(event);
           const role = event.userFunctionNames.join(', ');
           const visibleSongs = (event.songs || []).slice(0, 3);
           const hasChanges = changes.length > 0;
@@ -227,7 +229,7 @@ export const HomePreparationWeek: React.FC<HomePreparationWeekProps> = ({
                     </button>
                   ) : null}
 
-                  {status !== 'prepared' && isMusic && (
+                  {status !== 'prepared' && needsRepertoirePreparation && (
                     <button
                       type="button"
                       disabled={busy || hasChanges}
