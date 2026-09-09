@@ -4,7 +4,10 @@ import Card from '../common/Card';
 import Button from '../common/Button';
 import { HomeExperience, HomeAttentionItem, HomeEventSummary, getLocalDateKey, HomeEventSongSummary, canUsePerformanceMode } from '../../utils/homeExperience';
 import { Play, AlertCircle, CheckCircle2, BookOpenCheck, RefreshCcw } from 'lucide-react';
-import type { EventPreparationView } from '../../utils/preparationIntelligence';
+import {
+  requiresRepertoirePreparation,
+  type EventPreparationView,
+} from '../../utils/preparationIntelligence';
 import { describePreparationChange } from '../../utils/preparationPresentation';
 
 interface HomeFocusCardProps {
@@ -194,6 +197,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
         ? preparationView
         : null;
     const hasPreparationChanges = Boolean(targetPreparation?.changes.length);
+    const needsRepertoirePreparation = requiresRepertoirePreparation(targetEvent);
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 relative">
@@ -359,7 +363,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                     <Play className="w-5 h-5 mr-2 fill-current" />
                     {t('dashboard.focus.enterPerformance', 'Entrar no Modo Performance')}
                   </Button>
-                ) : targetEvent.type === 'music' && onOpenPreparation ? (
+                ) : needsRepertoirePreparation && onOpenPreparation ? (
                   <Button onClick={() => onOpenPreparation(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
                     <BookOpenCheck className="w-5 h-5 mr-2" />
                     {targetPreparation?.status === 'prepared'
@@ -372,7 +376,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                   </Button>
                 )}
 
-                {targetEvent.type === 'music' &&
+                {needsRepertoirePreparation &&
                   targetPreparation?.status !== 'prepared' &&
                   !hasPreparationChanges &&
                   onMarkPrepared && (
