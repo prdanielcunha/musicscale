@@ -274,6 +274,8 @@ export function getPersonalPreparationMode(
 
   if (categories.has('musical_instrument')) return 'chords';
   if (categories.has('vocal')) return 'lyrics';
+  if (categories.has('leadership')) return 'chords';
+  if (categories.size === 0) return 'chords';
   return 'detail';
 }
 
