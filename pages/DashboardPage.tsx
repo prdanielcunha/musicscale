@@ -536,7 +536,7 @@ export const DashboardPage: React.FC = () => {
           <div className="pt-2">
             <HomeUpcomingEvents
               events={upcomingEvents}
-              excludeEventId={experience.event?.id}
+              excludeEventIds={preparation.views.map(view => view.event.id)}
               onOpenEvent={handleOpenEvent}
             />
           </div>
