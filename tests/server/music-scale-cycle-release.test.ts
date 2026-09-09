@@ -576,6 +576,81 @@ describe('MusicScale Complete Lifecycle & E2E Release Candidate Certification', 
     expect(countU2Notifs).toBe(1);
   });
 
+  it('Scenario 2B: mudança de tom gera music_scale_changed com resumo estruturado', async () => {
+    const orgId = 'org-preparation-change';
+    const scaleId = 'scale-preparation-change';
+    const bandScaleId = 'band-preparation-change';
+
+    setupBasicEntities(orgId);
+    setupBasicScale(orgId, scaleId, {
+      status: 'published',
+      publishRevision: 2,
+      bandScaleId,
+      songSettings: {
+        'song-1': { key: 'G', bpm: 72 },
+        'song-2': { key: 'D', bpm: 80 }
+      },
+      eventAssignments: [
+        {
+          eventAssignmentId: 'ev-u2',
+          userId: 'u2',
+          functionId: 'inst-violao',
+          active: true,
+          assignmentRevision: 2
+        }
+      ]
+    });
+
+    setupBandScale(orgId, bandScaleId, [
+      {
+        assignmentId: 'assign-u2',
+        userId: 'u2',
+        instrumentId: 'inst-violao',
+        active: true
+      }
+    ]);
+
+    await MusicScaleCommandService.publishMusicScale({
+      musicScaleId: scaleId,
+      orgId,
+      payload: {
+        bandScaleId,
+        scalePatch: {
+          ...validScalePatch,
+          songSettings: {
+            'song-1': { key: 'A', bpm: 72 },
+            'song-2': { key: 'D', bpm: 80 }
+          }
+        }
+      },
+      idempotencyKey: 'idemp-preparation-change',
+      authUid: 'u1',
+      correlationId: 'corr-preparation-change'
+    });
+
+    let notification: Record<string, any> | null = null;
+    globalThis.dbState.forEach((value, key) => {
+      if (
+        key.startsWith(`organizations/${orgId}/notifications/`) &&
+        value.data.recipientId === 'u2'
+      ) {
+        notification = value.data;
+      }
+    });
+
+    expect(notification).not.toBeNull();
+    expect(notification!.type).toBe('music_scale_changed');
+    expect(notification!.metadata.preparationChangeSummary.changed).toBe(true);
+    expect(notification!.metadata.preparationChangeSummary.codes).toContain('song_key_changed');
+    expect(notification!.metadata.preparationChangeSummary.songs.keyChanged).toEqual([
+      {
+        songId: 'song-1',
+        from: 'G',
+        to: 'A'
+      }
+    ]);
+  });
+
   it('Scenario 3: Líder/Modificador Excluído da Notificação', async () => {
     const orgId = 'org-gamma';
     const scaleId = 'scale-gamma';
