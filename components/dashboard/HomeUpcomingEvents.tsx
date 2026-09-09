@@ -8,9 +8,10 @@ import Button from '../common/Button';
 interface HomeUpcomingEventsProps {
   events: HomeEventSummary[];
   onOpenEvent: (event: HomeEventSummary) => void;
+  excludeEventId?: string | null;
 }
 
-export const HomeUpcomingEvents: React.FC<HomeUpcomingEventsProps> = ({ events, onOpenEvent }) => {
+export const HomeUpcomingEvents: React.FC<HomeUpcomingEventsProps> = ({ events, onOpenEvent, excludeEventId }) => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
@@ -18,7 +19,9 @@ export const HomeUpcomingEvents: React.FC<HomeUpcomingEventsProps> = ({ events, 
     return null;
   }
 
-  const nonDraftEvents = events.filter(e => e.status !== 'draft');
+  const nonDraftEvents = events.filter(
+    e => e.status !== 'draft' && e.id !== excludeEventId
+  );
 
   if (nonDraftEvents.length === 0) {
     return null;
