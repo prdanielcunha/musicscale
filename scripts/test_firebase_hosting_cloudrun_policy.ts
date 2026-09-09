@@ -36,4 +36,13 @@ assert.match(server, /NODE_ENV === "production"/, "Production diagnostics must f
 const vercel = JSON.parse(fs.readFileSync("vercel.json", "utf8"));
 assert.equal(vercel?.git?.deploymentEnabled, false, "Vercel must remain manual-only as a rollback path during migration");
 
+
+
+const deployWorkflow = fs.readFileSync(".github/workflows/cloudrun-private-deploy.yml", "utf8");
+assert.match(deployWorkflow, /push:\s*\n\s*branches:\s*\[ production \]/, "Production pushes must trigger the canonical MusicScale release");
+assert.match(deployWorkflow, /workflow_dispatch:/, "Manual production deployment must remain available as a fallback");
+assert.match(deployWorkflow, /--only hosting:musicscale/, "Canonical production release must deploy the MusicScale Hosting target");
+assert.doesNotMatch(deployWorkflow, /--only[^\n]*firestore/, "MusicScale release must not overwrite the shared Firestore Rules authority");
+assert.match(deployWorkflow, /musicscale\.millionsnest\.com/, "Canonical release must smoke the public MusicScale production domain");
+
 console.log("Firebase Hosting + Cloud Run migration contract: OK");
