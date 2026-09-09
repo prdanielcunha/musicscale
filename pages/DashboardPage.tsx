@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useMusic } from '../contexts/MusicDataContext';
 import { useHomeExperience } from '../hooks/useHomeExperience';
 import { usePreparationIntelligence } from '../hooks/usePreparationIntelligence';
+import { getPersonalPreparationMode } from '../utils/preparationIntelligence';
 import { useCapability } from '../hooks/useCapability';
 import { useModals } from '../contexts/ModalContext';
 import { useToast } from '../contexts/ToastContext';
@@ -250,13 +251,19 @@ export const DashboardPage: React.FC = () => {
       return;
     }
 
+    const preparationMode = getPersonalPreparationMode(eventSummary);
+    if (preparationMode === 'detail') {
+      handleOpenEvent(eventSummary);
+      return;
+    }
+
     openSongDetail(scale.songs[0], {
       scaleContext: {
         scaleId: scale.id,
         songs: scale.songs,
         currentIndex: 0,
       },
-      mode: 'chords',
+      mode: preparationMode,
     });
   };
 
