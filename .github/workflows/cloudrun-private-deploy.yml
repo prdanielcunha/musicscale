@@ -1,6 +1,8 @@
 name: Cloud Run Private Deploy
 
 on:
+  push:
+    branches: [ production ]
   workflow_dispatch:
 
 permissions:
@@ -81,3 +83,46 @@ jobs:
         run: |
           gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" \
             --format='table(metadata.name,status.url,status.conditions[0].type,status.conditions[0].status)'
+
+      - name: Allow Firebase Hosting invocation
+        run: |
+          gcloud run services add-iam-policy-binding "$SERVICE" \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --member="allUsers" \
+            --role="roles/run.invoker" \
+            --quiet
+
+      - name: Build MusicScale Hosting bundle
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          test -f dist/index.html
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools@15.25.1
+
+      - name: Deploy MusicScale Hosting
+        run: |
+          firebase deploy \
+            --project "$PROJECT_ID" \
+            --only hosting:musicscale \
+            --non-interactive
+
+      - name: Production smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE="https://musicscale.millionsnest.com"
+          curl --fail --silent --show-error --location \
+            --retry 12 --retry-delay 3 --retry-all-errors \
+            "$BASE/" -o /tmp/musicscale.html
+          grep -Eiq '<!doctype html|<html' /tmp/musicscale.html
+
+          STATUS="$(curl --silent --show-error --location \
+            --retry 12 --retry-delay 3 --retry-all-errors \
+            -o /tmp/musicscale-api.json -w '%{http_code}' \
+            "$BASE/api/v1/ecosystem/access-context?organizationId=production-release-smoke")"
+          test "$STATUS" = "401"
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/musicscale-api.json','utf8'));if(!String(x.error||'').toLowerCase().includes('unauthorized'))process.exit(1);console.log('MUSICSCALE_PRODUCTION_RELEASE_OK');"
