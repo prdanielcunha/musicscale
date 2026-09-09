@@ -13,8 +13,8 @@ import {
 import type { HomeEventSummary } from '../../utils/homeExperience';
 import type {
   EventPreparationView,
-  PreparationChange,
 } from '../../utils/preparationIntelligence';
+import { describePreparationChange } from '../../utils/preparationPresentation';
 
 interface HomePreparationWeekProps {
   views: EventPreparationView[];
@@ -44,47 +44,6 @@ function formatRelativeDay(
   const weekday = target.toLocaleDateString(locale, { weekday: 'short' });
   const dayMonth = target.toLocaleDateString(locale, { day: '2-digit', month: 'short' });
   return `${weekday} · ${dayMonth}`;
-}
-
-function describeChange(
-  change: PreparationChange,
-  t: (key: string, options?: any) => string
-): string {
-  switch (change.code) {
-    case 'song-added':
-      return t('dashboard.preparation.changes.songAdded', { song: change.label });
-    case 'song-removed':
-      return t('dashboard.preparation.changes.songRemoved', { song: change.label });
-    case 'song-key-changed':
-      return t('dashboard.preparation.changes.songKeyChanged', {
-        song: change.label,
-        from: change.from || '—',
-        to: change.to || '—',
-      });
-    case 'song-order-changed':
-      return t('dashboard.preparation.changes.songOrderChanged', {
-        song: change.label,
-        from: change.from,
-        to: change.to,
-      });
-    case 'time-changed':
-      return t('dashboard.preparation.changes.timeChanged', {
-        from: change.from || '—',
-        to: change.to || '—',
-      });
-    case 'location-changed':
-      return t('dashboard.preparation.changes.locationChanged', {
-        from: change.from || '—',
-        to: change.to || '—',
-      });
-    case 'role-changed':
-      return t('dashboard.preparation.changes.roleChanged', {
-        from: change.from || '—',
-        to: change.to || '—',
-      });
-    default:
-      return change.label;
-  }
 }
 
 export const HomePreparationWeek: React.FC<HomePreparationWeekProps> = ({
@@ -225,7 +184,7 @@ export const HomePreparationWeek: React.FC<HomePreparationWeekProps> = ({
                             key={`${change.code}-${change.entityId || index}`}
                             className="text-xs leading-relaxed text-amber-900/80 dark:text-amber-100/75"
                           >
-                            {describeChange(change, t)}
+                            {describePreparationChange(change, t)}
                           </li>
                         ))}
                       </ul>
