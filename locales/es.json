@@ -1294,7 +1294,25 @@
       "close": "Cerrar",
       "calendarOpened": "Calendario abierto",
       "calendarFileCreated": "Archivo de calendario creado",
-      "loading": "Cargando..."
+      "loading": "Cargando...",
+      "changedTitle": "Tu escala cambió",
+      "changes": {
+        "title": "Qué cambió",
+        "subtitle": "Revísalo antes del ensayo o de servir.",
+        "unknownSong": "Canción",
+        "songAdded": "Se agregó “{{song}}”.",
+        "songRemoved": "Se quitó “{{song}}”.",
+        "songKeyChanged": "“{{song}}”: tono {{from}} → {{to}}.",
+        "songBpmChanged": "“{{song}}”: BPM {{from}} → {{to}}.",
+        "songOrderChanged": "“{{song}}”: posición {{from}} → {{to}}.",
+        "dateChanged": "Fecha: {{from}} → {{to}}.",
+        "timeChanged": "Horario: {{from}} → {{to}}.",
+        "locationChanged": "Lugar: {{from}} → {{to}}.",
+        "eventChanged": "Evento: {{from}} → {{to}}.",
+        "durationChanged": "Duración: {{from}} min → {{to}} min.",
+        "notesChanged": "Se actualizaron las orientaciones de la escala.",
+        "roleChanged": "Tu función: {{from}} → {{to}}."
+      }
     }
   },
   "calendar": {
