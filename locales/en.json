@@ -353,6 +353,42 @@
       "activityDescription": "Suggestions, recent songs and content that deserves attention.",
       "activityExpand": "Show activity",
       "activityCollapse": "Hide activity"
+    },
+    "preparation": {
+      "eyebrow": "Next 7 days",
+      "title": "Your preparation week",
+      "subtitle": "Everything you need to review before serving, without hunting through schedules.",
+      "commitmentCount_one": "{{count}} commitment",
+      "commitmentCount_other": "{{count}} commitments",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "inDays": "In {{count}} days",
+      "statusPrepared": "Prepared",
+      "statusNeedsReview": "Changes to review",
+      "statusPreparing": "Preparing",
+      "songCount_one": "{{count}} song",
+      "songCount_other": "{{count}} songs",
+      "changesTitle_one": "{{count}} change since your review",
+      "changesTitle_other": "{{count}} changes since your review",
+      "moreChanges_one": "+ {{count}} change",
+      "moreChanges_other": "+ {{count}} changes",
+      "reviewChanges": "Review changes",
+      "reviewRepertoire": "Review repertoire",
+      "startPreparation": "Prepare repertoire",
+      "markPrepared": "I'm prepared",
+      "open": "Open",
+      "changesAcknowledged": "Changes opened for review.",
+      "preparedFeedback": "Preparation updated. You're ready for this schedule.",
+      "stateError": "We couldn't update your preparation right now.",
+      "changes": {
+        "songAdded": "“{{song}}” was added.",
+        "songRemoved": "“{{song}}” was removed.",
+        "songKeyChanged": "“{{song}}”: key {{from}} → {{to}}.",
+        "songOrderChanged": "“{{song}}”: position {{from}} → {{to}}.",
+        "timeChanged": "Time: {{from}} → {{to}}.",
+        "locationChanged": "Location: {{from}} → {{to}}.",
+        "roleChanged": "Your role: {{from}} → {{to}}."
+      }
     }
   },
   "songs": {
