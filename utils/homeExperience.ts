@@ -66,6 +66,7 @@ export interface HomeEventSummary {
   teamCount: number;
   status?: string | null;
   userFunctionNames: string[];
+  userFunctionCategories?: string[];
   isUserAssigned: boolean;
   songs?: HomeEventSongSummary[];
   durationMinutes?: number | null;
@@ -295,6 +296,7 @@ export function buildHomeEventSummaries(
     let teamCount = 0;
     let isUserAssigned = false;
     let userFunctionNames: string[] = [];
+    let userFunctionCategories: string[] = [];
 
     const activeAssignments = (scale.eventAssignments || []).filter((a) => a.active !== false);
 
@@ -311,6 +313,12 @@ export function buildHomeEventSummaries(
       userFunctionNames = Array.from(
         new Set(userAssignments.map((a) => a.instrument?.name).filter(Boolean))
       ) as string[];
+      userFunctionCategories = Array.from(
+        new Set(userAssignments.map((a) => a.instrument?.category).filter(Boolean))
+      ) as string[];
+      userFunctionCategories = Array.from(
+        new Set(userAssignments.map((a) => a.instrument?.category).filter(Boolean))
+      ) as string[];
     } else {
       const uniqueUserIds = new Set(activeAssignments.map((a) => a.userId));
       teamCount = uniqueUserIds.size;
@@ -319,6 +327,12 @@ export function buildHomeEventSummaries(
       isUserAssigned = userAssignments.length > 0;
       userFunctionNames = Array.from(
         new Set(userAssignments.map((a) => a.functionName).filter(Boolean))
+      ) as string[];
+      userFunctionCategories = Array.from(
+        new Set(userAssignments.map((a) => a.functionCategory).filter(Boolean))
+      ) as string[];
+      userFunctionCategories = Array.from(
+        new Set(userAssignments.map((a) => a.functionCategory).filter(Boolean))
       ) as string[];
     }
 
@@ -346,6 +360,7 @@ export function buildHomeEventSummaries(
       teamCount,
       status: scale.status,
       userFunctionNames,
+      userFunctionCategories,
       isUserAssigned,
       songs,
       durationMinutes,
@@ -389,6 +404,9 @@ export function buildHomeEventSummaries(
     const userFunctionNames = Array.from(
       new Set(userAssignments.map((a) => a.instrument?.name).filter(Boolean))
     ) as string[];
+    const userFunctionCategories = Array.from(
+      new Set(userAssignments.map((a) => a.instrument?.category).filter(Boolean))
+    ) as string[];
 
     summaries.push({
       id: scale.id,
@@ -401,6 +419,7 @@ export function buildHomeEventSummaries(
       teamCount,
       status: scale.status,
       userFunctionNames,
+      userFunctionCategories,
       isUserAssigned,
       durationMinutes,
       startAtMillis,
@@ -441,6 +460,7 @@ function rawToSummary(
     let teamCount = 0;
     let isUserAssigned = false;
     let userFunctionNames: string[] = [];
+    let userFunctionCategories: string[] = [];
 
     if (raw.bandScaleId && bandScalesMap.has(raw.bandScaleId)) {
       const linkedBand = bandScalesMap.get(raw.bandScaleId)!;
@@ -493,6 +513,7 @@ function rawToSummary(
       teamCount,
       status: raw.status,
       userFunctionNames,
+      userFunctionCategories,
       isUserAssigned,
       songs,
     };
@@ -515,6 +536,7 @@ function rawToSummary(
       teamCount: uniqueUserIds.size,
       status: raw.status,
       userFunctionNames: Array.from(new Set(userAssignments.map((a) => a.instrument?.name).filter(Boolean))) as string[],
+      userFunctionCategories: Array.from(new Set(userAssignments.map((a) => a.instrument?.category).filter(Boolean))) as string[],
       isUserAssigned: userAssignments.length > 0,
     };
   }
