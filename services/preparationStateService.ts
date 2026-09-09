@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   where,
@@ -81,9 +82,11 @@ export async function ensurePreparationBaseline(
     scopedDocumentId(organizationId, snapshot.scaleId)
   );
 
-  await setDoc(
-    ref,
-    {
+  await runTransaction(db, async transaction => {
+    const existing = await transaction.get(ref);
+    if (existing.exists()) return;
+
+    transaction.set(ref, {
       organizationId,
       scaleId: snapshot.scaleId,
       acknowledgedFingerprint: snapshot.fingerprint,
@@ -93,9 +96,8 @@ export async function ensurePreparationBaseline(
       preparedAt: null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    },
-    { merge: false }
-  );
+    });
+  });
 }
 
 export async function acknowledgePreparationChanges(
