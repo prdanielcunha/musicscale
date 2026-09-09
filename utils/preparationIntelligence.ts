@@ -24,6 +24,7 @@ export interface PreparationSnapshot {
   time: string | null;
   locationName: string | null;
   userFunctionNames: string[];
+  userFunctionCategories: string[];
   songs: PreparationSongSnapshot[];
   fingerprint: string;
 }
@@ -85,6 +86,10 @@ export function createPreparationSnapshot(
     .map(value => String(value).trim())
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b));
+  const userFunctionCategories = [...(event.userFunctionCategories || [])]
+    .map(value => String(value).trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
 
   const songs = [...(event.songs || [])]
     .map(song => ({
@@ -101,6 +106,7 @@ export function createPreparationSnapshot(
     time: event.time || null,
     locationName: event.locationName || null,
     userFunctionNames,
+    userFunctionCategories,
     songs,
   });
 
@@ -110,6 +116,7 @@ export function createPreparationSnapshot(
     time: event.time || null,
     locationName: event.locationName || null,
     userFunctionNames,
+    userFunctionCategories,
     songs,
     fingerprint: stableHash(canonical),
   };
@@ -139,8 +146,14 @@ export function diffPreparationSnapshots(
     });
   }
 
-  const previousRoles = previous.userFunctionNames.join('|');
-  const currentRoles = current.userFunctionNames.join('|');
+  const previousRoles = [
+    previous.userFunctionNames.join('|'),
+    previous.userFunctionCategories.join('|')
+  ].join('::');
+  const currentRoles = [
+    current.userFunctionNames.join('|'),
+    current.userFunctionCategories.join('|')
+  ].join('::');
   if (previousRoles !== currentRoles) {
     changes.push({
       code: 'role-changed',
@@ -246,6 +259,44 @@ export function getPersonalPreparationEvents(
       const bStart = b.startAtMillis ?? Date.parse(`${b.date}T${b.time || '23:59'}:00`);
       return aStart - bStart;
     });
+}
+
+export type PersonalPreparationMode = 'chords' | 'lyrics' | 'detail';
+
+export function getPersonalPreparationMode(
+  event: HomeEventSummary
+): PersonalPreparationMode {
+  const categories = new Set(
+    (event.userFunctionCategories || []).map(category =>
+      String(category).trim().toLowerCase()
+    )
+  );
+
+  if (categories.has('musical_instrument')) return 'chords';
+  if (categories.has('vocal')) return 'lyrics';
+  return 'detail';
+}
+
+export function requiresRepertoirePreparation(
+  event: HomeEventSummary
+): boolean {
+  if (event.type !== 'music' || event.songCount <= 0) return false;
+
+  const categories = new Set(
+    (event.userFunctionCategories || []).map(category =>
+      String(category).trim().toLowerCase()
+    )
+  );
+
+  // Legacy schedules may not carry categories yet. Preserve the useful
+  // preparation experience instead of degrading silently.
+  if (categories.size === 0) return true;
+
+  return (
+    categories.has('musical_instrument') ||
+    categories.has('vocal') ||
+    categories.has('leadership')
+  );
 }
 
 export function buildPreparationView(
