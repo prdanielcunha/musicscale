@@ -363,7 +363,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                     <Play className="w-5 h-5 mr-2 fill-current" />
                     {t('dashboard.focus.enterPerformance', 'Entrar no Modo Performance')}
                   </Button>
-                ) : needsRepertoirePreparation && onOpenPreparation ? (
+                ) : needsRepertoirePreparation && targetPreparation && onOpenPreparation ? (
                   <Button onClick={() => onOpenPreparation(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
                     <BookOpenCheck className="w-5 h-5 mr-2" />
                     {targetPreparation?.status === 'prepared'
