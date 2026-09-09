@@ -22,7 +22,7 @@ describe('global role display resolver', () => {
     );
 
     expect(role.scope).toBe('ecosystem');
-    expect(role.label).toBe('Administrador do Ecossistema MillionsNest');
+    expect(role.label).toBe('Administrador Global MillionsNest');
     expect(role.badgeVariant).toBe('ecosystemAdmin');
   });
 
@@ -45,8 +45,29 @@ describe('global role display resolver', () => {
     );
 
     expect(role.scope).toBe('ecosystem');
-    expect(role.label).toBe('Dono do Ecossistema MillionsNest');
+    expect(role.label).toBe('Proprietário do Ecossistema MillionsNest');
     expect(role.badgeVariant).toBe('ecosystemOwner');
+  });
+
+  it('renders ecosystem support as a distinct ecosystem role', () => {
+    const role = getPrimaryDisplayRole(
+      { uid: 'support-1', systemRole: 'ecosystem_support', organizationRole: 'member' },
+      { id: 'org-1' },
+    );
+
+    expect(role.scope).toBe('ecosystem');
+    expect(role.label).toBe('Suporte do Ecossistema MillionsNest');
+    expect(role.badgeVariant).toBe('ecosystemSupport');
+  });
+
+  it('does not elevate a local owner-looking systemRole into ecosystem authority', () => {
+    const role = getPrimaryDisplayRole(
+      { uid: 'local-owner', systemRole: 'owner', organizationRole: 'member' },
+      { id: 'org-1' },
+    );
+
+    expect(role.scope).toBe('organization');
+    expect(role.label).toBe('Membro');
   });
 
   it('keeps organization-role fallback for ordinary ecosystem users', () => {
