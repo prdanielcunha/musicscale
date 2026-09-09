@@ -392,9 +392,9 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                             }
                         }
 
-                        // Dynamic CEO check from canonical user profile systemRole
+                        // Cross-tenant organization catalog. Preserve the canonical systemRole:
+                        // catalog visibility must never promote Support/Admin to CEO.
                         if (isGlobalOrganizationCatalogRole(systemRole)) {
-                            systemRole = 'ceo';
                             try {
                                 const allOrgsSnap = await earlyGlobalCatalogPromise;
                                 
