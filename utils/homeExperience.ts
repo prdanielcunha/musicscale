@@ -53,6 +53,8 @@ export interface HomeEventSongSummary {
   selectedKey?: string | null;
   key?: string | null;
   originalKey?: string | null;
+  bpm?: number | null;
+  localBpm?: number | null;
 }
 
 export interface HomeEventSummary {
@@ -345,6 +347,8 @@ export function buildHomeEventSummaries(
         key: song.key || null,
         originalKey: song.originalKey || null,
         localKey: localSettings?.key || null,
+        bpm: song.bpm ?? null,
+        localBpm: localSettings?.bpm ?? null,
         order: index + 1,
       };
     });
@@ -495,6 +499,8 @@ function rawToSummary(
         key: song.key || null,
         originalKey: song.originalKey || null,
         localKey: localSettings?.key || null,
+        bpm: song.bpm ?? null,
+        localBpm: localSettings?.bpm ?? null,
         order: index + 1,
       };
     });
