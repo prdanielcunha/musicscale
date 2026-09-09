@@ -534,7 +534,11 @@ export const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
         {experience.mode !== 'first-value' && experience.mode !== 'no-upcoming-event' && experience.mode !== 'create-next-event' && (
           <div className="pt-2">
-            <HomeUpcomingEvents events={upcomingEvents} onOpenEvent={handleOpenEvent} />
+            <HomeUpcomingEvents
+              events={upcomingEvents}
+              excludeEventId={experience.event?.id}
+              onOpenEvent={handleOpenEvent}
+            />
           </div>
         )}
       </div>
