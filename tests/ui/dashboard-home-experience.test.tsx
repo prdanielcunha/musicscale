@@ -390,10 +390,17 @@ describe('Dashboard Home Experience UI', () => {
     expect(props.isBandScale).toBeUndefined();
   });
 
-  it('27. compromisso futuro abre preparação em vez de Performance', () => {
+  it('27. compromisso nos próximos 7 dias abre preparação em vez de Performance', () => {
     mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.performance.use' });
+    const future = new Date();
+    future.setDate(future.getDate() + 3);
+    const date = [
+      future.getFullYear(),
+      String(future.getMonth() + 1).padStart(2, '0'),
+      String(future.getDate()).padStart(2, '0')
+    ].join('-');
     const scale = {
-      id: 's1', date: getFutureDate(), eventName: { name: 'Service' },
+      id: 's1', date, time: '19:00', eventName: { name: 'Service' },
       eventAssignments: [{ userId: 'u1', active: true }], songs: [{ id: 'song1' }], status: 'published'
     };
     mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
