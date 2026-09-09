@@ -1297,7 +1297,25 @@
       "close": "Close",
       "calendarOpened": "Calendar opened",
       "calendarFileCreated": "Calendar file created",
-      "loading": "Loading..."
+      "loading": "Loading...",
+      "changedTitle": "Your schedule changed",
+      "changes": {
+        "title": "What changed",
+        "subtitle": "Review this before rehearsal or serving.",
+        "unknownSong": "Song",
+        "songAdded": "“{{song}}” was added.",
+        "songRemoved": "“{{song}}” was removed.",
+        "songKeyChanged": "“{{song}}”: key {{from}} → {{to}}.",
+        "songBpmChanged": "“{{song}}”: BPM {{from}} → {{to}}.",
+        "songOrderChanged": "“{{song}}”: position {{from}} → {{to}}.",
+        "dateChanged": "Date: {{from}} → {{to}}.",
+        "timeChanged": "Time: {{from}} → {{to}}.",
+        "locationChanged": "Location: {{from}} → {{to}}.",
+        "eventChanged": "Event: {{from}} → {{to}}.",
+        "durationChanged": "Duration: {{from}} min → {{to}} min.",
+        "notesChanged": "The schedule notes were updated.",
+        "roleChanged": "Your role: {{from}} → {{to}}."
+      }
     }
   },
   "calendar": {
