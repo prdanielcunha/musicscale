@@ -1,14 +1,9 @@
+import type { TFunction } from 'i18next';
 import type { PreparationChange } from './preparationIntelligence';
-
-type Translate = (
-  key: string,
-  defaultValueOrOptions?: string | Record<string, unknown>,
-  options?: Record<string, unknown>
-) => string;
 
 export function describePreparationChange(
   change: PreparationChange,
-  t: Translate
+  t: TFunction
 ): string {
   switch (change.code) {
     case 'song-added':
