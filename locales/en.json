@@ -389,6 +389,23 @@
         "locationChanged": "Location: {{from}} → {{to}}.",
         "roleChanged": "Your role: {{from}} → {{to}}."
       }
+    },
+    "teamAttention": {
+      "eyebrow": "Leadership",
+      "title": "Team attention",
+      "subtitle": "Only what truly needs you in the upcoming events.",
+      "viewAll": "View schedules",
+      "resolve": "Resolve",
+      "moreIssues_one": "+ {{count}} item",
+      "moreIssues_other": "+ {{count}} items",
+      "items": {
+        "draft": "Draft to finish",
+        "missingRepertoire": "Repertoire not defined",
+        "missingTeam": "Team not assigned yet",
+        "missingTime": "Time not defined",
+        "missingLocation": "Location not defined",
+        "generic": "Needs attention"
+      }
     }
   },
   "songs": {

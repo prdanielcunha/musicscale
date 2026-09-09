@@ -390,6 +390,23 @@
         "locationChanged": "Local: {{from}} → {{to}}.",
         "roleChanged": "Sua função: {{from}} → {{to}}."
       }
+    },
+    "teamAttention": {
+      "eyebrow": "Liderança",
+      "title": "Atenção da equipe",
+      "subtitle": "Só o que realmente precisa de você nos próximos eventos.",
+      "viewAll": "Ver escalas",
+      "resolve": "Resolver",
+      "moreIssues_one": "+ {{count}} ponto",
+      "moreIssues_other": "+ {{count}} pontos",
+      "items": {
+        "draft": "Rascunho para concluir",
+        "missingRepertoire": "Repertório não definido",
+        "missingTeam": "Equipe ainda não montada",
+        "missingTime": "Horário não definido",
+        "missingLocation": "Local não definido",
+        "generic": "Requer atenção"
+      }
     }
   },
   "songs": {
