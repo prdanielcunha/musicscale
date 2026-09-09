@@ -1315,7 +1315,9 @@
         "notesChanged": "As orientações da escala foram atualizadas.",
         "roleChanged": "Sua função: {{from}} → {{to}}."
       }
-    }
+    },
+    "scaleChangedTitle": "Sua escala mudou",
+    "scaleChangedDescription": "Repertório, tom, função ou detalhes da escala foram atualizados. Veja exatamente o que mudou."
   },
   "calendar": {
     "addToCalendar": "Adicionar à Agenda",
