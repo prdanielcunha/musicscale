@@ -5,6 +5,7 @@ import Button from '../common/Button';
 import { HomeExperience, HomeAttentionItem, HomeEventSummary, getLocalDateKey, HomeEventSongSummary, canUsePerformanceMode } from '../../utils/homeExperience';
 import { Play, AlertCircle, CheckCircle2, BookOpenCheck, RefreshCcw } from 'lucide-react';
 import type { EventPreparationView } from '../../utils/preparationIntelligence';
+import { describePreparationChange } from '../../utils/preparationPresentation';
 
 interface HomeFocusCardProps {
   experience: HomeExperience;
@@ -299,6 +300,41 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                 <div className="text-sm text-slate-500 dark:text-slate-400 italic">
                   {t('dashboard.focus.noSongs', 'Nenhuma música adicionada')}
                 </div>
+              )}
+            </div>
+          )}
+
+          {targetPreparation && targetPreparation.changes.length > 0 && (
+            <div className="rounded-2xl border border-amber-500/15 bg-amber-500/[0.055] p-4">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <RefreshCcw className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                  <h3 className="text-sm font-bold text-amber-800 dark:text-amber-200">
+                    {t('dashboard.preparation.changesTitle', {
+                      count: targetPreparation.changes.length
+                    })}
+                  </h3>
+                </div>
+                <span className="rounded-full border border-amber-500/15 bg-amber-500/[0.06] px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                  {t('dashboard.preparation.statusNeedsReview', 'Mudanças para revisar')}
+                </span>
+              </div>
+              <ul className="space-y-1.5">
+                {targetPreparation.changes.slice(0, 3).map((change, index) => (
+                  <li
+                    key={`${change.code}-${change.entityId || index}`}
+                    className="text-xs leading-relaxed text-amber-900/80 dark:text-amber-100/75"
+                  >
+                    {describePreparationChange(change, t)}
+                  </li>
+                ))}
+              </ul>
+              {targetPreparation.changes.length > 3 && (
+                <p className="mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                  {t('dashboard.preparation.moreChanges', {
+                    count: targetPreparation.changes.length - 3
+                  })}
+                </p>
               )}
             </div>
           )}
