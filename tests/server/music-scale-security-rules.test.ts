@@ -272,6 +272,33 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
       const docRef = db.doc('organizations/org-1/notifications/notif-1');
       await assertFails(docRef.get());
     });
+
+    it('membro ativo da mesma organização não lê notificação de outra pessoa', async () => {
+      const db = getAuthedFirestore({ uid: 'member-2' });
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-1').set({
+          status: 'active',
+          ownerUid: 'owner-1',
+        });
+        await adminDb.doc('organizations/org-1/members/member-2').set({
+          uid: 'member-2',
+          status: 'active',
+          organizationRole: 'member',
+        });
+        await adminDb.doc('organizations/org-1/notifications/notif-private').set({
+          organizationId: 'org-1',
+          recipientId: 'user-1',
+          type: 'music_scale_changed',
+          isRead: false,
+          isArchived: false,
+        });
+      });
+
+      await assertFails(
+        db.doc('organizations/org-1/notifications/notif-private').get()
+      );
+    });
     
     it('tenant incorreto é bloqueado', async () => {
         const db = getAuthedFirestore({ uid: 'user-1' });
