@@ -280,12 +280,31 @@ describe('Dashboard Home Experience UI', () => {
         capability === 'musicscale.scales.manage'
     });
 
-    const scale = {
+    const readyScale = {
+      id: 'ready-scale',
+      date: getDateOffset(2),
+      time: '19:00',
+      status: 'published',
+      eventName: { name: 'Culto já organizado' },
+      location: { name: 'Templo' },
+      eventAssignments: [
+        {
+          userId: 'member-2',
+          functionName: 'Violão',
+          functionCategory: 'musical_instrument',
+          active: true
+        }
+      ],
+      songs: [{ id: 'song-ready', title: 'Música pronta' }]
+    };
+
+    const attentionScale = {
       id: 'leader-attention-scale',
       date: getDateOffset(4),
       time: '19:00',
       status: 'published',
       eventName: { name: 'Culto de Celebração' },
+      location: { name: 'Templo' },
       eventAssignments: [
         {
           userId: 'member-2',
@@ -298,7 +317,7 @@ describe('Dashboard Home Experience UI', () => {
     };
 
     mockUseMusic.mockReturnValue({
-      populatedScales: [scale],
+      populatedScales: [readyScale, attentionScale],
       populatedBandScales: [],
       songs: [],
       loading: false
@@ -306,6 +325,7 @@ describe('Dashboard Home Experience UI', () => {
 
     renderWithRouter(<DashboardPage />);
 
+    expect(screen.getByText('Atenção da equipe')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Resolver'));
 
     expect(mockOpenScaleForm).toHaveBeenCalledWith(
