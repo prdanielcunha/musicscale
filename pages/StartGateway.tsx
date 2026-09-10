@@ -1,5 +1,5 @@
 import { logger } from "../lib/logger";
-import React, { lazy, Suspense, useState } from "react";
+import React, { lazy, Suspense, useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import Spinner from "../components/common/Spinner";
@@ -7,6 +7,8 @@ import { useEcosystem } from "../contexts/EcosystemContext";
 const TenantOnboarding = lazy(() => import("./TenantOnboarding"));
 import { MissingSubscriptionScreen } from "../components/premium/MissingSubscriptionScreen";
 import { resolveSubscriptionAccess } from "../utils/subscriptionAccessResolver";
+
+const START_GATEWAY_READY_EVENT = 'musicscale:startup-interactive-ready';
 
 export default function StartGateway() {
   const {
@@ -33,6 +35,19 @@ export default function StartGateway() {
     isGlobalAdmin
   );
 
+  const isPrimaryLoading = Boolean(
+    loading || isRefreshing || (user && userProfile && !resolution.loaded)
+  );
+  const isWaitingForOrganizationHydration = Boolean(
+    !organization && ecoContext?.currentOrganizationId
+  );
+  const isStartupInteractiveReady = !isPrimaryLoading && !isWaitingForOrganizationHydration;
+
+  useEffect(() => {
+    if (!isStartupInteractiveReady) return;
+    window.dispatchEvent(new CustomEvent(START_GATEWAY_READY_EVENT));
+  }, [isStartupInteractiveReady]);
+
   console.log("[MusicScale Gate Debug]", {
     firebaseUserUid: user?.uid,
     firebaseUserEmail: user?.email,
@@ -51,7 +66,7 @@ export default function StartGateway() {
     isGlobalAdmin
   });
 
-  if (loading || isRefreshing || (user && userProfile && !resolution.loaded)) {
+  if (isPrimaryLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-900">
         <Spinner />
@@ -71,7 +86,7 @@ export default function StartGateway() {
   }
 
   // Wait for local organization cache to hydrate if we have an ecosystem org
-  if (!organization && ecoContext?.currentOrganizationId) {
+  if (isWaitingForOrganizationHydration) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0b] dark:bg-[#050505] text-white">
         <Spinner size="lg" />
