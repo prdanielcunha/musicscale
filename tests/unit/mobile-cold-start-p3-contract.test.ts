@@ -30,9 +30,18 @@ describe('mobile cold-start P3 contract', () => {
 
     expect(scheduler).toContain('isSyntheticBrowserRuntime()');
     expect(scheduler).toContain('/\\bjsdom\\b/i.test(navigator.userAgent');
-    expect(scheduler.indexOf('isSyntheticBrowserRuntime()')).toBeLessThan(
-      scheduler.indexOf('!isColdMobileStartup()')
-    );
+    expect(scheduler).toContain('isSyntheticBrowserRuntime() ||');
+  });
+
+  it('coalesces the quiet window once so later mobile repository calls are not delayed', () => {
+    const scheduler = read('lib/startupWorkScheduler.ts');
+
+    expect(scheduler).toContain('let quietWindowPromise: Promise<void> | null = null');
+    expect(scheduler).toContain('let quietWindowCompleted = false');
+    expect(scheduler).toContain('quietWindowCompleted\n  ) return');
+    expect(scheduler).toContain('if (!quietWindowPromise)');
+    expect(scheduler).toContain('quietWindowCompleted = true');
+    expect(scheduler).toContain('quietWindowPromise = null');
   });
 
   it('defers secondary repositories and cached critical revalidation only when safe', () => {
