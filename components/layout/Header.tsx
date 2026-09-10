@@ -63,22 +63,19 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
   return (
     <>
-      <header 
+      <header
         className={`sticky top-0 z-[70] w-full pt-[max(env(safe-area-inset-top),0px)] transition-all duration-300 ${
-          scrolled 
-            ? "bg-[#0a0a0c]/88 backdrop-blur-xl md:bg-[#0a0a0c]/80 md:backdrop-blur-[32px] saturate-[160%] md:saturate-[180%] border-b border-white/[0.06] shadow-[0_4px_24px_-6px_rgba(0,0,0,0.3)]" 
+          scrolled
+            ? "bg-[#0a0a0c]/88 backdrop-blur-xl md:bg-[#0a0a0c]/80 md:backdrop-blur-[32px] saturate-[160%] md:saturate-[180%] border-b border-white/[0.06] shadow-[0_4px_24px_-6px_rgba(0,0,0,0.3)]"
             : "bg-transparent border-b border-transparent"
         }`}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-transparent pointer-events-none -z-10" />
-        
+
         <div className="flex items-center justify-between h-[64px] sm:h-[72px] px-4 md:px-8 relative z-10">
           <div className="flex items-center gap-3 sm:gap-4 min-w-0 touch-manipulation">
             {onMenuClick && (
               <button
-                onPointerDown={(event) => {
-                  if (event.pointerType === "touch") onMenuClick();
-                }}
                 onClick={onMenuClick}
                 className="md:hidden touch-manipulation flex items-center justify-center w-10 h-10 -ml-2 rounded-[14px] text-slate-300 active:scale-95 transition-all duration-150 bg-white/[0.03] active:bg-white/[0.06] border border-white/[0.05]"
                 aria-label={t("nav.main_menu", "Menu Principal")}
@@ -129,4 +126,3 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 };
 
 export default Header;
-
