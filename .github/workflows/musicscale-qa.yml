@@ -23,10 +23,10 @@ jobs:
       with:
         persist-credentials: false
 
-    - name: Set up Node.js
+    - name: Set up Node.js 22
       uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 22
         cache: 'npm'
 
     - name: Install dependencies and refresh lock for Firebase fix validation

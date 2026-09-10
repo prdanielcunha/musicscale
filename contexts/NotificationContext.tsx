@@ -4,6 +4,7 @@ import { collection, query, where, onSnapshot, doc, updateDoc } from "firebase/f
 import { db } from "../services/firebase";
 import { useAuth } from "./AuthContext";
 import { useToast } from "./ToastContext";
+import { shouldWaitForStartupQuietWindow, waitForStartupQuietWindow } from "../lib/startupWorkScheduler";
 
 export interface Notification {
   id: string;
@@ -50,130 +51,151 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const { toast } = useToast();
   const { t, i18n } = useTranslation();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [, setInitialLoadComplete] = useState(false);
   const isFirstLoadRef = useRef(true);
   const seenNotificationIdsRef = useRef<Set<string>>(new Set());
   const listenerStartedAtRef = useRef(0);
 
   useEffect(() => {
+    let mounted = true;
+    let unsubscribe: (() => void) | undefined;
+
     setNotifications([]);
     setInitialLoadComplete(false);
     isFirstLoadRef.current = true;
     seenNotificationIdsRef.current = new Set();
-    listenerStartedAtRef.current = Date.now();
+    listenerStartedAtRef.current = 0;
 
     if (!user || !organization?.id) {
-      return;
+      return () => {
+        mounted = false;
+      };
     }
 
-    const q = query(
-      collection(db, `organizations/${organization.id}/notifications`),
-      where("recipientId", "==", user.uid),
-      where("isArchived", "==", false)
-      // Note: We don't order by createdAt here if we don't have a composite index,
-      // we'll sort in memory.
-    );
+    const organizationId = organization.id;
+    const userId = user.uid;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notifs: Notification[] = [];
-      const newNotifs: Notification[] = [];
-      const currentIds = new Set<string>();
+    const attachListener = () => {
+      if (!mounted) return;
 
-      snapshot.forEach((snapshotDoc) => {
-        const data = { id: snapshotDoc.id, ...snapshotDoc.data() } as Notification;
-        notifs.push(data);
-        currentIds.add(snapshotDoc.id);
-      });
+      listenerStartedAtRef.current = Date.now();
+      const q = query(
+        collection(db, `organizations/${organizationId}/notifications`),
+        where("recipientId", "==", userId),
+        where("isArchived", "==", false)
+      );
 
-      // The first cached snapshot can be empty and a later server snapshot can report
-      // every historical document as "added". Treat only genuinely fresh documents as
-      // presentation toasts. Historical/unread items remain available in the inbox.
-      if (!isFirstLoadRef.current) {
-        snapshot.docChanges().forEach((change) => {
-          if (change.type !== "added") return;
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!mounted) return;
 
-          const data = { id: change.doc.id, ...change.doc.data() } as Notification;
-          const createdAtMillis = getCreatedAtMillis(data.createdAt);
-          const isFresh = createdAtMillis !== null && createdAtMillis >= listenerStartedAtRef.current - 15000;
-          const wasAlreadySeen = seenNotificationIdsRef.current.has(data.id);
+        const notifs: Notification[] = [];
+        const newNotifs: Notification[] = [];
+        const currentIds = new Set<string>();
 
-          if (!wasAlreadySeen && !data.isRead && isFresh) {
-            newNotifs.push(data);
-          }
+        snapshot.forEach((snapshotDoc) => {
+          const data = { id: snapshotDoc.id, ...snapshotDoc.data() } as Notification;
+          notifs.push(data);
+          currentIds.add(snapshotDoc.id);
         });
-      }
 
-      currentIds.forEach((id) => seenNotificationIdsRef.current.add(id));
+        if (!isFirstLoadRef.current) {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type !== "added") return;
 
-      // Sort by createdAt descending
-      notifs.sort((a, b) => {
-        const timeA = getCreatedAtMillis(a.createdAt) || 0;
-        const timeB = getCreatedAtMillis(b.createdAt) || 0;
-        return timeB - timeA;
-      });
+            const data = { id: change.doc.id, ...change.doc.data() } as Notification;
+            const createdAtMillis = getCreatedAtMillis(data.createdAt);
+            const isFresh = createdAtMillis !== null && createdAtMillis >= listenerStartedAtRef.current - 15000;
+            const wasAlreadySeen = seenNotificationIdsRef.current.has(data.id);
 
-      setNotifications(notifs);
-
-      // Show toast only for notifications that genuinely arrived after this listener started.
-      if (!isFirstLoadRef.current) {
-        newNotifs.forEach((notif) => {
-          let localizedTitle = notif.title;
-          let localizedMessage = notif.message;
-
-          if (notif.type === 'music_scale_assignment') {
-            if (i18n.language.startsWith('en')) {
-               localizedTitle = "You have been scheduled!";
-            } else if (i18n.language.startsWith('es')) {
-               localizedTitle = "¡Has sido programado!";
-            } else {
-               localizedTitle = notif.title.replace(' tocar Sua função', '').replace('Sua função', '').trim() || 'Você foi escalado!';
+            if (!wasAlreadySeen && !data.isRead && isFresh) {
+              newNotifs.push(data);
             }
-            localizedMessage = t('notifications.newScalePublished', 'Uma nova escala de música foi publicada.');
-          } else if (notif.type === 'music_scale_changed') {
-            localizedTitle = t(
-              'notifications.scaleChangedTitle',
-              'Sua escala mudou'
-            );
-            localizedMessage = t(
-              'notifications.scaleChangedDescription',
-              'Repertório, tom, função ou detalhes da escala foram atualizados. Veja exatamente o que mudou.'
-            );
-          } else if (notif.type === 'band_scale' && notif.metadata?.action === 'role_changed') {
-            const parts = notif.message.split('como ');
-            const role = parts.length > 1 ? parts[1].replace('.', '') : "";
-
-            if (i18n.language.startsWith('en')) {
-               localizedTitle = "Your role in the scale has been changed";
-               localizedMessage = `You are now scheduled as ${role}.`;
-            } else if (i18n.language.startsWith('es')) {
-               localizedTitle = "Su función en la escala ha sido modificada";
-               localizedMessage = `Ahora estás programado como ${role}.`;
-            }
-          }
-
-          toast({
-            id: `notification:${notif.id}`,
-            type: "feedback",
-            message: localizedTitle,
-            description: localizedMessage,
-            duration: 5000,
           });
+        }
+
+        currentIds.forEach((id) => seenNotificationIdsRef.current.add(id));
+
+        notifs.sort((a, b) => {
+          const timeA = getCreatedAtMillis(a.createdAt) || 0;
+          const timeB = getCreatedAtMillis(b.createdAt) || 0;
+          return timeB - timeA;
         });
-      }
 
-      setInitialLoadComplete(true);
-      isFirstLoadRef.current = false;
-    }, (error) => {
-      console.error("Error listening to notifications:", {
-        organizationId: organization.id,
-        authenticatedUid: user.uid,
-        errorCode: error.code,
-        errorMessage: error.message
+        setNotifications(notifs);
+
+        if (!isFirstLoadRef.current) {
+          newNotifs.forEach((notif) => {
+            let localizedTitle = notif.title;
+            let localizedMessage = notif.message;
+
+            if (notif.type === 'music_scale_assignment') {
+              if (i18n.language.startsWith('en')) {
+                localizedTitle = "You have been scheduled!";
+              } else if (i18n.language.startsWith('es')) {
+                localizedTitle = "¡Has sido programado!";
+              } else {
+                localizedTitle = notif.title.replace(' tocar Sua função', '').replace('Sua função', '').trim() || 'Você foi escalado!';
+              }
+              localizedMessage = t('notifications.newScalePublished', 'Uma nova escala de música foi publicada.');
+            } else if (notif.type === 'music_scale_changed') {
+              localizedTitle = t(
+                'notifications.scaleChangedTitle',
+                'Sua escala mudou'
+              );
+              localizedMessage = t(
+                'notifications.scaleChangedDescription',
+                'Repertório, tom, função ou detalhes da escala foram atualizados. Veja exatamente o que mudou.'
+              );
+            } else if (notif.type === 'band_scale' && notif.metadata?.action === 'role_changed') {
+              const parts = notif.message.split('como ');
+              const role = parts.length > 1 ? parts[1].replace('.', '') : "";
+
+              if (i18n.language.startsWith('en')) {
+                localizedTitle = "Your role in the scale has been changed";
+                localizedMessage = `You are now scheduled as ${role}.`;
+              } else if (i18n.language.startsWith('es')) {
+                localizedTitle = "Su función en la escala ha sido modificada";
+                localizedMessage = `Ahora estás programado como ${role}.`;
+              }
+            }
+
+            toast({
+              id: `notification:${notif.id}`,
+              type: "feedback",
+              message: localizedTitle,
+              description: localizedMessage,
+              duration: 5000,
+            });
+          });
+        }
+
+        setInitialLoadComplete(true);
+        isFirstLoadRef.current = false;
+      }, (error) => {
+        if (!mounted) return;
+        console.error("Error listening to notifications:", {
+          organizationId,
+          authenticatedUid: userId,
+          errorCode: error.code,
+          errorMessage: error.message
+        });
       });
-    });
+    };
 
-    return () => unsubscribe();
-  }, [user, organization?.id, toast]);
+    // Preserve synchronous listener setup whenever no deferral is required
+    // (desktop, test, SSR, or after the one-time startup quiet window). On a
+    // real cold mobile start, attach only after first operational paint/idle.
+    if (shouldWaitForStartupQuietWindow()) {
+      void waitForStartupQuietWindow().then(attachListener);
+    } else {
+      attachListener();
+    }
+
+    return () => {
+      mounted = false;
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user, organization?.id, toast, i18n.language]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -218,7 +240,6 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       await updateDoc(ref, {
         isArchived: true,
       });
-      // Optimistic update
       setNotifications((prev) => prev.filter((n) => n.id !== id));
     } catch (e) {
       console.error("Error archiving notification", e);
@@ -233,7 +254,6 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         isArchived: true,
         archivedAt: new Date().toISOString(),
       });
-      // Optimistic update
       setNotifications((prev) => prev.filter((n) => n.id !== id));
     } catch (e) {
       console.error("Error deleting notification", e);

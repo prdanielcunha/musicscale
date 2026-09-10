@@ -20,6 +20,13 @@ vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => mocks.auth,
 }));
 
+// Startup scheduling is orthogonal to these tenant-isolation assertions. Keep
+// the quiet-window contract enabled in production while letting this suite
+// deterministically reach the listener after its existing 50ms boundary.
+vi.mock('../../lib/startupWorkScheduler', () => ({
+  waitForStartupQuietWindow: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../../services/suggestionsService', () => ({
   onSuggestionsUpdate: vi.fn((
     organizationId: string,
@@ -37,8 +44,11 @@ import { onSuggestionsUpdate } from '../../services/suggestionsService';
 
 const suggestion = (id: string) => ({ id } as Suggestion);
 
-function startPendingListener() {
-  act(() => { vi.advanceTimersByTime(50); });
+async function startPendingListener() {
+  await act(async () => {
+    vi.advanceTimersByTime(50);
+    await Promise.resolve();
+  });
 }
 
 beforeEach(() => {
@@ -56,18 +66,18 @@ afterEach(() => {
 });
 
 describe('useSuggestions canonical tenant isolation', () => {
-  it('subscribes to the effective organization for organization members', () => {
+  it('subscribes to the effective organization for organization members', async () => {
     const { result } = renderHook(() => useSuggestions());
-    startPendingListener();
+    await startPendingListener();
 
     expect(onSuggestionsUpdate).toHaveBeenCalledTimes(1);
     expect(mocks.listeners[0].organizationId).toBe('org-A');
     expect(result.current.loading).toBe(true);
   });
 
-  it('clears A, unsubscribes A, rejects its late callback, and accepts B', () => {
+  it('clears A, unsubscribes A, rejects its late callback, and accepts B', async () => {
     const rendered = renderHook(() => useSuggestions());
-    startPendingListener();
+    await startPendingListener();
     const listenerA = mocks.listeners[0];
     act(() => listenerA.onUpdate([suggestion('suggestion-A')]));
     expect(rendered.result.current.suggestions.map(item => item.id)).toEqual(['suggestion-A']);
@@ -79,7 +89,7 @@ describe('useSuggestions canonical tenant isolation', () => {
     expect(rendered.result.current.suggestions).toEqual([]);
     expect(rendered.result.current.loading).toBe(true);
 
-    startPendingListener();
+    await startPendingListener();
     expect(mocks.listeners.map(listener => listener.organizationId)).toEqual(['org-A', 'org-B']);
     const listenerB = mocks.listeners[1];
 
@@ -91,9 +101,9 @@ describe('useSuggestions canonical tenant isolation', () => {
     expect(rendered.result.current.loading).toBe(false);
   });
 
-  it('unsubscribes and resolves safely when the effective organization becomes null', () => {
+  it('unsubscribes and resolves safely when the effective organization becomes null', async () => {
     const rendered = renderHook(() => useSuggestions());
-    startPendingListener();
+    await startPendingListener();
     const listenerA = mocks.listeners[0];
     act(() => listenerA.onUpdate([suggestion('suggestion-A')]));
 
@@ -107,9 +117,9 @@ describe('useSuggestions canonical tenant isolation', () => {
     expect(rendered.result.current.suggestions).toEqual([]);
   });
 
-  it('does not duplicate a listener when the organization is unchanged', () => {
+  it('does not duplicate a listener when the organization is unchanged', async () => {
     const rendered = renderHook(() => useSuggestions());
-    startPendingListener();
+    await startPendingListener();
 
     rendered.rerender();
     act(() => { vi.advanceTimersByTime(100); });
@@ -118,11 +128,11 @@ describe('useSuggestions canonical tenant isolation', () => {
     expect(mocks.listeners[0].unsubscribe).not.toHaveBeenCalled();
   });
 
-  it('keeps a global-role user scoped to the selected effective organization', () => {
+  it('keeps a global-role user scoped to the selected effective organization', async () => {
     mocks.auth.userRole = 'global_admin';
     mocks.auth.effectiveOrganizationId = 'org-global-selection';
     renderHook(() => useSuggestions());
-    startPendingListener();
+    await startPendingListener();
 
     expect(onSuggestionsUpdate).toHaveBeenCalledTimes(1);
     expect(mocks.listeners[0].organizationId).toBe('org-global-selection');
