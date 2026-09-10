@@ -1,0 +1,73 @@
+name: Connect next-schedule route patch
+
+on:
+  push:
+    branches:
+      - feat/connect-next-schedule-read-tool-01
+
+permissions:
+  contents: write
+
+jobs:
+  patch-route:
+    if: ${{ !contains(github.event.head_commit.message, '[route-patch]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: feat/connect-next-schedule-read-tool-01
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - name: Patch canonical Express route
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('server.ts')
+          text = path.read_text()
+
+          import_anchor = 'import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";'
+          import_line = 'import { createConnectNextScheduleReadHandler } from "./services/server/connect/nextScheduleReadHandler.js";'
+          if import_line not in text:
+              if import_anchor not in text:
+                  raise SystemExit('authorization import anchor not found')
+              text = text.replace(import_anchor, import_anchor + '\n' + import_line, 1)
+
+          route_marker = 'app.get("/api/v1/connect/next-schedule"'
+          route_block = '''
+
+// Connect read-only Tool Gateway boundary. Authentication, tenant and scales.read
+// are independently revalidated inside MusicScale before any tenant data is read.
+const connectNextScheduleReadHandler = createConnectNextScheduleReadHandler({
+  db,
+  auth,
+  logger,
+});
+app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);
+'''
+          if route_marker not in text:
+              anchor = '  app.post("/api/admin/backfill-global-titles", requireEcosystemRole, async (req: any, res: any) => {'
+              if anchor not in text:
+                  raise SystemExit('route insertion anchor not found')
+              text = text.replace(anchor, route_block + '\n' + anchor, 1)
+
+          path.write_text(text)
+          PY
+      - run: npm ci --no-audit --no-fund
+      - run: npx vitest run tests/server/connect-next-schedule-selector.test.ts tests/server/connect-next-schedule-read-handler.test.ts
+      - run: npm run lint
+      - run: npm run build
+      - name: Commit route patch to feature branch
+        run: |
+          if git diff --quiet; then
+            echo "Route already patched; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server.ts
+          git commit -m "feat(connect): mount next-schedule read tool [route-patch]"
+          git push origin HEAD:feat/connect-next-schedule-read-tool-01
