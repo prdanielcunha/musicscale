@@ -45,6 +45,7 @@ import { compareSongs } from "./utils/songDiscovery/matcher.js";
 import { requireEcosystemRole } from "./services/server/ecosystemAuth.js";
 import { writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
+import { createConnectNextScheduleReadHandler } from "./services/server/connect/nextScheduleReadHandler.js";
 import { createInvitationCompatibilityHandlers } from "./services/server/musicScaleInvitationCompatibility.js";
 import { createJoinRequestCompatibilityHandlers } from "./services/server/musicScaleJoinRequestCompatibility.js";
 import { createMemberRemovalCompatibilityHandler } from "./services/server/musicScaleMemberRemovalCompatibility.js";
@@ -190,6 +191,17 @@ app.use((err: any, req: any, res: any, next: any) => {
 
   return next(err);
 });
+
+
+
+// Connect read-only Tool Gateway boundary. Authentication, tenant and scales.read
+// are independently revalidated inside MusicScale before any tenant data is read.
+const connectNextScheduleReadHandler = createConnectNextScheduleReadHandler({
+  db,
+  auth,
+  logger,
+});
+app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);
 
   app.post("/api/admin/backfill-global-titles", requireEcosystemRole, async (req: any, res: any) => {
     try {
