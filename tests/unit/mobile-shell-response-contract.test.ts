@@ -6,11 +6,11 @@ const read = (file: string) =>
   fs.readFileSync(path.join(process.cwd(), file), "utf8");
 
 describe("mobile shell response contract", () => {
-  it("opens the hamburger menu on the first touch frame", () => {
+  it("opens the hamburger menu through one touch-optimized activation path", () => {
     const header = read("components/layout/Header.tsx");
-    expect(header).toContain("onPointerDown");
-    expect(header).toContain('event.pointerType === "touch"');
-    expect(header).toContain("onMenuClick()");
+    expect(header).toContain("onClick={onMenuClick}");
+    expect(header).toContain("touch-manipulation");
+    expect(header).not.toContain("onPointerDown={(event)");
   });
 
   it("opens Global Create on touch without waiting for a delayed click", () => {
@@ -20,11 +20,13 @@ describe("mobile shell response contract", () => {
     expect(create).toContain("setIsOpen(true)");
   });
 
-  it("keeps mobile interaction surfaces touch-optimized", () => {
+  it("keeps mobile interaction surfaces compositor and touch optimized", () => {
     const create = read("components/layout/GlobalCreateAction.tsx");
-    const app = read("PrivateApp.tsx");
+    const drawer = read("components/layout/MobileSidebarDrawer.tsx");
     expect(create).toContain("touch-manipulation");
     expect(create).toContain("transform-gpu");
-    expect(app).toContain("transform-gpu");
+    expect(drawer).toContain("touch-manipulation");
+    expect(drawer).toContain("transform-gpu");
+    expect(drawer).toContain("will-change-transform");
   });
 });
