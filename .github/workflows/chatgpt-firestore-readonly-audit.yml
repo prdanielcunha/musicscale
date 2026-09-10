@@ -2,9 +2,7 @@ name: ChatGPT Firestore Read-only Audit
 
 on:
   push:
-    branches:
-      - production
-      - chatgpt/firestore-audit-wif-environment-fix
+    branches: [ production ]
     paths:
       - '.github/workflows/chatgpt-firestore-readonly-audit.yml'
       - 'scripts/export-global-song-catalog-readonly.ts'
