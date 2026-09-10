@@ -1,4 +1,5 @@
 import { drainStartupTelemetry, subscribeStartupTelemetry, unsubscribeStartupTelemetry, StartupEvent } from '../lib/startupTelemetry';
+import { subscribeInteractionTelemetry, unsubscribeInteractionTelemetry, InteractionTelemetryEvent } from '../lib/interactionTelemetry';
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useEcosystem } from '../contexts/EcosystemContext';
@@ -26,7 +27,7 @@ export function useEcosystemTelemetry() {
 
     const publishStartupEvent = (ev: StartupEvent) => {
         publishEvent({
-            type: 'telemetry' as any, // bypassing strict types if necessary
+            type: 'telemetry' as any,
             payload: {
                 category: 'startup_performance',
                 ...ev
@@ -51,6 +52,30 @@ export function useEcosystemTelemetry() {
     };
   }, [isInitialized, publishEvent]);
 
+  // Real-device interaction paint metrics. These are intentionally tiny and
+  // carry no user content; they let us distinguish event/render latency from
+  // network startup latency on shipped mobile builds.
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    const listener = (e: CustomEvent<InteractionTelemetryEvent>) => {
+      publishEvent({
+        type: 'telemetry' as any,
+        payload: {
+          category: 'interaction_performance',
+          metric: e.detail.metric,
+          value: e.detail.value,
+        },
+        timestamp: e.detail.timestamp,
+      });
+    };
+
+    subscribeInteractionTelemetry(listener);
+    return () => {
+      unsubscribeInteractionTelemetry(listener);
+    };
+  }, [isInitialized, publishEvent]);
+
   // Rage click detection
   useEffect(() => {
     if (!isInitialized) return;
@@ -58,7 +83,7 @@ export function useEcosystemTelemetry() {
     const handlePointerDown = (e: PointerEvent) => {
       const now = Date.now();
       clickLogs.current.push(now);
-      
+
       // Keep only clicks within the last 2 seconds
       clickLogs.current = clickLogs.current.filter(t => now - t < 2000);
 
@@ -69,7 +94,7 @@ export function useEcosystemTelemetry() {
            payload: { issue: 'rage_click', path: window.location.pathname, target: (e.target as HTMLElement)?.tagName },
            timestamp: now
          });
-         clickLogs.current = []; // Reset to prevent flooding
+         clickLogs.current = [];
       }
     };
 
