@@ -75,13 +75,12 @@ const AppLayout: React.FC = () => {
     const autoOpenAttempted = React.useRef(false);
 
     useEffect(() => {
-        // Run only once and only if we have unseen news
         if (hasUnseen && !autoOpenAttempted.current) {
             autoOpenAttempted.current = true;
-            // Add a small delay to avoid fighting with other modals/initializations
-            setTimeout(() => {
-                openWhatsNew();
-            }, 500);
+            // The preference is already resolved synchronously by useNews and the
+            // first-access chunk is preloaded from App.tsx. Do not add an artificial
+            // delay here: it is visible to the user as a late modal pop-in.
+            openWhatsNew();
         }
     }, [hasUnseen, openWhatsNew]);
 
@@ -166,10 +165,12 @@ const AppLayout: React.FC = () => {
             <PerformanceRecovery />
             <SyncConfidenceLayer />
 
-            {/* Premium Dashboard Background */}
+            {/* Premium Dashboard Background. Mobile uses static radial gradients,
+                avoiding huge filter:blur surfaces in WebKit's compositor. */}
             <div className="pointer-events-none absolute inset-0 -z-10 bg-[#0a0a0b] dark:bg-[#050505] overflow-hidden" aria-hidden="true">
-                <div className="absolute top-[-10%] opacity-30 right-[-5%] h-[500px] w-[500px] rounded-full bg-blue-500/5 blur-[120px] md:h-[600px] md:w-[600px] md:bg-blue-500/10 md:blur-[140px]" />
-                <div className="absolute top-[20%] opacity-20 left-[-10%] h-[600px] w-[600px] rounded-full bg-violet-500/5 blur-[140px] md:h-[800px] md:w-[800px] md:bg-violet-500/10 md:blur-[160px]" />
+                <div className="absolute inset-0 md:hidden bg-[radial-gradient(circle_at_92%_-8%,rgba(59,130,246,0.085),transparent_42%),radial-gradient(circle_at_-8%_42%,rgba(139,92,246,0.065),transparent_46%)]" />
+                <div className="hidden md:block absolute top-[-10%] opacity-30 right-[-5%] h-[600px] w-[600px] rounded-full bg-blue-500/10 blur-[140px]" />
+                <div className="hidden md:block absolute top-[20%] opacity-20 left-[-10%] h-[800px] w-[800px] rounded-full bg-violet-500/10 blur-[160px]" />
             </div>
 
             {/* Subtle Premium Noise */}
@@ -193,14 +194,14 @@ const AppLayout: React.FC = () => {
             <div className="relative flex-1 flex flex-col overflow-hidden z-10 transition-all duration-300 md:pb-0">
 
                 {subscriptionBanner && (
-                    <div className="bg-indigo-500/10 border-b border-indigo-500/20 px-4 py-2.5 flex items-center justify-between gap-3 w-full shrink-0 shadow-sm backdrop-blur-md">
-                        <span className="text-indigo-700 dark:text-indigo-300 text-xs font-medium truncate flex-1 flex items-center gap-2">
+                    <div className="bg-[#11111a]/98 md:bg-indigo-500/10 border-b border-indigo-500/20 px-4 py-2.5 flex items-center justify-between gap-3 w-full shrink-0 shadow-sm md:backdrop-blur-md">
+                        <span className="text-indigo-300 text-xs font-medium truncate flex-1 flex items-center gap-2 md:text-indigo-700 md:dark:text-indigo-300">
                            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                            </svg>
                            {subscriptionBanner}
                         </span>
-                        <a href="https://www.millionsnest.com/dashboard/musicscale/plans" target="_blank" rel="noopener noreferrer" className="shrink-0 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1 rounded transition-colors whitespace-nowrap">
+                        <a href="https://www.millionsnest.com/dashboard/musicscale/plans" target="_blank" rel="noopener noreferrer" className="shrink-0 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-indigo-400 md:text-indigo-600 md:dark:text-indigo-400 hover:text-indigo-300 md:hover:text-indigo-700 md:dark:hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1 rounded transition-colors whitespace-nowrap">
                             Gerenciar plano
                         </a>
                     </div>
