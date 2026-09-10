@@ -6,6 +6,7 @@ import { logger } from '../../../lib/logger.js';
 import type { EventAssignment, Scale, BandScale, MusicScalePublishPatch, MusicScalePublishPayload } from '../../../types.js';
 import { AssignmentNotificationFormatter } from '../../../lib/AssignmentNotificationFormatter.js';
 import type { FirebaseFirestore } from '@firebase/firestore-types';
+import { buildPreparationPublishChangeSummary } from './preparationChangeSummary.js';
 
 export class PublishCommandError extends Error {
   code: string;
@@ -529,6 +530,10 @@ params: {
       }
 
       const nextRevision = (patchedScaleData.publishRevision || 0) + 1;
+      const preparationChangeSummary = buildPreparationPublishChangeSummary(
+        currentScale,
+        patchedScaleData
+      );
 
       // 3.2. If republication, fetch the old active responses to deactivate
       let responsesSnap = { docs: [] as FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>[] };
@@ -777,19 +782,19 @@ params: {
               !prevFuncIds.every(fid => currFuncIds.includes(fid)) ||
               !currFuncIds.every(fid => prevFuncIds.includes(fid));
 
-            const scaleDetailsChanged = 
-              patchedScaleData.date !== currentScale.date ||
-              patchedScaleData.time !== currentScale.time ||
-              patchedScaleData.eventTypeId !== currentScale.eventTypeId ||
-              patchedScaleData.locationId !== currentScale.locationId;
+            const scaleDetailsChanged = preparationChangeSummary.changed;
 
             if (functionsChanged || scaleDetailsChanged) {
               notifType = 'music_scale_changed';
-              title = 'Escala de Músicas Atualizada';
+              title = 'Sua escala mudou';
               const funcNames = currFuncIds.map(fid => instrumentMap.get(fid)?.name || fid);
-              bodyStr = funcNames.length > 1
-                ? `Sua escala foi atualizada. Você está escalado(a) como ${funcNames.slice(0, -1).join(', ')} e ${funcNames[funcNames.length - 1]}.`
-                : `Sua escala foi atualizada. Você está escalado(a) como ${funcNames[0]}.`;
+              if (scaleDetailsChanged) {
+                bodyStr = 'Repertório ou detalhes da sua escala foram atualizados. Veja exatamente o que mudou.';
+              } else {
+                bodyStr = funcNames.length > 1
+                  ? `Sua função foi atualizada para ${funcNames.slice(0, -1).join(', ')} e ${funcNames[funcNames.length - 1]}.`
+                  : `Sua função foi atualizada para ${funcNames[0]}.`;
+              }
             } else {
               notifType = 'music_scale_published';
               title = 'Escala de Músicas Publicada';
@@ -812,6 +817,12 @@ params: {
                 musicScaleId,
                 sourceBandScaleId: resolvedBandScaleId,
                 functionNames: funcNames,
+                previousFunctionNames: prevFuncIds.map(fid => instrumentMap.get(fid)?.name || fid),
+                functionsChanged:
+                  prevFuncIds.length !== currFuncIds.length ||
+                  !prevFuncIds.every(fid => currFuncIds.includes(fid)) ||
+                  !currFuncIds.every(fid => prevFuncIds.includes(fid)),
+                preparationChangeSummary,
                 publishRevision: nextRevision,
                 action: 'published'
               },

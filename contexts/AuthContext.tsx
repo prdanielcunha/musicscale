@@ -73,7 +73,11 @@ export function normalizeGlobalSystemRole(input: any): string {
 
 export function isCanonicalGlobalAdminRole(role: string): boolean {
   const normalized = normalizeGlobalSystemRole(role);
-  return ["ceo", "global_admin", "ecosystem_owner", "founder"].includes(normalized);
+  return ["ceo", "admin", "global_admin", "ecosystem_owner", "founder"].includes(normalized);
+}
+
+export function isCanonicalEcosystemSupportRole(role: string): boolean {
+  return normalizeGlobalSystemRole(role) === 'ecosystem_support';
 }
 
 export function resolveCanonicalGlobalRole(params: {
@@ -286,8 +290,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const effectiveEntitlements = useMemo(() => {
      if (!scopedEntitlements) return null;
-     const isGlobalAdmin = isCanonicalGlobalAdminRole(resolveCanonicalGlobalRole({ ecoContext, userProfile }));
-     if (isGlobalAdmin) {
+     const resolvedSystemRole = resolveCanonicalGlobalRole({ ecoContext, userProfile });
+     const hasAdministrativeEntitlement =
+       isCanonicalGlobalAdminRole(resolvedSystemRole) ||
+       isCanonicalEcosystemSupportRole(resolvedSystemRole);
+     if (hasAdministrativeEntitlement) {
        return {
           ...scopedEntitlements,
           plan: 'pro' as const,
@@ -304,7 +311,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      return scopedEntitlements;
   }, [scopedEntitlements, ecoContext, userProfile]);
 
-    const isGlobalAdmin = isCanonicalGlobalAdminRole(resolveCanonicalGlobalRole({ ecoContext, userProfile }));
+    const resolvedSystemRole = resolveCanonicalGlobalRole({ ecoContext, userProfile });
+    const isGlobalAdmin = isCanonicalGlobalAdminRole(resolvedSystemRole);
+    const isSupportMode = isCanonicalEcosystemSupportRole(resolvedSystemRole);
     const isCurationAdmin = isGlobalAdmin;
 
     const value = useMemo(() => ({
@@ -360,7 +369,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     },
     entitlements: effectiveEntitlements,
     isEntitlementsLoaded,
-    isSupportMode: false,
+    isSupportMode,
     effectiveOrganizationId,
     effectiveOrganizationName,
     hydrationError: null,
@@ -372,7 +381,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     user, userProfile, userRole, scopedOrganization, scopedSubscription, isSubscriptionLoaded,
     loading, isEcosystemReady, permissions, isOwner, isAdmin,
     effectiveEntitlements, isEntitlementsLoaded, effectiveOrganizationId,
-    effectiveOrganizationName, needsRepair, repairReasons, fetchUserData, isGlobalAdmin, isCurationAdmin
+    effectiveOrganizationName, needsRepair, repairReasons, fetchUserData, isGlobalAdmin, isSupportMode, isCurationAdmin
   ]);
 
   return (
@@ -394,22 +403,25 @@ export const useFeatures = () => {
     const { userProfile, organization, entitlements, subscription } = useAuth();
     const { context: ecoContext } = useEcosystem();
     
-    const isGlobalAdmin = isCanonicalGlobalAdminRole(resolveCanonicalGlobalRole({ ecoContext, userProfile }));
-    const activePlan = isGlobalAdmin ? 'pro' : (entitlements?.plan || organization?.plan || ecoContext?.plan || (subscription?.plan === 'pro' ? 'pro' : 'starter'));
-    const status = isGlobalAdmin ? 'active' : (entitlements?.status || subscription?.status || 'inactive');
+    const resolvedSystemRole = resolveCanonicalGlobalRole({ ecoContext, userProfile });
+    const hasAdministrativeEntitlement =
+      isCanonicalGlobalAdminRole(resolvedSystemRole) ||
+      isCanonicalEcosystemSupportRole(resolvedSystemRole);
+    const activePlan = hasAdministrativeEntitlement ? 'pro' : (entitlements?.plan || organization?.plan || ecoContext?.plan || (subscription?.plan === 'pro' ? 'pro' : 'starter'));
+    const status = hasAdministrativeEntitlement ? 'active' : (entitlements?.status || subscription?.status || 'inactive');
     
     const canAccessGlobalLibrary = () => {
-      if (isGlobalAdmin) return true;
+      if (hasAdministrativeEntitlement) return true;
       if (entitlements) return !!entitlements.features?.libraryAccess;
       return activePlan === 'pro';
     };
     const canImportGlobalSongs = () => {
-      if (isGlobalAdmin) return true;
+      if (hasAdministrativeEntitlement) return true;
       if (entitlements) return !!entitlements.features?.libraryLimited || !!entitlements.features?.libraryComplete;
       return activePlan === 'pro';
     };
     const canUseAdvancedFeatures = () => {
-      if (isGlobalAdmin) return true;
+      if (hasAdministrativeEntitlement) return true;
       if (entitlements) return !!entitlements.features?.libraryAccess;
       return activePlan === 'pro';
     };
@@ -427,11 +439,14 @@ export const useLimits = () => {
     const { userProfile, organization, entitlements, subscription } = useAuth();
     const { context: ecoContext } = useEcosystem();
     
-    const isGlobalAdmin = isCanonicalGlobalAdminRole(resolveCanonicalGlobalRole({ ecoContext, userProfile }));
-    const activePlan = isGlobalAdmin ? 'pro' : (entitlements?.plan || organization?.plan || ecoContext?.plan || (subscription?.plan === 'pro' ? 'pro' : 'starter'));
+    const resolvedSystemRole = resolveCanonicalGlobalRole({ ecoContext, userProfile });
+    const hasAdministrativeEntitlement =
+      isCanonicalGlobalAdminRole(resolvedSystemRole) ||
+      isCanonicalEcosystemSupportRole(resolvedSystemRole);
+    const activePlan = hasAdministrativeEntitlement ? 'pro' : (entitlements?.plan || organization?.plan || ecoContext?.plan || (subscription?.plan === 'pro' ? 'pro' : 'starter'));
     
     const limits = useMemo(() => {
-      if (isGlobalAdmin) {
+      if (hasAdministrativeEntitlement) {
         return { maxMembers: Infinity, maxSongs: Infinity, maxScales: Infinity, maxBandScales: Infinity };
       }
       if (entitlements) {
@@ -443,7 +458,7 @@ export const useLimits = () => {
         };
       }
       return getOrganizationLimits(activePlan === 'pro' ? 'pro' : 'starter');
-    }, [entitlements, activePlan, isGlobalAdmin]);
+    }, [entitlements, activePlan, hasAdministrativeEntitlement]);
 
     const checkAddon = (addonCode: string) => hasAddon(organization?.addons, addonCode);
 

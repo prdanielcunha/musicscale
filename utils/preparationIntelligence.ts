@@ -1,0 +1,404 @@
+import type { HomeEventSummary, HomeEventSongSummary } from './homeExperience';
+
+export const PREPARATION_HORIZON_DAYS = 7;
+
+export type PreparationChangeCode =
+  | 'song-added'
+  | 'song-removed'
+  | 'song-key-changed'
+  | 'song-order-changed'
+  | 'song-bpm-changed'
+  | 'date-changed'
+  | 'event-title-changed'
+  | 'duration-changed'
+  | 'time-changed'
+  | 'location-changed'
+  | 'role-changed';
+
+export interface PreparationSongSnapshot {
+  id: string;
+  title: string;
+  order: number;
+  effectiveKey: string;
+  effectiveBpm: number | null;
+}
+
+export interface PreparationSnapshot {
+  scaleId: string;
+  date: string;
+  title: string;
+  time: string | null;
+  durationMinutes: number | null;
+  locationName: string | null;
+  userFunctionNames: string[];
+  userFunctionCategories: string[];
+  songs: PreparationSongSnapshot[];
+  fingerprint: string;
+}
+
+export interface PreparationChange {
+  code: PreparationChangeCode;
+  entityId?: string;
+  label: string;
+  from?: string | number | null;
+  to?: string | number | null;
+}
+
+export interface StoredPreparationState {
+  organizationId: string;
+  scaleId: string;
+  acknowledgedFingerprint: string;
+  acknowledgedSnapshot: PreparationSnapshot;
+  preparedFingerprint?: string | null;
+  acknowledgedAtMs?: number | null;
+  preparedAtMs?: number | null;
+}
+
+export type PreparationStatus =
+  | 'preparing'
+  | 'prepared'
+  | 'needs-review';
+
+export interface EventPreparationView {
+  event: HomeEventSummary;
+  snapshot: PreparationSnapshot;
+  status: PreparationStatus;
+  changes: PreparationChange[];
+}
+
+export function getEffectivePreparationKey(song: HomeEventSongSummary): string {
+  return (
+    song.localKey ||
+    song.selectedKey ||
+    song.key ||
+    song.originalKey ||
+    ''
+  ).trim();
+}
+
+export function getEffectivePreparationBpm(
+  song: HomeEventSongSummary
+): number | null {
+  const value = song.localBpm ?? song.bpm ?? null;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function stableHash(value: string): string {
+  // FNV-1a style 32-bit hash: deterministic, tiny and browser-safe.
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+export function createPreparationSnapshot(
+  event: HomeEventSummary
+): PreparationSnapshot {
+  const userFunctionNames = [...event.userFunctionNames]
+    .map(value => String(value).trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+  const userFunctionCategories = [...(event.userFunctionCategories || [])]
+    .map(value => String(value).trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+
+  const songs = [...(event.songs || [])]
+    .map(song => ({
+      id: song.id,
+      title: song.title,
+      order: song.order,
+      effectiveKey: getEffectivePreparationKey(song),
+      effectiveBpm: getEffectivePreparationBpm(song),
+    }))
+    .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+
+  const canonical = JSON.stringify({
+    scaleId: event.id,
+    date: event.date,
+    title: event.title || '',
+    time: event.time || null,
+    durationMinutes:
+      typeof event.durationMinutes === 'number' && Number.isFinite(event.durationMinutes)
+        ? event.durationMinutes
+        : null,
+    locationName: event.locationName || null,
+    userFunctionNames,
+    userFunctionCategories,
+    songs,
+  });
+
+  return {
+    scaleId: event.id,
+    date: event.date,
+    title: event.title || '',
+    time: event.time || null,
+    durationMinutes:
+      typeof event.durationMinutes === 'number' && Number.isFinite(event.durationMinutes)
+        ? event.durationMinutes
+        : null,
+    locationName: event.locationName || null,
+    userFunctionNames,
+    userFunctionCategories,
+    songs,
+    fingerprint: stableHash(canonical),
+  };
+}
+
+export function diffPreparationSnapshots(
+  previous: PreparationSnapshot,
+  current: PreparationSnapshot
+): PreparationChange[] {
+  const changes: PreparationChange[] = [];
+
+  if (previous.date !== current.date) {
+    changes.push({
+      code: 'date-changed',
+      label: 'event-date',
+      from: previous.date,
+      to: current.date,
+    });
+  }
+
+  if ((previous.title || '') !== (current.title || '')) {
+    changes.push({
+      code: 'event-title-changed',
+      label: 'event-title',
+      from: previous.title || null,
+      to: current.title || null,
+    });
+  }
+
+  if (
+    (previous.durationMinutes ?? null) !==
+    (current.durationMinutes ?? null)
+  ) {
+    changes.push({
+      code: 'duration-changed',
+      label: 'event-duration',
+      from: previous.durationMinutes ?? null,
+      to: current.durationMinutes ?? null,
+    });
+  }
+
+  if ((previous.time || null) !== (current.time || null)) {
+    changes.push({
+      code: 'time-changed',
+      label: 'event-time',
+      from: previous.time || null,
+      to: current.time || null,
+    });
+  }
+
+  if ((previous.locationName || null) !== (current.locationName || null)) {
+    changes.push({
+      code: 'location-changed',
+      label: 'event-location',
+      from: previous.locationName || null,
+      to: current.locationName || null,
+    });
+  }
+
+  const previousRoles = [
+    previous.userFunctionNames.join('|'),
+    previous.userFunctionCategories.join('|')
+  ].join('::');
+  const currentRoles = [
+    current.userFunctionNames.join('|'),
+    current.userFunctionCategories.join('|')
+  ].join('::');
+  if (previousRoles !== currentRoles) {
+    changes.push({
+      code: 'role-changed',
+      label: 'user-role',
+      from: previous.userFunctionNames.join(', '),
+      to: current.userFunctionNames.join(', '),
+    });
+  }
+
+  const previousSongs = new Map(previous.songs.map(song => [song.id, song]));
+  const currentSongs = new Map(current.songs.map(song => [song.id, song]));
+
+  current.songs.forEach(song => {
+    const before = previousSongs.get(song.id);
+    if (!before) {
+      changes.push({
+        code: 'song-added',
+        entityId: song.id,
+        label: song.title,
+        to: song.order,
+      });
+      return;
+    }
+
+    if (before.effectiveKey !== song.effectiveKey) {
+      changes.push({
+        code: 'song-key-changed',
+        entityId: song.id,
+        label: song.title,
+        from: before.effectiveKey || null,
+        to: song.effectiveKey || null,
+      });
+    }
+
+    if (before.order !== song.order) {
+      changes.push({
+        code: 'song-order-changed',
+        entityId: song.id,
+        label: song.title,
+        from: before.order,
+        to: song.order,
+      });
+    }
+
+    if ((before.effectiveBpm ?? null) !== (song.effectiveBpm ?? null)) {
+      changes.push({
+        code: 'song-bpm-changed',
+        entityId: song.id,
+        label: song.title,
+        from: before.effectiveBpm ?? null,
+        to: song.effectiveBpm ?? null,
+      });
+    }
+  });
+
+  previous.songs.forEach(song => {
+    if (!currentSongs.has(song.id)) {
+      changes.push({
+        code: 'song-removed',
+        entityId: song.id,
+        label: song.title,
+        from: song.order,
+      });
+    }
+  });
+
+  const rank: Record<PreparationChangeCode, number> = {
+    'song-added': 1,
+    'song-removed': 2,
+    'song-key-changed': 3,
+    'song-bpm-changed': 4,
+    'song-order-changed': 5,
+    'role-changed': 6,
+    'date-changed': 7,
+    'time-changed': 8,
+    'event-title-changed': 9,
+    'location-changed': 10,
+    'duration-changed': 11,
+  };
+
+  return changes.sort((a, b) => {
+    const rankDelta = rank[a.code] - rank[b.code];
+    if (rankDelta !== 0) return rankDelta;
+    return a.label.localeCompare(b.label);
+  });
+}
+
+export function isEventWithinPreparationHorizon(
+  event: HomeEventSummary,
+  nowMillis: number,
+  horizonDays = PREPARATION_HORIZON_DAYS
+): boolean {
+  if (!event.isUserAssigned) return false;
+  if (event.status === 'draft' || event.status === 'cancelled' || event.status === 'completed') {
+    return false;
+  }
+
+  const horizonEnd = nowMillis + horizonDays * 24 * 60 * 60 * 1000;
+
+  if (typeof event.startAtMillis === 'number') {
+    return event.startAtMillis <= horizonEnd;
+  }
+
+  const fallback = Date.parse(`${event.date}T23:59:59`);
+  return Number.isFinite(fallback) && fallback <= horizonEnd && fallback >= nowMillis - 24 * 60 * 60 * 1000;
+}
+
+export function getPersonalPreparationEvents(
+  events: HomeEventSummary[],
+  nowMillis: number = Date.now(),
+  horizonDays = PREPARATION_HORIZON_DAYS
+): HomeEventSummary[] {
+  return events
+    .filter(event => isEventWithinPreparationHorizon(event, nowMillis, horizonDays))
+    .sort((a, b) => {
+      const aStart = a.startAtMillis ?? Date.parse(`${a.date}T${a.time || '23:59'}:00`);
+      const bStart = b.startAtMillis ?? Date.parse(`${b.date}T${b.time || '23:59'}:00`);
+      return aStart - bStart;
+    });
+}
+
+export type PersonalPreparationMode = 'chords' | 'lyrics' | 'detail';
+
+export function getPersonalPreparationMode(
+  event: HomeEventSummary
+): PersonalPreparationMode {
+  const categories = new Set(
+    (event.userFunctionCategories || []).map(category =>
+      String(category).trim().toLowerCase()
+    )
+  );
+
+  if (categories.has('musical_instrument')) return 'chords';
+  if (categories.has('vocal')) return 'lyrics';
+  if (categories.has('leadership')) return 'chords';
+  if (categories.size === 0) return 'chords';
+  return 'detail';
+}
+
+export function requiresRepertoirePreparation(
+  event: HomeEventSummary
+): boolean {
+  if (event.type !== 'music' || event.songCount <= 0) return false;
+
+  const categories = new Set(
+    (event.userFunctionCategories || []).map(category =>
+      String(category).trim().toLowerCase()
+    )
+  );
+
+  // Legacy schedules may not carry categories yet. Preserve the useful
+  // preparation experience instead of degrading silently.
+  if (categories.size === 0) return true;
+
+  return (
+    categories.has('musical_instrument') ||
+    categories.has('vocal') ||
+    categories.has('leadership')
+  );
+}
+
+export function buildPreparationView(
+  event: HomeEventSummary,
+  storedState?: StoredPreparationState | null
+): EventPreparationView {
+  const snapshot = createPreparationSnapshot(event);
+  const changes = storedState?.acknowledgedSnapshot
+    ? diffPreparationSnapshots(storedState.acknowledgedSnapshot, snapshot)
+    : [];
+
+  let status: PreparationStatus = 'preparing';
+
+  if (changes.length > 0) {
+    status = 'needs-review';
+  } else if (
+    storedState?.preparedFingerprint &&
+    storedState.preparedFingerprint === snapshot.fingerprint
+  ) {
+    status = 'prepared';
+  } else if (
+    storedState?.preparedFingerprint &&
+    storedState.preparedFingerprint !== snapshot.fingerprint
+  ) {
+    status = 'needs-review';
+  }
+
+  return {
+    event,
+    snapshot,
+    status,
+    changes,
+  };
+}

@@ -24,33 +24,49 @@ export function getPrimaryDisplayRole(
       orgRoleStr = userProfile.role.toLowerCase();
   }
 
-  // 1. Ecosystem Owner
-  if (systemRole.includes('owner') || systemRole.includes('ecosystem_owner') || systemRole.includes('founder') || systemRole === 'dono') {
-    return {
-      label: 'Dono do Ecossistema MillionsNest',
-      scope: 'ecosystem',
-      priority: 1,
-      badgeVariant: 'ecosystemOwner'
-    };
-  }
-
-  // 2. Ecosystem CEO
-  if (systemRole.includes('ceo')) {
+  // 1. Canonical ecosystem roles. Organization roles never imply ecosystem authority.
+  if (systemRole === 'ceo') {
     return {
       label: 'CEO do Ecossistema MillionsNest',
       scope: 'ecosystem',
-      priority: 2,
+      priority: 1,
       badgeVariant: 'ecosystemCeo'
     };
   }
 
-  // 3. Ecosystem Admin
-  if (systemRole.includes('admin') || systemRole.includes('global_admin')) {
+  if (systemRole === 'founder') {
     return {
-      label: 'Administrador do Ecossistema MillionsNest',
+      label: 'Fundador do Ecossistema MillionsNest',
+      scope: 'ecosystem',
+      priority: 2,
+      badgeVariant: 'ecosystemOwner'
+    };
+  }
+
+  if (systemRole === 'ecosystem_owner') {
+    return {
+      label: 'Proprietário do Ecossistema MillionsNest',
       scope: 'ecosystem',
       priority: 3,
+      badgeVariant: 'ecosystemOwner'
+    };
+  }
+
+  if (systemRole === 'global_admin' || systemRole === 'admin') {
+    return {
+      label: 'Administrador Global MillionsNest',
+      scope: 'ecosystem',
+      priority: 4,
       badgeVariant: 'ecosystemAdmin'
+    };
+  }
+
+  if (systemRole === 'ecosystem_support') {
+    return {
+      label: 'Suporte do Ecossistema MillionsNest',
+      scope: 'ecosystem',
+      priority: 5,
+      badgeVariant: 'ecosystemSupport'
     };
   }
 
@@ -123,6 +139,8 @@ export function getRoleBadgeStyles(variant: string): string {
             return 'bg-[#FFD700]/10 text-[#FFD700] border border-[#FFD700]/30 shadow-[0_0_10px_rgba(255,215,0,0.15)] font-semibold';
         case 'ecosystemAdmin':
             return 'bg-red-500/10 text-red-500 border border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.15)] font-semibold';
+        case 'ecosystemSupport':
+            return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-semibold';
         case 'organizationOwner':
             return 'bg-[#A855F7]/10 text-[#A855F7] border border-[#A855F7]/30 shadow-[0_0_10px_rgba(168,85,247,0.15)]';
         case 'organizationCeo':

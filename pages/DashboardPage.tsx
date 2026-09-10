@@ -4,12 +4,17 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useMusic } from '../contexts/MusicDataContext';
 import { useHomeExperience } from '../hooks/useHomeExperience';
+import { usePreparationIntelligence } from '../hooks/usePreparationIntelligence';
+import { getPersonalPreparationMode } from '../utils/preparationIntelligence';
+import { buildTeamAttentionEntries } from '../utils/teamAttention';
 import { useCapability } from '../hooks/useCapability';
 import { useModals } from '../contexts/ModalContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSuggestionsContext } from '../contexts/SuggestionContext';
 import { HomeFocusCard } from '../components/dashboard/HomeFocusCard';
 import { HomeUpcomingEvents } from '../components/dashboard/HomeUpcomingEvents';
+import { HomePreparationWeek } from '../components/dashboard/HomePreparationWeek';
+import { HomeTeamAttention } from '../components/dashboard/HomeTeamAttention';
 import { HomeSecondaryContent } from '../components/dashboard/HomeSecondaryContent';
 import { FirstScaleJourneyCard } from '../components/onboarding/FirstScaleJourneyCard';
 import { PlanUsageCompactCard } from '../components/billing/PlanUsageCompactCard';
@@ -81,8 +86,49 @@ export const DashboardPage: React.FC = () => {
   const { hasCapability } = useCapability();
   const canUsePerformance = hasCapability('musicscale.performance.use');
   const canImportSongs = hasCapability('musicscale.songs.edit');
+  const canManageScales = hasCapability('musicscale.scales.manage');
   
   const { experience, upcomingEvents, isLoading: experienceLoading } = useHomeExperience();
+  const preparation = usePreparationIntelligence(upcomingEvents);
+  const focusPreparationView = experience.event
+    ? preparation.viewsByEventId.get(experience.event.id) || null
+    : null;
+  const additionalPreparationViews = preparation.views.filter(
+    view => view.event.id !== experience.event?.id
+  );
+
+  const teamAttentionEntries = useMemo(() => {
+    const candidates = experience.draftEvent
+      ? [...upcomingEvents, experience.draftEvent]
+      : upcomingEvents;
+
+    const entries = buildTeamAttentionEntries(
+      candidates,
+      canManageScales
+    );
+
+    if (experience.mode === 'assigned-event') {
+      return entries;
+    }
+
+    return entries.filter(
+      entry => entry.event.id !== experience.event?.id
+    );
+  }, [
+    upcomingEvents,
+    experience.draftEvent,
+    experience.event?.id,
+    experience.mode,
+    canManageScales,
+  ]);
+
+  const genericUpcomingExclusions = useMemo(
+    () => Array.from(new Set([
+      ...preparation.views.map(view => view.event.id),
+      ...teamAttentionEntries.map(entry => entry.event.id),
+    ])),
+    [preparation.views, teamAttentionEntries]
+  );
 
   const canOpenExplorePerformance = Boolean(
     canUsePerformance &&
@@ -229,6 +275,79 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  const handleOpenPreparation = (eventSummary: HomeEventSummary) => {
+    if (eventSummary.type !== 'music') {
+      handleOpenEvent(eventSummary);
+      return;
+    }
+
+    const scale = populatedScales?.find(s => s.id === eventSummary.id);
+    if (!scale?.songs?.length) {
+      handleOpenEvent(eventSummary);
+      return;
+    }
+
+    const preparationMode = getPersonalPreparationMode(eventSummary);
+    if (preparationMode === 'detail') {
+      handleOpenEvent(eventSummary);
+      return;
+    }
+
+    openSongDetail(scale.songs[0], {
+      scaleContext: {
+        scaleId: scale.id,
+        songs: scale.songs,
+        currentIndex: 0,
+      },
+      mode: preparationMode,
+    });
+  };
+
+  const handleReviewPreparationChanges = async (eventSummary: HomeEventSummary) => {
+    try {
+      await preparation.acknowledgeChanges(eventSummary);
+      handleOpenPreparation(eventSummary);
+      toast({
+        type: 'success',
+        message: t(
+          'dashboard.preparation.changesAcknowledged',
+          'Alterações abertas para revisão.'
+        ),
+      });
+    } catch (error) {
+      console.error('[PreparationIntelligence] Failed to acknowledge changes:', error);
+      toast({
+        type: 'error',
+        message: t(
+          'dashboard.preparation.stateError',
+          'Não foi possível atualizar sua preparação agora.'
+        ),
+      });
+    }
+  };
+
+  const handleMarkPrepared = async (eventSummary: HomeEventSummary) => {
+    try {
+      await preparation.markPrepared(eventSummary);
+      toast({
+        type: 'success',
+        message: t(
+          'dashboard.preparation.preparedFeedback',
+          'Preparação atualizada. Você está pronto para esta escala.'
+        ),
+      });
+    } catch (error) {
+      console.error('[PreparationIntelligence] Failed to mark prepared:', error);
+      toast({
+        type: 'error',
+        message: t(
+          'dashboard.preparation.stateError',
+          'Não foi possível atualizar sua preparação agora.'
+        ),
+      });
+    }
+  };
+
   const handleResolveAttention = (eventSummary: HomeEventSummary, firstAttentionItem?: HomeAttentionItem) => {
     const firstAttention = firstAttentionItem || experience.attentionItems?.[0];
     if (!firstAttention) {
@@ -260,7 +379,7 @@ export const DashboardPage: React.FC = () => {
       handleOpenEvent(eventSummary);
     };
 
-    if (!hasCapability('musicscale.scales.manage')) {
+    if (!canManageScales) {
       runFallback('User lacks musicscale.scales.manage capability');
       return;
     }
@@ -428,8 +547,13 @@ export const DashboardPage: React.FC = () => {
           responseActions={getResponseActions(experience.event)}
           onOpenEvent={handleOpenEvent}
           onOpenPerformance={handleOpenPerformance}
+          onOpenPreparation={handleOpenPreparation}
+          preparationView={focusPreparationView}
+          preparationBusy={preparation.busyScaleId === experience.event?.id}
+          onReviewPreparationChanges={handleReviewPreparationChanges}
+          onMarkPrepared={handleMarkPrepared}
           onCreateScale={() => {
-            if (!hasCapability('musicscale.scales.manage')) {
+            if (!canManageScales) {
               toast({ type: 'error', message: t('dashboard.attention.fallbackMessage', 'Não foi possível abrir a edição diretamente. Revise os detalhes da escala.') });
               return;
             }
@@ -440,10 +564,32 @@ export const DashboardPage: React.FC = () => {
         />
       )}
 
+      {experience.mode !== 'first-value' && additionalPreparationViews.length > 0 && (
+        <HomePreparationWeek
+          views={additionalPreparationViews}
+          busyScaleId={preparation.busyScaleId}
+          onPrepareEvent={handleOpenPreparation}
+          onReviewChanges={handleReviewPreparationChanges}
+          onMarkPrepared={handleMarkPrepared}
+        />
+      )}
+
+      {experience.mode !== 'first-value' && teamAttentionEntries.length > 0 && (
+        <HomeTeamAttention
+          entries={teamAttentionEntries}
+          onResolve={handleResolveAttention}
+          onOpenAll={() => navigate('/scales')}
+        />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
         {experience.mode !== 'first-value' && experience.mode !== 'no-upcoming-event' && experience.mode !== 'create-next-event' && (
           <div className="pt-2">
-            <HomeUpcomingEvents events={upcomingEvents} onOpenEvent={handleOpenEvent} />
+            <HomeUpcomingEvents
+              events={upcomingEvents}
+              excludeEventIds={genericUpcomingExclusions}
+              onOpenEvent={handleOpenEvent}
+            />
           </div>
         )}
       </div>

@@ -5,16 +5,20 @@ function assert(condition: boolean, message: string) {
 }
 function runTests() {
     console.log("Running MS-PERF-6 tests...");
-    // 1. isGlobalOrganizationCatalogRole aceita todos os dez papéis autorizados.
-    const validRoles = ['ceo', 'founder', 'ecosystem_owner', 'owner', 'dono', 'admin', 'global_admin', 'administrador', 'support', 'suporte'];
+    // 1. Catálogo cross-tenant aceita somente papéis canônicos do ecossistema
+    // e o alias legado admin -> global_admin.
+    const validRoles = ['ceo', 'founder', 'ecosystem_owner', 'global_admin', 'ecosystem_support', 'admin'];
     for (const role of validRoles) {
         assert(isGlobalOrganizationCatalogRole(role), `1. Should accept ${role}`);
     }
     // 2. Normalização de maiúsculas e espaços.
     assert(isGlobalOrganizationCatalogRole(' CEO '), "2. Should normalize CEO");
     assert(isGlobalOrganizationCatalogRole('Founder  '), "2. Should normalize Founder");
-    assert(isGlobalOrganizationCatalogRole('  ADMINISTRADOR'), "2. Should normalize ADMINISTRADOR");
+    assert(isGlobalOrganizationCatalogRole('  ECOSYSTEM_SUPPORT'), "2. Should normalize ECOSYSTEM_SUPPORT");
     // 3. Papéis comuns e valores inválidos retornam false.
+    for (const localOrAliasRole of ['owner', 'dono', 'administrador', 'support', 'suporte', 'global_support']) {
+        assert(!isGlobalOrganizationCatalogRole(localOrAliasRole), `3. Should reject non-canonical ${localOrAliasRole}`);
+    }
     assert(!isGlobalOrganizationCatalogRole('member'), "3. Should reject member");
     assert(!isGlobalOrganizationCatalogRole('visitor'), "3. Should reject visitor");
     assert(!isGlobalOrganizationCatalogRole('musician'), "3. Should reject musician");

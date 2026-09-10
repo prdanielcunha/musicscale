@@ -14,16 +14,6 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    function isSystemAdminEmail() {
-      return request.auth != null && 
-             request.auth.token != null && 
-             (
-               request.auth.token.email == 'pastordanielpcunha@gmail.com' || 
-               request.auth.token.email == 'danielcunhapastor@gmail.com' || 
-               request.auth.token.email == 'millionstreinamentos@gmail.com'
-             );
-    }
-
     function isOrgActive(orgId) {
       return true;
     }
@@ -62,12 +52,11 @@ service cloud.firestore {
       );
     }
 
-    function checkOrgAccess(orgId) {
+    function checkOrgWriteAccess(orgId) {
       return (
-        isSystemAdminEmail() || 
         isSystemAdmin() ||
-        orgId == request.auth.uid || 
-        checkMemberExists(orgId) || 
+        orgId == request.auth.uid ||
+        checkMemberExists(orgId) ||
         isOwnerOfOrg(orgId) ||
         (
           isAuthenticated() &&
@@ -78,8 +67,12 @@ service cloud.firestore {
       );
     }
 
+    function checkOrgAccess(orgId) {
+      return checkOrgWriteAccess(orgId) || hasCanonicalSupportRole();
+    }
+
     function hasOrgContext(data) {
-      return ('organizationId' in data) && checkOrgAccess(data.get('organizationId', ''));
+      return ('organizationId' in data) && checkOrgWriteAccess(data.get('organizationId', ''));
     }
     
     function isMemberWithRole(orgId, role) {
@@ -207,7 +200,11 @@ service cloud.firestore {
     }
 
     function hasPermission(orgId, permission) {
-      return isSystemAdmin() || 
+      return isSystemAdmin() ||
+             (
+               hasCanonicalSupportRole() &&
+               permission in ['canManageRepertoire', 'canManageScales', 'canManageChords', 'canManageRoles', 'canManageSettings']
+             ) ||
              isOrgAdmin(orgId) || 
              isMemberWithExplicitPermission(orgId, permission) ||
              (
@@ -247,21 +244,20 @@ service cloud.firestore {
     }
     
     function isSystemAdmin() {
-      return isSystemAdminEmail() || (
-        isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('systemRole', '') in ['ceo', 'admin', 'global_admin', 'ecosystem_owner', 'founder', 'owner', 'CEO', 'Admin', 'Global_Admin', 'Ecosystem_Owner', 'Founder', 'Owner', 'suporte', 'Suporte', 'support', 'Support'] ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('appRole', '') in ['ceo', 'admin', 'global_admin', 'ecosystem_owner', 'founder', 'CEO', 'Admin', 'Global_Admin', 'Ecosystem_Owner', 'Founder', 'suporte', 'Suporte', 'support', 'Support'] ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') in ['ceo', 'admin', 'global_admin', 'ecosystem_owner', 'founder', 'CEO', 'Admin', 'Global_Admin', 'Ecosystem_Owner', 'Founder', 'suporte', 'Suporte', 'support', 'Support']
-        )
-      );
-    }
-
-    function hasCanonicalGlobalRole() {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('systemRole', '') in
-          ['ceo', 'global_admin', 'ecosystem_owner', 'founder'];
+          ['ceo', 'admin', 'global_admin', 'ecosystem_owner', 'founder'];
+    }
+
+    function hasCanonicalGlobalRole() {
+      return isSystemAdmin();
+    }
+
+    function hasCanonicalSupportRole() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('systemRole', '') == 'ecosystem_support';
     }
 
     function hasActiveMusicScaleTenantMembership(orgId) {
@@ -294,6 +290,7 @@ service cloud.firestore {
     function hasCanonicalJoinRequestReadAccess(orgId) {
       return isAuthenticated() && (
         hasCanonicalGlobalRole() ||
+        hasCanonicalSupportRole() ||
         (
           exists(/databases/$(database)/documents/organizations/$(orgId)) &&
           (
@@ -365,7 +362,8 @@ service cloud.firestore {
         orgId == request.auth.uid
       );
       allow list: if isAuthenticated() && (
-        isSystemAdminEmail() ||
+        isSystemAdmin() ||
+        hasCanonicalSupportRole() ||
         resource.data.get('ownerUid', '') == request.auth.uid ||
         resource.data.get('ownerId', '') == request.auth.uid ||
         resource.data.get('owner_user_id', '') == request.auth.uid ||
@@ -401,7 +399,7 @@ service cloud.firestore {
       }
 
       match /musicscale_members/{uid} {
-        allow read: if isAuthenticated() && (hasActiveMusicScaleTenantMembership(orgId) || hasCanonicalGlobalRole());
+        allow read: if isAuthenticated() && (hasActiveMusicScaleTenantMembership(orgId) || hasCanonicalGlobalRole() || hasCanonicalSupportRole());
         allow create, update, delete: if false;
       }
 
@@ -420,7 +418,7 @@ service cloud.firestore {
 
       match /audit_logs/{document=**} {
         allow read: if isAuthenticated() && checkOrgAccess(orgId);
-        allow write: if isAuthenticated() && checkOrgAccess(orgId);
+        allow write: if isAuthenticated() && checkOrgWriteAccess(orgId);
       }
 
       match /notifications/{notificationId} {
@@ -437,9 +435,11 @@ service cloud.firestore {
 
 
       match /{app}/{document=**} {
-        allow read: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
-        allow create: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
-        allow update, delete: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        // Sensitive subcollections with narrower rules must always be excluded
+        // from this generic app wildcard. Firestore ORs overlapping allow rules.
+        allow read: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow create: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
+        allow update, delete: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
       }
     }
 
@@ -456,7 +456,7 @@ service cloud.firestore {
     match /songs/{songId} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
       allow create: if isAuthenticated() && (hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasLegacyUsersOnlyPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasLegacyCommonChordContribution(incoming().get('organizationId', '')) || hasPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasPermission(incoming().get('organizationId', ''), 'canManageChords')) && isOrgActive(incoming().get('organizationId', ''));
-      allow update: if isAuthenticated() && (hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasLegacyUsersOnlyPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasLegacyCommonChordContribution(resource.data.get('organizationId', '')) || hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageChords')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow update: if isAuthenticated() && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', '')) && (hasCanonicalSupportRole() || ((hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasLegacyUsersOnlyPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasLegacyCommonChordContribution(resource.data.get('organizationId', '')) || hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageChords')) && checkOrgAccess(resource.data.get('organizationId', '')))) && isOrgActive(resource.data.get('organizationId', ''));
       allow delete: if isAuthenticated() && (hasCanonicalPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasLegacyUsersOnlyPermission(resource.data.get('organizationId', ''), 'canManageRepertoire') || hasPermission(resource.data.get('organizationId', ''), 'canManageRepertoire')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
     }
 
@@ -709,7 +709,7 @@ service cloud.firestore {
 
     match /{path=**}/members/{uid} {
       allow read: if isAuthenticated() && (
-        isSystemAdminEmail() || 
+        isSystemAdmin() || 
         uid == request.auth.uid ||
         (resource != null && (
           resource.data.get('uid', '') == request.auth.uid || 

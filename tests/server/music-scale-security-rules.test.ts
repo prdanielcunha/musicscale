@@ -272,6 +272,33 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
       const docRef = db.doc('organizations/org-1/notifications/notif-1');
       await assertFails(docRef.get());
     });
+
+    it('membro ativo da mesma organização não lê notificação de outra pessoa', async () => {
+      const db = getAuthedFirestore({ uid: 'member-2' });
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-1').set({
+          status: 'active',
+          ownerUid: 'owner-1',
+        });
+        await adminDb.doc('organizations/org-1/members/member-2').set({
+          uid: 'member-2',
+          status: 'active',
+          organizationRole: 'member',
+        });
+        await adminDb.doc('organizations/org-1/notifications/notif-private').set({
+          organizationId: 'org-1',
+          recipientId: 'user-1',
+          type: 'music_scale_changed',
+          isRead: false,
+          isArchived: false,
+        });
+      });
+
+      await assertFails(
+        db.doc('organizations/org-1/notifications/notif-private').get()
+      );
+    });
     
     it('tenant incorreto é bloqueado', async () => {
         const db = getAuthedFirestore({ uid: 'user-1' });
@@ -398,12 +425,40 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
       await assertFails(getAuthedFirestore({ uid: 'cross-tenant' }).doc('organizations/org-1/musicscale_members/member-1').get());
     });
 
-    it('users.systemRole admin não recebe acesso global', async () => {
+    it('users.systemRole admin legado preserva acesso global', async () => {
       await seedProjection();
       await testEnv.withSecurityRulesDisabled(async (context) => {
         await context.firestore().doc('users/local-admin').set({ systemRole: 'admin' });
       });
-      await assertFails(getAuthedFirestore({ uid: 'local-admin' }).doc('organizations/org-1/musicscale_members/member-1').get());
+      await assertSucceeds(getAuthedFirestore({ uid: 'local-admin' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('ecosystem_support recebe leitura cross-tenant sem membership', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('users/support-agent').set({ systemRole: 'ecosystem_support' });
+      });
+      await assertSucceeds(getAuthedFirestore({ uid: 'support-agent' }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it.each(['support', 'suporte', 'global_support'])('alias não canônico %s não recebe autoridade global', async (systemRole) => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc(`users/alias-${systemRole}`).set({ systemRole });
+      });
+      await assertFails(getAuthedFirestore({ uid: `alias-${systemRole}` }).doc('organizations/org-1/musicscale_members/member-1').get());
+    });
+
+    it('email histórico de administrador não concede mais acesso global', async () => {
+      await seedProjection();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc('users/email-only').set({ systemRole: 'user' });
+      });
+      await assertFails(
+        getAuthedFirestore({ uid: 'email-only', email: 'pastordanielpcunha@gmail.com' })
+          .doc('organizations/org-1/musicscale_members/member-1')
+          .get()
+      );
     });
 
     it('users.systemRole owner não recebe acesso global', async () => {
@@ -423,6 +478,41 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
         await assertSucceeds(getAuthedFirestore({ uid: role }).doc('organizations/org-1/musicscale_members/member-1').get());
       });
     }
+
+    it('ecosystem_support opera o domínio musical mas não altera governança da organização', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('users/support-operator').set({ systemRole: 'ecosystem_support' });
+        await adminDb.doc('organizations/org-support').set({
+          status: 'active',
+          ownerUid: 'customer-owner',
+          name: 'Cliente'
+        });
+        await adminDb.doc('songs/support-existing').set({
+          organizationId: 'org-support',
+          title: 'Antes'
+        });
+      });
+
+      const db = getAuthedFirestore({ uid: 'support-operator' });
+      const existingSong = db.doc('songs/support-existing');
+      await assertSucceeds(existingSong.get());
+      await assertSucceeds(existingSong.update({ title: 'Corrigida pelo suporte' }));
+      await assertSucceeds(db.doc('scales/support-scale').set({
+        organizationId: 'org-support',
+        status: 'draft',
+        songIds: ['support-existing']
+      }));
+      await assertFails(
+        db.doc('organizations/org-support').update({ name: 'Não pode trocar' })
+      );
+      await assertFails(
+        db.doc('organizations/org-support/members/support-operator').set({
+          status: 'active',
+          organizationRole: 'owner'
+        })
+      );
+    });
 
     it('cliente com membership ativa não pode create, update ou delete diretamente', async () => {
       await testEnv.withSecurityRulesDisabled(async (context) => {
