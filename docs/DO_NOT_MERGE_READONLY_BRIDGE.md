@@ -1,0 +1,1 @@
+This draft branch is for review only. No production deployment should occur until the read-only bridge implementation is complete and audited.
