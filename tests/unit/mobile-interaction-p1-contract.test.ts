@@ -50,7 +50,7 @@ describe('mobile interaction P1 contract', () => {
     const toasts = read('contexts/ToastContext.tsx');
 
     expect(toasts).toContain('.slice(-4)');
-    expect(toasts).toContain("aria-label={t('common.close', 'Fechar')}");
+    expect(toasts).toMatch(/aria-label=\{t\(["']common\.close["'], ["']Fechar["']\)\}/);
     expect(toasts).not.toContain('toastItem.type !== "feedback" &&');
     expect(toasts).toContain('onClick={() => removeToast(toastItem.id)}');
   });
