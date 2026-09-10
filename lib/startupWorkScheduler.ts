@@ -8,6 +8,9 @@ const FIRST_OPERATIONAL_METRIC = 'first_operational_screen_ms';
 const DEFAULT_FALLBACK_MS = 2500;
 const DEFAULT_IDLE_TIMEOUT_MS = 900;
 
+let quietWindowPromise: Promise<void> | null = null;
+let quietWindowCompleted = false;
+
 function isSyntheticBrowserRuntime(): boolean {
   if (typeof navigator === 'undefined') return false;
   return /\bjsdom\b/i.test(navigator.userAgent || '');
@@ -47,36 +50,12 @@ function afterPaintAndIdle(idleTimeoutMs: number): Promise<void> {
   });
 }
 
-/**
- * Keeps non-essential bootstrap work away from the first interactive mobile
- * frames. Desktop and already-warm sessions are not delayed.
- *
- * Synthetic browser runtimes such as jsdom intentionally fail open. They do
- * not have a real paint/idle pipeline, so accumulating timers or idle waits in
- * tests would only add artificial work without validating the production UX.
- *
- * This is deliberately fail-open: if the operational milestone never arrives,
- * background work resumes after a short bounded fallback instead of hanging.
- */
-export async function waitForStartupQuietWindow(options?: {
-  fallbackMs?: number;
-  idleTimeoutMs?: number;
-}): Promise<void> {
-  if (
-    typeof window === 'undefined' ||
-    isSyntheticBrowserRuntime() ||
-    !isColdMobileStartup()
-  ) return;
-
-  const fallbackMs = options?.fallbackMs ?? DEFAULT_FALLBACK_MS;
-  const idleTimeoutMs = options?.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
-
+function waitForFirstOperationalMetric(fallbackMs: number): Promise<void> {
   if (getStartupTelemetrySnapshot().some((event) => event.metric === FIRST_OPERATIONAL_METRIC)) {
-    await afterPaintAndIdle(idleTimeoutMs);
-    return;
+    return Promise.resolve();
   }
 
-  await new Promise<void>((resolve) => {
+  return new Promise<void>((resolve) => {
     let settled = false;
     let timeoutId = 0;
 
@@ -101,6 +80,44 @@ export async function waitForStartupQuietWindow(options?: {
       finish();
     }
   });
+}
 
-  await afterPaintAndIdle(idleTimeoutMs);
+/**
+ * Keeps non-essential bootstrap work away from the first interactive mobile
+ * frames. The wait is coalesced and runs at most once per loaded app session;
+ * after the startup quiet window completes, later repository calls are not
+ * delayed at all.
+ *
+ * Synthetic browser runtimes such as jsdom intentionally fail open. They do
+ * not have a real paint/idle pipeline, so accumulating timers or idle waits in
+ * tests would only add artificial work without validating the production UX.
+ *
+ * This is deliberately fail-open: if the operational milestone never arrives,
+ * background work resumes after a short bounded fallback instead of hanging.
+ */
+export async function waitForStartupQuietWindow(options?: {
+  fallbackMs?: number;
+  idleTimeoutMs?: number;
+}): Promise<void> {
+  if (
+    typeof window === 'undefined' ||
+    isSyntheticBrowserRuntime() ||
+    !isColdMobileStartup() ||
+    quietWindowCompleted
+  ) return;
+
+  if (!quietWindowPromise) {
+    const fallbackMs = options?.fallbackMs ?? DEFAULT_FALLBACK_MS;
+    const idleTimeoutMs = options?.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
+
+    quietWindowPromise = (async () => {
+      await waitForFirstOperationalMetric(fallbackMs);
+      await afterPaintAndIdle(idleTimeoutMs);
+    })().finally(() => {
+      quietWindowCompleted = true;
+      quietWindowPromise = null;
+    });
+  }
+
+  await quietWindowPromise;
 }
