@@ -25,6 +25,16 @@ describe('mobile cold-start P3 contract', () => {
     expect(scheduler).toContain('unsubscribeStartupTelemetry(onMetric)');
   });
 
+  it('fails open in synthetic jsdom runtimes so test workers do not accumulate fake paint timers', () => {
+    const scheduler = read('lib/startupWorkScheduler.ts');
+
+    expect(scheduler).toContain('isSyntheticBrowserRuntime()');
+    expect(scheduler).toContain('/\\bjsdom\\b/i.test(navigator.userAgent');
+    expect(scheduler.indexOf('isSyntheticBrowserRuntime()')).toBeLessThan(
+      scheduler.indexOf('!isColdMobileStartup()')
+    );
+  });
+
   it('defers secondary repositories and cached critical revalidation only when safe', () => {
     const api = read('contexts/ApiContext.tsx');
 
