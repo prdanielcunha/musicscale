@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   connect-route-patch:
-    if: github.event_name == 'pull_request' && github.head_ref == 'feat/connect-next-schedule-read-tool-01'
+    if: ${{ github.event_name == 'pull_request' && github.head_ref == 'feat/connect-next-schedule-read-tool-01' }}
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -43,17 +43,16 @@ jobs:
             text = text.replace(import_anchor, import_anchor + '\n' + import_line, 1)
 
         route_marker = 'app.get("/api/v1/connect/next-schedule"'
-        route_block = '''
-
-// Connect read-only Tool Gateway boundary. Authentication, tenant and scales.read
-// are independently revalidated inside MusicScale before any tenant data is read.
-const connectNextScheduleReadHandler = createConnectNextScheduleReadHandler({
-  db,
-  auth,
-  logger,
-});
-app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);
-'''
+        route_block = (
+            '\n\n// Connect read-only Tool Gateway boundary. Authentication, tenant and scales.read\n'
+            '// are independently revalidated inside MusicScale before any tenant data is read.\n'
+            'const connectNextScheduleReadHandler = createConnectNextScheduleReadHandler({\n'
+            '  db,\n'
+            '  auth,\n'
+            '  logger,\n'
+            '});\n'
+            'app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);\n'
+        )
         if route_marker not in text:
             anchor = '  app.post("/api/admin/backfill-global-titles", requireEcosystemRole, async (req: any, res: any) => {'
             if anchor not in text:
