@@ -29,9 +29,10 @@ describe('mobile cold-start P3 contract', () => {
     const scheduler = read('lib/startupWorkScheduler.ts');
 
     expect(scheduler).toContain("import.meta.env.MODE === 'test'");
-    expect(scheduler).toContain('isSyntheticBrowserRuntime()');
     expect(scheduler).toContain('/\\bjsdom\\b/i.test(navigator.userAgent');
-    expect(scheduler).toContain('isSyntheticBrowserRuntime() ||');
+    expect(scheduler).toContain('export function shouldWaitForStartupQuietWindow(): boolean');
+    expect(scheduler).toContain('!isSyntheticBrowserRuntime() &&');
+    expect(scheduler).toContain('if (!shouldWaitForStartupQuietWindow()) return');
   });
 
   it('coalesces the quiet window once so later mobile repository calls are not delayed', () => {
@@ -39,7 +40,8 @@ describe('mobile cold-start P3 contract', () => {
 
     expect(scheduler).toContain('let quietWindowPromise: Promise<void> | null = null');
     expect(scheduler).toContain('let quietWindowCompleted = false');
-    expect(scheduler).toContain('quietWindowCompleted\n  ) return');
+    expect(scheduler).toContain('!quietWindowCompleted');
+    expect(scheduler).toContain('if (!shouldWaitForStartupQuietWindow()) return');
     expect(scheduler).toContain('if (!quietWindowPromise)');
     expect(scheduler).toContain('quietWindowCompleted = true');
     expect(scheduler).toContain('quietWindowPromise = null');
@@ -79,9 +81,9 @@ describe('mobile cold-start P3 contract', () => {
       finops.indexOf("fetch('/api/admin/finops-diagnostics/preflight'")
     );
 
-    expect(notifications).toContain('waitForStartupQuietWindow()');
-    expect(notifications.indexOf('waitForStartupQuietWindow()')).toBeLessThan(
-      notifications.indexOf('onSnapshot(q')
-    );
+    expect(notifications).toContain('const attachListener = () =>');
+    expect(notifications).toContain('shouldWaitForStartupQuietWindow()');
+    expect(notifications).toContain('void waitForStartupQuietWindow().then(attachListener)');
+    expect(notifications).toContain('onSnapshot(q');
   });
 });
