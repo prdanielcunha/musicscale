@@ -12,6 +12,7 @@ let quietWindowPromise: Promise<void> | null = null;
 let quietWindowCompleted = false;
 
 function isSyntheticBrowserRuntime(): boolean {
+  if (import.meta.env.MODE === 'test') return true;
   if (typeof navigator === 'undefined') return false;
   return /\bjsdom\b/i.test(navigator.userAgent || '');
 }
@@ -88,8 +89,8 @@ function waitForFirstOperationalMetric(fallbackMs: number): Promise<void> {
  * after the startup quiet window completes, later repository calls are not
  * delayed at all.
  *
- * Synthetic browser runtimes such as jsdom intentionally fail open. They do
- * not have a real paint/idle pipeline, so accumulating timers or idle waits in
+ * Test and synthetic browser runtimes intentionally fail open. They do not
+ * have a real paint/idle pipeline, so accumulating timers or idle waits in
  * tests would only add artificial work without validating the production UX.
  *
  * This is deliberately fail-open: if the operational milestone never arrives,
