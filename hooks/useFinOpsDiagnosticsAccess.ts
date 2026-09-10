@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getAuth } from 'firebase/auth';
+import { waitForStartupQuietWindow } from '../lib/startupWorkScheduler';
 
 let globalCache: { allowed: boolean; canRun: boolean; reason?: string; safeCode?: string; diagnostic?: any } | null = null;
 let globalPromise: Promise<{ allowed: boolean; canRun: boolean; reason?: string; safeCode?: string; diagnostic?: any }> | null = null;
@@ -44,6 +45,11 @@ export function useFinOpsDiagnosticsAccess() {
         }
         return;
       }
+
+      // This preflight exists only to reveal an admin diagnostics entry in the
+      // sidebar. It must never compete with the first mobile home/menu paint.
+      await waitForStartupQuietWindow();
+      if (!isMounted) return;
 
       if (!globalPromise) {
         globalPromise = (async () => {
@@ -93,7 +99,7 @@ export function useFinOpsDiagnosticsAccess() {
     }
 
     if (!authLoading) {
-      checkAccess();
+      void checkAccess();
     }
 
     return () => {

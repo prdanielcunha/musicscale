@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Suggestion } from '../types';
 import * as suggestionApi from '../services/suggestionsService';
 import { useAuth } from '../contexts/AuthContext';
+import { waitForStartupQuietWindow } from '../lib/startupWorkScheduler';
 
 export const useSuggestions = () => {
     const { user, effectiveOrganizationId } = useAuth();
@@ -24,28 +25,31 @@ export const useSuggestions = () => {
 
         if (user && effectiveOrganizationId) {
             setLoading(true);
-            
-            // Add a small delay before subscribing to prevent rapid mount/unmount crashes (React 18 strict mode / fast refresh)
+
+            // Suggestions are useful, but they are not part of the first usable
+            // screen. On cold mobile start, wait until the critical home has
+            // painted before attaching another realtime Firestore listener.
             timeoutId = setTimeout(() => {
-                if (!mounted) return;
-                unsubscribe = suggestionApi.onSuggestionsUpdate(
-                    effectiveOrganizationId,
-                    (newSuggestions) => {
-                        if (!mounted || generationRef.current !== currentGeneration) return;
-                        setSuggestions(newSuggestions);
-                        setLoading(false); // Stop loading once first data batch arrives
-                        setError(null);
-                    },
-                    (err) => {
-                        if (!mounted || generationRef.current !== currentGeneration) return;
-                        setError('Falha ao carregar indicações em tempo real.');
-                        logger.error("Failed to load suggestions via hook", err);
-                        setLoading(false);
-                    }
-                );
+                void waitForStartupQuietWindow().then(() => {
+                    if (!mounted || generationRef.current !== currentGeneration) return;
+                    unsubscribe = suggestionApi.onSuggestionsUpdate(
+                        effectiveOrganizationId,
+                        (newSuggestions) => {
+                            if (!mounted || generationRef.current !== currentGeneration) return;
+                            setSuggestions(newSuggestions);
+                            setLoading(false);
+                            setError(null);
+                        },
+                        (err) => {
+                            if (!mounted || generationRef.current !== currentGeneration) return;
+                            setError('Falha ao carregar indicações em tempo real.');
+                            logger.error("Failed to load suggestions via hook", err);
+                            setLoading(false);
+                        }
+                    );
+                });
             }, 50);
 
-            // Cleanup listener on unmount or user change
             return () => {
                 mounted = false;
                 generationRef.current++;
@@ -59,7 +63,6 @@ export const useSuggestions = () => {
                 }
             };
         } else {
-            // No user, clear data
             setSuggestions([]);
             setLoading(false);
         }
