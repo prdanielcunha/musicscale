@@ -15,65 +15,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  connect-route-patch:
-    if: ${{ github.event_name == 'pull_request' && github.head_ref == 'feat/connect-next-schedule-read-tool-01' }}
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        ref: ${{ github.head_ref }}
-        fetch-depth: 0
-        persist-credentials: true
-
-    - name: Mount canonical Connect next-schedule route
-      run: |
-        python - <<'PY'
-        from pathlib import Path
-
-        path = Path('server.ts')
-        text = path.read_text()
-
-        import_anchor = 'import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";'
-        import_line = 'import { createConnectNextScheduleReadHandler } from "./services/server/connect/nextScheduleReadHandler.js";'
-        if import_line not in text:
-            if import_anchor not in text:
-                raise SystemExit('authorization import anchor not found')
-            text = text.replace(import_anchor, import_anchor + '\n' + import_line, 1)
-
-        route_marker = 'app.get("/api/v1/connect/next-schedule"'
-        route_block = (
-            '\n\n// Connect read-only Tool Gateway boundary. Authentication, tenant and scales.read\n'
-            '// are independently revalidated inside MusicScale before any tenant data is read.\n'
-            'const connectNextScheduleReadHandler = createConnectNextScheduleReadHandler({\n'
-            '  db,\n'
-            '  auth,\n'
-            '  logger,\n'
-            '});\n'
-            'app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);\n'
-        )
-        if route_marker not in text:
-            anchor = '  app.post("/api/admin/backfill-global-titles", requireEcosystemRole, async (req: any, res: any) => {'
-            if anchor not in text:
-                raise SystemExit('route insertion anchor not found')
-            text = text.replace(anchor, route_block + '\n' + anchor, 1)
-
-        path.write_text(text)
-        PY
-
-    - name: Commit route mount to feature branch
-      run: |
-        if git diff --quiet; then
-          echo "Route already mounted."
-          exit 0
-        fi
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git add server.ts
-        git commit -m "feat(connect): mount next-schedule read tool [route-patch]"
-        git push origin HEAD:${{ github.head_ref }}
-
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
