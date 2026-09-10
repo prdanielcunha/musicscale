@@ -49,15 +49,13 @@ const FinOpsDiagnosticsPage = lazy(() => import('./pages/FinOpsDiagnosticsPage')
 
 import { PerformanceRecovery } from './components/common/PerformanceRecovery';
 import { SyncConfidenceLayer } from './components/common/SyncConfidenceLayer';
+import { WelcomeAutoPresenter } from './components/bootstrap/WelcomeAutoPresenter';
 import { useEcosystemTelemetry } from './hooks/useEcosystemTelemetry';
 import { useEcosystem } from './contexts/EcosystemContext';
 import { MissingSubscriptionScreen } from './components/premium/MissingSubscriptionScreen';
 import { RepairNeededScreen } from './components/premium/RepairNeededScreen';
 import { getSubscriptionBlockReason } from './utils/subscriptionValidator';
 import { resolveSubscriptionAccess } from './utils/subscriptionAccessResolver';
-
-import { useModals } from './contexts/ModalContext';
-import { useNews } from './hooks/useNews';
 
 const AppLayout: React.FC = () => {
     const { user, userProfile, userRole, organization, subscription, isAdmin, isOwner, isGlobalAdmin, entitlements, isSupportMode, effectiveOrganizationName, loading: isAuthLoading, supportTargetType, isSubscriptionLoaded, isEntitlementsLoaded } = useAuth();
@@ -68,21 +66,6 @@ const AppLayout: React.FC = () => {
     );
     const mobileSidebarRef = React.useRef<MobileSidebarDrawerHandle>(null);
     const location = useLocation();
-
-    // Novidades Auto-open
-    const { hasUnseen } = useNews();
-    const { openWhatsNew } = useModals();
-    const autoOpenAttempted = React.useRef(false);
-
-    useEffect(() => {
-        if (hasUnseen && !autoOpenAttempted.current) {
-            autoOpenAttempted.current = true;
-            // The preference is already resolved synchronously by useNews and the
-            // first-access chunk is preloaded from App.tsx. Do not add an artificial
-            // delay here: it is visible to the user as a late modal pop-in.
-            openWhatsNew();
-        }
-    }, [hasUnseen, openWhatsNew]);
 
     useEffect(() => {
         const mediaQuery = window.matchMedia('(max-width: 767px)');
@@ -450,6 +433,7 @@ const AppContent: React.FC = () => {
                     <MusicDataProvider>
                         <SuggestionProvider>
                             <ModalProvider>
+                                <WelcomeAutoPresenter />
                                 <AppLayout />
                             </ModalProvider>
                         </SuggestionProvider>
