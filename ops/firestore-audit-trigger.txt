@@ -1,0 +1,2 @@
+initial-audit-request=2026-09-10T22:30:00Z
+purpose=validate-permanent-readonly-catalog-access
