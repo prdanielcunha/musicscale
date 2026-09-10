@@ -30,6 +30,20 @@ function isColdMobileStartup(): boolean {
   return compactViewport && coarsePointer;
 }
 
+/**
+ * Synchronous predicate for callers that need to preserve immediate behavior
+ * when no mobile startup deferral is necessary (desktop, tests, SSR, or after
+ * the one-time startup quiet window has already completed).
+ */
+export function shouldWaitForStartupQuietWindow(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    !isSyntheticBrowserRuntime() &&
+    isColdMobileStartup() &&
+    !quietWindowCompleted
+  );
+}
+
 function afterPaintAndIdle(idleTimeoutMs: number): Promise<void> {
   return new Promise((resolve) => {
     const afterFrames = () => {
@@ -100,12 +114,7 @@ export async function waitForStartupQuietWindow(options?: {
   fallbackMs?: number;
   idleTimeoutMs?: number;
 }): Promise<void> {
-  if (
-    typeof window === 'undefined' ||
-    isSyntheticBrowserRuntime() ||
-    !isColdMobileStartup() ||
-    quietWindowCompleted
-  ) return;
+  if (!shouldWaitForStartupQuietWindow()) return;
 
   if (!quietWindowPromise) {
     const fallbackMs = options?.fallbackMs ?? DEFAULT_FALLBACK_MS;
