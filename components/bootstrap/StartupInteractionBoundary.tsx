@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import Spinner from '../common/Spinner';
 import {
@@ -91,7 +91,7 @@ export const StartupInteractionBoundary: React.FC<{ children: React.ReactNode }>
     warmCriticalApiOnce();
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const onStartupMetric = (event: CustomEvent) => {
       if (event.detail?.metric === AUTH_PROFILE_READY_METRIC) {
         setAuthProfileReady(true);
@@ -102,7 +102,7 @@ export const StartupInteractionBoundary: React.FC<{ children: React.ReactNode }>
     subscribeStartupTelemetry(onStartupMetric);
     window.addEventListener(START_GATEWAY_READY_EVENT, onStartGatewayReady);
 
-    // Cover the tiny window between initial render and effect subscription.
+    // Cover the tiny window between initial render and listener installation.
     if (getStartupTelemetrySnapshot().some(event => event.metric === AUTH_PROFILE_READY_METRIC)) {
       setAuthProfileReady(true);
     }
