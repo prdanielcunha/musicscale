@@ -10,6 +10,7 @@ import { ModalProvider } from './contexts/ModalContext';
 import { SuggestionProvider } from './contexts/SuggestionContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import Sidebar from './components/layout/Sidebar';
+import MobileSidebarDrawer, { MobileSidebarDrawerHandle } from './components/layout/MobileSidebarDrawer';
 import Header from './components/layout/Header';
 import { BottomNav } from './components/layout/BottomNav';
 import Spinner from './components/common/Spinner';
@@ -62,8 +63,12 @@ const AppLayout: React.FC = () => {
     const { user, userProfile, userRole, organization, subscription, isAdmin, isOwner, isGlobalAdmin, entitlements, isSupportMode, effectiveOrganizationName, loading: isAuthLoading, supportTargetType, isSubscriptionLoaded, isEntitlementsLoaded } = useAuth();
     const { isDegraded, publishEvent } = useEcosystem();
     const [isSidebarCollapsed, setSidebarCollapsed] = React.useState(true);
+    const [isMobileViewport, setIsMobileViewport] = React.useState(() =>
+        typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+    );
+    const mobileSidebarRef = React.useRef<MobileSidebarDrawerHandle>(null);
     const location = useLocation();
-    
+
     // Novidades Auto-open
     const { hasUnseen } = useNews();
     const { openWhatsNew } = useModals();
@@ -80,13 +85,22 @@ const AppLayout: React.FC = () => {
         }
     }, [hasUnseen, openWhatsNew]);
 
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(max-width: 767px)');
+        const syncViewport = () => setIsMobileViewport(mediaQuery.matches);
+
+        syncViewport();
+        mediaQuery.addEventListener('change', syncViewport);
+        return () => mediaQuery.removeEventListener('change', syncViewport);
+    }, []);
+
     const isAllowedRouteDuringSuspension = location.pathname === '/plans' || location.pathname === '/profile' || location.pathname.startsWith('/debug');
     const contextValidation = React.useMemo(() => ({
         entitlements,
         organization,
         subscription
     }), [entitlements, organization, subscription]);
-    
+
     const { valid: isSubscriptionValid, reason: blockReason, banner: subscriptionBanner } = getSubscriptionBlockReason(contextValidation);
 
     const resolution = resolveSubscriptionAccess(isAuthLoading, isSubscriptionLoaded, isEntitlementsLoaded, contextValidation, isGlobalAdmin);
@@ -109,13 +123,6 @@ const AppLayout: React.FC = () => {
     // Publish telemetry to Ecosystem OS
     useEcosystemTelemetry();
 
-    // Close sidebar on mobile when location changes
-    useEffect(() => {
-        if (window.innerWidth < 768) {
-            setSidebarCollapsed(true);
-        }
-    }, [location.pathname, location.hash]);
-
     // Handle crash telemetry
     useEffect(() => {
         const handleError = (e: ErrorEvent) => {
@@ -129,9 +136,13 @@ const AppLayout: React.FC = () => {
         return () => window.removeEventListener('error', handleError);
     }, [publishEvent]);
 
-    const handleSidebarToggle = () => {
+    const handleSidebarToggle = React.useCallback(() => {
         setSidebarCollapsed(prev => !prev);
-    };
+    }, []);
+
+    const openMobileSidebar = React.useCallback(() => {
+        mobileSidebarRef.current?.open();
+    }, []);
 
     logger.debug("[AppLayout] Banner Status:", {
         subscriptionStatus: subscription?.status,
@@ -154,48 +165,33 @@ const AppLayout: React.FC = () => {
         <div className="flex h-screen font-sans bg-[var(--color-background)] overflow-hidden relative">
             <PerformanceRecovery />
             <SyncConfidenceLayer />
-            
+
             {/* Premium Dashboard Background */}
             <div className="pointer-events-none absolute inset-0 -z-10 bg-[#0a0a0b] dark:bg-[#050505] overflow-hidden" aria-hidden="true">
                 <div className="absolute top-[-10%] opacity-30 right-[-5%] h-[500px] w-[500px] rounded-full bg-blue-500/5 blur-[120px] md:h-[600px] md:w-[600px] md:bg-blue-500/10 md:blur-[140px]" />
                 <div className="absolute top-[20%] opacity-20 left-[-10%] h-[600px] w-[600px] rounded-full bg-violet-500/5 blur-[140px] md:h-[800px] md:w-[800px] md:bg-violet-500/10 md:blur-[160px]" />
             </div>
-            
+
             {/* Subtle Premium Noise */}
             <div
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0 -z-10 opacity-[0.015] mix-blend-overlay [background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.4)_1px,transparent_0)] [background-size:24px_24px]"
             />
 
-            {/* Mobile Sidebar Overlay */}
-            {!isSidebarCollapsed && (
-                <div 
-                    className="md:hidden fixed inset-0 z-[90] bg-black/70 transition-opacity duration-150 touch-manipulation"
-                    onClick={() => setSidebarCollapsed(true)}
-                />
+            {isMobileViewport ? (
+                <MobileSidebarDrawer ref={mobileSidebarRef} />
+            ) : (
+                <div className="relative z-[90] h-full py-4 pl-4">
+                    <Sidebar
+                        isCollapsed={isSidebarCollapsed}
+                        onToggle={handleSidebarToggle}
+                    />
+                </div>
             )}
 
-            {/* Sidebar Container */}
-            <div className={`fixed inset-y-0 left-0 z-[100] transform-gpu will-change-transform md:relative md:transform-none md:block py-4 pl-4 transition-transform duration-150 md:duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isSidebarCollapsed ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
-                <Sidebar 
-                    isCollapsed={isSidebarCollapsed}
-                    onToggle={handleSidebarToggle}
-                    onLinkClick={() => setSidebarCollapsed(true)}
-                />
-                
-                {/* Mobile close button inside sidebar container area */}
-                <button 
-                    className="md:hidden absolute top-8 -right-12 w-10 h-10 flex items-center justify-center bg-[#1a1a1d]/95 text-white rounded-full border border-white/[0.08] touch-manipulation"
-                    onClick={() => setSidebarCollapsed(true)}
-                    style={{ display: isSidebarCollapsed ? 'none' : 'flex' }}
-                >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                </button>
-            </div>
-
             {/* Main Content */}
-            <div className={`relative flex-1 flex flex-col overflow-hidden z-10 transition-all duration-300 md:pb-0`}>
-                
+            <div className="relative flex-1 flex flex-col overflow-hidden z-10 transition-all duration-300 md:pb-0">
+
                 {subscriptionBanner && (
                     <div className="bg-indigo-500/10 border-b border-indigo-500/20 px-4 py-2.5 flex items-center justify-between gap-3 w-full shrink-0 shadow-sm backdrop-blur-md">
                         <span className="text-indigo-700 dark:text-indigo-300 text-xs font-medium truncate flex-1 flex items-center gap-2">
@@ -209,9 +205,9 @@ const AppLayout: React.FC = () => {
                         </a>
                     </div>
                 )}
-                
-                <Header onMenuClick={() => setSidebarCollapsed(false)} />
-                
+
+                <Header onMenuClick={openMobileSidebar} />
+
                 <main className="flex-1 overflow-y-auto overflow-x-hidden relative isolate p-4 pb-[calc(140px+env(safe-area-inset-bottom))] md:pb-8 md:p-8 scroll-smooth touch-manipulation">
                     <div className="max-w-7xl mx-auto space-y-8">
                        <Suspense fallback={<div className="flex h-64 w-full items-center justify-center"><Spinner size="lg" /></div>}>
@@ -338,7 +334,7 @@ const AppLayout: React.FC = () => {
                         </Suspense>
                     </div>
                 </main>
-                <BottomNav onMenuClick={() => setSidebarCollapsed(false)} />
+                <BottomNav />
             </div>
         </div>
     );
@@ -397,13 +393,13 @@ function Gatekeeper({ children }: { children: React.ReactNode }) {
         return (
             <div className="flex bg-[#0a0a0b] dark:bg-[#050505] h-[100dvh] w-[100dvw] justify-center items-center flex-col relative overflow-hidden isolate">
                 {/* Immersive ambient noise for splash */}
-                <div 
-                    className="fixed inset-0 z-0 pointer-events-none opacity-[0.03] mix-blend-screen hidden md:block" 
+                <div
+                    className="fixed inset-0 z-0 pointer-events-none opacity-[0.03] mix-blend-screen hidden md:block"
                     style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
                 ></div>
                 {/* Pulsing deep light */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/10 active:scale-110 blur-[100px] rounded-full animate-pulse z-0 hidden md:block"></div>
-                
+
                 <div className="relative z-10 flex flex-col items-center gap-6">
                    <Spinner size="lg" />
                    <p className="text-white/40 font-mono text-[11px] uppercase tracking-[0.3em] font-medium animate-pulse">
@@ -420,20 +416,20 @@ function Gatekeeper({ children }: { children: React.ReactNode }) {
 
     const hasProduct = userProfile?.products?.includes('musicscale') || (userProfile as any)?.isNew || !!userProfile?.apps?.musicscale;
 
-    logger.debug("[Gatekeeper] Status:", { 
+    logger.debug("[Gatekeeper] Status:", {
       appName: "MusicScale",
       uid: user?.uid,
       products: userProfile?.products,
-      hasProduct, 
-      hasOrg: !!organization, 
-      subscriptionStatus: subscription?.status 
+      hasProduct,
+      hasOrg: !!organization,
+      subscriptionStatus: subscription?.status
     });
 
     if (!user || !organization) {
-        logger.debug("Gatekeeper negou acesso, roteando para /start...", { 
+        logger.debug("Gatekeeper negou acesso, roteando para /start...", {
            reason: !user ? 'No user' : 'No organization',
-           user: !!user, 
-           hasOrg: !!organization 
+           user: !!user,
+           hasOrg: !!organization
         });
         return <Navigate to="/start" replace />;
     }
