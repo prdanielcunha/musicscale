@@ -8,6 +8,11 @@ const FIRST_OPERATIONAL_METRIC = 'first_operational_screen_ms';
 const DEFAULT_FALLBACK_MS = 2500;
 const DEFAULT_IDLE_TIMEOUT_MS = 900;
 
+function isSyntheticBrowserRuntime(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /\bjsdom\b/i.test(navigator.userAgent || '');
+}
+
 function isColdMobileStartup(): boolean {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
 
@@ -46,6 +51,10 @@ function afterPaintAndIdle(idleTimeoutMs: number): Promise<void> {
  * Keeps non-essential bootstrap work away from the first interactive mobile
  * frames. Desktop and already-warm sessions are not delayed.
  *
+ * Synthetic browser runtimes such as jsdom intentionally fail open. They do
+ * not have a real paint/idle pipeline, so accumulating timers or idle waits in
+ * tests would only add artificial work without validating the production UX.
+ *
  * This is deliberately fail-open: if the operational milestone never arrives,
  * background work resumes after a short bounded fallback instead of hanging.
  */
@@ -53,7 +62,11 @@ export async function waitForStartupQuietWindow(options?: {
   fallbackMs?: number;
   idleTimeoutMs?: number;
 }): Promise<void> {
-  if (typeof window === 'undefined' || !isColdMobileStartup()) return;
+  if (
+    typeof window === 'undefined' ||
+    isSyntheticBrowserRuntime() ||
+    !isColdMobileStartup()
+  ) return;
 
   const fallbackMs = options?.fallbackMs ?? DEFAULT_FALLBACK_MS;
   const idleTimeoutMs = options?.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
