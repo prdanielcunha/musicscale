@@ -112,10 +112,28 @@ const LazyApp = lazy(async () => {
 
   return appModule;
 });
+
+function swallowStartupInteraction(event: React.SyntheticEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+  const nativeEvent = event.nativeEvent as Event;
+  nativeEvent.stopImmediatePropagation?.();
+}
   
 
 const fallbackLoader = (
-  <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', background: '#050505', color: 'white', position: 'relative', overflow: 'hidden' }}>
+  <div
+    style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', background: '#050505', color: 'white', position: 'relative', overflow: 'hidden', touchAction: 'none' }}
+    onPointerDown={swallowStartupInteraction}
+    onPointerUp={swallowStartupInteraction}
+    onPointerCancel={swallowStartupInteraction}
+    onTouchStart={swallowStartupInteraction}
+    onTouchMove={swallowStartupInteraction}
+    onTouchEnd={swallowStartupInteraction}
+    onTouchCancel={swallowStartupInteraction}
+    onClick={swallowStartupInteraction}
+    onContextMenu={swallowStartupInteraction}
+  >
     <div style={{ position: 'absolute', inset: 0, opacity: 0.03, pointerEvents: 'none' }}>
        <svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg' style={{ width: '100%', height: '100%' }}><filter id='noiseFilter'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(#noiseFilter)'/></svg>
     </div>
