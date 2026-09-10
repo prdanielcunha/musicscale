@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
 
 describe('mobile interaction P2 contract', () => {
-  it('resolves the welcome preference synchronously and preloads first-access UI', () => {
+  it('resolves the welcome preference synchronously without competing with private bootstrap', () => {
     const news = read('hooks/useNews.ts');
     const app = read('App.tsx');
 
@@ -14,8 +14,8 @@ describe('mobile interaction P2 contract', () => {
     expect(news).not.toContain('default true until loaded to prevent flash');
     expect(news).not.toContain('setIsLoaded');
 
-    expect(app).toContain('preloadFirstAccessWelcome');
-    expect(app).toContain("void import('./components/WhatsNewModal')");
+    expect(app).not.toContain('preloadFirstAccessWelcome');
+    expect(app).not.toContain("void import('./components/WhatsNewModal')");
   });
 
   it('keeps automatic welcome state isolated from the global modal context', () => {
