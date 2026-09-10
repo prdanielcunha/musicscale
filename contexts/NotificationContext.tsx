@@ -4,7 +4,7 @@ import { collection, query, where, onSnapshot, doc, updateDoc } from "firebase/f
 import { db } from "../services/firebase";
 import { useAuth } from "./AuthContext";
 import { useToast } from "./ToastContext";
-import { waitForStartupQuietWindow } from "../lib/startupWorkScheduler";
+import { shouldWaitForStartupQuietWindow, waitForStartupQuietWindow } from "../lib/startupWorkScheduler";
 
 export interface Notification {
   id: string;
@@ -51,7 +51,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const { toast } = useToast();
   const { t, i18n } = useTranslation();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [, setInitialLoadComplete] = useState(false);
   const isFirstLoadRef = useRef(true);
   const seenNotificationIdsRef = useRef<Set<string>>(new Set());
   const listenerStartedAtRef = useRef(0);
@@ -75,11 +75,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     const organizationId = organization.id;
     const userId = user.uid;
 
-    // Notifications remain real-time, but their initial snapshot is not required
-    // to make the first mobile screen usable. Attaching this listener after the
-    // first operational paint prevents a potentially large unread snapshot from
-    // competing with the first menu/navigation interactions.
-    void waitForStartupQuietWindow().then(() => {
+    const attachListener = () => {
       if (!mounted) return;
 
       listenerStartedAtRef.current = Date.now();
@@ -134,11 +130,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
             if (notif.type === 'music_scale_assignment') {
               if (i18n.language.startsWith('en')) {
-                 localizedTitle = "You have been scheduled!";
+                localizedTitle = "You have been scheduled!";
               } else if (i18n.language.startsWith('es')) {
-                 localizedTitle = "¡Has sido programado!";
+                localizedTitle = "¡Has sido programado!";
               } else {
-                 localizedTitle = notif.title.replace(' tocar Sua função', '').replace('Sua função', '').trim() || 'Você foi escalado!';
+                localizedTitle = notif.title.replace(' tocar Sua função', '').replace('Sua função', '').trim() || 'Você foi escalado!';
               }
               localizedMessage = t('notifications.newScalePublished', 'Uma nova escala de música foi publicada.');
             } else if (notif.type === 'music_scale_changed') {
@@ -155,11 +151,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
               const role = parts.length > 1 ? parts[1].replace('.', '') : "";
 
               if (i18n.language.startsWith('en')) {
-                 localizedTitle = "Your role in the scale has been changed";
-                 localizedMessage = `You are now scheduled as ${role}.`;
+                localizedTitle = "Your role in the scale has been changed";
+                localizedMessage = `You are now scheduled as ${role}.`;
               } else if (i18n.language.startsWith('es')) {
-                 localizedTitle = "Su función en la escala ha sido modificada";
-                 localizedMessage = `Ahora estás programado como ${role}.`;
+                localizedTitle = "Su función en la escala ha sido modificada";
+                localizedMessage = `Ahora estás programado como ${role}.`;
               }
             }
 
@@ -184,13 +180,22 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
           errorMessage: error.message
         });
       });
-    });
+    };
+
+    // Preserve synchronous listener setup whenever no deferral is required
+    // (desktop, test, SSR, or after the one-time startup quiet window). On a
+    // real cold mobile start, attach only after first operational paint/idle.
+    if (shouldWaitForStartupQuietWindow()) {
+      void waitForStartupQuietWindow().then(attachListener);
+    } else {
+      attachListener();
+    }
 
     return () => {
       mounted = false;
       if (unsubscribe) unsubscribe();
     };
-  }, [user, organization?.id, toast, t, i18n.language]);
+  }, [user, organization?.id, toast, i18n.language]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
