@@ -25,9 +25,10 @@ describe('mobile cold-start P3 contract', () => {
     expect(scheduler).toContain('unsubscribeStartupTelemetry(onMetric)');
   });
 
-  it('fails open in synthetic jsdom runtimes so test workers do not accumulate fake paint timers', () => {
+  it('fails open in test and synthetic browser runtimes so tests never accumulate fake paint timers', () => {
     const scheduler = read('lib/startupWorkScheduler.ts');
 
+    expect(scheduler).toContain("import.meta.env.MODE === 'test'");
     expect(scheduler).toContain('isSyntheticBrowserRuntime()');
     expect(scheduler).toContain('/\\bjsdom\\b/i.test(navigator.userAgent');
     expect(scheduler).toContain('isSyntheticBrowserRuntime() ||');
