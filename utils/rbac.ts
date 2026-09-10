@@ -71,15 +71,29 @@ export type EffectiveAccessContext = {
 export function normalizeSystemRole(role: string | null | undefined): string {
   if (!role) return 'viewer';
   const r = role.toLowerCase().trim();
-  if (['ceo', 'founder', 'ecosystem_owner', 'owner', 'dono'].includes(r)) return 'ecosystem_owner';
-  if (['admin', 'global_admin', 'administrador'].includes(r)) return 'global_admin';
-  if (['support', 'suporte', 'global_support'].includes(r)) return 'global_support';
+  if (['ceo', 'founder', 'ecosystem_owner', 'global_admin', 'ecosystem_support'].includes(r)) return r;
+  if (r === 'admin') return 'global_admin';
   return r;
 }
 
 export function isGlobalMusicScaleAdministrator(normalizedRole: string): boolean {
-  return ['ecosystem_owner', 'global_admin', 'global_support'].includes(normalizedRole);
+  return ['ceo', 'founder', 'ecosystem_owner', 'global_admin'].includes(normalizedRole);
 }
+
+export function isEcosystemSupportRole(normalizedRole: string): boolean {
+  return normalizedRole === 'ecosystem_support';
+}
+
+const SUPPORT_CAPABILITIES: MusicScaleCapability[] = [
+  'scales.read', 'scales.create', 'scales.update', 'scales.delete', 'scales.publish',
+  'bandScales.read', 'bandScales.create', 'bandScales.update', 'bandScales.delete',
+  'songs.read', 'songs.create', 'songs.update', 'songs.delete',
+  'musicians.read', 'musicians.manageMusicalProfile', 'musicians.assignToScale',
+  'taxonomy.roles.manage', 'taxonomy.instruments.manage', 'taxonomy.skills.manage',
+  'taxonomy.eventTypes.manage', 'taxonomy.eventNames.manage', 'taxonomy.locations.manage', 'taxonomy.tags.manage',
+  'notifications.readOwn', 'scaleResponses.readManaged',
+  'musicscale.live.conduct'
+];
 
 export function normalizeOrganizationRole(role: string | null | undefined): string {
   if (!role) return 'viewer';
@@ -130,8 +144,14 @@ export function resolveCapabilities(systemRole: string | null, orgRole: string |
     allCaps.forEach(c => capabilities.add(c));
     return capabilities;
   }
+
+  // 2. Ecosystem Support: cross-tenant MusicScale operations without organization governance.
+  if (isEcosystemSupportRole(normalizedSystem)) {
+    SUPPORT_CAPABILITIES.forEach(c => capabilities.add(c));
+    return capabilities;
+  }
   
-  // 2. Organization Admins
+  // 3. Organization Admins
   if (['owner', 'admin'].includes(normalizedOrg)) {
     const orgAdminCaps: MusicScaleCapability[] = [
       'scales.read', 'scales.create', 'scales.update', 'scales.delete', 'scales.publish',
@@ -148,7 +168,7 @@ export function resolveCapabilities(systemRole: string | null, orgRole: string |
     return capabilities;
   }
   
-  // 3. Leaders
+  // 4. Leaders
   if (normalizedOrg === 'leader') {
     const leaderCaps: MusicScaleCapability[] = [
       'scales.read', 'scales.create', 'scales.update', 'scales.delete', 'scales.publish',
@@ -164,7 +184,7 @@ export function resolveCapabilities(systemRole: string | null, orgRole: string |
     return capabilities;
   }
   
-  // 4. Members
+  // 5. Members
   if (normalizedOrg === 'member' || normalizedOrg === 'viewer') {
     const memberCaps: MusicScaleCapability[] = [
       'scales.read',
@@ -193,6 +213,7 @@ export function buildEffectiveAccessContext(
   const normalizedOrg = orgRole ? normalizeOrganizationRole(orgRole) : null;
   
   const isGlobal = isGlobalMusicScaleAdministrator(normalizedSystem);
+  const isSupport = isEcosystemSupportRole(normalizedSystem);
   
   let accessSource: 'system_role' | 'organization_owner' | 'organization_role' | 'music_role' | 'membership' | 'none' = 'none';
   let isGlobalAccess = false;
@@ -224,6 +245,14 @@ export function buildEffectiveAccessContext(
     resolutionStatus = 'resolved';
     ALL_CAPS.forEach(c => capsSet.add(c));
     capsSet.add('musicScale.fullAccess');
+  } else if (isSupport) {
+    accessSource = 'system_role';
+    isGlobalAccess = true;
+    isOrganizationAdmin = false;
+    isGlobalFullAccess = false;
+    isOrganizationFullAccess = false;
+    resolutionStatus = 'resolved';
+    SUPPORT_CAPABILITIES.forEach(c => capsSet.add(c));
   } else if (normalizedOrg === 'owner') {
     // 2. Organization Owner (Level 2)
     accessSource = 'organization_owner';

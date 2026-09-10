@@ -157,6 +157,15 @@ export function createFirstScaleExperienceOutput(
 const defaultUser = { uid: 'u1', displayName: 'Daniel' };
 const defaultOrg = { id: 'org1', slug: 'org1' };
 const getFutureDate = () => '2099-12-31';
+const getDateOffset = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')
+  ].join('-');
+};
 
 
 const renderWithRouter = (ui: React.ReactElement, lang = 'pt-BR') => {
@@ -225,6 +234,108 @@ describe('Dashboard Home Experience UI', () => {
     renderWithRouter(<DashboardPage />);
     expect(screen.getByText('Resolver pendências')).toBeInTheDocument();
     expect(screen.getByText('Repertório incompleto')).toBeInTheDocument();
+  });
+
+  it('4B. líder também escalado vê sua preparação e a atenção da equipe sem perder o contexto pessoal', () => {
+    mockUseCapability.mockReturnValue({
+      hasCapability: (capability: string) =>
+        capability === 'musicscale.scales.manage' ||
+        capability === 'musicscale.performance.use'
+    });
+
+    const scale = {
+      id: 'dual-role-scale',
+      date: getDateOffset(3),
+      time: '19:00',
+      status: 'published',
+      eventName: { name: 'Culto da Família' },
+      eventAssignments: [
+        {
+          userId: 'u1',
+          functionName: 'Teclado',
+          functionCategory: 'musical_instrument',
+          active: true
+        }
+      ],
+      songs: []
+    };
+
+    mockUseMusic.mockReturnValue({
+      populatedScales: [scale],
+      populatedBandScales: [],
+      songs: [],
+      loading: false
+    });
+
+    renderWithRouter(<DashboardPage />);
+
+    expect(screen.getByText('Atenção da equipe')).toBeInTheDocument();
+    expect(screen.getByText('Repertório não definido')).toBeInTheDocument();
+    expect(screen.getAllByText('Culto da Família').length).toBeGreaterThan(0);
+  });
+
+  it('4C. resolver atenção da equipe abre exatamente o ponto faltante da escala', () => {
+    mockUseCapability.mockReturnValue({
+      hasCapability: (capability: string) =>
+        capability === 'musicscale.scales.manage'
+    });
+
+    const readyScale = {
+      id: 'ready-scale',
+      date: getDateOffset(2),
+      time: '19:00',
+      status: 'published',
+      eventName: { name: 'Culto já organizado' },
+      location: { name: 'Templo' },
+      eventAssignments: [
+        {
+          userId: 'member-2',
+          functionName: 'Violão',
+          functionCategory: 'musical_instrument',
+          active: true
+        }
+      ],
+      songs: [{ id: 'song-ready', title: 'Música pronta' }]
+    };
+
+    const attentionScale = {
+      id: 'leader-attention-scale',
+      date: getDateOffset(4),
+      time: '19:00',
+      status: 'published',
+      eventName: { name: 'Culto de Celebração' },
+      location: { name: 'Templo' },
+      eventAssignments: [
+        {
+          userId: 'member-2',
+          functionName: 'Violão',
+          functionCategory: 'musical_instrument',
+          active: true
+        }
+      ],
+      songs: []
+    };
+
+    mockUseMusic.mockReturnValue({
+      populatedScales: [readyScale, attentionScale],
+      populatedBandScales: [],
+      songs: [],
+      loading: false
+    });
+
+    renderWithRouter(<DashboardPage />);
+
+    expect(screen.getByText('Atenção da equipe')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Resolver'));
+
+    expect(mockOpenScaleForm).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'leader-attention-scale' }),
+      undefined,
+      {
+        initialStep: 'build',
+        focusTarget: 'repertoire-selector'
+      }
+    );
   });
 
   it('5. dashboard renderiza no estado padrão sem exibir jornada explícita', () => {
@@ -390,16 +501,57 @@ describe('Dashboard Home Experience UI', () => {
     expect(props.isBandScale).toBeUndefined();
   });
 
-  it('27. Performance usa openSongDetail', () => {
+  it('27. compromisso nos próximos 7 dias abre preparação em vez de Performance', () => {
     mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.performance.use' });
+    const future = new Date();
+    future.setDate(future.getDate() + 3);
+    const date = [
+      future.getFullYear(),
+      String(future.getMonth() + 1).padStart(2, '0'),
+      String(future.getDate()).padStart(2, '0')
+    ].join('-');
     const scale = {
-      id: 's1', date: getFutureDate(), eventName: { name: 'Service' },
+      id: 's1', date, time: '19:00', eventName: { name: 'Service' },
       eventAssignments: [{ userId: 'u1', active: true }], songs: [{ id: 'song1' }], status: 'published'
     };
     mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
     renderWithRouter(<DashboardPage />);
+
+    expect(screen.queryByText('Entrar no Modo Performance')).not.toBeInTheDocument();
+    const prepareBtn = screen.getByText('Preparar repertório');
+    fireEvent.click(prepareBtn);
+
+    expect(mockOpenSongDetail).toHaveBeenCalledWith(
+      { id: 'song1' },
+      {
+        scaleContext: {
+          scaleId: 's1',
+          songs: [{ id: 'song1' }],
+          currentIndex: 0
+        },
+        mode: 'chords'
+      }
+    );
+  });
+
+  it('27B. no dia do culto Performance continua sendo a ação principal', () => {
+    mockUseCapability.mockReturnValue({ hasCapability: (c: string) => c === 'musicscale.performance.use' });
+    const today = new Date();
+    const date = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0')
+    ].join('-');
+    const scale = {
+      id: 's1', date, time: '23:59', eventName: { name: 'Service' },
+      eventAssignments: [{ userId: 'u1', active: true }], songs: [{ id: 'song1' }], status: 'published'
+    };
+    mockUseMusic.mockReturnValue({ populatedScales: [scale], populatedBandScales: [], songs: [], loading: false });
+    renderWithRouter(<DashboardPage />);
+
     const perfBtn = screen.getByText('Entrar no Modo Performance');
     fireEvent.click(perfBtn);
+
     expect(mockOpenSongDetail).toHaveBeenCalledWith(
       { id: 'song1' }, true, { songs: [{ id: 'song1' }], currentIndex: 0 }, true
     );

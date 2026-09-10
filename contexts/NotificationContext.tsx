@@ -98,7 +98,14 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
             }
             localizedMessage = t('notifications.newScalePublished', 'Uma nova escala de música foi publicada.');
           } else if (notif.type === 'music_scale_changed') {
-            localizedTitle = t('notifications.scaleUpdated', 'Escala de Músicas Atualizada');
+            localizedTitle = t(
+              'notifications.scaleChangedTitle',
+              'Sua escala mudou'
+            );
+            localizedMessage = t(
+              'notifications.scaleChangedDescription',
+              'Repertório, tom, função ou detalhes da escala foram atualizados. Veja exatamente o que mudou.'
+            );
           } else if (notif.type === 'band_scale' && notif.metadata?.action === 'role_changed') {
             const parts = notif.message.split('como ');
             const role = parts.length > 1 ? parts[1].replace('.', '') : "";

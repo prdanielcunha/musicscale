@@ -353,6 +353,59 @@
       "activityDescription": "Sugerencias, canciones recientes y contenidos que merecen atención.",
       "activityExpand": "Mostrar actividad",
       "activityCollapse": "Ocultar actividad"
+    },
+    "preparation": {
+      "eyebrow": "Próximos 7 días",
+      "title": "Tu semana de preparación",
+      "subtitle": "Todo lo que necesitas revisar antes de servir, sin buscar escala por escala.",
+      "commitmentCount_one": "{{count}} compromiso",
+      "commitmentCount_other": "{{count}} compromisos",
+      "today": "Hoy",
+      "tomorrow": "Mañana",
+      "inDays": "En {{count}} días",
+      "statusPrepared": "Preparado",
+      "statusNeedsReview": "Cambios por revisar",
+      "statusPreparing": "En preparación",
+      "songCount_one": "{{count}} canción",
+      "songCount_other": "{{count}} canciones",
+      "changesTitle_one": "{{count}} cambio desde tu revisión",
+      "changesTitle_other": "{{count}} cambios desde tu revisión",
+      "moreChanges_one": "+ {{count}} cambio",
+      "moreChanges_other": "+ {{count}} cambios",
+      "reviewChanges": "Revisar cambios",
+      "reviewRepertoire": "Revisar repertorio",
+      "startPreparation": "Preparar repertorio",
+      "markPrepared": "Estoy preparado",
+      "open": "Abrir",
+      "changesAcknowledged": "Cambios abiertos para revisión.",
+      "preparedFeedback": "Preparación actualizada. Estás listo para esta escala.",
+      "stateError": "No fue posible actualizar tu preparación ahora.",
+      "changes": {
+        "songAdded": "Se agregó “{{song}}”.",
+        "songRemoved": "Se quitó “{{song}}”.",
+        "songKeyChanged": "“{{song}}”: tono {{from}} → {{to}}.",
+        "songOrderChanged": "“{{song}}”: posición {{from}} → {{to}}.",
+        "timeChanged": "Horario: {{from}} → {{to}}.",
+        "locationChanged": "Lugar: {{from}} → {{to}}.",
+        "roleChanged": "Tu función: {{from}} → {{to}}."
+      }
+    },
+    "teamAttention": {
+      "eyebrow": "Liderazgo",
+      "title": "Atención del equipo",
+      "subtitle": "Solo lo que realmente necesita de ti en los próximos eventos.",
+      "viewAll": "Ver escalas",
+      "resolve": "Resolver",
+      "moreIssues_one": "+ {{count}} punto",
+      "moreIssues_other": "+ {{count}} puntos",
+      "items": {
+        "draft": "Borrador por concluir",
+        "missingRepertoire": "Repertorio no definido",
+        "missingTeam": "Equipo aún no asignado",
+        "missingTime": "Horario no definido",
+        "missingLocation": "Lugar no definido",
+        "generic": "Requiere atención"
+      }
     }
   },
   "songs": {
@@ -1258,8 +1311,28 @@
       "close": "Cerrar",
       "calendarOpened": "Calendario abierto",
       "calendarFileCreated": "Archivo de calendario creado",
-      "loading": "Cargando..."
-    }
+      "loading": "Cargando...",
+      "changedTitle": "Tu escala cambió",
+      "changes": {
+        "title": "Qué cambió",
+        "subtitle": "Revísalo antes del ensayo o de servir.",
+        "unknownSong": "Canción",
+        "songAdded": "Se agregó “{{song}}”.",
+        "songRemoved": "Se quitó “{{song}}”.",
+        "songKeyChanged": "“{{song}}”: tono {{from}} → {{to}}.",
+        "songBpmChanged": "“{{song}}”: BPM {{from}} → {{to}}.",
+        "songOrderChanged": "“{{song}}”: posición {{from}} → {{to}}.",
+        "dateChanged": "Fecha: {{from}} → {{to}}.",
+        "timeChanged": "Horario: {{from}} → {{to}}.",
+        "locationChanged": "Lugar: {{from}} → {{to}}.",
+        "eventChanged": "Evento: {{from}} → {{to}}.",
+        "durationChanged": "Duración: {{from}} min → {{to}} min.",
+        "notesChanged": "Se actualizaron las orientaciones de la escala.",
+        "roleChanged": "Tu función: {{from}} → {{to}}."
+      }
+    },
+    "scaleChangedTitle": "Tu escala cambió",
+    "scaleChangedDescription": "Se actualizó el repertorio, el tono, tu función o los detalles de la escala. Mira exactamente qué cambió."
   },
   "calendar": {
     "addToCalendar": "Añadir al Calendario",

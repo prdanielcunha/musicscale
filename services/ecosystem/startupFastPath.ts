@@ -4,13 +4,9 @@ export function isGlobalOrganizationCatalogRole(role: unknown): boolean {
         'ceo',
         'founder',
         'ecosystem_owner',
-        'owner',
-        'dono',
-        'admin',
         'global_admin',
-        'administrador',
-        'support',
-        'suporte'
+        'ecosystem_support',
+        'admin'
     ];
     return globalRoles.includes(normalizedRole);
 }

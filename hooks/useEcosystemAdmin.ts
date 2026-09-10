@@ -1,35 +1,21 @@
 import { useAuth } from '../contexts/AuthContext';
 import type { User, UserProfile } from '../types';
 
-export const isGlobalPrivilegedUserStr = (systemRole?: string, email?: string) => {
-  const role = systemRole?.toLowerCase();
-  return role === 'ceo' || 
-         role === 'admin' || 
-         role === 'global_admin' || 
-         role === 'owner' ||
-         role === 'ecosystem_owner' ||
+export const isGlobalPrivilegedUserStr = (systemRole?: string, _email?: string) => {
+  const role = systemRole?.toLowerCase().trim();
+  return role === 'ceo' ||
          role === 'founder' ||
-         email === "pastordanielpcunha@gmail.com" || 
-         email === "danielcunhapastor@gmail.com";
+         role === 'ecosystem_owner' ||
+         role === 'global_admin' ||
+         role === 'admin';
 };
 
-export const isGlobalPrivilegedUser = (user?: User | null, userProfile?: UserProfile | null) => {
-  const anyProfile = userProfile as any;
-  return isGlobalPrivilegedUserStr(userProfile?.systemRole, user?.email || undefined) || 
-         anyProfile?.capabilities?.canBypassBilling === true || 
-         anyProfile?.capabilities?.canUseAllFeatures === true || 
-         anyProfile?.lifetimeAccess === true;
+export const isGlobalPrivilegedUser = (_user?: User | null, userProfile?: UserProfile | null) => {
+  return isGlobalPrivilegedUserStr(userProfile?.systemRole);
 };
 
 export const useEcosystemAdmin = () => {
-  const { user, userProfile, organization } = useAuth();
-  
-  // Checking user profile roles OR if they are ceo/admin of "Millionsnest" organization.
-  const isMillionsnestAdmin = 
-    (organization?.name?.toLowerCase().includes('millionsnest') || organization?.id === 'millionsnest') && 
-    (userProfile?.role === 'admin' || userProfile?.role === 'owner');
-
-  const isEcosystemAdmin = isGlobalPrivilegedUser(user, userProfile) || !!isMillionsnestAdmin;
-  
+  const { userProfile } = useAuth();
+  const isEcosystemAdmin = isGlobalPrivilegedUser(undefined, userProfile);
   return { isEcosystemAdmin };
 };
