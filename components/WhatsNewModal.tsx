@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Sparkles, Zap, Shield, Tag, AppWindow, ArrowRight, ChevronLeft, ChevronRight, Megaphone, ShoppingBag, Music, LayoutTemplate, Sliders } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useNews, NewsAnnouncement, NewsCategory } from "../hooks/useNews";
+import { beginInteractionPaintMeasurement } from "../lib/interactionTelemetry";
 
 interface WhatsNewModalProps {
   isOpen: boolean;
@@ -27,13 +28,13 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
   const navigate = useNavigate();
   const modalRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedElement = useRef<HTMLElement | null>(null);
+  const previousBodyOverflow = useRef("");
+  const closeMeasurementRef = useRef<ReturnType<typeof beginInteractionPaintMeasurement> | null>(null);
 
-  const { allActiveNews, unseenNews, markAsSeen, hasUnseen, isWelcomeDismissed, dismissWelcome } = useNews();
-  
-  // Local state for the checkbox in the footer
+  const { allActiveNews, unseenNews, markAsSeen, isWelcomeDismissed, dismissWelcome } = useNews();
+
   const [dontShowWelcomeAgain, setDontShowWelcomeAgain] = useState(false);
 
-  // Carousel references and state
   const carouselRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -43,11 +44,8 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
   const [startX, setStartX] = useState(0);
   const [scrollLeftState, setScrollLeftState] = useState(0);
 
-  // Layout logic
   const isFirstAccess = !isWelcomeDismissed;
-  
-  // If it's first access, "featured news" is actually the Welcome Presentation, and all active news goes to secondary.
-  // If it's not first access, the first unseen active news is featured, or just the first active news. The welcome presentation goes below.
+
   const featuredNews = isFirstAccess ? null : allActiveNews[0];
   const secondaryNews = isFirstAccess ? allActiveNews : allActiveNews.slice(1);
 
@@ -118,47 +116,66 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
   };
 
   useEffect(() => {
-    if (isOpen) {
-      previouslyFocusedElement.current = document.activeElement as HTMLElement;
-      document.body.style.overflow = "hidden";
-      
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') handleClose();
-        
-        // Trap focus
-        if (e.key === 'Tab' && modalRef.current) {
-          const focusableElements = modalRef.current.querySelectorAll(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-          );
-          const firstElement = focusableElements[0] as HTMLElement;
-          const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+    if (!isOpen) return;
 
-          if (e.shiftKey) {
-            if (document.activeElement === firstElement) {
-              lastElement.focus();
-              e.preventDefault();
-            }
-          } else {
-            if (document.activeElement === lastElement) {
-              firstElement.focus();
-              e.preventDefault();
-            }
+    previouslyFocusedElement.current = document.activeElement as HTMLElement;
+    previousBodyOverflow.current = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusableElements = modalRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0] as HTMLElement;
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+        if (!firstElement || !lastElement) return;
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            lastElement.focus();
+            e.preventDefault();
+          }
+        } else if (document.activeElement === lastElement) {
+          firstElement.focus();
+          e.preventDefault();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      const restoreOverflow = previousBodyOverflow.current;
+      const restoreFocus = previouslyFocusedElement.current;
+
+      // Focus restoration/layout is not part of the close frame. Let the modal
+      // disappear first, then restore the previous document state.
+      window.requestAnimationFrame(() => {
+        document.body.style.overflow = restoreOverflow;
+        if (restoreFocus?.isConnected) {
+          try {
+            restoreFocus.focus({ preventScroll: true });
+          } catch {
+            restoreFocus.focus();
           }
         }
-      };
-      
-      document.addEventListener('keydown', handleKeyDown);
-      return () => {
-        document.body.style.overflow = "auto";
-        document.removeEventListener('keydown', handleKeyDown);
-        if (previouslyFocusedElement.current) {
-          previouslyFocusedElement.current.focus();
-        }
-      };
-    }
+      });
+    };
   }, [isOpen]);
 
+  const beginMeasuredClose = () => {
+    closeMeasurementRef.current = beginInteractionPaintMeasurement('welcome_close_to_paint_ms');
+  };
+
   const handleClose = () => {
+    const finishMeasurement = closeMeasurementRef.current
+      ?? beginInteractionPaintMeasurement('welcome_close_to_paint_ms');
+    closeMeasurementRef.current = null;
+
     if (allActiveNews.length > 0) {
       markAsSeen(allActiveNews.map(n => n.id));
     }
@@ -166,6 +183,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
       dismissWelcome();
     }
     onClose();
+    finishMeasurement();
   };
 
   const handleCta = (route?: string) => {
@@ -194,19 +212,18 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
           </span>
         )}
       </div>
-      
+
       <h2 className="text-5xl sm:text-7xl md:text-[80px] font-black text-slate-900 dark:text-white tracking-tighter leading-[1] mb-6 max-w-4xl drop-shadow-sm dark:drop-shadow-none">
          Organização musical <br className="hidden sm:block" />
          <span className="text-transparent bg-clip-text bg-gradient-to-br from-blue-600 via-indigo-500 to-purple-600 dark:from-sky-400 dark:via-blue-500 dark:to-indigo-400">
             fluida e silenciosa.
          </span>
       </h2>
-      
+
       <p className="text-slate-500 dark:text-slate-400 text-lg sm:text-[21px] font-medium max-w-2xl leading-relaxed mb-12">
          Você está a poucos passos de centralizar seu repertório, montar suas escalas e equipar seu time com conforto e precisão.
       </p>
 
-      {/* 3 Core Features */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 w-full text-left">
         <div className="group flex flex-col p-6 rounded-[24px] bg-white dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.05] shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:bg-white/[0.04] transition-all">
           <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-5 group-hover:scale-110 group-hover:-translate-y-1 transition-all duration-300 shadow-sm">
@@ -248,7 +265,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
             </span>
           )}
         </div>
-        
+
         <h2 id="whats-new-title" className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-[1.1] mb-4">
            {news.title}
         </h2>
@@ -275,8 +292,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
           <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
              {isFirstAccess ? "Novidades no MusicScale" : "Outras Atualizações"}
           </h3>
-          
-          {/* Desktop Navigation Arrows */}
+
           <div className="hidden sm:flex items-center gap-1">
              <button
                onClick={() => scrollByAmount('left')}
@@ -297,8 +313,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
           </div>
         </div>
 
-        {/* Carousel Container */}
-        <div 
+        <div
            className="flex snap-x snap-mandatory gap-4 overflow-x-auto hide-scrollbar pb-4 -mx-6 px-6 sm:-mx-10 sm:px-10"
            ref={carouselRef}
            onScroll={handleScroll}
@@ -314,8 +329,8 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
            {secondaryNews.map((news) => {
              const CatInfo = CategoryStyles[news.category];
              return (
-               <article 
-                 key={news.id} 
+               <article
+                 key={news.id}
                  className="w-[86%] shrink-0 snap-start sm:w-[400px] flex flex-col p-5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-2xl transition-colors select-none"
                >
                  <div className="flex items-center gap-3 mb-4">
@@ -341,13 +356,12 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
            })}
         </div>
 
-        {/* Indicators */}
         {secondaryNews.length > 1 && (
            <div className="flex items-center justify-center gap-1.5 mt-2">
              {secondaryNews.map((_, idx) => (
-               <span 
-                 key={idx} 
-                 className={`h-1.5 rounded-full transition-all duration-300 ${activeSlide === idx ? 'w-4 bg-slate-400 dark:bg-slate-500' : 'w-1.5 bg-slate-200 dark:bg-white/10'}`} 
+               <span
+                 key={idx}
+                 className={`h-1.5 rounded-full transition-all duration-300 ${activeSlide === idx ? 'w-4 bg-slate-400 dark:bg-slate-500' : 'w-1.5 bg-slate-200 dark:bg-white/10'}`}
                />
              ))}
            </div>
@@ -358,45 +372,42 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
 
   const renderModal = () => (
     <AnimatePresence>
-      <div 
+      <div
         className="fixed inset-0 z-[99999] flex items-center justify-center sm:p-6"
         role="dialog"
         aria-modal="true"
         aria-labelledby="whats-new-title"
         ref={modalRef}
       >
-        {/* Backdrop */}
         <motion.div
            initial={{ opacity: 0 }}
            animate={{ opacity: 1 }}
            exit={{ opacity: 0 }}
-           transition={{ duration: 0.3, ease: "easeOut" }}
-           className="absolute inset-0 bg-black/55 backdrop-blur-md"
+           transition={{ duration: 0.12, ease: "easeOut" }}
+           className="absolute inset-0 bg-black/78 sm:bg-black/55 sm:backdrop-blur-md"
+           onPointerDown={beginMeasuredClose}
            onClick={handleClose}
         />
 
-        {/* Modal Container */}
         <motion.div
-           initial={{ opacity: 0, scale: 0.95, y: 20 }}
+           initial={{ opacity: 0, scale: 0.98, y: 12 }}
            animate={{ opacity: 1, scale: 1, y: 0 }}
-           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-           transition={{ duration: 0.4, ease: [0.19, 1, 0.22, 1] }}
-           className="relative w-full h-[100dvh] sm:h-auto sm:max-h-[85vh] sm:max-w-[920px] flex flex-col overflow-hidden bg-white/95 dark:bg-[#0A0A0E]/90 sm:backdrop-blur-3xl sm:border border-slate-200/50 dark:border-white/10 shadow-[0_40px_80px_-16px_rgba(0,0,0,0.5)] dark:shadow-[0_40px_80px_-16px_rgba(0,0,0,0.9)] sm:rounded-[40px] isolate"
+           exit={{ opacity: 0, scale: 0.985, y: 8 }}
+           transition={{ duration: 0.16, ease: [0.19, 1, 0.22, 1] }}
+           className="relative w-full h-[100dvh] sm:h-auto sm:max-h-[85vh] sm:max-w-[920px] flex flex-col overflow-hidden bg-white dark:bg-[#0A0A0E] sm:bg-white/95 sm:dark:bg-[#0A0A0E]/90 sm:backdrop-blur-3xl sm:border border-slate-200/50 dark:border-white/10 shadow-[0_40px_80px_-16px_rgba(0,0,0,0.5)] dark:shadow-[0_40px_80px_-16px_rgba(0,0,0,0.9)] sm:rounded-[40px] isolate transform-gpu"
         >
-          {/* Close Button */}
           <button
+            onPointerDown={beginMeasuredClose}
             onClick={handleClose}
-            className="absolute top-4 right-4 sm:top-6 sm:right-6 w-11 h-11 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white transition-colors z-50 shadow-sm"
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 w-11 h-11 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-[#17171c] dark:hover:bg-white/10 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white transition-colors z-50 shadow-sm touch-manipulation"
             aria-label="Fechar"
           >
             <X className="w-5 h-5" />
           </button>
 
-          {/* Ambient gradients */}
-          <div className="absolute top-0 right-0 w-[80%] h-[80%] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent md:blur-[60px] blur-[15px] pointer-events-none -z-10" />
-          <div className="absolute bottom-0 left-0 w-[60%] h-[60%] bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-600/10 via-transparent to-transparent md:blur-[60px] blur-[15px] pointer-events-none -z-10" />
+          <div className="absolute top-0 right-0 w-[80%] h-[80%] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent md:blur-[60px] pointer-events-none -z-10" />
+          <div className="absolute bottom-0 left-0 w-[60%] h-[60%] bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-600/10 via-transparent to-transparent md:blur-[60px] pointer-events-none -z-10" />
 
-          {/* Dynamic Content Area */}
           <div className="flex flex-col flex-grow overflow-y-auto overflow-x-hidden p-6 sm:p-10 hide-scrollbar pt-16 sm:pt-12">
              {isFirstAccess ? (
                <>
@@ -416,14 +427,13 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
              )}
           </div>
 
-          {/* Fixed Footer */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-5 sm:px-10 sm:py-6 border-t border-slate-200/50 dark:border-white/[0.08] bg-white/95 dark:bg-[#0A0A0E]/95 z-10 shrink-0">
-             
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-5 sm:px-10 sm:py-6 border-t border-slate-200/50 dark:border-white/[0.08] bg-white dark:bg-[#0A0A0E] sm:bg-white/95 sm:dark:bg-[#0A0A0E]/95 z-10 shrink-0">
+
              {isFirstAccess ? (
                 <label className="flex items-center gap-3 cursor-pointer group">
                   <div className="relative flex items-center justify-center w-5 h-5 rounded hover:bg-slate-100 dark:hover:bg-white/5 transition-colors border border-slate-300 dark:border-slate-600 bg-transparent group-hover:border-blue-500">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       className="absolute inset-0 opacity-0 w-full h-full cursor-pointer m-0 p-0"
                       checked={dontShowWelcomeAgain}
                       onChange={(e) => setDontShowWelcomeAgain(e.target.checked)}
@@ -441,8 +451,9 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
              )}
 
              <button
+               onPointerDown={beginMeasuredClose}
                onClick={handleClose}
-               className="w-full sm:w-auto inline-flex items-center justify-center min-h-[44px] px-8 py-3 bg-blue-600 hover:bg-blue-700 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 font-bold rounded-xl transition-all duration-300 shadow-md shadow-blue-500/20 dark:shadow-none whitespace-nowrap"
+               className="w-full sm:w-auto inline-flex items-center justify-center min-h-[44px] px-8 py-3 bg-blue-600 hover:bg-blue-700 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 font-bold rounded-xl transition-all duration-150 shadow-md shadow-blue-500/20 dark:shadow-none whitespace-nowrap touch-manipulation"
              >
                {isFirstAccess ? 'Começar a usar' : (unseenNews.length > 0 ? 'Fechar e marcar como lido' : 'Fechar')}
              </button>
@@ -452,6 +463,5 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
     </AnimatePresence>
   );
 
-  // Render using Portal to document.body to ensure it renders above everything else
   return createPortal(renderModal(), document.body);
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Sparkles, Zap, Shield, Star, Rocket, Tag, Info, AppWindow, Megaphone, ShoppingBag } from 'lucide-react';
 import React from 'react';
@@ -42,66 +42,80 @@ export const DYNAMIC_NEWS: NewsAnnouncement[] = [
   // }
 ];
 
+const readStoredSeenNewsIds = (): string[] => {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const storedNews = window.localStorage.getItem('musicscale_seen_news');
+    if (!storedNews) return [];
+
+    const parsed = JSON.parse(storedNews);
+    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : [];
+  } catch (e) {
+    console.error('Failed to parse news storage', e);
+    return [];
+  }
+};
+
+const readStoredWelcomeDismissed = (): boolean => {
+  if (typeof window === 'undefined') return true;
+
+  try {
+    const storedWelcome = window.localStorage.getItem('musicscale_welcome_dismissed');
+    const legacyWelcome = window.localStorage.getItem('hasSeenOnboarding_v1');
+    return storedWelcome === 'true' || legacyWelcome === 'true';
+  } catch (e) {
+    console.error('Failed to read welcome storage', e);
+    return false;
+  }
+};
+
 export function useNews() {
   const { isOwner, isAdmin, isGlobalAdmin, isCurationAdmin, userProfile } = useAuth();
-  
-  const [seenNewsIds, setSeenNewsIds] = useState<string[]>([]);
-  const [isWelcomeDismissed, setIsWelcomeDismissed] = useState<boolean>(true); // default true until loaded to prevent flash
-  const [isLoaded, setIsLoaded] = useState(false);
 
-  useEffect(() => {
-    try {
-      const storedNews = localStorage.getItem('musicscale_seen_news');
-      if (storedNews) {
-        setSeenNewsIds(JSON.parse(storedNews));
-      }
-      
-      const storedWelcome = localStorage.getItem('musicscale_welcome_dismissed');
-      const legacyWelcome = localStorage.getItem('hasSeenOnboarding_v1');
-      setIsWelcomeDismissed(storedWelcome === 'true' || legacyWelcome === 'true');
-      setIsLoaded(true);
-    } catch (e) {
-      console.error('Failed to parse news storage', e);
-      setIsLoaded(true);
-      setIsWelcomeDismissed(false);
-    }
-  }, []);
+  // These preferences are local and synchronous. Resolve them in the lazy state
+  // initializers so first-access UI does not wait for an effect after first paint.
+  const [seenNewsIds, setSeenNewsIds] = useState<string[]>(readStoredSeenNewsIds);
+  const [isWelcomeDismissed, setIsWelcomeDismissed] = useState<boolean>(readStoredWelcomeDismissed);
 
   const dismissWelcome = useCallback(() => {
     setIsWelcomeDismissed(true);
     try {
-      localStorage.setItem('musicscale_welcome_dismissed', 'true');
+      window.localStorage.setItem('musicscale_welcome_dismissed', 'true');
     } catch (e) {
       console.error('Failed to save welcome dismissal', e);
     }
   }, []);
 
-  const markAsSeen = (id: string | string[]) => {
-    try {
-      const ids = Array.isArray(id) ? id : [id];
-      if (ids.length === 0) return;
-      const newSeen = Array.from(new Set([...seenNewsIds, ...ids]));
-      setSeenNewsIds(newSeen);
-      localStorage.setItem('musicscale_seen_news', JSON.stringify(newSeen));
-    } catch (e) {
-      console.error('Failed to save seen news', e);
-    }
-  };
+  const markAsSeen = useCallback((id: string | string[]) => {
+    const ids = Array.isArray(id) ? id : [id];
+    if (ids.length === 0) return;
+
+    setSeenNewsIds((current) => {
+      const newSeen = Array.from(new Set([...current, ...ids]));
+      try {
+        window.localStorage.setItem('musicscale_seen_news', JSON.stringify(newSeen));
+      } catch (e) {
+        console.error('Failed to save seen news', e);
+      }
+      return newSeen;
+    });
+  }, []);
 
   const activeNews = useMemo(() => {
     const now = new Date().toISOString();
     return DYNAMIC_NEWS.filter(news => {
       if (!news.active) return false;
       if (news.expiresAt && news.expiresAt < now) return false;
-      
+
       const audiences = Array.isArray(news.audience) ? news.audience : [news.audience];
-      
+
       if (audiences.includes('all_users')) return true;
-      
+
       if (audiences.includes('organization_admins') && (isOwner || isAdmin || isGlobalAdmin)) {
         return true;
       }
-      
+
       if (audiences.includes('ecosystem_roles') && (isGlobalAdmin || isCurationAdmin)) {
         return true;
       }
@@ -123,9 +137,9 @@ export function useNews() {
     allActiveNews: activeNews,
     unseenNews,
     markAsSeen,
-    hasUnseen: unseenNews.length > 0 || (!isWelcomeDismissed && isLoaded),
+    hasUnseen: unseenNews.length > 0 || !isWelcomeDismissed,
     isWelcomeDismissed,
     dismissWelcome,
-    isLoaded
+    isLoaded: true
   };
 }
