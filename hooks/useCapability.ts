@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useEcosystem } from '../contexts/EcosystemContext';
 import {
@@ -18,11 +19,14 @@ export function useCapability() {
   const { permissions, isGlobalAdmin } = useAuth();
   const { context } = useEcosystem();
 
-  const hasCapability = (capability: MusicScaleCapability | string): boolean => {
+  const canonicalCapabilities = useMemo(
+    () => canonicalCapabilitiesFromContext(context),
+    [context],
+  );
+
+  const hasCapability = useCallback((capability: MusicScaleCapability | string): boolean => {
     if (isGlobalAdmin) return true;
     if (permissions?.[capability as string]) return true;
-
-    const canonicalCapabilities = canonicalCapabilitiesFromContext(context);
     if (canonicalCapabilities.has(capability)) return true;
 
     if (capability === 'musicscale.taxonomy.manage') {
@@ -30,7 +34,7 @@ export function useCapability() {
     }
 
     return false;
-  };
+  }, [canonicalCapabilities, context, isGlobalAdmin, permissions]);
 
   return { hasCapability };
 }
