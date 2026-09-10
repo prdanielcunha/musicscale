@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { MusicRepository } from '../services/MusicRepository';
+import { readMusicDataCache } from '../lib/musicDataCache';
 import { waitForStartupQuietWindow } from '../lib/startupWorkScheduler';
 
 interface ApiContextType {
@@ -13,17 +14,23 @@ type ListRepository = {
     list: (...args: any[]) => Promise<any>;
 };
 
-/**
- * These collections are not required to paint the first operational home on
- * mobile. Starting all of them beside songs/scales made Firestore snapshots,
- * JSON/object allocation and React updates compete with the user's first taps.
- */
 const deferColdStartList = (repository: ListRepository) => {
     const listNow = repository.list.bind(repository);
     repository.list = async (...args: any[]) => {
         await waitForStartupQuietWindow();
         return listNow(...args);
     };
+};
+
+const hasUsableMusicCache = (userId: string | undefined, organizationId: string): boolean => {
+    if (!userId || typeof window === 'undefined') return false;
+
+    try {
+        const cache = readMusicDataCache<any>(window.localStorage, userId, organizationId);
+        return cache.status === 'fresh' || cache.status === 'stale';
+    } catch {
+        return false;
+    }
 };
 
 export const ApiProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -33,10 +40,10 @@ export const ApiProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!effectiveOrganizationId) return null;
 
         const repository = new MusicRepository(effectiveOrganizationId, userProfile || {} as any);
+        const canPaintFromCache = hasUsableMusicCache(userProfile?.uid, effectiveOrganizationId);
 
-        // Keep the first wave deliberately small: songs, scales, band scales,
-        // event types and locations remain immediate. Everything below enriches
-        // the already-usable shell and can safely start after its first paint.
+        // These enrichments never gate the first operational home and are kept
+        // away from the first mobile interaction frames on every cold start.
         [
             repository.eventNames,
             repository.tags,
@@ -45,6 +52,21 @@ export const ApiProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             repository.users,
             repository.fixedBandScales,
         ].forEach(deferColdStartList);
+
+        // Returning users with a valid tenant-scoped cache can already paint a
+        // correct operational shell. Revalidating the five critical collections
+        // in the same frame only creates Firestore/CPU contention. Defer that
+        // refresh until the cached shell has painted; true cache misses remain
+        // immediate so first-ever access is not artificially delayed.
+        if (canPaintFromCache) {
+            [
+                repository.songs,
+                repository.scales,
+                repository.bandScales,
+                repository.eventTypes,
+                repository.locations,
+            ].forEach(deferColdStartList);
+        }
 
         return repository;
     }, [effectiveOrganizationId, userProfile?.uid]);
