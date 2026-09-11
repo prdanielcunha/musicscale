@@ -8,6 +8,7 @@ import {
   Trash2,
   UsersRound,
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import type {
   HomeAttentionItem,
   HomeEventSummary,
@@ -23,8 +24,29 @@ interface HomeTeamAttentionProps {
   onOpenAll: () => void;
 }
 
-const DISMISSED_STORAGE_KEY = 'musicscale:home-team-attention-dismissed:v1';
+const DISMISSED_STORAGE_PREFIX = 'musicscale:home-team-attention-dismissed:v2';
 const MAX_DISMISSED_KEYS = 200;
+
+const dismissCopy = {
+  pt: {
+    dismissAll: 'Excluir todas',
+    dismissAllHint: 'Remove apenas estas pendências do Painel. Nenhuma escala será excluída.',
+    dismissOne: 'Excluir pendência',
+    dismissOneHint: 'Remove apenas esta pendência do Painel. A escala continua intacta.',
+  },
+  en: {
+    dismissAll: 'Dismiss all',
+    dismissAllHint: 'Removes only these items from the dashboard. No schedule will be deleted.',
+    dismissOne: 'Dismiss item',
+    dismissOneHint: 'Removes only this item from the dashboard. The schedule remains intact.',
+  },
+  es: {
+    dismissAll: 'Eliminar todas',
+    dismissAllHint: 'Solo elimina estas pendientes del panel. No se eliminará ninguna escala.',
+    dismissOne: 'Eliminar pendiente',
+    dismissOneHint: 'Solo elimina esta pendiente del panel. La escala permanece intacta.',
+  },
+} as const;
 
 export function getTeamAttentionDismissKey(entry: TeamAttentionEntry): string {
   const codes = entry.attentionItems
@@ -40,11 +62,11 @@ export function getTeamAttentionDismissKey(entry: TeamAttentionEntry): string {
   ].join(':');
 }
 
-function readDismissedAttentionKeys(): string[] {
+function readDismissedAttentionKeys(storageKey: string): string[] {
   if (typeof window === 'undefined') return [];
 
   try {
-    const raw = window.localStorage.getItem(DISMISSED_STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -97,10 +119,20 @@ export const HomeTeamAttention: React.FC<HomeTeamAttentionProps> = ({
   onResolve,
   onOpenAll,
 }) => {
-  const { t } = useTranslation();
-  const [dismissedKeys, setDismissedKeys] = React.useState<string[]>(
-    readDismissedAttentionKeys
+  const { t, i18n } = useTranslation();
+  const { organization, user } = useAuth();
+  const language = (i18n.resolvedLanguage || i18n.language || 'pt')
+    .split('-')[0] as keyof typeof dismissCopy;
+  const copy = dismissCopy[language] || dismissCopy.pt;
+  const storageKey = React.useMemo(
+    () => `${DISMISSED_STORAGE_PREFIX}:${organization?.id || 'no-org'}:${user?.uid || 'anonymous'}`,
+    [organization?.id, user?.uid]
   );
+  const [dismissedKeys, setDismissedKeys] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    setDismissedKeys(readDismissedAttentionKeys(storageKey));
+  }, [storageKey]);
 
   const dismissedSet = React.useMemo(
     () => new Set(dismissedKeys),
@@ -119,14 +151,14 @@ export const HomeTeamAttention: React.FC<HomeTeamAttentionProps> = ({
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.setItem(
-          DISMISSED_STORAGE_KEY,
+          storageKey,
           JSON.stringify(normalized)
         );
       } catch {
         // A preferência continua válida durante a sessão mesmo se o storage estiver indisponível.
       }
     }
-  }, []);
+  }, [storageKey]);
 
   const dismissEntry = React.useCallback(
     (entry: TeamAttentionEntry) => {
@@ -184,18 +216,12 @@ export const HomeTeamAttention: React.FC<HomeTeamAttentionProps> = ({
           <button
             type="button"
             onClick={dismissAllVisible}
-            title={t(
-              'dashboard.teamAttention.dismissAllHint',
-              'Remove apenas estas pendências do Painel. Nenhuma escala será excluída.'
-            )}
+            title={copy.dismissAllHint}
             className="rounded-full px-3 py-1.5 text-[11px] font-semibold text-slate-400 transition hover:bg-red-500/[0.06] hover:text-red-600 dark:hover:text-red-300"
           >
             <span className="inline-flex items-center gap-1.5">
               <Trash2 className="h-3.5 w-3.5" />
-              {t(
-                'dashboard.teamAttention.dismissAll',
-                'Excluir todas'
-              )}
+              {copy.dismissAll}
             </span>
           </button>
 
@@ -296,14 +322,8 @@ export const HomeTeamAttention: React.FC<HomeTeamAttentionProps> = ({
                   <button
                     type="button"
                     onClick={() => dismissEntry(entry)}
-                    aria-label={t(
-                      'dashboard.teamAttention.dismissOne',
-                      'Excluir pendência'
-                    )}
-                    title={t(
-                      'dashboard.teamAttention.dismissOneHint',
-                      'Remove apenas esta pendência do Painel. A escala continua intacta.'
-                    )}
+                    aria-label={copy.dismissOne}
+                    title={copy.dismissOneHint}
                     className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-slate-200/80 text-slate-400 transition hover:border-red-500/20 hover:bg-red-500/[0.06] hover:text-red-600 active:scale-[0.985] dark:border-white/[0.08] dark:hover:text-red-300"
                   >
                     <Trash2 className="h-4 w-4" />
