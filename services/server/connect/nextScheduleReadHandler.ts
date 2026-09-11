@@ -52,15 +52,17 @@ function getHeader(req: MinimalRequest, name: string): string {
 
 function resolveBearerHeader(req: MinimalRequest):
   | { ok: true; value: string }
-  | { ok: false; code: 'UNAUTHORIZED' | 'AUTHORIZATION_CONFLICT' } {
+  | { ok: false; code: 'UNAUTHORIZED' } {
   const standard = getHeader(req, 'authorization');
   const forwarded = getHeader(req, 'x-connect-user-authorization');
 
-  if (standard && forwarded && standard !== forwarded) {
-    return { ok: false, code: 'AUTHORIZATION_CONFLICT' };
-  }
-
-  const value = standard || forwarded;
+  // Connect explicitly forwards the end-user Firebase bearer in this header so
+  // it survives Firebase Hosting -> Cloud Run rewrites. Infrastructure may
+  // replace the standard Authorization header with another credential, so the
+  // forwarded user bearer is authoritative for this boundary when present.
+  // It remains untrusted input and is Firebase-verified below by
+  // resolveOrganizationAuthorization.
+  const value = forwarded || standard;
   if (!value || !/^Bearer\s+\S+/i.test(value)) {
     return { ok: false, code: 'UNAUTHORIZED' };
   }
@@ -148,10 +150,10 @@ function normalizeAuthorizationResult(value: AuthorizationResult): Authorization
  *
  * Security model:
  * - Firebase bearer is revalidated inside MusicScale;
- * - the standard Authorization header is preferred; X-Connect-User-Authorization
- *   is accepted only as a transport fallback for the Connect server-to-server hop
- *   through Firebase Hosting, which can otherwise lose Authorization on rewrites;
- * - conflicting standard/fallback credentials fail closed;
+ * - X-Connect-User-Authorization carries the end-user bearer across the
+ *   Connect -> Firebase Hosting -> Cloud Run transport hop and is preferred
+ *   when present because infrastructure may alter the standard Authorization
+ *   header; the selected bearer is still Firebase-verified server-side;
  * - organizationId comes from an explicit header and is checked by the canonical
  *   organization authorization resolver;
  * - `scales.read` is evaluated by the MusicScale RBAC implementation;
