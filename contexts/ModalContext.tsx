@@ -758,10 +758,13 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                     const errorDescription = isPublishedPreserved 
                         ? t('scaleModal.publishedPreserved') 
                         : t('scaleModal.draftPreserved');
+                    const supportReference = correlationId
+                        ? ` ${t('scaleModal.publishFailureReference', { id: correlationId })}`
+                        : '';
 
                     toast({
                         title: t('scaleModal.publishFailed'),
-                        description: errorDescription,
+                        description: `${errorDescription}${supportReference}`,
                         variant: "destructive"
                     });
                     

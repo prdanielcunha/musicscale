@@ -2,7 +2,7 @@ import { logger } from "../lib/logger";
 
 import React, { useState, useMemo, useEffect } from "react";
 import { Link, useLocation, useNavigate, useSearchParams, useParams } from "react-router-dom";
-import type { PopulatedScale, Scale, BandScale } from "../types";
+import type { PopulatedScale, Scale, BandScale, Instrument, InstrumentCategory } from "../types";
 import { useMusic } from "../contexts/MusicDataContext";
 import { useModals } from "../contexts/ModalContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -27,6 +27,9 @@ import { useCapability } from "../hooks/useCapability";
 import AddToCalendarButton from "../components/common/AddToCalendarButton";
 import { getScaleTitle as getScaleTitleHelper } from "../utils/scaleHelper";
 import { normalizeScaleSongSettings } from "../utils/scaleSongSettings";
+import MusicBuilder from "../components/scales/MusicBuilder";
+import BandBuilder from "../components/scales/BandBuilder";
+import { buildScaleCloneDraft, type ScaleCloneDraft } from "../utils/scaleClone";
 
 const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" {...props}>
@@ -38,68 +41,248 @@ const CloneScaleModal: React.FC<{
     isOpen: boolean;
     scaleToClone: PopulatedScale | null;
     onClose: () => void;
-    onConfirm: (date: string) => Promise<void>;
+    onConfirm: (draft: ScaleCloneDraft) => Promise<void>;
 }> = ({ isOpen, scaleToClone, onClose, onConfirm }) => {
-    const [cloneDate, setCloneDate] = useState("");
+    const { t } = useTranslation();
+    const {
+      songs,
+      tags,
+      eventTypes,
+      locations,
+      eventNames,
+      instruments,
+      allUsers,
+      populatedBandScales,
+      populatedScales,
+    } = useMusic();
+    const [formData, setFormData] = useState<ScaleCloneDraft | null>(null);
+    const [showAdvanced, setShowAdvanced] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [validationError, setValidationError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (isOpen) {
-             const today = new Date();
-             const yyyy = today.getFullYear();
-             const mm = String(today.getMonth() + 1).padStart(2, '0');
-             const dd = String(today.getDate()).padStart(2, '0');
-             setCloneDate(`${yyyy}-${mm}-${dd}`);
+        if (!isOpen || !scaleToClone) {
+          setFormData(null);
+          setValidationError(null);
+          setShowAdvanced(false);
+          return;
         }
-    }, [isOpen]);
+
+        setValidationError(null);
+        setShowAdvanced(false);
+        try {
+          setFormData(buildScaleCloneDraft(scaleToClone));
+        } catch (error: any) {
+          logger.error('[ScaleClone] Failed to build clone draft', {
+            scaleId: scaleToClone.id,
+            code: error?.code,
+            invalidAssignmentIndexes: error?.invalidAssignmentIndexes,
+          });
+          setValidationError(t('scaleModal.cloneInvalidAssignmentsDescription'));
+          setFormData(null);
+        }
+    }, [isOpen, scaleToClone, t]);
+
+    const instrumentsByCat = useMemo(() => {
+      const categoryOrder: InstrumentCategory[] = ['Ministro', 'Voz', 'Instrumento'];
+      const grouped: Record<InstrumentCategory, Instrument[]> = {
+        Ministro: [],
+        Voz: [],
+        Instrumento: [],
+      };
+      const seen = new Set<string>();
+      instruments.forEach(inst => {
+        const key = `${inst.category}-${inst.name.trim().toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          grouped[inst.category]?.push(inst);
+        }
+      });
+      return categoryOrder.map(category => ({
+        name: category === 'Voz' ? t('scaleModal.voices', 'Vozes') : category,
+        instruments: grouped[category].sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+    }, [instruments, t]);
+
+    const updateField = <K extends keyof ScaleCloneDraft>(field: K, value: ScaleCloneDraft[K]) => {
+      setFormData(prev => prev ? { ...prev, [field]: value } : prev);
+    };
+
+    const handleLocalSongSettings = async (songId: string, key: string | null, bpm: number | null) => {
+      setFormData(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          songSettings: {
+            ...(prev.songSettings || {}),
+            [songId]: {
+              ...(prev.songSettings?.[songId] || {}),
+              key: key || null,
+              bpm: bpm ?? null,
+            },
+          },
+        };
+      });
+      return { status: 'success' as const };
+    };
 
     if (!scaleToClone) return null;
 
+    const sourceHasBand = Boolean(scaleToClone.bandScale);
+    const hasRequiredFields = Boolean(formData?.date && formData?.eventTypeId && formData?.locationId && formData?.songIds?.length);
+    const hasValidBand = !sourceHasBand || Boolean(formData?.assignments?.length);
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Clonar escala" maxWidth="max-w-md">
-            <div className="p-4 sm:p-6 text-slate-800 dark:text-white/90">
-                <p className="mb-6 font-medium text-[14.5px] leading-relaxed text-slate-500 dark:text-white/60 tracking-wide">
-                    Use <strong className="text-slate-700 dark:text-white">&quot;{getScaleTitleHelper(scaleToClone)}&quot;</strong> como modelo para uma nova data. Repertório e local serão preservados.
-                </p>
-                
-                <div className="mb-8">
-                    <label className="block text-xs font-bold text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2">
-                        Data da nova escala
-                    </label>
-                    <input
-                        type="date"
-                        value={cloneDate}
-                        onChange={(e) => setCloneDate(e.target.value)}
-                        className="mt-1 input-base"
-                    />
+        <Modal isOpen={isOpen} onClose={isLoading ? () => undefined : onClose} title={t('scaleModal.cloneTitle')} maxWidth="max-w-4xl">
+            <div className="p-4 sm:p-6 text-slate-800 dark:text-white/90 max-h-[78vh] overflow-y-auto custom-scrollbar">
+                <div className="mb-6">
+                  <p className="font-medium text-[14px] leading-relaxed text-slate-500 dark:text-white/60">
+                    {t('scaleModal.cloneUsingTemplate', { name: getScaleTitleHelper(scaleToClone) })}
+                  </p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row-reverse gap-3 mt-4">
-                    <Button 
-                        onClick={async () => {
-                            if (!cloneDate) return;
-                            setIsLoading(true);
-                            try {
-                                await onConfirm(cloneDate);
-                                onClose();
-                            } finally {
-                                setIsLoading(false);
-                            }
-                        }}
-                        disabled={isLoading || !cloneDate}
-                        className="h-12 w-full sm:flex-1 bg-primary hover:bg-primary/90 text-white font-bold tracking-wide rounded-xl shadow-md"
+                {validationError && (
+                  <div className="mb-5 rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3">
+                    <p className="text-sm font-bold text-red-600 dark:text-red-300">{t('scaleModal.cloneInvalidAssignments')}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-red-600/80 dark:text-red-200/75">{validationError}</p>
+                  </div>
+                )}
+
+                {formData && (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">{t('scaleModal.eventType')}</label>
+                        <select value={formData.eventTypeId} onChange={e => updateField('eventTypeId', e.target.value)} className="input-base">
+                          <option value="">{t('scaleModal.selectEventType')}</option>
+                          {eventTypes.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">{t('scaleModal.eventName')}</label>
+                        <select value={formData.eventNameId || ''} onChange={e => updateField('eventNameId', e.target.value || null)} className="input-base">
+                          <option value="">{t('scaleModal.noEventName', 'Sem nome específico')}</option>
+                          {eventNames.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">{t('scaleModal.date')}</label>
+                          <input type="date" value={formData.date} onChange={e => updateField('date', e.target.value)} className="input-base" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">{t('scaleModal.time')}</label>
+                          <input type="time" value={formData.time} onChange={e => updateField('time', e.target.value)} className="input-base" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">{t('scaleModal.location')}</label>
+                        <select value={formData.locationId} onChange={e => updateField('locationId', e.target.value)} className="input-base">
+                          <option value="">{t('scaleModal.selectLocation')}</option>
+                          {locations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/80 dark:bg-white/[0.03] p-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 mb-3">{t('scaleModal.cloneWillCopy')}</p>
+                      <div className="flex flex-wrap gap-2 text-xs font-semibold text-slate-600 dark:text-white/70">
+                        <span className="rounded-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-1.5">{t('scaleModal.cloneSongs', { count: formData.songIds.length })}</span>
+                        {sourceHasBand && <span className="rounded-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-1.5">{t('scaleModal.cloneMembers', { count: formData.assignments.length })}</span>}
+                        <span className="rounded-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-1.5">{t('scaleModal.cloneSettings')}</span>
+                        <span className="rounded-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-1.5">{t('scaleModal.cloneObservations')}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvanced(value => !value)}
+                      className="mt-5 w-full flex items-center justify-between rounded-2xl border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-white/[0.025] px-4 py-3 text-left transition hover:border-primary/30 hover:bg-primary/[0.03]"
                     >
-                        {isLoading ? "Clonando..." : "Criar cópia"}
-                    </Button>
-                    <Button 
+                      <div>
+                        <span className="block text-sm font-bold text-slate-900 dark:text-white">{showAdvanced ? t('scaleModal.cloneHideAdvanced') : t('scaleModal.cloneEditAll')}</span>
+                        <span className="block mt-0.5 text-xs text-slate-500 dark:text-white/45">{t('scaleModal.cloneAdvancedDescription')}</span>
+                      </div>
+                      <span className="text-primary text-lg leading-none">{showAdvanced ? '−' : '+'}</span>
+                    </button>
+
+                    {showAdvanced && (
+                      <div className="mt-5 space-y-6 animate-fade-in">
+                        <div className="rounded-2xl border border-slate-200 dark:border-white/10 p-4 sm:p-5">
+                          <h4 className="mb-4 text-xs font-black uppercase tracking-widest text-slate-500 dark:text-white/50">{t('scaleModal.repertoire')}</h4>
+                          <MusicBuilder
+                            formData={formData}
+                            setFormData={setFormData as any}
+                            songs={songs}
+                            tags={tags}
+                            onUpdateSongSettings={handleLocalSongSettings}
+                          />
+                        </div>
+
+                        {sourceHasBand && (
+                          <div className="rounded-2xl border border-slate-200 dark:border-white/10 p-4 sm:p-5">
+                            <h4 className="mb-4 text-xs font-black uppercase tracking-widest text-slate-500 dark:text-white/50">{t('scaleModal.team')}</h4>
+                            <BandBuilder
+                              formData={formData}
+                              setFormData={setFormData as any}
+                              instrumentsByCat={instrumentsByCat}
+                              allUsers={allUsers}
+                              populatedBandScales={populatedBandScales}
+                              musicScales={populatedScales}
+                            />
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">{t('scaleModal.cloneMusicNotes')}</label>
+                            <textarea rows={3} value={formData.observations} onChange={e => updateField('observations', e.target.value)} className="input-base min-h-[88px]" />
+                          </div>
+                          {sourceHasBand && (
+                            <div>
+                              <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">{t('scaleModal.cloneBandNotes')}</label>
+                              <textarea rows={3} value={formData.bandObservations} onChange={e => updateField('bandObservations', e.target.value)} className="input-base min-h-[88px]" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {!hasValidBand && (
+                      <p className="mt-4 text-xs font-semibold text-red-500">{t('scaleModal.cloneBandRequired')}</p>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row-reverse gap-3 mt-7">
+                      <Button
+                        onClick={async () => {
+                          if (!formData || !hasRequiredFields || !hasValidBand) return;
+                          setIsLoading(true);
+                          setValidationError(null);
+                          try {
+                            await onConfirm(formData);
+                            onClose();
+                          } catch (error: any) {
+                            setValidationError(error?.message || t('common.errorCloning', 'Erro ao clonar'));
+                          } finally {
+                            setIsLoading(false);
+                          }
+                        }}
+                        disabled={isLoading || !hasRequiredFields || !hasValidBand}
+                        className="h-12 w-full sm:flex-1 bg-primary hover:bg-primary/90 text-white font-bold tracking-wide rounded-xl shadow-md"
+                      >
+                        {isLoading ? t('scaleModal.cloneCreating') : t('scaleModal.cloneCreate')}
+                      </Button>
+                      <Button
                         variant="secondary"
                         onClick={onClose}
                         disabled={isLoading}
                         className="h-12 w-full sm:flex-1 font-bold tracking-wide rounded-xl bg-transparent border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/5"
-                    >
-                        Cancelar
-                    </Button>
-                </div>
+                      >
+                        {t('common.cancel')}
+                      </Button>
+                    </div>
+                  </>
+                )}
             </div>
         </Modal>
     );
@@ -604,73 +787,108 @@ const ScalesPage: React.FC = () => {
         setCloneModalOpen(true);
     };
 
-    const executeClone = async (newDate: string) => {
-        if (!scaleToClone) return;
+    const executeClone = async (draft: ScaleCloneDraft) => {
+        if (!scaleToClone || !api) return;
+
+        let newMusicScaleId: string | null = null;
+        let newBandScaleId: string | null = null;
 
         try {
-            // Create Music Scale securely in current tenant
-            const cloneSongIds = scaleToClone.songs.map((s: any) => s.id);
-            const scalePayload: Partial<Scale> = {
-                date: newDate,
-                time: scaleToClone.time || "",
-                observations: scaleToClone.observations || "",
-                songIds: cloneSongIds,
-                songSettings: normalizeScaleSongSettings(cloneSongIds, scaleToClone.songSettings || {}),
-                eventTypeId: scaleToClone.eventTypeId,
-                locationId: scaleToClone.locationId,
-                eventNameId: scaleToClone.eventNameId || null,
-            };
-            
-            const newMusicScaleId = await api.scales.create(scalePayload as any);
+            const cloneSongIds = [...draft.songIds];
+            if (cloneSongIds.length === 0) {
+              throw new Error(t('scaleModal.minimumOneSong', 'Adicione pelo menos uma música à escala.'));
+            }
+            if (!draft.eventTypeId || !draft.locationId || !draft.date) {
+              throw new Error(t('scaleModal.cloneRequiredFields'));
+            }
+            if (scaleToClone.bandScale && draft.assignments.length === 0) {
+              throw new Error(t('scaleModal.cloneBandRequired'));
+            }
 
-            // Clone Band Scale if exists
+            const scalePayload: Partial<Scale> = {
+                date: draft.date,
+                time: draft.time || '',
+                timeZone: draft.timeZone,
+                observations: draft.observations || '',
+                songIds: cloneSongIds,
+                songSettings: normalizeScaleSongSettings(cloneSongIds, draft.songSettings || {}),
+                eventTypeId: draft.eventTypeId,
+                locationId: draft.locationId,
+                eventNameId: draft.eventNameId || null,
+                durationMinutes: draft.durationMinutes,
+                status: 'draft',
+                bandScaleId: null,
+            };
+
+            newMusicScaleId = await api.scales.create(scalePayload as any);
+
             if (scaleToClone.bandScale) {
-                const bandScalePayload: Partial<BandScale> = {
-                    date: newDate,
-                    time: scaleToClone.bandScale.time || "",
-                    observations: scaleToClone.bandScale.observations || "",
-                    assignments: scaleToClone.bandScale.assignments || [],
-                    eventTypeId: scaleToClone.bandScale.eventTypeId || scaleToClone.eventTypeId,
-                    locationId: scaleToClone.bandScale.locationId || scaleToClone.locationId,
-                    eventNameId: scaleToClone.bandScale.eventNameId || scaleToClone.eventNameId || null,
-                    musicScaleId: newMusicScaleId
-                };
-                
-                let newBandScaleId: string;
-                
-                console.info('[BandScale Save Path] => ' + JSON.stringify({
-                    organizationId: api?.bandScales['orgId'] || 'unknown',
-                    featureFlagEnabled: isCommandApiV1Enabled,
-                    selectedWriter: isCommandApiV1Enabled ? 'command_api' : 'legacy_repository'
+                const canonicalAssignments = draft.assignments.map(assignment => ({
+                  userId: assignment.userId,
+                  instrumentId: assignment.instrumentId,
                 }));
 
-                if (isCommandApiV1Enabled && api) {
+                if (canonicalAssignments.some(assignment => !assignment.userId || !assignment.instrumentId)) {
+                  throw new Error(t('scaleModal.cloneInvalidAssignmentsDescription'));
+                }
+
+                const bandScalePayload: Partial<BandScale> = {
+                    date: draft.date,
+                    time: draft.time || '',
+                    timeZone: draft.timeZone,
+                    observations: draft.bandObservations || '',
+                    assignments: canonicalAssignments,
+                    eventTypeId: draft.eventTypeId,
+                    locationId: draft.locationId,
+                    eventNameId: draft.eventNameId || null,
+                    musicScaleId: newMusicScaleId,
+                };
+
+                console.info('[BandScale Clone Save Path] => ' + JSON.stringify({
+                    organizationId: api?.bandScales['orgId'] || 'unknown',
+                    featureFlagEnabled: isCommandApiV1Enabled,
+                    selectedWriter: isCommandApiV1Enabled ? 'command_api' : 'legacy_repository',
+                    assignmentCount: canonicalAssignments.length,
+                }));
+
+                if (isCommandApiV1Enabled) {
                     const idempotencyKey = crypto.randomUUID();
                     const result = await api.bandScaleCommands.create(bandScalePayload, idempotencyKey);
                     newBandScaleId = result.scaleId;
-                } else if (api) {
-                    newBandScaleId = await api.bandScales.create(bandScalePayload as any);
                 } else {
-                    throw new Error("API not available");
+                    newBandScaleId = await api.bandScales.create(bandScalePayload as any);
                 }
-                
+
                 await api.scales.update(newMusicScaleId, { bandScaleId: newBandScaleId });
             }
 
             setCloneModalOpen(false);
             setScaleToClone(null);
-            
             await refreshData();
-            
-            if (newDate >= localToday) {
-                setActiveTab("upcoming");
-            } else {
-                setActiveTab("past");
-            }
+            setActiveTab(draft.date >= localToday ? 'upcoming' : 'past');
             toast({ title: t('scaleModal.cloneSuccess', 'Escala clonada com sucesso.') });
-        } catch(error: any) {
-            logger.error("Failed to clone scale", error);
-            toast({ title: t('common.errorCloning', 'Erro ao clonar'), description: error?.message || t('common.unknownError', 'Ocorreu um erro'), variant: "destructive" });
+        } catch (error: any) {
+            logger.error('Failed to clone scale', {
+              scaleId: scaleToClone.id,
+              code: error?.code,
+              message: error?.message,
+            });
+
+            // Cloning is all-or-nothing from the user's point of view. If a later
+            // step fails, best-effort rollback prevents an orphan draft from
+            // appearing on the dashboard.
+            if (newBandScaleId) {
+              try { await api.bandScales.delete(newBandScaleId); } catch (rollbackError) {
+                logger.error('[ScaleClone] Failed to rollback cloned band scale', rollbackError);
+              }
+            }
+            if (newMusicScaleId) {
+              try { await api.scales.delete(newMusicScaleId); } catch (rollbackError) {
+                logger.error('[ScaleClone] Failed to rollback cloned music scale', rollbackError);
+              }
+            }
+            await refreshData().catch(() => undefined);
+            throw error;
         }
     };
 
