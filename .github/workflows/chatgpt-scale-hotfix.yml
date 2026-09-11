@@ -34,6 +34,18 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Repair temporary worker source quoting
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/apply_chatgpt_scale_hotfix.mjs')
+          s = p.read_text()
+          s = s.replace("user: { uid: `user-${index + 1}` },", "user: { uid: 'user-' + (index + 1) },")
+          s = s.replace("instrument: { id: `instrument-${index + 1}` },", "instrument: { id: 'instrument-' + (index + 1) },")
+          p.write_text(s)
+          PY
+
       - name: Apply surgical hotfix
         shell: bash
         run: |
