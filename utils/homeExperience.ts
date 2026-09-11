@@ -267,8 +267,12 @@ export function buildHomeEventSummaries(
     if (b.id) bandScalesMap.set(b.id, b);
   });
 
-  const activeMusicScales = musicScales.filter((s) => s.status !== 'cancelled' && s.status !== 'completed' && s.status !== 'draft');
-  const musicScaleIds = new Set(activeMusicScales.map((s) => s.id));
+  const nonTerminalMusicScales = musicScales.filter((s) => s.status !== 'cancelled' && s.status !== 'completed');
+  const activeMusicScales = nonTerminalMusicScales.filter((s) => s.status !== 'draft');
+  // A linked BandScale is part of the same logical event even while the MusicScale
+  // is still a draft. Track every non-terminal music scale here so its band half
+  // cannot leak onto the dashboard as a second event.
+  const musicScaleIds = new Set(nonTerminalMusicScales.map((s) => s.id));
 
   activeMusicScales.forEach((scale) => {
     if (!isValidDateOnlyKey(scale.date)) return;
