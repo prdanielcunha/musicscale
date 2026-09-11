@@ -61,6 +61,7 @@ describe('Connect forwarded bearer transport fallback', () => {
       'org-1',
       deps.db,
       deps.auth,
+      { checkRevoked: false },
     );
   });
 
@@ -84,6 +85,7 @@ describe('Connect forwarded bearer transport fallback', () => {
       'org-1',
       deps.db,
       deps.auth,
+      { checkRevoked: false },
     );
   });
 

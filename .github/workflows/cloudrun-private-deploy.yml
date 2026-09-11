@@ -37,22 +37,6 @@ jobs:
           workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
           service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
 
-      - name: Ensure Firebase Auth read permission for runtime
-        shell: bash
-        run: |
-          set -euo pipefail
-          gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-            --member="serviceAccount:$RUNTIME_SA" \
-            --role="roles/firebaseauth.viewer" \
-            --condition=None \
-            --quiet >/tmp/musicscale-runtime-auth-iam.txt
-          gcloud projects get-iam-policy "$PROJECT_ID" \
-            --flatten="bindings[].members" \
-            --filter="bindings.role:roles/firebaseauth.viewer AND bindings.members:serviceAccount:$RUNTIME_SA" \
-            --format="value(bindings.role)" >/tmp/musicscale-runtime-auth-role.txt
-          grep -qx 'roles/firebaseauth.viewer' /tmp/musicscale-runtime-auth-role.txt
-          echo "MUSICSCALE_RUNTIME_FIREBASE_AUTH_VIEWER_OK"
-
       - name: Configure Docker authentication
         run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 

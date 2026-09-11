@@ -11,11 +11,16 @@ export interface AuthenticatedOrganizationContext {
   capabilities: string[];
 }
 
+export interface OrganizationAuthorizationOptions {
+  checkRevoked?: boolean;
+}
+
 export async function resolveOrganizationAuthorization(
   authHeader: string | undefined,
   organizationId: string,
   dbInstance: any,
-  authInstance: any
+  authInstance: any,
+  options: OrganizationAuthorizationOptions = {},
 ): Promise<{ statusCode?: number; error?: string; context?: AuthenticatedOrganizationContext }> {
   if (!dbInstance || !authInstance) {
     return { statusCode: 503, error: "SERVICE_UNAVAILABLE" };
@@ -26,10 +31,11 @@ export async function resolveOrganizationAuthorization(
   }
 
   const token = authHeader.split("Bearer ")[1].trim();
+  const checkRevoked = options.checkRevoked !== false;
 
   let decodedToken;
   try {
-    decodedToken = await authInstance.verifyIdToken(token, true);
+    decodedToken = await authInstance.verifyIdToken(token, checkRevoked);
   } catch (err: any) {
     const firebaseAuthCode = typeof err?.code === 'string' && err.code.trim()
       ? err.code.trim()
