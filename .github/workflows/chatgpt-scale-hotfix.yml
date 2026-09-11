@@ -1,0 +1,65 @@
+name: ChatGPT Scale Hotfix Worker
+
+on:
+  push:
+    branches:
+      - chatgpt/fix-scale-clone-editor
+    paths:
+      - scripts/apply_chatgpt_scale_hotfix.mjs
+      - .github/workflows/chatgpt-scale-hotfix.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: chatgpt-scale-hotfix-worker
+  cancel-in-progress: false
+
+jobs:
+  apply-test-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout hotfix branch
+        uses: actions/checkout@11bd71901bbe5a75c54c15fc910304c33c71714 # v4.2.2
+        with:
+          ref: chatgpt/fix-scale-clone-editor
+          fetch-depth: 0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Apply surgical hotfix
+        run: node scripts/apply_chatgpt_scale_hotfix.mjs
+
+      - name: Focused regression tests
+        run: npx vitest run tests/unit/scale-clone-hotfix.test.ts
+
+      - name: TypeScript
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Diff hygiene
+        run: git diff --check
+
+      - name: Commit product changes and remove temporary worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f scripts/apply_chatgpt_scale_hotfix.mjs .github/workflows/chatgpt-scale-hotfix.yml
+          git config user.name "ChatGPT Hotfix Worker"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "fix(scales): repair clone publish and dashboard consistency"
+          git push origin HEAD:chatgpt/fix-scale-clone-editor
