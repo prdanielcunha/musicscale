@@ -152,9 +152,10 @@ export async function resolveOrganizationAuthorization(
       }
     }
 
-    // Implicit active for owners in legacy/fallback scenarios
+    // Ownership is authoritative even when a legacy membership role is missing or stale.
     if (isOwner) {
        isActive = true;
+       organizationRole = 'owner';
     }
 
     // Default owner/admin capabilities if active
