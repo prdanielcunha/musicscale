@@ -178,7 +178,7 @@ export function createConnectNextScheduleReadHandler(
     const organizationId = getHeader(req, 'x-organization-id');
     const locale = normalizeLocale(getHeader(req, 'accept-language'));
 
-    if (!bearerResolution.ok) {
+    if (bearerResolution.ok === false) {
       return res.status(401).json({
         success: false,
         code: bearerResolution.code,
