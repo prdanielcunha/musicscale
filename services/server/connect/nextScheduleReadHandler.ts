@@ -50,6 +50,24 @@ function getHeader(req: MinimalRequest, name: string): string {
   return '';
 }
 
+function resolveBearerHeader(req: MinimalRequest):
+  | { ok: true; value: string }
+  | { ok: false; code: 'UNAUTHORIZED' | 'AUTHORIZATION_CONFLICT' } {
+  const standard = getHeader(req, 'authorization');
+  const forwarded = getHeader(req, 'x-connect-user-authorization');
+
+  if (standard && forwarded && standard !== forwarded) {
+    return { ok: false, code: 'AUTHORIZATION_CONFLICT' };
+  }
+
+  const value = standard || forwarded;
+  if (!value || !/^Bearer\s+\S+/i.test(value)) {
+    return { ok: false, code: 'UNAUTHORIZED' };
+  }
+
+  return { ok: true, value };
+}
+
 function normalizeLocale(value: string): 'pt-BR' | 'en' | 'es' {
   const normalized = value.trim().toLowerCase();
   if (normalized.startsWith('en')) return 'en';
@@ -130,6 +148,10 @@ function normalizeAuthorizationResult(value: AuthorizationResult): Authorization
  *
  * Security model:
  * - Firebase bearer is revalidated inside MusicScale;
+ * - the standard Authorization header is preferred; X-Connect-User-Authorization
+ *   is accepted only as a transport fallback for the Connect server-to-server hop
+ *   through Firebase Hosting, which can otherwise lose Authorization on rewrites;
+ * - conflicting standard/fallback credentials fail closed;
  * - organizationId comes from an explicit header and is checked by the canonical
  *   organization authorization resolver;
  * - `scales.read` is evaluated by the MusicScale RBAC implementation;
@@ -152,18 +174,20 @@ export function createConnectNextScheduleReadHandler(
     const auditId = `ms-next-${crypto.randomUUID()}`;
     res.setHeader?.('Cache-Control', 'no-store');
 
-    const authorizationHeader = getHeader(req, 'authorization');
+    const bearerResolution = resolveBearerHeader(req);
     const organizationId = getHeader(req, 'x-organization-id');
     const locale = normalizeLocale(getHeader(req, 'accept-language'));
 
-    if (!authorizationHeader || !/^Bearer\s+\S+/i.test(authorizationHeader)) {
+    if (!bearerResolution.ok) {
       return res.status(401).json({
         success: false,
-        code: 'UNAUTHORIZED',
+        code: bearerResolution.code,
         auditId,
         humanSummary: 'Authentication required.',
       });
     }
+
+    const authorizationHeader = bearerResolution.value;
 
     if (!organizationId) {
       return res.status(400).json({
