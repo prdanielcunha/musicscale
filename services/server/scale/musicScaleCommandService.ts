@@ -80,6 +80,10 @@ export interface MusicScaleSaveResult {
 
 export type MusicScalePublishTransactionResult = Omit<MusicScalePublishResult, 'correlationId' | 'organizationId' | 'authenticatedUserId'>;
 
+export function isActiveMembershipStatus(status: unknown): boolean {
+  return ['active', 'ativo'].includes(String(status || '').trim().toLowerCase());
+}
+
 export class MusicScaleCommandService {
   static validatePayload(payload: unknown): asserts payload is MusicScalePublishPayload {
     if (!payload || typeof payload !== 'object') {
@@ -646,7 +650,7 @@ params: {
             const isOwner = orgData && (orgData.ownerUid === uid || orgData.ownerId === uid);
             if (!isOwner) {
               const m = membersMap.get(uid);
-              if (!m || m.status !== 'active') {
+              if (!m || !isActiveMembershipStatus(m.status)) {
                 throw new PublishCommandError(`Usuário ${uid} não é membro ativo da organização.`, 'USER_NOT_ACTIVE_MEMBER');
               }
             }
