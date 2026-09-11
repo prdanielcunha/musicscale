@@ -1,0 +1,32 @@
+name: Temporary Connect Next Schedule Release Prep
+
+on:
+  push:
+    branches:
+      - release/connect-next-schedule-02
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/release/connect-next-schedule-02'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/connect-next-schedule-02
+          fetch-depth: 0
+
+      - name: Cherry-pick certified Connect boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin 3e8c4a48c6ebe5a75c54c15fc910304c33c71714
+          git cherry-pick 3e8c4a48c6ebe5a75c54c15fc910304c33c71714
+          git rm .github/workflows/temp-connect-next-schedule-release.yml
+          git commit --amend --no-edit
+          git push origin HEAD:release/connect-next-schedule-02
