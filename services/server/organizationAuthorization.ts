@@ -30,8 +30,12 @@ export async function resolveOrganizationAuthorization(
   let decodedToken;
   try {
     decodedToken = await authInstance.verifyIdToken(token, true);
-  } catch (err) {
-    return { statusCode: 401, error: "UNAUTHORIZED" };
+  } catch (err: any) {
+    const firebaseAuthCode = typeof err?.code === 'string' && err.code.trim()
+      ? err.code.trim()
+      : 'auth/unknown';
+    logger.warn(`[organizationAuthorization] Firebase ID token verification failed (${firebaseAuthCode}).`);
+    return { statusCode: 401, error: "INVALID_ID_TOKEN" };
   }
 
   const { uid, email } = decodedToken;
