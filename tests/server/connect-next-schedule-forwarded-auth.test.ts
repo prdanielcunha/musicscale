@@ -64,21 +64,44 @@ describe('Connect forwarded bearer transport fallback', () => {
     );
   });
 
-  it('fails closed when standard and forwarded credentials disagree', async () => {
+  it('prefers the explicitly forwarded end-user bearer when infrastructure replaces Authorization', async () => {
     const deps = dependencies();
     const handler = createConnectNextScheduleReadHandler(deps);
     const { captured, res } = responseRecorder();
 
     await handler({
       headers: {
-        authorization: 'Bearer token-a',
-        'x-connect-user-authorization': 'Bearer token-b',
+        authorization: 'Bearer infrastructure-credential',
+        'x-connect-user-authorization': 'Bearer firebase-user-token',
+        'x-organization-id': 'org-1',
+      },
+    }, res);
+
+    expect(captured.statusCode).toBe(200);
+    expect(captured.payload.success).toBe(true);
+    expect(deps.resolveAuthorization).toHaveBeenCalledWith(
+      'Bearer firebase-user-token',
+      'org-1',
+      deps.db,
+      deps.auth,
+    );
+  });
+
+  it('still rejects a malformed forwarded bearer instead of silently trusting the standard header', async () => {
+    const deps = dependencies();
+    const handler = createConnectNextScheduleReadHandler(deps);
+    const { captured, res } = responseRecorder();
+
+    await handler({
+      headers: {
+        authorization: 'Bearer otherwise-valid-token',
+        'x-connect-user-authorization': 'not-a-bearer',
         'x-organization-id': 'org-1',
       },
     }, res);
 
     expect(captured.statusCode).toBe(401);
-    expect(captured.payload.code).toBe('AUTHORIZATION_CONFLICT');
+    expect(captured.payload.code).toBe('UNAUTHORIZED');
     expect(deps.resolveAuthorization).not.toHaveBeenCalled();
     expect(deps.loadTenantSnapshot).not.toHaveBeenCalled();
   });
