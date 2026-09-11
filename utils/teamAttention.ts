@@ -67,7 +67,34 @@ export function buildTeamAttentionEntries(
     if (!deduped.has(event.id)) deduped.set(event.id, event);
   });
 
-  return Array.from(deduped.values())
+  // If linkage metadata is temporarily stale, the music and band halves of the
+  // same event can arrive with different document IDs. Collapse only exact
+  // cross-type matches and prefer the MusicScale representation. Two same-type
+  // events are deliberately preserved so legitimate simultaneous events are not hidden.
+  const logicalEvents: HomeEventSummary[] = [];
+  const logicalIndex = new Map<string, number>();
+  for (const event of deduped.values()) {
+    const logicalKey = [
+      event.date,
+      event.time || '',
+      (event.locationName || '').trim().toLocaleLowerCase(),
+      (event.title || '').trim().toLocaleLowerCase(),
+    ].join('|');
+    const existingIndex = logicalIndex.get(logicalKey);
+    if (existingIndex === undefined) {
+      logicalIndex.set(logicalKey, logicalEvents.length);
+      logicalEvents.push(event);
+      continue;
+    }
+    const existing = logicalEvents[existingIndex];
+    if (existing.type !== event.type) {
+      logicalEvents[existingIndex] = existing.type === 'music' ? existing : event;
+    } else {
+      logicalEvents.push(event);
+    }
+  }
+
+  return logicalEvents
     .filter(event =>
       isInsideLeaderHorizon(event, nowMillis, horizonDays)
     )
