@@ -151,6 +151,7 @@ describe('createConnectNextScheduleReadHandler', () => {
       'org-1',
       deps.db,
       deps.auth,
+      { checkRevoked: false },
     );
     expect(deps.loadTenantSnapshot).toHaveBeenCalledWith('org-1', deps.db);
     expect(captured.headers['Cache-Control']).toBe('no-store');
