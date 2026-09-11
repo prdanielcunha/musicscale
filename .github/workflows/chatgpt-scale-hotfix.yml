@@ -35,7 +35,19 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Apply surgical hotfix
-        run: node scripts/apply_chatgpt_scale_hotfix.mjs
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/apply_chatgpt_scale_hotfix.mjs 2>&1 | tee hotfix-worker.log
+
+      - name: Upload worker diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hotfix-worker-diagnostics
+          path: hotfix-worker.log
+          if-no-files-found: ignore
+          retention-days: 1
 
       - name: Focused regression tests
         run: npx vitest run tests/unit/scale-clone-hotfix.test.ts
@@ -53,7 +65,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f scripts/apply_chatgpt_scale_hotfix.mjs .github/workflows/chatgpt-scale-hotfix.yml
+          rm -f scripts/apply_chatgpt_scale_hotfix.mjs .github/workflows/chatgpt-scale-hotfix.yml hotfix-worker.log
           git config user.name "ChatGPT Hotfix Worker"
           git config user.email "actions@users.noreply.github.com"
           git add -A
