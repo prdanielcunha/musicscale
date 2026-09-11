@@ -87,3 +87,10 @@ export const useApi = () => {
     }
     return context.api;
 };
+
+// Optional consumers are useful for isolated presentation/test boundaries.
+// Runtime mutation actions still stay disabled unless the real ApiProvider exists.
+export const useOptionalApi = (): MusicRepository | null => {
+    const context = useContext(ApiContext);
+    return context?.api ?? null;
+};
