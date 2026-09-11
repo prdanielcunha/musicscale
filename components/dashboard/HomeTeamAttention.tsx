@@ -9,7 +9,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useApi } from '../../contexts/ApiContext';
+import { useOptionalApi } from '../../contexts/ApiContext';
 import { useMusic } from '../../contexts/MusicDataContext';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../common/Modal';
@@ -159,7 +159,7 @@ export const HomeTeamAttention: React.FC<HomeTeamAttentionProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const { organization, user } = useAuth();
-  const api = useApi();
+  const api = useOptionalApi();
   const {
     populatedScales,
     populatedBandScales,
