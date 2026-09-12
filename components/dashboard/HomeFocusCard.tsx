@@ -4,9 +4,6 @@ import Card from '../common/Card';
 import Button from '../common/Button';
 import { HomeExperience, HomeAttentionItem, HomeEventSummary, getLocalDateKey, HomeEventSongSummary, canUsePerformanceMode } from '../../utils/homeExperience';
 import { Play, AlertCircle, CheckCircle2, BookOpenCheck, RefreshCcw, Trash2 } from 'lucide-react';
-import { useOptionalApi } from '../../contexts/ApiContext';
-import { useMusic } from '../../contexts/MusicDataContext';
-import { useToast } from '../../contexts/ToastContext';
 import {
   requiresRepertoirePreparation,
   type EventPreparationView,
@@ -27,6 +24,7 @@ interface HomeFocusCardProps {
   onCreateScale: () => void;
   onChooseScaleToRepeat: () => void;
   onResolveAttention?: (event: HomeEventSummary, firstAttentionItem: HomeAttentionItem) => void;
+  onDeleteDraft?: (event: HomeEventSummary) => void | Promise<void>;
 }
 
 export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ 
@@ -43,11 +41,9 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   onCreateScale, 
   onChooseScaleToRepeat,
   onResolveAttention,
+  onDeleteDraft,
 }) => {
   const { t, i18n } = useTranslation();
-  const api = useOptionalApi();
-  const { populatedScales, populatedBandScales, refreshData } = useMusic();
-  const { toast } = useToast();
   const [draftToDelete, setDraftToDelete] = React.useState<HomeEventSummary | null>(null);
   const [isDeletingDraft, setIsDeletingDraft] = React.useState(false);
   
@@ -178,41 +174,16 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   };
 
   const handleDeleteDraft = async () => {
-    if (!draftToDelete || !api || isDeletingDraft) return;
+    if (!draftToDelete || !onDeleteDraft || isDeletingDraft) return;
 
     setIsDeletingDraft(true);
     try {
-      const musicIds = new Set<string>();
-      const bandIds = new Set<string>();
-
-      if (draftToDelete.type === 'music') {
-        musicIds.add(draftToDelete.id);
-        const musicScale = populatedScales.find(scale => scale.id === draftToDelete.id) as any;
-        const linkedBandId = musicScale?.bandScale?.id || musicScale?.bandScaleId;
-        if (linkedBandId) bandIds.add(linkedBandId);
-      } else {
-        bandIds.add(draftToDelete.id);
-        const bandScale = populatedBandScales.find(scale => scale.id === draftToDelete.id) as any;
-        if (bandScale?.musicScaleId) musicIds.add(bandScale.musicScaleId);
-      }
-
-      if (bandIds.size > 0) await api.bandScales.deleteMany(Array.from(bandIds));
-      if (musicIds.size > 0) await api.scales.deleteMany(Array.from(musicIds));
-
-      await refreshData();
+      await onDeleteDraft(draftToDelete);
       setDraftToDelete(null);
-      toast({
-        type: 'success',
-        message: t('dashboard.focus.draftDeleted', 'Rascunho excluído com sucesso.'),
-      });
     } catch (error) {
+      // The owner page reports the failure. Keep the confirmation open so the user
+      // can retry instead of making the draft disappear from the UI optimistically.
       console.error('[HomeFocusCard] Failed to delete draft:', error);
-      await refreshData().catch(() => undefined);
-      setDraftToDelete(null);
-      toast({
-        type: 'error',
-        message: t('dashboard.focus.draftDeleteError', 'Não foi possível excluir o rascunho agora.'),
-      });
     } finally {
       setIsDeletingDraft(false);
     }
@@ -525,7 +496,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                   >
                     {t('dashboard.focus.continuePreparing', 'Continuar preparando')}
                   </Button>
-                  <Button
+                  {onDeleteDraft && <Button
                     onClick={() => setDraftToDelete(targetEvent)}
                     disabled={isDeletingDraft}
                     className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] px-6 bg-red-500/[0.06] text-red-600 dark:text-red-300 border border-red-500/15 hover:bg-red-500/[0.1] shadow-none"
@@ -534,7 +505,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
                     {t('dashboard.focus.deleteDraft', 'Excluir rascunho')}
-                  </Button>
+                  </Button>}
                 </>
               );
             })() : null}
@@ -688,7 +659,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
         {content}
       </Card>
 
-      {draftToDelete && (
+      {draftToDelete && onDeleteDraft && (
         <div className="fixed inset-0 z-[10020] flex items-end sm:items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-slate-950/75 backdrop-blur-sm"

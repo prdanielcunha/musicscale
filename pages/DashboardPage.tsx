@@ -10,6 +10,7 @@ import { buildTeamAttentionEntries } from '../utils/teamAttention';
 import { useCapability } from '../hooks/useCapability';
 import { useModals } from '../contexts/ModalContext';
 import { useToast } from '../contexts/ToastContext';
+import { useOptionalApi } from '../contexts/ApiContext';
 import { useSuggestionsContext } from '../contexts/SuggestionContext';
 import { HomeFocusCard } from '../components/dashboard/HomeFocusCard';
 import { HomeUpcomingEvents } from '../components/dashboard/HomeUpcomingEvents';
@@ -79,10 +80,11 @@ export const DashboardPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user, organization, isOwner } = useAuth();
-  const { populatedScales, populatedBandScales, songs, loading: musicLoading, error: musicError } = useMusic();
+  const { populatedScales, populatedBandScales, songs, loading: musicLoading, error: musicError, refreshData } = useMusic();
   const { suggestions, loading: suggestionsLoading } = useSuggestionsContext();
   const { openSongDetail, openScaleDetail, openBandScaleDetail, openScaleForm, openBandScaleForm, openAiSongImport } = useModals();
   const { toast } = useToast();
+  const api = useOptionalApi();
   const { hasCapability } = useCapability();
   const canUsePerformance = hasCapability('musicscale.performance.use');
   const canImportSongs = hasCapability('musicscale.songs.edit');
@@ -449,6 +451,51 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  const handleDeleteDraft = async (eventSummary: HomeEventSummary) => {
+    if (!api || !canManageScales || eventSummary.status !== 'draft') {
+      toast({
+        type: 'error',
+        message: t('dashboard.focus.draftDeleteError', 'Não foi possível excluir o rascunho agora.'),
+      });
+      throw new Error('Draft deletion is not available for the current context.');
+    }
+
+    try {
+      const musicIds = new Set<string>();
+      const bandIds = new Set<string>();
+
+      if (eventSummary.type === 'music') {
+        musicIds.add(eventSummary.id);
+        const musicScale = populatedScales?.find(scale => scale.id === eventSummary.id) as any;
+        const linkedBandId = musicScale?.bandScale?.id || musicScale?.bandScaleId;
+        if (linkedBandId) bandIds.add(linkedBandId);
+      } else {
+        bandIds.add(eventSummary.id);
+        const bandScale = populatedBandScales?.find(scale => scale.id === eventSummary.id) as any;
+        if (bandScale?.musicScaleId) musicIds.add(bandScale.musicScaleId);
+      }
+
+      // Keep the logical event consistent: delete the linked band half first,
+      // matching the established dashboard permanent-delete flow.
+      if (bandIds.size > 0) await api.bandScales.deleteMany(Array.from(bandIds));
+      if (musicIds.size > 0) await api.scales.deleteMany(Array.from(musicIds));
+
+      await refreshData();
+      toast({
+        type: 'success',
+        message: t('dashboard.focus.draftDeleted', 'Rascunho excluído com sucesso.'),
+      });
+    } catch (error) {
+      console.error('[DashboardPage] Failed to delete draft:', error);
+      await refreshData().catch(() => undefined);
+      toast({
+        type: 'error',
+        message: t('dashboard.focus.draftDeleteError', 'Não foi possível excluir o rascunho agora.'),
+      });
+      throw error;
+    }
+  };
+
   const getResponseActions = (eventSummary: HomeEventSummary | null) => {
     if (!eventSummary || eventSummary.type !== 'music') return null;
     const scale = populatedScales?.find(s => s.id === eventSummary.id);
@@ -561,6 +608,7 @@ export const DashboardPage: React.FC = () => {
           }}
           onChooseScaleToRepeat={() => navigate('/scales')}
           onResolveAttention={handleResolveAttention}
+          onDeleteDraft={handleDeleteDraft}
         />
       )}
 
