@@ -621,6 +621,8 @@ export class MusicRepository {
                 const err = new Error(errData.error || "Erro ao publicar escala de música.");
                 (err as any).correlationId = errData.correlationId;
                 (err as any).status = res.status;
+                (err as any).code = errData.code;
+                (err as any).stage = errData.stage;
                 throw err;
             }
 

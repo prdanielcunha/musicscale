@@ -209,6 +209,9 @@ export function buildMusicScalePublishPayload(
     if (scaleData.time !== undefined) {
         scalePatch.time = scaleData.time;
     }
+    if (scaleData.timeZone !== undefined) {
+        scalePatch.timeZone = scaleData.timeZone;
+    }
     if (scaleData.eventTypeId !== undefined) {
         scalePatch.eventTypeId = scaleData.eventTypeId;
     }

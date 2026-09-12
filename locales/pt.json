@@ -298,7 +298,15 @@
         "informLocation": "Resolver pendência: informar local",
         "publishDraft": "Resolver pendência: publicar rascunho"
       },
-      "inProgress": "Em andamento"
+      "inProgress": "Em andamento",
+      "draftDeleted": "Rascunho excluído com sucesso.",
+      "draftDeleteError": "Não foi possível excluir o rascunho agora.",
+      "deleteDraft": "Excluir rascunho",
+      "deleteDraftTitle": "Excluir este rascunho?",
+      "deleteDraftDescription": "A escala em rascunho será excluída permanentemente. Vínculos relacionados também serão removidos para não deixar dados órfãos.",
+      "deleteDraftPermanent": "Esta ação não pode ser desfeita.",
+      "deletingDraft": "Excluindo...",
+      "confirmDeleteDraft": "Excluir rascunho"
     },
     "upcomingEvents": {
       "title": "Próximos compromissos",
@@ -947,7 +955,16 @@
     "cloneInvalidAssignmentsDescription": "Um ou mais integrantes da escala original não possuem usuário ou função válidos. Revise a equipe antes de clonar.",
     "cloneBandRequired": "A escala original possui banda. Mantenha pelo menos um integrante ou revise a equipe antes de criar a cópia.",
     "cloneRequiredFields": "Preencha data, tipo de evento e local antes de criar a cópia.",
-    "publishFailureReference": "Referência de suporte: {{id}}."
+    "publishFailureReference": "Referência de suporte: {{id}}.",
+    "draftDeleted": "Rascunho excluído com sucesso.",
+    "draftDeleteError": "Não foi possível excluir o rascunho agora.",
+    "draftDeleteErrorDescription": "Atualizamos os dados para evitar inconsistências. Tente novamente.",
+    "deleteDraft": "Excluir rascunho",
+    "deleteDraftTitle": "Excluir este rascunho?",
+    "deleteDraftDescription": "O rascunho será excluído permanentemente. Se houver uma escala de banda vinculada, ela também será removida para não deixar dados órfãos.",
+    "deleteDraftPermanent": "Esta ação não pode ser desfeita.",
+    "deletingDraft": "Excluindo...",
+    "confirmDeleteDraft": "Excluir rascunho"
   },
   "bandScaleModal": {
     "titleCreate": "Nova Escala da Banda",
