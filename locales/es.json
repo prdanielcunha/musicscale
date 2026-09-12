@@ -297,7 +297,15 @@
         "informLocation": "Resolver pendiente: informar ubicación",
         "publishDraft": "Resolver pendiente: publicar borrador"
       },
-      "inProgress": "En curso"
+      "inProgress": "En curso",
+      "draftDeleted": "Borrador eliminado correctamente.",
+      "draftDeleteError": "No se pudo eliminar el borrador en este momento.",
+      "deleteDraft": "Eliminar borrador",
+      "deleteDraftTitle": "¿Eliminar este borrador?",
+      "deleteDraftDescription": "La escala en borrador se eliminará permanentemente. Los vínculos relacionados también se eliminarán para no dejar datos huérfanos.",
+      "deleteDraftPermanent": "Esta acción no se puede deshacer.",
+      "deletingDraft": "Eliminando...",
+      "confirmDeleteDraft": "Eliminar borrador"
     },
     "upcomingEvents": {
       "title": "Próximos compromisos",
@@ -945,7 +953,16 @@
     "cloneInvalidAssignmentsDescription": "Uno o más integrantes de la escala original no tienen un usuario o función válidos. Revisa el equipo antes de clonar.",
     "cloneBandRequired": "La escala original tiene banda. Mantén al menos un integrante o revisa el equipo antes de crear la copia.",
     "cloneRequiredFields": "Completa fecha, tipo de evento y lugar antes de crear la copia.",
-    "publishFailureReference": "Referencia de soporte: {{id}}."
+    "publishFailureReference": "Referencia de soporte: {{id}}.",
+    "draftDeleted": "Borrador eliminado correctamente.",
+    "draftDeleteError": "No se pudo eliminar el borrador en este momento.",
+    "draftDeleteErrorDescription": "Actualizamos los datos para evitar inconsistencias. Inténtalo de nuevo.",
+    "deleteDraft": "Eliminar borrador",
+    "deleteDraftTitle": "¿Eliminar este borrador?",
+    "deleteDraftDescription": "El borrador se eliminará permanentemente. Si hay una escala de banda vinculada, también se eliminará para no dejar datos huérfanos.",
+    "deleteDraftPermanent": "Esta acción no se puede deshacer.",
+    "deletingDraft": "Eliminando...",
+    "confirmDeleteDraft": "Eliminar borrador"
   },
   "bandScaleModal": {
     "titleCreate": "Nueva Escala de Banda",

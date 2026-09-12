@@ -22,6 +22,7 @@ env:
   PROJECT_ID: millionsnest
   REGION: us-central1
   SERVICE: musicscale-api
+  RUNTIME_SA: mn-musicscale-runtime@millionsnest.iam.gserviceaccount.com
   IMAGE: us-central1-docker.pkg.dev/millionsnest/millionsnest-web/musicscale-api:${{ github.sha }}
 
 jobs:
@@ -71,7 +72,7 @@ jobs:
             --project "$PROJECT_ID" \
             --region "$REGION" \
             --image "$IMAGE" \
-            --service-account "mn-musicscale-runtime@millionsnest.iam.gserviceaccount.com" \
+            --service-account "$RUNTIME_SA" \
             --port 8080 \
             --cpu 1 \
             --memory 1Gi \
@@ -131,3 +132,12 @@ jobs:
             "$BASE/api/v1/ecosystem/access-context?organizationId=production-release-smoke")"
           test "$STATUS" = "401"
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/musicscale-api.json','utf8'));if(!String(x.error||'').toLowerCase().includes('unauthorized'))process.exit(1);console.log('MUSICSCALE_PRODUCTION_RELEASE_OK');"
+
+          CONNECT_STATUS="$(curl --silent --show-error --location \
+            --retry 12 --retry-delay 3 --retry-all-errors \
+            -o /tmp/musicscale-connect-token-transport.json -w '%{http_code}' \
+            -H 'X-Connect-User-Authorization: Bearer release-smoke-invalid-firebase-token' \
+            -H 'X-Organization-Id: production-release-smoke' \
+            "$BASE/api/v1/connect/next-schedule")"
+          test "$CONNECT_STATUS" = "401"
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/musicscale-connect-token-transport.json','utf8'));if(x.code!=='INVALID_ID_TOKEN') { console.error(x); process.exit(1); } console.log('MUSICSCALE_CONNECT_TOKEN_HEADER_TRANSPORT_OK');"

@@ -56,12 +56,6 @@ function resolveBearerHeader(req: MinimalRequest):
   const standard = getHeader(req, 'authorization');
   const forwarded = getHeader(req, 'x-connect-user-authorization');
 
-  // Connect explicitly forwards the end-user Firebase bearer in this header so
-  // it survives Firebase Hosting -> Cloud Run rewrites. Infrastructure may
-  // replace the standard Authorization header with another credential, so the
-  // forwarded user bearer is authoritative for this boundary when present.
-  // It remains untrusted input and is Firebase-verified below by
-  // resolveOrganizationAuthorization.
   const value = forwarded || standard;
   if (!value || !/^Bearer\s+\S+/i.test(value)) {
     return { ok: false, code: 'UNAUTHORIZED' };
@@ -145,22 +139,6 @@ function normalizeAuthorizationResult(value: AuthorizationResult): Authorization
   return value;
 }
 
-/**
- * Canonical read-only HTTP boundary for Connect -> MusicScale.
- *
- * Security model:
- * - Firebase bearer is revalidated inside MusicScale;
- * - X-Connect-User-Authorization carries the end-user bearer across the
- *   Connect -> Firebase Hosting -> Cloud Run transport hop and is preferred
- *   when present because infrastructure may alter the standard Authorization
- *   header; the selected bearer is still Firebase-verified server-side;
- * - organizationId comes from an explicit header and is checked by the canonical
- *   organization authorization resolver;
- * - `scales.read` is evaluated by the MusicScale RBAC implementation;
- * - the Firestore reads are always tenant-filtered and the selector fails closed
- *   on any tenant mismatch;
- * - no Connect-side role/capability payload is trusted as authority.
- */
 export function createConnectNextScheduleReadHandler(
   deps: ConnectNextScheduleReadDependencies,
 ) {
@@ -207,6 +185,7 @@ export function createConnectNextScheduleReadHandler(
           organizationId,
           deps.db,
           deps.auth,
+          { checkRevoked: false },
         ),
       );
 

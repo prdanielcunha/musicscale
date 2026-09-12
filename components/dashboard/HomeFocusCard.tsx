@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import { HomeExperience, HomeAttentionItem, HomeEventSummary, getLocalDateKey, HomeEventSongSummary, canUsePerformanceMode } from '../../utils/homeExperience';
-import { Play, AlertCircle, CheckCircle2, BookOpenCheck, RefreshCcw } from 'lucide-react';
+import { Play, AlertCircle, CheckCircle2, BookOpenCheck, RefreshCcw, Trash2 } from 'lucide-react';
 import {
   requiresRepertoirePreparation,
   type EventPreparationView,
@@ -24,6 +24,7 @@ interface HomeFocusCardProps {
   onCreateScale: () => void;
   onChooseScaleToRepeat: () => void;
   onResolveAttention?: (event: HomeEventSummary, firstAttentionItem: HomeAttentionItem) => void;
+  onDeleteDraft?: (event: HomeEventSummary) => void | Promise<void>;
 }
 
 export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({ 
@@ -40,8 +41,11 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   onCreateScale, 
   onChooseScaleToRepeat,
   onResolveAttention,
+  onDeleteDraft,
 }) => {
   const { t, i18n } = useTranslation();
+  const [draftToDelete, setDraftToDelete] = React.useState<HomeEventSummary | null>(null);
+  const [isDeletingDraft, setIsDeletingDraft] = React.useState(false);
   
   const locale = i18n.resolvedLanguage || i18n.language || 'pt-BR';
   const standardLocale = locale.startsWith('pt') ? 'pt-BR' : locale.startsWith('en') ? 'en-US' : locale.startsWith('es') ? 'es-ES' : 'pt-BR';
@@ -167,6 +171,22 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
   const getEffectiveKey = (song: HomeEventSongSummary) => {
     return song.localKey || song.key || song.selectedKey || song.originalKey || '';
+  };
+
+  const handleDeleteDraft = async () => {
+    if (!draftToDelete || !onDeleteDraft || isDeletingDraft) return;
+
+    setIsDeletingDraft(true);
+    try {
+      await onDeleteDraft(draftToDelete);
+      setDraftToDelete(null);
+    } catch (error) {
+      // The owner page reports the failure. Keep the confirmation open so the user
+      // can retry instead of making the draft disappear from the UI optimistically.
+      console.error('[HomeFocusCard] Failed to delete draft:', error);
+    } finally {
+      setIsDeletingDraft(false);
+    }
   };
 
   const renderRichEventCard = (targetEvent: HomeEventSummary | null, currentMode: string) => {
@@ -461,20 +481,32 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
             ) : currentMode === 'continue-draft' ? (() => {
               const firstAttention = attentionItems?.find(item => item.code !== 'draft') || { code: 'draft', severity: 'important' };
               return (
-                <Button 
-                  onClick={() => {
-                    if (onResolveAttention) {
-                      onResolveAttention(targetEvent, firstAttention as any);
-                    } else {
-                      onOpenEvent(targetEvent);
-                    }
-                  }} 
-                  className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" 
-                  size="lg" 
-                  variant="primary"
-                >
-                  {t('dashboard.focus.continuePreparing', 'Continuar preparando')}
-                </Button>
+                <>
+                  <Button 
+                    onClick={() => {
+                      if (onResolveAttention) {
+                        onResolveAttention(targetEvent, firstAttention as any);
+                      } else {
+                        onOpenEvent(targetEvent);
+                      }
+                    }} 
+                    className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" 
+                    size="lg" 
+                    variant="primary"
+                  >
+                    {t('dashboard.focus.continuePreparing', 'Continuar preparando')}
+                  </Button>
+                  {onDeleteDraft && <Button
+                    onClick={() => setDraftToDelete(targetEvent)}
+                    disabled={isDeletingDraft}
+                    className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] px-6 bg-red-500/[0.06] text-red-600 dark:text-red-300 border border-red-500/15 hover:bg-red-500/[0.1] shadow-none"
+                    size="lg"
+                    variant="ghost"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {t('dashboard.focus.deleteDraft', 'Excluir rascunho')}
+                  </Button>}
+                </>
               );
             })() : null}
           </div>
@@ -620,10 +652,56 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   }
 
   return (
-    <Card className="p-4 sm:p-6 bg-gradient-to-b from-white to-slate-50/50 dark:from-[#13131A] dark:to-[#0D0D12] border-none shadow-2xl shadow-black/5 dark:shadow-black/40 relative overflow-hidden rounded-3xl">
-      {/* Decorative subtle top gradient line */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500/0 via-indigo-500/20 to-indigo-500/0"></div>
-      {content}
-    </Card>
+    <>
+      <Card className="p-4 sm:p-6 bg-gradient-to-b from-white to-slate-50/50 dark:from-[#13131A] dark:to-[#0D0D12] border-none shadow-2xl shadow-black/5 dark:shadow-black/40 relative overflow-hidden rounded-3xl">
+        {/* Decorative subtle top gradient line */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500/0 via-indigo-500/20 to-indigo-500/0"></div>
+        {content}
+      </Card>
+
+      {draftToDelete && onDeleteDraft && (
+        <div className="fixed inset-0 z-[10020] flex items-end sm:items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-950/75 backdrop-blur-sm"
+            onClick={() => !isDeletingDraft && setDraftToDelete(null)}
+          ></div>
+          <div className="relative z-10 w-full max-w-md rounded-[24px] border border-red-500/15 bg-white p-6 shadow-2xl dark:bg-[#101116] sm:p-7">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-red-500/10 text-red-600 dark:text-red-300">
+              <Trash2 className="h-5 w-5" />
+            </div>
+            <h3 className="text-xl font-black tracking-tight text-slate-950 dark:text-white">
+              {t('dashboard.focus.deleteDraftTitle', 'Excluir este rascunho?')}
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+              {t('dashboard.focus.deleteDraftDescription', 'A escala em rascunho será excluída permanentemente. Vínculos relacionados também serão removidos para não deixar dados órfãos.')}
+            </p>
+            <p className="mt-3 text-xs font-semibold text-red-600/90 dark:text-red-300/90">
+              {t('dashboard.focus.deleteDraftPermanent', 'Esta ação não pode ser desfeita.')}
+            </p>
+            <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <Button
+                onClick={() => setDraftToDelete(null)}
+                disabled={isDeletingDraft}
+                className="h-12 rounded-xl"
+                variant="secondary"
+              >
+                {t('common.cancel', 'Cancelar')}
+              </Button>
+              <Button
+                onClick={() => void handleDeleteDraft()}
+                disabled={isDeletingDraft}
+                className="h-12 rounded-xl bg-red-600 text-white hover:bg-red-500 border-none"
+                variant="danger"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {isDeletingDraft
+                  ? t('dashboard.focus.deletingDraft', 'Excluindo...')
+                  : t('dashboard.focus.confirmDeleteDraft', 'Excluir rascunho')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
