@@ -297,7 +297,15 @@
         "informLocation": "Resolve issue: provide location",
         "publishDraft": "Resolve issue: publish draft"
       },
-      "inProgress": "In progress"
+      "inProgress": "In progress",
+      "draftDeleted": "Draft deleted successfully.",
+      "draftDeleteError": "Couldn’t delete the draft right now.",
+      "deleteDraft": "Delete draft",
+      "deleteDraftTitle": "Delete this draft?",
+      "deleteDraftDescription": "The draft schedule will be permanently deleted. Related links will also be removed so no orphaned data is left.",
+      "deleteDraftPermanent": "This action can’t be undone.",
+      "deletingDraft": "Deleting...",
+      "confirmDeleteDraft": "Delete draft"
     },
     "upcomingEvents": {
       "title": "Upcoming commitments",
@@ -946,7 +954,16 @@
     "cloneInvalidAssignmentsDescription": "One or more members in the original schedule do not have a valid user or role. Review the team before cloning.",
     "cloneBandRequired": "The original schedule has a band. Keep at least one member or review the team before creating the copy.",
     "cloneRequiredFields": "Fill in date, event type and location before creating the copy.",
-    "publishFailureReference": "Support reference: {{id}}."
+    "publishFailureReference": "Support reference: {{id}}.",
+    "draftDeleted": "Draft deleted successfully.",
+    "draftDeleteError": "Couldn’t delete the draft right now.",
+    "draftDeleteErrorDescription": "We refreshed the data to avoid inconsistencies. Please try again.",
+    "deleteDraft": "Delete draft",
+    "deleteDraftTitle": "Delete this draft?",
+    "deleteDraftDescription": "The draft will be permanently deleted. If there is a linked band schedule, it will also be removed so no orphaned data is left.",
+    "deleteDraftPermanent": "This action can’t be undone.",
+    "deletingDraft": "Deleting...",
+    "confirmDeleteDraft": "Delete draft"
   },
   "bandScaleModal": {
     "titleCreate": "New Band Scale",
