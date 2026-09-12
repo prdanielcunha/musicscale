@@ -7,6 +7,7 @@ on:
     paths:
       - 'scripts/apply-draft-lifecycle-hotfix.mjs'
       - 'scripts/apply-draft-lifecycle-hotfix-v2.mjs'
+      - 'scripts/apply-draft-lifecycle-hotfix-v3.mjs'
       - '.github/workflows/hotfix-draft-lifecycle-apply.yml'
 
 permissions:
@@ -31,7 +32,7 @@ jobs:
           cache: npm
 
       - name: Apply deterministic source transformations
-        run: node scripts/apply-draft-lifecycle-hotfix-v2.mjs
+        run: node scripts/apply-draft-lifecycle-hotfix-v3.mjs
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
@@ -52,6 +53,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add components/scales/ModernScaleForm.tsx components/dashboard/HomeFocusCard.tsx services/MusicRepository.ts services/server/scale/musicScaleCommandService.ts contexts/ModalContext.tsx
+          git add components/scales/ModernScaleForm.tsx components/dashboard/HomeFocusCard.tsx services/MusicRepository.ts contexts/ModalContext.tsx
           git commit -m "fix: draft deletion and publish resilience [hotfix-applied]"
           git push origin HEAD:chatgpt/hotfix-draft-lifecycle-20260912
