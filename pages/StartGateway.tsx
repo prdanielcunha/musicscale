@@ -4,6 +4,10 @@ import { useAuth } from "../contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import Spinner from "../components/common/Spinner";
 import { useEcosystem } from "../contexts/EcosystemContext";
+import {
+  redirectToMillionsNestMusicScaleLaunch,
+  shouldUseMillionsNestDirectEntryBridge,
+} from "../services/ecosystem/directEntry";
 const TenantOnboarding = lazy(() => import("./TenantOnboarding"));
 import { MissingSubscriptionScreen } from "../components/premium/MissingSubscriptionScreen";
 import { resolveSubscriptionAccess } from "../utils/subscriptionAccessResolver";
@@ -42,11 +46,21 @@ export default function StartGateway() {
     !organization && ecoContext?.currentOrganizationId
   );
   const isStartupInteractiveReady = !isPrimaryLoading && !isWaitingForOrganizationHydration;
+  const shouldBridgeDirectEntry = typeof window !== 'undefined' && shouldUseMillionsNestDirectEntryBridge({
+    hostname: window.location.hostname,
+    pathname: window.location.pathname,
+    hasAuthenticatedUser: Boolean(user),
+  });
 
   useEffect(() => {
     if (!isStartupInteractiveReady) return;
     window.dispatchEvent(new CustomEvent(START_GATEWAY_READY_EVENT));
   }, [isStartupInteractiveReady]);
+
+  useEffect(() => {
+    if (loading || !shouldBridgeDirectEntry) return;
+    redirectToMillionsNestMusicScaleLaunch();
+  }, [loading, shouldBridgeDirectEntry]);
 
   console.log("[MusicScale Gate Debug]", {
     firebaseUserUid: user?.uid,
@@ -75,8 +89,16 @@ export default function StartGateway() {
     );
   }
 
-  // 1. Usuário NÃO autenticado
+  // 1. Usuário NÃO autenticado no domínio oficial: o Hub é a autoridade de sessão.
+  // Em desenvolvimento e na rota explícita /login, o comportamento standalone permanece intacto.
   if (!user || (!userProfile && !loading)) {
+    if (shouldBridgeDirectEntry) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
+          <Spinner />
+        </div>
+      );
+    }
     return <Navigate to="/login" replace />;
   }
 
