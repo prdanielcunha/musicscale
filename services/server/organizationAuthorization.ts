@@ -15,6 +15,18 @@ export interface OrganizationAuthorizationOptions {
   checkRevoked?: boolean;
 }
 
+function isRevocationLookupPermissionFailure(error: any): boolean {
+  const code = typeof error?.code === 'string' ? error.code.trim().toLowerCase() : '';
+  const message = typeof error?.message === 'string' ? error.message.toLowerCase() : '';
+
+  return code === 'auth/insufficient-permission'
+    || code === 'permission-denied'
+    || code === 'permission_denied'
+    || error?.code === 7
+    || message.includes('insufficient permission')
+    || message.includes('permission denied');
+}
+
 export async function resolveOrganizationAuthorization(
   authHeader: string | undefined,
   organizationId: string,
@@ -37,11 +49,29 @@ export async function resolveOrganizationAuthorization(
   try {
     decodedToken = await authInstance.verifyIdToken(token, checkRevoked);
   } catch (err: any) {
-    const firebaseAuthCode = typeof err?.code === 'string' && err.code.trim()
-      ? err.code.trim()
-      : 'auth/unknown';
-    logger.warn(`[organizationAuthorization] Firebase ID token verification failed (${firebaseAuthCode}).`);
-    return { statusCode: 401, error: "INVALID_ID_TOKEN" };
+    // Cloud Run can validate a Firebase ID token without needing the extra
+    // Firebase Auth viewer IAM permission required by the revoked-token lookup.
+    // If (and only if) that optional lookup itself is blocked by IAM, retry the
+    // canonical Firebase verification without revocation lookup. Signature,
+    // issuer, audience and expiry are still validated by Firebase Admin.
+    if (checkRevoked && isRevocationLookupPermissionFailure(err)) {
+      try {
+        decodedToken = await authInstance.verifyIdToken(token, false);
+        logger.warn('[organizationAuthorization] Revocation lookup unavailable by IAM; token validated without revocation lookup.');
+      } catch (fallbackErr: any) {
+        const fallbackCode = typeof fallbackErr?.code === 'string' && fallbackErr.code.trim()
+          ? fallbackErr.code.trim()
+          : 'auth/unknown';
+        logger.warn(`[organizationAuthorization] Firebase ID token verification failed after revocation-IAM fallback (${fallbackCode}).`);
+        return { statusCode: 401, error: "INVALID_ID_TOKEN" };
+      }
+    } else {
+      const firebaseAuthCode = typeof err?.code === 'string' && err.code.trim()
+        ? err.code.trim()
+        : 'auth/unknown';
+      logger.warn(`[organizationAuthorization] Firebase ID token verification failed (${firebaseAuthCode}).`);
+      return { statusCode: 401, error: "INVALID_ID_TOKEN" };
+    }
   }
 
   const { uid, email } = decodedToken;
