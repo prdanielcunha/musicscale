@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Loader2, X as XIcon } from "lucide-react";
+import { Loader2, Trash2, X as XIcon } from "lucide-react";
 import type {
   Scale,
   BandScale,
@@ -160,6 +160,18 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
   const initialFormDataRef = useRef<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showDeleteDraftConfirm, setShowDeleteDraftConfirm] = useState(false);
+  const [isDeletingDraft, setIsDeletingDraft] = useState(false);
+
+  const existingDraftScaleId =
+    scaleType === "music" &&
+    scaleToEdit &&
+    "id" in scaleToEdit &&
+    scaleToEdit.id &&
+    scaleToEdit.id !== "CLONE" &&
+    (scaleToEdit as Scale).status === "draft"
+      ? String(scaleToEdit.id)
+      : null;
 
   // Helper to normalize and get relevant data for dirty check
   const getComparableData = (data: any) => {
@@ -203,6 +215,40 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const handleDiscardChanges = () => {
     setShowCancelConfirm(false);
     onClose();
+  };
+
+  const handleDeleteDraft = async () => {
+    if (!existingDraftScaleId || !api || isDeletingDraft) return;
+
+    setIsDeletingDraft(true);
+    try {
+      const editedScale = scaleToEdit as Scale;
+      const linkedBandScaleId = editedScale.bandScaleId || formData.bandScaleId || null;
+
+      // Keep the logical event consistent: linked BandScale must not be orphaned.
+      if (linkedBandScaleId) {
+        await api.bandScales.deleteMany([linkedBandScaleId]);
+      }
+      await api.scales.deleteMany([existingDraftScaleId]);
+      await refreshData();
+
+      setShowDeleteDraftConfirm(false);
+      toast({
+        type: 'success',
+        message: t('scaleModal.draftDeleted', 'Rascunho excluído com sucesso.'),
+      });
+      onClose();
+    } catch (error) {
+      console.error('[ModernScaleForm] Failed to delete draft:', error);
+      await refreshData().catch(() => undefined);
+      toast({
+        type: 'error',
+        message: t('scaleModal.draftDeleteError', 'Não foi possível excluir o rascunho agora.'),
+        description: t('scaleModal.draftDeleteErrorDescription', 'Atualizamos os dados para evitar inconsistências. Tente novamente.'),
+      });
+    } finally {
+      setIsDeletingDraft(false);
+    }
   };
 
   const handleUpdateSongSettings = async (
@@ -698,6 +744,19 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
             >
               {t('scaleModal.cancel', 'Cancelar')}
             </Button>
+            {existingDraftScaleId && (
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => setShowDeleteDraftConfirm(true)}
+                disabled={isSubmitting || isDeletingDraft}
+                className="w-full lg:w-auto h-12 rounded-xl text-[13px] min-w-0 bg-red-500/10 text-red-600 dark:bg-red-500/15 dark:text-red-300 border-red-500/15 hover:bg-red-500/15 dark:hover:bg-red-500/20"
+                data-testid="delete-scale-draft"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {t('scaleModal.deleteDraft', 'Excluir rascunho')}
+              </Button>
+            )}
             {currentStep > 0 && (
               <Button 
                 type="button" 
@@ -1344,6 +1403,53 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       </div>
       </form>
       </PremiumSheetModal>
+      {showDeleteDraftConfirm && existingDraftScaleId && (
+        <div className="fixed inset-0 z-[10020] flex items-end sm:items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-950/75 backdrop-blur-sm"
+            onClick={() => !isDeletingDraft && setShowDeleteDraftConfirm(false)}
+          ></div>
+          <div className="relative z-10 w-full max-w-md rounded-[24px] border border-red-500/15 bg-white p-6 shadow-2xl dark:bg-[#101116] sm:p-7 animate-scale-in">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-red-500/10 text-red-600 dark:text-red-300">
+              <Trash2 className="h-5 w-5" />
+            </div>
+            <h3 className="text-xl font-black tracking-tight text-slate-950 dark:text-white">
+              {t('scaleModal.deleteDraftTitle', 'Excluir este rascunho?')}
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+              {t('scaleModal.deleteDraftDescription', 'O rascunho será excluído permanentemente. Se houver uma escala de banda vinculada, ela também será removida para não deixar dados órfãos.')}
+            </p>
+            <p className="mt-3 text-xs font-semibold text-red-600/90 dark:text-red-300/90">
+              {t('scaleModal.deleteDraftPermanent', 'Esta ação não pode ser desfeita.')}
+            </p>
+            <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowDeleteDraftConfirm(false)}
+                disabled={isDeletingDraft}
+                className="h-12 rounded-xl"
+              >
+                {t('common.cancel', 'Cancelar')}
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => void handleDeleteDraft()}
+                disabled={isDeletingDraft}
+                className="h-12 rounded-xl bg-red-600 text-white hover:bg-red-500 border-none"
+                data-testid="confirm-delete-scale-draft"
+              >
+                {isDeletingDraft ? <Spinner size="sm" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                {isDeletingDraft
+                  ? t('scaleModal.deletingDraft', 'Excluindo...')
+                  : t('scaleModal.confirmDeleteDraft', 'Excluir rascunho')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setShowCancelConfirm(false)}></div>
