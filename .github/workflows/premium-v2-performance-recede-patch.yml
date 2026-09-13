@@ -67,15 +67,16 @@ jobs:
           Path('.github/workflows/premium-v2-performance-recede-patch.yml').unlink()
           PY
 
-      - name: Verify minimal diff and source contracts
+      - name: Verify minimal diff and new interaction contracts
         run: |
           git diff --check
           git diff -- components/songs/ChordsViewerModal.tsx
           grep -F "PERFORMANCE_CONTROLS_IDLE_MS = 3200" components/songs/ChordsViewerModal.tsx
-          grep -F "markControlsActivity" components/songs/ChordsViewerModal.tsx
-          grep -F "ctx.createBufferSource()" components/songs/ChordsViewerModal.tsx
-          grep -F "clickGain.gain.exponentialRampToValueAtTime" components/songs/ChordsViewerModal.tsx
-          grep -F "if (isMetronomeOn && isAudioUnlocked)" components/songs/ChordsViewerModal.tsx
+          grep -F "const markControlsActivity = useCallback" components/songs/ChordsViewerModal.tsx
+          grep -F "activeTab !== \"none\"" components/songs/ChordsViewerModal.tsx
+          grep -F "onPointerDown={markControlsActivity}" components/songs/ChordsViewerModal.tsx
+          grep -F "import Metronome from \"../common/Metronome\"" components/songs/ChordsViewerModal.tsx
+          grep -F "import StagePadPlayer from \"./StagePadPlayer\"" components/songs/ChordsViewerModal.tsx
 
       - name: Commit patch
         run: |
