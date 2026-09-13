@@ -575,7 +575,7 @@ export const DashboardPage: React.FC = () => {
 
 
   return (
-    <div className="relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24 sm:pt-8 sm:pb-12 lg:pb-8 space-y-6 sm:space-y-8 animate-fade-in touch-manipulation">
+    <div className="ms-v3-dashboard relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24 sm:pt-8 sm:pb-12 lg:pb-8 space-y-6 sm:space-y-8 animate-fade-in touch-manipulation">
       <header>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
           {contextualTitle}

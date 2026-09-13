@@ -268,6 +268,25 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                 {statusBadge.label}
               </span>
             </div>
+
+            <div className="ms-v3-live-context">
+              <span className="ms-v3-context-chip">
+                <span className="ms-v3-context-dot" aria-hidden="true"></span>
+                <span>{t('dashboard.focus.repertoire', 'Repertório')}</span>
+                <strong>{targetEvent.songCount}</strong>
+              </span>
+              {hasRole && targetEvent.userFunctionNames[0] && (
+                <span className="ms-v3-context-chip">
+                  <span>{t('dashboard.focus.myParticipation', 'Minha Participação')}</span>
+                  <strong>{targetEvent.userFunctionNames[0]}</strong>
+                </span>
+              )}
+              {targetPreparation && (
+                <span className="ms-v3-context-chip">
+                  <strong>{statusBadge.label}</strong>
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Repertoire Setlist */}
@@ -286,11 +305,11 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
               </div>
               
               {targetEvent.songs && targetEvent.songs.length > 0 ? (
-                <div className="flex flex-col">
+                <div className="ms-v3-setlist flex flex-col">
                   {targetEvent.songs.map((song, idx) => {
                     const effectiveKey = getEffectiveKey(song);
                     return (
-                      <div key={song.id || idx} className="flex items-center justify-between group py-3 border-b border-slate-100 dark:border-slate-800/50 last:border-0 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] active:bg-slate-100 dark:active:bg-white/[0.04] transition-colors -mx-2 px-2 rounded-lg cursor-pointer" onClick={() => onOpenEvent(targetEvent)}>
+                      <div key={song.id || idx} className="ms-v3-setlist-row flex items-center justify-between group py-3 border-b border-slate-100 dark:border-slate-800/50 last:border-0 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] active:bg-slate-100 dark:active:bg-white/[0.04] transition-colors -mx-2 px-2 rounded-lg cursor-pointer" onClick={() => onOpenEvent(targetEvent)}>
                         <div className="flex items-center gap-3 pr-4 overflow-hidden">
                           <span className="text-[11px] sm:text-xs font-mono font-medium text-slate-400 dark:text-slate-500 w-4 shrink-0 text-right">{song.order}</span>
                           <span className="text-sm sm:text-[15px] font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{song.title}</span>
@@ -329,7 +348,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
           )}
 
           {targetPreparation && targetPreparation.changes.length > 0 && (
-            <div className="rounded-2xl border border-amber-500/15 bg-amber-500/[0.055] p-4">
+            <div className="ms-v3-change-intel rounded-2xl border border-amber-500/15 bg-amber-500/[0.055] p-4">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <RefreshCcw className="h-4 w-4 text-amber-600 dark:text-amber-300" />
@@ -653,7 +672,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
 
   return (
     <>
-      <Card className="p-4 sm:p-6 bg-gradient-to-b from-white to-slate-50/50 dark:from-[#13131A] dark:to-[#0D0D12] border-none shadow-2xl shadow-black/5 dark:shadow-black/40 relative overflow-hidden rounded-3xl">
+      <Card className="ms-v3-focus-card p-4 sm:p-6 bg-gradient-to-b from-white to-slate-50/50 dark:from-[#13131A] dark:to-[#0D0D12] border-none shadow-2xl shadow-black/5 dark:shadow-black/40 relative overflow-hidden rounded-3xl">
         {/* Decorative subtle top gradient line */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500/0 via-indigo-500/20 to-indigo-500/0"></div>
         {content}

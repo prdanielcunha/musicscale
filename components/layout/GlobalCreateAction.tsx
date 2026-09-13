@@ -363,7 +363,7 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
                 transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
                 style={{ transformOrigin: 'bottom right', willChange: 'transform, opacity' }}
-                className="relative w-full max-w-[400px] bg-white dark:bg-[#111115] rounded-[28px] border border-slate-200 dark:border-white/[0.09] shadow-[0_24px_64px_rgba(0,0,0,0.56),inset_0_1px_0_rgba(255,255,255,0.07)] flex flex-col overflow-hidden max-h-[min(70dvh,540px)] transform-gpu"
+                className="ms-v3-create-dialog relative w-full max-w-[400px] bg-white dark:bg-[#111115] rounded-[28px] border border-slate-200 dark:border-white/[0.09] shadow-[0_24px_64px_rgba(0,0,0,0.56),inset_0_1px_0_rgba(255,255,255,0.07)] flex flex-col overflow-hidden max-h-[min(70dvh,540px)] transform-gpu"
               >
                 <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 dark:border-white/[0.05]">
                   <div>

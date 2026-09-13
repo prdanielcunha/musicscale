@@ -45,7 +45,7 @@ export const HomeUpcomingEvents: React.FC<HomeUpcomingEventsProps> = ({ events, 
   };
 
   return (
-    <section className="space-y-4" aria-labelledby="dashboard-upcoming-events-title">
+    <section className="ms-v3-upcoming space-y-4" aria-labelledby="dashboard-upcoming-events-title">
       <div className="flex items-end justify-between gap-4">
         <div>
           <span className="ms-kicker">{t('dashboard.upcomingEvents.title')}</span>
