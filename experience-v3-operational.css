@@ -1,0 +1,139 @@
+/* MusicScale Experience V3 — operational continuity */
+.dark .ms-v3-sidebar {
+  border-color: rgba(255,255,255,.065) !important;
+  background:
+    radial-gradient(90% 40% at 0% 0%, rgba(96,113,255,.085), transparent 70%),
+    linear-gradient(180deg, rgba(11,12,17,.97), rgba(7,8,11,.985)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 28px 70px -42px rgba(0,0,0,.94) !important;
+}
+
+.ms-v3-sidebar nav h3 {
+  color: rgba(137,151,176,.46) !important;
+  letter-spacing: .22em !important;
+}
+
+.ms-v3-sidebar nav a,
+.ms-v3-sidebar nav button {
+  border-radius: 13px !important;
+}
+
+.ms-v3-sidebar nav a[aria-current="page"] {
+  border-color: rgba(119,142,255,.15) !important;
+  background:
+    radial-gradient(100% 120% at 0% 0%, rgba(104,124,255,.11), transparent 72%),
+    rgba(255,255,255,.035) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+
+.ms-notifications-page,
+.ms-profile-page,
+.ms-users-page,
+.ms-band-page,
+.ms-band-scales-page {
+  position: relative;
+  isolation: isolate;
+}
+
+.dark .ms-notifications-page::before,
+.dark .ms-profile-page::before,
+.dark .ms-users-page::before,
+.dark .ms-band-page::before,
+.dark .ms-band-scales-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(52% 34% at 12% 0%, rgba(85,104,255,.075), transparent 70%),
+    radial-gradient(38% 28% at 100% 24%, rgba(63,202,255,.035), transparent 72%),
+    #07080b;
+}
+
+.dark .ms-notifications-page [data-testid^="notification-card-"] {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(255,255,255,.06) !important;
+  background:
+    linear-gradient(145deg, rgba(18,19,26,.94), rgba(9,10,14,.96)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 22px 52px -42px rgba(0,0,0,.92) !important;
+}
+
+.dark .ms-notifications-page [data-testid^="notification-card-"]:hover {
+  border-color: rgba(119,142,255,.15) !important;
+  background:
+    radial-gradient(90% 120% at 0% 0%, rgba(105,122,255,.055), transparent 70%),
+    linear-gradient(145deg, rgba(21,22,30,.97), rgba(10,11,15,.98)) !important;
+}
+
+.dark .ms-profile-page > div:first-child {
+  border-color: rgba(255,255,255,.07) !important;
+  background:
+    radial-gradient(80% 120% at 0% 0%, rgba(105,120,255,.10), transparent 68%),
+    radial-gradient(55% 100% at 100% 10%, rgba(67,209,255,.045), transparent 72%),
+    linear-gradient(145deg, rgba(18,19,27,.96), rgba(8,9,13,.98)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 30px 74px -48px rgba(0,0,0,.96) !important;
+}
+
+.ms-profile-page > div:first-child img {
+  outline: 1px solid rgba(255,255,255,.08);
+  outline-offset: 3px;
+}
+
+.dark .ms-users-page > div:first-child,
+.dark .ms-band-page > div:nth-child(2) {
+  border-color: rgba(255,255,255,.065) !important;
+  background:
+    radial-gradient(85% 120% at 0% 0%, rgba(101,118,255,.05), transparent 68%),
+    linear-gradient(180deg, rgba(17,18,24,.95), rgba(9,10,14,.97)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 24px 58px -44px rgba(0,0,0,.93);
+}
+
+.dark .ms-band-page [class*="grid"] > div,
+.dark .ms-band-page [class*="grid-cols"] > article {
+  border-color: rgba(255,255,255,.06) !important;
+  background: linear-gradient(145deg, rgba(17,18,24,.92), rgba(9,10,14,.95)) !important;
+}
+
+.dark .ms-band-page [class*="grid"] > div:hover,
+.dark .ms-band-page [class*="grid-cols"] > article:hover {
+  border-color: rgba(119,142,255,.15) !important;
+  transform: translateY(-1px);
+}
+
+.dark .ms-band-scales-page [class*="rounded-[24px]"] {
+  border-color: rgba(255,255,255,.065) !important;
+  background:
+    radial-gradient(80% 120% at 0% 0%, rgba(101,118,255,.055), transparent 70%),
+    linear-gradient(145deg, rgba(18,19,26,.95), rgba(9,10,14,.97)) !important;
+}
+
+.ms-notifications-page h1,
+.ms-profile-page h1,
+.ms-users-page h1,
+.ms-band-page h1,
+.ms-band-scales-page h1 {
+  letter-spacing: -.045em !important;
+}
+
+@media (min-width: 768px) {
+  .dark .ms-v3-sidebar {
+    border-radius: 22px !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .ms-notifications-page,
+  .ms-profile-page,
+  .ms-users-page,
+  .ms-band-page,
+  .ms-band-scales-page {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  .ms-profile-page > div:first-child,
+  .ms-users-page > div:first-child {
+    border-radius: 24px !important;
+  }
+}
