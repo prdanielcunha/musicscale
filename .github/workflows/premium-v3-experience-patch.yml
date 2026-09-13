@@ -1,0 +1,98 @@
+name: Apply Premium V3 Experience Patch
+
+on:
+  push:
+    branches: [ feat/premium-v2-experience-20260913-final ]
+    paths:
+      - .github/workflows/premium-v3-experience-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/premium-v2-experience-20260913-final
+          fetch-depth: 0
+
+      - name: Apply scoped experience transformations
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path, old, new, label):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              p.write_text(text.replace(old, new, 1))
+
+          replace_exact(
+              'pages/DashboardPage.tsx',
+              '<div className="relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24 sm:pt-8 sm:pb-12 lg:pb-8 space-y-6 sm:space-y-8 animate-fade-in touch-manipulation">',
+              '<div className="ms-v3-dashboard relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24 sm:pt-8 sm:pb-12 lg:pb-8 space-y-6 sm:space-y-8 animate-fade-in touch-manipulation">',
+              'dashboard root'
+          )
+
+          replace_exact(
+              'components/dashboard/HomeFocusCard.tsx',
+              '<Card className="p-4 sm:p-6 bg-gradient-to-b from-white to-slate-50/50 dark:from-[#13131A] dark:to-[#0D0D12] border-none shadow-2xl shadow-black/5 dark:shadow-black/40 relative overflow-hidden rounded-3xl">',
+              '<Card className="ms-v3-focus-card p-4 sm:p-6 bg-gradient-to-b from-white to-slate-50/50 dark:from-[#13131A] dark:to-[#0D0D12] border-none shadow-2xl shadow-black/5 dark:shadow-black/40 relative overflow-hidden rounded-3xl">',
+              'focus card'
+          )
+
+          replace_exact(
+              'components/dashboard/HomeFocusCard.tsx',
+              '{targetEvent.songs && targetEvent.songs.length > 0 ? (\n                <div className="flex flex-col">',
+              '{targetEvent.songs && targetEvent.songs.length > 0 ? (\n                <div className="ms-v3-setlist flex flex-col">',
+              'setlist surface'
+          )
+
+          replace_exact(
+              'components/dashboard/HomeFocusCard.tsx',
+              'className="flex items-center justify-between group py-3 border-b border-slate-100 dark:border-slate-800/50 last:border-0 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] active:bg-slate-100 dark:active:bg-white/[0.04] transition-colors -mx-2 px-2 rounded-lg cursor-pointer"',
+              'className="ms-v3-setlist-row flex items-center justify-between group py-3 border-b border-slate-100 dark:border-slate-800/50 last:border-0 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] active:bg-slate-100 dark:active:bg-white/[0.04] transition-colors -mx-2 px-2 rounded-lg cursor-pointer"',
+              'setlist row'
+          )
+
+          replace_exact(
+              'components/dashboard/HomeFocusCard.tsx',
+              '<div className="rounded-2xl border border-amber-500/15 bg-amber-500/[0.055] p-4">',
+              '<div className="ms-v3-change-intel rounded-2xl border border-amber-500/15 bg-amber-500/[0.055] p-4">',
+              'change intelligence'
+          )
+
+          marker = '''                {statusBadge.label}\n              </span>\n            </div>\n          </div>\n\n          {/* Repertoire Setlist */}'''
+          replacement = '''                {statusBadge.label}\n              </span>\n            </div>\n\n            <div className="ms-v3-live-context">\n              <span className="ms-v3-context-chip">\n                <span className="ms-v3-context-dot" aria-hidden="true"></span>\n                <span>{t('dashboard.focus.repertoire', 'Repertório')}</span>\n                <strong>{targetEvent.songCount}</strong>\n              </span>\n              {hasRole && targetEvent.userFunctionNames[0] && (\n                <span className="ms-v3-context-chip">\n                  <span>{t('dashboard.focus.myParticipation', 'Minha Participação')}</span>\n                  <strong>{targetEvent.userFunctionNames[0]}</strong>\n                </span>\n              )}\n              {targetPreparation && (\n                <span className="ms-v3-context-chip">\n                  <strong>{statusBadge.label}</strong>\n                </span>\n              )}\n            </div>\n          </div>\n\n          {/* Repertoire Setlist */}'''
+          replace_exact('components/dashboard/HomeFocusCard.tsx', marker, replacement, 'live context strip')
+
+          replace_exact(
+              'components/dashboard/HomeUpcomingEvents.tsx',
+              '<section className="space-y-4" aria-labelledby="dashboard-upcoming-events-title">',
+              '<section className="ms-v3-upcoming space-y-4" aria-labelledby="dashboard-upcoming-events-title">',
+              'upcoming events surface'
+          )
+
+          replace_exact(
+              'components/layout/GlobalCreateAction.tsx',
+              'className="relative w-full max-w-[400px] bg-white dark:bg-[#111115] rounded-[28px] border border-slate-200 dark:border-white/[0.09] shadow-[0_24px_64px_rgba(0,0,0,0.56),inset_0_1px_0_rgba(255,255,255,0.07)] flex flex-col overflow-hidden max-h-[min(70dvh,540px)] transform-gpu"',
+              'className="ms-v3-create-dialog relative w-full max-w-[400px] bg-white dark:bg-[#111115] rounded-[28px] border border-slate-200 dark:border-white/[0.09] shadow-[0_24px_64px_rgba(0,0,0,0.56),inset_0_1px_0_rgba(255,255,255,0.07)] flex flex-col overflow-hidden max-h-[min(70dvh,540px)] transform-gpu"',
+              'create dialog'
+          )
+
+          # Self-delete so the feature branch contains product code only.
+          Path('.github/workflows/premium-v3-experience-patch.yml').unlink()
+          PY
+
+      - name: Commit scoped transformations
+        run: |
+          git config user.name "prdanielcunha"
+          git config user.email "pastordanielpcunha@gmail.com"
+          git add pages/DashboardPage.tsx components/dashboard/HomeFocusCard.tsx components/dashboard/HomeUpcomingEvents.tsx components/layout/GlobalCreateAction.tsx .github/workflows/premium-v3-experience-patch.yml
+          git commit -m "feat: transform dashboard into MusicScale live context"
+          git push origin HEAD:feat/premium-v2-experience-20260913-final
