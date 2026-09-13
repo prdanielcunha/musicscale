@@ -1,3 +1,4 @@
+import { composeSpecialtyCatalog, toggleSpecialtySelection } from '../utils/specialtyCatalog';
 import { logger } from "../lib/logger";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -418,13 +419,13 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
             {t("users.specialties_inst", "Especialidades / Instrumentos")}
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {instruments.map((inst) => {
-              const isSelected = editSpecialtyIds.includes(inst.id);
+            {composeSpecialtyCatalog(instruments).map((inst) => {
+              const isSelected = inst.aliasIds.some(id => editSpecialtyIds.includes(id));
               const isCellDisabled = !isRoleEditable && user.uid !== currentUser?.uid;
               return (
                 <button
                   key={inst.id}
-                  onClick={() => handleToggleSpecialty(inst.id)}
+                  onClick={() => setEditSpecialtyIds(ids => toggleSpecialtySelection(ids, inst))}
                   disabled={isCellDisabled}
                   className={`flex items-center justify-between p-3 rounded-xl border text-xs font-bold transition-all duration-200 ${
                     isSelected
@@ -432,7 +433,7 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                       : "bg-white dark:bg-gray-800/40 border-slate-200 dark:border-gray-700 text-slate-500 dark:text-gray-400 hover:border-slate-300"
                   } disabled:opacity-60 disabled:cursor-not-allowed`}
                 >
-                  <span className="truncate mr-2">{inst.name}</span>
+                  <span className="truncate mr-2">{inst.key.startsWith("custom.") ? inst.name : t(`refinement.specialties.${inst.key}`)}</span>
                   {isSelected && (
                     <CheckIcon className="w-3.5 h-3.5 flex-shrink-0" />
                   )}
