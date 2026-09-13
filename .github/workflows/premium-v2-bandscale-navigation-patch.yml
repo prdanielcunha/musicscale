@@ -1,0 +1,69 @@
+name: Premium V2 BandScale Navigation Patch
+
+on:
+  push:
+    branches:
+      - feat/premium-v2-performance-stage-20260913
+    paths:
+      - .github/workflows/premium-v2-bandscale-navigation-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/premium-v2-performance-stage-20260913
+          fetch-depth: 0
+
+      - name: Apply scoped BandScale guard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          page = Path('pages/BandScalesPage.tsx')
+          text = page.read_text()
+
+          old_import = 'import { useParams, useNavigate } from "react-router-dom";'
+          new_import = 'import { useParams, useNavigate, useLocation } from "react-router-dom";'
+          if old_import not in text:
+              raise SystemExit('BandScales router import contract not found')
+          text = text.replace(old_import, new_import, 1)
+
+          old_nav = '  const navigate = useNavigate();\n  const [showLimitModal, setShowLimitModal] = useState(false);'
+          new_nav = '  const navigate = useNavigate();\n  const location = useLocation();\n  const [showLimitModal, setShowLimitModal] = useState(false);'
+          if old_nav not in text:
+              raise SystemExit('BandScales navigate contract not found')
+          text = text.replace(old_nav, new_nav, 1)
+
+          old_effect = '''    ) {\n      const scale = populatedBandScales.find((s) => s.id === scaleId);'''
+          new_effect = '''    ) {\n      const expectedPath = `/band-scales/${scaleId}`;\n      if (location.pathname !== expectedPath) {\n        return;\n      }\n\n      const scale = populatedBandScales.find((s) => s.id === scaleId);'''
+          if old_effect not in text:
+              raise SystemExit('BandScales deep-link body contract not found')
+          text = text.replace(old_effect, new_effect, 1)
+
+          old_deps = '  }, [scaleId, loading, populatedBandScales, openBandScaleDetail, navigate]);'
+          new_deps = '  }, [scaleId, loading, populatedBandScales, openBandScaleDetail, navigate, location.pathname]);'
+          if old_deps not in text:
+              raise SystemExit('BandScales deep-link dependency contract not found')
+          text = text.replace(old_deps, new_deps, 1)
+
+          page.write_text(text)
+          Path('.github/workflows/premium-v2-bandscale-navigation-patch.yml').unlink()
+          PY
+
+      - name: Verify minimal diff
+        run: |
+          git diff --check
+          git diff -- pages/BandScalesPage.tsx
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pages/BandScalesPage.tsx .github/workflows/premium-v2-bandscale-navigation-patch.yml
+          git commit -m "fix: prevent stale BandScale deep-link redirects"
+          git push origin HEAD:feat/premium-v2-performance-stage-20260913
