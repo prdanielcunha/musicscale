@@ -1,0 +1,306 @@
+/* MusicScale Premium V2 — app-wide visual language.
+   This layer intentionally overrides presentation only. Business logic, routing,
+   RBAC, tenant context and component behavior remain untouched. */
+
+:root {
+  --ms-bg: #07080b;
+  --ms-bg-elevated: #0c0e13;
+  --ms-surface-1: #101218;
+  --ms-surface-2: #151821;
+  --ms-surface-3: #1a1e28;
+  --ms-surface-hover: #202530;
+  --ms-border: rgba(255,255,255,.075);
+  --ms-border-strong: rgba(255,255,255,.13);
+  --ms-text: #f7f8fb;
+  --ms-text-secondary: #a8afbd;
+  --ms-text-tertiary: #737b8b;
+  --ms-accent: #7c83ff;
+  --ms-accent-strong: #9297ff;
+  --ms-accent-soft: rgba(124,131,255,.13);
+  --ms-success: #65d6a8;
+  --ms-warning: #f6c76d;
+  --ms-danger: #ff7c8a;
+  --ms-radius-sm: 12px;
+  --ms-radius-md: 16px;
+  --ms-radius-lg: 20px;
+  --ms-radius-xl: 26px;
+  --ms-shadow-1: 0 8px 24px rgba(0,0,0,.18);
+  --ms-shadow-2: 0 18px 54px rgba(0,0,0,.28);
+  --ms-shadow-float: 0 24px 70px rgba(0,0,0,.42);
+  --ms-ease: cubic-bezier(.16,1,.3,1);
+  --ms-control-h: 46px;
+  --color-background: var(--ms-bg);
+  --app-bg: var(--ms-bg);
+}
+
+html.dark, .dark {
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(900px 600px at 82% -10%, rgba(92,101,255,.075), transparent 62%),
+    radial-gradient(800px 620px at -12% 42%, rgba(87,66,180,.05), transparent 68%),
+    var(--ms-bg) !important;
+  color: var(--ms-text);
+}
+
+/* Better hierarchy: depth comes from tone, borders and shadows; blur is reserved
+   for floating/navigation surfaces instead of being used on every card. */
+.premium-glass,
+.glass-card,
+.glass-subtle {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.premium-glass,
+.glass-card {
+  background: linear-gradient(180deg, rgba(22,25,33,.98), rgba(15,17,23,.98)) !important;
+  border: 1px solid var(--ms-border) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), var(--ms-shadow-1) !important;
+}
+
+.glass-subtle {
+  background: rgba(255,255,255,.025) !important;
+  border: 1px solid rgba(255,255,255,.055) !important;
+}
+
+.glass-elevated,
+.glass-modal {
+  background: rgba(15,17,23,.96) !important;
+  border: 1px solid var(--ms-border-strong) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), var(--ms-shadow-float) !important;
+}
+
+.glass-elevated {
+  backdrop-filter: blur(18px) saturate(125%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(125%) !important;
+}
+
+.glass-modal {
+  backdrop-filter: blur(26px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(130%) !important;
+  border-radius: var(--ms-radius-xl) !important;
+}
+
+.glass-navbar {
+  background: rgba(10,11,15,.94) !important;
+  border-color: var(--ms-border) !important;
+  backdrop-filter: blur(18px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(120%) !important;
+  box-shadow: 0 -14px 44px rgba(0,0,0,.34) !important;
+}
+
+.glass-active {
+  background: linear-gradient(180deg, rgba(124,131,255,.16), rgba(124,131,255,.09)) !important;
+  border-color: rgba(145,151,255,.22) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06) !important;
+}
+
+.glass-card-hover {
+  transition: transform .22s var(--ms-ease), background-color .22s var(--ms-ease), border-color .22s var(--ms-ease), box-shadow .22s var(--ms-ease) !important;
+}
+
+@media (hover:hover) and (pointer:fine) {
+  .glass-card-hover:hover {
+    transform: translateY(-2px) !important;
+    background: linear-gradient(180deg, #1a1e27, #12151b) !important;
+    border-color: var(--ms-border-strong) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 18px 45px rgba(0,0,0,.3) !important;
+  }
+}
+
+/* Shared app primitives */
+.ms-shell {
+  background: transparent;
+  color: var(--ms-text);
+}
+
+.ms-shell-main {
+  scrollbar-gutter: stable;
+}
+
+.ms-surface {
+  background: var(--ms-surface-1);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-radius-lg);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025), var(--ms-shadow-1);
+}
+
+.ms-surface-raised {
+  background: linear-gradient(180deg, var(--ms-surface-2), var(--ms-surface-1));
+  border: 1px solid var(--ms-border-strong);
+  border-radius: var(--ms-radius-lg);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), var(--ms-shadow-2);
+}
+
+.ms-section-label {
+  color: var(--ms-text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.ms-focus-ring:focus-visible,
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid rgba(145,151,255,.72);
+  outline-offset: 3px;
+}
+
+/* Controls: tactile, dense enough for musicians, but never tiny on mobile. */
+.input-base,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="date"],
+input[type="number"],
+input[type="url"],
+select,
+textarea {
+  min-height: var(--ms-control-h);
+  background: #0d1015 !important;
+  border: 1px solid var(--ms-border) !important;
+  color: var(--ms-text) !important;
+  border-radius: var(--ms-radius-sm) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.02) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.input-base:focus {
+  background: #11141b !important;
+  border-color: rgba(145,151,255,.55) !important;
+  box-shadow: 0 0 0 3px rgba(124,131,255,.12) !important;
+}
+
+::placeholder {
+  color: #626b7b !important;
+}
+
+/* Motion should communicate state, not decorate every property. */
+.premium-interactive {
+  transition: transform .16s var(--ms-ease), background-color .18s ease, border-color .18s ease, color .18s ease, opacity .18s ease !important;
+}
+
+.premium-interactive:active {
+  transform: scale(.975) !important;
+}
+
+/* Page typography remains compact on phones and opens up on larger screens. */
+main h1 {
+  color: var(--ms-text);
+  letter-spacing: -.035em;
+}
+
+main h2,
+main h3 {
+  color: var(--ms-text);
+  letter-spacing: -.025em;
+}
+
+main p {
+  text-wrap: pretty;
+}
+
+/* Tables become cleaner operational surfaces. */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+thead {
+  color: var(--ms-text-tertiary);
+}
+
+tbody tr {
+  transition: background-color .16s ease;
+}
+
+@media (hover:hover) and (pointer:fine) {
+  tbody tr:hover {
+    background: rgba(255,255,255,.018);
+  }
+}
+
+/* Scrollbars intentionally quiet, visible only enough for desktop discoverability. */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.20); }
+html { scrollbar-color: rgba(255,255,255,.12) transparent; }
+
+/* Skeleton primitive used by existing loading regions if they expose animate-pulse. */
+.animate-pulse {
+  animation-duration: 1.6s !important;
+}
+
+/* Premium shell markers */
+.ms-premium-header {
+  background: rgba(8,9,12,.88);
+  border-bottom: 1px solid rgba(255,255,255,.055);
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+}
+
+.ms-premium-bottom-nav {
+  background: linear-gradient(180deg, rgba(24,27,35,.985), rgba(10,11,15,.99));
+  border: 1px solid rgba(255,255,255,.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 20px 56px rgba(0,0,0,.48);
+}
+
+.ms-premium-bottom-active {
+  background: linear-gradient(180deg, rgba(132,139,255,.21), rgba(95,103,225,.11));
+  border: 1px solid rgba(158,163,255,.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 8px 18px rgba(0,0,0,.16);
+}
+
+/* iPad/tablet: content should feel intentional, not like stretched mobile. */
+@media (min-width: 768px) and (max-width: 1180px) {
+  .ms-shell-main > div {
+    max-width: 1120px;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --ms-radius-lg: 18px;
+    --ms-radius-xl: 24px;
+  }
+
+  body {
+    background:
+      radial-gradient(620px 420px at 96% -5%, rgba(92,101,255,.065), transparent 66%),
+      var(--ms-bg) !important;
+  }
+
+  main {
+    overscroll-behavior-y: contain;
+  }
+
+  button,
+  a[role="button"],
+  [role="button"] {
+    min-height: 44px;
+  }
+
+  .glass-card,
+  .premium-glass {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.025), 0 8px 22px rgba(0,0,0,.16) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
