@@ -17,10 +17,14 @@ export interface MobileSidebarDrawerHandle {
   close: () => void;
 }
 
-const DRAWER_TRANSITION_MS = 150;
+const DRAWER_TRANSITION_MS = 240;
 
 const ExpandedMobileSidebar = memo(function ExpandedMobileSidebar({ onClose }: { onClose: () => void }) {
-  return <Sidebar isCollapsed={false} onToggle={onClose} onLinkClick={onClose} />;
+  return (
+    <div className="ms-v3-command-frame h-full w-full">
+      <Sidebar isCollapsed={false} onToggle={onClose} onLinkClick={onClose} />
+    </div>
+  );
 });
 
 const MobileSidebarDrawer = forwardRef<MobileSidebarDrawerHandle>(
@@ -58,7 +62,7 @@ const MobileSidebarDrawer = forwardRef<MobileSidebarDrawerHandle>(
       inertTimerRef.current = window.setTimeout(() => {
         setIsInteractive(false);
         inertTimerRef.current = null;
-      }, DRAWER_TRANSITION_MS + 20);
+      }, DRAWER_TRANSITION_MS + 30);
     }, [clearInertTimer]);
 
     const beginMeasuredClose = useCallback(() => {
@@ -79,7 +83,7 @@ const MobileSidebarDrawer = forwardRef<MobileSidebarDrawerHandle>(
       <>
         <div
           aria-hidden="true"
-          className={`fixed inset-0 z-[90] bg-black/[0.78] transform-gpu transition-opacity duration-150 touch-manipulation md:hidden ${
+          className={`ms-v3-drawer-backdrop fixed inset-0 z-[90] transform-gpu transition-opacity duration-200 touch-manipulation md:hidden ${
             isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
           }`}
           onPointerDown={beginMeasuredClose}
@@ -89,20 +93,22 @@ const MobileSidebarDrawer = forwardRef<MobileSidebarDrawerHandle>(
         <div
           aria-hidden={!isInteractive}
           inert={!isInteractive}
-          className={`fixed inset-y-0 left-0 z-[100] transform-gpu py-3 pl-3 transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform md:hidden ${
-            isOpen ? "translate-x-0" : "pointer-events-none -translate-x-[calc(100%+4rem)]"
+          className={`ms-v3-command-drawer fixed inset-y-0 left-0 z-[100] transform-gpu transition-[transform,opacity] duration-[240ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform md:hidden ${
+            isOpen
+              ? "translate-x-0 opacity-100"
+              : "pointer-events-none -translate-x-[calc(100%+2rem)] opacity-70"
           }`}
         >
           <ExpandedMobileSidebar onClose={close} />
 
           <button
             type="button"
-            className="premium-interactive absolute -right-12 top-[max(1.5rem,env(safe-area-inset-top))] flex h-10 w-10 items-center justify-center rounded-[13px] border border-white/[0.09] bg-[#15151b]/[0.99] text-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_28px_rgba(0,0,0,0.38)] hover:text-white"
+            className="ms-v3-command-close premium-interactive"
             onPointerDown={beginMeasuredClose}
             onClick={close}
             aria-label={t("common.close", "Fechar")}
           >
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
