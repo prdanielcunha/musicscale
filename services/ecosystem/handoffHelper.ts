@@ -5,6 +5,7 @@ import { auth } from '../firebase';
 let handoffPromise: Promise<void> | null = null;
 const HUB_LAUNCH_URL = 'https://www.millionsnest.com/apps/musicscale/launch';
 const RECOVERY_KEY = 'mn_sso_recovery_musicscale';
+const MAIN_PREVIEW_HOST = /^mn-musicscale-555464791734--main-review-[a-z0-9-]+\.web\.app$/;
 
 export function resetHandoffForTesting() {
   handoffPromise = null;
@@ -18,12 +19,39 @@ function safeReturnPath(): string {
   return path;
 }
 
+export function getTrustedMainPreviewOrigin(origin = window.location.origin): string | null {
+  try {
+    const url = new URL(origin);
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      url.port ||
+      url.pathname !== '/' ||
+      url.search ||
+      url.hash ||
+      !MAIN_PREVIEW_HOST.test(url.hostname.toLowerCase())
+    ) {
+      return null;
+    }
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
 export function redirectToHubLaunch(returnTo = safeReturnPath(), replace = true): void {
   const hubUrl = new URL(HUB_LAUNCH_URL);
   const safePath = returnTo.startsWith('/') && !returnTo.startsWith('//') && !returnTo.includes('://') && !returnTo.includes('\\')
     ? returnTo
     : '/start';
   hubUrl.searchParams.set('returnTo', safePath);
+
+  const trustedPreviewOrigin = getTrustedMainPreviewOrigin();
+  if (trustedPreviewOrigin) {
+    hubUrl.searchParams.set('returnOrigin', trustedPreviewOrigin);
+  }
+
   incrementStartupCounter('redirect_count');
   if (replace) window.location.replace(hubUrl.toString());
   else window.location.assign(hubUrl.toString());
