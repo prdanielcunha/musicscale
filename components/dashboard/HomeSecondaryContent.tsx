@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp, Compass, Library, Sparkles, MonitorPlay, ArrowUpRight } from 'lucide-react';
+import { ChevronDown, ChevronUp, Compass, Library, Sparkles, MonitorPlay } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 interface HomeSecondaryContentProps {
@@ -137,9 +137,8 @@ export const HomeSecondaryContent: React.FC<HomeSecondaryContentProps> = ({
                 </div>
               )}
 
-              <div className={`mt-auto flex items-center gap-1.5 pt-5 text-[11px] font-semibold ${tone.icon}`}>
-                {card.cta}
-                <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              <div className={`mt-auto pt-5 text-[11px] font-semibold ${tone.icon}`}>
+                <span className="transition-[letter-spacing] duration-200 group-hover:tracking-[0.01em]">{card.cta} →</span>
               </div>
             </button>
           );
@@ -169,8 +168,13 @@ export const HomeSecondaryContent: React.FC<HomeSecondaryContentProps> = ({
                 <div className="text-[13px] font-semibold text-white">{t('dashboard.explore.activityTitle')}</div>
                 <div className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-white/38">{t('dashboard.explore.activityDescription')}</div>
               </div>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-white/[0.07] bg-white/[0.03] text-white/45">
-                {isActivityExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              <span className="flex shrink-0 items-center gap-2">
+                <span className="hidden text-[10px] font-semibold text-white/42 min-[390px]:inline">
+                  {isActivityExpanded ? t('dashboard.explore.activityCollapse') : t('dashboard.explore.activityExpand')}
+                </span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-[11px] border border-white/[0.07] bg-white/[0.03] text-white/45">
+                  {isActivityExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </span>
               </span>
             </button>
 
