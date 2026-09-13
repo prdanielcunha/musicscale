@@ -16,13 +16,12 @@ const Card: React.FC<CardProps> = ({
   interactive,
   ...rest
 }) => {
+  const isInteractive = interactive ?? Boolean(onClick);
   const cardClasses = `
-    bg-white dark:bg-white/[0.02] dark:backdrop-blur-3xl border border-black/[0.04] dark:border-white/5
-    rounded-[24px]
-    shadow-[0_8px_30px_rgb(0,0,0,0.02)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.05)]
-    transition-all duration-300
-    ${padding === "normal" ? "p-6 md:p-8" : padding === "large" ? "p-8 md:p-12" : ""}
-    ${onClick ? "cursor-pointer touch-manipulation hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.1)] hover:border-black/10 dark:hover:border-white/10" : ""}
+    ms-surface relative overflow-hidden
+    transition-[transform,background-color,border-color,box-shadow] duration-200
+    ${padding === "normal" ? "p-5 sm:p-6 md:p-7" : padding === "large" ? "p-6 sm:p-8 md:p-10" : ""}
+    ${isInteractive ? "cursor-pointer touch-manipulation hover:-translate-y-0.5 hover:border-white/[0.12] hover:bg-[#151922] hover:shadow-[0_18px_48px_rgba(0,0,0,0.24)] active:translate-y-0 active:scale-[0.995]" : ""}
     ${className}
   `;
 
