@@ -1,6 +1,7 @@
 /* MusicScale Performance / Stage — Premium V2 visual layer.
    Scoped to the existing stage hooks so audio, live direction, wake-lock,
-   transposition and recovery logic remain untouched. */
+   transposition and recovery logic remain untouched.
+   Interaction behavior for idle control recede remains in ChordsViewerModal. */
 
 .top-bar {
   min-height: 68px;
