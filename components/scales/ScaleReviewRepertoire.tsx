@@ -32,7 +32,7 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
   const [draggedSongId, setDraggedSongId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
-    const dragInfo = useRef<{
+  const dragInfo = useRef<{
     startIndex: number | null;
     element: HTMLElement | null;
     previousBodyOverflow: string | null;
@@ -55,48 +55,32 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
       document.body.style.overflow = dragInfo.current.previousBodyOverflow;
     }
     dragInfo.current = { startIndex: null, element: null, previousBodyOverflow: null };
-    if (isMounted.current) {
-      setDropTargetId(null);
-    }
+    if (isMounted.current) setDropTargetId(null);
   };
 
-  // Cleanup body overflow on unmount
-  
-
   const moveSongReview = (index: number, direction: "up" | "down") => {
-    if (
-      (direction === "up" && index === 0) ||
-      (direction === "down" && index === songIds.length - 1)
-    ) return;
-
+    if ((direction === "up" && index === 0) || (direction === "down" && index === songIds.length - 1)) return;
     const targetIndex = direction === "up" ? index - 1 : index + 1;
-    const newIds = moveSongId(songIds, index, targetIndex);
-    onSongIdsChange(newIds);
+    onSongIdsChange(moveSongId(songIds, index, targetIndex));
   };
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, songId: string) => {
     setDraggedSongId(songId);
     e.dataTransfer.effectAllowed = "move";
     const img = new Image();
-    img.src =
-      "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+    img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
     e.dataTransfer.setDragImage(img, 0, 0);
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>, songId: string) => {
     e.preventDefault();
-    if (draggedSongId && draggedSongId !== songId) {
-      setDropTargetId(songId);
-    }
+    if (draggedSongId && draggedSongId !== songId) setDropTargetId(songId);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetId: string) => {
     e.preventDefault();
     if (!draggedSongId || draggedSongId === targetId) return;
-
-    const newIds = moveSongBeforeTarget(songIds, draggedSongId, targetId);
-    onSongIdsChange(newIds);
-    
+    onSongIdsChange(moveSongBeforeTarget(songIds, draggedSongId, targetId));
     setDraggedSongId(null);
     setDropTargetId(null);
   };
@@ -107,71 +91,55 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>, index: number) => {
-    cleanupTouch(); // garantir que um novo gesto não herde referências do gesto anterior
+    cleanupTouch();
     dragInfo.current.startIndex = index;
     const songItem = e.currentTarget.closest<HTMLElement>("[data-song-id]");
     dragInfo.current.element = songItem;
     dragInfo.current.previousBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    if (songItem) {
-      songItem.classList.add("opacity-50", "shadow-2xl");
-    }
+    if (songItem) songItem.classList.add("opacity-50", "shadow-2xl");
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (dragInfo.current.startIndex === null) return;
     e.preventDefault();
-
     const touch = e.touches[0];
-    const targetElement = document.elementFromPoint(
-      touch.clientX,
-      touch.clientY,
-    );
+    const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
     if (!targetElement) return;
-
     const songItem = targetElement.closest<HTMLElement>("[data-song-id]");
     if (!songItem) return;
-
     setDropTargetId(songItem.dataset.songId || null);
-
     const targetIndex = Number(songItem.dataset.index);
     const startIndex = dragInfo.current.startIndex;
-
     if (!isNaN(targetIndex) && targetIndex !== startIndex) {
-      const newIds = moveSongId(songIds, startIndex, targetIndex);
-
       dragInfo.current.startIndex = targetIndex;
-      onSongIdsChange(newIds);
+      onSongIdsChange(moveSongId(songIds, startIndex, targetIndex));
     }
   };
 
-  const handleTouchEnd = () => {
-    cleanupTouch();
-  };
-
-  const handleTouchCancel = () => {
-    cleanupTouch();
-  };
+  const handleTouchEnd = () => cleanupTouch();
+  const handleTouchCancel = () => cleanupTouch();
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs uppercase font-bold tracking-widest">
-          {t('scaleModal.repertoire', 'Repertório')}
-        </span>
+    <section className="ms-panel p-4 sm:p-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="ms-kicker">{t('scaleModal.repertoire', 'Repertório')}</span>
+          {songIds && songIds.length >= 2 && (
+            <p className="mt-2 max-w-xl text-[12px] font-medium leading-relaxed text-white/38">
+              {t('scaleModal.reviewInstruction', 'Arraste as músicas ou use as setas para definir a ordem do culto.')}
+            </p>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => goToStep('build')}
-          className="text-xs font-bold text-primary hover:text-primary-dark transition-colors flex items-center gap-1"
+          className="premium-interactive shrink-0 rounded-[11px] border border-primary/20 bg-primary/[0.08] px-3 py-2 text-[11px] font-semibold text-primary-light hover:bg-primary/[0.13]"
         >
           {t('scaleModal.editRepertoire', 'Editar Repertório')}
         </button>
       </div>
-      {songIds && songIds.length >= 2 && (
-        <p className="text-[12px] text-slate-500 dark:text-slate-400 mb-4 font-medium leading-relaxed">
-          {t('scaleModal.reviewInstruction', 'Arraste as músicas ou use as setas para definir a ordem do culto.')}
-        </p>
-      )}
+
       {songIds && songIds.length > 0 ? (
         <div className="space-y-2">
           {songIds.map((id, index) => {
@@ -179,14 +147,13 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
             if (!song) return null;
             return (
               <React.Fragment key={song.id}>
-                <div 
+                <div
                   onDragOver={(e) => handleDragOver(e, song.id)}
                   onDrop={(e) => handleDrop(e, song.id)}
                   onDragLeave={() => setDropTargetId(null)}
-                  className={`h-2 rounded-md transition-all duration-150 ${dropTargetId === song.id ? "bg-primary/50 h-8" : ""}`}
+                  className={`rounded-full transition-[height,background-color] duration-150 ${dropTargetId === song.id ? "h-5 bg-primary/50" : "h-1"}`}
                 />
                 <ScaleSongCard
-                  key={song.id}
                   song={song}
                   isSelected={true}
                   mode="review"
@@ -194,10 +161,7 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
                   tags={tags}
                   localSettings={songSettings?.[song.id]}
                   onSettingsChange={(key, bpm, isGlobal) => onUpdateSongSettings(song.id, key, bpm, isGlobal)}
-                  onToggle={() => {
-                    const newSongIds = songIds.filter(id => id !== song.id);
-                    onSongIdsChange(newSongIds);
-                  }}
+                  onToggle={() => onSongIdsChange(songIds.filter(id => id !== song.id))}
                   onMoveUp={() => moveSongReview(index, "up")}
                   onMoveDown={() => moveSongReview(index, "down")}
                   isFirst={index === 0}
@@ -213,27 +177,27 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
               </React.Fragment>
             );
           })}
-          <div // Final drop target
+          <div
             onDragOver={(e) => handleDragOver(e, "end")}
             onDrop={(e) => handleDrop(e, "end")}
             onDragLeave={() => setDropTargetId(null)}
-            className={`h-2 rounded-md transition-all duration-150 ${dropTargetId === "end" ? "bg-primary/50 h-8" : ""}`}
+            className={`rounded-full transition-[height,background-color] duration-150 ${dropTargetId === "end" ? "h-5 bg-primary/50" : "h-1"}`}
           />
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl">
-          <span className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-3">
+        <div className="flex flex-col items-center justify-center rounded-[16px] border border-dashed border-white/[0.1] bg-white/[0.02] p-6 text-center">
+          <span className="mb-3 text-[13px] font-medium text-white/45">
             {t('scaleModal.noSongsSelected', 'Nenhuma música selecionada')}
           </span>
           <button
             type="button"
             onClick={() => goToStep('build')}
-            className="px-4 py-2 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
+            className="ms-btn-primary min-h-[40px] px-4 text-[12px]"
           >
             {t('scaleModal.addMoreSongs', 'Adicionar músicas')}
           </button>
         </div>
       )}
-    </div>
+    </section>
   );
 };

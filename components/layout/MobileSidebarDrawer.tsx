@@ -19,18 +19,8 @@ export interface MobileSidebarDrawerHandle {
 
 const DRAWER_TRANSITION_MS = 150;
 
-const ExpandedMobileSidebar = memo(function ExpandedMobileSidebar({
-  onClose,
-}: {
-  onClose: () => void;
-}) {
-  return (
-    <Sidebar
-      isCollapsed={false}
-      onToggle={onClose}
-      onLinkClick={onClose}
-    />
-  );
+const ExpandedMobileSidebar = memo(function ExpandedMobileSidebar({ onClose }: { onClose: () => void }) {
+  return <Sidebar isCollapsed={false} onToggle={onClose} onLinkClick={onClose} />;
 });
 
 const MobileSidebarDrawer = forwardRef<MobileSidebarDrawerHandle>(
@@ -61,10 +51,6 @@ const MobileSidebarDrawer = forwardRef<MobileSidebarDrawerHandle>(
       const finishMeasurement = closeMeasurementRef.current
         ?? beginInteractionPaintMeasurement('mobile_drawer_close_to_paint_ms');
       closeMeasurementRef.current = null;
-
-      // Paint the transform/opacity close first. Applying `inert` immediately to
-      // the full navigation subtree makes WebKit update focus/accessibility while
-      // the closing frame is trying to render, which needlessly extends input-to-paint.
       setIsOpen(false);
       finishMeasurement();
 
@@ -93,8 +79,8 @@ const MobileSidebarDrawer = forwardRef<MobileSidebarDrawerHandle>(
       <>
         <div
           aria-hidden="true"
-          className={`md:hidden fixed inset-0 z-[90] bg-black/72 transform-gpu transition-opacity duration-150 touch-manipulation ${
-            isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          className={`fixed inset-0 z-[90] bg-black/[0.78] transform-gpu transition-opacity duration-150 touch-manipulation md:hidden ${
+            isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
           }`}
           onPointerDown={beginMeasuredClose}
           onClick={close}
@@ -103,28 +89,20 @@ const MobileSidebarDrawer = forwardRef<MobileSidebarDrawerHandle>(
         <div
           aria-hidden={!isInteractive}
           inert={!isInteractive}
-          className={`md:hidden fixed inset-y-0 left-0 z-[100] py-4 pl-4 transform-gpu will-change-transform transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-            isOpen ? "translate-x-0" : "-translate-x-[calc(100%+4rem)] pointer-events-none"
+          className={`fixed inset-y-0 left-0 z-[100] transform-gpu py-3 pl-3 transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform md:hidden ${
+            isOpen ? "translate-x-0" : "pointer-events-none -translate-x-[calc(100%+4rem)]"
           }`}
         >
           <ExpandedMobileSidebar onClose={close} />
 
           <button
             type="button"
-            className="absolute top-8 -right-12 w-10 h-10 flex items-center justify-center bg-[#1a1a1d]/98 text-white rounded-full border border-white/[0.08] touch-manipulation active:scale-95 transition-transform duration-100"
+            className="premium-interactive absolute -right-12 top-[max(1.5rem,env(safe-area-inset-top))] flex h-10 w-10 items-center justify-center rounded-[13px] border border-white/[0.09] bg-[#15151b]/[0.99] text-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_28px_rgba(0,0,0,0.38)] hover:text-white"
             onPointerDown={beginMeasuredClose}
             onClick={close}
             aria-label={t("common.close", "Fechar")}
           >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
-            >
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
