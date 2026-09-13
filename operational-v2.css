@@ -5,14 +5,16 @@
 .ms-profile-page,
 .ms-users-page,
 .ms-band-page,
-.ms-band-scales-page {
+.ms-band-scales-page,
+.ms-songs-page {
   color: var(--ms-text);
 }
 
 .ms-notifications-page,
 .ms-profile-page,
 .ms-users-page,
-.ms-band-page {
+.ms-band-page,
+.ms-songs-page {
   width: min(100%, 1120px);
   margin-inline: auto;
 }
@@ -20,7 +22,8 @@
 .ms-notifications-page h1,
 .ms-profile-page h1,
 .ms-users-page h1,
-.ms-band-scales-page h1 {
+.ms-band-scales-page h1,
+.ms-songs-page h1 {
   letter-spacing: -0.035em;
 }
 
@@ -99,7 +102,9 @@
 .ms-users-page select,
 .ms-users-page textarea,
 .ms-band-page input,
-.ms-band-page select {
+.ms-band-page select,
+.ms-songs-page input,
+.ms-songs-page select {
   min-height: 46px;
 }
 
@@ -135,6 +140,45 @@
   transition: transform 180ms var(--ms-ease), border-color 180ms var(--ms-ease), background 180ms var(--ms-ease);
 }
 
+/* Repertoire: search and musical metadata lead; utilities recede. */
+.ms-songs-page {
+  padding-bottom: max(8rem, calc(env(safe-area-inset-bottom) + 6rem));
+}
+
+.ms-songs-page > div:has(> div > input[type="search"]) {
+  gap: 12px !important;
+  padding: 12px;
+  border: 1px solid var(--ms-stroke);
+  border-radius: var(--ms-radius-lg);
+  background: linear-gradient(180deg, rgba(18,18,24,.94), rgba(12,12,16,.96));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 18px 50px -38px rgba(0,0,0,.92);
+}
+
+.ms-songs-page input[type="search"] {
+  border-color: var(--ms-stroke-strong) !important;
+  background: rgba(8,8,12,.94) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025) !important;
+}
+
+.ms-songs-page [class*="backdrop-blur-3xl"] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.ms-songs-page table {
+  font-variant-numeric: tabular-nums;
+}
+
+.ms-songs-page table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.ms-songs-page table tbody tr {
+  min-height: 52px;
+}
+
 /* BandScale: align with the musical timeline family and remove broad glass. */
 .ms-band-scales-page {
   width: min(100%, 1180px);
@@ -157,7 +201,8 @@
   .ms-profile-page,
   .ms-users-page,
   .ms-band-page,
-  .ms-band-scales-page {
+  .ms-band-scales-page,
+  .ms-songs-page {
     padding-inline: 10px !important;
   }
 
@@ -177,6 +222,14 @@
   .ms-users-page > div:first-child {
     padding: 13px;
   }
+
+  .ms-songs-page > div:has(> div > input[type="search"]) {
+    padding: 9px;
+  }
+
+  .ms-songs-page > div:has(> div > input[type="search"]) > div:last-child {
+    width: 100%;
+  }
 }
 
 @media (min-width: 768px) and (max-width: 1180px) {
@@ -184,7 +237,8 @@
   .ms-profile-page,
   .ms-users-page,
   .ms-band-page,
-  .ms-band-scales-page {
+  .ms-band-scales-page,
+  .ms-songs-page {
     padding-inline: 18px !important;
   }
 }
@@ -194,7 +248,8 @@
   .ms-profile-page *,
   .ms-users-page *,
   .ms-band-page *,
-  .ms-band-scales-page * {
+  .ms-band-scales-page *,
+  .ms-songs-page * {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
