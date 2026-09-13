@@ -32,17 +32,17 @@ const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(({
 
   const variantClasses = {
     primary:
-      "bg-[#f4f5f8] text-[#0b0d12] border-white/80 shadow-[0_6px_20px_rgba(0,0,0,0.20)] hover:bg-white hover:shadow-[0_10px_28px_rgba(0,0,0,0.28)]",
+      "bg-slate-900 text-white border-slate-900/80 shadow-[0_6px_20px_rgba(15,23,42,0.18)] hover:bg-slate-800 dark:bg-[#f4f5f8] dark:text-[#0b0d12] dark:border-white/80 dark:hover:bg-white dark:shadow-[0_6px_20px_rgba(0,0,0,0.20)] dark:hover:shadow-[0_10px_28px_rgba(0,0,0,0.28)]",
     secondary:
-      "bg-[#151922] text-slate-200 border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] hover:bg-[#1b202a] hover:border-white/[0.13] hover:text-white",
+      "bg-white text-slate-700 border-slate-200 shadow-sm hover:bg-slate-50 hover:border-slate-300 dark:bg-[#151922] dark:text-slate-200 dark:border-white/[0.08] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] dark:hover:bg-[#1b202a] dark:hover:border-white/[0.13] dark:hover:text-white",
     danger:
-      "bg-red-500/[0.09] text-red-300 border-red-400/[0.16] hover:bg-red-500/[0.16] hover:border-red-400/[0.28]",
+      "bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:border-red-300 dark:bg-red-500/[0.09] dark:text-red-300 dark:border-red-400/[0.16] dark:hover:bg-red-500/[0.16] dark:hover:border-red-400/[0.28]",
     blue:
-      "bg-[#696ff5] text-white border-indigo-300/[0.18] shadow-[0_8px_24px_rgba(70,76,210,0.24)] hover:bg-[#777dfb] hover:shadow-[0_12px_30px_rgba(70,76,210,0.32)]",
+      "bg-[#696ff5] text-white border-indigo-400/20 shadow-[0_8px_24px_rgba(70,76,210,0.20)] hover:bg-[#777dfb] hover:shadow-[0_12px_30px_rgba(70,76,210,0.28)]",
     white:
-      "bg-white text-slate-950 border-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] hover:bg-slate-100",
+      "bg-white text-slate-950 border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.10)] hover:bg-slate-50 dark:border-white dark:shadow-[0_8px_24px_rgba(0,0,0,0.18)] dark:hover:bg-slate-100",
     ghost:
-      "bg-transparent text-slate-400 border-transparent hover:bg-white/[0.05] hover:text-white hover:border-white/[0.05]",
+      "bg-transparent text-slate-600 border-transparent hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/[0.05] dark:hover:text-white dark:hover:border-white/[0.05]",
   };
 
   const sizeClasses = {
