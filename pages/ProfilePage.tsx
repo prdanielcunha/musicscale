@@ -19,6 +19,7 @@ import {
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 import Spinner from "../components/common/Spinner";
+import OperationalWorkspaceSkeleton from "../components/common/OperationalWorkspaceSkeleton";
 import { UserIcon } from "../components/icons/UserIcon";
 import { SunIcon } from "../components/icons/SunIcon";
 import { MoonIcon } from "../components/icons/MoonIcon";
@@ -615,15 +616,11 @@ const ProfilePage: React.FC = () => {
   };
 
   if (isInitialLoading) {
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner />
-      </div>
-    );
+    return <OperationalWorkspaceSkeleton variant="profile" />;
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-20 pt-4 md:pt-0">
+    <div className="ms-profile-page max-w-5xl mx-auto space-y-8 pb-20 pt-4 md:pt-0">
       <div className="flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
         <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto">
           <div className="relative group cursor-pointer">

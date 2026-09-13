@@ -190,7 +190,7 @@ const NotificationsPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-6 md:py-8 min-h-[100dvh]">
+    <div className="ms-notifications-page w-full max-w-5xl mx-auto px-4 py-6 md:py-8 min-h-[100dvh]">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
           <button

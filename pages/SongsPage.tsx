@@ -19,6 +19,7 @@ import { useModals } from "../contexts/ModalContext";
 import { useLimits, useAuth } from "../contexts/AuthContext";
 import { useApi } from "../contexts/ApiContext";
 import Spinner from "../components/common/Spinner";
+import MusicWorkspaceSkeleton from "../components/common/MusicWorkspaceSkeleton";
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 import EmptyState from "../components/common/EmptyState";
@@ -496,11 +497,7 @@ const SongsPage: React.FC = () => {
   };
 
   if (loading)
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner />
-      </div>
-    );
+    return <MusicWorkspaceSkeleton cardCount={8} />;
   if (error) return <div className="text-red-500 text-center">{error}</div>;
 
   const isCompletelyEmpty = songs.length === 0;
@@ -514,7 +511,7 @@ const SongsPage: React.FC = () => {
     
     return (
       <>
-        <div className="max-w-4xl mx-auto py-12 md:py-20 px-4 text-center">
+        <div className="ms-songs-page max-w-4xl mx-auto py-12 md:py-20 px-4 text-center">
           <div className="w-24 h-24 bg-gradient-to-br from-primary/10 to-transparent rounded-[2rem] flex items-center justify-center mx-auto mb-8 text-primary shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-primary/10 relative">
             <div className="absolute inset-0 bg-white/40 dark:bg-[#111111]/40 backdrop-blur-xl rounded-[2rem] -z-10"></div>
             <RepertoireIcon className="w-12 h-12 relative z-10" />
@@ -651,7 +648,7 @@ const SongsPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="ms-songs-page space-y-6">
       {canManageRepertoire && (!allowance?.completed || allowanceLoading || allowanceError) && (
         <StarterPackAllowanceCard 
           allowance={allowance} 
