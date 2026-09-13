@@ -141,7 +141,7 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
       </div>
 
       {songIds && songIds.length > 0 ? (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {songIds.map((id, index) => {
             const song = songs.find(s => s.id === id);
             if (!song) return null;
@@ -151,7 +151,7 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
                   onDragOver={(e) => handleDragOver(e, song.id)}
                   onDrop={(e) => handleDrop(e, song.id)}
                   onDragLeave={() => setDropTargetId(null)}
-                  className={`rounded-full transition-[height,background-color] duration-150 ${dropTargetId === song.id ? "h-5 bg-primary/35" : "h-1"}`}
+                  className={`rounded-full transition-[height,background-color] duration-150 ${dropTargetId === song.id ? "h-5 bg-primary/50" : "h-1"}`}
                 />
                 <ScaleSongCard
                   song={song}
@@ -181,7 +181,7 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
             onDragOver={(e) => handleDragOver(e, "end")}
             onDrop={(e) => handleDrop(e, "end")}
             onDragLeave={() => setDropTargetId(null)}
-            className={`rounded-full transition-[height,background-color] duration-150 ${dropTargetId === "end" ? "h-5 bg-primary/35" : "h-1"}`}
+            className={`rounded-full transition-[height,background-color] duration-150 ${dropTargetId === "end" ? "h-5 bg-primary/50" : "h-1"}`}
           />
         </div>
       ) : (
