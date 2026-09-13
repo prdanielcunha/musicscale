@@ -8,6 +8,7 @@ const read = (file: string) =>
 describe('MusicScale premium experience contract', () => {
   const bottomNav = read('components/layout/BottomNav.tsx');
   const drawer = read('components/layout/MobileSidebarDrawer.tsx');
+  const sidebar = read('components/layout/Sidebar.tsx');
   const dashboard = read('pages/DashboardPage.tsx');
   const focusCard = read('components/dashboard/HomeFocusCard.tsx');
   const scales = read('pages/ScalesPage.tsx');
@@ -18,6 +19,7 @@ describe('MusicScale premium experience contract', () => {
   const experience = read('experience-v3.css');
   const surfaces = read('experience-v3-surfaces.css');
   const command = read('experience-v3-command.css');
+  const operational = read('experience-v3-operational.css');
 
   it('keeps the adaptive mobile dock with create integrated into navigation', () => {
     expect(bottomNav).toContain('ms-v3-dock');
@@ -55,10 +57,20 @@ describe('MusicScale premium experience contract', () => {
     expect(surfaces).toContain('.ms-v3-library-page > div:first-child');
   });
 
+  it('keeps operational screens and desktop navigation in the same premium system', () => {
+    expect(sidebar).toContain('ms-v3-sidebar');
+    expect(operational).toContain('.ms-notifications-page');
+    expect(operational).toContain('.ms-profile-page');
+    expect(operational).toContain('.ms-users-page');
+    expect(operational).toContain('.ms-band-page');
+    expect(operational).toContain('.ms-band-scales-page');
+  });
+
   it('loads all experience layers and preserves reduced-motion support', () => {
     expect(index).toContain("import './experience-v3.css';");
     expect(index).toContain("import './experience-v3-surfaces.css';");
     expect(index).toContain("import './experience-v3-command.css';");
+    expect(index).toContain("import './experience-v3-operational.css';");
     expect(experience).toContain('@media (prefers-reduced-motion: no-preference)');
     expect(experience).toContain('.ms-v3-dock-link:active');
   });
