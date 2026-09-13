@@ -1,6 +1,7 @@
 
 import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
+import './premium-v2.css';
 
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { markStartupMetric, incrementStartupCounter, markStartupFailure } from './lib/startupTelemetry';
@@ -43,7 +44,6 @@ const handleChunkError = (event: Event | PromiseRejectionEvent, message?: string
     event.preventDefault();
     const lastReload = safeSessionStorageGet(RELOAD_FLAG);
     const now = Date.now();
-    // Only reload if the last reload was more than 10 seconds ago
     if (!lastReload || now - parseInt(lastReload) > 10000) {
       const saved = safeSessionStorageSet(RELOAD_FLAG, now.toString());
       if (saved) {
@@ -57,7 +57,6 @@ const handleChunkError = (event: Event | PromiseRejectionEvent, message?: string
       }
     } else {
       console.error('Chunk load failed twice, showing error screen.');
-      // The ErrorBoundary will catch the suspended module failure
     }
   }
 };
