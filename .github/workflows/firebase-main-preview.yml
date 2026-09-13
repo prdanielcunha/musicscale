@@ -1,4 +1,4 @@
-name: MusicScale Main Preview
+name: MusicScale Main Preview Preflight
 
 on:
   push:
@@ -7,33 +7,20 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
-  group: musicscale-main-preview
+  group: musicscale-main-preview-preflight
   cancel-in-progress: true
 
-env:
-  PROJECT_ID: millionsnest
-  CHANNEL_ID: main-review
-
 jobs:
-  deploy-preview:
+  build-preview:
     runs-on: ubuntu-latest
-    outputs:
-      preview_url: ${{ steps.deploy.outputs.preview_url }}
     steps:
       - name: Checkout main
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: main
           persist-credentials: false
-
-      - name: Authenticate with MillionsNest production WIF
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
-        with:
-          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
-          service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
 
       - name: Set up Node.js 22
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -49,45 +36,21 @@ jobs:
           npm run build
           test -f dist/index.html
 
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools@15.25.1
+      - name: Upload certified preview bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: musicscale-main-preview-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 3
 
-      - name: Deploy temporary Hosting preview
-        id: deploy
-        shell: bash
-        run: |
-          set -euo pipefail
-          firebase hosting:channel:deploy "$CHANNEL_ID" \
-            --project "$PROJECT_ID" \
-            --only musicscale \
-            --expires 7d \
-            --non-interactive | tee /tmp/musicscale-preview.log
-
-          PREVIEW_URL="$(grep -Eo 'https://[^[:space:]]+\.web\.app' /tmp/musicscale-preview.log | tail -n 1)"
-          test -n "$PREVIEW_URL"
-          echo "preview_url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
-
-      - name: Verify preview shell
-        env:
-          PREVIEW_URL: ${{ steps.deploy.outputs.preview_url }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error --location \
-            --retry 8 --retry-delay 2 --retry-all-errors \
-            "$PREVIEW_URL/" -o /tmp/musicscale-preview.html
-          grep -Eiq '<!doctype html|<html' /tmp/musicscale-preview.html
-          echo "MUSICSCALE_MAIN_PREVIEW_OK"
-
-      - name: Publish preview URL
-        env:
-          PREVIEW_URL: ${{ steps.deploy.outputs.preview_url }}
+      - name: Publish preflight status
         run: |
           {
-            echo '## MusicScale main preview'
+            echo '## MusicScale main preview preflight'
             echo
-            echo "Preview: $PREVIEW_URL"
+            echo 'Main bundle built successfully and was stored as a short-lived CI artifact.'
             echo
-            echo 'This is a temporary Firebase Hosting preview channel for UI/UX validation before production promotion.'
-            echo 'The preview uses the real Firebase project resources and the configured Hosting rewrite, so validate carefully and avoid destructive production-data actions.'
+            echo 'Firebase Hosting preview deployment is intentionally not attempted from `main` because the existing MillionsNest WIF provider is restricted to `refs/heads/production`.'
+            echo 'That production IAM boundary remains unchanged. Use a single manual preview deployment for UI/UX validation until a dedicated non-production WIF provider exists.'
           } >> "$GITHUB_STEP_SUMMARY"
