@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { emotionTracker } from "../../services/emotionTelemetry";
 
 interface EmptyStateProps {
@@ -19,6 +19,8 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   className = "",
   contextTrackingKey,
 }) => {
+  const shouldReduceMotion = useReducedMotion();
+
   useEffect(() => {
     emotionTracker.track(
       "hesitation",
@@ -26,76 +28,43 @@ const EmptyState: React.FC<EmptyStateProps> = ({
     );
   }, [contextTrackingKey, title]);
 
+  const transition = shouldReduceMotion
+    ? { duration: 0 }
+    : { duration: 0.42, ease: [0.16, 1, 0.3, 1] as const };
+
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.98, filter: "blur(4px)" }}
-      animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-      className={`flex flex-col items-center justify-center py-24 px-6 text-center isolate ${className}`}
+      initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={transition}
+      className={`isolate flex flex-col items-center justify-center px-6 py-16 text-center sm:py-20 ${className}`}
     >
-      <div className="relative mb-10 w-24 h-24 flex items-center justify-center">
+      <div className="relative mb-7 flex h-[84px] w-[84px] items-center justify-center">
+        <div className="pointer-events-none absolute inset-2 rounded-full bg-primary/[0.12] blur-2xl" />
         <motion.div
-           initial={{ scale: 0.5, opacity: 0 }}
-           animate={{ scale: 1, opacity: 1 }}
-           transition={{ delay: 0.2, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-           className="absolute inset-0 bg-gradient-to-tr from-slate-200/50 to-white dark:from-white/[0.04] dark:to-white/[0.08] blur-2xl rounded-full pointer-events-none" 
-        />
-        {icon ? (
-          <motion.div
-            initial={{ y: 10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-24 h-24 rounded-[32px] bg-gradient-to-b from-white to-slate-50 dark:from-white/[0.03] dark:to-white/[0.06] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.4)] border border-black/5 dark:border-white/[0.08] flex items-center justify-center text-slate-400 dark:text-slate-400 backdrop-blur-xl"
-          >
-            {icon}
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ y: 10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-24 h-24 rounded-[32px] bg-gradient-to-b from-white to-slate-50 dark:from-white/[0.03] dark:to-white/[0.06] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.4)] border border-black/5 dark:border-white/[0.08] flex items-center justify-center backdrop-blur-xl"
-          >
-            <svg
-              className="w-10 h-10 text-slate-300 dark:text-slate-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-              />
+          initial={shouldReduceMotion ? false : { scale: 0.94, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={transition}
+          className="relative flex h-[84px] w-[84px] items-center justify-center rounded-[24px] border border-white/[0.08] bg-[linear-gradient(160deg,rgba(79,140,255,0.10),rgba(255,255,255,0.025)_48%,rgba(120,104,255,0.07))] text-white/45 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_-28px_rgba(0,0,0,0.9)]"
+        >
+          {icon || (
+            <svg className="h-9 w-9" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-          </motion.div>
-        )}
+          )}
+        </motion.div>
       </div>
 
-      <motion.h3 
-        initial={{ y: 10, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.4, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="text-[24px] font-extrabold text-slate-900 dark:text-white mb-3 tracking-tight max-w-sm font-sans px-4"
-      >
+      <h3 className="mb-2.5 max-w-sm px-4 text-[20px] font-semibold tracking-[-0.025em] text-white sm:text-[22px]">
         {title}
-      </motion.h3>
-      <motion.p 
-        initial={{ y: 10, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.5, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="text-[15px] text-slate-500 dark:text-white/50 font-medium max-w-md mx-auto mb-10 leading-relaxed font-sans px-4"
-      >
+      </h3>
+      <p className="mx-auto mb-7 max-w-md px-4 text-[14px] font-medium leading-relaxed text-white/45 sm:text-[15px]">
         {description}
-      </motion.p>
+      </p>
 
       {action && (
-        <motion.div
-          initial={{ y: 10, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.6, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="flex justify-center w-full"
+        <div
+          className="flex w-full justify-center"
           onClick={() =>
             emotionTracker.track(
               "recovery",
@@ -104,7 +73,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           }
         >
           {action}
-        </motion.div>
+        </div>
       )}
     </motion.div>
   );
