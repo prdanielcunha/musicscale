@@ -1,0 +1,90 @@
+name: Premium V2 Performance Controls Recede Patch
+
+on:
+  push:
+    branches:
+      - feat/premium-v2-performance-stage-20260913
+    paths:
+      - .github/workflows/premium-v2-performance-recede-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/premium-v2-performance-stage-20260913
+          fetch-depth: 0
+
+      - name: Apply scoped Performance interaction patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          page = Path('components/songs/ChordsViewerModal.tsx')
+          text = page.read_text()
+
+          constants_before = '''const DOUBLE_TAP_MAX_DISTANCE_PX = 36;\nconst DOUBLE_TAP_INTERVAL_MS = 300;'''
+          constants_after = '''const DOUBLE_TAP_MAX_DISTANCE_PX = 36;\nconst DOUBLE_TAP_INTERVAL_MS = 300;\nconst PERFORMANCE_CONTROLS_IDLE_MS = 3200;'''
+          if constants_before not in text:
+              raise SystemExit('Performance constants contract not found')
+          text = text.replace(constants_before, constants_after, 1)
+
+          state_before = '''  const [isFullscreen, setIsFullscreen] = useState(false);\n  const [isStageMetronomeOpen, setIsStageMetronomeOpen] = useState(false);\n  const [isStagePadOpen, setIsStagePadOpen] = useState(false);\n\n  const toggleFullscreen = useCallback(() => {'''
+          state_after = '''  const [isFullscreen, setIsFullscreen] = useState(false);\n  const [isStageMetronomeOpen, setIsStageMetronomeOpen] = useState(false);\n  const [isStagePadOpen, setIsStagePadOpen] = useState(false);\n  const [controlsActivityTick, setControlsActivityTick] = useState(0);\n\n  const markControlsActivity = useCallback(() => {\n    setIsUIVisible(true);\n    setControlsActivityTick((current) => current + 1);\n  }, []);\n\n  useEffect(() => {\n    if (\n      !isOpen ||\n      !isUIVisible ||\n      isEditing ||\n      isWorshipFlow ||\n      isAutoScrolling ||\n      activeTab !== "none" ||\n      isStageMetronomeOpen ||\n      isStagePadOpen\n    ) {\n      return;\n    }\n\n    const idleTimer = window.setTimeout(() => {\n      setIsUIVisible(false);\n    }, PERFORMANCE_CONTROLS_IDLE_MS);\n\n    return () => window.clearTimeout(idleTimer);\n  }, [\n    isOpen,\n    isUIVisible,\n    isEditing,\n    isWorshipFlow,\n    isAutoScrolling,\n    activeTab,\n    isStageMetronomeOpen,\n    isStagePadOpen,\n    controlsActivityTick,\n    song?.id,\n  ]);\n\n  const toggleFullscreen = useCallback(() => {'''
+          if state_before not in text:
+              raise SystemExit('Performance UI state contract not found')
+          text = text.replace(state_before, state_after, 1)
+
+          click_before = '''    setIsUIVisible(!isUIVisible);\n    if (isUIVisible) setActiveTab("none");'''
+          click_after = '''    if (isUIVisible) {\n      setIsUIVisible(false);\n      setActiveTab("none");\n    } else {\n      markControlsActivity();\n    }'''
+          if click_before not in text:
+              raise SystemExit('Performance screen click contract not found')
+          text = text.replace(click_before, click_after, 1)
+
+          top_before = '''      <div\n        className={`top-bar absolute top-0 w-full z-40'''
+          top_after = '''      <div\n        onPointerDown={markControlsActivity}\n        className={`top-bar absolute top-0 w-full z-40'''
+          if top_before not in text:
+              raise SystemExit('Performance top bar contract not found')
+          text = text.replace(top_before, top_after, 1)
+
+          pad_before = '''            className="fixed left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-28 md:bottom-32 z-[145] md:w-[520px] rounded-[24px] border border-violet-200/[0.09] bg-[#0D0D11]/[0.95] backdrop-blur-3xl shadow-[0_24px_80px_rgba(0,0,0,0.52)] p-4 md:p-5"\n            onClick={(event) => event.stopPropagation()}'''
+          pad_after = '''            className="fixed left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-28 md:bottom-32 z-[145] md:w-[520px] rounded-[24px] border border-violet-200/[0.09] bg-[#0D0D11]/[0.95] backdrop-blur-3xl shadow-[0_24px_80px_rgba(0,0,0,0.52)] p-4 md:p-5"\n            onPointerDown={markControlsActivity}\n            onClick={(event) => event.stopPropagation()}'''
+          if pad_before not in text:
+              raise SystemExit('Performance pad panel contract not found')
+          text = text.replace(pad_before, pad_after, 1)
+
+          metro_before = '''            className="fixed left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-28 md:bottom-32 z-[145] md:w-[480px] rounded-[24px] border border-white/[0.08] bg-[#0D0D11]/[0.94] backdrop-blur-3xl shadow-[0_24px_80px_rgba(0,0,0,0.50)] p-4 md:p-5"\n            onClick={(event) => event.stopPropagation()}'''
+          metro_after = '''            className="fixed left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-28 md:bottom-32 z-[145] md:w-[480px] rounded-[24px] border border-white/[0.08] bg-[#0D0D11]/[0.94] backdrop-blur-3xl shadow-[0_24px_80px_rgba(0,0,0,0.50)] p-4 md:p-5"\n            onPointerDown={markControlsActivity}\n            onClick={(event) => event.stopPropagation()}'''
+          if metro_before not in text:
+              raise SystemExit('Performance metronome panel contract not found')
+          text = text.replace(metro_before, metro_after, 1)
+
+          dock_before = '''        <div\n          className={`dock fixed bottom-6 md:bottom-10 left-1/2'''
+          dock_after = '''        <div\n          onPointerDown={markControlsActivity}\n          className={`dock fixed bottom-6 md:bottom-10 left-1/2'''
+          if dock_before not in text:
+              raise SystemExit('Performance dock contract not found')
+          text = text.replace(dock_before, dock_after, 1)
+
+          page.write_text(text)
+          Path('.github/workflows/premium-v2-performance-recede-patch.yml').unlink()
+          PY
+
+      - name: Verify minimal diff and source contracts
+        run: |
+          git diff --check
+          git diff -- components/songs/ChordsViewerModal.tsx
+          grep -F "ctx.createBufferSource()" components/songs/ChordsViewerModal.tsx
+          grep -F "clickGain.gain.exponentialRampToValueAtTime" components/songs/ChordsViewerModal.tsx
+          grep -F "if (isMetronomeOn && isAudioUnlocked)" components/songs/ChordsViewerModal.tsx
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add components/songs/ChordsViewerModal.tsx .github/workflows/premium-v2-performance-recede-patch.yml
+          git commit -m "feat: auto-recede idle Performance controls"
+          git push origin HEAD:feat/premium-v2-performance-stage-20260913
