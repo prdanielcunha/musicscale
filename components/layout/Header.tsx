@@ -54,8 +54,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     <header
       className={`sticky top-0 z-[70] w-full pt-[max(env(safe-area-inset-top),0px)] transition-all duration-200 ${
         scrolled
-          ? "bg-[#08080b]/[0.985] border-b border-white/[0.075] shadow-[0_14px_38px_-28px_rgba(0,0,0,0.95)]"
-          : "bg-[#070709]/[0.88] border-b border-white/[0.04]"
+          ? "bg-[#0a0a0c]/96 md:bg-[#08080b]/[0.985] md:backdrop-blur-[32px] border-b border-white/[0.075] shadow-[0_14px_38px_-28px_rgba(0,0,0,0.95)]"
+          : "bg-[#070709]/[0.88] md:backdrop-blur-[32px] border-b border-white/[0.04]"
       }`}
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
@@ -64,7 +64,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           {onMenuClick && (
             <button
               onClick={onMenuClick}
-              className="premium-interactive md:hidden flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border border-white/[0.07] bg-white/[0.035] text-white/70 hover:bg-white/[0.06] hover:text-white"
+              className="premium-interactive touch-manipulation md:hidden flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border border-white/[0.07] bg-white/[0.035] text-white/70 hover:bg-white/[0.06] hover:text-white"
               aria-label={t("nav.main_menu", "Menu Principal")}
             >
               <MenuIcon className="h-[21px] w-[21px]" />
