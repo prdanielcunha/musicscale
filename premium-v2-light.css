@@ -1,0 +1,109 @@
+/* Premium V2 light-theme compatibility.
+   The product remains dark-first, but users who select the light theme keep a
+   complete, readable experience instead of receiving dark-only primitives. */
+
+html:not(.dark) {
+  --ms-bg: #f5f6f8;
+  --ms-bg-elevated: #ffffff;
+  --ms-surface-1: #ffffff;
+  --ms-surface-2: #f8f9fb;
+  --ms-surface-3: #f0f2f5;
+  --ms-surface-hover: #f3f5f8;
+  --ms-border: rgba(15,23,42,.075);
+  --ms-border-strong: rgba(15,23,42,.13);
+  --ms-text: #111318;
+  --ms-text-secondary: #586174;
+  --ms-text-tertiary: #7a8496;
+  --ms-shadow-1: 0 8px 24px rgba(15,23,42,.055);
+  --ms-shadow-2: 0 18px 54px rgba(15,23,42,.09);
+  --ms-shadow-float: 0 24px 70px rgba(15,23,42,.14);
+  color-scheme: light;
+}
+
+html:not(.dark) body {
+  color: var(--ms-text);
+  background:
+    radial-gradient(900px 520px at 82% -10%, rgba(92,101,255,.07), transparent 62%),
+    #f5f6f8 !important;
+}
+
+html:not(.dark) .ms-surface {
+  background: #fff;
+  border-color: rgba(15,23,42,.075);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), var(--ms-shadow-1);
+}
+
+html:not(.dark) .ms-surface-raised {
+  background: linear-gradient(180deg, #fff, #f8f9fb);
+  border-color: rgba(15,23,42,.095);
+  box-shadow: inset 0 1px 0 #fff, var(--ms-shadow-2);
+}
+
+html:not(.dark) .premium-glass,
+html:not(.dark) .glass-card {
+  background: linear-gradient(180deg, rgba(255,255,255,.99), rgba(248,249,251,.99)) !important;
+  border-color: rgba(15,23,42,.075) !important;
+  box-shadow: inset 0 1px 0 #fff, var(--ms-shadow-1) !important;
+}
+
+html:not(.dark) .glass-subtle {
+  background: rgba(15,23,42,.025) !important;
+  border-color: rgba(15,23,42,.06) !important;
+}
+
+html:not(.dark) .glass-elevated,
+html:not(.dark) .glass-modal {
+  background: rgba(255,255,255,.98) !important;
+  border-color: rgba(15,23,42,.10) !important;
+  box-shadow: inset 0 1px 0 #fff, var(--ms-shadow-float) !important;
+}
+
+html:not(.dark) .input-base,
+html:not(.dark) input[type="text"],
+html:not(.dark) input[type="email"],
+html:not(.dark) input[type="password"],
+html:not(.dark) input[type="search"],
+html:not(.dark) input[type="date"],
+html:not(.dark) input[type="number"],
+html:not(.dark) input[type="url"],
+html:not(.dark) select,
+html:not(.dark) textarea {
+  background: #fff !important;
+  border-color: rgba(15,23,42,.11) !important;
+  color: #111827 !important;
+  box-shadow: inset 0 1px 0 rgba(15,23,42,.015) !important;
+}
+
+html:not(.dark) input:focus,
+html:not(.dark) select:focus,
+html:not(.dark) textarea:focus,
+html:not(.dark) .input-base:focus {
+  background: #fff !important;
+  border-color: rgba(99,102,241,.48) !important;
+  box-shadow: 0 0 0 3px rgba(99,102,241,.10) !important;
+}
+
+html:not(.dark) ::placeholder {
+  color: #929bad !important;
+}
+
+html:not(.dark) main h1,
+html:not(.dark) main h2,
+html:not(.dark) main h3 {
+  color: #111318;
+}
+
+html:not(.dark) main .text-slate-500 {
+  color: #667085;
+}
+
+/* Shared Modal is rendered through a portal outside main. */
+html:not(.dark) [role="dialog"] > div {
+  color: #111827;
+}
+
+@media (max-width: 767px) {
+  html:not(.dark) body {
+    background: #f5f6f8 !important;
+  }
+}
