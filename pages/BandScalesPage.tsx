@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger";
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import type { PopulatedBandScale, PopulatedScale } from "../types";
 import { useMusic } from "../contexts/MusicDataContext";
 import { useModals } from "../contexts/ModalContext";
@@ -216,6 +216,7 @@ const BandScalesPage: React.FC = () => {
   const isOverLimit = populatedBandScales.length >= limits.maxBandScales;
   const { scaleId } = useParams<{ scaleId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showLimitModal, setShowLimitModal] = useState(false);
 
   const [filter, setFilter] = useState<"upcoming" | "past">("upcoming");
@@ -237,6 +238,11 @@ const BandScalesPage: React.FC = () => {
       populatedBandScales.length > 0 &&
       !hasHandledDeepLink.current
     ) {
+      const expectedPath = `/band-scales/${scaleId}`;
+      if (location.pathname !== expectedPath) {
+        return;
+      }
+
       const scale = populatedBandScales.find((s) => s.id === scaleId);
       if (scale) {
         openBandScaleDetail(scale);
@@ -246,7 +252,7 @@ const BandScalesPage: React.FC = () => {
         navigate("/band-scales", { replace: true });
       }
     }
-  }, [scaleId, loading, populatedBandScales, openBandScaleDetail, navigate]);
+  }, [scaleId, loading, populatedBandScales, openBandScaleDetail, navigate, location.pathname]);
 
   const sortedScales = useMemo(() => {
     return [...populatedBandScales].sort((a, b) => {
