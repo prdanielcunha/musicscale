@@ -3,6 +3,7 @@ import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import './premium-v2.css';
 import './premium-v2-shell.css';
+import './premium-v2-domains.css';
 
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { markStartupMetric, incrementStartupCounter, markStartupFailure } from './lib/startupTelemetry';
