@@ -124,7 +124,7 @@ const ChordsPage: React.FC = () => {
     <div className="space-y-5 sm:space-y-6">
       <RepertoireMetricsView songs={songs} mode="chords" />
 
-      <section className="ms-panel relative overflow-hidden p-4 sm:p-5" aria-label="Filtros de cifras">
+      <section className="ms-panel relative overflow-hidden p-4 sm:p-5">
         <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent" />
 
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end">
