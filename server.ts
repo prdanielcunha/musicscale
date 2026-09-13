@@ -1,3 +1,5 @@
+import { applyEcosystemEntitlements } from './services/effectiveEntitlements.js';
+import { organizationHasEcosystemAccess } from './services/server/ecosystemEntitlements.js';
 import { logger } from './lib/logger.js';
 logger.info("Server process started");
 
@@ -984,29 +986,6 @@ app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);
       const { orgId } = req.params;
       const authHeader = req.headers.authorization || "";
       
-      let userId: string | null = null;
-      let isGlobalAdmin = false;
-
-      // 1. Validate Firebase ID Token
-      if (authHeader && authHeader.startsWith("Bearer ") && admin.apps.length) {
-        const token = authHeader.split(" ")[1];
-        try {
-          const decodedToken = await admin.auth().verifyIdToken(token);
-          userId = decodedToken.uid;
-          if (userId && db) {
-              const uDoc = await db.collection('users').doc(userId).get();
-              if (uDoc.exists) {
-                  const sysRole = String(uDoc.data()?.systemRole || '').toLowerCase().trim();
-                  if (['ceo', 'admin', 'global_admin', 'ecosystem_owner', 'founder', 'ecosystem_support'].includes(sysRole)) {
-                      isGlobalAdmin = true;
-                  }
-              }
-          }
-        } catch (authErr) {
-          logger.warn(`[Limits] Invalid token for org ${orgId}`);
-        }
-      }
-
       if (!db) {
          // Fallback if DB is not initialized
          return res.json({
@@ -1023,6 +1002,13 @@ app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);
             entitlementsVersion: 2
          });
       }
+
+      const authorization = await resolveOrganizationAuthorization(authHeader, orgId, db, admin.apps.length ? admin.auth() : null);
+      if (authorization.error || !authorization.context) return res.status(authorization.statusCode || 403).json({ error: authorization.error || 'FORBIDDEN' });
+      const actor = authorization.context;
+      if (!actor.isActive && !actor.systemRole) return res.status(403).json({ error: 'FORBIDDEN' });
+      const userId = actor.uid;
+      const isGlobalAdmin = !!actor.systemRole;
 
       // 2. Load Organization Data
       const orgRef = db.collection('organizations').doc(orgId);
@@ -1088,19 +1074,6 @@ app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);
         verifiedPlan = 'starter';
       }
 
-      // Add Membership Verification
-      if (userId && !isGlobalAdmin) {
-          const userSnap = await db.collection('users').doc(userId).get();
-          if (userSnap.exists) {
-              const uData = userSnap.data();
-              if (uData?.organizationId !== orgId) {
-                  return res.status(403).json({ error: "Usuário não pertence à organização requisitada." });
-              }
-          } else {
-              return res.status(403).json({ error: "Perfil não encontrado no MusicScale." });
-          }
-      }
-
       // 3. Define the return structures safely
       const serverFeatures = PLAN_FEATURES[verifiedPlan as keyof typeof PLAN_FEATURES] || PLAN_FEATURES.starter;
       const serverLimits = PLAN_LIMITS[verifiedPlan as keyof typeof PLAN_LIMITS] || PLAN_LIMITS.starter;
@@ -1127,7 +1100,8 @@ app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);
       }
 
       // Send the response
-      return res.status(200).json({
+      const ecosystemAccess = isGlobalAdmin || await organizationHasEcosystemAccess(db, orgId, orgSnap.data());
+      return res.status(200).json(applyEcosystemEntitlements({
         organizationId: orgId,
         app: 'musicscale',
         plan: verifiedPlan,
@@ -1143,7 +1117,7 @@ app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);
         trialEndsAt: null,
         planUpdatedAt: new Date().toISOString(),
         entitlementsVersion: 2,
-      });
+      }, orgId, ecosystemAccess));
 
     } catch (error: any) {
       if (error?.code === 7 || error?.message?.includes("PERMISSION_DENIED")) {
@@ -2344,6 +2318,7 @@ app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);
               requestId,
               organizationId: aiAuthContext.organizationId,
               uid: aiAuthContext.uid,
+              ecosystemAccess: aiAuthContext.ecosystemAccess,
               rawText: typeof rawText === "string" ? rawText : undefined,
               url: typeof url === "string" ? url : undefined,
               desiredKey: typeof desiredKey === "string" ? desiredKey : undefined,
@@ -2903,6 +2878,7 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
       if (orgSnap.exists && orgSnap.data()?.status === 'archived') {
           return res.status(403).json({ error: "Org arquivada" });
       }
+      const ecosystemAccess = await organizationHasEcosystemAccess(db, orgId, orgSnap.exists ? orgSnap.data() : null);
 
       let plan = 'starter';
       if (orgSnap.exists) {
@@ -2914,7 +2890,7 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
       }
 
       const features = PLAN_FEATURES[plan as keyof typeof PLAN_FEATURES] || PLAN_FEATURES.starter;
-      if (!isGlobalAdmin && plan !== 'pro' && !features.aiSuggestions) {
+      if (!isGlobalAdmin && !ecosystemAccess && plan !== 'pro' && !features.aiSuggestions) {
          return res.status(403).json({ error: "Requer plano Pro para IA avançada" });
       }
 
@@ -3069,6 +3045,7 @@ ${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: an
       if (orgSnap.exists && orgSnap.data()?.status === 'archived') {
           return res.status(403).json({ error: "Org arquivada" });
       }
+      const ecosystemAccess = await organizationHasEcosystemAccess(db, orgId, orgSnap.exists ? orgSnap.data() : null);
 
       let plan = 'starter';
       if (orgSnap.exists) {
@@ -3080,7 +3057,7 @@ ${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: an
       }
 
       const features = PLAN_FEATURES[plan as keyof typeof PLAN_FEATURES] || PLAN_FEATURES.starter;
-      if (!isGlobalAdmin && plan !== 'pro' && !features.aiSetlistInsights) {
+      if (!isGlobalAdmin && !ecosystemAccess && plan !== 'pro' && !features.aiSetlistInsights) {
          return res.status(403).json({ error: "Requer plano Pro para IA avançada" });
       }
       
@@ -3548,7 +3525,7 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
         ['ceo', 'admin', 'global_admin', 'owner', 'ecosystem_owner', 'founder', 'dono', 'administrador', 'supervisor', 'support', 'suporte'].includes(userData?.systemRole?.toLowerCase()) || 
         false;
 
-      const shouldConsumeLimit = !isGlobalAdmin;
+      let shouldConsumeLimit = !isGlobalAdmin;
 
       // Security Check: Verify user actually belongs to this organization using the verified uid
       const membersRef = db.collection('organization_members');
@@ -3572,13 +3549,16 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
 
       const orgData = orgDoc.exists ? orgDoc.data() : {};
       
+      const ecosystemAccess = await organizationHasEcosystemAccess(db, organizationId, orgData);
+      const unlimitedAccess = isGlobalAdmin || ecosystemAccess;
+      shouldConsumeLimit = !unlimitedAccess;
       // Resolve both plan and billing status from canonical entitlement sources.
       // Trial status is security-sensitive here because paid Pro is unlimited while
       // Pro evaluation has a bounded catalog-import allowance.
-      let verifiedPlan = isGlobalAdmin ? 'pro' : 'starter';
-      let verifiedStatus = isGlobalAdmin ? 'active' : 'inactive';
+      let verifiedPlan = unlimitedAccess ? 'pro' : 'starter';
+      let verifiedStatus = unlimitedAccess ? 'active' : 'inactive';
 
-      if (!isGlobalAdmin) {
+      if (!unlimitedAccess) {
         if (orgData?.plan) {
           verifiedPlan = String(orgData.plan).toLowerCase().trim();
         }
@@ -3621,7 +3601,7 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
         }
       }
       
-      if (!isGlobalAdmin && verifiedStatus !== 'active' && verifiedStatus !== 'trialing') {
+      if (!unlimitedAccess && verifiedStatus !== 'active' && verifiedStatus !== 'trialing') {
         return res.json({
           success: false,
           importedCount: 0,
@@ -3633,8 +3613,8 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
 
       const serverFeatures = PLAN_FEATURES[verifiedPlan as keyof typeof PLAN_FEATURES];
       const serverLimits = PLAN_LIMITS[verifiedPlan as keyof typeof PLAN_LIMITS];
-      const serverIsPro = isGlobalAdmin || verifiedPlan === 'pro' || serverLimits.libraryImportsPerMonth === -1 || serverFeatures.libraryComplete;
-      const isProTrial = !isGlobalAdmin && verifiedPlan === 'pro' && verifiedStatus === 'trialing';
+      const serverIsPro = unlimitedAccess || verifiedPlan === 'pro' || serverLimits.libraryImportsPerMonth === -1 || serverFeatures.libraryComplete;
+      const isProTrial = !unlimitedAccess && verifiedPlan === 'pro' && verifiedStatus === 'trialing';
 
       // 1. Starter check
       if (verifiedPlan === 'starter' || !serverFeatures.libraryAccess) {
@@ -3650,7 +3630,7 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
       // 2. Importing multiple Living Library songs in one operation is reserved
       // for paid active Pro. Advanced and Pro trial keep individual imports only.
       const canBulkImportLibrary =
-        isGlobalAdmin ||
+        unlimitedAccess ||
         (verifiedPlan === 'pro' && verifiedStatus === 'active');
       if (selectedSongs.length > 1 && !canBulkImportLibrary) {
         return res.json({
