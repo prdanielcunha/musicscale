@@ -1,0 +1,135 @@
+/* MusicScale Experience V3 — mobile command center */
+@media (max-width: 767px) {
+  .ms-v3-command-frame > div > div:first-of-type {
+    padding: 14px 16px 8px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .ms-v3-command-frame > div > div:first-of-type > button {
+    width: auto !important;
+    min-width: 84px;
+    height: 34px !important;
+    padding-inline: 11px !important;
+    margin-bottom: 16px !important;
+    border-radius: 12px !important;
+    background: rgba(255,255,255,.028) !important;
+    border-color: rgba(255,255,255,.055) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+  }
+
+  .ms-v3-command-frame > div > div:first-of-type img {
+    width: 34px !important;
+    height: 34px !important;
+    filter: drop-shadow(0 8px 16px rgba(77,101,255,.18));
+  }
+
+  .ms-v3-command-frame > div > div:first-of-type span:first-of-type {
+    font-size: 16px !important;
+    letter-spacing: -.035em !important;
+  }
+
+  .ms-v3-command-frame nav {
+    padding-inline: 12px !important;
+  }
+
+  .ms-v3-command-frame nav > div:first-child {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    margin-bottom: 18px !important;
+  }
+
+  .ms-v3-command-frame nav > div:first-child > h3 {
+    grid-column: 1 / -1;
+    margin: 4px 5px 3px !important;
+  }
+
+  .ms-v3-command-frame nav > div:first-child > a {
+    min-height: 72px !important;
+    margin: 0 !important;
+    padding: 11px 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    border-radius: 17px !important;
+    border: 1px solid rgba(255,255,255,.052) !important;
+    background:
+      radial-gradient(90% 100% at 0% 0%, rgba(102,119,255,.052), transparent 68%),
+      rgba(255,255,255,.022) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+  }
+
+  .ms-v3-command-frame nav > div:first-child > a > span:first-of-type {
+    color: rgba(181,196,220,.72);
+  }
+
+  .ms-v3-command-frame nav > div:first-child > a > span:nth-of-type(2) {
+    width: 100%;
+    margin-left: 0 !important;
+    flex: 0 0 auto !important;
+    font-size: 12px;
+    color: rgba(227,233,244,.72);
+  }
+
+  .ms-v3-command-frame nav > div:first-child > a[aria-current="page"] {
+    border-color: rgba(119,142,255,.19) !important;
+    background:
+      radial-gradient(100% 120% at 0% 0%, rgba(112,137,255,.17), transparent 72%),
+      linear-gradient(145deg, rgba(80,92,180,.12), rgba(255,255,255,.035)) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.055),
+      0 14px 28px -22px rgba(63,75,180,.7) !important;
+  }
+
+  .ms-v3-command-frame nav > div:first-child > a[aria-current="page"] > span:first-of-type {
+    color: #f7f8ff;
+    filter: drop-shadow(0 0 10px rgba(111,140,255,.38));
+  }
+
+  .ms-v3-command-frame nav > div:first-child > a[aria-current="page"] > span:nth-of-type(2) {
+    color: white;
+  }
+
+  .ms-v3-command-frame nav > div:first-child > a > div.absolute {
+    display: none !important;
+  }
+
+  .ms-v3-command-frame nav > div:nth-child(2) {
+    padding: 10px 8px 8px;
+    border: 1px solid rgba(255,255,255,.045);
+    border-radius: 18px;
+    background: rgba(255,255,255,.014);
+  }
+
+  .ms-v3-command-frame nav > div:nth-child(2) > h3 {
+    margin-left: 3px !important;
+  }
+
+  .ms-v3-command-frame nav > div:nth-child(2) > a,
+  .ms-v3-command-frame nav > div:nth-child(2) > button {
+    min-height: 43px !important;
+    margin-bottom: 1px !important;
+    padding-inline: 10px !important;
+    border-radius: 13px !important;
+    font-size: 12px !important;
+  }
+
+  .ms-v3-command-frame nav > div:nth-child(3) {
+    opacity: .78;
+  }
+
+  .ms-v3-command-frame nav + div {
+    margin: 10px 12px 12px !important;
+    padding: 10px !important;
+    border-radius: 19px;
+    border: 1px solid rgba(255,255,255,.05);
+    background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.012));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+  }
+
+  .ms-v3-command-frame nav + div > div:last-child > a {
+    border-radius: 14px !important;
+  }
+}
