@@ -6,7 +6,7 @@ interface MusicWorkspaceSkeletonProps {
 
 const MusicWorkspaceSkeleton: React.FC<MusicWorkspaceSkeletonProps> = ({ cardCount = 8 }) => {
   return (
-    <div className="space-y-5 sm:space-y-6" aria-busy="true" aria-label="Carregando conteúdo musical">
+    <div className="space-y-5 sm:space-y-6" aria-busy="true">
       <div className="ms-panel overflow-hidden p-4 sm:p-5">
         <div className="animate-pulse space-y-4 motion-reduce:animate-none">
           <div className="flex items-center justify-between gap-4">
