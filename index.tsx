@@ -8,6 +8,7 @@ import './performance-v2.css';
 import './operational-v2.css';
 import './experience-v3.css';
 import './experience-v3-surfaces.css';
+import './experience-v3-command.css';
 
 
 const urlParams = new URLSearchParams(window.location.search);
