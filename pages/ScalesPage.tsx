@@ -390,7 +390,7 @@ const ScaleCard: React.FC<{
       logger.error("Failed to quickly add song to scale", error);
       toast({ 
         type: 'error', 
-        message: t('scaleModal.quickAddError', 'Erro ao adicionar música à escala.') 
+        message: t('scaleModal.quickAddError', 'Erro ao adicionar música da escala.') 
       });
     }
   };
@@ -500,7 +500,7 @@ const ScaleCard: React.FC<{
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setShowAddPopover(true); }}
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary-light dark:hover:bg-primary/30 transition-all focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary-light dark:hover:bg-primary/30 transition-all focus:outline-none focus:ring-2 focus-visible:ring-primary/50"
                       title={t('scaleModal.addSong', 'Adicionar música')}
                     >
                       <Plus className="w-3.5 h-3.5 font-bold" />
@@ -515,7 +515,7 @@ const ScaleCard: React.FC<{
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setShowAddPopover(true); }}
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary-light dark:hover:bg-primary/30 transition-all focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary-light dark:hover:bg-primary/30 transition-all focus:outline-none focus:ring-2 focus-visible:ring-primary/50"
                       title={t('scaleModal.addSong', 'Adicionar música')}
                     >
                       <Plus className="w-3.5 h-3.5 font-bold" />
@@ -687,6 +687,11 @@ const ScalesPage: React.FC = () => {
 
     useEffect(() => {
         if (scaleId && populatedScales.length > 0 && !hasHandledDeepLink.current) {
+            const expectedPath = `/scales/${scaleId}`;
+            if (location.pathname !== expectedPath) {
+                return;
+            }
+
             const scale = populatedScales.find(s => s.id === scaleId);
             if (scale) {
                 openScaleDetail(scale);
@@ -696,7 +701,7 @@ const ScalesPage: React.FC = () => {
                 navigate("/scales", { replace: true });
             }
         }
-    }, [scaleId, populatedScales, openScaleDetail, navigate]);
+    }, [scaleId, populatedScales, openScaleDetail, navigate, location.pathname]);
     
     const initialTab = searchParams.get("tab") === "past" ? "past" : "upcoming";
     const [activeTab, setActiveTab] = useState<"upcoming" | "past">(initialTab);
@@ -1086,4 +1091,3 @@ const ScalesPage: React.FC = () => {
 };
 
 export default ScalesPage;
-
