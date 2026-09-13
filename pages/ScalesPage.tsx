@@ -687,6 +687,11 @@ const ScalesPage: React.FC = () => {
 
     useEffect(() => {
         if (scaleId && populatedScales.length > 0 && !hasHandledDeepLink.current) {
+            const expectedPath = `/scales/${scaleId}`;
+            if (location.pathname !== expectedPath) {
+                return;
+            }
+
             const scale = populatedScales.find(s => s.id === scaleId);
             if (scale) {
                 openScaleDetail(scale);
@@ -696,7 +701,7 @@ const ScalesPage: React.FC = () => {
                 navigate("/scales", { replace: true });
             }
         }
-    }, [scaleId, populatedScales, openScaleDetail, navigate]);
+    }, [scaleId, populatedScales, openScaleDetail, navigate, location.pathname]);
     
     const initialTab = searchParams.get("tab") === "past" ? "past" : "upcoming";
     const [activeTab, setActiveTab] = useState<"upcoming" | "past">(initialTab);

@@ -1,30 +1,14 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useMusic } from "../contexts/MusicDataContext";
 import type { PopulatedSong, Tag } from "../types";
-import Spinner from "../components/common/Spinner";
 import LyricsViewerModal from "../components/songs/LyricsViewerModal";
 import ChordCard from "../components/chords/ChordCard";
 import { XCircleIcon } from "../components/icons/XCircleIcon";
-import Card from "../components/common/Card";
-import { FileText } from "lucide-react";
+import { FileText, Search, SlidersHorizontal } from "lucide-react";
 import { RepertoireMetricsView } from "../components/songs/RepertoireMetricsView";
+import MusicWorkspaceSkeleton from "../components/common/MusicWorkspaceSkeleton";
 
 const formSelectClass = "input-base";
-const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    className="h-5 w-5"
-    viewBox="0 0 20 20"
-    fill="currentColor"
-    {...props}
-  >
-    <path
-      fillRule="evenodd"
-      d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-      clipRule="evenodd"
-    />
-  </svg>
-);
 
 const LyricsPage: React.FC = () => {
   const { songs, tags, loading, error } = useMusic();
@@ -101,146 +85,146 @@ const LyricsPage: React.FC = () => {
     return processedSongs;
   }, [songs, searchTerm, keyFilter, tagFilterIds, sortBy]);
 
-  if (loading)
+  if (loading) return <MusicWorkspaceSkeleton />;
+  if (error) {
     return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner />
+      <div className="ms-panel border-red-400/[0.14] p-5 text-center text-sm font-medium text-red-300">
+        {error}
       </div>
     );
-  if (error) return <div className="text-red-500 text-center">{error}</div>;
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <RepertoireMetricsView songs={songs} mode="lyrics" />
-      <Card className="p-4 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="lg:col-span-1">
-            <label
-              htmlFor="search"
-              className="block text-xs font-medium text-slate-500 dark:text-gray-400 mb-1"
-            >
+
+      <section className="ms-panel relative overflow-hidden p-4 sm:p-5">
+        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent" />
+
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end">
+          <div className="min-w-0 flex-1">
+            <label htmlFor="search" className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/38">
+              <Search className="h-3.5 w-3.5 text-primary-light/75" aria-hidden="true" />
               Buscar
             </label>
-            <input
-              id="search"
-              type="search"
-              placeholder="Buscar por título ou artista..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-base px-3 py-2 text-[14px]"
-            />
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/26" aria-hidden="true" />
+              <input
+                id="search"
+                type="search"
+                placeholder="Buscar por título ou artista..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input-base min-h-[48px] w-full pl-11 pr-4 text-[14px]"
+              />
+            </div>
           </div>
-          <div>
-            <label
-              htmlFor="keyFilter"
-              className="block text-xs font-medium text-slate-500 dark:text-gray-400 mb-1"
-            >
-              Tom
-            </label>
-            <select
-              id="keyFilter"
-              value={keyFilter}
-              onChange={(e) => setKeyFilter(e.target.value)}
-              className={`w-full ${formSelectClass}`}
-            >
-              <option value="all">Todos os tons</option>
-              {uniqueKeys.map((key) => (
-                <option key={key} value={key}>
-                  {key}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="lg:col-span-2">
-            <label className="block text-xs font-medium text-slate-500 dark:text-gray-400 mb-1">
-              Tags
-            </label>
-            <div className="flex flex-wrap items-center gap-2 p-1.5 bg-white dark:bg-[#1A1A1C]/60 border border-slate-300 dark:border-white/10 rounded-lg min-h-[44px]">
-              {selectedFilterTags.map((tag) => (
-                <div
-                  key={tag.id}
-                  className="flex items-center gap-1 bg-primary/10 text-primary-dark dark:text-primary-light text-xs font-semibold px-2 py-1 rounded-full"
-                >
-                  <span>{tag.name}</span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setTagFilterIds((prev) =>
-                        prev.filter((id) => id !== tag.id),
-                      )
-                    }
-                    className="hover:bg-primary/20 rounded-full"
-                    aria-label={`Remover tag ${tag.name}`}
-                  >
-                    <XCircleIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              <div className="relative flex-grow min-w-[120px]">
-                <select
-                  id="tag-filter-add"
-                  value=""
-                  onChange={(e) => {
-                    const newId = e.target.value;
-                    if (newId && !tagFilterIds.includes(newId)) {
-                      setTagFilterIds((prev) => [...prev, newId]);
-                    }
-                  }}
-                  className="w-full h-full appearance-none bg-transparent border-none focus:ring-0 text-sm text-slate-500 dark:text-gray-400 p-1 cursor-pointer"
-                  disabled={availableFilterTags.length === 0}
-                >
-                  <option value="" disabled>
-                    {availableFilterTags.length > 0
-                      ? "Adicionar tag..."
-                      : "Nenhuma tag"}
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:w-[520px]">
+            <div>
+              <label htmlFor="keyFilter" className="mb-2 block text-[10px] font-bold uppercase tracking-[0.12em] text-white/32">
+                Tom
+              </label>
+              <select
+                id="keyFilter"
+                value={keyFilter}
+                onChange={(e) => setKeyFilter(e.target.value)}
+                className={`w-full ${formSelectClass}`}
+              >
+                <option value="all">Todos os tons</option>
+                {uniqueKeys.map((key) => (
+                  <option key={key} value={key}>
+                    {key}
                   </option>
-                  {availableFilterTags.map((tag) => (
-                    <option key={tag.id} value={tag.id}>
-                      {tag.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="sortBy" className="mb-2 block text-[10px] font-bold uppercase tracking-[0.12em] text-white/32">
+                Ordenar por:
+              </label>
+              <select
+                id="sortBy"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className={`w-full ${formSelectClass}`}
+              >
+                <option value="title">Título (A-Z)</option>
+                <option value="artist">Artista (A-Z)</option>
+                <option value="newest">Mais Recentes</option>
+              </select>
+            </div>
+
+            <div className="col-span-2 sm:col-span-1">
+              <label className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white/32">
+                <SlidersHorizontal className="h-3 w-3" aria-hidden="true" />
+                Tags
+              </label>
+              <select
+                id="tag-filter-add"
+                value=""
+                onChange={(e) => {
+                  const newId = e.target.value;
+                  if (newId && !tagFilterIds.includes(newId)) {
+                    setTagFilterIds((prev) => [...prev, newId]);
+                  }
+                }}
+                className={`w-full ${formSelectClass}`}
+                disabled={availableFilterTags.length === 0}
+              >
+                <option value="" disabled>
+                  {availableFilterTags.length > 0 ? "Adicionar tag..." : "Nenhuma tag"}
+                </option>
+                {availableFilterTags.map((tag) => (
+                  <option key={tag.id} value={tag.id}>
+                    {tag.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row justify-end items-center gap-4 pt-4 border-t border-slate-200 dark:border-white/5">
-          <div className="flex items-center gap-2">
-            <label
-              htmlFor="sortBy"
-              className="text-xs font-medium text-slate-500 dark:text-gray-400"
-            >
-              Ordenar por:
-            </label>
-            <select
-              id="sortBy"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className={`${formSelectClass} !py-1.5 !px-3`}
-            >
-              <option value="title">Título (A-Z)</option>
-              <option value="artist">Artista (A-Z)</option>
-              <option value="newest">Mais Recentes</option>
-            </select>
+
+        {selectedFilterTags.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/[0.055] pt-4">
+            {selectedFilterTags.map((tag) => (
+              <div
+                key={tag.id}
+                className="flex min-h-[32px] items-center gap-1.5 rounded-full border border-primary/15 bg-primary/[0.07] px-3 text-[11px] font-semibold text-primary-light"
+              >
+                <span>{tag.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setTagFilterIds((prev) => prev.filter((id) => id !== tag.id))}
+                  className="premium-interactive flex h-6 w-6 items-center justify-center rounded-full hover:bg-primary/10"
+                  aria-label={`Remover tag ${tag.name}`}
+                >
+                  <XCircleIcon className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
           </div>
-        </div>
-      </Card>
+        )}
+      </section>
 
       {filteredAndSortedSongs.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-4">
           {filteredAndSortedSongs.map((song) => (
             <ChordCard key={song.id} song={song} onClick={setSongInModal} showFormatBadge="letra" />
           ))}
         </div>
       ) : (
-        <div className="text-center py-20 bg-white/60 dark:bg-[#1A1A1C]/60 rounded-[28px] border border-black/[0.04] dark:border-white/[0.06]">
-          <FileText className="mx-auto h-16 w-16 text-slate-400 dark:text-gray-500 opacity-50" />
-          <h3 className="mt-4 text-xl font-bold text-slate-800 dark:text-white">
+        <div className="ms-panel relative overflow-hidden px-5 py-16 text-center sm:py-20">
+          <div className="pointer-events-none absolute left-1/2 top-0 h-28 w-52 -translate-x-1/2 rounded-full bg-primary/[0.055] blur-3xl" />
+          <span className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-[17px] border border-white/[0.07] bg-white/[0.035] text-white/32">
+            <FileText className="h-7 w-7" />
+          </span>
+          <h3 className="relative mt-4 text-lg font-semibold tracking-[-0.02em] text-white">
             Nenhuma Letra Encontrada
           </h3>
-          <p className="mt-2 text-base text-slate-500 dark:text-gray-400 max-w-md mx-auto">
-            Ajuste os filtros ou adicione letras às músicas no seu repertório
-            para vê-las aqui.
+          <p className="relative mx-auto mt-2 max-w-md text-[13px] leading-relaxed text-white/42">
+            Ajuste os filtros ou adicione letras às músicas no seu repertório para vê-las aqui.
           </p>
         </div>
       )}

@@ -153,6 +153,7 @@ const MAX_AUTOSCROLL_FRAME_DELTA_MS = 100;
 const TAP_MOVEMENT_TOLERANCE_PX = 18;
 const DOUBLE_TAP_MAX_DISTANCE_PX = 36;
 const DOUBLE_TAP_INTERVAL_MS = 300;
+const PERFORMANCE_CONTROLS_IDLE_MS = 3200;
 
 const ColorPicker: React.FC<{
   label: string;
@@ -293,6 +294,12 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isStageMetronomeOpen, setIsStageMetronomeOpen] = useState(false);
   const [isStagePadOpen, setIsStagePadOpen] = useState(false);
+  const [controlsActivityTick, setControlsActivityTick] = useState(0);
+
+  const markControlsActivity = useCallback(() => {
+    setIsUIVisible(true);
+    setControlsActivityTick((current) => current + 1);
+  }, []);
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -335,6 +342,38 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         setIsWorshipFlow(false);
     }
   }, [liveSession?.mode]);
+
+  useEffect(() => {
+    if (
+      !isOpen ||
+      !isUIVisible ||
+      isEditing ||
+      isWorshipFlow ||
+      isAutoScrolling ||
+      activeTab !== "none" ||
+      isStageMetronomeOpen ||
+      isStagePadOpen
+    ) {
+      return;
+    }
+
+    const idleTimer = window.setTimeout(() => {
+      setIsUIVisible(false);
+    }, PERFORMANCE_CONTROLS_IDLE_MS);
+
+    return () => window.clearTimeout(idleTimer);
+  }, [
+    isOpen,
+    isUIVisible,
+    isEditing,
+    isWorshipFlow,
+    isAutoScrolling,
+    activeTab,
+    isStageMetronomeOpen,
+    isStagePadOpen,
+    controlsActivityTick,
+    song?.id,
+  ]);
 
   const clearTapCandidate = () => {
     lastTapRef.current = 0;
@@ -887,8 +926,12 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       return;
     }
 
-    setIsUIVisible(!isUIVisible);
-    if (isUIVisible) setActiveTab("none");
+    if (isUIVisible) {
+      setIsUIVisible(false);
+      setActiveTab("none");
+    } else {
+      markControlsActivity();
+    }
   };
 
   const parsedContent = useMemo(() => {
@@ -1040,6 +1083,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       className={`fixed inset-0 z-[120] overflow-hidden flex flex-col font-sans transition-colors duration-300 ${isWorshipFlow ? "bg-[#0A0A0C]" : "bg-[#0A0A0C]"}`}
     >
       <div
+        onPointerDown={markControlsActivity}
         className={`top-bar absolute top-0 w-full z-40 px-4 md:px-6 h-20 md:h-24 bg-[#0A0A0C]/85 backdrop-blur-2xl border-b border-white/[0.04] shadow-sm flex items-center justify-between transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${isUIVisible || isEditing ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"}`}
       >
         <div className="flex-1">
@@ -1575,6 +1619,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
 
       {!isEditing && (
         <div
+          onPointerDown={markControlsActivity}
           className={`dock fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 z-40 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-auto ${isUIVisible || isAutoScrolling ? "translate-y-0 opacity-100 scale-100" : "translate-y-20 opacity-0 scale-95"}`}
         >
           <div className="flex items-center gap-2 p-2 bg-[#0A0A0C]/85 backdrop-blur-3xl border border-white/[0.08] shadow-[0_16px_40px_rgba(0,0,0,0.6)] rounded-full isolate relative">
