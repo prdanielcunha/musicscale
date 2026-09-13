@@ -17,7 +17,7 @@ const NotificationBell: React.FC = () => {
     <button
       onClick={() => navigate("/notifications")}
       className="premium-interactive relative flex h-10 w-10 items-center justify-center rounded-[13px] border border-white/[0.07] bg-white/[0.035] text-white/50 hover:border-white/[0.11] hover:bg-white/[0.055] hover:text-white/90"
-      aria-label={t("notifications.openWithCount", "Notificações: {{count}} não lidas", { count: unreadCount })}
+      aria-label={`${t("nav.notifications", "Notificações")} (${unreadCount})`}
     >
       <Bell className="h-[19px] w-[19px]" />
       {unreadCount > 0 && (
