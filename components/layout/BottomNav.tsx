@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion, useReducedMotion } from "motion/react";
@@ -6,7 +6,6 @@ import { DashboardIcon } from "../icons/DashboardIcon";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { CalendarIcon } from "../icons/CalendarIcon";
 import { BookOpenIcon } from "../icons/BookOpenIcon";
-import { SettingsIcon } from "../icons/SettingsIcon";
 import { GlobalCreateAction } from "./GlobalCreateAction";
 
 export const BottomNav: React.FC = () => {
@@ -19,81 +18,65 @@ export const BottomNav: React.FC = () => {
     { id: "songs", to: "/songs", label: t("nav.bottom.songs", "Músicas"), icon: <MusicNoteIcon /> },
     { id: "scales", to: "/scales", label: t("nav.bottom.scales", "Escalas"), icon: <CalendarIcon /> },
     { id: "library", to: "/library", label: t("nav.bottom.library", "Biblioteca"), icon: <BookOpenIcon /> },
-    { id: "account", to: "/profile", label: t("nav.bottom.account", "Conta"), icon: <SettingsIcon /> },
   ];
 
-  const activeIndex = navLinks.findIndex(link =>
-    location.pathname === link.to || (link.to !== "/" && location.pathname.startsWith(link.to))
-  );
-  const previousIndexRef = useRef(activeIndex);
-  const [direction, setDirection] = useState(0);
+  const isLinkActive = (to: string) =>
+    location.pathname === to || (to !== "/" && location.pathname.startsWith(to));
 
-  useEffect(() => {
-    if (activeIndex !== previousIndexRef.current) {
-      setDirection(activeIndex > previousIndexRef.current ? 1 : -1);
-      previousIndexRef.current = activeIndex;
-    }
-  }, [activeIndex]);
-
-  const transition = shouldReduceMotion
-    ? { duration: 0 }
-    : { type: "spring" as const, stiffness: 500, damping: 42, mass: 0.72 };
+  const renderLink = (link: (typeof navLinks)[number]) => {
+    const isActive = isLinkActive(link.to);
+    return (
+      <NavLink
+        key={link.id}
+        to={link.to}
+        aria-current={isActive ? "page" : undefined}
+        data-active={isActive ? "true" : "false"}
+        className="ms-v3-dock-link group flex flex-col items-center justify-center gap-[3px] transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+      >
+        {isActive && !shouldReduceMotion && (
+          <motion.span
+            layoutId="ms-v3-dock-active-glow"
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-[3px] -z-10 rounded-[17px] bg-[radial-gradient(circle_at_50%_10%,rgba(111,140,255,0.16),transparent_62%)]"
+            transition={{ type: "spring", stiffness: 460, damping: 38, mass: 0.72 }}
+          />
+        )}
+        <span className="relative flex h-[22px] items-center justify-center">
+          {React.cloneElement(link.icon as React.ReactElement, {
+            className: `h-[20px] w-[20px] transition-all duration-180 ${
+              isActive
+                ? "text-white drop-shadow-[0_0_10px_rgba(111,140,255,0.35)]"
+                : "text-white/[0.42] group-hover:text-white/[0.78]"
+            }`,
+          })}
+        </span>
+        <span
+          className={`max-w-full truncate px-1 text-center text-[9.5px] leading-[11px] tracking-[-0.01em] transition-colors sm:text-[10px] ${
+            isActive ? "font-semibold text-white" : "font-medium text-white/[0.43] group-hover:text-white/[0.72]"
+          }`}
+        >
+          {link.label}
+        </span>
+      </NavLink>
+    );
+  };
 
   return (
     <nav
       aria-label={t("nav.bottom.ariaLabel", "Navegação Principal")}
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(10px+env(safe-area-inset-bottom))] z-[100] flex justify-center px-3 md:hidden"
+      className="pointer-events-none fixed inset-x-0 bottom-[calc(9px+env(safe-area-inset-bottom))] z-[100] flex justify-center px-3 md:hidden"
     >
-      <div className="relative w-full max-w-[400px]">
-        <div className="pointer-events-auto absolute bottom-[calc(100%+10px)] right-2 sm:right-3">
-          <GlobalCreateAction variant="mobile" />
-        </div>
+      <div className="w-full max-w-[410px]">
+        <div className="ms-v3-dock">
+          {renderLink(navLinks[0])}
+          {renderLink(navLinks[1])}
 
-        <div className="pointer-events-auto relative flex w-full items-center justify-between rounded-[28px] border border-white/[0.09] bg-[linear-gradient(180deg,rgba(24,24,29,0.98),rgba(9,9,12,0.995))] p-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_44px_rgba(0,0,0,0.46)]">
-          {navLinks.map((link, index) => {
-            const isActive = index === activeIndex;
-            return (
-              <NavLink
-                key={link.id}
-                to={link.to}
-                aria-current={isActive ? "page" : undefined}
-                className="group relative flex h-[50px] min-w-[48px] flex-1 flex-col items-center justify-center overflow-hidden rounded-[24px] transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
-              >
-                {isActive && (
-                  <motion.div
-                    layoutId="bottom-nav-liquid-indicator"
-                    aria-hidden="true"
-                    className="absolute inset-0 -z-10 rounded-[24px] border border-white/[0.105] bg-[linear-gradient(180deg,rgba(255,255,255,0.105),rgba(255,255,255,0.05))] shadow-[inset_0_1px_0_rgba(255,255,255,0.075)]"
-                    transition={transition}
-                  >
-                    <div className="absolute inset-x-[28%] top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
-                    {!shouldReduceMotion && direction !== 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, x: direction * -16 }}
-                        animate={{ opacity: [0, 0.38, 0], x: [direction * -16, direction * 16] }}
-                        transition={{ duration: 0.32, ease: "easeInOut" }}
-                        className="pointer-events-none absolute inset-0 rounded-[24px] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent"
-                      />
-                    )}
-                  </motion.div>
-                )}
+          <div className="ms-v3-dock-create-slot" aria-label={t("globalCreate.trigger", "Criar")}>
+            <GlobalCreateAction variant="mobile" />
+          </div>
 
-                <div className="relative z-10 flex h-[22px] items-center justify-center">
-                  {React.cloneElement(link.icon as React.ReactElement, {
-                    className: `h-[20px] w-[20px] transition-colors duration-150 sm:h-[21px] sm:w-[21px] ${
-                      isActive ? "text-white" : "text-white/[0.48] group-hover:text-white/[0.8]"
-                    }`,
-                  })}
-                </div>
-
-                <span className={`relative z-10 mt-[2px] w-full truncate px-1 text-center text-[10px] leading-[12px] transition-colors duration-150 sm:text-[10.5px] ${
-                  isActive ? "font-semibold text-white" : "font-medium text-white/[0.46] group-hover:text-white/[0.78]"
-                }`}>
-                  {link.label}
-                </span>
-              </NavLink>
-            );
-          })}
+          {renderLink(navLinks[2])}
+          {renderLink(navLinks[3])}
         </div>
       </div>
     </nav>
