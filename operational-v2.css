@@ -1,0 +1,202 @@
+/* MusicScale Premium V2 — operational surfaces.
+   Visual-only layer scoped by page markers; business logic, RBAC and data flow stay untouched. */
+
+.ms-notifications-page,
+.ms-profile-page,
+.ms-users-page,
+.ms-band-page,
+.ms-band-scales-page {
+  color: var(--ms-text);
+}
+
+.ms-notifications-page,
+.ms-profile-page,
+.ms-users-page,
+.ms-band-page {
+  width: min(100%, 1120px);
+  margin-inline: auto;
+}
+
+.ms-notifications-page h1,
+.ms-profile-page h1,
+.ms-users-page h1,
+.ms-band-scales-page h1 {
+  letter-spacing: -0.035em;
+}
+
+.ms-notifications-page > div:first-child,
+.ms-users-page > div:first-child,
+.ms-band-page > div:first-child {
+  position: relative;
+}
+
+.ms-notifications-page > div:first-child::before,
+.ms-users-page > div:first-child::before,
+.ms-band-page > div:first-child::before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  left: 0;
+  width: 116px;
+  height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ms-blue) 70%, transparent), transparent);
+  pointer-events: none;
+}
+
+/* Notifications: compact inbox, not a generic message list. */
+.ms-notifications-page {
+  padding-bottom: max(7rem, calc(env(safe-area-inset-bottom) + 5rem));
+}
+
+.ms-notifications-page button {
+  min-height: 40px;
+  border-radius: 12px;
+}
+
+.ms-notifications-page [data-testid^="notification-card-"] {
+  min-height: 92px;
+  border-radius: var(--ms-radius-md) !important;
+  border-color: var(--ms-stroke) !important;
+  background: linear-gradient(180deg, rgba(19, 19, 25, 0.94), rgba(12, 12, 16, 0.96)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 18px 44px -34px rgba(0,0,0,.9);
+}
+
+.ms-notifications-page [data-testid^="notification-card-"]:hover {
+  border-color: var(--ms-stroke-strong) !important;
+  background: linear-gradient(180deg, rgba(24, 24, 31, 0.96), rgba(15, 15, 20, 0.98)) !important;
+}
+
+.ms-notifications-page [data-testid^="notification-card-"][class*="ring-2"] {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ms-blue) 62%, transparent), inset 0 1px 0 rgba(255,255,255,.04) !important;
+}
+
+.ms-notifications-page [data-testid^="notification-card-"] > div:last-child button {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+/* Profile: identity first, settings second. */
+.ms-profile-page {
+  padding-inline: clamp(0px, 1vw, 12px);
+}
+
+.ms-profile-page > div:first-child {
+  padding: clamp(14px, 2vw, 22px);
+  border: 1px solid var(--ms-stroke);
+  border-radius: var(--ms-radius-xl);
+  background: linear-gradient(135deg, rgba(79,140,255,.07), rgba(120,104,255,.025) 42%, rgba(255,255,255,.018));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 24px 70px -40px rgba(0,0,0,.9);
+}
+
+.ms-profile-page > div:first-child img {
+  box-shadow: 0 18px 44px -22px rgba(0,0,0,.92);
+}
+
+.ms-profile-page input,
+.ms-profile-page select,
+.ms-profile-page textarea,
+.ms-users-page input,
+.ms-users-page select,
+.ms-users-page textarea,
+.ms-band-page input,
+.ms-band-page select {
+  min-height: 46px;
+}
+
+/* Team and permissions: dense operational workspace. */
+.ms-users-page {
+  padding-bottom: max(7rem, calc(env(safe-area-inset-bottom) + 5rem));
+}
+
+.ms-users-page > div:first-child {
+  padding: clamp(14px, 2vw, 20px);
+  border: 1px solid var(--ms-stroke);
+  border-radius: var(--ms-radius-lg);
+  background: linear-gradient(180deg, rgba(18,18,24,.92), rgba(12,12,16,.94));
+}
+
+.ms-users-page button,
+.ms-profile-page button {
+  min-height: 40px;
+}
+
+/* Band directory: people are the primary content, filters are secondary. */
+.ms-band-page {
+  padding-bottom: max(7rem, calc(env(safe-area-inset-bottom) + 5rem));
+}
+
+.ms-band-page > div:nth-child(2) {
+  border-color: var(--ms-stroke) !important;
+  background: linear-gradient(180deg, rgba(18,18,24,.94), rgba(12,12,16,.95)) !important;
+}
+
+.ms-band-page > div[class*="grid"] > div,
+.ms-band-page [class*="grid-cols"] > article {
+  transition: transform 180ms var(--ms-ease), border-color 180ms var(--ms-ease), background 180ms var(--ms-ease);
+}
+
+/* BandScale: align with the musical timeline family and remove broad glass. */
+.ms-band-scales-page {
+  width: min(100%, 1180px);
+  margin-inline: auto;
+  padding-bottom: max(8rem, calc(env(safe-area-inset-bottom) + 6rem)) !important;
+}
+
+.ms-band-scales-page [class*="backdrop-blur-2xl"] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.ms-band-scales-page [class*="rounded-[24px]"] {
+  border-color: var(--ms-stroke) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 20px 54px -38px rgba(0,0,0,.92) !important;
+}
+
+@media (max-width: 767px) {
+  .ms-notifications-page,
+  .ms-profile-page,
+  .ms-users-page,
+  .ms-band-page,
+  .ms-band-scales-page {
+    padding-inline: 10px !important;
+  }
+
+  .ms-notifications-page [data-testid^="notification-card-"] {
+    gap: 10px !important;
+    padding: 13px !important;
+  }
+
+  .ms-notifications-page [data-testid^="notification-card-"] > div:last-child {
+    gap: 2px !important;
+  }
+
+  .ms-profile-page > div:first-child {
+    align-items: stretch !important;
+  }
+
+  .ms-users-page > div:first-child {
+    padding: 13px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1180px) {
+  .ms-notifications-page,
+  .ms-profile-page,
+  .ms-users-page,
+  .ms-band-page,
+  .ms-band-scales-page {
+    padding-inline: 18px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-notifications-page *,
+  .ms-profile-page *,
+  .ms-users-page *,
+  .ms-band-page *,
+  .ms-band-scales-page * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
