@@ -3,6 +3,7 @@ import { PopulatedSong, Tag, ScaleSongSettingsUpdateResult, ScaleSongSettings } 
 import { ScaleSongCard } from "./ScaleSongCard";
 import { moveSongId, moveSongBeforeTarget } from "../../utils/scaleSongSettings";
 import { useTranslation } from "react-i18next";
+import { ListMusic, SlidersHorizontal } from "lucide-react";
 
 interface ScaleReviewRepertoireProps {
   songIds: string[];
@@ -121,12 +122,36 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
   const handleTouchCancel = () => cleanupTouch();
 
   return (
-    <section className="ms-panel p-4 sm:p-5">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <section className="ms-panel relative overflow-hidden p-4 sm:p-5">
+      <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent" />
+
+      <div className="mb-4 flex items-start justify-between gap-3 sm:items-center">
         <div className="min-w-0">
-          <span className="ms-kicker">{t('scaleModal.repertoire', 'Repertório')}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] border border-primary/15 bg-primary/[0.07] text-primary-light">
+              <ListMusic className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <span className="ms-kicker">{t('scaleModal.repertoire', 'Repertório')}</span>
+              {songIds && songIds.length > 0 && (
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-[11px] font-semibold tabular-nums text-white/48">{songIds.length}</span>
+                  <span className="h-1 w-1 rounded-full bg-white/20" aria-hidden="true" />
+                  <div className="flex items-center gap-1" aria-hidden="true">
+                    {songIds.slice(0, 8).map((id, index) => (
+                      <span
+                        key={`${id}-${index}`}
+                        className={`h-1.5 rounded-full transition-[width,background-color] duration-200 ${index === 0 ? 'w-5 bg-primary/75' : 'w-2.5 bg-white/14'}`}
+                      />
+                    ))}
+                    {songIds.length > 8 && <span className="text-[9px] font-bold text-white/28">+{songIds.length - 8}</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
           {songIds && songIds.length >= 2 && (
-            <p className="mt-2 max-w-xl text-[12px] font-medium leading-relaxed text-white/38">
+            <p className="mt-3 max-w-xl text-[12px] font-medium leading-relaxed text-white/38">
               {t('scaleModal.reviewInstruction', 'Arraste as músicas ou use as setas para definir a ordem do culto.')}
             </p>
           )}
@@ -134,14 +159,21 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
         <button
           type="button"
           onClick={() => goToStep('build')}
-          className="premium-interactive shrink-0 rounded-[11px] border border-primary/20 bg-primary/[0.08] px-3 py-2 text-[11px] font-semibold text-primary-light hover:bg-primary/[0.13]"
+          className="premium-interactive inline-flex min-h-[40px] shrink-0 items-center gap-2 rounded-[12px] border border-primary/20 bg-primary/[0.08] px-3 py-2 text-[11px] font-semibold text-primary-light hover:bg-primary/[0.13]"
         >
-          {t('scaleModal.editRepertoire', 'Editar Repertório')}
+          <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+          <span className="hidden min-[390px]:inline">{t('scaleModal.editRepertoire', 'Editar Repertório')}</span>
         </button>
       </div>
 
       {songIds && songIds.length > 0 ? (
-        <div className="space-y-2">
+        <div className="relative space-y-2">
+          {songIds.length >= 2 && (
+            <div
+              className="pointer-events-none absolute bottom-6 left-[60px] top-6 z-0 w-px bg-gradient-to-b from-primary/25 via-white/[0.08] to-primary/20"
+              aria-hidden="true"
+            />
+          )}
           {songIds.map((id, index) => {
             const song = songs.find(s => s.id === id);
             if (!song) return null;
@@ -151,29 +183,31 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
                   onDragOver={(e) => handleDragOver(e, song.id)}
                   onDrop={(e) => handleDrop(e, song.id)}
                   onDragLeave={() => setDropTargetId(null)}
-                  className={`rounded-full transition-[height,background-color] duration-150 ${dropTargetId === song.id ? "h-5 bg-primary/50" : "h-1"}`}
+                  className={`relative z-10 rounded-full transition-[height,background-color] duration-150 ${dropTargetId === song.id ? "h-5 bg-primary/50" : "h-1"}`}
                 />
-                <ScaleSongCard
-                  song={song}
-                  isSelected={true}
-                  mode="review"
-                  index={index}
-                  tags={tags}
-                  localSettings={songSettings?.[song.id]}
-                  onSettingsChange={(key, bpm, isGlobal) => onUpdateSongSettings(song.id, key, bpm, isGlobal)}
-                  onToggle={() => onSongIdsChange(songIds.filter(id => id !== song.id))}
-                  onMoveUp={() => moveSongReview(index, "up")}
-                  onMoveDown={() => moveSongReview(index, "down")}
-                  isFirst={index === 0}
-                  isLast={index === songIds.length - 1}
-                  isDragging={draggedSongId === song.id}
-                  onDragStart={(e) => handleDragStart(e, song.id)}
-                  onDragEnd={handleDragEnd}
-                  onTouchStart={(e: any) => handleTouchStart(e, index)}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleTouchEnd}
-                  onTouchCancel={handleTouchCancel}
-                />
+                <div className="relative z-10">
+                  <ScaleSongCard
+                    song={song}
+                    isSelected={true}
+                    mode="review"
+                    index={index}
+                    tags={tags}
+                    localSettings={songSettings?.[song.id]}
+                    onSettingsChange={(key, bpm, isGlobal) => onUpdateSongSettings(song.id, key, bpm, isGlobal)}
+                    onToggle={() => onSongIdsChange(songIds.filter(id => id !== song.id))}
+                    onMoveUp={() => moveSongReview(index, "up")}
+                    onMoveDown={() => moveSongReview(index, "down")}
+                    isFirst={index === 0}
+                    isLast={index === songIds.length - 1}
+                    isDragging={draggedSongId === song.id}
+                    onDragStart={(e) => handleDragStart(e, song.id)}
+                    onDragEnd={handleDragEnd}
+                    onTouchStart={(e: any) => handleTouchStart(e, index)}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    onTouchCancel={handleTouchCancel}
+                  />
+                </div>
               </React.Fragment>
             );
           })}
@@ -181,7 +215,7 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
             onDragOver={(e) => handleDragOver(e, "end")}
             onDrop={(e) => handleDrop(e, "end")}
             onDragLeave={() => setDropTargetId(null)}
-            className={`rounded-full transition-[height,background-color] duration-150 ${dropTargetId === "end" ? "h-5 bg-primary/50" : "h-1"}`}
+            className={`relative z-10 rounded-full transition-[height,background-color] duration-150 ${dropTargetId === "end" ? "h-5 bg-primary/50" : "h-1"}`}
           />
         </div>
       ) : (
