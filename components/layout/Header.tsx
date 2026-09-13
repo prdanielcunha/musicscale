@@ -52,19 +52,19 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
   return (
     <header
-      className={`sticky top-0 z-[70] w-full pt-[max(env(safe-area-inset-top),0px)] transition-all duration-200 ${
+      className={`ms-v3-header sticky top-0 z-[70] w-full pt-[max(env(safe-area-inset-top),0px)] transition-all duration-200 ${
         scrolled
-          ? "bg-[#0a0a0c]/96 md:bg-[#08080b]/[0.985] md:backdrop-blur-[32px] border-b border-white/[0.075] shadow-[0_14px_38px_-28px_rgba(0,0,0,0.95)]"
-          : "bg-[#070709]/[0.88] md:backdrop-blur-[32px] border-b border-white/[0.04]"
+          ? "is-scrolled border-b border-white/[0.07]"
+          : "border-b border-transparent"
       }`}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.07] to-transparent" />
       <div className="ms-content-frame flex h-[64px] items-center justify-between px-4 sm:h-[72px] md:px-8">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           {onMenuClick && (
             <button
               onClick={onMenuClick}
-              className="premium-interactive touch-manipulation md:hidden flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border border-white/[0.07] bg-white/[0.035] text-white/70 hover:bg-white/[0.06] hover:text-white"
+              className="ms-v3-menu-trigger premium-interactive touch-manipulation md:hidden flex h-11 w-11 shrink-0 items-center justify-center rounded-[15px] border border-white/[0.07] text-white/70 hover:text-white"
               aria-label={t("nav.main_menu", "Menu Principal")}
             >
               <MenuIcon className="h-[21px] w-[21px]" />
@@ -73,13 +73,13 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
           <div className="flex min-w-0 flex-col justify-center">
             <div className="flex min-w-0 items-center gap-2.5">
-              <h2 className="truncate text-[18px] font-semibold leading-tight tracking-[-0.025em] text-white sm:text-[20px]">
+              <h2 className="truncate text-[19px] font-semibold leading-tight tracking-[-0.04em] text-white sm:text-[21px]">
                 {title}
               </h2>
-              <span className="hidden h-1.5 w-1.5 rounded-full bg-primary/70 shadow-[0_0_12px_rgba(79,140,255,0.65)] xs:block" aria-hidden="true" />
+              <span className="ms-v3-header-signal hidden h-1.5 w-1.5 rounded-full xs:block" aria-hidden="true" />
             </div>
             {organization && (
-              <div className="mt-0.5 min-w-0">
+              <div className="mt-0.5 min-w-0 opacity-90">
                 <OrganizationSelector />
               </div>
             )}
@@ -93,11 +93,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
           <button
             onClick={openWhatsNew}
-            className="premium-interactive hidden min-h-[40px] items-center gap-2 rounded-[13px] border border-white/[0.07] bg-white/[0.035] px-3.5 text-white/70 hover:border-white/[0.11] hover:bg-white/[0.055] hover:text-white sm:flex"
+            className="premium-interactive hidden min-h-[40px] items-center gap-2 rounded-[13px] border border-white/[0.07] bg-white/[0.03] px-3.5 text-white/66 hover:border-white/[0.12] hover:bg-white/[0.055] hover:text-white sm:flex"
           >
             <span className="relative flex h-2 w-2" aria-hidden="true">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-45" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary shadow-[0_0_10px_rgba(79,140,255,0.65)]" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-35" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_rgba(79,140,255,0.72)]" />
             </span>
             <span className="text-[11px] font-semibold tracking-[0.04em]">
               {t("nav.updates", "Atualizações")}
@@ -106,7 +106,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
           <button
             onClick={() => openHelpModal("faq")}
-            className="premium-interactive hidden h-10 w-10 items-center justify-center rounded-[13px] border border-white/[0.07] bg-white/[0.035] text-white/50 hover:border-white/[0.11] hover:bg-white/[0.055] hover:text-white/85 sm:flex"
+            className="premium-interactive hidden h-10 w-10 items-center justify-center rounded-[13px] border border-white/[0.07] bg-white/[0.03] text-white/45 hover:border-white/[0.11] hover:bg-white/[0.055] hover:text-white/85 sm:flex"
             aria-label={t("nav.open_help_center", "Abrir central de ajuda")}
           >
             <HelpCircleIcon className="h-[19px] w-[19px]" />
