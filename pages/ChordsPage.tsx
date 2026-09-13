@@ -121,7 +121,7 @@ const ChordsPage: React.FC = () => {
   );
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="ms-v3-music-workspace ms-v3-chords-page space-y-5 sm:space-y-6">
       <RepertoireMetricsView songs={songs} mode="chords" />
 
       <section className="ms-panel relative overflow-hidden p-4 sm:p-5">

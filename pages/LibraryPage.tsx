@@ -802,7 +802,7 @@ export default function LibraryPage() {
   const isGlobalAdmin = ['owner', 'ecosystem_owner', 'founder', 'ceo', 'admin', 'global_admin'].includes(userProfile?.systemRole?.toLowerCase() || '');
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 dark:bg-[#070709] pb-24 md:pb-0">
+    <div className="ms-v3-library-page min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 dark:bg-[#070709] pb-24 md:pb-0">
       {/* Premium Hero */}
       <div className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 bg-white dark:bg-[#0A0A0C] border-b border-black/5 dark:border-white/[0.02] relative overflow-hidden">
         {/* Subtle Ambient Glows */}

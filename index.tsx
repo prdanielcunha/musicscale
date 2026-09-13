@@ -7,6 +7,7 @@ import { markStartupMetric, incrementStartupCounter, markStartupFailure } from '
 import './performance-v2.css';
 import './operational-v2.css';
 import './experience-v3.css';
+import './experience-v3-surfaces.css';
 
 
 const urlParams = new URLSearchParams(window.location.search);

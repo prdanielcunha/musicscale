@@ -421,7 +421,7 @@ const ScaleCard: React.FC<{
       data-testid={`scale-card-${scale.id}`}
       onClick={handleView} 
       padding="none"
-      className={`group relative outline-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] border rounded-[24px] sm:rounded-[32px] cursor-pointer block overflow-hidden min-h-[120px] ${
+      className={`ms-v3-scale-card group relative outline-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] border rounded-[24px] sm:rounded-[32px] cursor-pointer block overflow-hidden min-h-[120px] ${
           isSelected ? 'ring-2 ring-primary border-transparent bg-primary/5 dark:bg-primary/10' : ''
       } ${
           isPast 
@@ -933,7 +933,7 @@ const ScalesPage: React.FC = () => {
     const currentScales = activeTab === "upcoming" ? upcomingScales : pastScales;
 
     return (
-        <div className="w-full max-w-5xl mx-auto py-8 lg:py-12 px-4 sm:px-6 lg:px-8 pb-32">
+        <div className="ms-v3-scales-page w-full max-w-5xl mx-auto py-8 lg:py-12 px-4 sm:px-6 lg:px-8 pb-32">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
                 <div>
                     <h1 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white tracking-tight drop-shadow-sm dark:drop-shadow-none">Escalas Musicais</h1>
