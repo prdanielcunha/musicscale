@@ -28,30 +28,38 @@ const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(({
   ...props
 }, ref) => {
   const baseClasses =
-    "inline-flex items-center justify-center gap-2.5 rounded-[16px] focus:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed tracking-wide shrink-0 whitespace-nowrap outline-none min-h-[44px] premium-interactive transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0";
+    "inline-flex shrink-0 items-center justify-center gap-2 rounded-[14px] whitespace-nowrap font-semibold outline-none transition-[transform,background-color,border-color,color,box-shadow,filter] duration-200 focus-visible:ring-[3px] focus-visible:ring-primary/20 disabled:pointer-events-none disabled:opacity-45 active:scale-[0.975]";
 
   const variantClasses = {
     primary:
-      "border border-white/10 dark:border-white/5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold tracking-wide shadow-md hover:shadow-xl dark:hover:shadow-white/20 hover:bg-slate-800 dark:hover:bg-slate-50",
+      "border border-white/[0.12] bg-[linear-gradient(135deg,#4f8cff,#6f67f8)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_12px_30px_-16px_rgba(79,140,255,0.8)] hover:brightness-105",
     secondary:
-      "border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] text-slate-700 dark:text-white font-bold tracking-wide shadow-sm hover:bg-slate-100 dark:hover:bg-white/[0.08] hover:shadow-md",
+      "border border-white/[0.075] bg-white/[0.045] text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] hover:border-white/[0.12] hover:bg-white/[0.07] hover:text-white",
     danger:
-      "border border-red-200/50 dark:border-red-500/10 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-500 hover:bg-red-500 hover:text-white font-bold tracking-wide shadow-sm hover:shadow-md hover:shadow-red-500/20 active:bg-red-600",
+      "border border-red-400/[0.16] bg-red-500/[0.09] text-red-300 hover:border-red-400/[0.28] hover:bg-red-500/[0.16] hover:text-red-200",
     blue:
-      "border border-blue-500/20 bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700 font-bold tracking-wide shadow-md hover:shadow-lg hover:shadow-blue-500/20",
+      "border border-blue-300/[0.16] bg-[linear-gradient(135deg,#3f82f7,#5877ed)] text-white shadow-[0_12px_30px_-18px_rgba(59,130,246,0.9)] hover:brightness-105",
     white:
-      "bg-white text-slate-900 hover:text-primary hover:bg-slate-50 font-bold tracking-wide shadow-md border border-slate-200 dark:border-transparent",
+      "border border-white/[0.18] bg-white text-[#101014] shadow-[0_10px_26px_-18px_rgba(255,255,255,0.5)] hover:bg-[#f5f5f7]",
     ghost:
-      "bg-transparent text-slate-600 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white font-bold tracking-wide border border-transparent",
+      "border border-transparent bg-transparent text-white/55 hover:border-white/[0.055] hover:bg-white/[0.04] hover:text-white/90",
   };
 
   const sizeClasses = {
-    sm: "px-5 py-2 text-[13px] h-[38px] sm:h-[36px]",
-    md: "px-6 py-2.5 text-[14px] h-[46px] sm:h-[44px]",
-    lg: "px-8 py-3 text-[15px] h-[52px]",
+    sm: "min-h-[38px] px-4 py-2 text-[12px]",
+    md: "min-h-[44px] px-5 py-2.5 text-[13px]",
+    lg: "min-h-[50px] px-6 py-3 text-[14px]",
   };
 
   const combinedClasses = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;
+
+  const content = (
+    <>
+      {leftIcon && <span className="flex shrink-0 items-center justify-center">{leftIcon}</span>}
+      {children}
+      {rightIcon && <span className="flex shrink-0 items-center justify-center">{rightIcon}</span>}
+    </>
+  );
 
   if (as === "a") {
     return (
@@ -60,17 +68,7 @@ const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(({
         className={combinedClasses}
         {...(props as React.AnchorHTMLAttributes<HTMLAnchorElement>)}
       >
-        {leftIcon && (
-          <span className="mr-3 flex items-center justify-center shrink-0">
-            {leftIcon}
-          </span>
-        )}
-        {children}
-        {rightIcon && (
-          <span className="ml-3 flex items-center justify-center shrink-0">
-            {rightIcon}
-          </span>
-        )}
+        {content}
       </a>
     );
   }
@@ -81,17 +79,7 @@ const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(({
       className={combinedClasses}
       {...(props as React.ButtonHTMLAttributes<HTMLButtonElement>)}
     >
-      {leftIcon && (
-        <span className="mr-3 flex items-center justify-center shrink-0">
-          {leftIcon}
-        </span>
-      )}
-      {children}
-      {rightIcon && (
-        <span className="ml-3 flex items-center justify-center shrink-0">
-          {rightIcon}
-        </span>
-      )}
+      {content}
     </button>
   );
 });
