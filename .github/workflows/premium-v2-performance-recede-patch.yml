@@ -39,14 +39,14 @@ jobs:
               raise SystemExit('Performance UI state contract not found')
           text = text.replace(state_before, state_after, 1)
 
-          worship_anchor = '''  const [isStageSnapshotPending, setIsStageSnapshotPending] = useState(false);\n  const lastWorshipSnapshotJsonRef = useRef<string | null>(null);'''
-          worship_replacement = '''  const [isStageSnapshotPending, setIsStageSnapshotPending] = useState(false);\n\n  useEffect(() => {\n    if (\n      !isOpen ||\n      !isUIVisible ||\n      isEditing ||\n      isWorshipFlow ||\n      isAutoScrolling ||\n      activeTab !== "none" ||\n      isStageMetronomeOpen ||\n      isStagePadOpen\n    ) {\n      return;\n    }\n\n    const idleTimer = window.setTimeout(() => {\n      setIsUIVisible(false);\n    }, PERFORMANCE_CONTROLS_IDLE_MS);\n\n    return () => window.clearTimeout(idleTimer);\n  }, [\n    isOpen,\n    isUIVisible,\n    isEditing,\n    isWorshipFlow,\n    isAutoScrolling,\n    activeTab,\n    isStageMetronomeOpen,\n    isStagePadOpen,\n    controlsActivityTick,\n    song?.id,\n  ]);\n\n  const lastWorshipSnapshotJsonRef = useRef<string | null>(null);'''
-          if worship_anchor not in text:
-              raise SystemExit('Performance worship-state anchor not found')
-          text = text.replace(worship_anchor, worship_replacement, 1)
+          worship_before = '''  useEffect(() => {\n    if (liveSession?.mode === 'worship') {\n        setIsWorshipFlow(true);\n    } else if (liveSession?.mode === 'rehearsal') {\n        setIsWorshipFlow(false);\n    }\n  }, [liveSession?.mode]);\n\n  const clearTapCandidate = () => {'''
+          worship_after = '''  useEffect(() => {\n    if (liveSession?.mode === 'worship') {\n        setIsWorshipFlow(true);\n    } else if (liveSession?.mode === 'rehearsal') {\n        setIsWorshipFlow(false);\n    }\n  }, [liveSession?.mode]);\n\n  useEffect(() => {\n    if (\n      !isOpen ||\n      !isUIVisible ||\n      isEditing ||\n      isWorshipFlow ||\n      isAutoScrolling ||\n      activeTab !== \"none\" ||\n      isStageMetronomeOpen ||\n      isStagePadOpen\n    ) {\n      return;\n    }\n\n    const idleTimer = window.setTimeout(() => {\n      setIsUIVisible(false);\n    }, PERFORMANCE_CONTROLS_IDLE_MS);\n\n    return () => window.clearTimeout(idleTimer);\n  }, [\n    isOpen,\n    isUIVisible,\n    isEditing,\n    isWorshipFlow,\n    isAutoScrolling,\n    activeTab,\n    isStageMetronomeOpen,\n    isStagePadOpen,\n    controlsActivityTick,\n    song?.id,\n  ]);\n\n  const clearTapCandidate = () => {'''
+          if worship_before not in text:
+              raise SystemExit('Performance worship-mode anchor not found')
+          text = text.replace(worship_before, worship_after, 1)
 
-          click_before = '''    setIsUIVisible(!isUIVisible);\n    if (isUIVisible) setActiveTab("none");'''
-          click_after = '''    if (isUIVisible) {\n      setIsUIVisible(false);\n      setActiveTab("none");\n    } else {\n      markControlsActivity();\n    }'''
+          click_before = '''    setIsUIVisible(!isUIVisible);\n    if (isUIVisible) setActiveTab(\"none\");'''
+          click_after = '''    if (isUIVisible) {\n      setIsUIVisible(false);\n      setActiveTab(\"none\");\n    } else {\n      markControlsActivity();\n    }'''
           if click_before not in text:
               raise SystemExit('Performance screen click contract not found')
           text = text.replace(click_before, click_after, 1)
@@ -56,18 +56,6 @@ jobs:
           if top_before not in text:
               raise SystemExit('Performance top bar contract not found')
           text = text.replace(top_before, top_after, 1)
-
-          pad_before = '''            className="fixed left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-28 md:bottom-32 z-[145] md:w-[520px] rounded-[24px] border border-violet-200/[0.09] bg-[#0D0D11]/[0.95] backdrop-blur-3xl shadow-[0_24px_80px_rgba(0,0,0,0.52)] p-4 md:p-5"\n            onClick={(event) => event.stopPropagation()}'''
-          pad_after = '''            className="fixed left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-28 md:bottom-32 z-[145] md:w-[520px] rounded-[24px] border border-violet-200/[0.09] bg-[#0D0D11]/[0.95] backdrop-blur-3xl shadow-[0_24px_80px_rgba(0,0,0,0.52)] p-4 md:p-5"\n            onPointerDown={markControlsActivity}\n            onClick={(event) => event.stopPropagation()}'''
-          if pad_before not in text:
-              raise SystemExit('Performance pad panel contract not found')
-          text = text.replace(pad_before, pad_after, 1)
-
-          metro_before = '''            className="fixed left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-28 md:bottom-32 z-[145] md:w-[480px] rounded-[24px] border border-white/[0.08] bg-[#0D0D11]/[0.94] backdrop-blur-3xl shadow-[0_24px_80px_rgba(0,0,0,0.50)] p-4 md:p-5"\n            onClick={(event) => event.stopPropagation()}'''
-          metro_after = '''            className="fixed left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 bottom-28 md:bottom-32 z-[145] md:w-[480px] rounded-[24px] border border-white/[0.08] bg-[#0D0D11]/[0.94] backdrop-blur-3xl shadow-[0_24px_80px_rgba(0,0,0,0.50)] p-4 md:p-5"\n            onPointerDown={markControlsActivity}\n            onClick={(event) => event.stopPropagation()}'''
-          if metro_before not in text:
-              raise SystemExit('Performance metronome panel contract not found')
-          text = text.replace(metro_before, metro_after, 1)
 
           dock_before = '''        <div\n          className={`dock fixed bottom-6 md:bottom-10 left-1/2'''
           dock_after = '''        <div\n          onPointerDown={markControlsActivity}\n          className={`dock fixed bottom-6 md:bottom-10 left-1/2'''
@@ -83,6 +71,8 @@ jobs:
         run: |
           git diff --check
           git diff -- components/songs/ChordsViewerModal.tsx
+          grep -F "PERFORMANCE_CONTROLS_IDLE_MS = 3200" components/songs/ChordsViewerModal.tsx
+          grep -F "markControlsActivity" components/songs/ChordsViewerModal.tsx
           grep -F "ctx.createBufferSource()" components/songs/ChordsViewerModal.tsx
           grep -F "clickGain.gain.exponentialRampToValueAtTime" components/songs/ChordsViewerModal.tsx
           grep -F "if (isMetronomeOn && isAudioUnlocked)" components/songs/ChordsViewerModal.tsx
