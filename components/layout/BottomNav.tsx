@@ -15,43 +15,16 @@ export const BottomNav: React.FC = () => {
   const shouldReduceMotion = useReducedMotion();
 
   const navLinks = [
-    {
-      id: "dashboard",
-      to: "/",
-      label: t("nav.bottom.dashboard", "Painel"),
-      icon: <DashboardIcon />,
-    },
-    {
-      id: "songs",
-      to: "/songs",
-      label: t("nav.bottom.songs", "Músicas"),
-      icon: <MusicNoteIcon />,
-    },
-    {
-      id: "scales",
-      to: "/scales",
-      label: t("nav.bottom.scales", "Escalas"),
-      icon: <CalendarIcon />,
-    },
-    {
-      id: "library",
-      to: "/library",
-      label: t("nav.bottom.library", "Biblioteca"),
-      icon: <BookOpenIcon />,
-    },
-    {
-      id: "account",
-      to: "/profile",
-      label: t("nav.bottom.account", "Conta"),
-      icon: <SettingsIcon />,
-    },
+    { id: "dashboard", to: "/", label: t("nav.bottom.dashboard", "Painel"), icon: <DashboardIcon /> },
+    { id: "songs", to: "/songs", label: t("nav.bottom.songs", "Músicas"), icon: <MusicNoteIcon /> },
+    { id: "scales", to: "/scales", label: t("nav.bottom.scales", "Escalas"), icon: <CalendarIcon /> },
+    { id: "library", to: "/library", label: t("nav.bottom.library", "Biblioteca"), icon: <BookOpenIcon /> },
+    { id: "account", to: "/profile", label: t("nav.bottom.account", "Conta"), icon: <SettingsIcon /> },
   ];
 
-  const getActiveIndex = () => {
-    return navLinks.findIndex(link =>
-      location.pathname === link.to || (link.to !== "/" && location.pathname.startsWith(link.to))
-    );
-  };
+  const getActiveIndex = () => navLinks.findIndex(link =>
+    location.pathname === link.to || (link.to !== "/" && location.pathname.startsWith(link.to))
+  );
 
   const activeIndex = getActiveIndex();
   const previousIndexRef = useRef(activeIndex);
@@ -64,52 +37,43 @@ export const BottomNav: React.FC = () => {
     }
   }, [activeIndex]);
 
-  const springTransition = {
-    type: "spring",
-    stiffness: 520,
-    damping: 42,
-    mass: 0.72,
-  };
-
-  const fallbackTransition = {
-    duration: 0,
-  };
-
-  const transition = shouldReduceMotion ? fallbackTransition : springTransition;
+  const transition = shouldReduceMotion
+    ? { duration: 0 }
+    : { type: "spring" as const, stiffness: 500, damping: 44, mass: 0.7 };
 
   return (
-    <nav aria-label={t("nav.bottom.ariaLabel", "Navegação Principal")} className="md:hidden fixed bottom-[calc(12px+env(safe-area-inset-bottom))] left-0 right-0 z-[100] flex justify-center pointer-events-none px-3">
-      <div className="relative w-full max-w-[390px]">
-        <div className="absolute right-2 sm:right-3 bottom-[calc(100%+12px)] pointer-events-auto">
+    <nav
+      aria-label={t("nav.bottom.ariaLabel", "Navegação Principal")}
+      className="md:hidden fixed bottom-[calc(10px+env(safe-area-inset-bottom))] left-0 right-0 z-[100] flex justify-center pointer-events-none px-3"
+    >
+      <div className="relative w-full max-w-[402px]">
+        <div className="absolute right-2 bottom-[calc(100%+10px)] pointer-events-auto">
           <GlobalCreateAction variant="mobile" />
         </div>
 
-        {/* A near-opaque layered surface keeps the glass look without forcing
-            iOS Safari to continuously recomposite backdrop-filter under the nav. */}
-        <div className="pointer-events-auto flex justify-between items-center relative w-full p-[4px] bg-[linear-gradient(180deg,rgba(24,24,29,0.98)_0%,rgba(11,11,15,0.985)_100%)] border border-white/[0.09] rounded-[31px] shadow-[0_18px_48px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.07)]">
+        <div className="ms-premium-bottom-nav pointer-events-auto flex items-center relative w-full p-[4px] rounded-[29px]">
           {navLinks.map((link, index) => {
             const isActive = index === activeIndex;
-
             return (
               <NavLink
                 key={link.id}
                 to={link.to}
                 aria-current={isActive ? "page" : undefined}
-                className="relative flex h-[50px] w-full min-w-[48px] flex-1 flex-col items-center justify-center rounded-[26px] transition-colors duration-150 active:scale-[0.97] group overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                className="relative flex h-[51px] min-w-[48px] flex-1 flex-col items-center justify-center rounded-[25px] transition-colors duration-150 active:scale-[0.975] group overflow-hidden focus:outline-none"
               >
                 {isActive && (
                   <motion.div
-                    layoutId="bottom-nav-liquid-indicator"
+                    layoutId="bottom-nav-premium-v2-indicator"
                     aria-hidden="true"
-                    className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0.11)_55%,rgba(255,255,255,0.07)_100%)] rounded-[26px] border border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.13),inset_0_-1px_0_rgba(255,255,255,0.03),0_7px_18px_rgba(0,0,0,0.20)] -z-10"
+                    className="ms-premium-bottom-active absolute inset-0 rounded-[25px] -z-10"
                     transition={transition}
                   >
                     {!shouldReduceMotion && direction !== 0 && (
                       <motion.div
-                        initial={{ opacity: 0, x: direction * -20 }}
-                        animate={{ opacity: [0, 0.5, 0], x: [direction * -20, direction * 20] }}
-                        transition={{ duration: 0.4, ease: "easeInOut" }}
-                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none rounded-[26px]"
+                        initial={{ opacity: 0, x: direction * -14 }}
+                        animate={{ opacity: [0, 0.34, 0], x: [direction * -14, direction * 14] }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent pointer-events-none rounded-[25px]"
                       />
                     )}
                   </motion.div>
@@ -117,25 +81,17 @@ export const BottomNav: React.FC = () => {
 
                 <div className="relative z-10 flex h-[22px] items-center justify-center">
                   {React.cloneElement(link.icon as React.ReactElement, {
-                    className: `w-[20px] h-[20px] sm:w-[21px] sm:h-[21px] transition-colors duration-150 ${
-                      isActive
-                        ? "text-white"
-                        : "text-white/[0.55] group-hover:text-white/[0.85]"
+                    className: `w-[20px] h-[20px] transition-[color,transform] duration-150 ${
+                      isActive ? "text-[#aeb2ff] scale-[1.03]" : "text-white/[0.48] group-hover:text-white/[0.78]"
                     }`,
                   })}
                 </div>
 
-                <div className="mt-[2px] flex items-center justify-center w-full px-1">
-                  <span
-                    className={`relative z-10 w-full text-center truncate whitespace-nowrap leading-[12px] transition-colors duration-150 text-[10.5px] sm:text-[11px] ${
-                      isActive
-                        ? "font-semibold text-white"
-                        : "font-medium text-white/[0.55] group-hover:text-white/[0.85]"
-                    }`}
-                  >
-                    {link.label}
-                  </span>
-                </div>
+                <span className={`relative z-10 mt-[2px] max-w-full px-1 truncate text-center whitespace-nowrap leading-[12px] text-[10.5px] transition-colors duration-150 ${
+                  isActive ? "font-semibold text-white" : "font-medium text-white/[0.48] group-hover:text-white/[0.78]"
+                }`}>
+                  {link.label}
+                </span>
               </NavLink>
             );
           })}
