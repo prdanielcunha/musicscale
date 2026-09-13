@@ -173,7 +173,7 @@ const BandPage: React.FC = () => {
   if (error) return <div className="text-red-500 text-center">{error}</div>;
 
   return (
-    <div className="space-y-6">
+    <div className="ms-band-page space-y-6">
       <div>
         <p className="text-slate-500 dark:text-gray-400 max-w-3xl">
           {t("band.subtitle", "Veja todos os músicos, vocais e ministros cadastrados no sistema.")}

@@ -623,7 +623,7 @@ const ProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-20 pt-4 md:pt-0">
+    <div className="ms-profile-page max-w-5xl mx-auto space-y-8 pb-20 pt-4 md:pt-0">
       <div className="flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
         <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto">
           <div className="relative group cursor-pointer">

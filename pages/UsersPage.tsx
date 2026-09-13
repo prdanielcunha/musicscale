@@ -1801,7 +1801,7 @@ const UsersPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="ms-users-page space-y-8">
 
       <div>
         <div className="flex justify-between items-center mb-6">
