@@ -114,17 +114,23 @@ jobs:
             --expires 7d \
             --non-interactive 2>&1 | tee /tmp/firebase-preview.log
 
-          PREVIEW_URL="$(grep -Eo 'https://[A-Za-z0-9._-]+\.web\.app' /tmp/firebase-preview.log | head -n 1 || true)"
+          PREVIEW_URL="$(grep -E 'Channel URL' /tmp/firebase-preview.log | grep -Eo 'https://[A-Za-z0-9._-]+\.web\.app' | tail -n 1 || true)"
           if [ -z "$PREVIEW_URL" ]; then
-            echo 'Firebase CLI did not expose a .web.app preview URL.' >&2
+            echo 'Firebase CLI did not expose the preview channel .web.app URL.' >&2
             cat /tmp/firebase-preview.log >&2
             exit 1
           fi
 
+          EXPECTED_PREFIX="https://mn-musicscale-555464791734--${PREVIEW_CHANNEL}-"
           case "$PREVIEW_URL" in
-            https://*.web.app) ;;
-            *) echo "Unexpected preview URL: $PREVIEW_URL" >&2; exit 1 ;;
+            ${EXPECTED_PREFIX}*.web.app) ;;
+            *) echo "Unexpected preview channel URL: $PREVIEW_URL" >&2; exit 1 ;;
           esac
+
+          if [ "$PREVIEW_URL" = 'https://mn-musicscale-555464791734.web.app' ]; then
+            echo 'Refusing to validate the live Firebase Hosting URL as a preview.' >&2
+            exit 1
+          fi
 
           echo "url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
 
@@ -134,17 +140,19 @@ jobs:
           PREVIEW_URL: ${{ steps.deploy.outputs.url }}
         run: |
           set -euo pipefail
-          HEADERS="$(mktemp)"
-          BODY="$(mktemp)"
-          STATUS="$(curl --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors \
-            --dump-header "$HEADERS" --output "$BODY" --write-out '%{http_code}' \
-            "$PREVIEW_URL/")"
-          test "$STATUS" = '200'
-          grep -Eiq '<!doctype html|<html' "$BODY"
-          if grep -Eiq '^location: https://musicscale\.millionsnest\.com' "$HEADERS"; then
-            echo 'Preview unexpectedly redirects to the official MusicScale domain.' >&2
-            exit 1
-          fi
+          for PATH_TO_CHECK in / /start; do
+            HEADERS="$(mktemp)"
+            BODY="$(mktemp)"
+            STATUS="$(curl --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors \
+              --dump-header "$HEADERS" --output "$BODY" --write-out '%{http_code}' \
+              "$PREVIEW_URL$PATH_TO_CHECK")"
+            test "$STATUS" = '200'
+            grep -Eiq '<!doctype html|<html' "$BODY"
+            if grep -Eiq '^location: https://musicscale\.millionsnest\.com' "$HEADERS"; then
+              echo "Preview path $PATH_TO_CHECK unexpectedly redirects to the official MusicScale domain." >&2
+              exit 1
+            fi
+          done
 
       - name: Publish verified Firebase preview URL
         env:
@@ -158,5 +166,6 @@ jobs:
             echo "**Preview:** $PREVIEW_URL"
             echo
             echo 'This is the temporary Firebase Hosting channel `main-review`.'
+            echo 'The root and `/start` were smoke-checked on the preview host.'
             echo 'No live Hosting deploy command exists in this workflow.'
           } >> "$GITHUB_STEP_SUMMARY"
