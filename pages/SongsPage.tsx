@@ -19,6 +19,7 @@ import { useModals } from "../contexts/ModalContext";
 import { useLimits, useAuth } from "../contexts/AuthContext";
 import { useApi } from "../contexts/ApiContext";
 import Spinner from "../components/common/Spinner";
+import MusicWorkspaceSkeleton from "../components/common/MusicWorkspaceSkeleton";
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 import EmptyState from "../components/common/EmptyState";
@@ -496,11 +497,7 @@ const SongsPage: React.FC = () => {
   };
 
   if (loading)
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner />
-      </div>
-    );
+    return <MusicWorkspaceSkeleton cardCount={8} />;
   if (error) return <div className="text-red-500 text-center">{error}</div>;
 
   const isCompletelyEmpty = songs.length === 0;

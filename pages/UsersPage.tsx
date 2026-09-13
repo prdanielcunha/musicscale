@@ -19,6 +19,7 @@ import { ExistingMemberSetupGuide } from '../components/team/ExistingMemberSetup
 
 import { TeamSetupProgressCard } from "../components/team/TeamSetupProgressCard";
 import Spinner from "../components/common/Spinner";
+import OperationalWorkspaceSkeleton from "../components/common/OperationalWorkspaceSkeleton";
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 import ConfirmationModal from "../components/common/ConfirmationModal";
@@ -1775,11 +1776,7 @@ const UsersPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <OperationalWorkspaceSkeleton variant="team" />;
   }
 
   if (error) {

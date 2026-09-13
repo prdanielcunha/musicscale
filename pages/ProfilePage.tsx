@@ -19,6 +19,7 @@ import {
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 import Spinner from "../components/common/Spinner";
+import OperationalWorkspaceSkeleton from "../components/common/OperationalWorkspaceSkeleton";
 import { UserIcon } from "../components/icons/UserIcon";
 import { SunIcon } from "../components/icons/SunIcon";
 import { MoonIcon } from "../components/icons/MoonIcon";
@@ -615,11 +616,7 @@ const ProfilePage: React.FC = () => {
   };
 
   if (isInitialLoading) {
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner />
-      </div>
-    );
+    return <OperationalWorkspaceSkeleton variant="profile" />;
   }
 
   return (

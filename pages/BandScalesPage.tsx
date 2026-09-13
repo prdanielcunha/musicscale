@@ -6,6 +6,7 @@ import type { PopulatedBandScale, PopulatedScale } from "../types";
 import { useMusic } from "../contexts/MusicDataContext";
 import { useModals } from "../contexts/ModalContext";
 import Spinner from "../components/common/Spinner";
+import OperationalWorkspaceSkeleton from "../components/common/OperationalWorkspaceSkeleton";
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 import { LocationMarkerIcon } from "../components/icons/LocationMarkerIcon";
@@ -323,11 +324,7 @@ const BandScalesPage: React.FC = () => {
   }, [sortedScales, filter, searchTerm, eventTypeFilter, locationFilter]);
 
   if (loading)
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner />
-      </div>
-    );
+    return <OperationalWorkspaceSkeleton variant="scales" />;
   if (error) return <div className="text-red-500 text-center">{error}</div>;
 
   const isCompletelyEmpty = populatedBandScales.length === 0;
