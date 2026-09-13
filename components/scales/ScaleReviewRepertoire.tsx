@@ -170,7 +170,7 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
         <div className="relative space-y-2">
           {songIds.length >= 2 && (
             <div
-              className="pointer-events-none absolute bottom-6 left-[60px] top-6 z-0 w-px bg-gradient-to-b from-primary/25 via-white/[0.08] to-primary/20"
+              className="pointer-events-none absolute bottom-6 left-[60px] top-6 w-px bg-gradient-to-b from-primary/25 via-white/[0.08] to-primary/20"
               aria-hidden="true"
             />
           )}
@@ -183,31 +183,29 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
                   onDragOver={(e) => handleDragOver(e, song.id)}
                   onDrop={(e) => handleDrop(e, song.id)}
                   onDragLeave={() => setDropTargetId(null)}
-                  className={`relative z-10 rounded-full transition-[height,background-color] duration-150 ${dropTargetId === song.id ? "h-5 bg-primary/50" : "h-1"}`}
+                  className={`rounded-full transition-[height,background-color] duration-150 ${dropTargetId === song.id ? "h-5 bg-primary/50" : "h-1"}`}
                 />
-                <div className="relative z-10">
-                  <ScaleSongCard
-                    song={song}
-                    isSelected={true}
-                    mode="review"
-                    index={index}
-                    tags={tags}
-                    localSettings={songSettings?.[song.id]}
-                    onSettingsChange={(key, bpm, isGlobal) => onUpdateSongSettings(song.id, key, bpm, isGlobal)}
-                    onToggle={() => onSongIdsChange(songIds.filter(id => id !== song.id))}
-                    onMoveUp={() => moveSongReview(index, "up")}
-                    onMoveDown={() => moveSongReview(index, "down")}
-                    isFirst={index === 0}
-                    isLast={index === songIds.length - 1}
-                    isDragging={draggedSongId === song.id}
-                    onDragStart={(e) => handleDragStart(e, song.id)}
-                    onDragEnd={handleDragEnd}
-                    onTouchStart={(e: any) => handleTouchStart(e, index)}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                    onTouchCancel={handleTouchCancel}
-                  />
-                </div>
+                <ScaleSongCard
+                  song={song}
+                  isSelected={true}
+                  mode="review"
+                  index={index}
+                  tags={tags}
+                  localSettings={songSettings?.[song.id]}
+                  onSettingsChange={(key, bpm, isGlobal) => onUpdateSongSettings(song.id, key, bpm, isGlobal)}
+                  onToggle={() => onSongIdsChange(songIds.filter(id => id !== song.id))}
+                  onMoveUp={() => moveSongReview(index, "up")}
+                  onMoveDown={() => moveSongReview(index, "down")}
+                  isFirst={index === 0}
+                  isLast={index === songIds.length - 1}
+                  isDragging={draggedSongId === song.id}
+                  onDragStart={(e) => handleDragStart(e, song.id)}
+                  onDragEnd={handleDragEnd}
+                  onTouchStart={(e: any) => handleTouchStart(e, index)}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchCancel={handleTouchCancel}
+                />
               </React.Fragment>
             );
           })}
@@ -215,7 +213,7 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
             onDragOver={(e) => handleDragOver(e, "end")}
             onDrop={(e) => handleDrop(e, "end")}
             onDragLeave={() => setDropTargetId(null)}
-            className={`relative z-10 rounded-full transition-[height,background-color] duration-150 ${dropTargetId === "end" ? "h-5 bg-primary/50" : "h-1"}`}
+            className={`rounded-full transition-[height,background-color] duration-150 ${dropTargetId === "end" ? "h-5 bg-primary/50" : "h-1"}`}
           />
         </div>
       ) : (
