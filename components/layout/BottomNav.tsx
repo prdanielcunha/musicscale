@@ -57,7 +57,7 @@ export const BottomNav: React.FC = () => {
                 key={link.id}
                 to={link.to}
                 aria-current={isActive ? "page" : undefined}
-                className="group relative flex h-[52px] min-w-[48px] flex-1 flex-col items-center justify-center overflow-hidden rounded-[24px] transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+                className="group relative flex h-[50px] min-w-[48px] flex-1 flex-col items-center justify-center overflow-hidden rounded-[24px] transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
               >
                 {isActive && (
                   <motion.div
