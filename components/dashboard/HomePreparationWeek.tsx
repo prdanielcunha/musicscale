@@ -58,6 +58,7 @@ export const HomePreparationWeek: React.FC<HomePreparationWeekProps> = ({
   const locale = i18n.resolvedLanguage || i18n.language || 'pt-BR';
   const preparedCount = views.filter(view => view.status === 'prepared').length;
   const reviewCount = views.filter(view => view.status === 'needs-review').length;
+  const readinessPercent = Math.round((preparedCount / views.length) * 100);
 
   return (
     <section aria-labelledby="preparation-week-title" className="ms-panel overflow-hidden">
@@ -92,6 +93,25 @@ export const HomePreparationWeek: React.FC<HomePreparationWeekProps> = ({
               </span>
             )}
           </div>
+        </div>
+
+        <div className="mt-5 flex items-center gap-3" aria-live="polite">
+          <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={readinessPercent}
+            aria-label={`${preparedCount}/${views.length} ${t('dashboard.preparation.statusPrepared')}`}
+            className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.055]"
+          >
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,#4f8cff,#6f67f8,#52d3a3)] transition-[width] duration-500 ease-out motion-reduce:transition-none"
+              style={{ width: `${readinessPercent}%` }}
+            />
+          </div>
+          <span className="min-w-[40px] text-right text-[10px] font-bold tabular-nums tracking-[0.08em] text-white/42">
+            {readinessPercent}%
+          </span>
         </div>
       </div>
 
