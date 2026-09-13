@@ -1,0 +1,43 @@
+name: Wire Premium V3 Command Center
+
+on:
+  push:
+    branches:
+      - feat/premium-v2-experience-20260913-final
+    paths:
+      - .github/workflows/premium-v3-command-import.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/premium-v2-experience-20260913-final
+          fetch-depth: 0
+
+      - name: Import command center stylesheet
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.tsx')
+          text = p.read_text()
+          old = "import './experience-v3-surfaces.css';"
+          new = old + "\nimport './experience-v3-command.css';"
+          if text.count(old) != 1:
+              raise SystemExit('surface import anchor mismatch')
+          p.write_text(text.replace(old, new, 1))
+          Path('.github/workflows/premium-v3-command-import.yml').unlink()
+          PY
+
+      - name: Commit command center import
+        run: |
+          git config user.name "prdanielcunha"
+          git config user.email "pastordanielpcunha@gmail.com"
+          git add index.tsx .github/workflows/premium-v3-command-import.yml
+          git commit -m "feat: activate mobile command center experience"
+          git push origin HEAD:feat/premium-v2-experience-20260913-final
