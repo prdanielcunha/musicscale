@@ -45,19 +45,18 @@ export const BottomNav: React.FC = () => {
       className="pointer-events-none fixed inset-x-0 bottom-[calc(10px+env(safe-area-inset-bottom))] z-[100] flex justify-center px-3 md:hidden"
     >
       <div className="relative w-full max-w-[400px]">
-        <div className="pointer-events-auto absolute bottom-[calc(100%+10px)] right-2 sm:right-3">
-          <GlobalCreateAction variant="mobile" />
-        </div>
 
         <div className="pointer-events-auto relative flex w-full items-center justify-between rounded-[28px] border border-white/[0.09] bg-[linear-gradient(180deg,rgba(24,24,29,0.98),rgba(9,9,12,0.995))] p-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_44px_rgba(0,0,0,0.46)]">
           {navLinks.map((link, index) => {
             const isActive = index === activeIndex;
             return (
+              <React.Fragment key={link.id}>
+              {index === 2 && <div className="flex min-w-11 flex-1 justify-center"><GlobalCreateAction variant="mobile" /></div>}
               <NavLink
                 key={link.id}
                 to={link.to}
                 aria-current={isActive ? "page" : undefined}
-                className="group relative flex h-[50px] min-w-[48px] flex-1 flex-col items-center justify-center overflow-hidden rounded-[24px] transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+                className="group relative flex h-[50px] min-w-[44px] flex-1 flex-col items-center justify-center overflow-hidden rounded-[24px] transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
               >
                 {isActive && (
                   <motion.div
@@ -92,6 +91,7 @@ export const BottomNav: React.FC = () => {
                   {link.label}
                 </span>
               </NavLink>
+              </React.Fragment>
             );
           })}
         </div>

@@ -1300,7 +1300,9 @@
     "local_search_hint": "Exibindo resultados locais rápidos. Limpe a busca e clique em 'Carregar mais' para ampliar a base.",
     "in_lyrics": "Na letra:",
     "trial_bulk_disabled": "No teste Pro, importe individualmente as músicas que sua equipe realmente vai usar.",
-    "bulk_pro_only_hint": "Importação em massa é exclusiva do Pro. Importe músicas individualmente no seu plano."
+    "bulk_pro_only_hint": "Importação em massa é exclusiva do Pro. Importe músicas individualmente no seu plano.",
+    "only_chords_badge": "Somente cifras",
+    "only_lyrics_badge": "Somente letras"
   },
   "notifications": {
     "scale_published": "Nova escala de música publicada",
@@ -1743,5 +1745,56 @@
   },
   "profile": {
     "invite_person": "Convidar pessoa"
+  },
+  "refinement": {
+    "fullAccess": "Acesso completo",
+    "ecosystemAccess": "Acesso do ecossistema",
+    "ecosystemLibraryDescription": "Todos os recursos da Biblioteca Viva estão liberados para esta organização pelo acesso do ecossistema.",
+    "currentOrganization": "Organização atual",
+    "yourOrganizations": "Suas organizações ({{count}})",
+    "allOrganizations": "Ver todas as {{count}} organizações",
+    "searchOrganizations": "Buscar organizações",
+    "noOrganizations": "Nenhuma organização encontrada.",
+    "manageOrganizations": "Gerenciar organizações no MillionsNest",
+    "switching": "Trocando…",
+    "switchError": "Não foi possível trocar de organização. Tente novamente.",
+    "moreSongs": "+{{count}} músicas",
+    "showLess": "Mostrar menos",
+    "moreTools": "Mais ferramentas",
+    "repertoireAudit": "Auditoria de repertório",
+    "select": "Selecionar",
+    "newSong": "Nova música",
+    "aiImport": "Importar IA",
+    "roles": {
+      "owner": "Dono",
+      "admin": "Administrador",
+      "member": "Membro",
+      "visitor": "Visitante",
+      "worship_leader": "Líder de louvor",
+      "global_access": "Acesso global"
+    },
+    "specialties": {
+      "role": {
+        "leader": "Líder",
+        "minister": "Ministro"
+      },
+      "voice": {
+        "vocal": "Vocal",
+        "backing": "Backing vocal",
+        "soprano": "Soprano",
+        "alto": "Contralto",
+        "tenor": "Tenor"
+      },
+      "instrument": {
+        "player": "Instrumentista",
+        "acoustic": "Violão",
+        "guitar": "Guitarra",
+        "keyboard": "Teclado",
+        "piano": "Piano",
+        "bass": "Baixo",
+        "drums": "Bateria",
+        "percussion": "Percussão"
+      }
+    }
   }
 }

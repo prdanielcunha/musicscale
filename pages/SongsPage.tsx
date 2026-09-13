@@ -309,6 +309,7 @@ const SongsPage: React.FC = () => {
   
   
   const [isAuditorOpen, setIsAuditorOpen] = useState(false);
+  const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
 
   const filterButtonRef = useRef<HTMLButtonElement>(null);
@@ -853,17 +854,18 @@ const SongsPage: React.FC = () => {
 
           {isSelectionMode && selectedSongIds.length === 0 ? (
             <Button variant="secondary" onClick={handleToggleSelectionMode}>
-              Cancelar
+              {t("common.cancel")}
             </Button>
           ) : !isSelectionMode ? (
             <Button onClick={handleToggleSelectionMode} variant="secondary">
-              Selecionar
+              {t("refinement.select")}
             </Button>
           ) : null}
 
           {canManageRepertoire && (
             <Button
               variant="secondary"
+              className="hidden md:inline-flex"
               onClick={() => setIsTransferOpen(true)}
             >
               {t("repertoireTransfer.toolbar", "Transferir")}
@@ -873,13 +875,23 @@ const SongsPage: React.FC = () => {
           {canManageRepertoire && (
             <Button
               variant="secondary"
+              className="hidden md:inline-flex"
               onClick={() => setIsAuditorOpen(true)}
               leftIcon={<ListRestart className="w-4 h-4 text-indigo-500" />}
             >
-              Auditoria de repertório
+              {t("refinement.repertoireAudit")}
             </Button>
           )}
 
+          {canManageRepertoire && (
+            <div className="md:hidden">
+              <Button variant="secondary" onClick={() => setIsToolsOpen(true)} aria-label={t('refinement.moreTools')} aria-haspopup="dialog">…</Button>
+              <Modal isOpen={isToolsOpen} onClose={() => setIsToolsOpen(false)} title={t('refinement.moreTools')} maxWidth="max-w-2xl">
+                <Button className="w-full min-h-11" variant="secondary" onClick={() => { setIsToolsOpen(false); setIsTransferOpen(true); }}>{t('repertoireTransfer.toolbar')}</Button>
+                <Button className="w-full min-h-11" variant="secondary" onClick={() => { setIsToolsOpen(false); setIsAuditorOpen(true); }}>{t('refinement.repertoireAudit')}</Button>
+              </Modal>
+            </div>
+          )}
           <div className="inline-flex items-center rounded-xl p-1 bg-slate-100 dark:bg-[#1A1A1C]/80 border border-slate-200 dark:border-white/5 shadow-sm">
             <button
               onClick={() => setViewMode("cards")}
@@ -899,7 +911,7 @@ const SongsPage: React.FC = () => {
 
           <Can I="musicscale.songs.edit">
             <LockedActionButton
-              label="Importar IA"
+              label={t("refinement.aiImport")}
               isLocked={!isAiImportAllowed}
               featureKey="aiImport"
               requiredPlan="pro"
@@ -927,7 +939,7 @@ const SongsPage: React.FC = () => {
               leftIcon={isOverLimit ? <AlertTriangle className="w-4 h-4" /> : <PlusIcon />}
               variant={isOverLimit ? "secondary" : "primary"}
             >
-              Nova Música
+              {t("refinement.newSong")}
             </Button>
           </Can>
         </div>
