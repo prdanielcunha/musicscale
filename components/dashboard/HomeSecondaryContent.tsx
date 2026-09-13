@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp, Compass, Library, Sparkles, MonitorPlay } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { ChevronDown, ChevronUp, Compass, Library, Sparkles, MonitorPlay, ArrowUpRight } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 interface HomeSecondaryContentProps {
   children?: React.ReactNode;
@@ -22,184 +22,169 @@ export const HomeSecondaryContent: React.FC<HomeSecondaryContentProps> = ({
 }) => {
   const { t } = useTranslation();
   const [isActivityExpanded, setIsActivityExpanded] = useState(false);
-
+  const shouldReduceMotion = useReducedMotion();
   const contextualItems = React.Children.toArray(children);
   const hasContextualContent = contextualItems.length > 0;
 
+  const cards = [
+    {
+      id: 'library',
+      visible: true,
+      wide: true,
+      onClick: onOpenLibrary,
+      icon: Library,
+      badge: t('dashboard.explore.libraryBadge'),
+      title: t('dashboard.explore.libraryTitle'),
+      description: t('dashboard.explore.libraryDescription'),
+      cta: t('dashboard.explore.libraryCta'),
+      tone: 'primary',
+    },
+    {
+      id: 'ai',
+      visible: canImportSongs,
+      wide: false,
+      onClick: onOpenAiImport,
+      icon: Sparkles,
+      badge: t('dashboard.explore.aiBadge'),
+      title: t('dashboard.explore.aiTitle'),
+      description: t('dashboard.explore.aiDescription'),
+      cta: t('dashboard.explore.aiCta'),
+      tone: 'amber',
+    },
+    {
+      id: 'performance',
+      visible: true,
+      wide: !canImportSongs,
+      onClick: onOpenPerformance,
+      icon: MonitorPlay,
+      badge: t('dashboard.explore.performanceBadge'),
+      title: t('dashboard.explore.performanceTitle'),
+      description: t('dashboard.explore.performanceDescription'),
+      cta: canOpenPerformance ? t('dashboard.explore.performanceOpenCta') : t('dashboard.explore.performanceScalesCta'),
+      tone: 'emerald',
+    },
+  ].filter(card => card.visible);
+
+  const toneClasses: Record<string, { badge: string; icon: string; line: string }> = {
+    primary: {
+      badge: 'border-primary/20 bg-primary/[0.08] text-primary-light',
+      icon: 'text-primary-light',
+      line: 'via-primary/60',
+    },
+    amber: {
+      badge: 'border-amber-400/20 bg-amber-500/[0.07] text-amber-200',
+      icon: 'text-amber-300',
+      line: 'via-amber-400/60',
+    },
+    emerald: {
+      badge: 'border-emerald-400/20 bg-emerald-500/[0.07] text-emerald-200',
+      icon: 'text-emerald-300',
+      line: 'via-emerald-400/60',
+    },
+  };
+
   return (
-    <section aria-labelledby="dashboard-explore-title" className="space-y-8">
-      {/* Header */}
-      <header className="space-y-2">
-        <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-widest text-xs">
-          <Compass className="w-4 h-4" aria-hidden="true" />
-          <span>{t('dashboard.explore.eyebrow')}</span>
+    <section aria-labelledby="dashboard-explore-title" className="space-y-5 sm:space-y-6">
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <div className="mb-2 flex items-center gap-2 text-primary-light/80">
+            <Compass className="h-4 w-4" aria-hidden="true" />
+            <span className="ms-kicker">{t('dashboard.explore.eyebrow')}</span>
+          </div>
+          <h2 id="dashboard-explore-title" className="text-[20px] font-semibold tracking-[-0.03em] text-white sm:text-[24px]">
+            {t('dashboard.explore.title')}
+          </h2>
+          <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-white/42 sm:text-sm">
+            {t('dashboard.explore.description')}
+          </p>
         </div>
-        <h2 id="dashboard-explore-title" className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-          {t('dashboard.explore.title')}
-        </h2>
-        <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base max-w-2xl">
-          {t('dashboard.explore.description')}
-        </p>
       </header>
 
-      {/* Premium Discovery Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Library Card */}
-        <button
-          type="button"
-          onClick={onOpenLibrary}
-          aria-label={t('dashboard.explore.libraryCta')}
-          className="group relative flex flex-col items-start text-left bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-[24px] p-6 lg:p-8 overflow-hidden transition-all duration-300 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 lg:col-span-2 min-h-[44px] motion-safe:hover:-translate-y-0.5"
-        >
-          <div className="absolute top-0 right-0 p-8 opacity-5 dark:opacity-10 transition-transform duration-500 group-hover:scale-110 pointer-events-none" aria-hidden="true">
-            <Library className="w-32 h-32" />
-          </div>
-          
-          <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-widest mb-4">
-            {t('dashboard.explore.libraryBadge')}
-          </div>
-          <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-2 relative z-10">
-            {t('dashboard.explore.libraryTitle')}
-          </h3>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 relative z-10 max-w-sm">
-            {t('dashboard.explore.libraryDescription')}
-          </p>
-          
-          <div className="flex flex-wrap gap-2 mb-6 relative z-10">
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 text-xs font-medium border border-slate-200/50 dark:border-slate-700/50 whitespace-nowrap">
-              {t('dashboard.explore.libraryBenefitChords')}
-            </span>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 text-xs font-medium border border-slate-200/50 dark:border-slate-700/50 whitespace-nowrap">
-              {t('dashboard.explore.libraryBenefitKeys')}
-            </span>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 text-xs font-medium border border-slate-200/50 dark:border-slate-700/50 whitespace-nowrap">
-              {t('dashboard.explore.libraryBenefitReady')}
-            </span>
-          </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+        {cards.map(card => {
+          const Icon = card.icon;
+          const tone = toneClasses[card.tone];
+          return (
+            <button
+              key={card.id}
+              type="button"
+              onClick={card.onClick}
+              aria-label={card.cta}
+              className={`ms-card ms-card-interactive group relative flex min-h-[220px] flex-col items-start overflow-hidden p-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:p-6 ${card.wide ? 'lg:col-span-2' : 'lg:col-span-1'}`}
+            >
+              <div className={`pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent ${tone.line} to-transparent opacity-55`} />
+              <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/[0.025] blur-3xl transition-opacity duration-300 group-hover:bg-white/[0.045]" />
 
-          <div className="mt-auto relative z-10 text-indigo-600 dark:text-indigo-400 font-bold text-sm flex items-center gap-2 group-hover:gap-3 transition-all">
-            {t('dashboard.explore.libraryCta')} &rarr;
-          </div>
-        </button>
+              <div className="flex w-full items-start justify-between gap-4">
+                <span className={`inline-flex rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] ${tone.badge}`}>
+                  {card.badge}
+                </span>
+                <span className={`flex h-10 w-10 items-center justify-center rounded-[13px] border border-white/[0.065] bg-white/[0.03] ${tone.icon}`}>
+                  <Icon className="h-[18px] w-[18px]" />
+                </span>
+              </div>
 
-        {/* AI Import Card */}
-        {canImportSongs && (
-          <button
-            type="button"
-            onClick={onOpenAiImport}
-            aria-label={t('dashboard.explore.aiCta')}
-            className="group relative flex flex-col items-start text-left bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-[24px] p-6 overflow-hidden transition-all duration-300 hover:border-amber-300 dark:hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 lg:col-span-1 min-h-[44px] motion-safe:hover:-translate-y-0.5"
-          >
-            <div className="absolute top-0 right-0 p-6 opacity-5 dark:opacity-10 transition-transform duration-500 group-hover:scale-110 pointer-events-none" aria-hidden="true">
-              <Sparkles className="w-24 h-24" />
-            </div>
-            
-            <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-bold uppercase tracking-widest mb-4">
-              {t('dashboard.explore.aiBadge')}
-            </div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 relative z-10">
-              {t('dashboard.explore.aiTitle')}
-            </h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 relative z-10">
-              {t('dashboard.explore.aiDescription')}
-            </p>
-            
-            <div className="mt-auto relative z-10 text-amber-600 dark:text-amber-400 font-bold text-sm flex items-center gap-2 group-hover:gap-3 transition-all">
-              {t('dashboard.explore.aiCta')} &rarr;
-            </div>
-          </button>
-        )}
+              <div className="mt-7 max-w-md">
+                <h3 className="text-[17px] font-semibold tracking-[-0.025em] text-white sm:text-[19px]">{card.title}</h3>
+                <p className="mt-2 text-[12px] leading-relaxed text-white/42 sm:text-[13px]">{card.description}</p>
+              </div>
 
-        {/* Performance Mode Card */}
-        <button
-          type="button"
-          onClick={onOpenPerformance}
-          aria-label={canOpenPerformance ? t('dashboard.explore.performanceOpenCta') : t('dashboard.explore.performanceScalesCta')}
-          className={`group relative flex flex-col items-start text-left bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-[24px] p-6 overflow-hidden transition-all duration-300 hover:border-emerald-300 dark:hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 min-h-[44px] motion-safe:hover:-translate-y-0.5 ${canImportSongs ? 'lg:col-span-1' : 'lg:col-span-2'}`}
-        >
-          <div className="absolute top-0 right-0 p-6 opacity-5 dark:opacity-10 transition-transform duration-500 group-hover:scale-110 pointer-events-none" aria-hidden="true">
-            <MonitorPlay className="w-24 h-24" />
-          </div>
-          
-          <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold uppercase tracking-widest mb-4">
-            {t('dashboard.explore.performanceBadge')}
-          </div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 relative z-10">
-            {t('dashboard.explore.performanceTitle')}
-          </h3>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 relative z-10">
-            {t('dashboard.explore.performanceDescription')}
-          </p>
-          
-          <div className="mt-auto relative z-10 text-emerald-600 dark:text-emerald-400 font-bold text-sm flex items-center gap-2 group-hover:gap-3 transition-all">
-            {canOpenPerformance ? t('dashboard.explore.performanceOpenCta') : t('dashboard.explore.performanceScalesCta')} &rarr;
-          </div>
-        </button>
+              {card.id === 'library' && (
+                <div className="mt-5 flex flex-wrap gap-1.5">
+                  {[t('dashboard.explore.libraryBenefitChords'), t('dashboard.explore.libraryBenefitKeys'), t('dashboard.explore.libraryBenefitReady')].map(item => (
+                    <span key={item} className="rounded-[9px] border border-white/[0.06] bg-white/[0.025] px-2.5 py-1 text-[10px] font-medium text-white/42">{item}</span>
+                  ))}
+                </div>
+              )}
+
+              <div className={`mt-auto flex items-center gap-1.5 pt-5 text-[11px] font-semibold ${tone.icon}`}>
+                {card.cta}
+                <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </div>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Contextual Content */}
       {hasContextualContent && (
-        <div className="rounded-[24px] border border-slate-200/70 dark:border-white/[0.07] bg-white/70 dark:bg-white/[0.025] backdrop-blur-sm p-4 sm:p-6 lg:p-8 mt-4">
-          {/* Desktop view for contextual */}
-          <div className="hidden lg:block space-y-6">
-            <div className="space-y-1">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                {t('dashboard.explore.activityTitle')}
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                {t('dashboard.explore.activityDescription')}
-              </p>
+        <div className="ms-panel overflow-hidden">
+          <div className="hidden p-5 sm:p-6 lg:block">
+            <div className="mb-5">
+              <span className="ms-kicker">{t('dashboard.explore.activityTitle')}</span>
+              <p className="mt-2 max-w-2xl text-[12px] leading-relaxed text-white/38">{t('dashboard.explore.activityDescription')}</p>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-              {children}
-            </div>
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">{children}</div>
           </div>
 
-          {/* Mobile disclosure view for contextual */}
           <div className="lg:hidden">
             <button
               type="button"
-              onClick={() => setIsActivityExpanded(!isActivityExpanded)}
+              onClick={() => setIsActivityExpanded(value => !value)}
               aria-expanded={isActivityExpanded}
               aria-controls="dashboard-contextual-content"
               aria-label={isActivityExpanded ? t('dashboard.explore.activityCollapse') : t('dashboard.explore.activityExpand')}
-              className="w-full max-w-full min-w-0 h-auto overflow-hidden text-left cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-black rounded-2xl"
+              className="premium-interactive flex min-h-[72px] w-full items-center justify-between gap-4 px-4 py-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             >
-              <div className="flex flex-col w-full">
-                <div className="space-y-1 w-full min-w-0 max-w-full">
-                  <div className="text-slate-900 dark:text-white font-bold text-base">
-                    {t('dashboard.explore.activityTitle')}
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 whitespace-normal break-words max-w-full leading-relaxed">
-                    {t('dashboard.explore.activityDescription')}
-                  </div>
-                </div>
-                <div className="mt-4 flex min-h-[44px] w-full items-center justify-between rounded-xl border border-slate-200/80 dark:border-white/[0.07] bg-slate-100/80 dark:bg-white/[0.04] px-3 py-2.5 transition-colors hover:bg-slate-200/70 dark:hover:bg-white/[0.07] text-indigo-600 dark:text-indigo-300">
-                  <span className="text-sm font-semibold min-w-0">
-                    {isActivityExpanded ? t('dashboard.explore.activityCollapse') : t('dashboard.explore.activityExpand')}
-                  </span>
-                  {isActivityExpanded ? (
-                    <ChevronUp className="w-5 h-5 shrink-0 ml-2" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 shrink-0 ml-2" />
-                  )}
-                </div>
+              <div className="min-w-0">
+                <div className="text-[13px] font-semibold text-white">{t('dashboard.explore.activityTitle')}</div>
+                <div className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-white/38">{t('dashboard.explore.activityDescription')}</div>
               </div>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-white/[0.07] bg-white/[0.03] text-white/45">
+                {isActivityExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </span>
             </button>
 
-            <AnimatePresence>
+            <AnimatePresence initial={false}>
               {isActivityExpanded && (
                 <motion.div
                   id="dashboard-contextual-content"
-                  initial={{ opacity: 0, height: 0 }}
+                  initial={shouldReduceMotion ? false : { opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
+                  exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                  transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
+                  className="overflow-hidden border-t border-white/[0.055]"
                 >
-                  <div className="pt-6 pb-2 grid grid-cols-1 gap-4">
-                    {children}
-                  </div>
+                  <div className="grid grid-cols-1 gap-3 p-4">{children}</div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -209,4 +194,3 @@ export const HomeSecondaryContent: React.FC<HomeSecondaryContentProps> = ({
     </section>
   );
 };
-
