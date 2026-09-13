@@ -1,0 +1,142 @@
+/* MusicScale Premium V2 — domain refinements.
+   These rules target stable visual hooks/classes already used by Performance,
+   Biblioteca Viva, repertoire and scale builders. No workflow logic is changed. */
+
+/* --------------------------------------------------------------------------
+   Performance / chord viewer: instrument-like, high contrast, low distraction
+   -------------------------------------------------------------------------- */
+.top-bar {
+  background: rgba(8, 9, 12, .96) !important;
+  border-bottom-color: rgba(255,255,255,.065) !important;
+  backdrop-filter: blur(14px) saturate(112%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(112%) !important;
+  box-shadow: 0 10px 34px rgba(0,0,0,.18) !important;
+}
+
+.popup-panel {
+  background: rgba(14,16,21,.985) !important;
+  border-color: rgba(255,255,255,.10) !important;
+  backdrop-filter: blur(18px) saturate(115%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(115%) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 24px 70px rgba(0,0,0,.52) !important;
+}
+
+.dock {
+  background: rgba(12,14,18,.95) !important;
+  border-color: rgba(255,255,255,.09) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 18px 54px rgba(0,0,0,.38) !important;
+}
+
+.top-bar button,
+.popup-panel button,
+.dock button {
+  touch-action: manipulation;
+}
+
+@media (max-width: 767px) {
+  .top-bar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(8,9,12,.985) !important;
+  }
+
+  .popup-panel {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Legacy domain surfaces: consolidate scattered hard-coded charcoal panels.
+   Tailwind arbitrary classes are escaped so these remain presentation-only.
+   -------------------------------------------------------------------------- */
+.dark main .bg-\[\#1A1A1C\]\/60,
+.dark main .bg-\[\#1A1A1F\]\/60,
+.dark main .bg-\[\#1C1C1E\],
+.dark main .bg-\[\#1E1E24\]\/70 {
+  background-color: var(--ms-surface-1) !important;
+}
+
+.dark main .backdrop-blur-\[32px\] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.dark main .saturate-\[180\%\] {
+  filter: none !important;
+}
+
+/* Biblioteca/repertoire cards: preserve status colors while making the physical
+   card itself calmer and more consistent with the app shell. */
+.dark main article[class*="rounded-[28px]"] {
+  background: linear-gradient(180deg, #141720, #101218) !important;
+  border-color: rgba(255,255,255,.075) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 10px 28px rgba(0,0,0,.18) !important;
+}
+
+@media (hover:hover) and (pointer:fine) {
+  .dark main article[class*="rounded-[28px]"]:hover {
+    background: linear-gradient(180deg, #191d27, #12151c) !important;
+    border-color: rgba(255,255,255,.13) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 18px 44px rgba(0,0,0,.27) !important;
+  }
+}
+
+/* Builder/member tiles: make dense assignment screens read as one instrument
+   panel instead of unrelated cards. */
+.dark main .bg-\[\#1C1C1E\] {
+  border-color: rgba(255,255,255,.075) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+}
+
+/* Search/filter bars retain separation without adding another glass layer. */
+.dark main .bg-white\/5,
+.dark main .bg-white\/\[0\.04\] {
+  background-color: rgba(255,255,255,.035) !important;
+}
+
+/* Strong selection should be visible in low-light stage environments. */
+.dark main [aria-selected="true"],
+.dark main [aria-pressed="true"] {
+  border-color: rgba(158,163,255,.30);
+}
+
+/* --------------------------------------------------------------------------
+   Chords / Lyrics / repertoire readability
+   -------------------------------------------------------------------------- */
+.dark main pre,
+.dark main code {
+  color: #eef0f6;
+}
+
+.dark main pre {
+  text-rendering: optimizeLegibility;
+}
+
+/* --------------------------------------------------------------------------
+   Operational tables/admin: less visual noise, clearer row grouping
+   -------------------------------------------------------------------------- */
+.dark main table {
+  background: #0f1117;
+}
+
+.dark main thead {
+  background: #12151c;
+}
+
+.dark main tbody tr + tr td {
+  border-top-color: rgba(255,255,255,.055) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Mobile: prioritize speed and thumb ergonomics
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .dark main article[class*="rounded-[28px]"] {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.025), 0 8px 20px rgba(0,0,0,.14) !important;
+  }
+
+  .popup-panel {
+    border-radius: 20px !important;
+  }
+}
