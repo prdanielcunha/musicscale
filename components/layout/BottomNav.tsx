@@ -49,7 +49,7 @@ export const BottomNav: React.FC = () => {
           <GlobalCreateAction variant="mobile" />
         </div>
 
-        <div className="pointer-events-auto relative flex w-full items-center justify-between rounded-[28px] border border-white/[0.09] bg-[linear-gradient(180deg,rgba(22,22,28,0.99),rgba(9,9,12,0.995))] p-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_44px_rgba(0,0,0,0.46)]">
+        <div className="pointer-events-auto relative flex w-full items-center justify-between rounded-[28px] border border-white/[0.09] bg-[linear-gradient(180deg,rgba(24,24,29,0.98),rgba(9,9,12,0.995))] p-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_44px_rgba(0,0,0,0.46)]">
           {navLinks.map((link, index) => {
             const isActive = index === activeIndex;
             return (
