@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import Spinner from "../components/common/Spinner";
 import { useEcosystem } from "../contexts/EcosystemContext";
+import { redirectToHubLaunch } from "../services/ecosystem/handoffHelper";
 const TenantOnboarding = lazy(() => import("./TenantOnboarding"));
 import { MissingSubscriptionScreen } from "../components/premium/MissingSubscriptionScreen";
 import { resolveSubscriptionAccess } from "../utils/subscriptionAccessResolver";
@@ -24,7 +25,6 @@ export default function StartGateway() {
     needsRepair
   } = useAuth();
   const { context: ecoContext } = useEcosystem();
-
   const [isRefreshing] = useState(false);
 
   const resolution = resolveSubscriptionAccess(
@@ -48,6 +48,13 @@ export default function StartGateway() {
     window.dispatchEvent(new CustomEvent(START_GATEWAY_READY_EVENT));
   }, [isStartupInteractiveReady]);
 
+  useEffect(() => {
+    if (loading || user) return;
+    // Direct official-domain entry should reuse the Hub identity instead of
+    // presenting a second MusicScale login screen.
+    redirectToHubLaunch('/start');
+  }, [loading, user]);
+
   console.log("[MusicScale Gate Debug]", {
     firebaseUserUid: user?.uid,
     firebaseUserEmail: user?.email,
@@ -66,26 +73,23 @@ export default function StartGateway() {
     isGlobalAdmin
   });
 
-  if (isPrimaryLoading) {
+  if (isPrimaryLoading || (!loading && !user)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-900">
         <Spinner />
-        {isRefreshing && <p className="mt-4 text-slate-500 font-medium">Sincronizando assinatura...</p>}
+        <p className="mt-4 text-slate-500 font-medium">{!user ? 'Conectando ao MillionsNest...' : 'Sincronizando assinatura...'}</p>
       </div>
     );
   }
 
-  // 1. Usuário NÃO autenticado
   if (!user || (!userProfile && !loading)) {
     return <Navigate to="/login" replace />;
   }
 
-  // 2. Contexto precisa de reparo?
   if (needsRepair) {
-    return <Navigate to="/" replace />; // Gatekeeper has RepairNeededScreen
+    return <Navigate to="/" replace />;
   }
 
-  // Wait for local organization cache to hydrate if we have an ecosystem org
   if (isWaitingForOrganizationHydration) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0b] dark:bg-[#050505] text-white">
@@ -95,7 +99,6 @@ export default function StartGateway() {
     );
   }
 
-  // 3. Organization existente?
   if (!organization && !ecoContext?.currentOrganizationId) {
     logger.debug("[StartGateway] No organization context found. Showing internal exact screen.");
     return (
@@ -105,9 +108,6 @@ export default function StartGateway() {
     );
   }
 
-  // 4. Use the same centralized subscription/entitlement resolver as AppLayout.
-  // The Hub-backed entitlements path is authoritative; the legacy local subscription
-  // document may be unavailable to the browser under hardened Firestore Rules.
   if (!resolution.valid) {
     logger.debug("[GATEKEEPER_STATUS] Acesso negado no StartGateway.", {
       statusCentralizado: resolution.status,
@@ -117,9 +117,6 @@ export default function StartGateway() {
     return <MissingSubscriptionScreen resolution={resolution} />;
   }
 
-  // 5. A workspace criada automaticamente pelo Hub recebe um marcador explícito.
-  // Ela só entra no produto depois que o responsável informar a identidade real da igreja.
-  // Organizações antigas, sem esse marcador, continuam retrocompatíveis.
   if (organization?.onboardingState === 'pending_profile') {
     logger.debug("[StartGateway] Bootstrap workspace needs organization profile completion.");
     return (
@@ -129,7 +126,6 @@ export default function StartGateway() {
     );
   }
 
-  // 6. Usuário com acesso liberado
   logger.debug("[StartGateway] Redirecting to workspace.");
   return <Navigate to="/" replace />;
 }
