@@ -1,5 +1,6 @@
 import React from 'react';
 
+// Content-shaped loading keeps layout continuity on iPhone, iPad and desktop without implying app state.
 type OperationalWorkspaceSkeletonVariant = 'profile' | 'team' | 'directory' | 'scales';
 
 interface OperationalWorkspaceSkeletonProps {
