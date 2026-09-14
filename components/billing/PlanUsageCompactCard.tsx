@@ -101,7 +101,7 @@ export const PlanUsageCompactCard: React.FC = () => {
         dotColor = 'bg-red-500';
         break;
       case 'none':
-        statusText = plan === 'free' || plan === 'starter' ? t('billing.freePlan') : t('billing.statusNone');
+        statusText = plan === 'starter' ? t('billing.freePlan') : t('billing.statusNone');
         statusColor = 'text-slate-500';
         dotColor = 'bg-slate-400';
         break;
@@ -114,7 +114,7 @@ export const PlanUsageCompactCard: React.FC = () => {
        dateInfo = `${t('billing.renewsOn')} ${new Date(currentPeriodEnd).toLocaleDateString()}`;
     } else if (status === 'canceled' && currentPeriodEnd) {
        dateInfo = `${t('billing.endsOn')} ${new Date(currentPeriodEnd).toLocaleDateString()}`;
-    } else if ((plan === 'free' || plan === 'starter') && !currentPeriodEnd) {
+    } else if (plan === 'starter' && !currentPeriodEnd) {
        dateInfo = t('billing.lifetimeAccess');
     }
 
