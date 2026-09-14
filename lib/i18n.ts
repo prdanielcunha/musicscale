@@ -6,6 +6,7 @@ import en from "../locales/en.json";
 import es from "../locales/es.json";
 import { curationTranslations } from "../locales/curation";
 import { curationModalTranslations } from "../locales/curationModals";
+import { premiumV2Translations } from "../locales/premiumV2";
 import { trackMissingKey } from "../utils/languageDiagnostics";
 
 const SUPPORTED_DOCUMENT_LANGUAGES = new Set(["pt", "en", "es"]);
@@ -30,9 +31,27 @@ i18n
   .use(initReactI18next)
   .init({
     resources: {
-      pt: { translation: { ...pt, curation: { ...curationTranslations.pt, modals: curationModalTranslations.pt } } },
-      en: { translation: { ...en, curation: { ...curationTranslations.en, modals: curationModalTranslations.en } } },
-      es: { translation: { ...es, curation: { ...curationTranslations.es, modals: curationModalTranslations.es } } }
+      pt: {
+        translation: {
+          ...pt,
+          curation: { ...curationTranslations.pt, modals: curationModalTranslations.pt },
+          premiumV2: premiumV2Translations.pt,
+        },
+      },
+      en: {
+        translation: {
+          ...en,
+          curation: { ...curationTranslations.en, modals: curationModalTranslations.en },
+          premiumV2: premiumV2Translations.en,
+        },
+      },
+      es: {
+        translation: {
+          ...es,
+          curation: { ...curationTranslations.es, modals: curationModalTranslations.es },
+          premiumV2: premiumV2Translations.es,
+        },
+      },
     },
     fallbackLng: "pt", // Fallback consistently
     interpolation: {
