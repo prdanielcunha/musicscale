@@ -31,12 +31,15 @@ test.describe('Global Create Sources (Paleta)', () => {
     const aiTextarea = page.locator('textarea[name="rawText"]').first();
     await expect(aiTextarea).toBeVisible();
 
-    // AiSongImportModal uses the shared role=dialog Modal. Close the exact
-    // dialog that owns rawText and wait for it to disappear before reopening the
-    // global palette; a page-wide Cancel/Close locator races the overlay in WebKit.
+    // AiSongImportModal uses the shared role=dialog Modal. Select the close
+    // control by its semantic sr-only marker rather than a hardcoded language,
+    // because common.close is translated in PT/EN/ES.
     const aiDialog = page.getByRole('dialog').filter({ has: aiTextarea });
     await expect(aiDialog).toBeVisible();
-    await aiDialog.getByRole('button', { name: 'Close modal' }).click();
+    const aiClose = aiDialog.locator('button:has(span.sr-only)').first();
+    await expect(aiClose).toBeVisible();
+    await expect(aiClose).toHaveAccessibleName(/.+/);
+    await aiClose.click();
     await expect(aiDialog).toBeHidden();
 
     await createBtn.click();
@@ -55,8 +58,9 @@ test.describe('Global Create Sources (Paleta)', () => {
     await expect(newSongTitle).toBeVisible();
     const manualDialog = page.getByRole('dialog').filter({ has: newSongTitle }).first();
     await expect(manualDialog).toBeVisible();
-    const manualClose = manualDialog.getByRole('button', { name: /Close modal|Cancelar|Fechar/i }).first();
+    const manualClose = manualDialog.locator('button:has(span.sr-only)').first();
     await expect(manualClose).toBeVisible();
+    await expect(manualClose).toHaveAccessibleName(/.+/);
     await manualClose.click();
     await expect(manualDialog).toBeHidden();
 
