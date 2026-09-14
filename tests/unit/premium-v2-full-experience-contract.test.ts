@@ -13,8 +13,8 @@ describe('Premium V2 full experience contract', () => {
     expect(source).toContain('data-compact={isCompact ? "true" : "false"}');
     expect(source).toContain('data-context={isContextRoute ? "scale" : "global"}');
     expect(source).toContain('document.querySelector(\'[data-testid="close-chords-viewer"]\')');
-    expect(source).toContain('document.body.style.overflow === "hidden"');
-    expect(source).toContain('attributeFilter: ["style"]');
+    expect(source).not.toContain('document.body.style.overflow === "hidden"');
+    expect(source).not.toContain('attributeFilter: ["style"]');
     expect(source).toContain('if (isPerformanceActive) return null');
     expect(source.match(/id: "(dashboard|songs|scales|library)"/g)).toHaveLength(4);
     expect(source).toContain('<GlobalCreateAction variant="mobile" />');
