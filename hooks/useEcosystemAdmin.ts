@@ -15,7 +15,6 @@ export const isGlobalPrivilegedUser = (_user?: User | null, userProfile?: UserPr
 };
 
 export const useEcosystemAdmin = () => {
-  const { userProfile } = useAuth();
-  const isEcosystemAdmin = isGlobalPrivilegedUser(undefined, userProfile);
-  return { isEcosystemAdmin };
+  const { isGlobalAdmin } = useAuth();
+  return { isEcosystemAdmin: isGlobalAdmin };
 };

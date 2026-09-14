@@ -1,128 +1,56 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useEcosystem } from '../contexts/EcosystemContext';
 import {
   entitlementsService,
-  MusicScaleEntitlements,
   MusicScaleFeatures,
   MusicScaleLimits,
   MusicScalePlan,
   MusicScaleUsage,
-  getStarterFallback,
 } from '../services/entitlementsService';
-import { logger } from '../lib/logger';
 
-// Reactive local memory cache to prevent multiple simultaneous requests across components on same mount
-let globalCachedEntitlements: Record<string, MusicScaleEntitlements> = {};
-let globalFetchPromises: Record<string, Promise<MusicScaleEntitlements>> = {};
-
+/**
+ * Canonical client entitlement adapter.
+ *
+ * AuthContext owns the organization-scoped entitlement snapshot because it also
+ * owns Hub handoff identity, the canonical ecosystem role, tenant switching and
+ * the server-backed /limits response. Keeping a second fetch/cache here caused
+ * Premium gates (notably AI chord creation) to disagree with the identity shown
+ * elsewhere in the app when the Hub knew a user was CEO but the local profile
+ * projection had not caught up yet.
+ *
+ * UI remains only a consumer. Server endpoints continue to authorize AI/actions
+ * independently; this hook does not grant membership or RBAC.
+ */
 export function useMusicScaleEntitlements() {
-  const { effectiveOrganizationId, user, loading: authLoading } = useAuth();
-  const orgId = effectiveOrganizationId;
-  const uid = user?.uid || "anonymous";
-  const cacheKey = `${uid}:${orgId}`;
-  const currentOrgRef = useRef(cacheKey);
-  currentOrgRef.current = cacheKey;
+  const {
+    effectiveOrganizationId,
+    entitlements,
+    isEntitlementsLoaded,
+    loading: authLoading,
+    hydrationError,
+    refreshSubscriptionAccess,
+  } = useAuth();
 
-  // Attempt to load immediate sync state from memory or localStorage to avoid flickering
-  const initialEntitlements = useMemo<MusicScaleEntitlements | null>(() => {
-    if (!orgId) return null;
-    if (globalCachedEntitlements[cacheKey]) {
-      return globalCachedEntitlements[cacheKey];
-    }
-    // Attempt local Storage initial hydration
-    try {
-      const saved = localStorage.getItem(`musicscale.entitlements.cached.${cacheKey}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.app === 'musicscale') {
-          return parsed as MusicScaleEntitlements;
-        }
-      }
-    } catch (e) {}
+  const scopedEntitlements =
+    entitlements?.organizationId === effectiveOrganizationId
+      ? entitlements
+      : null;
 
-    // Default safe Starter mode until api finishes fetching
-    return getStarterFallback(orgId);
-  }, [orgId, cacheKey]);
-
-  const [entitlements, setEntitlements] = useState<MusicScaleEntitlements | null>(initialEntitlements);
-  const resolvedActor = useRef(uid);
-  const [loading, setLoading] = useState<boolean>(!initialEntitlements || initialEntitlements.status === 'inactive');
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchFreshEntitlements = useCallback(async (targetOrgId: string, force = false) => {
-    if (!targetOrgId) return;
-    const targetKey = `${uid}:${targetOrgId}`;
-
-    // Use shared dynamic promise to prevent duplicate concurrent network fetch operations
-    if (globalFetchPromises[targetKey] && !force) {
-      try {
-        const data = await globalFetchPromises[targetKey];
-        if (currentOrgRef.current !== targetKey) return;
-        resolvedActor.current = uid;
-        setEntitlements(data);
-        setLoading(false);
-        return;
-      } catch (e) {}
-    }
-
-    const fetchPromise = entitlementsService.fetchEntitlements(targetOrgId, force);
-    globalFetchPromises[targetKey] = fetchPromise;
-
-    try {
-      const data = await fetchPromise;
-      globalCachedEntitlements[targetKey] = data;
-      if (currentOrgRef.current !== targetKey) return;
-      resolvedActor.current = uid;
-        setEntitlements(data);
-      setError(null);
-
-      // Save cache to localStorage to enable instant loading on subsequent page reloads
-      try {
-        localStorage.setItem(`musicscale.entitlements.cached.${targetKey}`, JSON.stringify(data));
-      } catch (e) {}
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      // Log failure in background
-      logger.error(`[useMusicScaleEntitlements] Failed to update entitlements for org ${targetOrgId}`, err);
-    } finally {
-      delete globalFetchPromises[targetKey];
-      if (currentOrgRef.current === targetKey) setLoading(false);
-    }
-  }, [uid]);
-
-  useEffect(() => {
-    if (orgId && !authLoading) {
-      // Background revalidation
-      fetchFreshEntitlements(orgId);
-    }
-  }, [orgId, authLoading, fetchFreshEntitlements]);
-
-  // Expose a force-refresh function
   const refresh = useCallback(async () => {
-    if (orgId) {
-      setLoading(true);
-      await fetchFreshEntitlements(orgId, true);
-    }
-  }, [orgId, fetchFreshEntitlements]);
-
-
-  const effectiveEntitlements = resolvedActor.current === uid && entitlements?.organizationId === orgId
-    ? entitlements
-    : orgId ? getStarterFallback(orgId) : null;
+    if (!effectiveOrganizationId) return;
+    await refreshSubscriptionAccess();
+  }, [effectiveOrganizationId, refreshSubscriptionAccess]);
 
   return {
-    entitlements: effectiveEntitlements,
-    loading: loading || authLoading,
-    error,
+    entitlements: scopedEntitlements,
+    loading: authLoading || !isEntitlementsLoaded,
+    error: hydrationError,
     refresh,
   };
 }
 
 export function useMusicScalePlan() {
   const { entitlements, loading } = useMusicScaleEntitlements();
-
-
 
   return {
     plan: entitlements?.plan || 'starter' as MusicScalePlan,
@@ -197,9 +125,6 @@ export function useMusicScaleUsage() {
   ]);
 
   const incrementUsage = useCallback(async (): Promise<boolean> => {
-    // This is now handled safely by importGlobalLibrarySongsWithUsageCheck
-    // but we can leave this here so UI components that still use it for anything
-    // don't break. However we should deprecate it.
     if (!entitlements?.organizationId) return false;
     const success = await entitlementsService.incrementLibraryImportsUsage(entitlements.organizationId);
     if (success) {
@@ -225,7 +150,6 @@ export function useMusicScaleUsage() {
 export function useMusicScaleFeature(featureKey: keyof MusicScaleFeatures): boolean {
   const { entitlements } = useMusicScaleEntitlements();
 
-  // Guard Check in cases where subscription status is canceled/expired/past_due/inactive/none
   const isSuspended = useMemo(() => {
     if (!entitlements) return true;
     const s = entitlements.status;
@@ -233,7 +157,6 @@ export function useMusicScaleFeature(featureKey: keyof MusicScaleFeatures): bool
   }, [entitlements]);
 
   if (isSuspended) {
-    // If billing status is past_due or canceled, we gracefully block operations, EXCEPT basic access
     if (featureKey === 'cloudSync' || featureKey === 'basicSongFields') {
       return entitlements?.features?.cloudSync || false;
     }
@@ -245,14 +168,9 @@ export function useMusicScaleFeature(featureKey: keyof MusicScaleFeatures): bool
 
 export function useMusicScaleLimit(limitKey: keyof MusicScaleLimits): number {
   const { entitlements } = useMusicScaleEntitlements();
-
   return entitlements?.limits?.[limitKey] ?? -1;
 }
 
-/**
- * Advanced hook: Checks if organization plan supports a feature AND the current authenticated
- * user has the appropriate capability/permissions.
- */
 export function useCanUseMusicScaleFeature(
   featureKey: keyof MusicScaleFeatures,
   permissionKey?: 'canManageOrganization' | 'canManageMembers' | 'canManageScales' | 'canManageRepertoire' | string
@@ -262,25 +180,17 @@ export function useCanUseMusicScaleFeature(
 
   const isFeatureAllowed = useMemo(() => {
     if (!entitlements) return false;
-
-    // Status lock validation
     const s = entitlements.status;
     const isSuspended = s === 'past_due' || s === 'canceled' || s === 'expired' || s === 'inactive' || s === 'none';
     if (isSuspended) {
       return featureKey === 'cloudSync' || featureKey === 'basicSongFields';
     }
-
     return !!entitlements.features?.[featureKey];
   }, [entitlements, featureKey]);
 
   const isPermissionAllowed = useMemo(() => {
-
     if (!permissions) return false;
-
-    // If no permissionKey specified, assume true
     if (!permissionKey) return true;
-
-    // Check custom permissions/capabilities
     return !!permissions[permissionKey as string];
   }, [permissions, permissionKey]);
 
@@ -292,9 +202,6 @@ export function useCanUseMusicScaleFeature(
   };
 }
 
-/**
- * Hook to enforce feature gate, trigger logging, and return lock status.
- */
 export function useRequireMusicScaleFeature(featureKey: keyof MusicScaleFeatures) {
   const { entitlements } = useMusicScaleEntitlements();
   const isAllowed = useMusicScaleFeature(featureKey);
