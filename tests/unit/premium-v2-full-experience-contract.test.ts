@@ -5,25 +5,35 @@ import { describe, expect, it } from 'vitest';
 const read = (file: string) => fs.readFileSync(path.resolve(process.cwd(), file), 'utf8');
 
 describe('Premium V2 full experience contract', () => {
-  it('keeps mobile navigation adaptive, five-slot and performance-aware', () => {
+  it('keeps mobile navigation adaptive, contextual, five-slot and immersive-surface aware', () => {
     const source = read('components/layout/BottomNav.tsx');
     expect(source).toContain('const COMPACT_AFTER_PX = 92');
+    expect(source).toContain('const isContextRoute = /^\\/scales\\/[^/]+/.test(location.pathname)');
     expect(source).toContain('data-testid="adaptive-bottom-nav"');
     expect(source).toContain('data-compact={isCompact ? "true" : "false"}');
+    expect(source).toContain('data-context={isContextRoute ? "scale" : "global"}');
     expect(source).toContain('document.querySelector(\'[data-testid="close-chords-viewer"]\')');
+    expect(source).toContain('document.body.style.overflow === "hidden"');
+    expect(source).toContain('attributeFilter: ["style"]');
     expect(source).toContain('if (isPerformanceActive) return null');
     expect(source.match(/id: "(dashboard|songs|scales|library)"/g)).toHaveLength(4);
     expect(source).toContain('<GlobalCreateAction variant="mobile" />');
     expect(source).toContain('min-w-[44px]');
   });
 
-  it('makes the header react to the real workspace scroll container', () => {
+  it('makes the header react to the real workspace scroll container and keeps iPhone chrome compositor-cheap', () => {
     const source = read('components/layout/Header.tsx');
+    const css = read('premium-v2-completion.css');
     expect(source).toContain('document.querySelector("main")');
     expect(source).toContain('scrollContainer.scrollTop > 10');
     expect(source).toContain('ms-v3-header');
     expect(source).toContain('is-scrolled');
+    expect(source).toContain('bg-[#0a0a0c]/96');
+    expect(source).toContain('md:backdrop-blur-[32px]');
     expect(source).not.toContain('window.scrollY > 10');
+    expect(css).toContain('-webkit-backdrop-filter: none');
+    expect(css).toContain('@media (min-width: 768px)');
+    expect(css).toContain('backdrop-filter: blur(18px) saturate(138%)');
   });
 
   it('treats tablet as an explicit workspace and resolves lazy routes with content-shaped skeletons', () => {
@@ -50,7 +60,7 @@ describe('Premium V2 full experience contract', () => {
     expect(card).toContain("t('library.import_btn', 'Importar')");
   });
 
-  it('keeps new Premium V2 copy available in PT EN and ES', () => {
+  it('keeps new Premium V2 copy available in PT EN and ES and retains curation modal parity', () => {
     const locale = read('locales/premiumV2.ts');
     expect(locale).toContain('pt: {');
     expect(locale).toContain('en: {');
@@ -62,9 +72,12 @@ describe('Premium V2 full experience contract', () => {
     const i18n = read('lib/i18n.ts');
     expect(i18n).toContain('premiumV2: premium');
     expect(i18n).toContain('gesture_release_to_add');
+    expect(i18n).toContain('modals: curationModalTranslations.pt');
+    expect(i18n).toContain('modals: curationModalTranslations.en');
+    expect(i18n).toContain('modals: curationModalTranslations.es');
   });
 
-  it('removes targeted single-language copy from the chord and lyric workspaces', () => {
+  it('removes targeted single-language copy from the chord and lyric catalog workspaces', () => {
     const chords = read('pages/ChordsPage.tsx');
     const lyrics = read('pages/LyricsPage.tsx');
     for (const source of [chords, lyrics]) {
@@ -74,6 +87,17 @@ describe('Premium V2 full experience contract', () => {
       expect(source).not.toContain('Todos os tons');
       expect(source).not.toContain('Mais Recentes');
     }
+  });
+
+  it('keeps Performance instrument-like and confirms exit from the real worship/live state', () => {
+    const performance = read('components/songs/ChordsViewerModal.tsx');
+    expect(performance).toContain('const handleSafeClose = () => {');
+    expect(performance).toContain('isWorshipFlow || liveSession?.mode === "worship"');
+    expect(performance).toContain('t("premiumV2.performance.exitConfirm")');
+    expect(performance).toContain('data-testid="close-chords-viewer"');
+    expect(performance).toContain('navigator as any).wakeLock.request("screen")');
+    expect(performance).toContain('setIsAutoScrolling');
+    expect(performance).toContain('StagePad');
   });
 
   it('presents scale song clusters as a numbered musical timeline without replacing scale handlers', () => {
