@@ -14,8 +14,13 @@ export const isGlobalPrivilegedUser = (_user?: User | null, userProfile?: UserPr
   return isGlobalPrivilegedUserStr(userProfile?.systemRole);
 };
 
+/**
+ * Runtime consumers must use AuthContext's canonical reconciliation instead of
+ * the local MusicScale profile alone. Hub handoff can carry a fresher ecosystem
+ * role than users/{uid}; AuthContext already resolves both without changing
+ * organization ownership or tenant membership.
+ */
 export const useEcosystemAdmin = () => {
-  const { userProfile } = useAuth();
-  const isEcosystemAdmin = isGlobalPrivilegedUser(undefined, userProfile);
-  return { isEcosystemAdmin };
+  const { isGlobalAdmin } = useAuth();
+  return { isEcosystemAdmin: isGlobalAdmin };
 };
