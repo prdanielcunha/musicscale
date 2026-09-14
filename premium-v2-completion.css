@@ -7,6 +7,31 @@
   min-width: 0;
 }
 
+/* Contextual chrome belongs to the functional layer, not every content card. */
+.ms-v3-header {
+  background: linear-gradient(180deg, rgba(8,9,13,.92), rgba(8,9,13,.78));
+  -webkit-backdrop-filter: blur(18px) saturate(138%);
+  backdrop-filter: blur(18px) saturate(138%);
+  box-shadow: 0 12px 34px -30px rgba(0,0,0,.92);
+}
+
+.ms-v3-header.is-scrolled {
+  background: rgba(7,8,11,.94);
+  box-shadow: 0 18px 44px -30px rgba(0,0,0,.96), inset 0 -1px 0 rgba(255,255,255,.025);
+}
+
+.ms-v3-menu-trigger {
+  background:
+    radial-gradient(circle at 30% 18%, rgba(255,255,255,.08), transparent 36%),
+    rgba(255,255,255,.035);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 10px 24px rgba(0,0,0,.18);
+}
+
+.ms-v3-header-signal {
+  background: linear-gradient(180deg, #64d8ff, #8f7cff);
+  box-shadow: 0 0 14px rgba(100,216,255,.62);
+}
+
 /* Tablet/iPad is a deliberate workspace mode, not a stretched phone. The existing
    compact sidebar becomes a floating rail; content keeps a readable central
    measure and contextual drawers may occupy the right edge. */
@@ -15,6 +40,12 @@
     flex: 0 0 auto;
     padding-left: max(10px, env(safe-area-inset-left));
     padding-right: 4px;
+  }
+
+  /* Tablet uses the sidebar as a stable compact command rail. Its desktop collapse
+     affordance is intentionally hidden so a control cannot toggle an ignored state. */
+  [data-device-layout="tablet"] .ms-sidebar-shell > div > button[aria-label] {
+    display: none !important;
   }
 
   [data-device-layout="tablet"] .ms-route-scroll {
@@ -136,6 +167,11 @@
 }
 
 @media (max-width: 767px) {
+  .ms-v3-header {
+    -webkit-backdrop-filter: blur(14px) saturate(128%);
+    backdrop-filter: blur(14px) saturate(128%);
+  }
+
   [data-testid^="scale-card-"] div.mb-4 > span:has(> span > button) {
     grid-template-columns: minmax(0, 1fr) auto;
   }
@@ -144,7 +180,8 @@
 @media (prefers-reduced-motion: reduce) {
   .premium-interactive,
   [data-testid="route-workspace-skeleton"],
-  [data-testid^="scale-card-"] {
+  [data-testid^="scale-card-"],
+  .ms-v3-header {
     transition-duration: 0ms !important;
     animation: none !important;
   }
