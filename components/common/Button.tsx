@@ -28,7 +28,7 @@ const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(({
   ...props
 }, ref) => {
   const baseClasses =
-    "inline-flex shrink-0 items-center justify-center gap-2 rounded-[14px] whitespace-nowrap font-semibold outline-none transition-[transform,background-color,border-color,color,box-shadow,filter] duration-200 focus-visible:ring-[3px] focus-visible:ring-primary/20 disabled:pointer-events-none disabled:opacity-45 active:scale-[0.975]";
+    "inline-flex shrink-0 items-center justify-center gap-2 rounded-[14px] whitespace-nowrap font-semibold outline-none transition-[transform,background-color,border-color,color,box-shadow,filter] duration-200 focus-visible:ring-[3px] focus-visible:ring-primary/20 disabled:pointer-events-none disabled:opacity-45 active:scale-[0.975] motion-reduce:transition-none motion-reduce:active:scale-100";
 
   const variantClasses = {
     primary:
