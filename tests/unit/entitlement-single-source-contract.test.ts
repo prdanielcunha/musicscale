@@ -33,9 +33,14 @@ describe('canonical MusicScale entitlement source', () => {
     const ownerAccess = read('services/server/ecosystemEntitlements.ts');
     const effective = read('services/effectiveEntitlements.ts');
 
-    expect(ownerAccess).toContain('resolveOrganizationOwnerUserId');
-    expect(ownerAccess).toContain('hasEcosystemEntitlementRole(ownerSnap.data())');
-    expect(ownerAccess).toContain('Caller-global/admin state is deliberately irrelevant');
+    expect(ownerAccess).toContain('Owner identity comes from the existing organization contract, never actor role.');
+    expect(ownerAccess).toContain('orgData.ownerUid');
+    expect(ownerAccess).toContain('orgData.ownerUserId');
+    expect(ownerAccess).toContain('orgData.ownerId');
+    expect(ownerAccess).toContain('orgData.owner_user_id');
+    expect(ownerAccess).toContain('hasEcosystemEntitlementRole(profile.data())');
+    expect(ownerAccess).not.toContain('isGlobalAdmin');
+    expect(ownerAccess).not.toContain('callerRole');
     expect(effective).toContain("ECOSYSTEM_ENTITLEMENT_ROLES = ['ceo', 'ecosystem_owner', 'founder']");
     expect(effective).toContain('Object.keys(base.features).map(key => [key, true])');
     expect(effective).toContain('Object.keys(base.limits).map(key => [key, -1])');
