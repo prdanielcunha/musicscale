@@ -55,7 +55,10 @@ jobs:
       run: npx tsx scripts/test_firebase_hosting_cloudrun_policy.ts
 
     - name: Run Vitest Unit & UI Tests
-      run: npm run test:ui
+      run: |
+        mkdir -p test-results
+        set -o pipefail
+        npm run test:ui 2>&1 | tee test-results/vitest.log
 
     - name: Run Critical Server Scale Release Tests
       run: npm run test:scale-release

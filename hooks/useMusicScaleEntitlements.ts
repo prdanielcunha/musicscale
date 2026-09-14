@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useEcosystem } from '../contexts/EcosystemContext';
-import { useEcosystemAdmin } from './useEcosystemAdmin';
 import {
   entitlementsService,
   MusicScaleEntitlements,
@@ -18,18 +17,22 @@ let globalCachedEntitlements: Record<string, MusicScaleEntitlements> = {};
 let globalFetchPromises: Record<string, Promise<MusicScaleEntitlements>> = {};
 
 export function useMusicScaleEntitlements() {
-  const { effectiveOrganizationId, loading: authLoading } = useAuth();
+  const { effectiveOrganizationId, user, loading: authLoading } = useAuth();
   const orgId = effectiveOrganizationId;
+  const uid = user?.uid || "anonymous";
+  const cacheKey = `${uid}:${orgId}`;
+  const currentOrgRef = useRef(cacheKey);
+  currentOrgRef.current = cacheKey;
 
   // Attempt to load immediate sync state from memory or localStorage to avoid flickering
   const initialEntitlements = useMemo<MusicScaleEntitlements | null>(() => {
     if (!orgId) return null;
-    if (globalCachedEntitlements[orgId]) {
-      return globalCachedEntitlements[orgId];
+    if (globalCachedEntitlements[cacheKey]) {
+      return globalCachedEntitlements[cacheKey];
     }
     // Attempt local Storage initial hydration
     try {
-      const saved = localStorage.getItem(`musicscale.entitlements.cached.${orgId}`);
+      const saved = localStorage.getItem(`musicscale.entitlements.cached.${cacheKey}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.app === 'musicscale') {
@@ -37,22 +40,26 @@ export function useMusicScaleEntitlements() {
         }
       }
     } catch (e) {}
-    
+
     // Default safe Starter mode until api finishes fetching
     return getStarterFallback(orgId);
-  }, [orgId]);
+  }, [orgId, cacheKey]);
 
   const [entitlements, setEntitlements] = useState<MusicScaleEntitlements | null>(initialEntitlements);
+  const resolvedActor = useRef(uid);
   const [loading, setLoading] = useState<boolean>(!initialEntitlements || initialEntitlements.status === 'inactive');
   const [error, setError] = useState<string | null>(null);
 
   const fetchFreshEntitlements = useCallback(async (targetOrgId: string, force = false) => {
     if (!targetOrgId) return;
+    const targetKey = `${uid}:${targetOrgId}`;
 
     // Use shared dynamic promise to prevent duplicate concurrent network fetch operations
-    if (globalFetchPromises[targetOrgId] && !force) {
+    if (globalFetchPromises[targetKey] && !force) {
       try {
-        const data = await globalFetchPromises[targetOrgId];
+        const data = await globalFetchPromises[targetKey];
+        if (currentOrgRef.current !== targetKey) return;
+        resolvedActor.current = uid;
         setEntitlements(data);
         setLoading(false);
         return;
@@ -60,27 +67,29 @@ export function useMusicScaleEntitlements() {
     }
 
     const fetchPromise = entitlementsService.fetchEntitlements(targetOrgId, force);
-    globalFetchPromises[targetOrgId] = fetchPromise;
+    globalFetchPromises[targetKey] = fetchPromise;
 
     try {
       const data = await fetchPromise;
-      globalCachedEntitlements[targetOrgId] = data;
-      setEntitlements(data);
+      globalCachedEntitlements[targetKey] = data;
+      if (currentOrgRef.current !== targetKey) return;
+      resolvedActor.current = uid;
+        setEntitlements(data);
       setError(null);
-      
+
       // Save cache to localStorage to enable instant loading on subsequent page reloads
       try {
-        localStorage.setItem(`musicscale.entitlements.cached.${targetOrgId}`, JSON.stringify(data));
+        localStorage.setItem(`musicscale.entitlements.cached.${targetKey}`, JSON.stringify(data));
       } catch (e) {}
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       // Log failure in background
       logger.error(`[useMusicScaleEntitlements] Failed to update entitlements for org ${targetOrgId}`, err);
     } finally {
-      delete globalFetchPromises[targetOrgId];
-      setLoading(false);
+      delete globalFetchPromises[targetKey];
+      if (currentOrgRef.current === targetKey) setLoading(false);
     }
-  }, []);
+  }, [uid]);
 
   useEffect(() => {
     if (orgId && !authLoading) {
@@ -97,45 +106,10 @@ export function useMusicScaleEntitlements() {
     }
   }, [orgId, fetchFreshEntitlements]);
 
-  const { isEcosystemAdmin } = useEcosystemAdmin();
-  
-  const effectiveEntitlements = useMemo(() => {
-    let finalEnt = entitlements || (orgId ? getStarterFallback(orgId) : null);
-    if (!finalEnt) return null;
-    
-    // Global bypass for CEO/Admin
-    if (isEcosystemAdmin) {
-      return {
-        ...finalEnt,
-        plan: 'pro' as MusicScalePlan,
-        status: 'active',
-        limits: {
-          users: -1,
-          songs: -1,
-          scales: -1,
-          bandScales: -1,
-          libraryImportsPerMonth: -1
-        },
-        features: {
-           basicSongFields: true,
-           richTextLyrics: true,
-           attachments: true,
-           scaleCloning: true,
-           scaleHistory: true,
-           aiImport: true,
-           aiSetlistInsights: true,
-           aiCreateScale: true,
-           cloudSync: true,
-           priorityNewFeatures: true,
-           unlimitedBandScales: true,
-           libraryAccess: true,
-           libraryLimited: true,
-           libraryComplete: true,
-        }
-      };
-    }
-    return finalEnt;
-  }, [entitlements, orgId, isEcosystemAdmin]);
+
+  const effectiveEntitlements = resolvedActor.current === uid && entitlements?.organizationId === orgId
+    ? entitlements
+    : orgId ? getStarterFallback(orgId) : null;
 
   return {
     entitlements: effectiveEntitlements,
@@ -147,15 +121,8 @@ export function useMusicScaleEntitlements() {
 
 export function useMusicScalePlan() {
   const { entitlements, loading } = useMusicScaleEntitlements();
-  const { isEcosystemAdmin } = useEcosystemAdmin();
-  
-  if (isEcosystemAdmin) {
-    return {
-      plan: 'pro' as MusicScalePlan,
-      status: 'active',
-      loading,
-    };
-  }
+
+
 
   return {
     plan: entitlements?.plan || 'starter' as MusicScalePlan,
@@ -166,7 +133,6 @@ export function useMusicScalePlan() {
 
 export function useMusicScaleUsage() {
   const { entitlements, loading: entitlementsLoading, refresh } = useMusicScaleEntitlements();
-  const { isEcosystemAdmin } = useEcosystemAdmin();
   const [realUsage, setRealUsage] = useState<MusicScaleUsage>({ libraryImports: 0 });
   const [usageLoading, setUsageLoading] = useState(true);
 
@@ -198,15 +164,15 @@ export function useMusicScaleUsage() {
       if (cancelled) return;
       const monthStr = getCurrentMonthString();
       const usageDocRef = doc(db, 'organizations', entitlements.organizationId, 'monthly_usage', monthStr);
-      
+
       unsubscribe = onSnapshot(usageDocRef, (snap: any) => {
         if (snap.exists()) {
-          setRealUsage({ 
+          setRealUsage({
             libraryImports: snap.data()?.libraryImports || 0,
             users: entitlements?.usage?.users
           });
         } else {
-          setRealUsage({ 
+          setRealUsage({
             libraryImports: 0,
             users: entitlements?.usage?.users
           });
@@ -229,7 +195,7 @@ export function useMusicScaleUsage() {
     entitlements?.usage?.libraryImports,
     entitlements?.usage?.users
   ]);
-  
+
   const incrementUsage = useCallback(async (): Promise<boolean> => {
     // This is now handled safely by importGlobalLibrarySongsWithUsageCheck
     // but we can leave this here so UI components that still use it for anything
@@ -244,12 +210,12 @@ export function useMusicScaleUsage() {
 
   return {
     usage: realUsage,
-    limits: isEcosystemAdmin ? { users: -1, songs: -1, scales: -1, bandScales: -1, libraryImportsPerMonth: -1 } : (entitlements?.limits || { 
+    limits: (entitlements?.limits || {
       users: 10,
       songs: -1,
       scales: -1,
       bandScales: 1,
-      libraryImportsPerMonth: 0 
+      libraryImportsPerMonth: 0
     }),
     loading: entitlementsLoading || usageLoading,
     incrementUsage,
@@ -258,9 +224,6 @@ export function useMusicScaleUsage() {
 
 export function useMusicScaleFeature(featureKey: keyof MusicScaleFeatures): boolean {
   const { entitlements } = useMusicScaleEntitlements();
-  const { isEcosystemAdmin } = useEcosystemAdmin();
-  
-  if (isEcosystemAdmin) return true;
 
   // Guard Check in cases where subscription status is canceled/expired/past_due/inactive/none
   const isSuspended = useMemo(() => {
@@ -282,8 +245,7 @@ export function useMusicScaleFeature(featureKey: keyof MusicScaleFeatures): bool
 
 export function useMusicScaleLimit(limitKey: keyof MusicScaleLimits): number {
   const { entitlements } = useMusicScaleEntitlements();
-  const { isEcosystemAdmin } = useEcosystemAdmin();
-  if (isEcosystemAdmin) return -1; // -1 represents Infinity
+
   return entitlements?.limits?.[limitKey] ?? -1;
 }
 
@@ -297,12 +259,10 @@ export function useCanUseMusicScaleFeature(
 ): { canUse: boolean; isFeatureAllowed: boolean; isPermissionAllowed: boolean; loading: boolean } {
   const { entitlements, loading } = useMusicScaleEntitlements();
   const { permissions } = useAuth();
-  const { isEcosystemAdmin } = useEcosystemAdmin();
 
   const isFeatureAllowed = useMemo(() => {
-    if (isEcosystemAdmin) return true;
     if (!entitlements) return false;
-    
+
     // Status lock validation
     const s = entitlements.status;
     const isSuspended = s === 'past_due' || s === 'canceled' || s === 'expired' || s === 'inactive' || s === 'none';
@@ -314,9 +274,9 @@ export function useCanUseMusicScaleFeature(
   }, [entitlements, featureKey]);
 
   const isPermissionAllowed = useMemo(() => {
-    if (isEcosystemAdmin) return true;
+
     if (!permissions) return false;
-    
+
     // If no permissionKey specified, assume true
     if (!permissionKey) return true;
 

@@ -36,6 +36,8 @@ export interface MusicScaleUsage {
 export interface MusicScaleEntitlements {
   organizationId: string;
   app: 'musicscale';
+  accessSource?: 'ecosystem';
+  accessAllowed?: boolean;
   plan: MusicScalePlan;
   status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'expired' | 'inactive' | 'none';
   features: MusicScaleFeatures;
