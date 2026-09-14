@@ -6,6 +6,7 @@ import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { markStartupMetric, incrementStartupCounter, markStartupFailure } from './lib/startupTelemetry';
 import './performance-v2.css';
 import './operational-v2.css';
+import './premium-v2-completion.css';
 
 
 const urlParams = new URLSearchParams(window.location.search);
