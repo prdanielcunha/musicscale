@@ -43,6 +43,13 @@ export const premiumV2Translations = {
     loading: {
       navigation: 'Preparando seu espaço musical',
       content: 'Carregando conteúdo',
+      bootstrap: 'Preparando ambiente operacional…',
+      slowTitle: 'O MusicScale está demorando mais que o normal',
+      slowBody: 'Não liberamos uma tela parcial enquanto sua sessão está sendo validada. Seus dados continuam protegidos; tente recarregar para concluir o acesso.',
+      retry: 'Tentar novamente',
+    },
+    shell: {
+      managePlan: 'Gerenciar plano',
     },
   },
   en: {
@@ -89,6 +96,13 @@ export const premiumV2Translations = {
     loading: {
       navigation: 'Preparing your music workspace',
       content: 'Loading content',
+      bootstrap: 'Preparing operational workspace…',
+      slowTitle: 'MusicScale is taking longer than usual',
+      slowBody: 'We do not show a partial workspace while your session is being validated. Your data remains protected; reload to finish signing in.',
+      retry: 'Try again',
+    },
+    shell: {
+      managePlan: 'Manage plan',
     },
   },
   es: {
@@ -135,6 +149,13 @@ export const premiumV2Translations = {
     loading: {
       navigation: 'Preparando tu espacio musical',
       content: 'Cargando contenido',
+      bootstrap: 'Preparando el espacio operativo…',
+      slowTitle: 'MusicScale está tardando más de lo normal',
+      slowBody: 'No mostramos un espacio parcial mientras se valida tu sesión. Tus datos siguen protegidos; recarga para completar el acceso.',
+      retry: 'Intentar de nuevo',
+    },
+    shell: {
+      managePlan: 'Gestionar plan',
     },
   },
 } as const;
