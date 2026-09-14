@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useMusic } from "../contexts/MusicDataContext";
 import { useModals } from "../contexts/ModalContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -30,6 +31,7 @@ const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 );
 
 const ChordsPage: React.FC = () => {
+  const { t } = useTranslation();
   const { songs, tags, loading, error } = useMusic();
   const { openAddChordModal, saveChord, isSubmitting } = useModals();
   const { permissions } = useAuth();
@@ -131,14 +133,14 @@ const ChordsPage: React.FC = () => {
           <div className="min-w-0 flex-1">
             <label htmlFor="search" className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/38">
               <Search className="h-3.5 w-3.5 text-primary-light/75" aria-hidden="true" />
-              Buscar
+              {t('premiumV2.musicWorkspace.search')}
             </label>
             <div className="relative">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/26" aria-hidden="true" />
               <input
                 id="search"
                 type="search"
-                placeholder="Buscar por título ou artista..."
+                placeholder={t('premiumV2.musicWorkspace.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="input-base min-h-[48px] w-full pl-11 pr-4 text-[14px]"
@@ -149,7 +151,7 @@ const ChordsPage: React.FC = () => {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:w-[520px]">
             <div>
               <label htmlFor="keyFilter" className="mb-2 block text-[10px] font-bold uppercase tracking-[0.12em] text-white/32">
-                Tom
+                {t('premiumV2.musicWorkspace.key')}
               </label>
               <select
                 id="keyFilter"
@@ -157,7 +159,7 @@ const ChordsPage: React.FC = () => {
                 onChange={(e) => setKeyFilter(e.target.value)}
                 className={`w-full ${formSelectClass}`}
               >
-                <option value="all">Todos os tons</option>
+                <option value="all">{t('premiumV2.musicWorkspace.allKeys')}</option>
                 {uniqueKeys.map((key) => (
                   <option key={key} value={key}>
                     {key}
@@ -168,7 +170,7 @@ const ChordsPage: React.FC = () => {
 
             <div>
               <label htmlFor="sortBy" className="mb-2 block text-[10px] font-bold uppercase tracking-[0.12em] text-white/32">
-                Ordenar por:
+                {t('premiumV2.musicWorkspace.sortBy')}
               </label>
               <select
                 id="sortBy"
@@ -176,16 +178,16 @@ const ChordsPage: React.FC = () => {
                 onChange={(e) => setSortBy(e.target.value)}
                 className={`w-full ${formSelectClass}`}
               >
-                <option value="title">Título (A-Z)</option>
-                <option value="artist">Artista (A-Z)</option>
-                <option value="newest">Mais Recentes</option>
+                <option value="title">{t('premiumV2.musicWorkspace.titleAz')}</option>
+                <option value="artist">{t('premiumV2.musicWorkspace.artistAz')}</option>
+                <option value="newest">{t('premiumV2.musicWorkspace.newest')}</option>
               </select>
             </div>
 
             <div className="col-span-2 sm:col-span-1">
               <label className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white/32">
                 <SlidersHorizontal className="h-3 w-3" aria-hidden="true" />
-                Tags
+                {t('premiumV2.musicWorkspace.tags')}
               </label>
               <select
                 id="tag-filter-add"
@@ -200,7 +202,9 @@ const ChordsPage: React.FC = () => {
                 disabled={availableFilterTags.length === 0}
               >
                 <option value="" disabled>
-                  {availableFilterTags.length > 0 ? "Adicionar tag..." : "Nenhuma tag"}
+                  {availableFilterTags.length > 0
+                    ? t('premiumV2.musicWorkspace.addTag')
+                    : t('premiumV2.musicWorkspace.noTags')}
                 </option>
                 {availableFilterTags.map((tag) => (
                   <option key={tag.id} value={tag.id}>
@@ -217,7 +221,7 @@ const ChordsPage: React.FC = () => {
               leftIcon={<PlusIcon />}
               className="min-h-[48px] w-full xl:w-auto"
             >
-              Adicionar Cifra
+              {t('premiumV2.musicWorkspace.addChord')}
             </Button>
           )}
         </div>
@@ -233,8 +237,8 @@ const ChordsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setTagFilterIds((prev) => prev.filter((id) => id !== tag.id))}
-                  className="premium-interactive flex h-6 w-6 items-center justify-center rounded-full hover:bg-primary/10"
-                  aria-label={`Remover tag ${tag.name}`}
+                  className="premium-interactive flex h-8 w-8 items-center justify-center rounded-full hover:bg-primary/10"
+                  aria-label={t('premiumV2.musicWorkspace.removeTag', { name: tag.name })}
                 >
                   <XCircleIcon className="h-4 w-4" />
                 </button>
@@ -257,10 +261,10 @@ const ChordsPage: React.FC = () => {
             <ChordsIcon className="h-7 w-7" />
           </span>
           <h3 className="relative mt-4 text-lg font-semibold tracking-[-0.02em] text-white">
-            Nenhuma Cifra Encontrada
+            {t('premiumV2.musicWorkspace.noChordsTitle')}
           </h3>
           <p className="relative mx-auto mt-2 max-w-md text-[13px] leading-relaxed text-white/42">
-            Ajuste os filtros ou adicione cifras às músicas no seu repertório para vê-las aqui.
+            {t('premiumV2.musicWorkspace.noChordsDescription')}
           </p>
         </div>
       )}

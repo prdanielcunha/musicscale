@@ -1,0 +1,193 @@
+/* MusicScale Premium V2 completion layer
+   Keeps navigation/function chrome quiet while the musical content remains dominant. */
+
+.ms-main-shell,
+.ms-route-workspace,
+.ms-sidebar-shell {
+  min-width: 0;
+}
+
+/* Contextual chrome belongs to the functional layer, not every content card. */
+.ms-v3-header {
+  background: linear-gradient(180deg, rgba(8,9,13,.92), rgba(8,9,13,.78));
+  -webkit-backdrop-filter: blur(18px) saturate(138%);
+  backdrop-filter: blur(18px) saturate(138%);
+  box-shadow: 0 12px 34px -30px rgba(0,0,0,.92);
+}
+
+.ms-v3-header.is-scrolled {
+  background: rgba(7,8,11,.94);
+  box-shadow: 0 18px 44px -30px rgba(0,0,0,.96), inset 0 -1px 0 rgba(255,255,255,.025);
+}
+
+.ms-v3-menu-trigger {
+  background:
+    radial-gradient(circle at 30% 18%, rgba(255,255,255,.08), transparent 36%),
+    rgba(255,255,255,.035);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 10px 24px rgba(0,0,0,.18);
+}
+
+.ms-v3-header-signal {
+  background: linear-gradient(180deg, #64d8ff, #8f7cff);
+  box-shadow: 0 0 14px rgba(100,216,255,.62);
+}
+
+/* Tablet/iPad is a deliberate workspace mode, not a stretched phone. The existing
+   compact sidebar becomes a floating rail; content keeps a readable central
+   measure and contextual drawers may occupy the right edge. */
+@media (min-width: 768px) and (max-width: 1180px) {
+  [data-device-layout="tablet"] .ms-sidebar-shell {
+    flex: 0 0 auto;
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: 4px;
+  }
+
+  /* Tablet uses the sidebar as a stable compact command rail. Its desktop collapse
+     affordance is intentionally hidden so a control cannot toggle an ignored state. */
+  [data-device-layout="tablet"] .ms-sidebar-shell > div > button[aria-label] {
+    display: none !important;
+  }
+
+  [data-device-layout="tablet"] .ms-route-scroll {
+    padding: 20px 20px max(24px, env(safe-area-inset-bottom));
+  }
+
+  [data-device-layout="tablet"] .ms-route-workspace {
+    width: min(100%, 960px);
+    margin-inline: auto;
+  }
+
+  [data-device-layout="tablet"] .ms-panel,
+  [data-device-layout="tablet"] .ms-card {
+    scroll-margin-top: 92px;
+  }
+}
+
+/* Large desktop reads as a workspace: stable navigation, generous central canvas. */
+@media (min-width: 1181px) {
+  [data-device-layout="desktop"] .ms-route-workspace {
+    width: min(100%, 1280px);
+    margin-inline: auto;
+  }
+}
+
+/* Scale cards become musical timeline objects instead of generic CRUD cards.
+   The DOM remains untouched: order, handlers, quick-remove, expand and RBAC continue
+   to be owned by ScalesPage. */
+[data-testid^="scale-card-"] {
+  border-color: rgba(255,255,255,.065) !important;
+  background:
+    radial-gradient(80% 110% at 0% 0%, rgba(79,140,255,.055), transparent 66%),
+    linear-gradient(145deg, rgba(18,19,26,.95), rgba(9,10,14,.975)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 24px 62px -44px rgba(0,0,0,.95) !important;
+}
+
+[data-testid^="scale-card-"]:hover {
+  border-color: rgba(111,140,255,.18) !important;
+}
+
+/* The manager song-chip cluster is progressively re-composed as a setlist. */
+[data-testid^="scale-card-"] div.mb-4 > span:has(> span > button) {
+  counter-reset: ms-scale-song;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px !important;
+  width: 100%;
+  padding-top: 2px;
+}
+
+[data-testid^="scale-card-"] div.mb-4 > span:has(> span > button) > span {
+  counter-increment: ms-scale-song;
+  grid-column: 1 / -1;
+  display: grid !important;
+  grid-template-columns: 28px minmax(0, 1fr) 44px;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 0 0 10px !important;
+  border-radius: 13px !important;
+  border-color: rgba(255,255,255,.055) !important;
+  background: rgba(255,255,255,.027) !important;
+}
+
+[data-testid^="scale-card-"] div.mb-4 > span:has(> span > button) > span::before {
+  content: counter(ms-scale-song, decimal-leading-zero);
+  color: rgba(159,178,214,.44);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-testid^="scale-card-"] div.mb-4 > span:has(> span > button) > span > span {
+  max-width: none !important;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-testid^="scale-card-"] div.mb-4 > span:has(> span > button) > button {
+  min-height: 44px;
+}
+
+/* Non-manager summaries stay compact but gain a temporal/setlist rhythm. */
+[data-testid^="scale-card-"] div.mb-4 > span:not(:has(> span > button)) {
+  line-height: 1.7;
+}
+
+/* Physical but restrained feedback. Motion never invents musical state. */
+.premium-interactive {
+  transform: translateZ(0);
+  transition-property: transform, opacity, background-color, border-color, color, box-shadow;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.premium-interactive:active:not(:disabled) {
+  transform: scale(0.975);
+}
+
+[data-library-gesture="add"] {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 18px 52px -30px rgba(56,217,150,.42);
+}
+
+[data-library-gesture="preview"] {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 18px 52px -30px rgba(79,140,255,.40);
+}
+
+/* Content-shaped route skeletons should resolve in place instead of flashing. */
+[data-testid="route-workspace-skeleton"] {
+  animation: ms-v2-skeleton-resolve 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ms-v2-skeleton-resolve {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 767px) {
+  .ms-v3-header {
+    -webkit-backdrop-filter: blur(14px) saturate(128%);
+    backdrop-filter: blur(14px) saturate(128%);
+  }
+
+  [data-testid^="scale-card-"] div.mb-4 > span:has(> span > button) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-interactive,
+  [data-testid="route-workspace-skeleton"],
+  [data-testid^="scale-card-"],
+  .ms-v3-header {
+    transition-duration: 0ms !important;
+    animation: none !important;
+  }
+
+  .premium-interactive:active:not(:disabled),
+  [data-testid^="scale-card-"]:hover {
+    transform: none !important;
+  }
+}
