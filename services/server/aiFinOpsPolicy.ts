@@ -156,8 +156,10 @@ export const AI_FINOPS_ERRORS = {
 export function resolveAiQuotaLimits(input: {
   plan?: string;
   featureEnabled?: boolean;
+  ecosystemAccess?: boolean;
   overrides?: Partial<AiQuotaLimits>;
 }): AiQuotaLimits {
+  if (input.ecosystemAccess) return { enabled: true, monthlyRequests: Infinity, dailyRequests: Infinity, monthlyEstimatedTokens: Infinity, dailyEstimatedTokens: Infinity };
   const planName = input.plan === "pro" || input.plan === "advanced" || input.plan === "starter" ? input.plan : "starter";
   const baseLimits = { ...PLAN_DEFAULTS[planName] };
 

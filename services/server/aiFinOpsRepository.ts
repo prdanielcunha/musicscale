@@ -73,6 +73,7 @@ export interface AiFinOpsRepositoryInput {
   sourceHost?: string | null;
   model: string;
   plan: AiPlan;
+  ecosystemAccess?: boolean;
   inputChars?: number;
   overrides?: Partial<AiQuotaLimits>;
 }
@@ -351,6 +352,7 @@ export async function beginAiFinOpsReservation(
 
     const limits = resolveAiQuotaLimits({
       plan: input.plan,
+      ecosystemAccess: input.ecosystemAccess,
       featureEnabled: true,
       overrides: input.overrides,
     });
