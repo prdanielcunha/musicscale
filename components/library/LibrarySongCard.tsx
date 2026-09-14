@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import type { GlobalSong } from '../../types';
 import { MusicNoteIcon } from '../icons/MusicNoteIcon';
 import { Download, Check, Loader2, Edit, Trash2, Library, Sparkles } from 'lucide-react';
@@ -20,6 +20,11 @@ interface LibrarySongCardProps {
   searchMatch?: import('../../utils/searchEngine').SearchMatch;
   searchTerm?: string;
 }
+
+const LONG_PRESS_MS = 440;
+const SWIPE_ADD_THRESHOLD_PX = 72;
+const GESTURE_CANCEL_DISTANCE_PX = 12;
+const MAX_VERTICAL_SWIPE_PX = 44;
 
 const getStatusBadge = (song: GlobalSong, t: any) => {
   const hasLyrics = !!song.lyrics?.trim();
@@ -66,8 +71,31 @@ export const LibrarySongCard: React.FC<LibrarySongCardProps> = ({
 }) => {
   const { t } = useTranslation();
   const status = getStatusBadge(song, t);
+  const pointerStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const suppressClickRef = useRef(false);
+  const [gestureState, setGestureState] = useState<'idle' | 'preview' | 'add'>('idle');
+
+  const clearLongPress = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const resetGesture = () => {
+    clearLongPress();
+    pointerStartRef.current = null;
+    setGestureState('idle');
+  };
 
   const handleCardClick = (e: React.MouseEvent) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (selectable) {
       if (isImported) return;
       onToggleSelection?.(song.id, e);
@@ -83,17 +111,95 @@ export const LibrarySongCard: React.FC<LibrarySongCardProps> = ({
     }
   };
 
+  const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
+    if (selectable || e.pointerType === 'mouse' || (e.target as HTMLElement).closest('button, a, select, input')) return;
+    pointerStartRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    suppressClickRef.current = false;
+    clearLongPress();
+    longPressTimerRef.current = window.setTimeout(() => {
+      if (!pointerStartRef.current) return;
+      suppressClickRef.current = true;
+      setGestureState('preview');
+      navigator.vibrate?.(12);
+      onClick(song);
+    }, LONG_PRESS_MS);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    const start = pointerStartRef.current;
+    if (!start || start.id !== e.pointerId) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+
+    if (Math.hypot(dx, dy) > GESTURE_CANCEL_DISTANCE_PX) clearLongPress();
+    if (!isImported && !isImporting && dx <= -SWIPE_ADD_THRESHOLD_PX * 0.65 && Math.abs(dy) <= MAX_VERTICAL_SWIPE_PX) {
+      setGestureState('add');
+    } else if (gestureState === 'add') {
+      setGestureState('idle');
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLElement>) => {
+    const start = pointerStartRef.current;
+    clearLongPress();
+    if (!start || start.id !== e.pointerId) {
+      resetGesture();
+      return;
+    }
+
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    const shouldImport =
+      !selectable &&
+      !isImported &&
+      !isImporting &&
+      dx <= -SWIPE_ADD_THRESHOLD_PX &&
+      Math.abs(dy) <= MAX_VERTICAL_SWIPE_PX;
+
+    if (shouldImport) {
+      suppressClickRef.current = true;
+      navigator.vibrate?.(10);
+      onImport(song, e as unknown as React.MouseEvent);
+    }
+    resetGesture();
+  };
+
+  const handlePointerCancel = () => resetGesture();
+
   return (
     <article
       onClick={handleCardClick}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      data-library-gesture={gestureState}
+      aria-label={t('library.card_accessible_label', '{{title}}, {{artist}}', { title: song.title, artist: song.artist })}
+      style={{ touchAction: 'pan-y' }}
       className={`ms-card ms-card-interactive group relative flex min-w-0 max-w-full cursor-pointer flex-col overflow-hidden p-4 sm:p-5 ${
         selected
           ? 'border-primary/45 bg-primary/[0.08] shadow-[0_16px_42px_-28px_rgba(79,140,255,0.8)] ring-1 ring-primary/20'
-          : ''
+          : gestureState === 'add'
+            ? 'border-emerald-400/30 ring-1 ring-emerald-400/15'
+            : gestureState === 'preview'
+              ? 'border-primary/35 ring-1 ring-primary/15'
+              : ''
       }`}
     >
       <div className={`pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent ${selected ? 'via-primary/80' : 'via-primary/35'} to-transparent`} />
       <div className="pointer-events-none absolute -right-12 -top-14 h-36 w-36 rounded-full bg-primary/[0.045] blur-3xl opacity-60 transition-opacity duration-300 group-hover:opacity-100 motion-reduce:transition-none" />
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex min-h-8 items-center justify-center text-[10px] font-bold uppercase tracking-[0.12em] transition-[opacity,transform] duration-150 motion-reduce:transition-none md:hidden ${
+          gestureState === 'add'
+            ? 'translate-y-0 bg-emerald-500/12 text-emerald-300 opacity-100'
+            : gestureState === 'preview'
+              ? 'translate-y-0 bg-primary/12 text-primary-light opacity-100'
+              : '-translate-y-3 opacity-0'
+        }`}
+      >
+        {gestureState === 'add' ? t('library.gesture_release_to_add', 'Solte para adicionar') : t('library.gesture_preview', 'Pré-visualizando')}
+      </div>
 
       {selectable && (
         <button
@@ -245,6 +351,10 @@ export const LibrarySongCard: React.FC<LibrarySongCardProps> = ({
             <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
           </span>
         </button>
+
+        <p className="mt-2 hidden text-center text-[9px] font-medium tracking-wide text-white/28 md:hidden supports-[touch-action:pan-y]:block">
+          {t('library.gesture_hint', 'Deslize para adicionar · segure para pré-visualizar')}
+        </p>
       </div>
     </article>
   );

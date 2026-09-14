@@ -846,7 +846,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     const parts = [];
     if (formData.date) {
       const d = new Date(formData.date + "T12:00:00");
-      parts.push(d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }));
+      parts.push(d.toLocaleDateString(i18n.resolvedLanguage || i18n.language || "pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }));
     }
     
     if (formData.eventTypeId) {

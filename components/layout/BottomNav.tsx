@@ -8,10 +8,17 @@ import { CalendarIcon } from "../icons/CalendarIcon";
 import { BookOpenIcon } from "../icons/BookOpenIcon";
 import { GlobalCreateAction } from "./GlobalCreateAction";
 
+const COMPACT_AFTER_PX = 92;
+const SCROLL_DIRECTION_THRESHOLD_PX = 10;
+
 export const BottomNav: React.FC = () => {
   const location = useLocation();
   const { t } = useTranslation();
   const shouldReduceMotion = useReducedMotion();
+  const isContextRoute = /^\/scales\/[^/]+/.test(location.pathname);
+  const [isCompact, setIsCompact] = useState(isContextRoute);
+  const [isPerformanceActive, setIsPerformanceActive] = useState(false);
+  const previousScrollTopRef = useRef(0);
 
   // Four destinations + the centered Create action keep the mobile dock to five
   // intentional slots. Account remains available through the existing menu/header.
@@ -35,36 +42,110 @@ export const BottomNav: React.FC = () => {
     }
   }, [activeIndex]);
 
+  useEffect(() => {
+    // A nested scale is already a focused musical context, so the dock starts in
+    // its quiet/compact form instead of competing with the scale workspace.
+    setIsCompact(isContextRoute);
+    previousScrollTopRef.current = 0;
+
+    const scrollContainer = document.querySelector("main");
+    if (!(scrollContainer instanceof HTMLElement)) return;
+
+    const handleScroll = () => {
+      const current = scrollContainer.scrollTop;
+      const delta = current - previousScrollTopRef.current;
+
+      if (current <= 28) {
+        setIsCompact(isContextRoute);
+      } else if (current >= COMPACT_AFTER_PX && delta > SCROLL_DIRECTION_THRESHOLD_PX) {
+        setIsCompact(true);
+      } else if (delta < -SCROLL_DIRECTION_THRESHOLD_PX) {
+        setIsCompact(isContextRoute);
+      }
+
+      previousScrollTopRef.current = current;
+    };
+
+    scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
+    return () => scrollContainer.removeEventListener("scroll", handleScroll);
+  }, [location.pathname, isContextRoute]);
+
+  // Performance is content-first, so the global dock recedes while the dedicated
+  // chord/performance surface is mounted. Do not infer Performance from body scroll
+  // locking: regular mobile dialogs (including Create) also lock body overflow and
+  // must keep their owning BottomNav mounted for the portal to remain alive.
+  useEffect(() => {
+    const syncPerformanceState = () => {
+      const chordPerformanceOpen = Boolean(
+        document.querySelector('[data-testid="close-chords-viewer"]'),
+      );
+      setIsPerformanceActive(chordPerformanceOpen);
+    };
+
+    syncPerformanceState();
+    const observer = new MutationObserver(syncPerformanceState);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+    return () => observer.disconnect();
+  }, []);
+
   const transition = shouldReduceMotion
     ? { duration: 0 }
     : { type: "spring" as const, stiffness: 500, damping: 42, mass: 0.72 };
 
+  if (isPerformanceActive) return null;
+
   return (
-    <nav
+    <motion.nav
       aria-label={t("nav.bottom.ariaLabel", "Navegação Principal")}
+      data-testid="adaptive-bottom-nav"
+      data-compact={isCompact ? "true" : "false"}
+      data-context={isContextRoute ? "scale" : "global"}
+      initial={false}
+      animate={{ y: 0, opacity: 1 }}
+      transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.18 }}
       className="pointer-events-none fixed inset-x-0 bottom-[calc(10px+env(safe-area-inset-bottom))] z-[100] flex justify-center px-3 md:hidden"
     >
-      <div className="relative w-full max-w-[400px]">
-        <div className="pointer-events-auto relative flex w-full items-center justify-between rounded-[28px] border border-white/[0.09] bg-[linear-gradient(180deg,rgba(24,24,29,0.98),rgba(9,9,12,0.995))] p-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_44px_rgba(0,0,0,0.46)]">
+      <motion.div
+        className="relative w-full"
+        animate={{ maxWidth: isCompact ? 342 : 400 }}
+        transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <motion.div
+          className="pointer-events-auto relative flex w-full items-center justify-between border border-white/[0.09] bg-[linear-gradient(180deg,rgba(24,24,29,0.98),rgba(9,9,12,0.995))] p-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_44px_rgba(0,0,0,0.46)]"
+          animate={{ borderRadius: isCompact ? 22 : 28 }}
+          transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.2 }}
+        >
           {navLinks.map((link, index) => {
             const isActive = index === activeIndex;
             return (
               <React.Fragment key={link.id}>
                 {index === 2 && (
-                  <div className="flex min-w-11 flex-1 justify-center">
+                  <motion.div
+                    className="flex min-w-11 flex-1 justify-center"
+                    animate={{ scale: isCompact ? 0.92 : 1 }}
+                    transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.18 }}
+                  >
                     <GlobalCreateAction variant="mobile" />
-                  </div>
+                  </motion.div>
                 )}
                 <NavLink
                   to={link.to}
                   aria-current={isActive ? "page" : undefined}
-                  className="group relative flex h-[50px] min-w-[44px] flex-1 flex-col items-center justify-center overflow-hidden rounded-[24px] transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 motion-reduce:transition-none"
+                  aria-label={link.label}
+                  className={`group relative flex min-w-[44px] flex-1 flex-col items-center justify-center overflow-hidden transition-[height,transform] duration-200 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 motion-reduce:transition-none ${
+                    isCompact ? "h-[44px] rounded-[19px]" : "h-[50px] rounded-[24px]"
+                  }`}
                 >
                   {isActive && (
                     <motion.div
                       layoutId="bottom-nav-liquid-indicator"
                       aria-hidden="true"
-                      className="absolute inset-0 -z-10 rounded-[24px] border border-white/[0.105] bg-[linear-gradient(180deg,rgba(255,255,255,0.105),rgba(255,255,255,0.05))] shadow-[inset_0_1px_0_rgba(255,255,255,0.075)]"
+                      className={`absolute inset-0 -z-10 border border-white/[0.105] bg-[linear-gradient(180deg,rgba(255,255,255,0.105),rgba(255,255,255,0.05))] shadow-[inset_0_1px_0_rgba(255,255,255,0.075)] ${
+                        isCompact ? "rounded-[19px]" : "rounded-[24px]"
+                      }`}
                       transition={transition}
                     >
                       <div className="absolute inset-x-[28%] top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
@@ -73,7 +154,9 @@ export const BottomNav: React.FC = () => {
                           initial={{ opacity: 0, x: direction * -16 }}
                           animate={{ opacity: [0, 0.38, 0], x: [direction * -16, direction * 16] }}
                           transition={{ duration: 0.32, ease: "easeInOut" }}
-                          className="pointer-events-none absolute inset-0 rounded-[24px] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent"
+                          className={`pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent ${
+                            isCompact ? "rounded-[19px]" : "rounded-[24px]"
+                          }`}
                         />
                       )}
                     </motion.div>
@@ -87,17 +170,20 @@ export const BottomNav: React.FC = () => {
                     })}
                   </div>
 
-                  <span className={`relative z-10 mt-[2px] w-full truncate px-1 text-center text-[10px] leading-[12px] transition-colors duration-150 sm:text-[10.5px] ${
-                    isActive ? "font-semibold text-white" : "font-medium text-white/[0.46] group-hover:text-white/[0.78]"
-                  }`}>
+                  <span
+                    aria-hidden={isCompact ? "true" : undefined}
+                    className={`relative z-10 w-full truncate px-1 text-center text-[10px] leading-[12px] transition-[opacity,max-height,margin] duration-180 sm:text-[10.5px] ${
+                      isActive ? "font-semibold text-white" : "font-medium text-white/[0.46] group-hover:text-white/[0.78]"
+                    } ${isCompact ? "mt-0 max-h-0 opacity-0" : "mt-[2px] max-h-4 opacity-100"}`}
+                  >
                     {link.label}
                   </span>
                 </NavLink>
               </React.Fragment>
             );
           })}
-        </div>
-      </div>
-    </nav>
+        </motion.div>
+      </motion.div>
+    </motion.nav>
   );
 };
