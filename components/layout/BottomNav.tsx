@@ -70,19 +70,28 @@ export const BottomNav: React.FC = () => {
     return () => scrollContainer.removeEventListener("scroll", handleScroll);
   }, [location.pathname, isContextRoute]);
 
-  // Performance is intentionally content-first. The existing performance viewer owns
-  // this stable test id, so the global dock recedes while that surface is mounted
-  // without creating a second source of truth for performance state.
+  // Performance and other immersive overlays are content-first. Chord Performance
+  // exposes a stable close test id; lyrics/full-screen modal surfaces also lock body
+  // scrolling. In either case the global dock recedes instead of competing for the
+  // same bottom safe area. Observing the body's style attribute keeps the rule in
+  // sync without introducing a second application-level modal/performance authority.
   useEffect(() => {
     const syncPerformanceState = () => {
-      setIsPerformanceActive(
-        Boolean(document.querySelector('[data-testid="close-chords-viewer"]')),
+      const chordPerformanceOpen = Boolean(
+        document.querySelector('[data-testid="close-chords-viewer"]'),
       );
+      const immersiveOverlayOpen = document.body.style.overflow === "hidden";
+      setIsPerformanceActive(chordPerformanceOpen || immersiveOverlayOpen);
     };
 
     syncPerformanceState();
     const observer = new MutationObserver(syncPerformanceState);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["style"],
+    });
     return () => observer.disconnect();
   }, []);
 
