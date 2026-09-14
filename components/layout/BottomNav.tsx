@@ -15,7 +15,8 @@ export const BottomNav: React.FC = () => {
   const location = useLocation();
   const { t } = useTranslation();
   const shouldReduceMotion = useReducedMotion();
-  const [isCompact, setIsCompact] = useState(false);
+  const isContextRoute = /^\/scales\/[^/]+/.test(location.pathname);
+  const [isCompact, setIsCompact] = useState(isContextRoute);
   const [isPerformanceActive, setIsPerformanceActive] = useState(false);
   const previousScrollTopRef = useRef(0);
 
@@ -42,7 +43,9 @@ export const BottomNav: React.FC = () => {
   }, [activeIndex]);
 
   useEffect(() => {
-    setIsCompact(false);
+    // A nested scale is already a focused musical context, so the dock starts in
+    // its quiet/compact form instead of competing with the scale workspace.
+    setIsCompact(isContextRoute);
     previousScrollTopRef.current = 0;
 
     const scrollContainer = document.querySelector("main");
@@ -53,11 +56,11 @@ export const BottomNav: React.FC = () => {
       const delta = current - previousScrollTopRef.current;
 
       if (current <= 28) {
-        setIsCompact(false);
+        setIsCompact(isContextRoute);
       } else if (current >= COMPACT_AFTER_PX && delta > SCROLL_DIRECTION_THRESHOLD_PX) {
         setIsCompact(true);
       } else if (delta < -SCROLL_DIRECTION_THRESHOLD_PX) {
-        setIsCompact(false);
+        setIsCompact(isContextRoute);
       }
 
       previousScrollTopRef.current = current;
@@ -65,7 +68,7 @@ export const BottomNav: React.FC = () => {
 
     scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
     return () => scrollContainer.removeEventListener("scroll", handleScroll);
-  }, [location.pathname]);
+  }, [location.pathname, isContextRoute]);
 
   // Performance is intentionally content-first. The existing performance viewer owns
   // this stable test id, so the global dock recedes while that surface is mounted
@@ -94,6 +97,7 @@ export const BottomNav: React.FC = () => {
       aria-label={t("nav.bottom.ariaLabel", "Navegação Principal")}
       data-testid="adaptive-bottom-nav"
       data-compact={isCompact ? "true" : "false"}
+      data-context={isContextRoute ? "scale" : "global"}
       initial={false}
       animate={{ y: 0, opacity: 1 }}
       transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.18 }}
