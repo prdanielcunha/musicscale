@@ -1,0 +1,99 @@
+name: Premium V2 Surgical Cleanup
+
+on:
+  push:
+    branches:
+      - feat/premium-v2-full-experience-206
+    paths:
+      - .github/workflows/premium-v2-surgical-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/premium-v2-full-experience-206
+          fetch-depth: 0
+
+      - name: Apply narrow user-facing i18n replacements
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_exact(path: str, old: str, new: str, count: int | None = None):
+              p = Path(path)
+              text = p.read_text()
+              found = text.count(old)
+              if found == 0:
+                  raise SystemExit(f"Expected source fragment not found in {path}: {old!r}")
+              if count is not None and found != count:
+                  raise SystemExit(f"Expected {count} occurrences in {path}, found {found}: {old!r}")
+              p.write_text(text.replace(old, new))
+
+          performance = 'components/songs/ChordsViewerModal.tsx'
+          replace_exact(
+              performance,
+              '"Você está em modo Performance/Culto.\\n\\nTem certeza que deseja sair agora?"',
+              't("premiumV2.performance.exitConfirm")',
+              1,
+          )
+          replace_exact(
+              performance,
+              '"Instruções extras para a IA (Opcional):\\nEx: \'Alinhe os acordes com a letra\'"',
+              't("premiumV2.performance.aiInstructions")',
+              1,
+          )
+          replace_exact(performance, 'alert("Falha ao ajustar cifras.");', 'alert(t("premiumV2.performance.aiFixError"));')
+          replace_exact(performance, '<span className="hidden md:inline">Editar</span>', '<span className="hidden md:inline">{t("premiumV2.performance.edit")}</span>', 1)
+          replace_exact(performance, 'Tamanho do texto', '{t("premiumV2.performance.textSize")}', 1)
+          replace_exact(performance, 'Tom (Transporte)', '{t("premiumV2.performance.transpose")}', 1)
+          replace_exact(performance, 'label="Cor da Letra"', 'label={t("premiumV2.performance.lyricsColor")}', 1)
+          replace_exact(performance, 'label="Cor da Cifra"', 'label={t("premiumV2.performance.chordsColor")}', 1)
+          replace_exact(performance, 'Ajustar Tom da Cifra', '{t("premiumV2.performance.adjustChordKey")}', 1)
+          replace_exact(performance, 'Redefinir Padrões', '{t("premiumV2.performance.resetDefaults")}', 1)
+          replace_exact(performance, 'window.confirm("Restaurar cifra original?")', 'window.confirm(t("premiumV2.performance.restoreOriginalConfirm"))', 1)
+          replace_exact(performance, 'Restaurar Original', '{t("premiumV2.performance.restoreOriginal")}', 1)
+          replace_exact(performance, 'placeholder="Insira as cifras..."', 'placeholder={t("premiumV2.performance.editorPlaceholder")}', 1)
+          replace_exact(performance, 'Preparação & Notas do Ensaio', '{t("premiumV2.performance.rehearsalNotes")}', 1)
+          replace_exact(performance, 'Ouvir Referência', '{t("premiumV2.performance.listenReference")}', 1)
+
+          scale_builder = 'components/scales/ModernScaleForm.tsx'
+          replace_exact(
+              scale_builder,
+              'd.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })',
+              'd.toLocaleDateString(i18n.resolvedLanguage || i18n.language || "pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })',
+              1,
+          )
+
+          library = 'pages/LibraryPage.tsx'
+          replace_exact(
+              library,
+              'showToast("Erro ao atualizar status: " + (err.message || err), "error");',
+              'showToast(t("premiumV2.library.updateStatusError", { message: err.message || String(err) }), "error");',
+              1,
+          )
+          replace_exact(
+              library,
+              'showToast("Erro ao atualizar idioma: " + (err.message || err), "error");',
+              'showToast(t("premiumV2.library.updateLanguageError", { message: err.message || String(err) }), "error");',
+              1,
+          )
+
+      - name: Remove one-shot workflow
+        run: rm .github/workflows/premium-v2-surgical-cleanup.yml
+
+      - name: Validate diff
+        run: git diff --check
+
+      - name: Commit cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add components/songs/ChordsViewerModal.tsx components/scales/ModernScaleForm.tsx pages/LibraryPage.tsx .github/workflows/premium-v2-surgical-cleanup.yml
+          git commit -m "fix: complete Premium V2 user-facing i18n cleanup"
+          git push origin HEAD:feat/premium-v2-full-experience-206
