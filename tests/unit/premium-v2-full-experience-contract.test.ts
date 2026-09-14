@@ -17,6 +17,15 @@ describe('Premium V2 full experience contract', () => {
     expect(source).toContain('min-w-[44px]');
   });
 
+  it('makes the header react to the real workspace scroll container', () => {
+    const source = read('components/layout/Header.tsx');
+    expect(source).toContain('document.querySelector("main")');
+    expect(source).toContain('scrollContainer.scrollTop > 10');
+    expect(source).toContain('ms-v3-header');
+    expect(source).toContain('is-scrolled');
+    expect(source).not.toContain('window.scrollY > 10');
+  });
+
   it('treats tablet as an explicit workspace and resolves lazy routes with content-shaped skeletons', () => {
     const shell = read('PrivateApp.tsx');
     expect(shell).toContain('(min-width: 768px) and (max-width: 1180px)');
@@ -67,12 +76,25 @@ describe('Premium V2 full experience contract', () => {
     }
   });
 
+  it('presents scale song clusters as a numbered musical timeline without replacing scale handlers', () => {
+    const css = read('premium-v2-completion.css');
+    const scales = read('pages/ScalesPage.tsx');
+    expect(css).toContain('counter-reset: ms-scale-song');
+    expect(css).toContain('counter(ms-scale-song, decimal-leading-zero)');
+    expect(css).toContain('[data-testid^="scale-card-"]');
+    expect(scales).toContain('handleQuickRemove(song.id)');
+    expect(scales).toContain('songsExpanded ? scale.songs : scale.songs.slice(0, 3)');
+  });
+
   it('loads the dedicated completion layer and preserves reduced-motion rules', () => {
     const entry = read('index.tsx');
     const css = read('premium-v2-completion.css');
+    const button = read('components/common/Button.tsx');
     expect(entry).toContain("import './premium-v2-completion.css';");
     expect(css).toContain('[data-device-layout="tablet"]');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('.premium-interactive:active:not(:disabled)');
+    expect(button).toContain('motion-reduce:transition-none');
+    expect(button).toContain('motion-reduce:active:scale-100');
   });
 });
