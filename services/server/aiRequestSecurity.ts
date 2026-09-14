@@ -1,3 +1,4 @@
+import { organizationHasEcosystemAccess } from './ecosystemEntitlements.js';
 import { resolveMusicScaleMemberProfile } from './musicScaleMemberProjection.js';
 
 export type AiFeature =
@@ -26,6 +27,7 @@ export interface AiAuthorizedContext {
   organizationId: string;
   systemRole: string | null;
   isGlobal: boolean;
+  ecosystemAccess?: boolean;
   isOwner: boolean;
   organizationRole: string | null;
   roleId: string | null;
@@ -169,13 +171,15 @@ export async function authorizeAiRequest(input: AuthorizeAiRequestInput): Promis
   }
 
   const userData = userDoc.data();
-  const rawSystemRole = String(userData?.systemRole || "").trim().toLowerCase();
-  
+  const rawGlobalRoles = [userData?.systemRole, userData?.ecosystemRole, userData?.globalRole]
+    .map(role => String(role || "").trim().toLowerCase());
+
   let isGlobal = false;
   let systemRole: string | null = null;
-  if (["ceo", "global_admin", "ecosystem_owner", "founder"].includes(rawSystemRole)) {
+  const canonicalGlobalRole = rawGlobalRoles.find(role => ["ceo", "global_admin", "ecosystem_owner", "founder"].includes(role));
+  if (canonicalGlobalRole) {
     isGlobal = true;
-    systemRole = rawSystemRole;
+    systemRole = canonicalGlobalRole;
   }
 
   if (!organizationId || !/^[A-Za-z0-9_-]{1,128}$/.test(organizationId)) {
@@ -332,7 +336,8 @@ export async function authorizeAiRequest(input: AuthorizeAiRequestInput): Promis
   }
 
   // ENTITLEMENTS
-  const entitlementResult = resolveAiEntitlement({ orgData, requiredFeature, isGlobal });
+  const ecosystemAccess = await organizationHasEcosystemAccess(dbInstance, organizationId, orgData);
+  const entitlementResult = resolveAiEntitlement({ orgData, requiredFeature, isGlobal: isGlobal || ecosystemAccess });
   if (!entitlementResult.ok) {
     const err = entitlementResult as { ok: false, statusCode: number, error: string };
     return { ok: false, statusCode: err.statusCode, error: err.error };
@@ -344,6 +349,7 @@ export async function authorizeAiRequest(input: AuthorizeAiRequestInput): Promis
     organizationId,
     systemRole,
     isGlobal,
+    ecosystemAccess,
     isOwner,
     organizationRole,
     roleId
