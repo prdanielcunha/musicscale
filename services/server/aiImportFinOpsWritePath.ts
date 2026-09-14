@@ -28,6 +28,7 @@ export interface BeginAiImportFinOpsWritePathInput {
   bpm?: string | number | null;
   model: string;
   plan: AiPlan;
+  ecosystemAccess?: boolean;
   secret: string;
   now?: Date | string | number;
   estimatedInputChars?: number | null;
@@ -247,6 +248,7 @@ export async function beginAiImportFinOpsWritePath(
       model: input.model,
       plan: input.plan,
       inputChars: normalizedInputChars,
+      ecosystemAccess: input.ecosystemAccess,
     };
 
     if (
