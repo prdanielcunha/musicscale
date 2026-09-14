@@ -56,7 +56,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
   return (
     <header
-      className={`ms-v3-header sticky top-0 z-[70] w-full pt-[max(env(safe-area-inset-top),0px)] transition-all duration-200 ${
+      className={`ms-v3-header sticky top-0 z-[70] w-full bg-[#0a0a0c]/96 pt-[max(env(safe-area-inset-top),0px)] transition-all duration-200 md:bg-[#0a0a0c]/88 md:backdrop-blur-[32px] ${
         scrolled
           ? "is-scrolled border-b border-white/[0.07]"
           : "border-b border-transparent"
