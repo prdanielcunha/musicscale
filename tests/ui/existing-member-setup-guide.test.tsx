@@ -308,7 +308,7 @@ describe('ExistingMemberSetupGuide', () => {
     render(<ExistingMemberSetupGuide {...defaultProps} onClose={onClose} />);
     fireEvent.click(screen.getByText('User 1'));
     fireEvent.click(screen.getByText('Member'));
-    fireEvent.click(screen.getByText('Close modal'));
+    fireEvent.click(screen.getByRole('button', { name: pt.common.close }));
     expect(screen.getByText(pt.teamSetup.existingMember.discard.title)).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -316,7 +316,7 @@ describe('ExistingMemberSetupGuide', () => {
   it('30. fechamento limpo não pede confirmação;', () => {
     const onClose = vi.fn();
     render(<ExistingMemberSetupGuide {...defaultProps} onClose={onClose} />);
-    fireEvent.click(screen.getByText('Close modal'));
+    fireEvent.click(screen.getByRole('button', { name: pt.common.close }));
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -325,7 +325,7 @@ describe('ExistingMemberSetupGuide', () => {
     render(<ExistingMemberSetupGuide {...defaultProps} onClose={onClose} />);
     fireEvent.click(screen.getByText('User 1'));
     fireEvent.click(screen.getByText('Member'));
-    fireEvent.click(screen.getByText('Close modal'));
+    fireEvent.click(screen.getByRole('button', { name: pt.common.close }));
     expect(screen.getByText(pt.teamSetup.existingMember.discard.title)).toBeInTheDocument();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByText(pt.teamSetup.existingMember.discard.title)).not.toBeInTheDocument();
@@ -358,14 +358,14 @@ describe('ExistingMemberSetupGuide', () => {
     const { rerender } = render(<ExistingMemberSetupGuide {...defaultProps} />);
     fireEvent.click(screen.getByText('User 1'));
     rerender(<ExistingMemberSetupGuide {...defaultProps} members={[...mockMembers, { uid: 'u3', displayName: 'User 3', roleId: '', specialtyIds: [], email: 'u3@test.com', photoURL: '' }]} />);
-    fireEvent.click(screen.getByText('Close modal'));
+    fireEvent.click(screen.getByRole('button', { name: pt.common.close }));
     expect(screen.queryByText(pt.teamSetup.existingMember.discard.title)).not.toBeInTheDocument();
   });
 
   it('37. seleção sem mudança fecha sem confirmação;', () => {
     render(<ExistingMemberSetupGuide {...defaultProps} />);
     fireEvent.click(screen.getByText('User 1'));
-    fireEvent.click(screen.getByText('Close modal'));
+    fireEvent.click(screen.getByRole('button', { name: pt.common.close }));
     expect(screen.queryByText(pt.teamSetup.existingMember.discard.title)).not.toBeInTheDocument();
   });
 
@@ -373,7 +373,7 @@ describe('ExistingMemberSetupGuide', () => {
     render(<ExistingMemberSetupGuide {...defaultProps} />);
     fireEvent.click(screen.getByText('User 1'));
     fireEvent.click(screen.getByText('Member'));
-    fireEvent.click(screen.getByText('Close modal'));
+    fireEvent.click(screen.getByRole('button', { name: pt.common.close }));
     expect(screen.getByText(pt.teamSetup.existingMember.discard.title)).toBeInTheDocument();
   });
 
@@ -383,7 +383,7 @@ describe('ExistingMemberSetupGuide', () => {
     fireEvent.click(screen.getByText('Member'));
     fireEvent.click(screen.getByText('Continuar'));
     fireEvent.click(screen.getByText('Guitar')); 
-    fireEvent.click(screen.getByText('Close modal'));
+    fireEvent.click(screen.getByRole('button', { name: pt.common.close }));
     expect(screen.getByText(pt.teamSetup.existingMember.discard.title)).toBeInTheDocument();
   });
 
@@ -395,7 +395,7 @@ describe('ExistingMemberSetupGuide', () => {
     fireEvent.click(screen.getByText('Continuar'));
     fireEvent.click(screen.getByText('Guitar'));
     fireEvent.click(screen.getByText('Guitar'));
-    fireEvent.click(screen.getByText('Close modal'));
+    fireEvent.click(screen.getByRole('button', { name: pt.common.close }));
     expect(screen.queryByText(pt.teamSetup.existingMember.discard.title)).not.toBeInTheDocument();
   });
 

@@ -35,6 +35,8 @@ export type InstrumentCategory = 'Ministro' | 'Voz' | 'Instrumento';
 
 export interface Instrument {
   id: string;
+  /** Stable catalog key for seeded specialties; custom records may omit it. */
+  key?: string;
   name: string;
   category: InstrumentCategory;
   createdBy?: CreatedBy | null;

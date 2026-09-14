@@ -1,11 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMusicScalePlan, useMusicScaleUsage, useMusicScaleFeature } from '../../hooks/useMusicScaleEntitlements';
+import { useMusicScaleEntitlements, useMusicScalePlan, useMusicScaleUsage, useMusicScaleFeature } from '../../hooks/useMusicScaleEntitlements';
 import { Sparkles, Library, ArrowRight, Zap, Target } from 'lucide-react';
 import { entitlementsService } from '../../services/entitlementsService';
 
 export function LibraryUsageBanner() {
   const { t } = useTranslation();
+  const { entitlements } = useMusicScaleEntitlements();
+  const ecosystemAccess = entitlements?.accessSource === 'ecosystem';
   const { plan, status, loading: planLoading } = useMusicScalePlan();
   const { usage, limits, loading: usageLoading } = useMusicScaleUsage();
   
@@ -57,8 +59,8 @@ export function LibraryUsageBanner() {
   }
 
   // Pro
-  if (plan === 'pro') {
-    const isTrial = status === 'trialing';
+  if (ecosystemAccess || plan === 'pro') {
+    const isTrial = !ecosystemAccess && status === 'trialing';
     const trialUsed = usage?.libraryImports || 0;
     const trialLimit = limits?.libraryImportsPerMonth ?? 20;
     const trialRemaining = Math.max(0, trialLimit - trialUsed);
@@ -73,9 +75,9 @@ export function LibraryUsageBanner() {
           </div>
           <div className="flex-1 max-w-md">
             <h4 className="text-base font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5 mb-1">
-              {t("billing.library_complete", "Biblioteca Viva completa")}
+              {ecosystemAccess ? t("refinement.fullAccess") : t("billing.library_complete", "Biblioteca Viva completa")}
               <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-slate-900 text-white dark:bg-white dark:text-black shadow-sm">
-                {isTrial ? t("billing.pro_trial_badge", "Pro • teste") : "Pro"}
+                {ecosystemAccess ? t("refinement.ecosystemAccess") : isTrial ? t("billing.pro_trial_badge", "Pro • teste") : "Pro"}
               </span>
             </h4>
             {isTrial ? (
@@ -92,7 +94,7 @@ export function LibraryUsageBanner() {
               </>
             ) : (
               <p className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-sm">
-                {t("billing.unlimited_imports_desc", "Importações ilimitadas liberadas. Adicione músicas prontas sem restrições.")}
+                {ecosystemAccess ? t("refinement.ecosystemLibraryDescription") : t("billing.unlimited_imports_desc", "Importações ilimitadas liberadas. Adicione músicas prontas sem restrições.")}
               </p>
             )}
           </div>

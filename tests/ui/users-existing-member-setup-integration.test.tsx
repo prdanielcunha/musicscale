@@ -786,7 +786,7 @@ describe('UsersPage Integration ExistingMemberSetup', () => {
     expect(mockNavigate).toHaveBeenCalledWith("/users", { replace: true, state: null });
     mockNavigate.mockClear();
 
-    const closeBtn = screen.getByRole('button', { name: "Close modal" });
+    const closeBtn = screen.getByRole('button', { name: pt.common.close });
     fireEvent.click(closeBtn);
 
     await waitFor(() => {

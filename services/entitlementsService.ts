@@ -128,6 +128,8 @@ class EntitlementsService {
       app: 'musicscale',
       plan,
       status: finalStatus,
+      ...(raw?.organizationId === orgId && raw?.accessSource === 'ecosystem' ? { accessSource: 'ecosystem' as const } : {}),
+      ...(raw?.organizationId === orgId && raw?.accessAllowed === true ? { accessAllowed: true } : {}),
       features,
       limits,
       usage,
@@ -143,11 +145,13 @@ class EntitlementsService {
    * Main function to fetch entitlements from MillionsNest
    */
   public invalidateOrganizationCache(orgId: string) {
-    if (this.memoryCache[orgId]) {
-      delete this.memoryCache[orgId];
+    for (const key of Object.keys(this.memoryCache)) {
+      if (key.endsWith(`:${orgId}`)) {
+        delete this.memoryCache[key];
+        localStorage.removeItem(`musicscale.entitlements.updatedAt.${key}`);
+        localStorage.removeItem(`musicscale.entitlements.version.${key}`);
+      }
     }
-    localStorage.removeItem(`musicscale.entitlements.updatedAt.${orgId}`);
-    localStorage.removeItem(`musicscale.entitlements.version.${orgId}`);
   }
 
   public async fetchEntitlements(orgId: string, forceRefresh = false): Promise<MusicScaleEntitlements> {
@@ -155,11 +159,12 @@ class EntitlementsService {
       return getStarterFallback('unauthenticated');
     }
 
-    const cached = this.memoryCache[orgId];
+    const cacheKey = `${auth.currentUser?.uid || ecosystemBridge.getContext()?.uid || "anonymous"}:${orgId}`;
+    const cached = this.memoryCache[cacheKey];
     if (cached && !forceRefresh && Date.now() - cached.fetchedAt < this.cacheExpiryMs) {
       // Local session Cache check
-      const localPlanUpdate = localStorage.getItem(`musicscale.entitlements.updatedAt.${orgId}`);
-      const localVersion = localStorage.getItem(`musicscale.entitlements.version.${orgId}`);
+      const localPlanUpdate = localStorage.getItem(`musicscale.entitlements.updatedAt.${cacheKey}`);
+      const localVersion = localStorage.getItem(`musicscale.entitlements.version.${cacheKey}`);
 
       if (localPlanUpdate === cached.entitlements.planUpdatedAt && 
           Number(localVersion || 2) === cached.entitlements.entitlementsVersion) {
@@ -167,7 +172,7 @@ class EntitlementsService {
       }
     }
 
-    const requestKey = `${orgId}_${forceRefresh}`;
+    const requestKey = `${cacheKey}_${forceRefresh}`;
     if (this.activeRequests.has(requestKey)) {
       return this.activeRequests.get(requestKey)!;
     }
@@ -216,13 +221,13 @@ class EntitlementsService {
         const data = await response.json();
         const normalized = this.normalizeEntitlements(data, orgId);
         // Update cache
-        this.memoryCache[orgId] = { entitlements: normalized, fetchedAt: Date.now() };
+        this.memoryCache[cacheKey] = { entitlements: normalized, fetchedAt: Date.now() };
         
         // Push cache validations to localStorage to track invalidations across refreshes
         if (normalized.planUpdatedAt) {
-          localStorage.setItem(`musicscale.entitlements.updatedAt.${orgId}`, normalized.planUpdatedAt);
+          localStorage.setItem(`musicscale.entitlements.updatedAt.${cacheKey}`, normalized.planUpdatedAt);
         }
-        localStorage.setItem(`musicscale.entitlements.version.${orgId}`, String(normalized.entitlementsVersion));
+        localStorage.setItem(`musicscale.entitlements.version.${cacheKey}`, String(normalized.entitlementsVersion));
 
         // Trigger analytics event
         this.logAnalytics('entitlements_loaded', {
@@ -337,9 +342,8 @@ class EntitlementsService {
       if (response.ok) {
         logger.info('[EntitlementsService] Monthly library usage increment success.');
         // Invalidate our memory cache so NEXT fetch will reload the incremented usage
-        if (this.memoryCache[orgId]) {
-          delete this.memoryCache[orgId];
-        }
+        const cacheKey = `${auth.currentUser?.uid || ecosystemBridge.getContext()?.uid || "anonymous"}:${orgId}`;
+        delete this.memoryCache[cacheKey];
         return true;
       } else {
         const errData = await response.json().catch(() => ({}));

@@ -119,7 +119,8 @@
       "scales": "Scales",
       "library": "Library",
       "account": "Account"
-    }
+    },
+    "curation_queue": "Curation"
   },
   "dashboard": {
     "title": "Ministry Dashboard",
@@ -1744,5 +1745,56 @@
   },
   "profile": {
     "invite_person": "Invite person"
+  },
+  "refinement": {
+    "fullAccess": "Full access",
+    "ecosystemAccess": "Ecosystem access",
+    "ecosystemLibraryDescription": "All Living Library features are available to this organization through ecosystem access.",
+    "currentOrganization": "Current organization",
+    "yourOrganizations": "Your organizations ({{count}})",
+    "allOrganizations": "View all {{count}} organizations",
+    "searchOrganizations": "Search organizations",
+    "noOrganizations": "No organizations found.",
+    "manageOrganizations": "Manage organizations in MillionsNest",
+    "switching": "Switching…",
+    "switchError": "Unable to switch organization. Please try again.",
+    "moreSongs": "+{{count}} songs",
+    "showLess": "Show less",
+    "moreTools": "More tools",
+    "repertoireAudit": "Repertoire audit",
+    "select": "Select",
+    "newSong": "New song",
+    "aiImport": "AI import",
+    "roles": {
+      "owner": "Owner",
+      "admin": "Administrator",
+      "member": "Member",
+      "visitor": "Visitor",
+      "worship_leader": "Worship leader",
+      "global_access": "Global access"
+    },
+    "specialties": {
+      "role": {
+        "leader": "Leader",
+        "minister": "Worship minister"
+      },
+      "voice": {
+        "vocal": "Vocal",
+        "backing": "Backing vocal",
+        "soprano": "Soprano",
+        "alto": "Alto",
+        "tenor": "Tenor"
+      },
+      "instrument": {
+        "player": "Instrumentalist",
+        "acoustic": "Acoustic guitar",
+        "guitar": "Electric guitar",
+        "keyboard": "Keyboard",
+        "piano": "Piano",
+        "bass": "Bass",
+        "drums": "Drums",
+        "percussion": "Percussion"
+      }
+    }
   }
 }

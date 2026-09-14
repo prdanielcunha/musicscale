@@ -854,7 +854,7 @@ describe('UsersPage Team Setup Integration', () => {
     mockNavigate.mockClear();
 
     // 2. fechar o guia usando interação pública
-    const closeBtn = screen.getByRole('button', { name: "Close modal" });
+    const closeBtn = screen.getByRole('button', { name: pt.common.close });
     fireEvent.click(closeBtn);
 
     await waitFor(() => {

@@ -187,7 +187,7 @@ export default function LibraryPage() {
     entitlements?.status === "trialing";
   const canBulkImportLibrary =
     isEcosystemAdmin ||
-    (entitlements?.plan === "pro" && entitlements?.status === "active");
+    (entitlements?.plan === "pro" && entitlements?.status === "active") || entitlements?.accessSource === "ecosystem";
 
   const [songs, setSongs] = useState<GlobalSong[]>([]);
   const [loading, setLoading] = useState(false);
