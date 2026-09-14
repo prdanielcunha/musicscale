@@ -83,12 +83,14 @@ export async function resolveOrganizationAuthorization(
     }
     const userData = userDoc.data();
 
-    const systemRoleRaw = userData?.systemRole;
+    const canonicalGlobalRoles = ['ceo', 'global_admin', 'ecosystem_owner', 'founder'];
     let systemRole = null;
-    if (typeof systemRoleRaw === 'string') {
-      const normalized = systemRoleRaw.trim().toLowerCase();
-      if (['ceo', 'global_admin', 'ecosystem_owner', 'founder'].includes(normalized)) {
+    for (const roleSource of [userData?.systemRole, userData?.ecosystemRole, userData?.globalRole]) {
+      if (typeof roleSource !== 'string') continue;
+      const normalized = roleSource.trim().toLowerCase();
+      if (canonicalGlobalRoles.includes(normalized)) {
         systemRole = normalized;
+        break;
       }
     }
 
@@ -104,6 +106,9 @@ export async function resolveOrganizationAuthorization(
     }
 
     const isOwner = orgData?.ownerUid === uid || orgData?.ownerUserId === uid || orgData?.ownerId === uid;
+    // A global ecosystem role authorizes access to the requested tenant's
+    // product surface, but it never changes the tenant membership role.
+    const isGlobal = !!systemRole;
 
     let isActive = false;
     let organizationRole = null;
@@ -196,6 +201,10 @@ export async function resolveOrganizationAuthorization(
     if (isOwner) {
        isActive = true;
        organizationRole = 'owner';
+    }
+
+    if (isGlobal) {
+       isActive = true;
     }
 
     // Default owner/admin capabilities if active
