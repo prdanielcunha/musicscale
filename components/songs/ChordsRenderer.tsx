@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
+import { isChordOnlyCandidate, normalizeChordDocumentStructure } from '../../utils/chordDocumentNormalizer';
 
 export const getNotesArray = () => [
   "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
@@ -172,27 +173,7 @@ export const isChordLine = (line: string): boolean => {
       ? sectionPrefix.remainder
       : trimmedLine;
 
-  const words = chordCandidate.split(/[\s|\[\]]+/);
-  if (words.length === 0 || (words.length === 1 && words[0] === ""))
-    return false;
-
-  const chordWordRegex =
-    /^([A-G][#b]?(?:m|maj|min|dim|aug|sus|add|M|º|°|\d|7M|M7)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?)$/;
-  let chordCount = 0;
-  let nonChordCount = 0;
-
-  for (const word of words) {
-    if (!word) continue;
-    if (chordWordRegex.test(word)) {
-      chordCount++;
-    } else {
-      if (!/^[0-9()\-x~.]+$/.test(word)) nonChordCount++;
-    }
-  }
-
-  if (chordCount === 0) return false;
-  if (nonChordCount > chordCount) return false;
-  return true;
+  return isChordOnlyCandidate(chordCandidate);
 };
 
 export type ParsedSongLine = {
@@ -204,7 +185,7 @@ export const parseChordsAndLyrics = (text: string): ParsedSongLine[] => {
   if (!text || typeof text !== "string") return [];
 
   const parsed: ParsedSongLine[] = [];
-  const sourceLines = text.replace(/\r/g, "").split("\n");
+  const sourceLines = normalizeChordDocumentStructure(text).split("\n");
 
   sourceLines.forEach((line) => {
     const section = splitSongSectionPrefix(line);
@@ -355,6 +336,7 @@ export const ChordsRenderer: React.FC<ChordsRendererProps> = ({
     <div className={`whitespace-pre-wrap ${className || ""}`} style={style}>
       {parsedContent.map((line, index) => {
         const isPrevChord = index > 0 && parsedContent[index - 1]?.type === "chord";
+        const isPrevSection = index > 0 && parsedContent[index - 1]?.type === "section";
         const isNextLyric = index < parsedContent.length - 1 && parsedContent[index + 1]?.type === "lyric";
 
         if (line.type === "section") {
@@ -367,7 +349,7 @@ export const ChordsRenderer: React.FC<ChordsRendererProps> = ({
                   else sectionRefs.current.delete(index);
                 }
               }}
-              className="inline-flex items-center gap-2 px-3 py-1.5 mt-8 mb-4 text-[0.75em] font-black tracking-[0.1em] uppercase rounded-xl border border-black/10 dark:border-white/[0.08] bg-black/5 dark:bg-white/5 backdrop-blur-md shadow-sm"
+              className={`inline-flex items-center gap-2 px-3 py-1.5 ${index === 0 ? "mt-1" : "mt-5"} mb-2 text-[0.75em] font-black tracking-[0.1em] uppercase rounded-xl border border-black/10 dark:border-white/[0.08] bg-black/5 dark:bg-white/5 backdrop-blur-md shadow-sm`}
               style={{ color: activeChordsColor }}
             >
               {line.content.replace(/^\[?|\]?:?$/g, "")}
@@ -381,7 +363,7 @@ export const ChordsRenderer: React.FC<ChordsRendererProps> = ({
               style={{
                 color: activeChordsColor,
                 marginBottom: isNextLyric ? "-0.1em" : "0",
-                marginTop: isPrevChord ? "0" : "1em",
+                marginTop: isPrevChord ? "0" : isPrevSection ? "0.15em" : "0.8em",
                 textShadow: "0 1px 2px rgba(0,0,0,0.1)",
               }}
             >
@@ -395,6 +377,14 @@ export const ChordsRenderer: React.FC<ChordsRendererProps> = ({
               </motion.div>
             </div>
           );
+        } else if (line.content.trim() === "") {
+          return (
+            <div
+              key={index}
+              aria-hidden="true"
+              style={{ height: "0.55em" }}
+            />
+          );
         } else {
           return (
             <div
@@ -402,11 +392,11 @@ export const ChordsRenderer: React.FC<ChordsRendererProps> = ({
               className="font-semibold"
               style={{
                 color: activeLyricsColor,
-                marginBottom: line.content.trim() === "" ? "1.2em" : "0",
+                marginBottom: "0",
                 paddingBottom: isNextLyric ? "0" : "0",
               }}
             >
-              {line.content || " "}
+              {line.content}
             </div>
           );
         }
