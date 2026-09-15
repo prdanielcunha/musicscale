@@ -120,6 +120,26 @@ const splitRecognizedSectionPrefix = (line: string): string[] => {
   return [section, remainder];
 };
 
+export const hasRecoverableChordDocumentCorruption = (input: string): boolean => {
+  if (typeof input !== 'string' || !input) return false;
+
+  const normalizedInput = input.replace(/\r\n?/g, '\n');
+  for (const rawLine of normalizedInput.split('\n')) {
+    if (recoverCorruptChordPrefix(rawLine).recoveredCorruptChord) return true;
+
+    const trimmed = stripInvisibleTextNoise(rawLine).trim();
+    const bracketed = trimmed.match(/^\[([^\]]+)\]\s+(.+)$/);
+    if (bracketed) {
+      const section = `[${bracketed[1].trim()}]`;
+      if (getRecognizedSectionKey(section) && isChordOnlyCandidate(bracketed[2])) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
 const isMeaningfulLyric = (line: string): boolean => {
   const trimmed = line.trim();
   return Boolean(trimmed) && !isChordOnlyCandidate(trimmed) && !getRecognizedSectionKey(trimmed);
@@ -181,20 +201,20 @@ export const normalizeChordDocumentStructure = (input: string): string => {
     index += 1;
   }
 
-  // Drop a repeated section only when no lyric occurred between equal section
-  // markers and at least one chord was present. This removes malformed import
-  // fragments without deleting intentional later repetitions of a section.
+  // Drop a repeated section only when a recovered corrupt chord occurred
+  // between equal section markers and no lyric occurred. This keeps legitimate
+  // repeated instrumental sections intact while removing the import fingerprint.
   const withoutDuplicateSections: NormalizedLine[] = [];
   let activeSectionKey: string | null = null;
   let sawLyricSinceSection = false;
-  let sawChordSinceSection = false;
+  let sawRecoveredChordSinceSection = false;
 
   for (const entry of repaired) {
     const sectionKey = getRecognizedSectionKey(entry.text);
     if (sectionKey) {
       if (
         sectionKey === activeSectionKey &&
-        sawChordSinceSection &&
+        sawRecoveredChordSinceSection &&
         !sawLyricSinceSection
       ) {
         while (
@@ -208,15 +228,15 @@ export const normalizeChordDocumentStructure = (input: string): string => {
 
       activeSectionKey = sectionKey;
       sawLyricSinceSection = false;
-      sawChordSinceSection = false;
+      sawRecoveredChordSinceSection = false;
       withoutDuplicateSections.push(entry);
       continue;
     }
 
     if (entry.text.trim()) {
-      if (isChordOnlyCandidate(entry.text)) {
-        sawChordSinceSection = true;
-      } else {
+      if (entry.recoveredCorruptChord) {
+        sawRecoveredChordSinceSection = true;
+      } else if (!isChordOnlyCandidate(entry.text)) {
         sawLyricSinceSection = true;
       }
     }
