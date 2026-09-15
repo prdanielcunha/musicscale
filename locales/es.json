@@ -964,7 +964,8 @@
     "deleteDraftDescription": "El borrador se eliminará permanentemente. Si hay una escala de banda vinculada, también se eliminará para no dejar datos huérfanos.",
     "deleteDraftPermanent": "Esta acción no se puede deshacer.",
     "deletingDraft": "Eliminando...",
-    "confirmDeleteDraft": "Eliminar borrador"
+    "confirmDeleteDraft": "Eliminar borrador",
+    "saveContextUnavailable": "Tu sesión u organización todavía se está cargando. Espera unos segundos e intenta guardar nuevamente."
   },
   "bandScaleModal": {
     "titleCreate": "Nueva Escala de Banda",
