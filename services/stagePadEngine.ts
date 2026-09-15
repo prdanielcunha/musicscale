@@ -245,7 +245,6 @@ class StagePadEngine {
       if (!this.sinkAudioElement) {
         const element = new Audio() as AudioElementWithSink;
         element.autoplay = true;
-        element.playsInline = true;
         this.sinkAudioElement = element;
       }
 
