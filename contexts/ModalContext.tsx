@@ -646,6 +646,11 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     
     if (!user || !userProfile || !api) {
         logger.error("Cannot save scale: user, userProfile or api is missing", { user: !!user, userProfile: !!userProfile, api: !!api });
+        toast({
+            type: 'error',
+            message: t('common.errorSaving', "Erro ao salvar"),
+            description: t('scaleModal.saveContextUnavailable')
+        });
         return;
     }
     
