@@ -10,6 +10,12 @@ import { db } from "./firebase";
 
 export type StageOutputCommandType = "play" | "stop" | "key" | "volume";
 
+export interface StageOutputDesiredState {
+  playing: boolean;
+  key: string | null;
+  volume: number;
+}
+
 export interface StageOutputCommand {
   id: string;
   type: StageOutputCommandType;
@@ -18,6 +24,7 @@ export interface StageOutputCommand {
   sentAt: number;
   key?: string;
   volume?: number;
+  desired?: StageOutputDesiredState;
 }
 
 export interface StageOutputReceiverState {
