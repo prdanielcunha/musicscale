@@ -1,3 +1,5 @@
+import { ReleaseHighlights } from './ReleaseHighlights';
+import { useReleaseNews } from '../hooks/useReleaseNews';
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -26,6 +28,7 @@ const CategoryStyles: Record<NewsCategory, { icon: React.ElementType, badgeColor
 export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { markReleaseSeen } = useReleaseNews();
   const modalRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedElement = useRef<HTMLElement | null>(null);
   const previousBodyOverflow = useRef("");
@@ -182,6 +185,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
     if (dontShowWelcomeAgain) {
       dismissWelcome();
     }
+    markReleaseSeen();
     onClose();
     finishMeasurement();
   };
@@ -409,6 +413,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
           <div className="absolute bottom-0 left-0 w-[60%] h-[60%] bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-600/10 via-transparent to-transparent md:blur-[60px] pointer-events-none -z-10" />
 
           <div className="flex flex-col flex-grow overflow-y-auto overflow-x-hidden p-6 sm:p-10 hide-scrollbar pt-16 sm:pt-12">
+             <ReleaseHighlights />
              {isFirstAccess ? (
                <>
                  <WelcomePresentation />

@@ -1,7 +1,7 @@
 {
   "name": "music-scale-manager",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0-beta",
   "type": "module",
   "scripts": {
     "assets:materialize": "tsx scripts/materialize-brand-assets.ts",
@@ -42,7 +42,9 @@
     "ci:vercel": "npm run assets:materialize && npm run test:ci:emulator && npm run test:ci:portable && npm run build",
     "test:perf:shell-split": "tsx test_ms_perf_shell_split.ts",
     "test:perf:login-deferral": "tsx test_ms_perf_login_deferral.ts",
-    "test:ui:login-deferral": "vitest run tests/ui/login-auth-deferral.test.tsx tests/ui/login-auth-chunk-failure.test.tsx"
+    "test:ui:login-deferral": "vitest run tests/ui/login-auth-deferral.test.tsx tests/ui/login-auth-chunk-failure.test.tsx",
+    "release:patch": "node scripts/bump-release.mjs patch",
+    "release:minor": "node scripts/bump-release.mjs minor"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",
