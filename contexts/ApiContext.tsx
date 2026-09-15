@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { MusicRepository } from '../services/MusicRepository';
+import { ReuseAwareMusicRepository } from '../services/ReuseAwareMusicRepository';
 import { readMusicDataCache } from '../lib/musicDataCache';
 import { waitForStartupQuietWindow } from '../lib/startupWorkScheduler';
 
@@ -39,7 +40,7 @@ export const ApiProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const api = useMemo(() => {
         if (!effectiveOrganizationId) return null;
 
-        const repository = new MusicRepository(effectiveOrganizationId, userProfile || {} as any);
+        const repository = new ReuseAwareMusicRepository(effectiveOrganizationId, userProfile || {} as any);
         const canPaintFromCache = hasUsableMusicCache(userProfile?.uid, effectiveOrganizationId);
 
         // These enrichments never gate the first operational home and are kept
