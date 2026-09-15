@@ -16,9 +16,10 @@ import { MusicScaleFeatures } from '../../services/entitlementsService';
 
 interface GlobalCreateActionProps {
   variant: 'desktop' | 'mobile';
+  compact?: boolean;
 }
 
-export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant }) => {
+export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant, compact = false }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -332,10 +333,17 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant 
           aria-haspopup="dialog"
           aria-controls="global-create-dialog"
           aria-label={t('globalCreate.trigger', 'Criar')}
-          className="flex h-[50px] min-w-11 touch-manipulation flex-col items-center justify-center gap-0.5 rounded-2xl px-1 text-white/70 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
+          className={`flex min-w-[44px] touch-manipulation flex-col items-center justify-center overflow-hidden px-1 text-white/70 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-primary transition-[height] duration-200 motion-reduce:transition-none ${compact ? 'h-[44px] rounded-[19px]' : 'h-[50px] rounded-[24px]'}`}
         >
-          <Plus className="h-5 w-5 text-indigo-300" />
-          <span className="text-[10px] font-semibold">{t('globalCreate.trigger', 'Criar')}</span>
+          <div className="flex h-[22px] items-center justify-center" aria-hidden="true">
+            <Plus className="h-5 w-5 text-indigo-300" />
+          </div>
+          <span
+            aria-hidden={compact ? 'true' : undefined}
+            className={`text-[10px] font-semibold leading-[12px] transition-[opacity,max-height,margin] duration-180 motion-reduce:transition-none ${compact ? 'mt-0 max-h-0 opacity-0' : 'mt-[2px] max-h-4 opacity-100'}`}
+          >
+            {t('globalCreate.trigger', 'Criar')}
+          </span>
         </button>
       </div>
 
