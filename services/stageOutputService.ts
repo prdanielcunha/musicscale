@@ -57,6 +57,9 @@ const getDocumentId = (organizationId: string) =>
 const getDocumentRef = (organizationId: string) =>
   doc(db, "liveSessions", getDocumentId(organizationId));
 
+// Keep the technical envelope stable but never initialize/overwrite dynamic
+// receiver/command fields during repeated ensure calls. A controller command
+// must not be able to wipe another connected Stage Output receiver.
 const baseDocument = (organizationId: string) => ({
   id: getDocumentId(organizationId),
   scaleId: getDocumentId(organizationId),
@@ -70,8 +73,6 @@ const baseDocument = (organizationId: string) => ({
   spontaneousSongs: [],
   mode: "rehearsal",
   leaderId: null,
-  stageOutputReceivers: {},
-  stageOutputCommand: null,
   lastUpdated: Date.now(),
 });
 
