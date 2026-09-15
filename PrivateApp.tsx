@@ -2,6 +2,7 @@ import { logger } from './lib/logger';
 
 import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { MusicDataProvider } from './contexts/MusicDataContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -14,6 +15,7 @@ import MobileSidebarDrawer, { MobileSidebarDrawerHandle } from './components/lay
 import Header from './components/layout/Header';
 import { BottomNav } from './components/layout/BottomNav';
 import Spinner from './components/common/Spinner';
+import RouteWorkspaceSkeleton from './components/common/RouteWorkspaceSkeleton';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import GlobalCurationProtectedRoute from './components/auth/GlobalCurationProtectedRoute';
 import FinOpsDiagnosticsProtectedRoute from './components/auth/FinOpsDiagnosticsProtectedRoute';
@@ -58,22 +60,34 @@ import { getSubscriptionBlockReason } from './utils/subscriptionValidator';
 import { resolveSubscriptionAccess } from './utils/subscriptionAccessResolver';
 
 const AppLayout: React.FC = () => {
+    const { t } = useTranslation();
     const { user, userProfile, userRole, organization, subscription, isAdmin, isOwner, isGlobalAdmin, entitlements, isSupportMode, effectiveOrganizationName, loading: isAuthLoading, supportTargetType, isSubscriptionLoaded, isEntitlementsLoaded } = useAuth();
     const { isDegraded, publishEvent } = useEcosystem();
     const [isSidebarCollapsed, setSidebarCollapsed] = React.useState(true);
     const [isMobileViewport, setIsMobileViewport] = React.useState(() =>
         typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
     );
+    const [isTabletViewport, setIsTabletViewport] = React.useState(() =>
+        typeof window !== 'undefined' && window.matchMedia('(min-width: 768px) and (max-width: 1180px)').matches
+    );
     const mobileSidebarRef = React.useRef<MobileSidebarDrawerHandle>(null);
     const location = useLocation();
 
     useEffect(() => {
-        const mediaQuery = window.matchMedia('(max-width: 767px)');
-        const syncViewport = () => setIsMobileViewport(mediaQuery.matches);
+        const mobileQuery = window.matchMedia('(max-width: 767px)');
+        const tabletQuery = window.matchMedia('(min-width: 768px) and (max-width: 1180px)');
+        const syncViewport = () => {
+            setIsMobileViewport(mobileQuery.matches);
+            setIsTabletViewport(tabletQuery.matches);
+        };
 
         syncViewport();
-        mediaQuery.addEventListener('change', syncViewport);
-        return () => mediaQuery.removeEventListener('change', syncViewport);
+        mobileQuery.addEventListener('change', syncViewport);
+        tabletQuery.addEventListener('change', syncViewport);
+        return () => {
+            mobileQuery.removeEventListener('change', syncViewport);
+            tabletQuery.removeEventListener('change', syncViewport);
+        };
     }, []);
 
     const isAllowedRouteDuringSuspension = location.pathname === '/plans' || location.pathname === '/profile' || location.pathname.startsWith('/debug');
@@ -143,8 +157,13 @@ const AppLayout: React.FC = () => {
         );
     }
 
+    const deviceLayout = isMobileViewport ? 'mobile' : isTabletViewport ? 'tablet' : 'desktop';
+
     return (
-        <div className="flex h-screen font-sans bg-[var(--color-background)] overflow-hidden relative">
+        <div
+            data-device-layout={deviceLayout}
+            className="ms-app-shell flex h-[100dvh] font-sans bg-[var(--color-background)] overflow-hidden relative"
+        >
             <PerformanceRecovery />
             <SyncConfidenceLayer />
 
@@ -165,16 +184,16 @@ const AppLayout: React.FC = () => {
             {isMobileViewport ? (
                 <MobileSidebarDrawer ref={mobileSidebarRef} />
             ) : (
-                <div className="relative z-[90] h-full py-4 pl-4">
+                <div className={`ms-sidebar-shell relative z-[90] h-full py-4 pl-4 ${isTabletViewport ? 'pr-1' : ''}`}>
                     <Sidebar
-                        isCollapsed={isSidebarCollapsed}
+                        isCollapsed={isTabletViewport ? true : isSidebarCollapsed}
                         onToggle={handleSidebarToggle}
                     />
                 </div>
             )}
 
             {/* Main Content */}
-            <div className="relative flex-1 flex flex-col overflow-hidden z-10 transition-all duration-300 md:pb-0">
+            <div className="ms-main-shell relative flex-1 flex flex-col overflow-hidden z-10 transition-all duration-300 md:pb-0">
 
                 {subscriptionBanner && (
                     <div className="bg-[#11111a]/98 md:bg-indigo-500/10 border-b border-indigo-500/20 px-4 py-2.5 flex items-center justify-between gap-3 w-full shrink-0 shadow-sm md:backdrop-blur-md">
@@ -185,16 +204,16 @@ const AppLayout: React.FC = () => {
                            {subscriptionBanner}
                         </span>
                         <a href="https://www.millionsnest.com/dashboard/musicscale/plans" target="_blank" rel="noopener noreferrer" className="shrink-0 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-indigo-400 md:text-indigo-600 md:dark:text-indigo-400 hover:text-indigo-300 md:hover:text-indigo-700 md:dark:hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1 rounded transition-colors whitespace-nowrap">
-                            Gerenciar plano
+                            {t('premiumV2.shell.managePlan')}
                         </a>
                     </div>
                 )}
 
                 <Header onMenuClick={openMobileSidebar} />
 
-                <main className="flex-1 overflow-y-auto overflow-x-hidden relative isolate p-4 pb-[calc(140px+env(safe-area-inset-bottom))] md:pb-8 md:p-8 scroll-smooth touch-manipulation">
-                    <div className="max-w-7xl mx-auto space-y-8">
-                       <Suspense fallback={<div className="flex h-64 w-full items-center justify-center"><Spinner size="lg" /></div>}>
+                <main className="ms-route-scroll flex-1 overflow-y-auto overflow-x-hidden relative isolate p-4 pb-[calc(140px+env(safe-area-inset-bottom))] md:pb-8 md:p-8 scroll-smooth touch-manipulation">
+                    <div className="ms-route-workspace max-w-7xl mx-auto space-y-8">
+                       <Suspense fallback={<RouteWorkspaceSkeleton pathname={location.pathname} />}>
                            <Routes>
                                 <Route path="/" element={
                                     <ProtectedRoute requiredPermission="musicscale.performance.use">
@@ -325,6 +344,7 @@ const AppLayout: React.FC = () => {
 };
 
 function Gatekeeper({ children }: { children: React.ReactNode }) {
+    const { t } = useTranslation();
     const { user, userProfile, loading, organization, subscription, needsRepair } = useAuth();
     const [bootstrapTimedOut, setBootstrapTimedOut] = useState(false);
     const isBootstrapping = loading || !!(user && !userProfile);
@@ -356,17 +376,17 @@ function Gatekeeper({ children }: { children: React.ReactNode }) {
                         </svg>
                     </div>
                     <h1 className="mb-2 text-2xl font-black tracking-tight text-white">
-                        O MusicScale está demorando mais que o normal
+                        {t('premiumV2.loading.slowTitle')}
                     </h1>
                     <p className="mb-6 text-sm leading-relaxed text-white/55 sm:text-base">
-                        Não liberamos uma tela parcial enquanto sua sessão está sendo validada. Seus dados continuam protegidos; tente recarregar para concluir o acesso.
+                        {t('premiumV2.loading.slowBody')}
                     </p>
                     <button
                         type="button"
                         onClick={() => window.location.reload()}
                         className="w-full rounded-2xl bg-white px-5 py-3.5 text-sm font-black text-black transition hover:bg-white/90 active:scale-[0.99]"
                     >
-                        Tentar novamente
+                        {t('premiumV2.loading.retry')}
                     </button>
                 </div>
             </div>
@@ -387,7 +407,7 @@ function Gatekeeper({ children }: { children: React.ReactNode }) {
                 <div className="relative z-10 flex flex-col items-center gap-6">
                    <Spinner size="lg" />
                    <p className="text-white/40 font-mono text-[11px] uppercase tracking-[0.3em] font-medium animate-pulse">
-                      Preparando Ambiente Operacional...
+                      {t('premiumV2.loading.bootstrap')}
                    </p>
                 </div>
             </div>

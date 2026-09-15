@@ -1,3 +1,4 @@
+import { defaultSpecialtyRecords, specialtyKey } from '../utils/specialtyCatalog';
 import { logger } from '../lib/logger';
 
 import {
@@ -569,35 +570,18 @@ export const seedDefaultInstrumentsForOrg = async (user: UserProfile, orgId: str
         const instrumentsCollection = collection(db, 'instruments');
         const q = createOrgQuery('instruments', orgId);
         const snapshot = await getDocs(q);
-        const existingNames = snapshot.docs.map(doc => doc.data().name);
-
-        const defaultInstruments = [
-            { name: 'Líder', category: 'Ministro' },
-            { name: 'Ministro', category: 'Ministro' },
-            { name: 'Vocal', category: 'Voz' },
-            { name: 'Backing Vocal', category: 'Voz' },
-            { name: 'Soprano', category: 'Voz' },
-            { name: 'Contralto', category: 'Voz' },
-            { name: 'Tenor', category: 'Voz' },
-            { name: 'Instrumentista', category: 'Instrumento' },
-            { name: 'Violão', category: 'Instrumento' },
-            { name: 'Guitarra', category: 'Instrumento' },
-            { name: 'Teclado', category: 'Instrumento' },
-            { name: 'Piano', category: 'Instrumento' },
-            { name: 'Baixo', category: 'Instrumento' },
-            { name: 'Bateria', category: 'Instrumento' },
-            { name: 'Percussão', category: 'Instrumento' },
-        ];
-
-        const itemsToAdd = defaultInstruments.filter(inst => !existingNames.includes(inst.name));
+        const existingKeys = new Set(snapshot.docs.map(item => specialtyKey({ ...item.data(), id: item.id } as Instrument)));
+        const itemsToAdd = defaultSpecialtyRecords().filter(item => !existingKeys.has(item.key));
         if (itemsToAdd.length === 0) return;
 
         const batch = writeBatch(db);
 
         itemsToAdd.forEach(inst => {
-            const docRef = doc(instrumentsCollection);
+            const docRef = doc(instrumentsCollection, `${orgId}__${inst.key}`);
             batch.set(docRef, {
-                ...inst,
+                key: inst.key,
+                name: inst.name,
+                category: inst.category,
                 organizationId: orgId,
                 createdBy: { uid: user.uid, displayName: user.displayName || null, photoURL: user.photoURL || null },
                 createdAt: serverTimestamp(),

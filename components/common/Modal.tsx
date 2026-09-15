@@ -1,4 +1,5 @@
-import React, { useEffect, forwardRef, ForwardedRef } from "react";
+import { useTranslation } from "react-i18next";
+import React, { useRef, useId, useEffect, forwardRef, ForwardedRef } from "react";
 import { createPortal } from "react-dom";
 
 interface ModalProps {
@@ -39,22 +40,47 @@ const Modal = forwardRef<HTMLDivElement, ModalProps>(
     },
     ref: ForwardedRef<HTMLDivElement>,
   ) => {
+    const { t } = useTranslation();
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const titleId = useId();
+    const closeRef = useRef(onClose);
+    closeRef.current = onClose;
+    useEffect(() => {
+      if (!isOpen) return;
+      const previous = document.activeElement as HTMLElement | null;
+      const dialog = dialogRef.current;
+      const focusable = (): HTMLElement[] => dialog
+        ? Array.from(dialog.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]')) as HTMLElement[]
+        : [];
+      const preferred = dialog?.querySelector('[autofocus]') as HTMLElement | null;
+      (preferred || focusable()[0] || dialog)?.focus();
+      const handleKey = (event: KeyboardEvent) => {
+        if (!dialog?.contains(document.activeElement)) return;
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeRef.current(); }
+        if (event.key === 'Tab') {
+          const items = focusable();
+          const first = items[0], last = items[items.length - 1];
+          if (!first) { event.preventDefault(); dialog.focus(); }
+          else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }
+      };
+      dialog?.addEventListener('keydown', handleKey);
+      return () => { dialog?.removeEventListener('keydown', handleKey); previous?.focus(); };
+    }, [isOpen]);
+
     useEffect(() => {
       let isLocalOpen = isOpen;
 
       if (isOpen) {
-        if (openModalCount === 0) {
-          document.body.style.overflow = "hidden";
-        }
+        if (openModalCount === 0) document.body.style.overflow = "hidden";
         openModalCount++;
       }
 
       return () => {
         if (isLocalOpen) {
           openModalCount--;
-          if (openModalCount === 0) {
-            document.body.style.overflow = "";
-          }
+          if (openModalCount === 0) document.body.style.overflow = "";
         }
       };
     }, [isOpen]);
@@ -63,75 +89,56 @@ const Modal = forwardRef<HTMLDivElement, ModalProps>(
 
     const modalContent = (
       <div
-        className={`fixed inset-0 bg-slate-900/60 dark:bg-black/70 ${zIndexClass} backdrop-blur-xl flex items-end justify-center md:items-center p-0 md:p-4 transition-all duration-400 touch-none`}
-        aria-labelledby="modal-title"
+        className={`fixed inset-0 ${zIndexClass} flex touch-none items-end justify-center bg-black/[0.74] p-0 md:items-center md:p-4`}
+        aria-labelledby={title ? titleId : undefined}
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         onPointerDown={(e) => {
-           // On pointer down, stop bubbling to avoid passing actions to background elements
-           if (e.target === e.currentTarget) {
-             onClose();
-           }
+          if (e.target === e.currentTarget) onClose();
         }}
       >
         <div
-          className={`relative bg-surface dark:bg-[#0A0A0C] border border-transparent md:border-slate-200/50 md:dark:border-white/[0.08] p-0 rounded-t-[32px] rounded-b-none md:rounded-[32px] shadow-2xl md:shadow-[0_20px_60px_rgba(0,0,0,0.6)] w-full ${maxWidth} flex flex-col ${fullHeight ? "h-[95dvh]" : "max-h-[96dvh] md:max-h-[90dvh]"} text-left overflow-hidden animate-slide-up-sheet md:animate-scale-in touch-auto`}
+          className={`relative flex w-full ${maxWidth} ${fullHeight ? "h-[95dvh]" : "max-h-[96dvh] md:max-h-[90dvh]"} touch-auto flex-col overflow-hidden rounded-t-[26px] border border-white/[0.09] bg-[linear-gradient(180deg,#17171e_0%,#0d0d12_100%)] text-left shadow-[0_36px_100px_-28px_rgba(0,0,0,0.96),inset_0_1px_0_rgba(255,255,255,0.05)] animate-slide-up-sheet md:animate-scale-in motion-reduce:animate-none md:rounded-[24px]`}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Mobile Drag Indicator */}
-          <div
-            className="w-full flex justify-center md:hidden pt-4 pb-2"
-            onClick={onClose}
-          >
-            <div className="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-white/10"></div>
+          <div className="flex w-full justify-center pb-1 pt-3.5 md:hidden" onClick={onClose}>
+            <div className="h-1 w-10 rounded-full bg-white/[0.14]" />
           </div>
 
           {title && (
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200/50 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] backdrop-blur-md flex-shrink-0">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] bg-white/[0.015] px-5 py-4.5 sm:px-6 sm:py-5">
               {typeof title === "string" ? (
-                <h3
-                  className="text-[17px] font-bold text-slate-900 dark:text-white tracking-tight"
-                  id="modal-title"
-                >
+                <h3 className="text-[17px] font-semibold tracking-[-0.02em] text-white" id={titleId}>
                   {title}
                 </h3>
               ) : (
-                <div id="modal-title" className="w-full">
-                  {title}
-                </div>
+                <div id={titleId} className="w-full">{title}</div>
               )}
               <button
                 type="button"
                 onClick={onClose}
-                className="text-slate-500 dark:text-white/40 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white rounded-full p-2.5 ml-auto inline-flex items-center flex-shrink-0 transition-all hover:scale-105 active:scale-95"
+                className="premium-interactive ml-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px] border border-white/[0.065] bg-white/[0.035] text-white/45 hover:border-white/[0.11] hover:bg-white/[0.065] hover:text-white"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                    clipRule="evenodd"
-                  ></path>
+                <svg className="h-[18px] w-[18px]" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
-                <span className="sr-only">Close modal</span>
+                <span className="sr-only">{t("common.close")}</span>
               </button>
             </div>
           )}
 
           <div
             ref={ref}
-            className={`${noPadding ? "p-0" : "p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:pb-6 space-y-6"} flex-1 overflow-y-auto min-h-0 scroll-smooth`}
+            className={`${noPadding ? "p-0" : "space-y-6 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6 md:pb-6"} min-h-0 flex-1 overflow-y-auto scroll-smooth motion-reduce:scroll-auto`}
           >
             {children}
           </div>
 
           {footer && (
-            <div className="flex flex-wrap items-center justify-end px-6 py-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] border-t border-slate-200/50 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] flex-shrink-0 gap-3 relative z-10">
+            <div className="relative z-10 flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-white/[0.07] bg-white/[0.018] px-5 py-4.5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-5">
               {footer}
             </div>
           )}

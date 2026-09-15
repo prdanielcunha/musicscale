@@ -153,6 +153,7 @@ const MAX_AUTOSCROLL_FRAME_DELTA_MS = 100;
 const TAP_MOVEMENT_TOLERANCE_PX = 18;
 const DOUBLE_TAP_MAX_DISTANCE_PX = 36;
 const DOUBLE_TAP_INTERVAL_MS = 300;
+const PERFORMANCE_CONTROLS_IDLE_MS = 3200;
 
 const ColorPicker: React.FC<{
   label: string;
@@ -293,6 +294,12 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isStageMetronomeOpen, setIsStageMetronomeOpen] = useState(false);
   const [isStagePadOpen, setIsStagePadOpen] = useState(false);
+  const [controlsActivityTick, setControlsActivityTick] = useState(0);
+
+  const markControlsActivity = useCallback(() => {
+    setIsUIVisible(true);
+    setControlsActivityTick((current) => current + 1);
+  }, []);
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -335,6 +342,38 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         setIsWorshipFlow(false);
     }
   }, [liveSession?.mode]);
+
+  useEffect(() => {
+    if (
+      !isOpen ||
+      !isUIVisible ||
+      isEditing ||
+      isWorshipFlow ||
+      isAutoScrolling ||
+      activeTab !== "none" ||
+      isStageMetronomeOpen ||
+      isStagePadOpen
+    ) {
+      return;
+    }
+
+    const idleTimer = window.setTimeout(() => {
+      setIsUIVisible(false);
+    }, PERFORMANCE_CONTROLS_IDLE_MS);
+
+    return () => window.clearTimeout(idleTimer);
+  }, [
+    isOpen,
+    isUIVisible,
+    isEditing,
+    isWorshipFlow,
+    isAutoScrolling,
+    activeTab,
+    isStageMetronomeOpen,
+    isStagePadOpen,
+    controlsActivityTick,
+    song?.id,
+  ]);
 
   const clearTapCandidate = () => {
     lastTapRef.current = 0;
@@ -859,7 +898,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     if (isWorshipFlow || liveSession?.mode === "worship") {
       if (
         !window.confirm(
-          "Você está em modo Performance/Culto.\n\nTem certeza que deseja sair agora?",
+          t("premiumV2.performance.exitConfirm"),
         )
       ) {
         return;
@@ -887,8 +926,12 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       return;
     }
 
-    setIsUIVisible(!isUIVisible);
-    if (isUIVisible) setActiveTab("none");
+    if (isUIVisible) {
+      setIsUIVisible(false);
+      setActiveTab("none");
+    } else {
+      markControlsActivity();
+    }
   };
 
   const parsedContent = useMemo(() => {
@@ -982,13 +1025,13 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
 
   const handleAIAjuste = async (fromEditor: boolean = false) => {
     const prompt = window.prompt(
-      "Instruções extras para a IA (Opcional):\nEx: 'Alinhe os acordes com a letra'",
+      t("premiumV2.performance.aiInstructions"),
     );
     if (prompt === null) return;
     const sourceChords = fromEditor ? editedChords : song?.chords;
     if (!sourceChords || !user || !effectiveOrganizationId) {
       if (!user || !effectiveOrganizationId) {
-        alert("Falha ao ajustar cifras.");
+        alert(t("premiumV2.performance.aiFixError"));
       }
       setIsFixingChords(false);
       return;
@@ -1023,7 +1066,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         }
       }
     } catch (err) {
-      alert("Falha ao ajustar cifras.");
+      alert(t("premiumV2.performance.aiFixError"));
     } finally {
       setIsFixingChords(false);
     }
@@ -1040,6 +1083,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       className={`fixed inset-0 z-[120] overflow-hidden flex flex-col font-sans transition-colors duration-300 ${isWorshipFlow ? "bg-[#0A0A0C]" : "bg-[#0A0A0C]"}`}
     >
       <div
+        onPointerDown={markControlsActivity}
         className={`top-bar absolute top-0 w-full z-40 px-4 md:px-6 h-20 md:h-24 bg-[#0A0A0C]/85 backdrop-blur-2xl border-b border-white/[0.04] shadow-sm flex items-center justify-between transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${isUIVisible || isEditing ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"}`}
       >
         <div className="flex-1">
@@ -1092,7 +1136,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
               }}
               className="px-3 h-9 md:h-10 flex items-center gap-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 transition-all text-[13px] font-semibold tracking-wide"
             >
-              <span className="hidden md:inline">Editar</span>
+              <span className="hidden md:inline">{t("premiumV2.performance.edit")}</span>
               <EditIcon className="w-4 h-4" />
             </button>
           )}
@@ -1180,7 +1224,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-white">
-                  Tamanho do texto
+                  {t("premiumV2.performance.textSize")}
                 </span>
                 <div className="flex items-center gap-1 bg-black/40 rounded-full p-1 border border-white/5">
                   <button
@@ -1225,7 +1269,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
 
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-white">
-                  Tom (Transporte)
+                  {t("premiumV2.performance.transpose")}
                 </span>
                 <div className="flex items-center gap-1 bg-black/40 rounded-full p-1 border border-white/5">
                   <button
@@ -1248,7 +1292,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
 
               <div className="flex flex-col gap-4 pt-4 border-t border-white/5">
                 <ColorPicker
-                  label="Cor da Letra"
+                  label={t("premiumV2.performance.lyricsColor")}
                   colors={lyricsPalette}
                   selectedColor={activeLyricsColor}
                   onSelect={(c) =>
@@ -1258,7 +1302,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                   }
                 />
                 <ColorPicker
-                  label="Cor da Cifra"
+                  label={t("premiumV2.performance.chordsColor")}
                   colors={chordsPalette}
                   selectedColor={activeChordsColor}
                   onSelect={(c) =>
@@ -1286,7 +1330,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                       }
                     }}
                   >
-                    Ajustar Tom da Cifra
+                    {t("premiumV2.performance.adjustChordKey")}
                   </Button>
                 )}
                 <Button
@@ -1295,7 +1339,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                   className="w-full bg-white/5 hover:bg-white/10 text-white/90 border-none transition-colors"
                   onClick={() => handleSettingsChange(defaultSettings)}
                 >
-                  Redefinir Padrões
+                  {t("premiumV2.performance.resetDefaults")}
                 </Button>
                 {canManageChords && originalBackup && (
                   <Button
@@ -1303,7 +1347,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                     variant="danger"
                     className="w-full"
                     onClick={async () => {
-                      if (window.confirm("Restaurar cifra original?")) {
+                      if (window.confirm(t("premiumV2.performance.restoreOriginalConfirm"))) {
                         await onSave({
                           songId: song.id,
                           chords: originalBackup,
@@ -1312,7 +1356,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                       }
                     }}
                   >
-                    Restaurar Original
+                    {t("premiumV2.performance.restoreOriginal")}
                   </Button>
                 )}
               </div>
@@ -1406,7 +1450,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                   value={editedChords}
                   onChange={(e) => setEditedChords(e.target.value)}
                   className="input-base !h-[65vh] font-mono text-[15px] !rounded-[32px] p-6 resize-none"
-                  placeholder="Insira as cifras..."
+                  placeholder={t("premiumV2.performance.editorPlaceholder")}
                 />
               </div>
             ) : (
@@ -1422,7 +1466,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                   <div className="mb-10 p-5 rounded-2xl bg-blue-500/10 border border-blue-500/20 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
                     <h3 className="text-blue-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      Preparação & Notas do Ensaio
+                      {t("premiumV2.performance.rehearsalNotes")}
                     </h3>
                     {song.bandNotes && (
                       <p className="text-blue-100 text-sm leading-relaxed whitespace-pre-wrap mb-4">{song.bandNotes}</p>
@@ -1430,7 +1474,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                     {song.videoUrl && (
                       <a href={song.videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 transition-colors text-xs font-bold uppercase tracking-widest">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
-                        Ouvir Referência
+                        {t("premiumV2.performance.listenReference")}
                       </a>
                     )}
                   </div>
@@ -1575,6 +1619,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
 
       {!isEditing && (
         <div
+          onPointerDown={markControlsActivity}
           className={`dock fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 z-40 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-auto ${isUIVisible || isAutoScrolling ? "translate-y-0 opacity-100 scale-100" : "translate-y-20 opacity-0 scale-95"}`}
         >
           <div className="flex items-center gap-2 p-2 bg-[#0A0A0C]/85 backdrop-blur-3xl border border-white/[0.08] shadow-[0_16px_40px_rgba(0,0,0,0.6)] rounded-full isolate relative">

@@ -11,6 +11,7 @@ import type {
   InstrumentCategory,
 } from "../types";
 import Spinner from "../components/common/Spinner";
+import OperationalWorkspaceSkeleton from "../components/common/OperationalWorkspaceSkeleton";
 import Card from "../components/common/Card";
 import Tag from "../components/common/Tag";
 import { UserIcon } from "../components/icons/UserIcon";
@@ -165,15 +166,11 @@ const BandPage: React.FC = () => {
   }, [processedUsers, searchTerm, specialtyFilterIds]);
 
   if (loading)
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <OperationalWorkspaceSkeleton variant="directory" />;
   if (error) return <div className="text-red-500 text-center">{error}</div>;
 
   return (
-    <div className="space-y-6">
+    <div className="ms-band-page space-y-6">
       <div>
         <p className="text-slate-500 dark:text-gray-400 max-w-3xl">
           {t("band.subtitle", "Veja todos os músicos, vocais e ministros cadastrados no sistema.")}

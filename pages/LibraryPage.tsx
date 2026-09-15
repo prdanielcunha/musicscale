@@ -187,7 +187,7 @@ export default function LibraryPage() {
     entitlements?.status === "trialing";
   const canBulkImportLibrary =
     isEcosystemAdmin ||
-    (entitlements?.plan === "pro" && entitlements?.status === "active");
+    (entitlements?.plan === "pro" && entitlements?.status === "active") || entitlements?.accessSource === "ecosystem";
 
   const [songs, setSongs] = useState<GlobalSong[]>([]);
   const [loading, setLoading] = useState(false);
@@ -300,7 +300,7 @@ export default function LibraryPage() {
       loadSongs(true);
     } catch (err: any) {
       logger.error("Error bulk updating status", err);
-      showToast("Erro ao atualizar status: " + (err.message || err), "error");
+      showToast(t("premiumV2.library.updateStatusError", { message: err.message || String(err) }), "error");
     } finally {
       setIsBulkUpdating(false);
     }
@@ -327,7 +327,7 @@ export default function LibraryPage() {
       loadSongs(true);
     } catch (err: any) {
       logger.error("Error bulk updating language", err);
-      showToast("Erro ao atualizar idioma: " + (err.message || err), "error");
+      showToast(t("premiumV2.library.updateLanguageError", { message: err.message || String(err) }), "error");
     } finally {
       setIsBulkUpdating(false);
     }

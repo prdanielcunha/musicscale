@@ -49,7 +49,7 @@ describe('02E final client membership-authority migration', () => {
   });
 
   it('ProfilePage support organization creation is explicitly delegated to the Hub', () => {
-    const block = between(profilePage, 'const handleSupportCreateOrg', 'const handleSpecialtyChange');
+    const block = between(profilePage, 'const handleSupportCreateOrg', 'const handlePhotoChange');
     expect(block).toContain('foi movida para o MillionsNest Hub');
     expect(block).not.toMatch(/\b(?:addDoc|setDoc|updateDoc|writeBatch)\s*\(/);
     expect(block).not.toContain('organizationRole');

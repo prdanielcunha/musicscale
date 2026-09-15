@@ -19,6 +19,7 @@ import { useModals } from "../contexts/ModalContext";
 import { useLimits, useAuth } from "../contexts/AuthContext";
 import { useApi } from "../contexts/ApiContext";
 import Spinner from "../components/common/Spinner";
+import MusicWorkspaceSkeleton from "../components/common/MusicWorkspaceSkeleton";
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 import EmptyState from "../components/common/EmptyState";
@@ -308,6 +309,7 @@ const SongsPage: React.FC = () => {
   
   
   const [isAuditorOpen, setIsAuditorOpen] = useState(false);
+  const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
 
   const filterButtonRef = useRef<HTMLButtonElement>(null);
@@ -496,11 +498,7 @@ const SongsPage: React.FC = () => {
   };
 
   if (loading)
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner />
-      </div>
-    );
+    return <MusicWorkspaceSkeleton cardCount={8} />;
   if (error) return <div className="text-red-500 text-center">{error}</div>;
 
   const isCompletelyEmpty = songs.length === 0;
@@ -514,7 +512,7 @@ const SongsPage: React.FC = () => {
     
     return (
       <>
-        <div className="max-w-4xl mx-auto py-12 md:py-20 px-4 text-center">
+        <div className="ms-songs-page max-w-4xl mx-auto py-12 md:py-20 px-4 text-center">
           <div className="w-24 h-24 bg-gradient-to-br from-primary/10 to-transparent rounded-[2rem] flex items-center justify-center mx-auto mb-8 text-primary shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-primary/10 relative">
             <div className="absolute inset-0 bg-white/40 dark:bg-[#111111]/40 backdrop-blur-xl rounded-[2rem] -z-10"></div>
             <RepertoireIcon className="w-12 h-12 relative z-10" />
@@ -651,7 +649,7 @@ const SongsPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="ms-songs-page space-y-6">
       {canManageRepertoire && (!allowance?.completed || allowanceLoading || allowanceError) && (
         <StarterPackAllowanceCard 
           allowance={allowance} 
@@ -856,17 +854,18 @@ const SongsPage: React.FC = () => {
 
           {isSelectionMode && selectedSongIds.length === 0 ? (
             <Button variant="secondary" onClick={handleToggleSelectionMode}>
-              Cancelar
+              {t("common.cancel")}
             </Button>
           ) : !isSelectionMode ? (
             <Button onClick={handleToggleSelectionMode} variant="secondary">
-              Selecionar
+              {t("refinement.select")}
             </Button>
           ) : null}
 
           {canManageRepertoire && (
             <Button
               variant="secondary"
+              className="hidden md:inline-flex"
               onClick={() => setIsTransferOpen(true)}
             >
               {t("repertoireTransfer.toolbar", "Transferir")}
@@ -876,13 +875,23 @@ const SongsPage: React.FC = () => {
           {canManageRepertoire && (
             <Button
               variant="secondary"
+              className="hidden md:inline-flex"
               onClick={() => setIsAuditorOpen(true)}
               leftIcon={<ListRestart className="w-4 h-4 text-indigo-500" />}
             >
-              Auditoria de repertório
+              {t("refinement.repertoireAudit")}
             </Button>
           )}
 
+          {canManageRepertoire && (
+            <div className="md:hidden">
+              <Button variant="secondary" onClick={() => setIsToolsOpen(true)} aria-label={t('refinement.moreTools')} aria-haspopup="dialog">…</Button>
+              <Modal isOpen={isToolsOpen} onClose={() => setIsToolsOpen(false)} title={t('refinement.moreTools')} maxWidth="max-w-2xl">
+                <Button className="w-full min-h-11" variant="secondary" onClick={() => { setIsToolsOpen(false); setIsTransferOpen(true); }}>{t('repertoireTransfer.toolbar')}</Button>
+                <Button className="w-full min-h-11" variant="secondary" onClick={() => { setIsToolsOpen(false); setIsAuditorOpen(true); }}>{t('refinement.repertoireAudit')}</Button>
+              </Modal>
+            </div>
+          )}
           <div className="inline-flex items-center rounded-xl p-1 bg-slate-100 dark:bg-[#1A1A1C]/80 border border-slate-200 dark:border-white/5 shadow-sm">
             <button
               onClick={() => setViewMode("cards")}
@@ -902,7 +911,7 @@ const SongsPage: React.FC = () => {
 
           <Can I="musicscale.songs.edit">
             <LockedActionButton
-              label="Importar IA"
+              label={t("refinement.aiImport")}
               isLocked={!isAiImportAllowed}
               featureKey="aiImport"
               requiredPlan="pro"
@@ -930,7 +939,7 @@ const SongsPage: React.FC = () => {
               leftIcon={isOverLimit ? <AlertTriangle className="w-4 h-4" /> : <PlusIcon />}
               variant={isOverLimit ? "secondary" : "primary"}
             >
-              Nova Música
+              {t("refinement.newSong")}
             </Button>
           </Can>
         </div>

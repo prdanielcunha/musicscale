@@ -12,17 +12,17 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const DARK_THEME = {
-  background: '#000000', 
-  surface: '#0A0A0A', 
-  primary: '#0A84FF', 
-  primaryDark: '#007AFF',
-  primaryLight: '#5A80FF',
-  accent: '#5E5CE6',
+  background: '#050507',
+  surface: '#0D0D11',
+  primary: '#4F8CFF',
+  primaryDark: '#376FD6',
+  primaryLight: '#7AA8FF',
+  accent: '#7868FF',
 };
 
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const theme: ThemeMode = 'dark';
-  const tintColor = '#007AFF';
+  const tintColor = DARK_THEME.primary;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -43,7 +43,6 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     root.style.setProperty('--app-primary-dark', colors.primaryDark);
     root.style.setProperty('--app-primary-light', colors.primaryLight);
     root.style.setProperty('--app-accent', colors.accent);
-
   }, []);
 
   const setTheme = () => {};

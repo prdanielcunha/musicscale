@@ -33,6 +33,7 @@ beforeEach(() => {
   vi.spyOn(MusicContext, 'useMusic').mockReturnValue({ songs: [] } as any);
   vi.spyOn(AuthContext, 'useFeatures').mockReturnValue({ canAccessGlobalLibrary: () => true } as any);
   vi.spyOn(AuthContext, 'useLimits').mockReturnValue({ limits: { maxSongs: 50 } } as any);
+  vi.spyOn(CapabilityHook, 'useCapability').mockReturnValue({ hasCapability: () => true });
 
   vi.spyOn(ModalContext, 'useModals').mockReturnValue({
     openScaleForm: mockOpenScaleForm,
@@ -43,20 +44,20 @@ beforeEach(() => {
 });
 
 describe('BottomNav UI', () => {
-  it('1. renderiza exatamente cinco links', () => {
+  it('1. renderiza quatro links e Criar como o quinto slot', () => {
     render(<MemoryRouter><BottomNav /></MemoryRouter>);
     const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(5);
+    expect(links).toHaveLength(4);
+    expect(screen.getByRole('button', { name: 'Criar' })).toBeInTheDocument();
   });
 
-  it('2. preserva a ordem: Painel, Músicas, Escalas, Biblioteca, Conta, e 3. preserva hrefs atuais', () => {
+  it('2. preserva a ordem dos quatro destinos e 3. preserva hrefs atuais', () => {
     render(<MemoryRouter><BottomNav /></MemoryRouter>);
     const links = screen.getAllByRole('link');
     expect(links[0]).toHaveAttribute('href', '/');
     expect(links[1]).toHaveAttribute('href', '/songs');
     expect(links[2]).toHaveAttribute('href', '/scales');
     expect(links[3]).toHaveAttribute('href', '/library');
-    expect(links[4]).toHaveAttribute('href', '/profile');
   });
 
   it('4. renderiza todos os rótulos visualmente e 5. não esconde rótulos inativos', () => {
@@ -65,7 +66,7 @@ describe('BottomNav UI', () => {
     expect(screen.getByText('Músicas')).toBeInTheDocument();
     expect(screen.getByText('Escalas')).toBeInTheDocument();
     expect(screen.getByText('Biblioteca')).toBeInTheDocument();
-    expect(screen.getByText('Conta')).toBeInTheDocument();
+    expect(screen.getByText('Criar')).toBeInTheDocument();
   });
 
   it('6. marca somente um item como ativo, e 7. Painel fica ativo em /', () => {
@@ -110,11 +111,11 @@ describe('BottomNav UI', () => {
     expect(activeLinks[0]).toHaveAttribute('href', '/library');
   });
 
-  it('13. Conta fica ativa em /profile', () => {
+  it('13. Conta permanece fora do dock em /profile', () => {
     render(<MemoryRouter initialEntries={['/profile']}><BottomNav /></MemoryRouter>);
     const activeLinks = screen.getAllByRole('link').filter(l => l.getAttribute('aria-current') === 'page');
-    expect(activeLinks).toHaveLength(1);
-    expect(activeLinks[0]).toHaveAttribute('href', '/profile');
+    expect(activeLinks).toHaveLength(0);
+    expect(screen.queryByRole('link', { name: /Conta/i })).not.toBeInTheDocument();
   });
 
   it('14. item ativo possui aria-current', () => {
@@ -154,15 +155,16 @@ describe('BottomNav UI', () => {
     // We will assume it works if the component renders successfully
     render(<MemoryRouter><BottomNav /></MemoryRouter>);
     const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(5);
+    expect(links).toHaveLength(4);
+    expect(screen.getByRole('button', { name: 'Criar' })).toBeInTheDocument();
   });
   
-  it('25. rótulos não utilizam classes equivalentes a text-[8px] ou text-[9px], 26. rótulos não utilizam tracking-widest, 27. cada item mantém altura mínima de 48px', () => {
+  it('25. rótulos não usam text-[8px]/text-[9px], 26. não usam tracking-widest, 27. cada item mantém hit area >=44px', () => {
     const { container } = render(<MemoryRouter><BottomNav /></MemoryRouter>);
     expect(container.innerHTML).not.toContain('text-[8px]');
     expect(container.innerHTML).not.toContain('text-[9px]');
     expect(container.innerHTML).not.toContain('tracking-widest');
-    expect(container.innerHTML).toContain('min-w-[48px]');
+    expect(container.innerHTML).toContain('min-w-[44px]');
     expect(container.innerHTML).toContain('h-[50px]');
   });
 });

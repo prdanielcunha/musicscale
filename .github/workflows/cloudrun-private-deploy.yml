@@ -6,7 +6,6 @@ on:
     paths-ignore:
       - '.github/workflows/chatgpt-firestore-readonly-audit.yml'
       - '.github/workflows/cloudrun-private-deploy.yml'
-      - '.github/workflows/firebase-main-preview.yml'
       - 'scripts/export-global-song-catalog-readonly.ts'
       - 'ops/firestore-audit-trigger.txt'
   workflow_dispatch:

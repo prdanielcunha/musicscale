@@ -1,3 +1,6 @@
+import { AccountOrganizations } from '../components/layout/AccountOrganizations';
+import { ecosystemBridge } from '../services/ecosystem/EcosystemBridge';
+import { composeSpecialtyCatalog, toggleSpecialtySelection, type SpecialtyOption } from '../utils/specialtyCatalog';
 import { logger } from "../lib/logger";
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -19,6 +22,7 @@ import {
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 import Spinner from "../components/common/Spinner";
+import OperationalWorkspaceSkeleton from "../components/common/OperationalWorkspaceSkeleton";
 import { UserIcon } from "../components/icons/UserIcon";
 import { SunIcon } from "../components/icons/SunIcon";
 import { MoonIcon } from "../components/icons/MoonIcon";
@@ -185,23 +189,13 @@ const ProfilePage: React.FC = () => {
   const ecosystem = useEcosystem();
   const availableOrgs = ecosystem?.context?.organizationsAvailable || [];
 
-  const handleSwitchOrg = async (orgId: string) => {
-    localStorage.setItem('activeOrganizationId', orgId);
-    
-    if (user?.uid) {
-        try {
-            const { doc, updateDoc } = await import('firebase/firestore');
-            const { db } = await import('../services/firebase');
-            await updateDoc(doc(db, 'users', user.uid), {
-                activeOrganizationId: orgId,
-                organizationId: orgId // update legacy field too
-            });
-        } catch(e) {
-            console.error("Failed to persist organization switch to Firestore", e);
-        }
+  const handleSwitchOrg = async (orgId: string): Promise<boolean> => {
+    if (!availableOrgs.some(org => org.id === orgId)) return false;
+    if (!ecosystem.isStandalone) {
+      ecosystemBridge.publishEvent({ type: 'navigation', payload: { action: 'switch_org', orgId }, timestamp: Date.now() });
+      return true;
     }
-
-    window.location.href = '/start';
+    return ecosystem.switchOrganization(orgId);
   };
 
   const { instruments, allUsers, roles, refreshData } = useMusic();
@@ -408,20 +402,8 @@ const ProfilePage: React.FC = () => {
       Instrumento: [],
     };
 
-    // Use a Set to track unique formatted names per category to avoid visual duplicates
-    const seenNames = new Set<string>();
-
-    instruments.forEach((inst) => {
-      if (grouped[inst.category]) {
-        const formattedName = formatSpecialtyName(inst.name);
-        // Create a unique key for checking duplicates (category + formatted name)
-        const uniqueKey = `${inst.category}-${formattedName}`;
-
-        if (!seenNames.has(uniqueKey)) {
-          grouped[inst.category].push(inst);
-          seenNames.add(uniqueKey);
-        }
-      }
+    composeSpecialtyCatalog(instruments).forEach(inst => {
+      if (grouped[inst.category]) grouped[inst.category].push(inst);
     });
 
     // Return an array of tuples to preserve order
@@ -482,14 +464,6 @@ const ProfilePage: React.FC = () => {
     setSupportSuccess(null);
     setSupportCreateLoading(false);
     setSupportError("A criação e vinculação de organizações foi movida para o MillionsNest Hub para preservar a autoridade canônica.");
-  };
-
-  const handleSpecialtyChange = (specialtyId: string) => {
-    setSpecialtyIds((prev) =>
-      prev.includes(specialtyId)
-        ? prev.filter((id) => id !== specialtyId)
-        : [...prev, specialtyId],
-    );
   };
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -615,15 +589,11 @@ const ProfilePage: React.FC = () => {
   };
 
   if (isInitialLoading) {
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner />
-      </div>
-    );
+    return <OperationalWorkspaceSkeleton variant="profile" />;
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-20 pt-4 md:pt-0">
+    <div className="ms-profile-page max-w-5xl mx-auto space-y-8 pb-20 pt-4 md:pt-0">
       <div className="flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
         <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto">
           <div className="relative group cursor-pointer">
@@ -787,15 +757,15 @@ const ProfilePage: React.FC = () => {
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {(instrumentList as Instrument[]).map((inst) => {
-                          const isSelected = specialtyIds.includes(inst.id);
+                        {(instrumentList as SpecialtyOption[]).map((inst) => {
+                          const isSelected = inst.aliasIds.some(id => specialtyIds.includes(id));
                           return (
                             <button
                               key={inst.id}
                               type="button"
                               onClick={(e) => {
                                 e.preventDefault();
-                                handleSpecialtyChange(inst.id);
+                                setSpecialtyIds(ids => toggleSpecialtySelection(ids, inst));
                               }}
                               className={`
                                                                 relative flex items-center justify-center px-4 py-3 rounded-2xl border text-sm font-bold transition-all duration-200 cursor-pointer select-none
@@ -807,7 +777,7 @@ const ProfilePage: React.FC = () => {
                                                             `}
                             >
                               <span className="truncate">
-                                {formatSpecialtyName(inst.name)}
+                                {inst.key.startsWith("custom.") ? inst.name : t(`refinement.specialties.${inst.key}`)}
                               </span>
                               {isSelected && (
                                 <div className="absolute -top-2 -right-2 bg-white text-primary rounded-full p-0.5 shadow-sm border border-slate-100 animate-scale-in">
@@ -850,36 +820,7 @@ const ProfilePage: React.FC = () => {
 
         {/* Right Column: Settings & Danger Zone */}
         <div className="space-y-8">
-          {availableOrgs.length > 1 && (
-            <Card padding="none" className="overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-800/50 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <StoreIcon className="w-5 h-5 text-primary" />
-                    <h3 className="font-bold text-slate-800 dark:text-white">
-                      Alternar Organização
-                    </h3>
-                  </div>
-                </div>
-                <div className="p-6">
-                   <p className="text-sm text-slate-500 dark:text-gray-400 mb-4">
-                     Você faz parte de múltiplas organizações. Escolha qual você quer acessar agora:
-                   </p>
-                   <div className="space-y-2">
-                     {availableOrgs.map((org) => (
-                        <div key={org.id} onClick={() => handleSwitchOrg(org.id)} className={`p-3 rounded-lg border ${org.id === organization?.id ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-800 cursor-pointer'} flex items-center justify-between transition-colors`}>
-                           <div>
-                              <p className="font-semibold text-slate-800 dark:text-white">{org.name}</p>
-                              <p className="text-xs text-slate-500">{org.role === 'owner' ? 'Dono' : org.role === 'admin' ? 'Administrador' : 'Membro'}</p>
-                           </div>
-                           {org.id === organization?.id && (
-                              <div className="w-3 h-3 rounded-full bg-primary" />
-                           )}
-                        </div>
-                     ))}
-                   </div>
-                </div>
-            </Card>
-          )}
+          <AccountOrganizations organizations={availableOrgs} currentId={organization?.id} onSwitch={handleSwitchOrg} />
 
           {organization && (
             <Card padding="none" className="overflow-hidden">

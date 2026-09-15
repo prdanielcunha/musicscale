@@ -119,7 +119,8 @@
       "scales": "Escalas",
       "library": "Biblioteca",
       "account": "Cuenta"
-    }
+    },
+    "curation_queue": "Curaduría"
   },
   "dashboard": {
     "title": "Tablero Ministerial",
@@ -456,7 +457,8 @@
     "tags": "Etiquetas",
     "view_mode": "Visualización",
     "cards": "Tabla",
-    "rehearsal_mode_active": "Modo Ensayo Activo"
+    "rehearsal_mode_active": "Modo Ensayo Activo",
+    "table": "Tabla"
   },
   "scales": {
     "title": "Escalas",
@@ -1298,7 +1300,9 @@
     "local_search_hint": "Mostrando resultados locales rápidos. Borre la búsqueda y haga clic en 'Cargar más' para ampliar.",
     "in_lyrics": "En la letra:",
     "trial_bulk_disabled": "Durante la prueba Pro, importa individualmente las canciones que tu equipo realmente utilizará.",
-    "bulk_pro_only_hint": "La importación masiva es exclusiva de Pro. Importa canciones individualmente en tu plan."
+    "bulk_pro_only_hint": "La importación masiva es exclusiva de Pro. Importa canciones individualmente en tu plan.",
+    "only_chords_badge": "Solo acordes",
+    "only_lyrics_badge": "Solo letras"
   },
   "notifications": {
     "scale_published": "Nueva escala de música publicada",
@@ -1741,5 +1745,56 @@
   },
   "profile": {
     "invite_person": "Invitar persona"
+  },
+  "refinement": {
+    "fullAccess": "Acceso completo",
+    "ecosystemAccess": "Acceso del ecosistema",
+    "ecosystemLibraryDescription": "Todos los recursos de la Biblioteca Viva están disponibles para esta organización mediante el acceso del ecosistema.",
+    "currentOrganization": "Organización actual",
+    "yourOrganizations": "Tus organizaciones ({{count}})",
+    "allOrganizations": "Ver las {{count}} organizaciones",
+    "searchOrganizations": "Buscar organizaciones",
+    "noOrganizations": "No se encontraron organizaciones.",
+    "manageOrganizations": "Gestionar organizaciones en MillionsNest",
+    "switching": "Cambiando…",
+    "switchError": "No se pudo cambiar de organización. Inténtalo de nuevo.",
+    "moreSongs": "+{{count}} canciones",
+    "showLess": "Mostrar menos",
+    "moreTools": "Más herramientas",
+    "repertoireAudit": "Auditoría de repertorio",
+    "select": "Seleccionar",
+    "newSong": "Nueva canción",
+    "aiImport": "Importar con IA",
+    "roles": {
+      "owner": "Propietario",
+      "admin": "Administrador",
+      "member": "Miembro",
+      "visitor": "Visitante",
+      "worship_leader": "Líder de alabanza",
+      "global_access": "Acceso global"
+    },
+    "specialties": {
+      "role": {
+        "leader": "Líder",
+        "minister": "Ministro"
+      },
+      "voice": {
+        "vocal": "Vocal",
+        "backing": "Corista",
+        "soprano": "Soprano",
+        "alto": "Contralto",
+        "tenor": "Tenor"
+      },
+      "instrument": {
+        "player": "Instrumentista",
+        "acoustic": "Guitarra acústica",
+        "guitar": "Guitarra eléctrica",
+        "keyboard": "Teclado",
+        "piano": "Piano",
+        "bass": "Bajo",
+        "drums": "Batería",
+        "percussion": "Percusión"
+      }
+    }
   }
 }

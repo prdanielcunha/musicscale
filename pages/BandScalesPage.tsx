@@ -1,11 +1,12 @@
 import { logger } from "../lib/logger";
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import type { PopulatedBandScale, PopulatedScale } from "../types";
 import { useMusic } from "../contexts/MusicDataContext";
 import { useModals } from "../contexts/ModalContext";
 import Spinner from "../components/common/Spinner";
+import OperationalWorkspaceSkeleton from "../components/common/OperationalWorkspaceSkeleton";
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 import { LocationMarkerIcon } from "../components/icons/LocationMarkerIcon";
@@ -216,6 +217,7 @@ const BandScalesPage: React.FC = () => {
   const isOverLimit = populatedBandScales.length >= limits.maxBandScales;
   const { scaleId } = useParams<{ scaleId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showLimitModal, setShowLimitModal] = useState(false);
 
   const [filter, setFilter] = useState<"upcoming" | "past">("upcoming");
@@ -237,6 +239,11 @@ const BandScalesPage: React.FC = () => {
       populatedBandScales.length > 0 &&
       !hasHandledDeepLink.current
     ) {
+      const expectedPath = `/band-scales/${scaleId}`;
+      if (location.pathname !== expectedPath) {
+        return;
+      }
+
       const scale = populatedBandScales.find((s) => s.id === scaleId);
       if (scale) {
         openBandScaleDetail(scale);
@@ -246,7 +253,7 @@ const BandScalesPage: React.FC = () => {
         navigate("/band-scales", { replace: true });
       }
     }
-  }, [scaleId, loading, populatedBandScales, openBandScaleDetail, navigate]);
+  }, [scaleId, loading, populatedBandScales, openBandScaleDetail, navigate, location.pathname]);
 
   const sortedScales = useMemo(() => {
     return [...populatedBandScales].sort((a, b) => {
@@ -317,18 +324,14 @@ const BandScalesPage: React.FC = () => {
   }, [sortedScales, filter, searchTerm, eventTypeFilter, locationFilter]);
 
   if (loading)
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner />
-      </div>
-    );
+    return <OperationalWorkspaceSkeleton variant="scales" />;
   if (error) return <div className="text-red-500 text-center">{error}</div>;
 
   const isCompletelyEmpty = populatedBandScales.length === 0;
 
   if (isCompletelyEmpty) {
     return (
-      <div className="max-w-3xl mx-auto py-16 lg:py-24 px-4 text-center">
+      <div className="ms-band-scales-page max-w-3xl mx-auto py-16 lg:py-24 px-4 text-center">
         <div className="w-24 h-24 bg-white dark:bg-[#1A1A1C] border border-black/[0.04] dark:border-white/[0.06] rounded-[24px] flex items-center justify-center mx-auto mb-8 shadow-xl shadow-black/5 dark:shadow-black/50">
           <UsersIcon className="w-10 h-10 text-primary opacity-80" />
         </div>
@@ -376,7 +379,7 @@ const BandScalesPage: React.FC = () => {
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto py-8 lg:py-12 px-4 sm:px-6 lg:px-8 pb-32 space-y-8">
+    <div className="ms-band-scales-page w-full max-w-5xl mx-auto py-8 lg:py-12 px-4 sm:px-6 lg:px-8 pb-32 space-y-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-2">
         <div>
           <h1 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white tracking-tight drop-shadow-sm dark:drop-shadow-none">Escalas da Banda</h1>

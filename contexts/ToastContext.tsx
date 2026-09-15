@@ -150,7 +150,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98, y: -8 }}
                 transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                className="pointer-events-auto bg-white/95 dark:bg-[#1C1C1E]/95 sm:bg-white/80 sm:dark:bg-[#1C1C1E]/80 sm:backdrop-blur-2xl border border-black/5 dark:border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.12)] px-4 py-2.5 rounded-full flex items-center gap-2.5 max-w-[90vw]"
+                className="pointer-events-auto bg-[#121217]/98 border border-white/[0.09] shadow-[0_16px_46px_-22px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.04)] px-4 py-2.5 rounded-[14px] flex items-center gap-2.5 max-w-[90vw]"
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                 <span className="text-[14px] font-medium tracking-tight text-slate-800 dark:text-white/90 truncate">
@@ -190,9 +190,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({
                       : "bg-slate-50/95 dark:bg-[#151517]/95 border border-slate-200/50 dark:border-white/10 text-slate-900 dark:text-white"
                 }`}
               >
-                <div className="absolute inset-0 hidden sm:block bg-white/60 dark:bg-[#111111]/80 backdrop-blur-2xl -z-10"></div>
-
-                <div
+                                <div
                   className={`mt-0.5 shrink-0 ${
                     toastItem.type === "error"
                       ? "text-red-500"
@@ -202,7 +200,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({
                   }`}
                 >
                   {toastItem.type === "error" && <AlertCircle className="w-5 h-5" />}
-                  {toastItem.type === "feedback" && <span className="text-lg">👋</span>}
+                  {toastItem.type === "feedback" && <Info className="w-5 h-5" />}
                   {toastItem.type === "info" && <Info className="w-5 h-5" />}
                 </div>
                 <div className="flex-1 min-w-0">

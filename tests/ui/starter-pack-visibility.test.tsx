@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import SongsPage from '../../pages/SongsPage';
+import { StarterPackAllowanceCard } from '../../components/onboarding/StarterPackAllowanceCard';
 
 // Mocks
 vi.mock('../../contexts/MusicDataContext', () => ({
@@ -24,6 +25,7 @@ vi.mock('../../contexts/ApiContext', () => ({
 
 vi.mock('../../hooks/useMusicScaleEntitlements', () => ({
   useMusicScaleFeature: vi.fn(),
+  useMusicScaleEntitlements: vi.fn(),
 }));
 
 vi.mock('../../hooks/useStarterPackAllowance', () => ({
@@ -49,7 +51,7 @@ import { useMusic } from '../../contexts/MusicDataContext';
 import { useAuth, useLimits } from '../../contexts/AuthContext';
 import { useModals } from '../../contexts/ModalContext';
 import { useApi } from '../../contexts/ApiContext';
-import { useMusicScaleFeature } from '../../hooks/useMusicScaleEntitlements';
+import { useMusicScaleFeature, useMusicScaleEntitlements } from '../../hooks/useMusicScaleEntitlements';
 import { useStarterPackAllowance } from '../../hooks/useStarterPackAllowance';
 
 describe('SongsPage Starter Pack Visibility', () => {
@@ -86,6 +88,10 @@ describe('SongsPage Starter Pack Visibility', () => {
     (useApi as any).mockReturnValue({});
     
     (useMusicScaleFeature as any).mockReturnValue(true);
+    (useMusicScaleEntitlements as any).mockReturnValue({
+      entitlements: { organizationId: 'org1', plan: 'starter', status: 'active', features: { libraryAccess: false }, limits: { libraryImportsPerMonth: 0 } },
+      loading: false,
+    });
     
     (useStarterPackAllowance as any).mockReturnValue({
       allowance: { remaining: 10, limit: 10, completed: false, started: false, used: 0 },
@@ -297,5 +303,69 @@ describe('SongsPage Starter Pack Visibility', () => {
     expect(screen.queryByTestId('starter-pack-empty-card')).not.toBeInTheDocument();
     expect(screen.getByTestId('starter-pack-loading')).toBeInTheDocument();
   });
-});
 
+  const availablePack = { remaining: 10, limit: 10, completed: false, started: false, used: 0, version: '1.0' };
+
+  it.each(['compact', 'empty-repertoire', 'library'] as const)(
+    'hides the %s quota for effective ecosystem access and paid Pro',
+    variant => {
+      for (const access of [
+        { plan: 'starter', accessSource: 'ecosystem' },
+        { plan: 'pro' },
+      ]) {
+        (useMusicScaleEntitlements as any).mockReturnValue({
+          loading: false,
+          entitlements: { ...access, organizationId: 'org1', status: 'active', features: { libraryAccess: true }, limits: { libraryImportsPerMonth: -1 } },
+        });
+        const view = render(<StarterPackAllowanceCard variant={variant} allowance={availablePack} onOpen={vi.fn()} />);
+        expect(view.container).toBeEmptyDOMElement();
+        view.unmount();
+      }
+    }
+  );
+
+  it.each([
+    ['starter', 'active', 0],
+    ['advanced', 'active', 10],
+    ['pro', 'trialing', 20],
+    ['pro', 'expired', -1],
+  ])('retains the starter benefit for %s/%s', (plan, status, limit) => {
+    (useMusicScaleEntitlements as any).mockReturnValue({
+      loading: false,
+      entitlements: { organizationId: 'org1', plan, status, features: { libraryAccess: plan !== 'starter' }, limits: { libraryImportsPerMonth: limit } },
+    });
+    const onOpen = vi.fn();
+    render(<StarterPackAllowanceCard allowance={availablePack} onOpen={onOpen} />);
+    expect(screen.getByTestId('starter-pack-compact-card')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('starter-pack-open-action'));
+    expect(onOpen).toHaveBeenCalledOnce();
+  });
+
+  it('does not flash a quota while access loads or the active tenant has no snapshot', () => {
+    for (const state of [
+      { loading: true, entitlements: null },
+      { loading: false, entitlements: null },
+    ]) {
+      (useMusicScaleEntitlements as any).mockReturnValue(state);
+      const view = render(<StarterPackAllowanceCard allowance={availablePack} onOpen={vi.fn()} />);
+      expect(view.container).toBeEmptyDOMElement();
+      view.unmount();
+    }
+  });
+
+  it('restores the ordinary tenant benefit after switching from an ecosystem tenant', () => {
+    (useMusicScaleEntitlements as any).mockReturnValue({
+      loading: false,
+      entitlements: { organizationId: 'ecosystem-org', status: 'active', features: { libraryAccess: true }, limits: { libraryImportsPerMonth: -1 } },
+    });
+    const view = render(<StarterPackAllowanceCard allowance={availablePack} onOpen={vi.fn()} />);
+    expect(view.container).toBeEmptyDOMElement();
+    (useMusicScaleEntitlements as any).mockReturnValue({
+      loading: false,
+      entitlements: { organizationId: 'ordinary-org', status: 'active', features: { libraryAccess: true }, limits: { libraryImportsPerMonth: 10 } },
+    });
+    view.rerender(<StarterPackAllowanceCard allowance={availablePack} onOpen={vi.fn()} />);
+    expect(screen.getByTestId('starter-pack-compact-card')).toBeInTheDocument();
+  });
+
+});
