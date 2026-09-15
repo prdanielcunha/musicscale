@@ -85,6 +85,30 @@ test.describe('BottomNav Liquid Glass', () => {
       expect(Math.abs(createCenterX - surfaceCenterX)).toBeLessThanOrEqual(surfaceBox.width / 10);
     }
 
+    // Create follows the same expanded/compact rhythm as all four destinations.
+    const scrollArea = page.locator('main');
+    await scrollArea.evaluate(el => { el.scrollTop = 180; el.dispatchEvent(new Event('scroll')); });
+    await expect(nav).toHaveAttribute('data-compact', 'true');
+    await expect(createBtn.locator('span')).toHaveCSS('opacity', '0');
+    await expect(createBtn.locator('span')).toHaveAttribute('aria-hidden', 'true');
+    await expect(createBtn).toHaveCSS('height', '44px');
+    for (const link of [painelLink, musicasLink, escalasLink, bibliotecaLink]) {
+      await expect(link.locator('span')).toHaveCSS('opacity', '0');
+    }
+    const createDecoration = nav.getByTestId('mobile-create-highlight');
+    expect(await createDecoration.evaluate(el => getComputedStyle(el, '::before').content)).toBe('none');
+
+    // The compact icon retains its accessible name, touch target and dialog.
+    await createBtn.click();
+    await expect(page.getByRole('dialog', { name: 'Criar ou importar' })).toBeVisible();
+    await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Criar ou importar' })).not.toBeVisible();
+
+    await scrollArea.evaluate(el => { el.scrollTop = 0; el.dispatchEvent(new Event('scroll')); });
+    await expect(nav).toHaveAttribute('data-compact', 'false');
+    await expect(createBtn.locator('span')).toHaveCSS('opacity', '1');
+    await expect(createBtn).toHaveCSS('height', '50px');
+
     const overflowX = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
     expect(overflowX).toBeFalsy();
   });
