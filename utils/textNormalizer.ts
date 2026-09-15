@@ -1,5 +1,3 @@
-import { normalizeChordDocumentStructure } from './chordDocumentNormalizer';
-
 export function normalizePastedSongText(input: string): {
   text: string;
   wasDecoded: boolean;
@@ -67,17 +65,6 @@ export function normalizePastedSongText(input: string): {
         transformations.push('percent_decoded_2_passes');
       }
     }
-  }
-
-  // 4. Repair deterministic chord-document corruption before it reaches the
-  // AI import pipeline. This does not invent or transpose musical content.
-  const structurallyNormalized = normalizeChordDocumentStructure(text);
-  if (structurallyNormalized !== text) {
-    text = structurallyNormalized;
-    transformations.push('normalized_chord_structure');
-    // Existing backend callers use this boolean as the signal to consume the
-    // returned normalized text, so structural cleanup must also mark a change.
-    wasDecoded = true;
   }
 
   return { text, wasDecoded, transformations };
