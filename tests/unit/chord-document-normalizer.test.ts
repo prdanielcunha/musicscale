@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  extractLyricsFromCanonicalChordDocument,
   isChordOnlyCandidate,
   normalizeChordDocumentStructure,
 } from '../../utils/chordDocumentNormalizer';
+import { normalizePastedSongText } from '../../utils/textNormalizer';
 import { parseChordsAndLyrics } from '../../components/songs/ChordsRenderer';
 
 describe('chord document formatting repair', () => {
@@ -46,6 +48,73 @@ Curando todo meu ser`;
     expect(repaired.match(/Curando todo meu ser/g)).toHaveLength(1);
   });
 
+  it('repairs the Promessas production fingerprint before AI processing', () => {
+    const corrupted = `Promessas (part. Samuel Messias)
+Sarah Beatriz
+
+Tom: G#m (com forma de Em)Capotraste: 4ª casa
+
+[Intro] Em7  C9  G
+">D4
+
+        Em7  C9  G
+
+[Primeira Parte]
+
+">D4
+
+[Primeira Parte]
+
+Em7
+    Deus de Abraão
+
+">C9
+
+    Deus de Abraão
+
+Sei que nunca quebrará
+
+">G
+
+Sei que nunca quebrará`;
+
+    const { text, wasDecoded, transformations } = normalizePastedSongText(corrupted);
+
+    expect(wasDecoded).toBe(true);
+    expect(transformations).toContain('normalized_chord_structure');
+    expect(text).not.toContain('\">');
+    expect(text).toContain('[Intro]\nEm7  C9  G');
+    expect(text.match(/\[Primeira Parte\]/g)).toHaveLength(1);
+    expect(text.match(/Deus de Abraão/g)).toHaveLength(1);
+    expect(text.match(/Sei que nunca quebrará/g)).toHaveLength(1);
+    expect(text).toContain('C9\n    Deus de Abraão');
+    expect(text).toContain('G\nSei que nunca quebrará');
+  });
+
+  it('builds clean lyrics from the canonical Promessas chord document', () => {
+    const corrupted = `[Intro] Em7 C9 G
+">D4
+
+[Primeira Parte]
+
+Em7
+Deus de Abraão
+">C9
+Deus de Abraão
+
+Sei que nunca quebrará
+">G
+Sei que nunca quebrará`;
+
+    const lyrics = extractLyricsFromCanonicalChordDocument(corrupted);
+
+    expect(lyrics).not.toContain('\">');
+    expect(lyrics).not.toMatch(/^\s*(?:Em7|C9|G|D4)\s*$/m);
+    expect(lyrics.match(/Deus de Abraão/g)).toHaveLength(1);
+    expect(lyrics.match(/Sei que nunca quebrará/g)).toHaveLength(1);
+    expect(lyrics).toContain('[Primeira Parte]');
+  });
+
   it('preserves valid horizontal chord alignment', () => {
     const valid = '[Verso]\nE      B/D#      C#m\nQuem é esse que vem';
     const repaired = normalizeChordDocumentStructure(valid);
@@ -64,11 +133,14 @@ Curando todo meu ser`;
     expect(repaired.match(/Santo/g)).toHaveLength(2);
   });
 
-  it('recognizes the recovered chord forms from the reported screen', () => {
+  it('recognizes the recovered chord forms from the reported screens', () => {
     expect(isChordOnlyCandidate('A9')).toBe(true);
     expect(isChordOnlyCandidate('E')).toBe(true);
     expect(isChordOnlyCandidate('C#m7')).toBe(true);
     expect(isChordOnlyCandidate('B4')).toBe(true);
+    expect(isChordOnlyCandidate('D4')).toBe(true);
+    expect(isChordOnlyCandidate('C9')).toBe(true);
+    expect(isChordOnlyCandidate('G')).toBe(true);
   });
 
   it('feeds the repaired legacy chart to the renderer parser', () => {

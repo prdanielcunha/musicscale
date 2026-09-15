@@ -1,3 +1,8 @@
+import {
+  hasRecoverableChordDocumentCorruption,
+  normalizeChordDocumentStructure,
+} from './chordDocumentNormalizer';
+
 export function normalizePastedSongText(input: string): {
   text: string;
   wasDecoded: boolean;
@@ -64,6 +69,20 @@ export function normalizePastedSongText(input: string): {
         text = pass2.result;
         transformations.push('percent_decoded_2_passes');
       }
+    }
+  }
+
+  // 4. Only invoke musical structural cleanup when we can prove this paste
+  // contains the known malformed chord fingerprint. Generic multiline text
+  // must keep its original whitespace/semantics.
+  if (hasRecoverableChordDocumentCorruption(text)) {
+    const structurallyNormalized = normalizeChordDocumentStructure(text);
+    if (structurallyNormalized !== text) {
+      text = structurallyNormalized;
+      transformations.push('normalized_chord_structure');
+      // Existing server callers use this boolean as the signal to consume the
+      // returned normalized text, so structural cleanup must mark a change.
+      wasDecoded = true;
     }
   }
 

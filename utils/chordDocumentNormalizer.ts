@@ -106,9 +106,45 @@ const recoverCorruptChordPrefix = (line: string): NormalizedLine => {
   return { text: cleaned, recoveredCorruptChord: false };
 };
 
+const splitRecognizedSectionPrefix = (line: string): string[] => {
+  const cleaned = stripInvisibleTextNoise(line);
+  const trimmed = cleaned.trim();
+  const bracketed = trimmed.match(/^\[([^\]]+)\]\s*(.+)$/);
+  if (!bracketed) return [cleaned];
+
+  const section = `[${bracketed[1].trim()}]`;
+  if (!getRecognizedSectionKey(section)) return [cleaned];
+
+  const remainder = bracketed[2].trim();
+  if (!remainder) return [section];
+  return [section, remainder];
+};
+
+export const hasRecoverableChordDocumentCorruption = (input: string): boolean => {
+  if (typeof input !== 'string' || !input) return false;
+
+  // Keep this gate intentionally narrow. A valid chart may legitimately use
+  // forms such as "[Intro] E G#m C#m" on one line. Structural repair is only
+  // allowed when the paste contains the proven corruption fingerprint from
+  // imported blockquote/escaped markup, e.g. `">D4`, `> C9` or `&gt;G`.
+  // Once that fingerprint exists anywhere in the document, the deterministic
+  // repair may also split section+chord lines and remove duplicate artifacts.
+  const normalizedInput = input.replace(/\r\n?/g, '\n');
+  return normalizedInput
+    .split('\n')
+    .some((rawLine) => recoverCorruptChordPrefix(rawLine).recoveredCorruptChord);
+};
+
 const isMeaningfulLyric = (line: string): boolean => {
   const trimmed = line.trim();
   return Boolean(trimmed) && !isChordOnlyCandidate(trimmed) && !getRecognizedSectionKey(trimmed);
+};
+
+const nextNonBlankIndex = (lines: NormalizedLine[], start: number): number => {
+  for (let index = start; index < lines.length; index += 1) {
+    if (lines[index].text.trim()) return index;
+  }
+  return -1;
 };
 
 /**
@@ -123,35 +159,46 @@ export const normalizeChordDocumentStructure = (input: string): string => {
     .replace(/^\uFEFF/, '')
     .replace(/\r\n?/g, '\n');
 
-  const source = normalizedInput.split('\n').map(recoverCorruptChordPrefix);
+  const source: NormalizedLine[] = [];
+  for (const rawLine of normalizedInput.split('\n')) {
+    for (const expandedLine of splitRecognizedSectionPrefix(rawLine)) {
+      source.push(recoverCorruptChordPrefix(expandedLine));
+    }
+  }
+
   const repaired: NormalizedLine[] = [];
 
-  // Known copy/import corruption fingerprint:
+  // Known copy/import corruption fingerprint, allowing blank spacer lines:
   // lyric -> quote/blockquote-prefixed chord -> same lyric.
-  // In that narrow case the first lyric is a duplicate and the recovered
-  // chord belongs immediately before the surviving lyric.
-  for (let index = 0; index < source.length; index += 1) {
+  // The malformed chord belongs immediately before the surviving lyric.
+  let index = 0;
+  while (index < source.length) {
     const current = source[index];
-    const chord = source[index + 1];
-    const repeated = source[index + 2];
+    if (isMeaningfulLyric(current.text)) {
+      const chordIndex = nextNonBlankIndex(source, index + 1);
+      const repeatedIndex = chordIndex >= 0 ? nextNonBlankIndex(source, chordIndex + 1) : -1;
+      const chord = chordIndex >= 0 ? source[chordIndex] : null;
+      const repeated = repeatedIndex >= 0 ? source[repeatedIndex] : null;
 
-    if (
-      repeated &&
-      chord?.recoveredCorruptChord &&
-      isMeaningfulLyric(current.text) &&
-      current.text.trim() === repeated.text.trim()
-    ) {
-      repaired.push(chord, repeated);
-      index += 2;
-      continue;
+      if (
+        chord &&
+        repeated &&
+        chord.recoveredCorruptChord &&
+        current.text.trim() === repeated.text.trim()
+      ) {
+        repaired.push(chord, repeated);
+        index = repeatedIndex + 1;
+        continue;
+      }
     }
 
     repaired.push(current);
+    index += 1;
   }
 
-  // Drop a duplicated section marker only when the duplicate is proven to be
-  // part of the same corrupt import fragment (a recovered malformed chord was
-  // seen and no lyric appeared between the two equal section markers).
+  // Drop a repeated section only when a recovered corrupt chord occurred
+  // between equal section markers and no lyric occurred. This keeps legitimate
+  // repeated instrumental sections intact while removing the import fingerprint.
   const withoutDuplicateSections: NormalizedLine[] = [];
   let activeSectionKey: string | null = null;
   let sawLyricSinceSection = false;
@@ -192,9 +239,6 @@ export const normalizeChordDocumentStructure = (input: string): string => {
     withoutDuplicateSections.push(entry);
   }
 
-  // One blank line is enough between musical blocks. Section spacing is a UI
-  // responsibility, so blank lines immediately around section labels are
-  // removed to avoid the giant gaps seen on mobile.
   const compact: string[] = [];
   for (const entry of withoutDuplicateSections) {
     const line = entry.text;
@@ -211,12 +255,46 @@ export const normalizeChordDocumentStructure = (input: string): string => {
   }
 
   return compact
-    .filter((line, index, lines) => {
+    .filter((line, lineIndex, lines) => {
       if (line.trim() !== '') return true;
-      const previous = lines[index - 1] || '';
-      const next = lines[index + 1] || '';
+      const previous = lines[lineIndex - 1] || '';
+      const next = lines[lineIndex + 1] || '';
       return !getRecognizedSectionKey(previous) && !getRecognizedSectionKey(next);
     })
     .join('\n')
     .trim();
+};
+
+/**
+ * Builds a lyrics-only document from the canonical chord document. This is a
+ * deterministic fallback/guardrail for AI import previews and never invents
+ * musical content.
+ */
+export const extractLyricsFromCanonicalChordDocument = (input: string): string => {
+  const canonical = normalizeChordDocumentStructure(input);
+  if (!canonical) return '';
+
+  const output: string[] = [];
+  for (const line of canonical.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (output.length > 0 && output[output.length - 1] !== '') output.push('');
+      continue;
+    }
+
+    if (getRecognizedSectionKey(trimmed)) {
+      output.push(trimmed);
+      continue;
+    }
+
+    if (isChordOnlyCandidate(trimmed)) continue;
+
+    const lyric = line
+      .replace(/\[[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|M|º|°|\d|7M|M7)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?\]/g, '')
+      .trim();
+    if (lyric) output.push(lyric);
+  }
+
+  while (output.length > 0 && output[output.length - 1] === '') output.pop();
+  return output.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 };
