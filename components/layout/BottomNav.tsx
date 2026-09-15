@@ -123,14 +123,12 @@ export const BottomNav: React.FC = () => {
             return (
               <React.Fragment key={link.id}>
                 {index === 2 && (
-                  <motion.div
+                  <div
                     data-testid="mobile-create-highlight"
-                    className="relative flex min-w-11 flex-1 justify-center before:pointer-events-none before:absolute before:left-1/2 before:top-[3px] before:h-8 before:w-8 before:-translate-x-1/2 before:rounded-full before:border before:border-indigo-300/[0.18] before:bg-indigo-400/[0.07] before:shadow-[0_0_18px_rgba(129,140,248,0.22)] [&_button]:relative [&_button]:z-10 [&_svg]:drop-shadow-[0_0_5px_rgba(165,180,252,0.55)]"
-                    animate={{ scale: isCompact ? 0.92 : 1 }}
-                    transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.18 }}
+                    className="relative flex min-w-[44px] flex-1 justify-center"
                   >
-                    <GlobalCreateAction variant="mobile" />
-                  </motion.div>
+                    <GlobalCreateAction variant="mobile" compact={isCompact} />
+                  </div>
                 )}
                 <NavLink
                   to={link.to}
