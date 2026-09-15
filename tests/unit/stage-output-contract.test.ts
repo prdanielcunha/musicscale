@@ -33,9 +33,20 @@ describe("MusicScale Stage Output", () => {
   it("keeps receiver presence fresh and rejects stale playback commands", () => {
     expect(transport).toContain("STAGE_RECEIVER_STALE_MS = 90_000");
     expect(coordinator).toContain("HEARTBEAT_MS = 30_000");
+    expect(coordinator).toContain("PRESENCE_TICK_MS = 15_000");
     expect(coordinator).toContain("COMMAND_MAX_AGE_MS = 15_000");
+    expect(coordinator).toContain("reconcileSelectedTarget");
     expect(coordinator).toContain("isStale && !isStop");
     expect(coordinator).toContain('"STALE_COMMAND"');
+  });
+
+  it("converges every fast command on a complete desired Pad state", () => {
+    expect(transport).toContain("StageOutputDesiredState");
+    expect(transport).toContain("desired?: StageOutputDesiredState");
+    expect(coordinator).toContain("desiredByTarget");
+    expect(coordinator).toContain("desiredStateFor");
+    expect(coordinator).toContain("desired: normalizedDesired");
+    expect(coordinator).toContain("command.desired.playing");
   });
 
   it("fails safe when the selected physical audio interface disappears", () => {
@@ -43,7 +54,14 @@ describe("MusicScale Stage Output", () => {
     expect(coordinator).toContain("isOutputDeviceAvailable");
     expect(coordinator).toContain("stagePadEngine.stop(0.12)");
     expect(coordinator).toContain('"OUTPUT_DISCONNECTED"');
+    expect(coordinator).toContain('"AUDIO_OUTPUT_SELECTION_FAILED"');
     expect(coordinator).toContain("this.ready = false");
+  });
+
+  it("allows STOP to remain the safe command even when receiver readiness changes", () => {
+    expect(coordinator).toContain('type !== "stop" && !receiver.ready');
+    expect(coordinator).toContain('command.type === "stop" || command.desired?.playing === false');
+    expect(coordinator).toContain("stagePadEngine.stop(0.18)");
   });
 
   it("requires an explicit receiver and exposes emergency stop and output test UX", () => {
