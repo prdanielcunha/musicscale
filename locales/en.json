@@ -964,7 +964,8 @@
     "deleteDraftDescription": "The draft will be permanently deleted. If there is a linked band schedule, it will also be removed so no orphaned data is left.",
     "deleteDraftPermanent": "This action can’t be undone.",
     "deletingDraft": "Deleting...",
-    "confirmDeleteDraft": "Delete draft"
+    "confirmDeleteDraft": "Delete draft",
+    "saveContextUnavailable": "Your session or organization is still loading. Wait a few seconds and try saving again."
   },
   "bandScaleModal": {
     "titleCreate": "New Band Scale",

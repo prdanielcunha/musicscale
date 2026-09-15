@@ -964,7 +964,8 @@
     "deleteDraftDescription": "O rascunho será excluído permanentemente. Se houver uma escala de banda vinculada, ela também será removida para não deixar dados órfãos.",
     "deleteDraftPermanent": "Esta ação não pode ser desfeita.",
     "deletingDraft": "Excluindo...",
-    "confirmDeleteDraft": "Excluir rascunho"
+    "confirmDeleteDraft": "Excluir rascunho",
+    "saveContextUnavailable": "Sua sessão ou organização ainda não terminou de carregar. Aguarde alguns segundos e tente salvar novamente."
   },
   "bandScaleModal": {
     "titleCreate": "Nova Escala da Banda",
