@@ -1,7 +1,7 @@
 {
   "name": "music-scale-manager",
   "private": true,
-  "version": "0.1.4-beta",
+  "version": "0.1.5-beta",
   "type": "module",
   "scripts": {
     "assets:materialize": "tsx scripts/materialize-brand-assets.ts",
