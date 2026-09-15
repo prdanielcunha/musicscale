@@ -17,7 +17,7 @@ describe('Premium V2 full experience contract', () => {
     expect(source).not.toContain('attributeFilter: ["style"]');
     expect(source).toContain('if (isPerformanceActive) return null');
     expect(source.match(/id: "(dashboard|songs|scales|library)"/g)).toHaveLength(4);
-    expect(source).toContain('<GlobalCreateAction variant="mobile" />');
+    expect(source).toContain('<GlobalCreateAction variant="mobile" compact={isCompact} />');
     expect(source).toContain('min-w-[44px]');
     expect(source).toContain('data-testid="mobile-create-highlight"');
     expect(source).not.toContain('before:rounded-full');
