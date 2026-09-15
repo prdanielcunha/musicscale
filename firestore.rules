@@ -243,11 +243,18 @@ service cloud.firestore {
              );
     }
     
+    function isCanonicalGlobalSystemRole(role) {
+      return role in ['ceo', 'admin', 'global_admin', 'ecosystem_owner', 'founder'];
+    }
+
     function isSystemAdmin() {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('systemRole', '') in
-          ['ceo', 'admin', 'global_admin', 'ecosystem_owner', 'founder'];
+        (
+          isCanonicalGlobalSystemRole(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('systemRole', '')) ||
+          isCanonicalGlobalSystemRole(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('ecosystemRole', '')) ||
+          isCanonicalGlobalSystemRole(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('globalRole', ''))
+        );
     }
 
     function hasCanonicalGlobalRole() {
@@ -489,23 +496,23 @@ service cloud.firestore {
     }
     match /scales/{scaleId} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
-      allow create: if isAuthenticated() && (hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageScales') || hasLegacyUsersOnlyPermission(incoming().get('organizationId', ''), 'canManageScales') || hasPermission(incoming().get('organizationId', ''), 'canManageScales')) && isOrgActive(incoming().get('organizationId', ''));
-      allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
-      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(incoming().get('organizationId', '')) || hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageScales') || hasLegacyUsersOnlyPermission(incoming().get('organizationId', ''), 'canManageScales') || hasPermission(incoming().get('organizationId', ''), 'canManageScales')) && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(resource.data.get('organizationId', '')) || hasPermission(resource.data.get('organizationId', ''), 'canManageScales')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(resource.data.get('organizationId', '')) || hasPermission(resource.data.get('organizationId', ''), 'canManageScales')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
     }
 
     match /bandScales/{scaleId} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
-      allow create: if isAuthenticated() && hasPermission(incoming().get('organizationId', ''), 'canManageScales') && isOrgActive(incoming().get('organizationId', ''));
-      allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
-      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(incoming().get('organizationId', '')) || hasPermission(incoming().get('organizationId', ''), 'canManageScales')) && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(resource.data.get('organizationId', '')) || hasPermission(resource.data.get('organizationId', ''), 'canManageScales')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(resource.data.get('organizationId', '')) || hasPermission(resource.data.get('organizationId', ''), 'canManageScales')) && checkOrgAccess(resource.data.get('organizationId', ''));
     }
 
     match /fixedBandScales/{id} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
-      allow create: if isAuthenticated() && hasPermission(incoming().get('organizationId', ''), 'canManageScales') && isOrgActive(incoming().get('organizationId', ''));
-      allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
-      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageScales') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(incoming().get('organizationId', '')) || hasPermission(incoming().get('organizationId', ''), 'canManageScales')) && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(resource.data.get('organizationId', '')) || hasPermission(resource.data.get('organizationId', ''), 'canManageScales')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(resource.data.get('organizationId', '')) || hasPermission(resource.data.get('organizationId', ''), 'canManageScales')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
     }
 
     match /liveSessions/{id} {
