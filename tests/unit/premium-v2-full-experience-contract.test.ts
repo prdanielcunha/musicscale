@@ -19,6 +19,22 @@ describe('Premium V2 full experience contract', () => {
     expect(source.match(/id: "(dashboard|songs|scales|library)"/g)).toHaveLength(4);
     expect(source).toContain('<GlobalCreateAction variant="mobile" />');
     expect(source).toContain('min-w-[44px]');
+    expect(source).toContain('data-testid="mobile-create-highlight"');
+    expect(source).toContain('before:bg-indigo-400/[0.07]');
+    expect(source).toContain('before:shadow-[0_0_18px_rgba(129,140,248,0.22)]');
+    expect(source).not.toContain('animate-pulse');
+  });
+
+  it('keeps contextual future greetings short instead of treating the event weekday as today', () => {
+    const greetings = read('locales/dashboardGreetings.ts');
+    const i18n = read('lib/i18n.ts');
+    expect(greetings).toContain("assigned_future_title: 'Olá, {{name}}.'");
+    expect(greetings).toContain("leader_future_title: 'Olá, {{name}}.'");
+    expect(greetings).toContain("assigned_future_title: 'Hello, {{name}}.'");
+    expect(greetings).toContain("assigned_future_title: 'Hola, {{name}}.'");
+    expect(greetings).not.toContain('Bom {{weekday}}');
+    expect(i18n).toContain('dashboardGreetingTranslations');
+    expect(i18n).toContain('...dashboardGreetings');
   });
 
   it('makes the header react to the real workspace scroll container and keeps iPhone chrome compositor-cheap', () => {
