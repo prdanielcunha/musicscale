@@ -4,6 +4,7 @@ import { ArrowRight, Sparkles, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { StarterPackAllowance } from '../../utils/starterPackAllowance';
 import { StarterPackError } from '../../hooks/useStarterPackAllowance';
 import Card from '../common/Card';
+import { useMusicScaleEntitlements } from '../../hooks/useMusicScaleEntitlements';
 import { UsageProgress } from '../common/UsageProgress';
 
 interface StarterPackAllowanceCardProps {
@@ -24,6 +25,17 @@ export function StarterPackAllowanceCard({
   variant = 'compact'
 }: StarterPackAllowanceCardProps) {
   const { t } = useTranslation();
+  const { entitlements, loading: entitlementsLoading } = useMusicScaleEntitlements();
+
+  // Consume the canonical tenant-scoped snapshot, including ecosystem benefits.
+  // This only controls onboarding copy; import authorization stays on the server.
+  const hasUnlimitedLibraryImports =
+    (entitlements?.status === 'active' || entitlements?.status === 'trialing') &&
+    entitlements?.features?.libraryAccess === true &&
+    entitlements?.limits?.libraryImportsPerMonth === -1;
+
+  // Avoid flashing a ten-song quota while identity/tenant access is hydrating.
+  if (entitlementsLoading || !entitlements || hasUnlimitedLibraryImports) return null;
 
   if (loading) {
     if (variant === 'empty-repertoire') {
@@ -176,7 +188,7 @@ export function StarterPackAllowanceCard({
             used={allowance.used} 
             limit={allowance.limit} 
             tone="indigo" 
-            label={!allowance.completed ? <span className="text-zinc-400 text-xs">{t('starterPackAllowance.remainingCount', '{{remaining}} disponíveis', { remaining: allowance.remaining })}</span> : undefined}
+            label={!allowance.completed ? <span className="text-zinc-400 text-xs">{t('starterPackAllowance.remainingCount', '{{remaining}} disponíveis', { remaining: allowance.remaining, limit: allowance.limit })}</span> : undefined}
           />
         </div>
 
