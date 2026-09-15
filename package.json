@@ -1,7 +1,7 @@
 {
   "name": "music-scale-manager",
   "private": true,
-  "version": "0.1.0-beta",
+  "version": "0.1.1-beta",
   "type": "module",
   "scripts": {
     "assets:materialize": "tsx scripts/materialize-brand-assets.ts",
@@ -25,7 +25,7 @@
     "test:song-discovery": "tsx run_song_discovery_tests.ts",
     "test:starter-pack-ui": "vitest run tests/ui/starter-pack-visibility.test.tsx",
     "test:curation-approval": "vitest run tests/server/curation-approval-service.test.ts",
-    "test:scale-cycle": "vitest run tests/server/music-scale-cycle-release.test.ts",
+    "test:scale-cycle": "tsx scripts/test_ms_scale_review_02.ts",
     "test:scale-notifications": "vitest run tests/ui/music-scale-notification-contract.test.tsx",
     "test:scale-presence": "vitest run tests/server/music-scale-presence-release.test.ts",
     "test:scale-calendar": "vitest run tests/unit/music-scale-calendar-release.test.ts",
