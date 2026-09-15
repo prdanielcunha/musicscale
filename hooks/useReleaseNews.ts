@@ -5,14 +5,18 @@ import { FEATURE_RELEASE } from '../lib/appRelease';
 const changed = 'musicscale:release-news-changed';
 const memory = new Map<string, string>();
 function read(key: string): string {
-  try { return window.localStorage.getItem(key) ?? memory.get(key) ?? ''; }
+  try { return memory.get(key) ?? window.localStorage.getItem(key) ?? ''; }
   catch { return memory.get(key) ?? ''; }
 }
 function subscribe(callback: () => void) {
-  window.addEventListener('storage', callback);
+  const onStorage = (event: StorageEvent) => {
+    if (event.key) memory.delete(event.key);
+    callback();
+  };
+  window.addEventListener('storage', onStorage);
   window.addEventListener(changed, callback);
   return () => {
-    window.removeEventListener('storage', callback);
+    window.removeEventListener('storage', onStorage);
     window.removeEventListener(changed, callback);
   };
 }
@@ -22,8 +26,12 @@ export function useReleaseNews() {
   const seen = useSyncExternalStore(subscribe, () => key ? read(key) : '', () => '');
   const markReleaseSeen = useCallback(() => {
     if (!key) return;
-    memory.set(key, FEATURE_RELEASE.id);
-    try { window.localStorage.setItem(key, FEATURE_RELEASE.id); } catch { /* session fallback */ }
+    try {
+      window.localStorage.setItem(key, FEATURE_RELEASE.id);
+      memory.delete(key);
+    } catch {
+      memory.set(key, FEATURE_RELEASE.id);
+    }
     window.dispatchEvent(new Event(changed));
   }, [key]);
   return {

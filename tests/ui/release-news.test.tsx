@@ -19,6 +19,16 @@ describe('release acknowledgment', () => {
     const third = renderHook(() => useReleaseNews());
     expect(third.result.current.hasUnseenRelease).toBe(false);
   });
+  it('acknowledges in memory when storage has an older value but refuses writes', () => {
+    uid = 'release-user-storage-failure';
+    localStorage.setItem('musicscale_release_seen:' + uid, 'older-release');
+    const hook = renderHook(() => useReleaseNews());
+    const write = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+    try {
+      act(() => hook.result.current.markReleaseSeen());
+      expect(hook.result.current.hasUnseenRelease).toBe(false);
+    } finally { write.mockRestore(); }
+  });
   it('does not transfer acknowledgment between signed-in users', () => {
     uid = 'release-user-isolation-a';
     const hook = renderHook(() => useReleaseNews());
