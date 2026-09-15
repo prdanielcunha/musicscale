@@ -17,11 +17,11 @@ describe('Premium V2 full experience contract', () => {
     expect(source).not.toContain('attributeFilter: ["style"]');
     expect(source).toContain('if (isPerformanceActive) return null');
     expect(source.match(/id: "(dashboard|songs|scales|library)"/g)).toHaveLength(4);
-    expect(source).toContain('<GlobalCreateAction variant="mobile" />');
+    expect(source).toContain('<GlobalCreateAction variant="mobile" compact={isCompact} />');
     expect(source).toContain('min-w-[44px]');
     expect(source).toContain('data-testid="mobile-create-highlight"');
-    expect(source).toContain('before:bg-indigo-400/[0.07]');
-    expect(source).toContain('before:shadow-[0_0_18px_rgba(129,140,248,0.22)]');
+    expect(source).not.toContain('before:rounded-full');
+    expect(source).not.toContain('before:shadow-');
     expect(source).not.toContain('animate-pulse');
   });
 
