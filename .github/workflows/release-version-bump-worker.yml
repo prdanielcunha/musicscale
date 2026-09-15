@@ -1,0 +1,44 @@
+name: MusicScale Release Version Bump Worker
+
+on:
+  push:
+    branches:
+      - release/0.1.2-beta-production-hotfix
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    if: ${{ !contains(github.event.head_commit.message, '[release-bump-worker]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/0.1.2-beta-production-hotfix
+          fetch-depth: 0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Bump beta patch version
+        run: |
+          npm run release:patch
+          node -e "const p=require('./package.json'); if(p.version!=='0.1.2-beta') throw new Error('Unexpected version '+p.version)"
+          node -e "const p=require('./package-lock.json'); if(p.version!=='0.1.2-beta'||p.packages[''].version!=='0.1.2-beta') throw new Error('Lock version mismatch')"
+
+      - name: Commit release version and remove temporary worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'ChatGPT Release Worker'
+          git config user.email 'actions@users.noreply.github.com'
+          git rm .github/workflows/release-version-bump-worker.yml
+          git add package.json package-lock.json
+          git commit -m 'release: bump MusicScale to 0.1.2-beta [release-bump-worker]'
+          git push origin HEAD:release/0.1.2-beta-production-hotfix
