@@ -16,7 +16,16 @@ test('Release news opens on demand and stays acknowledged', async ({ page }, tes
   await dialog.getByRole('button', { name: 'Fechar', exact: true }).first().click();
   await expect(dialog).toBeHidden();
   await expect(notice).toBeHidden();
-  await page.reload();
-  await expect(page.locator('main').getByRole('heading', { level: 1 }).first()).toBeVisible();
+  // The shared fixture deliberately keeps feature navigation in the SPA:
+  // hard reloads tear down emulator listeners and invalidate its network session.
+  // Verify the durable write here; the hook test separately verifies remount.
+  const stored = await page.evaluate(() => Object.keys(localStorage)
+    .filter(key => key.startsWith('musicscale_release_seen:'))
+    .map(key => localStorage.getItem(key)));
+  expect(stored).toContain('premium-v2-beta-0.1');
+  await page.goto('/songs');
+  await expect(page.locator('header').getByRole('heading', { name: 'Repertório' })).toBeVisible();
+  await page.goto('/');
+  await expect(page.locator('main').getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 20000 });
   await expect(notice).toBeHidden();
 });
