@@ -49,6 +49,7 @@ test.describe('Global Create Sources (Paleta)', () => {
     await expect(page.getByPlaceholder(/Buscar por música/i)).toBeFocused();
 
     await page.goto('/');
+    await expect(page.locator('header').getByRole('heading', { name: 'Painel', exact: true })).toBeVisible();
     // Wait for the route to commit before opening a palette that closes on route changes.
     await expect(page.locator('main').getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 20000 });
     await expect(createBtn).toBeVisible();
