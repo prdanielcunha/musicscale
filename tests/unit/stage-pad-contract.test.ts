@@ -11,6 +11,10 @@ const viewer = fs.readFileSync(
   path.join(process.cwd(), "components/songs/ChordsViewerModal.tsx"),
   "utf8",
 );
+const player = fs.readFileSync(
+  path.join(process.cwd(), "components/songs/StagePadPlayer.tsx"),
+  "utf8",
+);
 
 describe("Stage native pad", () => {
   it("provides all 12 musical keys with enharmonic normalization", () => {
@@ -32,12 +36,31 @@ describe("Stage native pad", () => {
     expect(engine).not.toContain(".mp3");
   });
 
+  it("supports explicit audio-output routing with a safe system fallback", () => {
+    expect(engine).toContain("setOutputDevice");
+    expect(engine).toContain("setSinkId");
+    expect(engine).toContain("selectAudioOutput");
+    expect(engine).toContain("enumerateDevices");
+    expect(engine).toContain("devicechange");
+    expect(engine).toContain("createMediaStreamDestination");
+    expect(engine).toContain("context.destination");
+  });
+
   it("adds Pad beside the existing stage metronome without replacing it", () => {
     expect(viewer).toContain("StagePadPlayer");
     expect(viewer).toContain("isStagePadOpen");
     expect(viewer).toContain("isStageMetronomeOpen");
     expect(viewer).toContain("<Metronome");
     expect(viewer).toContain("setIsAutoScrolling");
+  });
+
+  it("keeps local Pad behavior while exposing an optional Stage Output destination", () => {
+    expect(player).toContain("stagePadEngine.start");
+    expect(player).toContain("stageOutputCoordinator.sendPlay");
+    expect(player).toContain("stageOutputCoordinator.sendStop");
+    expect(player).toContain("stageOutputCoordinator.sendKey");
+    expect(player).toContain("stageOutputCoordinator.sendVolume");
+    expect(player).toContain("selectedRemote");
   });
 
   it("follows the effective Performance key instead of the raw song metadata key", () => {

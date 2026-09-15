@@ -35,6 +35,17 @@ export const STAGE_PAD_KEYS = [
 
 export type StagePadKey = (typeof STAGE_PAD_KEYS)[number];
 
+export interface StageAudioOutputDevice {
+  deviceId: string;
+  label: string;
+}
+
+export interface StageAudioOutputCapabilities {
+  explicitRouting: boolean;
+  browserChooser: boolean;
+  deviceEnumeration: boolean;
+}
+
 const normalizePadKey = (value?: string | null): StagePadKey => {
   const clean = String(value || "C")
     .trim()
@@ -72,12 +83,24 @@ interface Voice {
   feedback: GainNode;
 }
 
+type AudioContextWithSink = AudioContext & {
+  setSinkId?: (sinkId: string) => Promise<void>;
+};
+
+type AudioElementWithSink = HTMLAudioElement & {
+  setSinkId?: (sinkId: string) => Promise<void>;
+};
+
 class StagePadEngine {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private activeVoice: Voice | null = null;
   private activeKey: StagePadKey | null = null;
   private targetVolume = 0.46;
+  private mediaDestination: MediaStreamAudioDestinationNode | null = null;
+  private sinkAudioElement: AudioElementWithSink | null = null;
+  private outputDeviceId = "";
+  private outputRouting: "system" | "context" | "media" = "system";
 
   private getContext() {
     if (!this.context) {
@@ -89,6 +112,193 @@ class StagePadEngine {
       this.master.connect(this.context.destination);
     }
     return this.context;
+  }
+
+  private connectMasterToSystemOutput() {
+    const context = this.getContext();
+    if (!this.master) return;
+    try {
+      this.master.disconnect();
+    } catch {
+      // The node may not have an active connection yet.
+    }
+    this.master.connect(context.destination);
+  }
+
+  private releaseMediaSink() {
+    if (!this.sinkAudioElement) return;
+    try {
+      this.sinkAudioElement.pause();
+      this.sinkAudioElement.srcObject = null;
+    } catch {
+      // Best effort cleanup.
+    }
+  }
+
+  getAudioOutputCapabilities(): StageAudioOutputCapabilities {
+    if (typeof window === "undefined" || typeof navigator === "undefined") {
+      return {
+        explicitRouting: false,
+        browserChooser: false,
+        deviceEnumeration: false,
+      };
+    }
+
+    const contextPrototype = (window.AudioContext || (window as any).webkitAudioContext)
+      ?.prototype as AudioContextWithSink | undefined;
+    const mediaPrototype = window.HTMLMediaElement?.prototype as
+      | AudioElementWithSink
+      | undefined;
+    const mediaDevices = navigator.mediaDevices as
+      | (MediaDevices & { selectAudioOutput?: () => Promise<MediaDeviceInfo> })
+      | undefined;
+
+    return {
+      explicitRouting:
+        typeof contextPrototype?.setSinkId === "function" ||
+        typeof mediaPrototype?.setSinkId === "function",
+      browserChooser: typeof mediaDevices?.selectAudioOutput === "function",
+      deviceEnumeration: typeof mediaDevices?.enumerateDevices === "function",
+    };
+  }
+
+  async listAudioOutputs(): Promise<StageAudioOutputDevice[]> {
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.enumerateDevices
+    ) {
+      return [];
+    }
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    let anonymousIndex = 0;
+    return devices
+      .filter((device) => device.kind === "audiooutput")
+      .map((device) => {
+        anonymousIndex += 1;
+        return {
+          deviceId: device.deviceId,
+          label:
+            device.label ||
+            (device.deviceId === "default"
+              ? "Saída padrão do sistema"
+              : `Saída de áudio ${anonymousIndex}`),
+        };
+      });
+  }
+
+  async requestAudioOutput(): Promise<StageAudioOutputDevice> {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices) {
+      throw new Error("AUDIO_OUTPUT_UNAVAILABLE");
+    }
+
+    const mediaDevices = navigator.mediaDevices as MediaDevices & {
+      selectAudioOutput?: () => Promise<MediaDeviceInfo>;
+    };
+    if (typeof mediaDevices.selectAudioOutput !== "function") {
+      throw new Error("AUDIO_OUTPUT_CHOOSER_UNSUPPORTED");
+    }
+
+    const device = await mediaDevices.selectAudioOutput();
+    await this.setOutputDevice(device.deviceId);
+    return {
+      deviceId: device.deviceId,
+      label: device.label || "Saída de áudio selecionada",
+    };
+  }
+
+  async setOutputDevice(deviceId?: string | null) {
+    const context = this.getContext();
+    const sinkId = String(deviceId || "");
+    const contextWithSink = context as AudioContextWithSink;
+
+    if (context.state === "suspended") {
+      await context.resume();
+    }
+
+    if (!sinkId || sinkId === "default") {
+      this.releaseMediaSink();
+      this.connectMasterToSystemOutput();
+      if (typeof contextWithSink.setSinkId === "function") {
+        await contextWithSink.setSinkId("").catch(() => undefined);
+      }
+      this.outputDeviceId = "";
+      this.outputRouting = "system";
+      return;
+    }
+
+    if (typeof contextWithSink.setSinkId === "function") {
+      this.releaseMediaSink();
+      this.connectMasterToSystemOutput();
+      await contextWithSink.setSinkId(sinkId);
+      this.outputDeviceId = sinkId;
+      this.outputRouting = "context";
+      return;
+    }
+
+    const mediaPrototype = window.HTMLMediaElement?.prototype as AudioElementWithSink;
+    if (typeof mediaPrototype?.setSinkId === "function") {
+      if (!this.master) throw new Error("AUDIO_ENGINE_NOT_READY");
+      if (!this.mediaDestination) {
+        this.mediaDestination = context.createMediaStreamDestination();
+      }
+      if (!this.sinkAudioElement) {
+        const element = new Audio() as AudioElementWithSink;
+        element.autoplay = true;
+        this.sinkAudioElement = element;
+      }
+
+      try {
+        this.master.disconnect();
+        this.master.connect(this.mediaDestination);
+        this.sinkAudioElement.srcObject = this.mediaDestination.stream;
+        await this.sinkAudioElement.setSinkId!(sinkId);
+        await this.sinkAudioElement.play();
+        this.outputDeviceId = sinkId;
+        this.outputRouting = "media";
+        return;
+      } catch (error) {
+        this.releaseMediaSink();
+        this.connectMasterToSystemOutput();
+        this.outputDeviceId = "";
+        this.outputRouting = "system";
+        throw error;
+      }
+    }
+
+    throw new Error("AUDIO_OUTPUT_SELECTION_UNSUPPORTED");
+  }
+
+  async arm() {
+    const context = this.getContext();
+    if (context.state === "suspended") await context.resume();
+  }
+
+  getOutputDeviceId() {
+    return this.outputDeviceId;
+  }
+
+  getOutputRoutingMode() {
+    return this.outputRouting;
+  }
+
+  async isOutputDeviceAvailable(deviceId = this.outputDeviceId) {
+    if (!deviceId) return true;
+    const outputs = await this.listAudioOutputs().catch(() => []);
+    if (outputs.length === 0) return true;
+    return outputs.some((output) => output.deviceId === deviceId);
+  }
+
+  onAudioOutputsChanged(listener: () => void) {
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.addEventListener
+    ) {
+      return () => undefined;
+    }
+    navigator.mediaDevices.addEventListener("devicechange", listener);
+    return () =>
+      navigator.mediaDevices.removeEventListener("devicechange", listener);
   }
 
   private createVoice(key: StagePadKey): Voice {
