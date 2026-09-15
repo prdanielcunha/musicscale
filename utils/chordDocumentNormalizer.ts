@@ -123,21 +123,16 @@ const splitRecognizedSectionPrefix = (line: string): string[] => {
 export const hasRecoverableChordDocumentCorruption = (input: string): boolean => {
   if (typeof input !== 'string' || !input) return false;
 
+  // Keep this gate intentionally narrow. A valid chart may legitimately use
+  // forms such as "[Intro] E G#m C#m" on one line. Structural repair is only
+  // allowed when the paste contains the proven corruption fingerprint from
+  // imported blockquote/escaped markup, e.g. `">D4`, `> C9` or `&gt;G`.
+  // Once that fingerprint exists anywhere in the document, the deterministic
+  // repair may also split section+chord lines and remove duplicate artifacts.
   const normalizedInput = input.replace(/\r\n?/g, '\n');
-  for (const rawLine of normalizedInput.split('\n')) {
-    if (recoverCorruptChordPrefix(rawLine).recoveredCorruptChord) return true;
-
-    const trimmed = stripInvisibleTextNoise(rawLine).trim();
-    const bracketed = trimmed.match(/^\[([^\]]+)\]\s+(.+)$/);
-    if (bracketed) {
-      const section = `[${bracketed[1].trim()}]`;
-      if (getRecognizedSectionKey(section) && isChordOnlyCandidate(bracketed[2])) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+  return normalizedInput
+    .split('\n')
+    .some((rawLine) => recoverCorruptChordPrefix(rawLine).recoveredCorruptChord);
 };
 
 const isMeaningfulLyric = (line: string): boolean => {
