@@ -1,7 +1,7 @@
 {
   "name": "music-scale-manager",
   "private": true,
-  "version": "0.1.3-beta",
+  "version": "0.1.4-beta",
   "type": "module",
   "scripts": {
     "assets:materialize": "tsx scripts/materialize-brand-assets.ts",
@@ -12,7 +12,7 @@
     "lint": "tsc --noEmit",
     "test:ui": "vitest run",
     "test:emulator:global-search": "vitest run tests/server/global-library-search.test.ts",
-    "test:emulator:security": "vitest run tests/server/music-scale-security-rules.test.ts && vitest run tests/server/public-analytics-security-rules.test.ts && vitest run tests/server/live-conductor-rules.test.ts",
+    "test:emulator:security": "vitest run tests/server/music-scale-security-rules.test.ts && vitest run tests/server/public-analytics-security-rules.test.ts && vitest run tests/server/live-conductor-rules.test.ts && vitest run tests/server/music-scale-global-role-save.test.ts",
     "machine:global-song-metrics:dry-run": "tsx scripts/global-song-metrics-machine-dry-run.ts",
     "machine:global-song-metrics:controlled-backfill": "tsx scripts/controlled-global-song-metrics-backfill.ts",
     "test:e2e:inside-emulator": "npm run test:emulator:global-search && npm run test:emulator:security && npm run test:e2e:run",
