@@ -1,7 +1,7 @@
 {
   "name": "music-scale-manager",
   "private": true,
-  "version": "0.1.2-beta",
+  "version": "0.1.3-beta",
   "type": "module",
   "scripts": {
     "assets:materialize": "tsx scripts/materialize-brand-assets.ts",
@@ -83,8 +83,6 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/express": "^5.0.6",
     "@types/node": "^22.14.0",
-    "@types/supertest": "^7.2.1",
-    "@vitejs/plugin-react": "^5.0.0",
     "esbuild": "^0.28.0",
     "firebase-tools": "^15.25.1",
     "jsdom": "^29.1.1",
