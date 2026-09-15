@@ -37,6 +37,18 @@ export type AiAuthResult =
   | { ok: true; context: AiAuthorizedContext }
   | { ok: false; statusCode: number; error: string };
 
+function isRevocationLookupPermissionFailure(error: any): boolean {
+  const code = typeof error?.code === 'string' ? error.code.trim().toLowerCase() : '';
+  const message = typeof error?.message === 'string' ? error.message.toLowerCase() : '';
+
+  return code === 'auth/insufficient-permission'
+    || code === 'permission-denied'
+    || code === 'permission_denied'
+    || error?.code === 7
+    || message.includes('insufficient permission')
+    || message.includes('permission denied');
+}
+
 function aggregateCapabilities(...sources: any[]): Set<string> {
   const result = new Set<string>();
   for (const source of sources) {
@@ -146,8 +158,20 @@ export async function authorizeAiRequest(input: AuthorizeAiRequestInput): Promis
   let decodedToken;
   try {
     decodedToken = await authInstance.verifyIdToken(token, true);
-  } catch (e) {
-    return { ok: false, statusCode: 401, error: "UNAUTHORIZED" };
+  } catch (error: any) {
+    // Cloud Run can validate Firebase ID tokens without the extra IAM permission
+    // required by the optional revoked-token lookup. Match the canonical
+    // organization authorization behavior: only fall back when that IAM lookup
+    // itself is unavailable; invalid/expired tokens still fail closed.
+    if (isRevocationLookupPermissionFailure(error)) {
+      try {
+        decodedToken = await authInstance.verifyIdToken(token, false);
+      } catch (fallbackError) {
+        return { ok: false, statusCode: 401, error: "UNAUTHORIZED" };
+      }
+    } else {
+      return { ok: false, statusCode: 401, error: "UNAUTHORIZED" };
+    }
   }
 
   const uid = decodedToken.uid;
