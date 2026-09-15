@@ -1,3 +1,4 @@
+import { releaseNewsTranslations } from '../locales/releaseNews';
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
@@ -27,8 +28,10 @@ const buildTranslationResource = (
   curation: Record<string, any>,
   dashboardGreetings: Record<string, string>,
   premium: (typeof premiumV2Translations)[keyof typeof premiumV2Translations],
+  releaseNews: (typeof releaseNewsTranslations)[keyof typeof releaseNewsTranslations],
 ) => ({
   ...base,
+  releaseNews,
   dashboard: {
     ...(base.dashboard || {}),
     greetings: {
@@ -63,6 +66,7 @@ i18n
           { ...curationTranslations.pt, modals: curationModalTranslations.pt },
           dashboardGreetingTranslations.pt,
           premiumV2Translations.pt,
+          releaseNewsTranslations.pt,
         ),
       },
       en: {
@@ -71,6 +75,7 @@ i18n
           { ...curationTranslations.en, modals: curationModalTranslations.en },
           dashboardGreetingTranslations.en,
           premiumV2Translations.en,
+          releaseNewsTranslations.en,
         ),
       },
       es: {
@@ -79,6 +84,7 @@ i18n
           { ...curationTranslations.es, modals: curationModalTranslations.es },
           dashboardGreetingTranslations.es,
           premiumV2Translations.es,
+          releaseNewsTranslations.es,
         ),
       },
     },

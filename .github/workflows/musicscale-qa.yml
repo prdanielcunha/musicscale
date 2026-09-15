@@ -23,6 +23,12 @@ jobs:
       with:
         persist-credentials: false
 
+    - name: Require a new version for production promotion
+      if: github.event_name == 'pull_request' && github.base_ref == 'production'
+      run: |
+        git fetch --no-tags origin production
+        node scripts/check-release-version.mjs
+
     - name: Set up Node.js 22
       uses: actions/setup-node@v4
       with:

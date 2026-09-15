@@ -1,3 +1,5 @@
+import { useReleaseNews } from '../../hooks/useReleaseNews';
+import { APP_VERSION } from '../../lib/appRelease';
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -16,6 +18,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { t } = useTranslation();
   const location = useLocation();
+  const { hasUnseenRelease, markReleaseSeen } = useReleaseNews();
   const { openHelpModal, openWhatsNew } = useModals();
   const { organization } = useAuth();
   const [scrolled, setScrolled] = useState(false);
@@ -99,12 +102,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             onClick={openWhatsNew}
             className="premium-interactive hidden min-h-[40px] items-center gap-2 rounded-[13px] border border-white/[0.07] bg-white/[0.03] px-3.5 text-white/66 hover:border-white/[0.12] hover:bg-white/[0.055] hover:text-white sm:flex"
           >
-            <span className="relative flex h-2 w-2" aria-hidden="true">
+            {hasUnseenRelease && <span className="relative flex h-2 w-2" aria-hidden="true">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-35 motion-reduce:animate-none" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_rgba(79,140,255,0.72)]" />
-            </span>
+            </span>}
             <span className="text-[11px] font-semibold tracking-[0.04em]">
-              {t("nav.updates", "Atualizações")}
+              {t("nav.updates", "Atualizações")} · v{APP_VERSION}
             </span>
           </button>
 
@@ -119,6 +122,16 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           <NotificationBell />
         </div>
       </div>
+      {location.pathname === "/" && hasUnseenRelease && (
+        <div className="ms-content-frame flex items-center gap-2 border-t border-indigo-400/10 bg-indigo-500/[0.06] px-4 md:px-8">
+          <button onClick={openWhatsNew} className="min-h-[44px] min-w-0 flex-1 py-2 text-left text-xs font-medium text-indigo-200 touch-manipulation">
+            {t('releaseNews.view')} <span className="ml-2 font-mono text-indigo-300/70">v{APP_VERSION}</span>
+          </button>
+          <button onClick={markReleaseSeen} aria-label={t('releaseNews.later')} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-indigo-200/70 hover:bg-white/5 touch-manipulation">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+      )}
     </header>
   );
 };

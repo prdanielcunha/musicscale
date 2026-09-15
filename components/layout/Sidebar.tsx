@@ -1,3 +1,4 @@
+import { APP_VERSION } from '../../lib/appRelease';
 import { logger } from "../../lib/logger";
 import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
@@ -610,6 +611,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
             </div>
           )}
 
+          {!isCollapsed && <p className="px-3 py-2 text-[11px] text-slate-500" title={t('releaseNews.currentVersion')}>MusicScale · v{APP_VERSION}</p>}
           <LanguageSelector isCollapsed={isCollapsed} />
 
           <div
