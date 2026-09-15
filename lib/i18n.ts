@@ -6,6 +6,7 @@ import en from "../locales/en.json";
 import es from "../locales/es.json";
 import { curationTranslations } from "../locales/curation";
 import { curationModalTranslations } from "../locales/curationModals";
+import { dashboardGreetingTranslations } from "../locales/dashboardGreetings";
 import { premiumV2Translations } from "../locales/premiumV2";
 import { trackMissingKey } from "../utils/languageDiagnostics";
 
@@ -24,9 +25,17 @@ const syncDocumentLanguage = (language?: string) => {
 const buildTranslationResource = (
   base: Record<string, any>,
   curation: Record<string, any>,
+  dashboardGreetings: Record<string, string>,
   premium: (typeof premiumV2Translations)[keyof typeof premiumV2Translations],
 ) => ({
   ...base,
+  dashboard: {
+    ...(base.dashboard || {}),
+    greetings: {
+      ...(base.dashboard?.greetings || {}),
+      ...dashboardGreetings,
+    },
+  },
   library: {
     ...(base.library || {}),
     card_accessible_label: premium.library.cardAccessibleLabel,
@@ -52,6 +61,7 @@ i18n
         translation: buildTranslationResource(
           pt,
           { ...curationTranslations.pt, modals: curationModalTranslations.pt },
+          dashboardGreetingTranslations.pt,
           premiumV2Translations.pt,
         ),
       },
@@ -59,6 +69,7 @@ i18n
         translation: buildTranslationResource(
           en,
           { ...curationTranslations.en, modals: curationModalTranslations.en },
+          dashboardGreetingTranslations.en,
           premiumV2Translations.en,
         ),
       },
@@ -66,6 +77,7 @@ i18n
         translation: buildTranslationResource(
           es,
           { ...curationTranslations.es, modals: curationModalTranslations.es },
+          dashboardGreetingTranslations.es,
           premiumV2Translations.es,
         ),
       },
