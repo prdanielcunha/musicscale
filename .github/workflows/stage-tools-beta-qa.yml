@@ -1,0 +1,89 @@
+name: Stage Tools Beta QA
+
+on:
+  push:
+    branches:
+      - chatgpt/stage-tools-beta-0.2-v2
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-and-qa:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Apply deterministic integration patch
+        run: node scripts/stage-tools-large-patch.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: 1. Focused release version tests
+        run: npx vitest run tests/unit/release-version.test.ts
+
+      - name: 2. Focused release news tests
+        run: npx vitest run tests/unit/release-news-contract.test.ts tests/unit/mobile-interaction-p2-contract.test.ts tests/unit/mobile-cold-start-p3-contract.test.ts
+
+      - name: 3. Focused Stage Tools and Pad tests
+        run: npx vitest run tests/unit/stage-pad-contract.test.ts tests/unit/stage-pad-device-output.test.tsx tests/unit/stage-tools-contract.test.ts tests/unit/performance-controls-recede-contract.test.ts
+
+      - name: 4. Lint and typecheck
+        run: npm run lint
+
+      - name: 5. UI unit suite
+        run: npm run test:ui
+
+      - name: 6. Production build
+        run: npm run build
+
+      - name: 7. Whitespace validation
+        run: git diff --check
+
+      - name: Guard protected scopes and dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=97bdb33066a66c9cab1b841f376dd4c19abe9e3e
+          git diff --name-only "$BASE" > /tmp/changed-files.txt
+          cat /tmp/changed-files.txt
+          if grep -E '^(firestore\.rules|functions/|services/stripe|.*billing.*|.*membership.*|.*owner.*)' /tmp/changed-files.txt; then
+            echo 'Protected backend/billing/membership scope changed unexpectedly.' >&2
+            exit 1
+          fi
+          node -e "const p=require('./package.json'); const b=JSON.parse(require('child_process').execFileSync('git',['show',BASE+':package.json'],{encoding:'utf8'})); const now={...p.dependencies,...p.devDependencies}; const old={...b.dependencies,...b.devDependencies}; if(JSON.stringify(now)!==JSON.stringify(old)){console.error('Dependency set changed'); process.exit(1)}"
+
+      - name: Prepare related E2E environment
+        run: npx playwright install --with-deps chromium
+
+      - name: Related release-news E2E
+        env:
+          GCLOUD_PROJECT: demo-musicscale
+          GOOGLE_CLOUD_PROJECT: demo-musicscale
+        run: npx firebase emulators:exec --project demo-musicscale --only auth,firestore "npx playwright test tests/e2e/28-release-news.spec.ts --project=desktop-chromium"
+
+      - name: Commit validated integration patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json App.tsx PrivateApp.tsx components/common/Metronome.tsx components/help/HelpModal.tsx components/layout/Header.tsx components/layout/Sidebar.tsx components/layout/navigationRegistry.tsx components/songs/ChordsViewerModal.tsx locales/pt.json locales/en.json locales/es.json tests/setup.ts
+          if git diff --cached --quiet; then
+            echo 'No integration patch changes to commit.'
+          else
+            git commit -m 'feat: integrate Stage Tools beta release surfaces'
+            git push origin HEAD:chatgpt/stage-tools-beta-0.2-v2
+          fi
