@@ -1,0 +1,98 @@
+name: MusicScale Firebase Production Deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: musicscale-firebase-production-deploy
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: millionsnest
+  HOSTING_TARGET: musicscale
+  OFFICIAL_FIREBASE_URL: https://mn-musicscale-555464791734.web.app
+
+jobs:
+  deploy-production:
+    if: github.ref == 'refs/heads/production'
+    runs-on: ubuntu-latest
+    environment: firebase-production
+    steps:
+      - name: Checkout exact production commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Record production SHA
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = 'production' || test "$GITHUB_REF" = 'refs/heads/production'
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build production bundle
+        run: |
+          set -euo pipefail
+          npm run build
+          test -f dist/index.html
+
+      - name: Authenticate with MillionsNest production WIF
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
+
+      - name: Install pinned Firebase CLI
+        run: npm install -g firebase-tools@15.25.1
+
+      - name: Deploy live Firebase Hosting
+        shell: bash
+        run: |
+          set -euo pipefail
+          firebase deploy \
+            --project "$PROJECT_ID" \
+            --only "hosting:$HOSTING_TARGET" \
+            --non-interactive
+
+      - name: Smoke check live Firebase Hosting
+        shell: bash
+        run: |
+          set -euo pipefail
+          for PATH_TO_CHECK in / /start; do
+            BODY="$(mktemp)"
+            STATUS="$(curl --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors \
+              --output "$BODY" --write-out '%{http_code}' \
+              "$OFFICIAL_FIREBASE_URL$PATH_TO_CHECK")"
+            test "$STATUS" = '200'
+            grep -Eiq '<!doctype html|<html' "$BODY"
+          done
+
+      - name: Publish deployment evidence
+        env:
+          PRODUCTION_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          {
+            echo '## MusicScale Firebase production deploy'
+            echo
+            echo "**Production SHA:** \`$PRODUCTION_SHA\`"
+            echo "**Firebase Hosting:** $OFFICIAL_FIREBASE_URL"
+            echo
+            echo 'Live Hosting deployment completed from the protected `production` branch.'
+            echo 'The root and `/start` were smoke-checked after deployment.'
+          } >> "$GITHUB_STEP_SUMMARY"
