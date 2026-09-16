@@ -42,11 +42,14 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
       }
 
       if (event.key !== 'Tab' || !modalRef.current) return;
-      const focusableElements = Array.from(
+      const candidates = Array.from(
         modalRef.current.querySelectorAll<HTMLElement>(
           'button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])',
         ),
-      ).filter((element) => !element.hasAttribute('disabled'));
+      ) as HTMLElement[];
+      const focusableElements: HTMLElement[] = candidates.filter(
+        (element) => !element.hasAttribute('disabled'),
+      );
 
       const firstElement = focusableElements[0];
       const lastElement = focusableElements[focusableElements.length - 1];
