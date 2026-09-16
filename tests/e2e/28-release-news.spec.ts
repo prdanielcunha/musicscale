@@ -3,7 +3,7 @@ import { captureFullPage } from './helpers/visualHelper';
 import { loginAsLeaderA } from './helpers/auth';
 
 test('Relevant release auto-opens once and can be reopened manually', async ({ page }, testInfo) => {
-  await loginAsLeaderA(page);
+  await loginAsLeaderA(page, { preserveReleaseNews: true });
 
   const dialog = page.getByRole('dialog', { name: 'O palco ganhou seu próprio espaço.' });
   await expect(dialog).toBeVisible();
