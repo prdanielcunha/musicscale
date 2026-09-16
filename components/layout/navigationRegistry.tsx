@@ -18,7 +18,7 @@ import { CloudArrowUpIcon } from "../icons/CloudArrowUpIcon";
 import { BugIcon } from "../icons/BugIcon";
 import { BookTextIcon } from "../icons/BookTextIcon";
 import { MessageSquareQuestionIcon } from "../icons/MessageSquareQuestionIcon";
-import { ShieldAlert, FileText } from "lucide-react";
+import { ShieldAlert, FileText, Wrench } from "lucide-react";
 import { ChordsIcon } from "../icons/ChordsIcon";
 import { HelpCircleIcon } from "../icons/HelpCircleIcon";
 
@@ -167,6 +167,17 @@ export const navigationRegistry: NavigationItem[] = [
     defaultLabel: "Integrantes",
     path: "/band",
     permissionRequired: "musicscale.members.manage",
+    section: "primary",
+    group: null,
+  },
+  {
+    id: "stage_tools",
+    type: "link",
+    icon: <Wrench className="w-4 h-4 opacity-70" strokeWidth={2} />,
+    labelKey: "nav.stage_tools",
+    defaultLabel: "Stage Tools",
+    path: "/stage-tools",
+    permissionRequired: "musicscale.performance.use",
     section: "primary",
     group: null,
   },

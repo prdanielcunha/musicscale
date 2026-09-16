@@ -120,7 +120,8 @@
       "library": "Library",
       "account": "Account"
     },
-    "curation_queue": "Curation"
+    "curation_queue": "Curation",
+    "stage_tools": "Stage Tools"
   },
   "dashboard": {
     "title": "Ministry Dashboard",
@@ -544,7 +545,16 @@
     "volume_control": "Pad volume",
     "return_to_song_key": "Return to following the song key",
     "native_note": "MusicScale native Pad: works offline and crossfades smoothly between keys.",
-    "stage_open": "Open stage Pad"
+    "stage_open": "Open stage Pad",
+    "device_output": "Play the Pad on this device",
+    "device_playing": "This device is playing",
+    "device_disabled": "Audio is disabled on this device",
+    "device_ready": "Ready to play on this device",
+    "follow_conduction": "Follows direction",
+    "individual_control": "Individual control",
+    "return_to_conduction": "Return to following direction",
+    "select_key": "Select key {{key}}",
+    "neutral_note": "The Pad is harmonically neutral: it uses root, fifth and octaves, so it works with major and minor keys without turning Am into A major or C."
   },
   "metronome": {
     "label": "Metronome",
@@ -559,7 +569,9 @@
     "eighth": "1/8",
     "volume": "Vol.",
     "volume_control": "Metronome volume",
-    "stage_open": "Open stage metronome"
+    "stage_open": "Open stage metronome",
+    "status_playing": "Metronome is playing",
+    "status_ready": "Metronome ready to start"
   },
   "repertoireTransfer": {
     "title": "Transfer repertoire",
@@ -748,7 +760,9 @@
     "tutorial_2_title": "Rehearsal and Stage: Performance Mode",
     "tutorial_2_content": "For leaders, singers, and musicians, the app features Performance Mode. A dark screen designed specifically for stage use, with clean scrolling and real-time formatted chords. Need to change the key last minute? The transposition buttons on the screen adjust the pitch smoothly without reloading.",
     "tutorial_3_title": "Organizational Management and Access Control",
-    "tutorial_3_content": "Administrators manage the team. Every member invited to your organization gets access as long as the ministry's subscription is active. The system defines each person's role (Admin, Leader, Musician), restricting schedule edits to authorized users only, keeping your data secure."
+    "tutorial_3_content": "Administrators manage the team. Every member invited to your organization gets access as long as the ministry's subscription is active. The system defines each person's role (Admin, Leader, Musician), restricting schedule edits to authorized users only, keeping your data secure.",
+    "version_beta": "BETA",
+    "version_build": "Build {{version}}"
   },
   "suggestions": {
     "unread_tab": "New (Unread)",
@@ -1797,5 +1811,15 @@
         "percussion": "Percussion"
       }
     }
+  },
+  "stage_tools": {
+    "eyebrow": "Stage",
+    "title": "Stage Tools",
+    "subtitle": "Essential tools for rehearsal, soundcheck and worship without requiring an open chord chart.",
+    "pad_title": "Ambient Pad",
+    "pad_description": "Choose a key manually and decide whether this device will output audio.",
+    "metronome_title": "Metronome",
+    "metronome_description": "Set the BPM, keep time and control the click with stage-ready audio.",
+    "audio_note": "Audio never starts automatically. Each device must be enabled locally and Play still requires a user action."
   }
 }

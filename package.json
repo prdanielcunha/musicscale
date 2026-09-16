@@ -50,7 +50,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.51.0",
-    "cors": "^8.6",
+    "cors": "^2.8.6",
     "date-fns": "^4.4.0",
     "dexie": "^4.4.2",
     "dotenv": "^17.4.2",

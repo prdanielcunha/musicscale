@@ -120,7 +120,8 @@
       "scales": "Escalas",
       "library": "Biblioteca",
       "account": "Conta"
-    }
+    },
+    "stage_tools": "Ferramentas de Palco"
   },
   "dashboard": {
     "title": "Painel Ministerial",
@@ -544,7 +545,16 @@
     "volume_control": "Volume do Pad",
     "return_to_song_key": "Voltar a seguir o tom da música",
     "native_note": "Pad nativo do MusicScale: funciona offline e faz crossfade suave ao trocar de tom.",
-    "stage_open": "Abrir Pad de palco"
+    "stage_open": "Abrir Pad de palco",
+    "device_output": "Reproduzir o Pad neste dispositivo",
+    "device_playing": "Este dispositivo está reproduzindo",
+    "device_disabled": "Áudio desativado neste dispositivo",
+    "device_ready": "Pronto para reproduzir neste dispositivo",
+    "follow_conduction": "Acompanha a condução",
+    "individual_control": "Controle individual",
+    "return_to_conduction": "Voltar a acompanhar a condução",
+    "select_key": "Selecionar tom {{key}}",
+    "neutral_note": "O Pad é harmonicamente neutro: usa raiz, quinta e oitavas, funcionando com tonalidades maiores e menores sem transformar Am em A maior ou C."
   },
   "metronome": {
     "label": "Metrônomo",
@@ -559,7 +569,9 @@
     "eighth": "1/8",
     "volume": "Vol.",
     "volume_control": "Volume do metrônomo",
-    "stage_open": "Abrir metrônomo de palco"
+    "stage_open": "Abrir metrônomo de palco",
+    "status_playing": "Metrônomo reproduzindo",
+    "status_ready": "Pronto para iniciar o metrônomo"
   },
   "repertoireTransfer": {
     "title": "Transferir repertório",
@@ -748,7 +760,9 @@
     "tutorial_2_title": "Ensaio e Palco: Performance Mode",
     "tutorial_2_content": "Para líderes, cantores e instrumentistas, o aplicativo conta com o Performance Mode. Uma tela escura desenhada especialmente para uso em culto ou palco, com rolagem limpa e cifras formatadas em tempo real. Precisa alterar o tom de última hora? Os botões de transposição na tela ajustam o tom suavemente sem precisar recarregar.",
     "tutorial_3_title": "Gestão Organizacional e Controle de Acesso",
-    "tutorial_3_content": "Administradores gerenciam a equipe. Todo membro convidado para a sua organização recebe acesso enquanto a assinatura do ministério estiver ativa. O sistema define o papel de cada um (Admin, Líder, Músico), limitando edições de escalas apenas a quem tem permissão, mantendo a organização segura."
+    "tutorial_3_content": "Administradores gerenciam a equipe. Todo membro convidado para a sua organização recebe acesso enquanto a assinatura do ministério estiver ativa. O sistema define o papel de cada um (Admin, Líder, Músico), limitando edições de escalas apenas a quem tem permissão, mantendo a organização segura.",
+    "version_beta": "BETA",
+    "version_build": "Build {{version}}"
   },
   "suggestions": {
     "unread_tab": "Novas (Não Lidas)",
@@ -1797,5 +1811,15 @@
         "percussion": "Percussão"
       }
     }
+  },
+  "stage_tools": {
+    "eyebrow": "Palco",
+    "title": "Ferramentas de Palco",
+    "subtitle": "Recursos essenciais para ensaio, passagem de som e culto, sem depender de uma cifra aberta.",
+    "pad_title": "Ambient Pad",
+    "pad_description": "Escolha o tom manualmente e decida se este aparelho será a saída de áudio.",
+    "metronome_title": "Metrônomo",
+    "metronome_description": "Defina o BPM, marque o tempo e controle o click com áudio preparado para o palco.",
+    "audio_note": "O áudio nunca inicia sozinho. Cada aparelho precisa ser habilitado localmente e o Play continua exigindo uma ação do usuário."
   }
 }
