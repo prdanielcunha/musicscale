@@ -1,15 +1,24 @@
 import { Page, expect } from '@playwright/test';
 import { setupNetworkMocks } from './network';
 
-export async function loginAs(page: Page, email: string, orgId: string, orgName: string, role: string) {
+type LoginOptions = {
+  preserveReleaseNews?: boolean;
+};
+
+export async function loginAs(
+  page: Page,
+  email: string,
+  orgId: string,
+  orgName: string,
+  role: string,
+  options: LoginOptions = {},
+) {
   await setupNetworkMocks(page, orgId, role);
 
   // Keep UI assertions deterministic across Chromium/WebKit runners regardless
   // of the host locale. Product i18n remains untouched; this only selects the
   // Portuguese locale already supported by the app for this E2E suite.
-  // Also mark the first-use presentation as already seen before React mounts.
-  // The modal intentionally auto-opens 500 ms after hydration, so dismissing it
-  // only after login creates a race where it can intercept later E2E clicks.
+  // Also mark the legacy first-use presentation as already seen before React mounts.
   await page.addInitScript(() => {
     window.localStorage.setItem('millionsnest_i18n_lng', 'pt');
     window.localStorage.setItem('i18nextLng', 'pt-BR');
@@ -64,12 +73,29 @@ export async function loginAs(page: Page, email: string, orgId: string, orgName:
   await expect(page.getByText(orgName).first()).toBeVisible({ timeout: 15000 });
   await expect(page.locator('main').getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 20000 });
 
-  // Dismiss any future announcement that may legitimately appear despite the
-  // first-use flags above (for example a new dynamic announcement).
+  // Dismiss any legacy/dynamic onboarding announcement that may still appear.
   const onboardingDismiss = page.getByRole('button', { name: /Começar a usar/i });
   if (await onboardingDismiss.isVisible().catch(() => false)) {
     await onboardingDismiss.click();
     await expect(onboardingDismiss).toBeHidden({ timeout: 5000 });
+  }
+
+  // Release news is intentionally auto-presented for a real user. Most E2E specs
+  // are testing unrelated flows, so acknowledge it here before returning control
+  // to those tests. The dedicated release-news spec opts out and validates the
+  // auto-open behavior itself.
+  if (!options.preserveReleaseNews) {
+    const releaseDialog = page.getByRole('dialog').filter({ has: page.locator('#release-title') });
+    const appeared = await releaseDialog
+      .waitFor({ state: 'visible', timeout: 2500 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (appeared) {
+      const close = releaseDialog.getByRole('button', { name: 'Fechar', exact: true });
+      await close.click();
+      await expect(releaseDialog).toBeHidden({ timeout: 5000 });
+    }
   }
 
   // From this point onward the E2E base fixture may route internally without a
@@ -78,18 +104,18 @@ export async function loginAs(page: Page, email: string, orgId: string, orgName:
   (page as any)._musicscaleClientNavigationReady = true;
 }
 
-export async function loginAsLeaderA(page: Page) {
-  await loginAs(page, 'leader@orga.test', 'org_a', 'Família Teste A', 'admin');
+export async function loginAsLeaderA(page: Page, options: LoginOptions = {}) {
+  await loginAs(page, 'leader@orga.test', 'org_a', 'Família Teste A', 'admin', options);
 }
 
-export async function loginAsLeaderB(page: Page) {
-  await loginAs(page, 'leader@orgb.test', 'org_b', 'Família Teste B', 'admin');
+export async function loginAsLeaderB(page: Page, options: LoginOptions = {}) {
+  await loginAs(page, 'leader@orgb.test', 'org_b', 'Família Teste B', 'admin', options);
 }
 
-export async function loginAsMusicianA(page: Page) {
-  await loginAs(page, 'musician@orga.test', 'org_a', 'Família Teste A', 'member');
+export async function loginAsMusicianA(page: Page, options: LoginOptions = {}) {
+  await loginAs(page, 'musician@orga.test', 'org_a', 'Família Teste A', 'member', options);
 }
 
-export async function loginAsObserverA(page: Page) {
-  await loginAs(page, 'observer@orga.test', 'org_a', 'Família Teste A', 'visitor');
+export async function loginAsObserverA(page: Page, options: LoginOptions = {}) {
+  await loginAs(page, 'observer@orga.test', 'org_a', 'Família Teste A', 'visitor', options);
 }
