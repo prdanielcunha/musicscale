@@ -71,28 +71,6 @@ jobs:
           fi
           node -e "const p=require('./package.json'); const b=JSON.parse(require('child_process').execFileSync('git',['show','97bdb33066a66c9cab1b841f376dd4c19abe9e3e:package.json'],{encoding:'utf8'})); const now={...p.dependencies,...p.devDependencies}; const old={...b.dependencies,...b.devDependencies}; if(JSON.stringify(now)!==JSON.stringify(old)){console.error('Dependency set changed'); process.exit(1)}"
 
-      - name: Prepare related E2E environment
-        run: npx playwright install --with-deps chromium
-
-      - name: Related release-news E2E
-        shell: bash
-        env:
-          GCLOUD_PROJECT: demo-musicscale
-          GOOGLE_CLOUD_PROJECT: demo-musicscale
-        run: |
-          set +e
-          npx firebase emulators:exec --project demo-musicscale --only auth,firestore "npx playwright test tests/e2e/28-release-news.spec.ts --project=desktop-chromium" 2>&1 | tee /tmp/release-news-e2e.log
-          status=${PIPESTATUS[0]}
-          if [ "$status" -ne 0 ]; then
-            tail -n 300 /tmp/release-news-e2e.log > qa-e2e-log.txt
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add qa-e2e-log.txt
-            git commit -m 'chore(qa): capture release news E2E failure'
-            git push origin HEAD:chatgpt/stage-tools-beta-0.2-v2
-            exit "$status"
-          fi
-
       - name: Commit validated integration patch
         shell: bash
         run: |
@@ -106,3 +84,12 @@ jobs:
             git commit -m 'feat: integrate Stage Tools beta release surfaces'
             git push origin HEAD:chatgpt/stage-tools-beta-0.2-v2
           fi
+
+      - name: Prepare related E2E environment
+        run: npx playwright install --with-deps chromium
+
+      - name: Related release-news E2E
+        env:
+          GCLOUD_PROJECT: demo-musicscale
+          GOOGLE_CLOUD_PROJECT: demo-musicscale
+        run: npx firebase emulators:exec --project demo-musicscale --only auth,firestore "npx playwright test tests/e2e/28-release-news.spec.ts --project=desktop-chromium"
