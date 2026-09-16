@@ -1,0 +1,3 @@
+[36m[1mi  emulators:[22m[39m Shutting down emulators.
+
+[1m[31mError:[39m[22m firebase-tools no longer supports Java version before 21. Please install a JDK at version 21 or above to get a compatible runtime.
