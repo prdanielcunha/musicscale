@@ -1,8 +1,8 @@
 export type InteractionMetricName =
   | 'mobile_drawer_open_to_paint_ms'
   | 'mobile_drawer_close_to_paint_ms'
-  | 'welcome_open_to_paint_ms'
-  | 'welcome_close_to_paint_ms';
+  | 'release_news_open_to_paint_ms'
+  | 'release_news_close_to_paint_ms';
 
 export interface InteractionTelemetryEvent {
   metric: InteractionMetricName;

@@ -310,12 +310,16 @@ const Metronome: React.FC<MetronomeProps> = ({ initialBpm }) => {
         </button>
       </div>
 
-      {audioError && (
+      {audioError ? (
         <p
           className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.06] px-3 py-2 text-[10px] font-semibold leading-relaxed text-amber-100/85"
           role="status"
         >
           {audioError}
+        </p>
+      ) : (
+        <p className="mt-3 text-[10px] font-medium text-white/32" role="status">
+          {isPlaying ? t('metronome.status_playing') : t('metronome.status_ready')}
         </p>
       )}
 

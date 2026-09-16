@@ -1080,6 +1080,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
 
   return createPortal(
     <div
+      data-performance-mode="true"
       className={`fixed inset-0 z-[120] overflow-hidden flex flex-col font-sans transition-colors duration-300 ${isWorshipFlow ? "bg-[#0A0A0C]" : "bg-[#0A0A0C]"}`}
     >
       <div

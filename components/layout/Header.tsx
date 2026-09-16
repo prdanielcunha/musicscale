@@ -1,5 +1,4 @@
 import { useReleaseNews } from '../../hooks/useReleaseNews';
-import { APP_VERSION } from '../../lib/appRelease';
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -41,6 +40,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     if (pathname.startsWith("/suggestions")) return t("nav.suggestions", "Indicações");
     if (pathname.startsWith("/library")) return t("nav.library", "Biblioteca");
     if (pathname.startsWith("/updates")) return t("nav.updates", "Novidades");
+    if (pathname.startsWith("/stage-tools")) return t("nav.stage_tools");
 
     switch (pathname) {
       case "/": return t("nav.dashboard", "Painel");
@@ -107,7 +107,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
               <span className="relative inline-flex h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_rgba(79,140,255,0.72)]" />
             </span>}
             <span className="text-[11px] font-semibold tracking-[0.04em]">
-              {t("nav.updates", "Atualizações")} · v{APP_VERSION}
+              {t('nav.updates')}
             </span>
           </button>
 
@@ -125,7 +125,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
       {location.pathname === "/" && hasUnseenRelease && (
         <div className="ms-content-frame flex items-center gap-2 border-t border-indigo-400/10 bg-indigo-500/[0.06] px-4 md:px-8">
           <button onClick={openWhatsNew} className="min-h-[44px] min-w-0 flex-1 py-2 text-left text-xs font-medium text-indigo-200 touch-manipulation">
-            {t('releaseNews.view')} <span className="ml-2 font-mono text-indigo-300/70">v{APP_VERSION}</span>
+            {t('releaseNews.view')}
           </button>
           <button onClick={markReleaseSeen} aria-label={t('releaseNews.later')} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-indigo-200/70 hover:bg-white/5 touch-manipulation">
             <span aria-hidden="true">×</span>

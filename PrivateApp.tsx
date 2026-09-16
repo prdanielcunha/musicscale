@@ -33,6 +33,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const PlansPage = lazy(() => import('./pages/PlansPage'));
 const PlanUsagePage = lazy(() => import('./pages/PlanUsagePage'));
 const ChordsPage = lazy(() => import('./pages/ChordsPage'));
+const StageToolsPage = lazy(() => import('./pages/StageToolsPage'));
 const LyricsPage = lazy(() => import('./pages/LyricsPage'));
 const UsersPage = lazy(() => import('./pages/UsersPage'));
 const CurationPage = lazy(() => import('./pages/CurationPage'));
@@ -259,6 +260,11 @@ const AppLayout: React.FC = () => {
                                 <Route path="/lyrics" element={
                                     <ProtectedRoute requiredPermission="musicscale.performance.use">
                                         <LyricsPage />
+                                    </ProtectedRoute>
+                                } />
+                                <Route path="/stage-tools" element={
+                                    <ProtectedRoute requiredPermission="musicscale.performance.use">
+                                        <StageToolsPage />
                                     </ProtectedRoute>
                                 } />
                                 <Route path="/database" element={
