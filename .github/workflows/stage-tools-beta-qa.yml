@@ -63,7 +63,7 @@ jobs:
             echo 'Protected backend/billing/membership scope changed unexpectedly.' >&2
             exit 1
           fi
-          node -e "const p=require('./package.json'); const b=JSON.parse(require('child_process').execFileSync('git',['show',BASE+':package.json'],{encoding:'utf8'})); const now={...p.dependencies,...p.devDependencies}; const old={...b.dependencies,...b.devDependencies}; if(JSON.stringify(now)!==JSON.stringify(old)){console.error('Dependency set changed'); process.exit(1)}"
+          node -e "const p=require('./package.json'); const b=JSON.parse(require('child_process').execFileSync('git',['show','97bdb33066a66c9cab1b841f376dd4c19abe9e3e:package.json'],{encoding:'utf8'})); const now={...p.dependencies,...p.devDependencies}; const old={...b.dependencies,...b.devDependencies}; if(JSON.stringify(now)!==JSON.stringify(old)){console.error('Dependency set changed'); process.exit(1)}"
 
       - name: Prepare related E2E environment
         run: npx playwright install --with-deps chromium
