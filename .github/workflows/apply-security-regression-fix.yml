@@ -1,0 +1,81 @@
+name: Apply Security Regression Fix
+
+on:
+  push:
+    branches: [ fix/qa-full-e2e-gate ]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'ci: apply canonical leader security regression fix'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/qa-full-e2e-gate
+          fetch-depth: 0
+
+      - name: Update obsolete canonical leader regression expectation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/server/music-scale-security-rules.test.ts')
+          s = p.read_text()
+          old = """  describe.skipIf(!hasEmulatorHost)('1d. Existing MusicScale save incident reproduction', () => {
+    it('captures permission-denied from the legacy client writer although canonical capability allows update', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-save').set({ status: 'active', ownerUid: 'owner-save' });
+        await adminDb.doc('organizations/org-save/members/leader-save').set({
+          uid: 'leader-save', organizationId: 'org-save', status: 'active', organizationRole: 'leader'
+        });
+        await adminDb.doc('scales/scale-save').set({
+          organizationId: 'org-save', status: 'draft', observations: 'before'
+        });
+      });
+
+      const effectiveContext = buildEffectiveAccessContext('leader-save', 'org-save', null, 'leader', 'active');
+      expect(hasMusicScaleCapability(effectiveContext, 'scales.update')).toBe(true);
+      await assertFails(
+        getAuthedFirestore({ uid: 'leader-save' }).doc('scales/scale-save').update({ observations: 'after' })
+      );
+    });
+  });
+"""
+          new = """  describe.skipIf(!hasEmulatorHost)('1d. Canonical MusicScale save authority', () => {
+    it('allows the canonical leader writer when the canonical capability allows update', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc('organizations/org-save').set({ status: 'active', ownerUid: 'owner-save' });
+        await adminDb.doc('organizations/org-save/members/leader-save').set({
+          uid: 'leader-save', organizationId: 'org-save', status: 'active', organizationRole: 'leader'
+        });
+        await adminDb.doc('scales/scale-save').set({
+          organizationId: 'org-save', status: 'draft', observations: 'before'
+        });
+      });
+
+      const effectiveContext = buildEffectiveAccessContext('leader-save', 'org-save', null, 'leader', 'active');
+      expect(hasMusicScaleCapability(effectiveContext, 'scales.update')).toBe(true);
+      await assertSucceeds(
+        getAuthedFirestore({ uid: 'leader-save' }).doc('scales/scale-save').update({ observations: 'after' })
+      );
+    });
+  });
+"""
+          if old not in s:
+              raise SystemExit('Expected obsolete regression block was not found; refusing broad edit.')
+          p.write_text(s.replace(old, new, 1))
+          PY
+
+      - name: Remove temporary focused workflows and commit the fix
+        run: |
+          rm -f .github/workflows/musicscale-security-focus.yml
+          rm -f .github/workflows/apply-security-regression-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/server/music-scale-security-rules.test.ts .github/workflows/musicscale-security-focus.yml .github/workflows/apply-security-regression-fix.yml
+          git commit -m "test: align canonical leader security regression"
+          git push origin HEAD:fix/qa-full-e2e-gate
