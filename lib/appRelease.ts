@@ -1,10 +1,15 @@
 import { version } from '../package.json';
 
 export const APP_VERSION = version;
-// Keep this ID across hotfixes. Only a meaningful new feature gets a new announcement.
+
+export type ReleaseKind = 'feature' | 'hotfix' | 'visual';
+
+// Keep this ID stable across hotfixes and visual revisions. Only a meaningful
+// feature release receives a new announcement ID and may auto-present.
 export const FEATURE_RELEASE = {
-  id: 'premium-v2-beta-0.1',
-  version: '0.1.0-beta',
-  publishedAt: '2026-09-15T00:00:00Z',
-  translationKey: 'releaseNews.premiumV2',
+  id: 'stage-tools-beta-0.2',
+  version: '0.2.0-beta.0',
+  publishedAt: '2026-09-16T03:00:00Z',
+  translationKey: 'releaseNews.stageToolsBeta02',
+  kind: 'feature' as ReleaseKind,
 } as const;
