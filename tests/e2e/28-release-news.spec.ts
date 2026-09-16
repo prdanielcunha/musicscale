@@ -28,7 +28,14 @@ test('Relevant release auto-opens once and can be reopened manually', async ({ p
   await expect(page.locator('main').getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 20000 });
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
-  await page.locator('header').getByRole('button', { name: /Novidades/ }).click();
+  // The header shortcut is intentionally hidden below sm. On phones, use
+  // the same main-menu entry a user uses to reopen an already-seen release.
+  if ((page.viewportSize()?.width ?? 1440) < 640) {
+    await page.locator('header').getByRole('button', { name: 'Menu Principal', exact: true }).click();
+    await page.getByRole('link', { name: 'Novidades', exact: true }).click();
+  } else {
+    await page.locator('header').getByRole('button', { name: 'Novidades', exact: true }).click();
+  }
   await expect(dialog).toBeVisible();
   await dialog.getByText('Leia mais — correções e refinamentos', { exact: true }).click();
   await expect(dialog.getByText('Reutilização de formações de banda vinculadas ficou mais segura.')).toBeVisible();
