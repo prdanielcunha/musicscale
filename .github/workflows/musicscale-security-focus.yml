@@ -1,0 +1,53 @@
+name: MusicScale Security Focus
+
+on:
+  push:
+    branches: [ fix/qa-full-e2e-gate ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Set up Java for Firebase Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Run MusicScale security rules only
+        run: |
+          mkdir -p test-results
+          set -o pipefail
+          npx firebase emulators:exec --project demo-musicscale --only auth,firestore \
+            "npx vitest run tests/server/music-scale-security-rules.test.ts" \
+            2>&1 | tee test-results/music-scale-security.log
+        env:
+          CI: true
+          GCLOUD_PROJECT: demo-musicscale
+          GOOGLE_CLOUD_PROJECT: demo-musicscale
+
+      - name: Upload focused security log
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: musicscale-security-focus-log
+          path: test-results/music-scale-security.log
+          retention-days: 7
