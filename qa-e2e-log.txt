@@ -1,3 +1,111 @@
-[36m[1mi  emulators:[22m[39m Shutting down emulators.
+[36m[1mi  emulators:[22m[39m Starting emulators: auth, firestore
+[36m[1mi  emulators:[22m[39m Detected demo project ID "demo-musicscale", emulated services will use a demo configuration and attempts to access non-emulated services for this project will fail.
+[33m[1m⚠ [22m[39m It appears you are running in a CI environment. You can avoid downloading the Firestore Emulator repeatedly by caching the /home/runner/.cache/firebase/emulators directory.
+[36m[1mi  firestore:[22m[39m downloading cloud-firestore-emulator-v1.22.0.jar...
 
-[1m[31mError:[39m[22m firebase-tools no longer supports Java version before 21. Please install a JDK at version 21 or above to get a compatible runtime.
+[36m[1mi  firestore:[22m[39m Firestore Emulator logging to [1mfirestore-debug.log[22m
+[32m[1m✔  firestore:[22m[39m Firestore Emulator was started in standard edition.
+[32m[1m✔  firestore:[22m[39m Firestore Emulator UI websocket is running on 9150.
+[36m[1mi [22m[39m Running script: [1mnpx playwright test tests/e2e/28-release-news.spec.ts --project=desktop-chromium[22m
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+Clearing and seeding E2E database...
+E2E database seeding complete.
+
+Running 1 test using 1 worker
+
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+  ✘  1 [desktop-chromium] › tests/e2e/28-release-news.spec.ts:5:1 › Relevant release auto-opens once and can be reopened manually (1.0m)
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+  ✘  2 [desktop-chromium] › tests/e2e/28-release-news.spec.ts:5:1 › Relevant release auto-opens once and can be reopened manually (retry #1) (1.0m)
+
+
+  1) [desktop-chromium] › tests/e2e/28-release-news.spec.ts:5:1 › Relevant release auto-opens once and can be reopened manually 
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.click: Test timeout of 60000ms exceeded.
+    Call log:
+      - waiting for locator('header').getByRole('button', { name: /Atualizações/ })
+
+
+      29 |   await expect(page.getByRole('dialog')).toHaveCount(0);
+      30 |
+    > 31 |   await page.locator('header').getByRole('button', { name: /Atualizações/ }).click();
+         |                                                                              ^
+      32 |   await expect(dialog).toBeVisible();
+      33 |   await dialog.getByText('Leia mais — correções e refinamentos', { exact: true }).click();
+      34 |   await expect(dialog.getByText('Reutilização de formações de banda vinculadas ficou mais segura.')).toBeVisible();
+        at /home/runner/work/musicscale/musicscale/tests/e2e/28-release-news.spec.ts:31:78
+
+    attachment #1: release-news-stage-tools-beta (image/png) ───────────────────────────────────────
+    test-results/28-release-news-Relevant-r-bffff-nd-can-be-reopened-manually-desktop-chromium/attachments/release-news-stage-tools-beta-5cb67f68e65da043c963ce1d565f56751b3a2e26.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/28-release-news-Relevant-r-bffff-nd-can-be-reopened-manually-desktop-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/28-release-news-Relevant-r-bffff-nd-can-be-reopened-manually-desktop-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/28-release-news-Relevant-r-bffff-nd-can-be-reopened-manually-desktop-chromium/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/28-release-news-Relevant-r-bffff-nd-can-be-reopened-manually-desktop-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/28-release-news-Relevant-r-bffff-nd-can-be-reopened-manually-desktop-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.click: Test timeout of 60000ms exceeded.
+    Call log:
+      - waiting for locator('header').getByRole('button', { name: /Atualizações/ })
+
+
+      29 |   await expect(page.getByRole('dialog')).toHaveCount(0);
+      30 |
+    > 31 |   await page.locator('header').getByRole('button', { name: /Atualizações/ }).click();
+         |                                                                              ^
+      32 |   await expect(dialog).toBeVisible();
+      33 |   await dialog.getByText('Leia mais — correções e refinamentos', { exact: true }).click();
+      34 |   await expect(dialog.getByText('Reutilização de formações de banda vinculadas ficou mais segura.')).toBeVisible();
+        at /home/runner/work/musicscale/musicscale/tests/e2e/28-release-news.spec.ts:31:78
+
+    attachment #1: release-news-stage-tools-beta (image/png) ───────────────────────────────────────
+    test-results/28-release-news-Relevant-r-bffff-nd-can-be-reopened-manually-desktop-chromium-retry1/attachments/release-news-stage-tools-beta-5cb67f68e65da043c963ce1d565f56751b3a2e26.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/28-release-news-Relevant-r-bffff-nd-can-be-reopened-manually-desktop-chromium-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/28-release-news-Relevant-r-bffff-nd-can-be-reopened-manually-desktop-chromium-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/28-release-news-Relevant-r-bffff-nd-can-be-reopened-manually-desktop-chromium-retry1/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/28-release-news-Relevant-r-bffff-nd-can-be-reopened-manually-desktop-chromium-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/28-release-news-Relevant-r-bffff-nd-can-be-reopened-manually-desktop-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [desktop-chromium] › tests/e2e/28-release-news.spec.ts:5:1 › Relevant release auto-opens once and can be reopened manually 
+[33m[1m⚠ [22m[39m Script exited unsuccessfully (code 1)
+[36m[1mi  emulators:[22m[39m Shutting down emulators.
+[36m[1mi  firestore:[22m[39m Stopping Firestore Emulator
+[36m[1mi  auth:[22m[39m Stopping Authentication Emulator
+[36m[1mi  hub:[22m[39m Stopping emulator hub
+[36m[1mi  logging:[22m[39m Stopping Logging Emulator
+
+[1m[31mError:[39m[22m Script "[1mnpx playwright test tests/e2e/28-release-news.spec.ts --project=desktop-chromium[22m" exited with code 1
