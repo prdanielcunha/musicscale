@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   patch:
-    if: github.event.head_commit.message == 'ci: apply canonical leader security regression fix'
+    if: ${{ github.event.head_commit.message == 'ci: fix security regression patch runner' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -70,12 +70,10 @@ jobs:
           p.write_text(s.replace(old, new, 1))
           PY
 
-      - name: Remove temporary focused workflows and commit the fix
+      - name: Commit only the corrected regression test
         run: |
-          rm -f .github/workflows/musicscale-security-focus.yml
-          rm -f .github/workflows/apply-security-regression-fix.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tests/server/music-scale-security-rules.test.ts .github/workflows/musicscale-security-focus.yml .github/workflows/apply-security-regression-fix.yml
+          git add tests/server/music-scale-security-rules.test.ts
           git commit -m "test: align canonical leader security regression"
           git push origin HEAD:fix/qa-full-e2e-gate
