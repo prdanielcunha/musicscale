@@ -97,12 +97,55 @@ jobs:
         GCLOUD_PROJECT: demo-musicscale
         GOOGLE_CLOUD_PROJECT: demo-musicscale
 
-    - name: Run Full E2E QA Suite
+    - name: E2E QA - Global Search
       run: >-
         npx firebase emulators:exec --project demo-musicscale --only auth,firestore
-        "npm run test:emulator:global-search &&
-        npm run test:emulator:security &&
-        npm run test:e2e:run"
+        "npm run test:emulator:global-search"
+      env:
+        CI: true
+        GCLOUD_PROJECT: demo-musicscale
+        GOOGLE_CLOUD_PROJECT: demo-musicscale
+
+    - name: E2E QA - MusicScale Security Rules
+      run: >-
+        npx firebase emulators:exec --project demo-musicscale --only auth,firestore
+        "vitest run tests/server/music-scale-security-rules.test.ts"
+      env:
+        CI: true
+        GCLOUD_PROJECT: demo-musicscale
+        GOOGLE_CLOUD_PROJECT: demo-musicscale
+
+    - name: E2E QA - Public Analytics Security Rules
+      run: >-
+        npx firebase emulators:exec --project demo-musicscale --only auth,firestore
+        "vitest run tests/server/public-analytics-security-rules.test.ts"
+      env:
+        CI: true
+        GCLOUD_PROJECT: demo-musicscale
+        GOOGLE_CLOUD_PROJECT: demo-musicscale
+
+    - name: E2E QA - Live Conductor Rules
+      run: >-
+        npx firebase emulators:exec --project demo-musicscale --only auth,firestore
+        "vitest run tests/server/live-conductor-rules.test.ts"
+      env:
+        CI: true
+        GCLOUD_PROJECT: demo-musicscale
+        GOOGLE_CLOUD_PROJECT: demo-musicscale
+
+    - name: E2E QA - Global Role Save
+      run: >-
+        npx firebase emulators:exec --project demo-musicscale --only auth,firestore
+        "vitest run tests/server/music-scale-global-role-save.test.ts"
+      env:
+        CI: true
+        GCLOUD_PROJECT: demo-musicscale
+        GOOGLE_CLOUD_PROJECT: demo-musicscale
+
+    - name: E2E QA - Playwright
+      run: >-
+        npx firebase emulators:exec --project demo-musicscale --only auth,firestore
+        "npm run test:e2e:run"
       env:
         CI: true
         GCLOUD_PROJECT: demo-musicscale
