@@ -97,12 +97,28 @@ jobs:
         GCLOUD_PROJECT: demo-musicscale
         GOOGLE_CLOUD_PROJECT: demo-musicscale
 
-    - name: Run Full E2E QA Suite
+    - name: Run Emulator Global Search Gate
       run: >-
         npx firebase emulators:exec --project demo-musicscale --only auth,firestore
-        "npm run test:emulator:global-search &&
-        npm run test:emulator:security &&
-        npm run test:e2e:run"
+        "npm run test:emulator:global-search"
+      env:
+        CI: true
+        GCLOUD_PROJECT: demo-musicscale
+        GOOGLE_CLOUD_PROJECT: demo-musicscale
+
+    - name: Run Emulator Security Gate
+      run: >-
+        npx firebase emulators:exec --project demo-musicscale --only auth,firestore
+        "npm run test:emulator:security"
+      env:
+        CI: true
+        GCLOUD_PROJECT: demo-musicscale
+        GOOGLE_CLOUD_PROJECT: demo-musicscale
+
+    - name: Run Playwright E2E Gate
+      run: >-
+        npx firebase emulators:exec --project demo-musicscale --only auth,firestore
+        "npm run test:e2e:run"
       env:
         CI: true
         GCLOUD_PROJECT: demo-musicscale
