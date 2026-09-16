@@ -1,0 +1,45 @@
+name: Apply Security Regression Fix
+
+on:
+  push:
+    branches: [ fix/qa-full-e2e-gate ]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/qa-full-e2e-gate
+          fetch-depth: 0
+
+      - name: Update obsolete canonical leader regression expectation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/server/music-scale-security-rules.test.ts')
+          s = p.read_text()
+          s2 = s.replace("describe.skipIf(!hasEmulatorHost)('1d. Existing MusicScale save incident reproduction'", "describe.skipIf(!hasEmulatorHost)('1d. Canonical MusicScale save authority'", 1)
+          s2 = s2.replace("it('captures permission-denied from the legacy client writer although canonical capability allows update'", "it('allows the canonical leader writer when the canonical capability allows update'", 1)
+          old = "      await assertFails(\n        getAuthedFirestore({ uid: 'leader-save' }).doc('scales/scale-save').update({ observations: 'after' })\n      );"
+          new = "      await assertSucceeds(\n        getAuthedFirestore({ uid: 'leader-save' }).doc('scales/scale-save').update({ observations: 'after' })\n      );"
+          s2 = s2.replace(old, new, 1)
+          if s2 == s:
+              print('Regression expectation already aligned; no edit needed.')
+          p.write_text(s2)
+          PY
+
+      - name: Commit corrected regression test when changed
+        run: |
+          if git diff --quiet -- tests/server/music-scale-security-rules.test.ts; then
+            echo "No test change to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/server/music-scale-security-rules.test.ts
+          git commit -m "test: align canonical leader security regression"
+          git push origin HEAD:fix/qa-full-e2e-gate

@@ -527,8 +527,8 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
     });
   });
 
-  describe.skipIf(!hasEmulatorHost)('1d. Existing MusicScale save incident reproduction', () => {
-    it('captures permission-denied from the legacy client writer although canonical capability allows update', async () => {
+  describe.skipIf(!hasEmulatorHost)('1d. Canonical MusicScale save authority', () => {
+    it('allows the canonical leader writer when the canonical capability allows update', async () => {
       await testEnv.withSecurityRulesDisabled(async (context) => {
         const adminDb = context.firestore();
         await adminDb.doc('organizations/org-save').set({ status: 'active', ownerUid: 'owner-save' });
@@ -542,7 +542,7 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
 
       const effectiveContext = buildEffectiveAccessContext('leader-save', 'org-save', null, 'leader', 'active');
       expect(hasMusicScaleCapability(effectiveContext, 'scales.update')).toBe(true);
-      await assertFails(
+      await assertSucceeds(
         getAuthedFirestore({ uid: 'leader-save' }).doc('scales/scale-save').update({ observations: 'after' })
       );
     });
