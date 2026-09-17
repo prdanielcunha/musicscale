@@ -49,9 +49,10 @@ describe('StagePadPlayer device output', () => {
     expect(queryByText('pad.return_to_conduction')).not.toBeInTheDocument();
   });
 
-  it('prevents engine start while output is disabled', () => {
+  it('makes the whole device output row an actual switch and prevents start while disabled', () => {
     const { getByTestId } = render(<StagePadPlayer />);
     const output = getByTestId('stage-pad-device-output');
+    expect(output.tagName).toBe('BUTTON');
     fireEvent.click(output);
     expect(output).toHaveAttribute('aria-checked', 'false');
     fireEvent.click(getByTestId('stage-pad-play'));
@@ -62,11 +63,11 @@ describe('StagePadPlayer device output', () => {
   it('fades out immediately when this device is disabled during playback', async () => {
     const { getByTestId } = render(<StagePadPlayer />);
     fireEvent.click(getByTestId('stage-pad-play'));
-    await waitFor(() => expect(engine.start).toHaveBeenCalledWith('C'));
+    await waitFor(() => expect(engine.start).toHaveBeenCalledWith('C', 'worship', null));
 
     fireEvent.click(getByTestId('stage-pad-device-output'));
     expect(engine.stop).toHaveBeenCalledWith(0.35);
-    expect(getByTestId('stage-pad-device-status')).toHaveTextContent('pad.device_disabled');
+    expect(getByTestId('stage-pad-device-output')).toHaveAttribute('aria-checked', 'false');
   });
 
   it('persists the preference only in the current browser storage', () => {
@@ -79,13 +80,22 @@ describe('StagePadPlayer device output', () => {
     expect(localStorage.getItem(STAGE_PAD_DEVICE_OUTPUT_STORAGE_KEY)).toBe('disabled');
   });
 
-  it('presents Am as Am while the neutral engine receives root A', async () => {
+  it('presents Am as Am while the neutral engine receives root A with the selected preset', async () => {
     const { getByTestId } = render(<StagePadPlayer songKey="Am" />);
     expect(getByTestId('stage-pad-display-key')).toHaveTextContent('Am');
     expect(getByTestId('stage-pad-control-mode')).toHaveTextContent('pad.follow_conduction');
 
     fireEvent.click(getByTestId('stage-pad-play'));
-    await waitFor(() => expect(engine.start).toHaveBeenCalledWith('A'));
+    await waitFor(() => expect(engine.start).toHaveBeenCalledWith('A', 'worship', null));
     expect(getByTestId('stage-pad-display-key')).toHaveTextContent('Am');
+  });
+
+  it('offers the four built-in sounds plus My Pad without widening the layout', () => {
+    const { getByTestId } = render(<StagePadPlayer />);
+    expect(getByTestId('stage-pad-preset-worship')).toBeInTheDocument();
+    expect(getByTestId('stage-pad-preset-warm')).toBeInTheDocument();
+    expect(getByTestId('stage-pad-preset-air')).toBeInTheDocument();
+    expect(getByTestId('stage-pad-preset-deep')).toBeInTheDocument();
+    expect(getByTestId('stage-pad-preset-custom')).toBeInTheDocument();
   });
 });
