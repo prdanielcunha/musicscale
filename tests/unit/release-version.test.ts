@@ -32,9 +32,9 @@ const runBump = (version: string, kind: string) => {
 };
 
 describe('release metadata', () => {
-  it('uses the 0.3.1 AI-import fidelity revision while keeping the 0.3 feature announcement stable', () => {
+  it('uses the 0.3.2 chord alignment fix while keeping the 0.3 feature announcement stable', () => {
     const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-    expect(APP_VERSION).toBe('0.3.1-beta.1');
+    expect(APP_VERSION).toBe('0.3.2-beta.0');
     expect(lock.version).toBe(APP_VERSION);
     expect(lock.packages[''].version).toBe(APP_VERSION);
     expect(FEATURE_RELEASE.version).toBe('0.3.0-beta.0');

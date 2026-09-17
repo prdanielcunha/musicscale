@@ -333,7 +333,7 @@ export const ChordsRenderer: React.FC<ChordsRendererProps> = ({
   }
 
   return (
-    <div className={`whitespace-pre-wrap ${className || ""}`} style={style}>
+    <div className={`whitespace-pre overflow-x-auto font-mono ${className || ""}`} style={style}>
       {parsedContent.map((line, index) => {
         const isPrevChord = index > 0 && parsedContent[index - 1]?.type === "chord";
         const isPrevSection = index > 0 && parsedContent[index - 1]?.type === "section";
@@ -359,7 +359,7 @@ export const ChordsRenderer: React.FC<ChordsRendererProps> = ({
           return (
             <div
               key={index}
-              className="font-bold tracking-wider"
+              className="font-bold"
               style={{
                 color: activeChordsColor,
                 marginBottom: isNextLyric ? "-0.1em" : "0",

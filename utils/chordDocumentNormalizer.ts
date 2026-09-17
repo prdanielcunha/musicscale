@@ -229,14 +229,8 @@ export const normalizeChordDocumentStructure = (input: string): string => {
     }
   }
 
-  const hasRecoveredCorruption = source.some((entry) => entry.recoveredCorruptChord);
-  if (hasRecoveredCorruption) {
-    for (const entry of source) {
-      if (!entry.recoveredCorruptChord && isMeaningfulLyric(entry.text)) {
-        entry.text = repairInternalLyricPlaceholderUnderscores(entry.text);
-      }
-    }
-  }
+  // Lyric extenders occupy musical columns. Removing them here would move
+  // syllables left while leaving their chords at the original positions.
 
   const repaired: NormalizedLine[] = [];
 
@@ -366,7 +360,7 @@ export const extractLyricsFromCanonicalChordDocument = (input: string): string =
     const lyric = line
       .replace(/\[[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|M|º|°|\d|7M|M7)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?\]/g, '')
       .trim();
-    if (lyric) output.push(lyric);
+    if (lyric) output.push(repairInternalLyricPlaceholderUnderscores(lyric));
   }
 
   while (output.length > 0 && output[output.length - 1] === '') output.pop();

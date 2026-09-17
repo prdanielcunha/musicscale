@@ -47,8 +47,8 @@ describe('chord document formatting repair', () => {
 
     const { text, transformations } = normalizePastedSongText(corrupted);
     expect(transformations).toContain('normalized_chord_structure');
-    expect(text).not.toContain('___');
-    expect(text).toContain('Cantar sem ruído');
+    expect(text).toContain('___');
+    expect(text).toContain('Can___tar sem ruído');
 
     const repairedLines = text.split('\n').map((line) => line.trim()).filter(Boolean);
     const firstPartIndex = repairedLines.indexOf('[Primeira Parte]');
@@ -64,7 +64,7 @@ describe('chord document formatting repair', () => {
     expect(text).toContain('Em7  Bm7  D/F#  C9  G');
 
     const transposed = transposeChordDocument('Em7  Bm7  D/F#  C9  G', 'Em', 'G#m');
-    expect(transposed.chords).toBe('G#m7  D#m7  F#/A#  E9  B');
+    expect(transposed.chords).toBe('G#m7 D#m7 F#/A# E9  B');
   });
 
   it('preserves an already concert-key corrupted chart without changing chord spelling or order', () => {

@@ -40,8 +40,8 @@ Saltando pelos montes`;
   it('1. deve transpor de E para F# corretamente', () => {
     const result = transposeChordDocument(chordsSample, 'E', 'F#');
     expect(result.semitones).toBe(2);
-    expect(result.chords).toContain('F#   C#/E#   D#m   B');
-    expect(result.chords).toContain('F#   C#');
+    expect(result.chords).toContain('F#  C#/E#  D#m   B');
+    expect(result.chords).toContain('F#  C#');
     expect(result.chords).toContain('D#m   B');
     expect(result.chords).toContain('Quem é esse que vem');
   });
@@ -57,7 +57,7 @@ Saltando pelos montes`;
     const chords = 'Bb F Gm Eb';
     const result = transposeChordDocument(chords, 'Bb', 'C');
     expect(result.semitones).toBe(2);
-    expect(result.chords).toBe('C G Am F');
+    expect(result.chords).toBe('C  G Am F');
   });
 
   it('4. deve transpor de Em para F#m corretamente', () => {
@@ -127,10 +127,10 @@ Saltando pelos montes`;
     expect(result.chords).toBe('Solo: F# C# D#m B'); // B -> C# is +2 semitones
   });
 
-  it('15. deve preservar espaços múltiplos entre acordes', () => {
+  it('15. deve preservar as colunas originais dos acordes', () => {
     const chords = 'E      B/D#      C#m';
     const result = transposeChordDocument(chords, 'E', 'F#');
-    expect(result.chords).toBe('F#      C#/E#      D#m');
+    expect(result.chords).toBe('F#     C#/E#     D#m');
   });
 
   it('16. deve preservar quebras de linha', () => {

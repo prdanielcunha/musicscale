@@ -946,7 +946,8 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
                    <span className="w-2 h-2 rounded-full bg-purple-500"></span> Cifra Estruturada
                  </label>
                  <textarea 
-                    className={`${formInputClass} font-mono text-xs leading-relaxed flex-1 min-h-[300px] whitespace-pre-wrap`}
+                    className={`${formInputClass} font-mono text-xs leading-relaxed flex-1 min-h-[300px] whitespace-pre overflow-x-auto`}
+                    wrap="off"
                     value={previewData.chords}
                     onChange={(e) => {
                        const val = e.target.value;
