@@ -176,6 +176,7 @@ Linha sintética`;
       'G#m7  E9  B',
       'F#4',
     ]);
+    expect(firstPartIndex).toBe(7);
     expect(text.match(/\[Primeira Parte\]/g)).toHaveLength(1);
     expect(text).toContain('G#m7  D#m7  F#/A#  E9  B');
   });
