@@ -17,11 +17,11 @@ describe('chord document source-fidelity normalization', () => {
     expect(repaired).toContain('E');
   });
 
-  it('keeps inline section/chord rows and horizontal spacing exactly as supplied', () => {
+  it('reconstructs inline section/chord rows while preserving horizontal spacing', () => {
     const source = `[Intro] Em7  C9  G\n\">D4\n\n        Em7  C9  G\n\n[Primeira Parte]\nEm7    C9\n    Deus de Abraão`;
     const { text, transformations } = normalizePastedSongText(source);
-    expect(transformations).toContain('normalized_chord_structure');
-    expect(text).toContain('[Intro] Em7  C9  G');
+    expect(transformations).toContain('repaired_chord_import_fidelity');
+    expect(text).toContain('[Intro]\nEm7  C9  G    D4');
     expect(text).toContain('        Em7  C9  G');
     expect(text).toContain('Em7    C9');
     expect(text).toContain('    Deus de Abraão');
