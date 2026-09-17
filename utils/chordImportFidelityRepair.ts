@@ -55,6 +55,13 @@ const joinChordFragments = (fragments: string[]): string => {
   return `${indent}${body}`;
 };
 
+const isParenthesizedChordRun = (fragments: string[]): boolean => {
+  if (fragments.length < 2) return false;
+  const first = fragments[0].trimStart();
+  const last = fragments[fragments.length - 1].trimEnd();
+  return first.startsWith('(') && last.endsWith(')');
+};
+
 /**
  * Repairs the second corruption family observed in rich mobile clipboard
  * output from chord sites. This runs only after the caller has already proven
@@ -66,7 +73,8 @@ const joinChordFragments = (fragments: string[]): string => {
  * - only collapses duplicated identical lyrics when the text between them is
  *   exclusively chord material;
  * - only joins consecutive chord fragments when they immediately belong to a
- *   following lyric line;
+ *   following lyric line, or when a parenthesized progression itself proves
+ *   that the fragments belong to one musical row;
  * - a leading unlabeled all-chord block can be recovered as [Intro] when the
  *   first explicit section follows it.
  */
@@ -126,8 +134,9 @@ export function repairChordImportFidelity(input: string): string {
   // 2) Clipboard/mobile layout can physically split one visual chord row into
   // several text lines (for example "G#m7 D#m7 E9" then "B"). When two or
   // more consecutive chord fragments immediately precede a lyric, they are
-  // parts of the same chord row. Keep exact tokens and join with stable column
-  // spacing instead of letting the final chord fall onto the next row.
+  // parts of the same chord row. A parenthesized progression is also explicit
+  // evidence that its fragments are one row even when the next line is a
+  // section marker. Keep exact tokens and join with stable column spacing.
   const merged: string[] = [];
   for (let i = 0; i < lines.length; i += 1) {
     if (!isChordFragment(lines[i])) {
@@ -142,11 +151,10 @@ export function repairChordImportFidelity(input: string): string {
       cursor += 1;
     }
 
-    if (
-      run.length >= 2 &&
-      cursor < lines.length &&
-      isMeaningfulLyric(lines[cursor])
-    ) {
+    const precedesLyric = cursor < lines.length && isMeaningfulLyric(lines[cursor]);
+    const parenthesizedRun = isParenthesizedChordRun(run);
+
+    if (run.length >= 2 && (precedesLyric || parenthesizedRun)) {
       merged.push(joinChordFragments(run));
       i = cursor - 1;
       continue;
