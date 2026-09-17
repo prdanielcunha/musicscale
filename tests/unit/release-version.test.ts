@@ -32,9 +32,9 @@ const runBump = (version: string, kind: string) => {
 };
 
 describe('release metadata', () => {
-  it('uses the 0.2 feature beta and keeps package/lock versions identical', () => {
+  it('uses the current 0.2 feature beta and keeps package/lock versions identical', () => {
     const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-    expect(APP_VERSION).toBe('0.2.0-beta.0');
+    expect(APP_VERSION).toBe('0.2.0-beta.1');
     expect(lock.version).toBe(APP_VERSION);
     expect(lock.packages[''].version).toBe(APP_VERSION);
     expect(FEATURE_RELEASE.version).toBe(APP_VERSION);
