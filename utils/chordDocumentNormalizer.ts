@@ -147,6 +147,69 @@ const nextNonBlankIndex = (lines: NormalizedLine[], start: number): number => {
   return -1;
 };
 
+const repairInternalLyricPlaceholderUnderscores = (line: string): string =>
+  line.replace(/(\p{L})_{2,}(\p{L})/gu, '$1$2');
+
+/**
+ * Some rich-copy chord pages emit the tail of the previous musical block after
+ * the next section marker and then repeat that same section marker. The
+ * recovered blockquote chord is the proof that this is corruption rather than
+ * an intentional repeated section. Move the stranded block back before the
+ * boundary and keep exactly one section marker.
+ */
+const repairStrandedContentAcrossDuplicateSectionBoundary = (
+  lines: NormalizedLine[],
+): NormalizedLine[] => {
+  const output: NormalizedLine[] = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const current = lines[index];
+    const sectionKey = getRecognizedSectionKey(current.text);
+
+    if (!sectionKey) {
+      output.push(current);
+      index += 1;
+      continue;
+    }
+
+    let cursor = index + 1;
+    let matchingSectionIndex = -1;
+    let sawRecoveredChord = false;
+
+    while (cursor < lines.length) {
+      const candidate = lines[cursor];
+      const candidateSectionKey = getRecognizedSectionKey(candidate.text);
+
+      if (candidateSectionKey) {
+        if (candidateSectionKey === sectionKey) {
+          matchingSectionIndex = cursor;
+        }
+        break;
+      }
+
+      if (candidate.recoveredCorruptChord) {
+        sawRecoveredChord = true;
+      }
+      cursor += 1;
+    }
+
+    if (matchingSectionIndex !== -1 && sawRecoveredChord) {
+      // Everything between the duplicated markers is a stranded tail from the
+      // preceding block. Preserve its exact order/spacing, then place one marker.
+      output.push(...lines.slice(index + 1, matchingSectionIndex));
+      output.push(current);
+      index = matchingSectionIndex + 1;
+      continue;
+    }
+
+    output.push(current);
+    index += 1;
+  }
+
+  return output;
+};
+
 /**
  * Repairs only deterministic formatting corruption. It deliberately does not
  * invent lyrics, chords, sections or keys, and it preserves horizontal chord
@@ -163,6 +226,15 @@ export const normalizeChordDocumentStructure = (input: string): string => {
   for (const rawLine of normalizedInput.split('\n')) {
     for (const expandedLine of splitRecognizedSectionPrefix(rawLine)) {
       source.push(recoverCorruptChordPrefix(expandedLine));
+    }
+  }
+
+  const hasRecoveredCorruption = source.some((entry) => entry.recoveredCorruptChord);
+  if (hasRecoveredCorruption) {
+    for (const entry of source) {
+      if (!entry.recoveredCorruptChord && isMeaningfulLyric(entry.text)) {
+        entry.text = repairInternalLyricPlaceholderUnderscores(entry.text);
+      }
     }
   }
 
@@ -196,6 +268,8 @@ export const normalizeChordDocumentStructure = (input: string): string => {
     index += 1;
   }
 
+  const boundaryRepaired = repairStrandedContentAcrossDuplicateSectionBoundary(repaired);
+
   // Drop a repeated section only when a recovered corrupt chord occurred
   // between equal section markers and no lyric occurred. This keeps legitimate
   // repeated instrumental sections intact while removing the import fingerprint.
@@ -204,7 +278,7 @@ export const normalizeChordDocumentStructure = (input: string): string => {
   let sawLyricSinceSection = false;
   let sawRecoveredChordSinceSection = false;
 
-  for (const entry of repaired) {
+  for (const entry of boundaryRepaired) {
     const sectionKey = getRecognizedSectionKey(entry.text);
     if (sectionKey) {
       if (
