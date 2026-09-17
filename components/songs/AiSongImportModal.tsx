@@ -725,16 +725,44 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
                         type="button"
                         onClick={async () => {
                            try {
-                              const text = await navigator.clipboard.readText();
+                              let text = "";
+                              let html = "";
+                              if (typeof navigator.clipboard.read === "function") {
+                                 try {
+                                    const items = await navigator.clipboard.read();
+                                    for (const item of items) {
+                                       if (!html && item.types.includes("text/html")) {
+                                          html = await (await item.getType("text/html")).text();
+                                       }
+                                       if (!text && item.types.includes("text/plain")) {
+                                          text = await (await item.getType("text/plain")).text();
+                                       }
+                                    }
+                                 } catch {
+                                    // Safari versions vary in ClipboardItem support. The
+                                    // plain-text permission path remains a safe fallback.
+                                 }
+                              }
+                              if (!text) text = await navigator.clipboard.readText();
                               if (!text) {
                                  toastError(t("aiImport.clipboardEmpty", "A área de transferência está vazia."));
                                  return;
                               }
-                              const { text: normalized, wasDecoded } = normalizePastedSongText(text);
+                              const {
+                                 text: normalized,
+                                 titleHint,
+                                 artistHint,
+                                 wasDecoded,
+                              } = normalizeSongClipboardPaste(text, html);
                               if (wasDecoded) {
                                  success(t("aiImport.decodedTitle", "Conteúdo normalizado"), t("aiImport.decodedMessage", "O conteúdo colado estava codificado e foi convertido para texto normal."));
                               }
-                              setFormData(prev => ({ ...prev, rawText: normalized }));
+                              setFormData(prev => ({
+                                 ...prev,
+                                 rawText: normalized,
+                                 title: prev.title.trim() ? prev.title : (titleHint || ""),
+                                 artist: prev.artist.trim() ? prev.artist : (artistHint || ""),
+                              }));
                               if (error) setError(null);
                            } catch (e) {
                               toastError(t("aiImport.clipboardError", "Não foi possível acessar a área de transferência. Cole manualmente no campo abaixo."));

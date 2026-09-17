@@ -82,6 +82,49 @@ describe('normalizePastedSongText', () => {
 import { normalizeSongClipboardPaste } from '../../utils/textNormalizer';
 
 describe('normalizeSongClipboardPaste', () => {
+  it('uses rich PRE columns instead of Safari plain-text fallback spacing', () => {
+    const plainText = `PromessasSarah Beatriz\n\nTom: G#m\n\n[Primeira Parte]\nG#m7\n    Deus de Abraão\n">E9\n    Deus de Abraão\n                     \nSei que nunca quebrará\n">B\nSei que nunca quebrará`;
+    const chart = [
+      '[Primeira Parte]',
+      '',
+      'G#m7             E9',
+      '    Deus de Abraão',
+      '                     B',
+      'Sei que nunca quebrará',
+    ].join('\n');
+    const html = `<article><h1>Promessas</h1><a rel="author">Sarah Beatriz</a><pre>${chart}</pre></article>`;
+
+    const result = normalizeSongClipboardPaste(plainText, html);
+
+    expect(result.text).toContain('G#m7             E9\n    Deus de Abraão');
+    expect(result.text).toContain('                     B\nSei que nunca quebrará');
+    expect(result.text).not.toContain('G#m7    E9');
+    expect(result.text).not.toContain('">');
+    expect(result.text.match(/Deus de Abraão/g)).toHaveLength(1);
+    expect(result.transformations).toContain('recovered_chord_layout_from_clipboard_html');
+  });
+
+  it('keeps plain text when an unrelated HTML PRE is not a chord document', () => {
+    const plainText = '[Verso]\nC    G\nMinha canção';
+    const html = '<pre>const answer = 42;</pre>';
+    expect(normalizeSongClipboardPaste(plainText, html).text).toBe(plainText);
+  });
+
+  it('preserves columns from CifraClub-style DIV and data-chord fragments', () => {
+    const plainText = `[Verso]\nAm7\nGrace will lead me home\n">F/C\nGrace will lead me home`;
+    const html = [
+      '<div>[Verso]</div>',
+      '<div><b data-chord-name="Am7">Am7</b>                 <b data-chord-name="F/C">F/C</b>\nGrace will lead me home</div>',
+      '<div>       <b data-chord-name="G/B">G/B</b>\nI will follow</div>',
+    ].join('');
+
+    const result = normalizeSongClipboardPaste(plainText, html);
+
+    expect(result.text).toContain('Am7                 F/C\nGrace will lead me home');
+    expect(result.text).toContain('       G/B\nI will follow');
+    expect(result.transformations).toContain('recovered_chord_layout_from_clipboard_html');
+  });
+
   it('should recover identity and split text when HTML contains valid headers', () => {
     const html = `
       <article>
