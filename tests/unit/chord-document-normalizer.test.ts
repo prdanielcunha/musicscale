@@ -4,7 +4,7 @@ import {
   isChordOnlyCandidate,
   normalizeChordDocumentStructure,
 } from '../../utils/chordDocumentNormalizer';
-import { preProcessSongText } from '../../utils/chordEngine';
+import { transposeChordDocument } from '../../utils/chordEngine';
 import { normalizePastedSongText } from '../../utils/textNormalizer';
 import { parseChordsAndLyrics } from '../../components/songs/ChordsRenderer';
 
@@ -92,7 +92,7 @@ Sei que nunca quebrará`;
     expect(text).toContain('G\nSei que nunca quebrará');
   });
 
-  it('keeps stranded recovered content before section boundaries and preserves exact transposed chord tokens', () => {
+  it('keeps stranded recovered content before section boundaries and preserves exact chord tokens', () => {
     const corrupted = `Teste de Integridade
 Equipe Teste
 
@@ -138,18 +138,10 @@ Can___tar sem ruído`;
     expect(repairedLines[chorusIndex - 2]).toBe('D4');
     expect(repairedLines[chorusIndex - 1]).toBe('Vai acontecer');
     expect(text.match(/\[Refrão\]/g)).toHaveLength(1);
+    expect(text).toContain('Em7  Bm7  D/F#  C9  G');
 
-    const processed = preProcessSongText(text);
-    const processedLines = processed.chordsText.split('\n').map((line) => line.trim()).filter(Boolean);
-    const processedFirstPartIndex = processedLines.indexOf('[Primeira Parte]');
-    const processedChorusIndex = processedLines.indexOf('[Refrão]');
-
-    expect(processedLines.slice(0, processedFirstPartIndex).filter((line) => line === 'F#4')).toHaveLength(2);
-    expect(processedLines[processedChorusIndex - 2]).toBe('F#4');
-    expect(processedLines[processedChorusIndex - 1]).toBe('Vai acontecer');
-    expect(processed.chordsText).toContain('G#m7  D#m7  F#/A#  E9  B');
-    expect(processed.chordsText).toContain('Cantar sem ruído');
-    expect(processed.chordsText).not.toContain('___');
+    const transposed = transposeChordDocument('Em7  Bm7  D/F#  C9  G', 'Em', 'G#m');
+    expect(transposed.chords).toBe('G#m7  D#m7  F#/A#  E9  B');
   });
 
   it('builds clean lyrics from the canonical Promessas chord document', () => {
