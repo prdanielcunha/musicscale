@@ -1,16 +1,24 @@
 import { test, expect } from './helpers/base';
 import { captureFullPage } from './helpers/visualHelper';
 import { loginAsLeaderA } from './helpers/auth';
+import { FEATURE_RELEASE } from '../../lib/appRelease';
+import { releaseNewsTranslations } from '../../locales/releaseNews';
+
+const releaseKey = FEATURE_RELEASE.translationKey.replace(
+  'releaseNews.',
+  '',
+) as keyof typeof releaseNewsTranslations.pt;
+const currentRelease = releaseNewsTranslations.pt[releaseKey];
 
 test('Relevant release auto-opens once and can be reopened manually', async ({ page }, testInfo) => {
   await loginAsLeaderA(page, { preserveReleaseNews: true });
 
-  const dialog = page.getByRole('dialog', { name: 'O palco ganhou seu próprio espaço.' });
+  const dialog = page.getByRole('dialog', { name: currentRelease.title });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText('Como funciona', { exact: true })).toHaveCount(3);
-  await expect(dialog.getByText('Leia mais — correções e refinamentos', { exact: true })).toBeVisible();
-  await expect(dialog.getByText('0.2.0-beta.0')).toHaveCount(0);
-  await captureFullPage(page, testInfo, 'release-news-stage-tools-beta');
+  await expect(dialog.getByText(currentRelease.refinements.summary, { exact: true })).toBeVisible();
+  await expect(dialog.getByText(FEATURE_RELEASE.version, { exact: true })).toHaveCount(0);
+  await captureFullPage(page, testInfo, 'release-news-current-feature');
 
   await dialog.getByRole('button', { name: 'Fechar', exact: true }).click();
   await expect(dialog).toBeHidden();
@@ -20,7 +28,7 @@ test('Relevant release auto-opens once and can be reopened manually', async ({ p
       .filter((key) => key.startsWith('musicscale_release_seen:'))
       .map((key) => localStorage.getItem(key)),
   );
-  expect(stored).toContain('stage-tools-beta-0.2');
+  expect(stored).toContain(FEATURE_RELEASE.id);
 
   await page.goto('/songs');
   await expect(page.locator('header').getByRole('heading', { name: 'Repertório' })).toBeVisible();
@@ -37,7 +45,7 @@ test('Relevant release auto-opens once and can be reopened manually', async ({ p
     await page.locator('header').getByRole('button', { name: 'Novidades', exact: true }).click();
   }
   await expect(dialog).toBeVisible();
-  await dialog.getByText('Leia mais — correções e refinamentos', { exact: true }).click();
-  await expect(dialog.getByText('Reutilização de formações de banda vinculadas ficou mais segura.')).toBeVisible();
+  await dialog.getByText(currentRelease.refinements.summary, { exact: true }).click();
+  await expect(dialog.getByText(currentRelease.refinements.items[0].text, { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Fechar', exact: true }).click();
 });
