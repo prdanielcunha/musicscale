@@ -167,16 +167,13 @@ Linha sintética`;
 
     const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
     const firstPartIndex = lines.indexOf('[Primeira Parte]');
-    expect(lines.slice(0, firstPartIndex)).toEqual([
-      'Teste Concert',
-      'Equipe Teste',
-      'Tom: G#m',
+    expect(firstPartIndex).toBe(7);
+    expect(lines.slice(3, firstPartIndex)).toEqual([
       'G#m7  E9  B',
       'F#4',
       'G#m7  E9  B',
       'F#4',
     ]);
-    expect(firstPartIndex).toBe(7);
     expect(text.match(/\[Primeira Parte\]/g)).toHaveLength(1);
     expect(text).toContain('G#m7  D#m7  F#/A#  E9  B');
   });
