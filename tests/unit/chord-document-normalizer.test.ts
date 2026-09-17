@@ -144,6 +144,42 @@ Can___tar sem ruído`;
     expect(transposed.chords).toBe('G#m7  D#m7  F#/A#  E9  B');
   });
 
+  it('preserves an already concert-key corrupted chart without changing chord spelling or order', () => {
+    const corrupted = `Teste Concert
+Equipe Teste
+
+Tom: G#m
+
+[Intro] G#m7  E9  B
+">F#4
+
+        G#m7  E9  B
+
+[Primeira Parte]
+">F#4
+[Primeira Parte]
+
+G#m7  D#m7  F#/A#  E9  B
+Linha sintética`;
+
+    const { text, transformations } = normalizePastedSongText(corrupted);
+    expect(transformations).toContain('normalized_chord_structure');
+
+    const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
+    const firstPartIndex = lines.indexOf('[Primeira Parte]');
+    expect(lines.slice(0, firstPartIndex)).toEqual([
+      'Teste Concert',
+      'Equipe Teste',
+      'Tom: G#m',
+      'G#m7  E9  B',
+      'F#4',
+      'G#m7  E9  B',
+      'F#4',
+    ]);
+    expect(text.match(/\[Primeira Parte\]/g)).toHaveLength(1);
+    expect(text).toContain('G#m7  D#m7  F#/A#  E9  B');
+  });
+
   it('builds clean lyrics from the canonical Promessas chord document', () => {
     const corrupted = `[Intro] Em7 C9 G
 ">D4
