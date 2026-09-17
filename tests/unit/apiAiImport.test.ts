@@ -1,22 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import app from '../../server';
-import { areKeysEnharmonicallyEquivalent } from '../../utils/chordEngine';
 
 vi.hoisted(() => {
   process.env.VERCEL = 'true';
   process.env.GEMINI_API_KEY = 'test-gemini-key';
 });
 
-// Create a state object that we can mutate in tests
+// Create a state object that we can mutate in tests.
+// The AI contract is metadata-only: the deterministic parser owns chords/lyrics.
 const geminiMockState = vi.hoisted(() => ({
   text: JSON.stringify({
     capitalizedTitle: "Test Song",
     capitalizedArtist: "Test Artist",
     originalKey: "F#",
-    cleanChords: "[Intro] F#  C#/E#  D#m  B",
-    cleanLyrics: "Hello world\nAnother line",
-    sections: ["Intro"]
+    sections: ["Intro", "Verso"]
   })
 }));
 
@@ -65,31 +63,29 @@ vi.mock('../../services/firebaseAdmin', async () => {
   };
 });
 
+const canonicalFSharpInput = `Tom: F#\nCapotraste: 2\nForma dos acordes no tom de E\n\n[Intro]\nE  B/D#  C#m  A\n\n[Verso]\nE\nHello world\nB/D#\nAnother line`;
+
 describe('AI Import API Backend Normalization', () => {
   beforeEach(() => {
-    // Reset mock state to default for MATCH case
+    // Reset mock state to the metadata-only contract.
     geminiMockState.text = JSON.stringify({
       capitalizedTitle: "Test Song",
       capitalizedArtist: "Test Artist",
       originalKey: "F#",
-      cleanChords: "[Intro] F#  C#/E#  D#m  B",
-      cleanLyrics: "Hello world\nAnother line",
-      sections: ["Intro"]
+      sections: ["Intro", "Verso"]
     });
   });
 
   it('should process the request and preserve provenance metadata', async () => {
-    const inputText = `Tom: F#\nCapotraste: 2\nForma dos acordes no tom de E\n\n[Intro] E  B/D#  C#m  A`;
-    
     const res = await request(app)
       .post('/api/ai-import')
       .set('Authorization', 'Bearer fake-token')
       .send({
-        rawText: inputText,
+        rawText: canonicalFSharpInput,
         orgId: 'test-org',
         userId: 'test-uid'
       });
-      
+
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
 
@@ -113,58 +109,60 @@ describe('AI Import API Backend Normalization', () => {
     expect(res.body.result.metadata.chordContentKey).toBe("F#");
     expect(res.body.result.metadata.chordContentKeyValidationStatus).toBe("MATCH");
 
-    // Validate keys
+    // Validate keys and canonical body
     expect(res.body.song.key).toBe("F#");
     expect(res.body.song.originalKey).toBe("F#");
     expect(res.body.song.selectedKey).toBe("F#");
+    expect(res.body.song.chords).toContain('F#');
+    expect(res.body.song.lyrics).toContain('Hello world');
   });
 
-  it('should return error when there is a clear physical chord MISMATCH', async () => {
+  it('should ignore a conflicting AI chart body and keep the deterministic chart authoritative', async () => {
+    // Deliberately emulate a legacy/malicious model response that tries to replace
+    // the body with chords in another key. The server must ignore these fields.
     geminiMockState.text = JSON.stringify({
       capitalizedTitle: "Test Song",
       capitalizedArtist: "Test Artist",
       originalKey: "F#",
       cleanChords: "[Intro] G  D/F#  Em  C",
-      cleanLyrics: "Hello world\nAnother line",
+      cleanLyrics: "Fabricated AI lyric",
       sections: ["Intro"]
     });
 
-    const inputText = `Tom: F#\nCapotraste: 2\nForma dos acordes no tom de E\n\n[Intro] E  B/D#  C#m  A`;
-    
     const res = await request(app)
       .post('/api/ai-import')
       .set('Authorization', 'Bearer fake-token')
       .send({
-        rawText: inputText,
+        rawText: canonicalFSharpInput,
         orgId: 'test-org',
         userId: 'test-uid'
       });
-      
+
     expect(res.status).toBe(200);
-    expect(res.body.ok).toBe(false);
-    expect(res.body.code).toBe("PARSING");
-    expect(res.body.details.error).toBe("CHORD_CONTENT_KEY_MISMATCH");
-    expect(res.body.details.validationStatus).toBe("MISMATCH");
-    expect(res.body.details.expectedKey).toBe("F#");
-    // Ensure detected key is enharmonically equivalent to G
-    expect(typeof res.body.details.detectedKey).toBe("string");
-    expect(areKeysEnharmonicallyEquivalent(res.body.details.detectedKey, 'G')).toBe(true);
-    
-    expect(res.body.song).toBeUndefined();
+    expect(res.body.ok).toBe(true);
+    expect(res.body.song.metadata.chordContentKeyValidationStatus).toBe("MATCH");
+    expect(res.body.song.metadata.chordContentKey).toBe("F#");
+    expect(res.body.song.chords).not.toContain("[Intro] G  D/F#  Em  C");
+    expect(res.body.song.lyrics).not.toContain("Fabricated AI lyric");
+    expect(res.body.song.chords).toContain('F#');
+    expect(res.body.song.lyrics).toContain('Hello world');
   });
 
-  it('should return INDETERMINATE when automatic confirmation is inconclusive', async () => {
+  it('should return INDETERMINATE when deterministic key evidence is genuinely insufficient', async () => {
     geminiMockState.text = JSON.stringify({
       capitalizedTitle: "Test Song",
       capitalizedArtist: "Test Artist",
       originalKey: "C",
       cleanChords: "[Intro] F  G",
-      cleanLyrics: "Hello world\nAnother line",
-      sections: ["Intro"]
+      cleanLyrics: "This legacy AI body must be ignored",
+      sections: ["Intro", "Verso"]
     });
 
-    const inputText = `Tom: C\nCapotraste: 5\nForma dos acordes no tom de G\n\n[Intro]\nG  G  D  Em  C`;
-    
+    // Two physical chord tokens are intentionally insufficient for a confident
+    // key confirmation after capo normalization, while the lyric keeps the
+    // document valid as a real song import.
+    const inputText = `Tom: C\nCapotraste: 5\nForma dos acordes no tom de G\n\n[Intro]\nG  D\n\n[Verso]\nUma canção de teste`;
+
     const res = await request(app)
       .post('/api/ai-import')
       .set('Authorization', 'Bearer fake-token')
@@ -173,7 +171,7 @@ describe('AI Import API Backend Normalization', () => {
         orgId: 'test-org',
         userId: 'test-uid'
       });
-      
+
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
 
@@ -195,6 +193,9 @@ describe('AI Import API Backend Normalization', () => {
     expect(res.body.result.metadata.chordContentKeyValidationStatus).toBe("INDETERMINATE");
     expect(res.body.result.metadata.chordContentKey).toBeUndefined();
 
+    expect(res.body.song.chords).not.toContain('[Intro] F  G');
+    expect(res.body.song.lyrics).not.toContain('This legacy AI body must be ignored');
+
     // Check warnings
     expect(Array.isArray(res.body.result.warnings)).toBe(true);
     expect(res.body.result.warnings.includes("Não foi possível confirmar automaticamente o tom físico dos acordes.")).toBe(true);
@@ -205,13 +206,11 @@ describe('AI Import API Backend Normalization', () => {
       capitalizedTitle: "Toda Terra",
       capitalizedArtist: "Gabriela Rocha",
       originalKey: "E",
-      cleanChords: "[Intro] E  B  C#m  A",
-      cleanLyrics: "Toda Terra",
-      sections: ["Intro"]
+      sections: ["Intro", "Verso"]
     });
 
-    const inputText = `Toda TerraGabriela Rocha\nTom: E\n[Intro] E  B  C#m  A`;
-    
+    const inputText = `Toda TerraGabriela Rocha\nTom: E\n[Intro]\nE  B  C#m  A\n\n[Verso]\nToda Terra canta ao Senhor`;
+
     // First, test without explicit title/artist
     const res1 = await request(app)
       .post('/api/ai-import')
@@ -221,13 +220,14 @@ describe('AI Import API Backend Normalization', () => {
         orgId: 'test-org',
         userId: 'test-uid'
       });
-      
+
     expect(res1.status).toBe(200);
     expect(res1.body.ok).toBe(true);
     expect(res1.body.song.title).toBe("Toda Terra");
     expect(res1.body.song.artist).toBe("Gabriela Rocha");
     expect(res1.body.result.title).toBe("Toda Terra");
     expect(res1.body.result.artist).toBe("Gabriela Rocha");
+    expect(res1.body.song.lyrics).toContain('Toda Terra canta ao Senhor');
 
     // Second, test WITH explicit title/artist overriding AI
     const res2 = await request(app)
