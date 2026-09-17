@@ -32,13 +32,13 @@ const runBump = (version: string, kind: string) => {
 };
 
 describe('release metadata', () => {
-  it('uses the current 0.2 feature beta and keeps package/lock versions identical', () => {
+  it('uses the current 0.3 feature beta and keeps package/lock versions identical', () => {
     const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-    expect(APP_VERSION).toBe('0.2.0-beta.1');
+    expect(APP_VERSION).toBe('0.3.0-beta.0');
     expect(lock.version).toBe(APP_VERSION);
     expect(lock.packages[''].version).toBe(APP_VERSION);
     expect(FEATURE_RELEASE.version).toBe(APP_VERSION);
-    expect(FEATURE_RELEASE.id).toBe('stage-tools-beta-0.2');
+    expect(FEATURE_RELEASE.id).toBe('stage-tools-v2-offline-beta-0.3');
     expect(FEATURE_RELEASE.kind).toBe('feature');
     expect(Date.parse(FEATURE_RELEASE.publishedAt)).not.toBeNaN();
   });
@@ -49,7 +49,7 @@ describe('release metadata', () => {
     expect(parseReleaseVersion('1.0.0').stable).toBe(true);
     expect(parseReleaseVersion('0.1.5-beta').iteration).toBe(0);
     expect(() => parseReleaseVersion('0.2')).toThrow();
-    expect(compareReleaseVersions('0.2.0-beta.1', '0.2.0-beta.0')).toBe(1);
+    expect(compareReleaseVersions('0.3.0-beta.0', '0.2.0-beta.1')).toBe(1);
     expect(compareReleaseVersions('1.0.0', '1.0.0-beta.9')).toBe(1);
   });
 
@@ -63,9 +63,9 @@ describe('release metadata', () => {
     expect(revision.lock.packages[''].version).toBe(revision.pkg.version);
   });
 
-  it('provides the three feature highlights and refinements in every language', () => {
+  it('provides the three current feature highlights and refinements in every language', () => {
     for (const language of ['pt', 'en', 'es'] as const) {
-      const copy = releaseNewsTranslations[language].stageToolsBeta02;
+      const copy = releaseNewsTranslations[language].stageToolsBeta03;
       expect(copy.title.length).toBeGreaterThan(0);
       for (const feature of ['stageTools', 'deviceAudio', 'updates'] as const) {
         expect(copy[feature].title.length).toBeGreaterThan(0);
