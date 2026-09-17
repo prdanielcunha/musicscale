@@ -25,7 +25,15 @@ jobs:
           cache: npm
 
       - name: Apply integrity patch
-        run: node scripts/apply-ai-import-integrity-v2.mjs
+        run: |
+          node scripts/apply-ai-import-integrity-v2.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tests/server/ai-import-document-integrity-contract.test.ts')
+          s = p.read_text()
+          s = s.replace("fs.readFileSync(new URL('../../server.ts', import.meta.url), 'utf8')", "fs.readFileSync('server.ts', 'utf8')")
+          p.write_text(s)
+          PY
 
       - name: Bump beta hotfix version
         run: npm version 0.2.0-beta.1 --no-git-tag-version
