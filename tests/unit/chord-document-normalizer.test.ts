@@ -4,6 +4,7 @@ import {
   isChordOnlyCandidate,
   normalizeChordDocumentStructure,
 } from '../../utils/chordDocumentNormalizer';
+import { preProcessSongText } from '../../utils/chordEngine';
 import { normalizePastedSongText } from '../../utils/textNormalizer';
 import { parseChordsAndLyrics } from '../../components/songs/ChordsRenderer';
 
@@ -89,6 +90,66 @@ Sei que nunca quebrará`;
     expect(text.match(/Sei que nunca quebrará/g)).toHaveLength(1);
     expect(text).toContain('C9\n    Deus de Abraão');
     expect(text).toContain('G\nSei que nunca quebrará');
+  });
+
+  it('keeps stranded recovered content before section boundaries and preserves exact transposed chord tokens', () => {
+    const corrupted = `Teste de Integridade
+Equipe Teste
+
+Tom: G#m (com forma de Em)Capotraste: 4ª casa
+
+[Intro] Em7  C9  G
+">D4
+
+        Em7  C9  G
+
+[Primeira Parte]
+">D4
+[Primeira Parte]
+
+Em7
+Linha sintética um
+
+[Pré-Refrão]
+G
+Linha sintética dois
+
+[Refrão]
+">D4
+Vai acontecer
+[Refrão]
+
+Em7  Bm7  D/F#  C9  G
+Can___tar sem ruído`;
+
+    const { text, transformations } = normalizePastedSongText(corrupted);
+    expect(transformations).toContain('normalized_chord_structure');
+    expect(text).not.toContain('___');
+    expect(text).toContain('Cantar sem ruído');
+
+    const repairedLines = text.split('\n').map((line) => line.trim()).filter(Boolean);
+    const firstPartIndex = repairedLines.indexOf('[Primeira Parte]');
+    expect(firstPartIndex).toBeGreaterThan(0);
+    expect(repairedLines.slice(0, firstPartIndex).filter((line) => line === 'D4')).toHaveLength(2);
+    expect(text.match(/\[Primeira Parte\]/g)).toHaveLength(1);
+
+    const chorusIndex = repairedLines.indexOf('[Refrão]');
+    expect(chorusIndex).toBeGreaterThan(1);
+    expect(repairedLines[chorusIndex - 2]).toBe('D4');
+    expect(repairedLines[chorusIndex - 1]).toBe('Vai acontecer');
+    expect(text.match(/\[Refrão\]/g)).toHaveLength(1);
+
+    const processed = preProcessSongText(text);
+    const processedLines = processed.chordsText.split('\n').map((line) => line.trim()).filter(Boolean);
+    const processedFirstPartIndex = processedLines.indexOf('[Primeira Parte]');
+    const processedChorusIndex = processedLines.indexOf('[Refrão]');
+
+    expect(processedLines.slice(0, processedFirstPartIndex).filter((line) => line === 'F#4')).toHaveLength(2);
+    expect(processedLines[processedChorusIndex - 2]).toBe('F#4');
+    expect(processedLines[processedChorusIndex - 1]).toBe('Vai acontecer');
+    expect(processed.chordsText).toContain('G#m7  D#m7  F#/A#  E9  B');
+    expect(processed.chordsText).toContain('Cantar sem ruído');
+    expect(processed.chordsText).not.toContain('___');
   });
 
   it('builds clean lyrics from the canonical Promessas chord document', () => {
