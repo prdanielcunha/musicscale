@@ -359,7 +359,7 @@ export const ChordsRenderer: React.FC<ChordsRendererProps> = ({
           return (
             <div
               key={index}
-              className="font-bold tracking-wider"
+              className="font-mono font-bold tracking-normal"
               style={{
                 color: activeChordsColor,
                 marginBottom: isNextLyric ? "-0.1em" : "0",
@@ -389,7 +389,7 @@ export const ChordsRenderer: React.FC<ChordsRendererProps> = ({
           return (
             <div
               key={index}
-              className="font-semibold"
+              className="font-mono font-semibold tracking-normal"
               style={{
                 color: activeLyricsColor,
                 marginBottom: "0",
