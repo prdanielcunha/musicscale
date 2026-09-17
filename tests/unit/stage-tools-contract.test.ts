@@ -23,14 +23,36 @@ describe('Stage Tools contract', () => {
     const page = read('pages/StageToolsPage.tsx');
     expect(page).toContain("import Metronome from '../components/common/Metronome'");
     expect(page).toContain("import StagePadPlayer from '../components/songs/StagePadPlayer'");
-    expect(page).toContain('<StagePadPlayer />');
+    expect(page).toContain('<StagePadPlayer userId={user?.uid} organizationId={effectiveOrganizationId} />');
     expect(page).toContain('<Metronome />');
     expect(page).not.toContain('useLiveWorshipSession');
     expect(page).not.toContain('LiveWorshipSession');
     expect(page).not.toContain('Firestore');
   });
 
-  it('provides every new Stage Tools, Pad, metronome and Help key in PT/EN/ES', () => {
+  it('keeps the Stage Tools surface inside the mobile viewport and clear of bottom navigation', () => {
+    const page = read('pages/StageToolsPage.tsx');
+    const pad = read('components/songs/StagePadPlayer.tsx');
+    expect(page).toContain('overflow-x-clip');
+    expect(page).toContain('env(safe-area-inset-bottom)');
+    expect(page).toContain('min-w-0 overflow-hidden');
+    expect(pad).toContain('min-w-0 w-full');
+    expect(pad).toContain('max-w-full');
+    expect(pad).toContain('sm:hidden');
+  });
+
+  it('adds explicit offline resource packs without duplicating library songs into scale downloads', () => {
+    const page = read('pages/StageToolsPage.tsx');
+    const manager = read('services/offline/resourcePackManager.ts');
+    const database = read('services/offline/database.ts');
+    expect(page).toContain('<OfflineResourcesPanel />');
+    expect(manager).toContain("libraryPack?.songRevisions?.[song.id] !== getOfflineSongRevision(song)");
+    expect(manager).toContain('reusedSongs: songs.length - missingFromLibrary.length');
+    expect(database).toContain('offlineResourcePacks');
+    expect(database).toContain('customPadAssets');
+  });
+
+  it('provides every original Stage Tools, Pad, metronome and Help key in PT/EN/ES', () => {
     const required = [
       ['nav', 'stage_tools'],
       ['stage_tools', 'title'],
@@ -58,6 +80,17 @@ describe('Stage Tools contract', () => {
         expect(locale[group]?.[key], `${language}.${group}.${key}`).toBeTruthy();
       }
     }
+  });
+
+  it('ships Pad V2 and Offline Resources copy in PT/EN/ES', () => {
+    const copy = read('services/stageToolsV2Copy.ts');
+    expect(copy).toContain("const PT: StageToolsV2Copy");
+    expect(copy).toContain("const EN: StageToolsV2Copy");
+    expect(copy).toContain("const ES: StageToolsV2Copy");
+    expect(copy).toContain("worship: 'Worship'");
+    expect(copy).toContain("library: 'Biblioteca inteira'");
+    expect(copy).toContain("library: 'Entire library'");
+    expect(copy).toContain("library: 'Biblioteca completa'");
   });
 
   it('keeps the contextual viewer on effectivePerformanceKey and shared authority unchanged', () => {

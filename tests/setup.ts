@@ -13,6 +13,10 @@ vi.mock('react-i18next', () => ({
       }
       return text;
     },
+    i18n: {
+      language: 'pt-BR',
+      resolvedLanguage: 'pt-BR',
+    },
   }),
 }));
 

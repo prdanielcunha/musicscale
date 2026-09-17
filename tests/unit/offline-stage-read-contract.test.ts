@@ -24,9 +24,11 @@ describe('P3.5 offline stage read contract', () => {
     expect(providerSource).not.toContain('addToSyncQueue');
   });
 
-  it('does not require an IndexedDB schema migration', () => {
+  it('preserves v1 and adds an additive v2 schema for explicit offline resources', () => {
     expect(databaseSource).toContain('this.version(1).stores({');
-    expect(databaseSource).not.toContain('this.version(2)');
+    expect(databaseSource).toContain('this.version(2).stores({');
+    expect(databaseSource).toContain("offlineResourcePacks: 'id, userId, organizationId, kind, targetId, updatedAt'");
+    expect(databaseSource).toContain("customPadAssets: 'id, userId, organizationId, updatedAt'");
   });
 
   it('requires canonical user and organization context before reading or writing stage cache', () => {
