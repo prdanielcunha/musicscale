@@ -1,5 +1,7 @@
 import {
+  getRecognizedSectionKey,
   hasRecoverableChordDocumentCorruption,
+  isChordOnlyCandidate,
   normalizeChordDocumentStructure,
 } from './chordDocumentNormalizer';
 import { repairChordImportFidelity } from './chordImportFidelityRepair';
@@ -147,6 +149,132 @@ export interface NormalizedSongClipboardPaste {
   transformations: string[];
 }
 
+const CLIPBOARD_BLOCK_TAGS = new Set([
+  'ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'DIV', 'FIGCAPTION', 'FIGURE',
+  'FOOTER', 'HEADER', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'MAIN',
+  'NAV', 'P', 'PRE', 'SECTION', 'TR',
+]);
+
+const trimBlankClipboardEdges = (value: string): string => {
+  const lines = value.replace(/\r\n?/g, '\n').split('\n');
+  while (lines.length > 0 && !lines[0].trim()) lines.shift();
+  while (lines.length > 0 && !lines[lines.length - 1].trim()) lines.pop();
+  return lines.join('\n');
+};
+
+const serializeClipboardElement = (root: Element): string => {
+  const chunks: string[] = [];
+  const appendNewline = () => {
+    if (chunks.length > 0 && !chunks[chunks.length - 1].endsWith('\n')) chunks.push('\n');
+  };
+  const visit = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      chunks.push(node.textContent || '');
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const element = node as Element;
+    const tag = element.tagName;
+    if (['SCRIPT', 'STYLE', 'NOSCRIPT', 'SVG', 'CANVAS'].includes(tag)) return;
+    const inlineStyle = element.getAttribute('style') || '';
+    if (
+      element.hasAttribute('hidden') ||
+      element.getAttribute('aria-hidden') === 'true' ||
+      /(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(inlineStyle)
+    ) return;
+    if (tag === 'BR') {
+      appendNewline();
+      return;
+    }
+    const isBlock = CLIPBOARD_BLOCK_TAGS.has(tag);
+    if (isBlock) appendNewline();
+    for (const child of Array.from(element.childNodes)) visit(child);
+    if (isBlock) appendNewline();
+  };
+  visit(root);
+  return trimBlankClipboardEdges(chunks.join('').replace(/\n{3,}/g, '\n\n'));
+};
+
+const chordDocumentScore = (value: string): number => {
+  const lines = value.split('\n').map((line) => line.trim()).filter(Boolean);
+  if (lines.length < 3) return 0;
+  let chordRows = 0;
+  let sections = 0;
+  let lyricRows = 0;
+  const isStrictChordRow = (line: string): boolean => {
+    const tokens = line
+      .replace(/^[([]+|[)\]]+$/g, '')
+      .split(/[\s|]+/)
+      .map((token) => token.replace(/^[([]+|[)\],;]+$/g, ''))
+      .filter(Boolean);
+    return tokens.length > 0 && tokens.every((token) => isChordOnlyCandidate(token));
+  };
+  for (const line of lines) {
+    if (getRecognizedSectionKey(line)) sections += 1;
+    else {
+      const inlineSection = line.match(/^\[[^\]]+\]\s+(.+)$/);
+      if (inlineSection && isStrictChordRow(inlineSection[1])) {
+        sections += 1;
+        chordRows += 1;
+      } else if (isStrictChordRow(line)) chordRows += 1;
+      else if (/[\p{L}]{2}/u.test(line) && !/^(?:tom|tono|key)\s*:/i.test(line)) lyricRows += 1;
+    }
+  }
+  if (chordRows < 2 || lyricRows < 1) return 0;
+  return chordRows * 8 + sections * 5 + lyricRows + Math.min(lines.length, 100) / 100;
+};
+
+/**
+ * Reads the semantic text inside a rich clipboard fragment. Chord sites
+ * commonly render their charts in a PRE element: its text nodes still contain
+ * the original columns even when Safari's text/plain representation has
+ * already flattened, duplicated or displaced visual rows.
+ */
+export function extractChordDocumentFromClipboardHtml(html: string): string | null {
+  if (!html || typeof DOMParser === 'undefined') return null;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const candidates: Array<{ text: string; score: number }> = [];
+
+  for (const element of Array.from(doc.querySelectorAll('pre'))) {
+    const text = trimBlankClipboardEdges(element.textContent || '');
+    const score = chordDocumentScore(text);
+    if (score > 0) candidates.push({ text, score: score + 1000 });
+  }
+
+  // Some chord providers use nested DIV/BR markup instead of PRE. The body
+  // serializer preserves text-node spaces and explicit block boundaries.
+  if (doc.body) {
+    const text = serializeClipboardElement(doc.body);
+    const score = chordDocumentScore(text);
+    if (score > 0) candidates.push({ text, score });
+  }
+
+  candidates.sort((left, right) => right.score - left.score || right.text.length - left.text.length);
+  return candidates[0]?.text || null;
+}
+
+const prependMissingClipboardMetadata = (plainText: string, richChart: string): string => {
+  const prefix: string[] = [];
+  for (const line of plainText.replace(/\r\n?/g, '\n').split('\n')) {
+    const trimmed = line.trim();
+    if (
+      /^\s*\[[^\]]+\]/.test(line) ||
+      getRecognizedSectionKey(trimmed) ||
+      isChordOnlyCandidate(trimmed) ||
+      /^['"“”]?>/.test(trimmed)
+    ) break;
+    prefix.push(line);
+  }
+  while (prefix.length > 0 && !prefix[prefix.length - 1].trim()) prefix.pop();
+  if (prefix.length === 0) return richChart;
+
+  const prefixText = prefix.join('\n');
+  const normalizedPrefix = normalizeIdentityForComparison(prefixText);
+  const normalizedRichStart = normalizeIdentityForComparison(richChart.slice(0, prefixText.length + 80));
+  if (normalizedPrefix && normalizedRichStart.startsWith(normalizedPrefix)) return richChart;
+  return `${prefixText}\n\n${richChart}`;
+};
+
 export function normalizeIdentityForComparison(value: string): string {
   if (!value) return '';
   return value
@@ -274,11 +402,19 @@ export function extractSongIdentityFromClipboardHtml(html: string): ClipboardSon
 }
 
 export function normalizeSongClipboardPaste(plainText: string, htmlText: string): NormalizedSongClipboardPaste {
-  const { text: baseText, wasDecoded, transformations } = normalizePastedSongText(plainText);
+  const richChordDocument = extractChordDocumentFromClipboardHtml(htmlText);
+  const sourceText = richChordDocument
+    ? prependMissingClipboardMetadata(plainText, richChordDocument)
+    : plainText;
+  const { text: baseText, wasDecoded, transformations } = normalizePastedSongText(sourceText);
   let finalTransformations = [...transformations];
   let finalTitleHint: string | null = null;
   let finalArtistHint: string | null = null;
   let finalText = baseText;
+
+  if (richChordDocument) {
+    finalTransformations.push('recovered_chord_layout_from_clipboard_html');
+  }
 
   const identity = extractSongIdentityFromClipboardHtml(htmlText);
 

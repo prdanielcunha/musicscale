@@ -280,6 +280,69 @@ describe('AiSongImportModal Fixes', () => {
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
+    it('preserves rich clipboard chord columns before the AI button is pressed', async () => {
+      render(<AiSongImportModal isOpen={true} onClose={() => {}} />);
+      const textarea = screen.getByPlaceholderText(
+        'Cole aqui a letra, a cifra ou o conteúdo completo da música...',
+      ) as HTMLTextAreaElement;
+      const corrupted = `[Primeira Parte]\nG#m7\n    Deus de Abraão\n">E9\n    Deus de Abraão\nSei que nunca quebrará\n">B\nSei que nunca quebrará`;
+      const exactChart = `[Primeira Parte]\n\nG#m7             E9\n    Deus de Abraão\n                     B\nSei que nunca quebrará`;
+      const pasteEvent = new Event('paste', { bubbles: true }) as any;
+      pasteEvent.clipboardData = {
+        getData: (type: string) => {
+          if (type === 'text/plain') return corrupted;
+          if (type === 'text/html') return `<pre>${exactChart}</pre>`;
+          return '';
+        },
+      };
+      Object.assign(pasteEvent, { preventDefault: vi.fn() });
+
+      fireEvent(textarea, pasteEvent);
+
+      await waitFor(() => {
+        expect(textarea.value).toContain('G#m7             E9\n    Deus de Abraão');
+        expect(textarea.value).not.toContain('G#m7    E9');
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('reads rich HTML when the dedicated clipboard button is used', async () => {
+      const originalClipboard = navigator.clipboard;
+      const corrupted = `[Verso]\nAm7\nGrace will lead me home\n">F/C\nGrace will lead me home`;
+      const exactChart = `[Verso]\n\nAm7                 F/C\nGrace will lead me home\n       G/B\nI will follow`;
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          read: vi.fn().mockResolvedValue([{
+            types: ['text/plain', 'text/html'],
+            getType: vi.fn(async (type: string) => ({
+              text: async () => type === 'text/html' ? `<pre>${exactChart}</pre>` : corrupted,
+            })),
+          }]),
+          readText: vi.fn().mockResolvedValue(corrupted),
+        },
+      });
+
+      try {
+        render(<AiSongImportModal isOpen={true} onClose={() => {}} />);
+        fireEvent.click(screen.getByText('Colar da área de transferência'));
+        const textarea = screen.getByPlaceholderText(
+          'Cole aqui a letra, a cifra ou o conteúdo completo da música...',
+        ) as HTMLTextAreaElement;
+
+        await waitFor(() => {
+          expect(textarea.value).toContain('Am7                 F/C\nGrace will lead me home');
+          expect(textarea.value).toContain('       G/B\nI will follow');
+        });
+      } finally {
+        Object.defineProperty(navigator, 'clipboard', {
+          configurable: true,
+          value: originalClipboard,
+        });
+      }
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
     it('should recover title and artist from HTML and fill the form', async () => {
       render(<AiSongImportModal isOpen={true} onClose={() => {}} />);
       
