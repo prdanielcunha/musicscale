@@ -26,6 +26,37 @@ export function normalizePastedSongText(input: string): {
   if (/\r\n|\r/.test(text)) {
     text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     transformations.push('normalized_line_breaks');
+    wasDecoded = true;
+  }
+
+  // 2.1. Normalize copy/paste-only Unicode noise without collapsing horizontal
+  // spacing. Each Unicode space becomes exactly one regular space so chord
+  // columns remain stable.
+  if (/[\u00a0\u2007\u202f]/.test(text)) {
+    text = text.replace(/[\u00a0\u2007\u202f]/g, ' ');
+    transformations.push('normalized_unicode_spaces');
+    wasDecoded = true;
+  }
+
+  if (/[\u200b-\u200d\u2060\ufeff]/.test(text)) {
+    text = text.replace(/[\u200b-\u200d\u2060\ufeff]/g, '');
+    transformations.push('removed_invisible_characters');
+    wasDecoded = true;
+  }
+
+  // Preserve tabs/newlines, but reject invisible C0/DEL control noise that can
+  // leak from rich clipboard formats and later confuse chord tokenization.
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text)) {
+    text = text.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '');
+    transformations.push('removed_control_characters');
+    wasDecoded = true;
+  }
+
+  const nfcText = text.normalize('NFC');
+  if (nfcText !== text) {
+    text = nfcText;
+    transformations.push('normalized_unicode_nfc');
+    wasDecoded = true;
   }
 
   // 3. Detect and decode percent-encoding safely

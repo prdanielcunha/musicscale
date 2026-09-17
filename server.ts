@@ -2128,15 +2128,27 @@ app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);
 
     if (typeof rawText === "string") {
       const { text: normalized, wasDecoded, transformations } = normalizePastedSongText(rawText);
-      if (wasDecoded) {
-        logInfo("1_INITIAL_PAYLOAD", "Texto colado foi decodificado", {
-          pasteEncodingDetected: true,
-          pasteEncodingDecoded: true,
+      if (transformations.length > 0) {
+        logInfo("1_INITIAL_PAYLOAD", "Texto colado foi normalizado antes da importação", {
+          pasteEncodingDetected: transformations.some(t => t.startsWith('percent_decoded')),
+          pasteEncodingDecoded: wasDecoded,
           decodePasses: transformations.filter(t => t.startsWith('percent_decoded')).length,
+          transformations,
           rawLength: rawText.length,
           normalizedLength: normalized.length
         });
-        rawText = normalized;
+      }
+      rawText = normalized;
+
+      if (rawText.includes("\uFFFD")) {
+        return res.status(422).json(
+          makeErrorResponse(
+            "VALIDATION",
+            "O texto contém caracteres corrompidos que não podem ser reconstruídos com segurança. Copie a cifra novamente e tente importar.",
+            { replacementCharacterDetected: true },
+            "1_INITIAL_PAYLOAD"
+          )
+        );
       }
     }
 
@@ -2386,36 +2398,30 @@ app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);
           textToProcess = textToProcess.slice(0, AI_IMPORT_GEMINI_INPUT_MAX_CHARS);
         }
 
-        const prompt = `Você é um músico e especialista em cifras musicais.
-Temos um texto bruto extraído de um site de cifras ou um texto pré-processado.
-Sua tarefa é classificar dados, limpar completamente o lixo da cifra e retornar UM JSON válido.
+        const prompt = `Você é um músico especialista em análise de cifras. O documento musical abaixo já foi normalizado por um parser determinístico e é a fonte canônica da importação.
+
+Sua tarefa é SOMENTE enriquecer metadados e resolver ambiguidades semânticas. NÃO reescreva, reordene, resuma, corrija, transponha ou reformate a cifra nem a letra. Nunca devolva campos cleanChords, cleanLyrics, chords ou lyrics.
+
+REGRAS DE INTEGRIDADE:
+1. A ordem das seções, linhas, acordes e letras é imutável. Não proponha uma nova versão do documento.
+2. Não mova acordes para outras posições e não tente alinhar acordes sobre sílabas. O alinhamento existente pertence ao documento canônico.
+3. Não remova repetições de letra: repetições podem ser intencionais.
+4. Não invente título, artista, tom, BPM, ritmo ou seção. Quando a evidência for insuficiente, retorne null/unknown e adicione um warning curto.
+5. Para originalKey, use somente um tom musical válido quando houver evidência clara no conteúdo. NÃO transponha acordes.
+6. Para sections, descreva apenas as seções que aparecem no documento e mantenha a ordem observada. Esse campo é apenas metadado; não controla o corpo da cifra.
 
 POSSÍVEIS DADOS DE IDENTIFICAÇÃO DA FONTE:
 Título candidato: ${preProcessed?.title || "não identificado"}
 Artista candidato: ${preProcessed?.artist || "não identificado"}
 
-O título e o artista podem ter sido concatenados pela área de transferência. Separe-os semanticamente quando houver evidência clara. Nunca devolva título e artista unidos no mesmo campo. Não invente artista quando não houver evidência.
+O título e o artista podem ter sido concatenados pela área de transferência. Separe-os semanticamente apenas quando houver evidência clara. Nunca devolva título e artista unidos no mesmo campo. Não invente artista.
 
-Instruções cruciais para a cifra ("cleanChords"):
-1. A cifra ("cleanChords") DEVE conter em um único texto estruturado as seções, as linhas de acordes e também as linhas de letra correspondentes, no formato tradicional de cifras (onde as linhas de acordes estão imediatamente posicionadas acima da respectiva linha de letra, preservando o alinhamento musical por espaçamento para que o músico toque e cante). Nunca remova as linhas de letra da cifra!
-2. Remova lixos adicionais como diagramas e dicionários de acordes no início/fim, guias de ritmo textuais externos, dados de tablaturas ruins e anotações que poluam o fluxo de execução.
-3. Preserve e padronize os cabeçalhos de seções (ex: [Intro], [Verso 1], [Refrão], [Solo]).
-4. GARANTA que cada linha específica que contiver acordes tenha APENAS os acordes separados por espaços (sem palavras ou textos inseridos no meio dos acordes daquela linha) para que o posicionamento harmônico seja interpretado perfeitamente, e abaixo dela esteja a respectiva linha de letra correspondente.
-5. Se houver seções puramente instrumentais (ex: [Solo] ou [Intro]), mantenha a tag da seção e os acordes dela normalmente. Não as apague.
-
-Instruções cruciais para a letra ("cleanLyrics"):
-1. A letra limpa NÃO PODE CONTER NENHUM ACORDE no meio do texto. Tire todos os acordes.
-2. Mantenha as tags das seções iguais às da cifra (ex: [Intro], [Verso 1]). 
-3. Seções instrumentais constarão na letra apenas com sua tag, sem acordes.
-
-NÃO transponha acordes.
-
-Cifra/Texto de Entrada: 
+DOCUMENTO MUSICAL CANÔNICO — SOMENTE LEITURA:
 ----------------------------------------
 ${textToProcess}
 ----------------------------------------
 
-RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
+RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
 {
   "sections": [{"name": "string", "type": "intro|verse|chorus|bridge|outro|unknown"}],
   "language": "pt | en | es | unknown",
@@ -2423,10 +2429,8 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
   "suggestedRhythm": "string | null",
   "capitalizedTitle": "string | null",
   "capitalizedArtist": "string | null",
-  "originalKey": "string | null", // Ex: C, Dm, F#
-  "warnings": ["string"],
-  "cleanChords": "a cifra completa estruturada (contendo tanto os acordes posicionados por cima quanto a respectiva letra diretamente por baixo, além das marcas de seção)",
-  "cleanLyrics": "apenas a letra formatada (sem nenhum acorde)"
+  "originalKey": "string | null",
+  "warnings": ["string"]
 }
 `;
 
@@ -2547,11 +2551,14 @@ RETORNE APENAS JSON VÁLIDO. Siga a estrutura:
           bpmConfidence: finalBpmConfidence,
           bpmSource: finalBpmSource,
           rhythm: preProcessed?.rhythm || parsedAiObj.suggestedRhythm || result.rhythm,
-          chords: parsedAiObj.cleanChords || preProcessed?.chordsText || "",
-          lyrics: parsedAiObj.cleanLyrics || preProcessed?.lyricsText || "",
-          sections: (Array.isArray(parsedAiObj.sections) && parsedAiObj.sections.length > 0) 
-            ? parsedAiObj.sections.map((s: any) => typeof s === 'string' ? s : s.name).filter(Boolean)
-            : (preProcessed?.sections || []),
+          // Musical document integrity: Gemini may enrich metadata, but never owns the chart body.
+          chords: preProcessed?.chordsText || "",
+          lyrics: preProcessed?.lyricsText || "",
+          sections: (Array.isArray(preProcessed?.sections) && preProcessed.sections.length > 0)
+            ? preProcessed.sections
+            : ((Array.isArray(parsedAiObj.sections) && parsedAiObj.sections.length > 0)
+              ? parsedAiObj.sections.map((s: any) => typeof s === 'string' ? s : s.name).filter(Boolean)
+              : []),
           language: parsedAiObj.language || "pt",
           tabs: preProcessed?.tabs || [],
           metadata: preProcessed?.metadata || {}
