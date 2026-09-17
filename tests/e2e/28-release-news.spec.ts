@@ -1,10 +1,20 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { test, expect } from './helpers/base';
 import { captureFullPage } from './helpers/visualHelper';
 import { loginAsLeaderA } from './helpers/auth';
-import { FEATURE_RELEASE } from '../../lib/appRelease';
 import { releaseNewsTranslations } from '../../locales/releaseNews';
 
-const releaseKey = FEATURE_RELEASE.translationKey.replace(
+const releaseSource = fs.readFileSync(path.join(process.cwd(), 'lib/appRelease.ts'), 'utf8');
+const readReleaseField = (field: 'id' | 'version' | 'translationKey') => {
+  const match = releaseSource.match(new RegExp(`${field}:\\s*['\"]([^'\"]+)['\"]`));
+  if (!match?.[1]) throw new Error(`Missing FEATURE_RELEASE.${field}`);
+  return match[1];
+};
+
+const releaseId = readReleaseField('id');
+const releaseVersion = readReleaseField('version');
+const releaseKey = readReleaseField('translationKey').replace(
   'releaseNews.',
   '',
 ) as 'stageToolsBeta02' | 'stageToolsBeta03';
@@ -17,7 +27,7 @@ test('Relevant release auto-opens once and can be reopened manually', async ({ p
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText('Como funciona', { exact: true })).toHaveCount(3);
   await expect(dialog.getByText(currentRelease.refinements.summary, { exact: true })).toBeVisible();
-  await expect(dialog.getByText(FEATURE_RELEASE.version, { exact: true })).toHaveCount(0);
+  await expect(dialog.getByText(releaseVersion, { exact: true })).toHaveCount(0);
   await captureFullPage(page, testInfo, 'release-news-current-feature');
 
   await dialog.getByRole('button', { name: 'Fechar', exact: true }).click();
@@ -28,7 +38,7 @@ test('Relevant release auto-opens once and can be reopened manually', async ({ p
       .filter((key) => key.startsWith('musicscale_release_seen:'))
       .map((key) => localStorage.getItem(key)),
   );
-  expect(stored).toContain(FEATURE_RELEASE.id);
+  expect(stored).toContain(releaseId);
 
   await page.goto('/songs');
   await expect(page.locator('header').getByRole('heading', { name: 'Repertório' })).toBeVisible();
