@@ -270,8 +270,35 @@ export function extractSongIdentityFromClipboardHtml(html: string): ClipboardSon
   return { title, artist, confidence };
 }
 
+/** Extract actual preformatted source nodes, never the browser's reflowed
+ * innerText. Inline chord spans must not introduce newlines or lose spaces. */
+export function extractPreformattedClipboardChart(html: string): string | null {
+  if (!html || typeof DOMParser === 'undefined') return null;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const charts = Array.from(doc.querySelectorAll('pre')).map(pre => {
+    const copy = pre.cloneNode(true) as HTMLElement;
+    copy.querySelectorAll('script, style, button, [aria-hidden="true"]').forEach(node => node.remove());
+    copy.querySelectorAll('br').forEach(node => node.replaceWith('\n'));
+    return copy.textContent || '';
+  }).filter(text => text.split('\n').some(line =>
+    /(?:^|\s)[A-G][#b]?(?:m|maj|sus|add|dim|aug|\d)*(?:\/[A-G][#b]?)?(?=\s|$)/.test(line)
+  ));
+  // Multiple alternative charts are ambiguous; retain the user's plain text.
+  return charts.length === 1 ? charts[0] : null;
+}
+
 export function normalizeSongClipboardPaste(plainText: string, htmlText: string): NormalizedSongClipboardPaste {
-  const { text: baseText, wasDecoded, transformations } = normalizePastedSongText(plainText);
+  const chart = extractPreformattedClipboardChart(htmlText);
+  let source = plainText;
+  if (chart !== null) {
+    const firstLine = chart.split('\n').find(line => line.trim())?.trim() || '';
+    const anchor = firstLine.match(/^\[[^\]]+\]/)?.[0] || firstLine;
+    const start = anchor ? plainText.indexOf(anchor) : -1;
+    const header = start >= 0 ? plainText.slice(0, start) : '';
+    source = header + chart;
+  }
+  const { text: baseText, wasDecoded, transformations } = normalizePastedSongText(source);
+  if (chart !== null && source !== plainText) transformations.push('preserved_preformatted_clipboard_chart');
   let finalTransformations = [...transformations];
   let finalTitleHint: string | null = null;
   let finalArtistHint: string | null = null;
@@ -308,7 +335,7 @@ export function normalizeSongClipboardPaste(plainText: string, htmlText: string)
     text: finalText,
     titleHint: finalTitleHint,
     artistHint: finalArtistHint,
-    wasDecoded: wasDecoded || finalTransformations.length > transformations.length,
+    wasDecoded: wasDecoded || source !== plainText || finalTransformations.length > transformations.length,
     transformations: finalTransformations
   };
 }

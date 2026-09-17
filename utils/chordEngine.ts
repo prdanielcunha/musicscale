@@ -228,6 +228,23 @@ export function transposeChordWithPreference(chord: string, semitones: number, u
   return result;
 }
 
+// Keep each token's original column when a transposed chord grows/shrinks.
+// If it no longer fits, use one separating space rather than overlap tokens.
+function joinAtOriginalColumns(original: string, parts: string[]): string {
+  const originalParts = original.split(/(\s+|[|]+)/);
+  let column = 0;
+  let result = '';
+  for (let i = 0; i < originalParts.length; i++) {
+    const token = originalParts[i];
+    if (!/^\s*$/.test(token)) {
+      const gap = Math.max(result.length && /\s/.test(original[column - 1] || '') ? 1 : 0, column - result.length);
+      result += ' '.repeat(gap) + parts[i];
+    }
+    column += token.length;
+  }
+  return result;
+}
+
 export function transposeChordLinePreserveSpacingWithPreference(line: string, semitones: number, useFlats: boolean, targetKey?: string): string {
   if (semitones === 0) return line;
   
@@ -259,7 +276,7 @@ export function transposeChordLinePreserveSpacingWithPreference(line: string, se
       }
     }
   }
-  return parts.join('');
+  return joinAtOriginalColumns(line, parts);
 }
 
 export function transposeChordDocument(
@@ -665,7 +682,7 @@ export function transposeChordLinePreserveSpacing(line: string, semitones: numbe
             }
         }
     }
-    return parts.join('');
+    return joinAtOriginalColumns(line, parts);
 }
 
 export function isSiteNoiseLine(line: string): boolean {

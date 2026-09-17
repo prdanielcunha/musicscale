@@ -1,53 +1,35 @@
 import { describe, expect, it } from 'vitest';
 import { repairChordImportFidelity } from '../../utils/chordImportFidelityRepair';
-import { normalizePastedSongText } from '../../utils/textNormalizer';
+import { normalizePastedSongText, normalizeSongClipboardPaste } from '../../utils/textNormalizer';
+import { transposeChordLinePreserveSpacing, transposeChordDocument } from '../../utils/chordEngine';
 
-describe('AI chord import fidelity repair', () => {
-  it('rejoins chord fragments that mobile clipboard split before a lyric', () => {
-    const input = `[Refrão]\nG#m7    D#m7    E9\nB\nLinha sintética A\nG#m7    D#m7    F#/A#    E9\nB\nLinha sintética B`;
-
-    const repaired = repairChordImportFidelity(input);
-
-    expect(repaired).toContain('G#m7    D#m7    E9    B\nLinha sintética A');
-    expect(repaired).toContain('G#m7    D#m7    F#/A#    E9    B\nLinha sintética B');
-    expect(repaired).not.toMatch(/\nB\nLinha sintética/);
+describe('source row and column fidelity', () => {
+  it('does not delete a repeated chorus or merge its different harmonies', () => {
+    const chorus = '[Refrão]\nG#m7    D#m7    E9    B\nLinha repetida\nG#m7    D#m7    F#/A#    E9    B\nLinha repetida';
+    expect(repairChordImportFidelity(chorus)).toBe(chorus);
+    expect(normalizePastedSongText('[Intro]\n">F#4\n' + chorus).text).toContain(chorus);
   });
-
-  it('rejoins a parenthesized progression without changing chord spelling', () => {
-    const input = `[Refrão]\n( G#m7    E9    B\nF# )\n[Segunda Parte]\nG#m7    E9\nLinha sintética`;
-
-    const repaired = repairChordImportFidelity(input);
-
-    expect(repaired).toContain('( G#m7    E9    B    F# )');
-    expect(repaired).toContain('[Segunda Parte]');
-    expect(repaired).toContain('G#m7    E9\nLinha sintética');
+  it('does not guess that adjacent chord rows are fragments or invent sections', () => {
+    const input = 'G    D\nEm    C\n\n[Verso]\nG\nD\nUma linha\n( G C\nD )';
+    expect(repairChordImportFidelity(input)).toBe(input);
   });
-
-  it('preserves explicit section titles and restores only a missing leading Intro', () => {
-    const input = `G#m7    E9    B    F#4\nG#m7    E9    B    F#4\n\n[Primeira Parte]\nG#m7    E9\nLinha A\n\n[Pré-Refrão]\nG#m7\nLinha B\n\n[Refrão]\nG#m7    D#m7    E9    B\nLinha C\n\n[Segunda Parte]\nG#m7    E9\nLinha D`;
-
-    const repaired = repairChordImportFidelity(input);
-
-    expect(repaired).toContain('[Intro]\nG#m7    E9    B    F#4');
-    expect(repaired.match(/\[Intro\]/g)).toHaveLength(1);
-    expect(repaired.match(/\[Primeira Parte\]/g)).toHaveLength(1);
-    expect(repaired.match(/\[Pré-Refrão\]/g)).toHaveLength(1);
-    expect(repaired.match(/\[Refrão\]/g)).toHaveLength(1);
-    expect(repaired.match(/\[Segunda Parte\]/g)).toHaveLength(1);
+  it('prefers preformatted HTML over the mobile clipboard reflow', () => {
+    const source = '[Verso]\nG#m7                 E9\n    Uma linha original\n                     B\nOutra linha\nG   D\nRepetida\nEm  C\nRepetida';
+    const html = '<pre>' + source.replace('E9', '<b>E9</b>').replace(/\n/g, '<br>') + '</pre>';
+    expect(normalizeSongClipboardPaste('texto sem posições', html).text).toBe(source);
   });
-
-  it('runs after proven clipboard corruption and removes duplicate lyric boundaries', () => {
-    const corrupted = `[Intro] G#m7    E9    B\n\">F#4\n\n        G#m7    E9    B\n\">F#4\n\n[Primeira Parte]\nG#m7\nLinha sintética\n\">E9\nLinha sintética\n\n[Refrão]\nG#m7    D#m7    E9\nB\nLinha final`;
-
-    const { text, transformations } = normalizePastedSongText(corrupted);
-
-    expect(transformations).toContain('normalized_chord_structure');
-    expect(transformations).toContain('repaired_chord_import_fidelity');
-    expect(text.match(/Linha sintética/g)).toHaveLength(1);
-    expect(text).toContain('[Intro]');
-    expect(text).toContain('[Primeira Parte]');
-    expect(text).toContain('[Refrão]');
-    expect(text).toContain('G#m7    D#m7    E9    B\nLinha final');
-    expect(text).not.toContain('\">');
+  it('retains plain text when HTML has no unambiguous preformatted chart', () => {
+    expect(normalizeSongClipboardPaste('G    C\nLetra', '<div>G C Letra</div>').text).toBe('G    C\nLetra');
+  });
+  it('preserves syllable extender columns even when other paste noise is repaired', () => {
+    const input = '[Intro]\n">D\n[Verso]\nG       C\nCan___tar';
+    expect(normalizePastedSongText(input).text).toContain('G       C\nCan___tar');
+  });
+  it('anchors subsequent chords when transposed names change width', () => {
+    const source = 'Em7        C9         G        D4';
+    const expected = 'G#m7       E9         B        F#4';
+    expect(transposeChordLinePreserveSpacing(source, 4)).toBe(expected);
+    expect(transposeChordDocument(source, 'Em', 'G#m').chords).toBe(expected);
+    expect(transposeChordDocument(expected, 'G#m', 'Em').chords).toBe(source);
   });
 });
