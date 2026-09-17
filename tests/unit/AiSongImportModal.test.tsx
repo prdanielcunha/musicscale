@@ -257,6 +257,29 @@ describe('AiSongImportModal Fixes', () => {
        global.fetch = vi.fn();
     });
 
+    it('repairs the CifraClub mobile clipboard before the AI button is pressed', async () => {
+      render(<AiSongImportModal isOpen={true} onClose={() => {}} />);
+      const textarea = screen.getByPlaceholderText(
+        'Cole aqui a letra, a cifra ou o conteúdo completo da música...',
+      ) as HTMLTextAreaElement;
+      const corrupted = `[Intro] G#m7  E9  B\n">F#4\n\n[Primeira Parte]\n\n">F#4\n\n[Primeira Parte]\n\nG#m7\n    Deus de Abraão\n">E9\n    Deus de Abraão`;
+      const pasteEvent = new Event('paste', { bubbles: true }) as any;
+      pasteEvent.clipboardData = {
+        getData: (type: string) => type === 'text/plain' ? corrupted : '',
+      };
+      Object.assign(pasteEvent, { preventDefault: vi.fn() });
+
+      fireEvent(textarea, pasteEvent);
+
+      await waitFor(() => {
+        expect(textarea.value).not.toContain('">');
+        expect(textarea.value.match(/\[Primeira Parte\]/g)).toHaveLength(1);
+        expect(textarea.value.match(/Deus de Abraão/g)).toHaveLength(1);
+        expect(textarea.value).toContain('G#m7    E9\n    Deus de Abraão');
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
     it('should recover title and artist from HTML and fill the form', async () => {
       render(<AiSongImportModal isOpen={true} onClose={() => {}} />);
       

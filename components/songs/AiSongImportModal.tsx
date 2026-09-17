@@ -755,7 +755,8 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
                    value={formData.rawText} 
                    onChange={handleChange} 
                    onPaste={handleRawTextPaste} 
-                   className={`${formInputClass} font-mono text-sm leading-relaxed`} 
+                   wrap="off"
+                   className={`${formInputClass} font-mono text-sm leading-relaxed whitespace-pre overflow-x-auto`}
                    placeholder={t("aiImport.inputPlaceholder", "Cole aqui a letra, a cifra ou o conteúdo completo da música...")}></textarea>
              </div>
              

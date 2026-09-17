@@ -108,19 +108,22 @@ export function normalizePastedSongText(input: string): {
   // contains the known malformed chord fingerprint. Generic multiline text
   // must keep its original whitespace/semantics.
   if (hasRecoverableChordDocumentCorruption(text)) {
-    const structurallyNormalized = normalizeChordDocumentStructure(text);
-    const fidelityRepaired = repairChordImportFidelity(structurallyNormalized);
+    // Reconstruct while clipboard-only markers and whitespace columns still
+    // exist. Marker cleanup must run afterwards because those markers prove
+    // which chord fragments and duplicated lyrics came from the rich paste.
+    const fidelityRepaired = repairChordImportFidelity(text);
+    const structurallyNormalized = normalizeChordDocumentStructure(fidelityRepaired);
 
-    if (structurallyNormalized !== text) {
-      transformations.push('normalized_chord_structure');
-    }
-
-    if (fidelityRepaired !== structurallyNormalized) {
+    if (fidelityRepaired !== text) {
       transformations.push('repaired_chord_import_fidelity');
     }
 
-    if (fidelityRepaired !== text) {
-      text = fidelityRepaired;
+    if (structurallyNormalized !== fidelityRepaired) {
+      transformations.push('normalized_chord_structure');
+    }
+
+    if (structurallyNormalized !== text) {
+      text = structurallyNormalized;
       // Existing server callers use this boolean as the signal to consume the
       // returned normalized text, so structural cleanup must mark a change.
       wasDecoded = true;
