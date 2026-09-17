@@ -120,7 +120,8 @@
       "library": "Biblioteca",
       "account": "Cuenta"
     },
-    "curation_queue": "Curaduría"
+    "curation_queue": "Curaduría",
+    "stage_tools": "Herramientas de Escenario"
   },
   "dashboard": {
     "title": "Tablero Ministerial",
@@ -544,7 +545,16 @@
     "volume_control": "Volumen del Pad",
     "return_to_song_key": "Volver a seguir el tono de la canción",
     "native_note": "Pad nativo de MusicScale: funciona sin conexión y hace crossfade suave entre tonos.",
-    "stage_open": "Abrir Pad de escenario"
+    "stage_open": "Abrir Pad de escenario",
+    "device_output": "Reproducir el Pad en este dispositivo",
+    "device_playing": "Este dispositivo está reproduciendo",
+    "device_disabled": "Audio desactivado en este dispositivo",
+    "device_ready": "Listo para reproducir en este dispositivo",
+    "follow_conduction": "Sigue la dirección",
+    "individual_control": "Control individual",
+    "return_to_conduction": "Volver a seguir la dirección",
+    "select_key": "Seleccionar tono {{key}}",
+    "neutral_note": "El Pad es armónicamente neutro: usa raíz, quinta y octavas, por lo que funciona con tonalidades mayores y menores sin convertir Am en A mayor ni C."
   },
   "metronome": {
     "label": "Metrónomo",
@@ -559,7 +569,9 @@
     "eighth": "1/8",
     "volume": "Vol.",
     "volume_control": "Volumen del metrónomo",
-    "stage_open": "Abrir metrónomo de escenario"
+    "stage_open": "Abrir metrónomo de escenario",
+    "status_playing": "Metrónomo reproduciendo",
+    "status_ready": "Metrónomo listo para iniciar"
   },
   "repertoireTransfer": {
     "title": "Transferir repertorio",
@@ -748,7 +760,9 @@
     "tutorial_2_title": "Ensayo y Escenario: Performance Mode",
     "tutorial_2_content": "Para líderes, cantantes e instrumentistas, la aplicación cuenta con el Performance Mode. Una pantalla oscura diseñada especialmente para su uso en cultos o escenarios, con desplazamiento limpio y acordes formateados en tiempo real. ¿Necesita cambiar el tono a última hora? Los botones de transposición en pantalla ajustan el tono suavemente sin recargar la página.",
     "tutorial_3_title": "Gestión Organizacional y Control de Acceso",
-    "tutorial_3_content": "Los administradores gestionan el equipo. Todo miembro invitado a su organización recibe acceso mientras la suscripción del ministerio esté activa. El sistema define el rol de cada uno (Administrador, Líder, Músico), limitando la edición de escalas solo a quienes tienen permiso, manteniendo su organización segura."
+    "tutorial_3_content": "Los administradores gestionan el equipo. Todo miembro invitado a su organización recibe acceso mientras la suscripción del ministerio esté activa. El sistema define el rol de cada uno (Administrador, Líder, Músico), limitando la edición de escalas solo a quienes tienen permiso, manteniendo su organización segura.",
+    "version_beta": "BETA",
+    "version_build": "Build {{version}}"
   },
   "suggestions": {
     "unread_tab": "Nuevas (No Leídas)",
@@ -1797,5 +1811,15 @@
         "percussion": "Percusión"
       }
     }
+  },
+  "stage_tools": {
+    "eyebrow": "Escenario",
+    "title": "Herramientas de Escenario",
+    "subtitle": "Herramientas esenciales para ensayo, prueba de sonido y culto sin depender de una cifra abierta.",
+    "pad_title": "Ambient Pad",
+    "pad_description": "Elige el tono manualmente y decide si este dispositivo reproducirá el audio.",
+    "metronome_title": "Metrónomo",
+    "metronome_description": "Define el BPM, marca el tiempo y controla el click con audio preparado para el escenario.",
+    "audio_note": "El audio nunca comienza automáticamente. Cada dispositivo debe habilitarse localmente y Play sigue requiriendo una acción del usuario."
   }
 }

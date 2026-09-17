@@ -527,8 +527,8 @@ describe(hasEmulatorHost ? 'Firestore Rules Security Certification (Etapa 10)' :
     });
   });
 
-  describe.skipIf(!hasEmulatorHost)('1d. Existing MusicScale save incident regression', () => {
-    it('allows the legacy client writer when canonical capability allows update', async () => {
+  describe.skipIf(!hasEmulatorHost)('1d. Existing MusicScale save authorization regression', () => {
+    it('allows an active canonical leader to update a scale when canonical capability allows update', async () => {
       await testEnv.withSecurityRulesDisabled(async (context) => {
         const adminDb = context.firestore();
         await adminDb.doc('organizations/org-save').set({ status: 'active', ownerUid: 'owner-save' });

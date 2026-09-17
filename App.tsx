@@ -12,9 +12,9 @@ const PrivateApp = lazy(() => import('./PrivateApp'));
  * tenant, membership and entitlement hydration completes. Private paths cross a
  * dynamic import boundary before mounting the canonical provider stack.
  *
- * The first-access welcome presentation is intentionally not prefetched here.
- * Preloading it in parallel with PrivateApp made a non-essential chunk compete
- * with the critical mobile bootstrap for network, parse and main-thread time.
+ * Release news is intentionally not prefetched here. Loading it in parallel
+ * with PrivateApp would make a non-essential chunk compete with the critical
+ * mobile bootstrap for network, parse and main-thread time.
  */
 export const RootApp: React.FC = () => {
     const location = useLocation();

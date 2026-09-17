@@ -3,7 +3,9 @@ import { vi } from 'vitest';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, defaultText: string, options?: any) => {
+    t: (key: string, defaultTextOrOptions?: string | Record<string, any>, maybeOptions?: any) => {
+      const defaultText = typeof defaultTextOrOptions === 'string' ? defaultTextOrOptions : key;
+      const options = typeof defaultTextOrOptions === 'object' ? defaultTextOrOptions : maybeOptions;
       if (!options) return defaultText;
       let text = defaultText;
       for (const k in options) {

@@ -8,6 +8,7 @@ import { BookTextIcon } from "../icons/BookTextIcon";
 import { InfoIcon } from "../icons/InfoIcon";
 import { GitBranchIcon } from "../icons/GitBranchIcon";
 import { useTranslation } from "react-i18next";
+import { APP_VERSION } from "../../lib/appRelease";
 
 interface HelpModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ const HelpModal: React.FC<HelpModalProps> = ({
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language || "pt";
   const [activeTab, setActiveTab] = useState("report");
+  const publicVersion = APP_VERSION.split("-")[0];
 
   useEffect(() => {
     if (initialSection) {
@@ -189,35 +191,19 @@ const HelpModal: React.FC<HelpModalProps> = ({
             <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">
               {t("help_modal.version_title")}
             </h2>
-            <Card className="p-4">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-slate-600 dark:text-gray-300">
-                    {t("help_modal.version_app")}
+            <Card className="p-5">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    MusicScale {publicVersion}
                   </span>
-                  <span className="font-bold text-lg text-primary dark:text-primary-light">
-                    1.0
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-slate-600 dark:text-gray-300">
-                    {t("help_modal.version_date_label")}
-                  </span>
-                  <span className="text-slate-800 dark:text-white">
-                    {t("help_modal.version_date_val")}
+                  <span className="rounded-full border border-violet-400/25 bg-violet-500/10 px-2.5 py-1 text-[10px] font-black tracking-[0.12em] text-violet-600 dark:text-violet-300">
+                    {t("help_modal.version_beta")}
                   </span>
                 </div>
-                <div className="pt-3 border-t border-slate-200 dark:border-gray-700">
-                  <h4 className="font-semibold text-slate-600 dark:text-gray-300 mb-2">
-                    {t("help_modal.version_news_title")}
-                  </h4>
-                  <ul className="list-disc list-inside text-slate-600 dark:text-gray-300 space-y-1 text-sm">
-                    <li>{t("help_modal.version_news_li1")}</li>
-                    <li>{t("help_modal.version_news_li2")}</li>
-                    <li>{t("help_modal.version_news_li3")}</li>
-                    <li>{t("help_modal.version_news_li4")}</li>
-                  </ul>
-                </div>
+                <p className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                  {t("help_modal.version_build", { version: APP_VERSION })}
+                </p>
               </div>
             </Card>
           </div>
