@@ -153,4 +153,24 @@ Sei que nunca quebrará`;
     expect(parsed.some((line) => line.type === 'chord' && line.content === 'E')).toBe(true);
     expect(parsed.filter((line) => line.content === 'Me escutas quando clamo')).toHaveLength(1);
   });
+
+  it('removes invisible clipboard noise without moving horizontal chord alignment', () => {
+    const dirty = '\uFEFF[Verso]\r\nE\u00A0\u00A0\u00A0\u00A0B/D#\u200B\r\nQuem\u2060 é esse que vem\u0007';
+    const { text, wasDecoded, transformations } = normalizePastedSongText(dirty);
+
+    expect(wasDecoded).toBe(true);
+    expect(text).toBe('[Verso]\nE    B/D#\nQuem é esse que vem');
+    expect(transformations).toContain('normalized_line_breaks');
+    expect(transformations).toContain('normalized_unicode_spaces');
+    expect(transformations).toContain('removed_invisible_characters');
+    expect(transformations).toContain('removed_control_characters');
+  });
+
+  it('preserves intentional repeated lyrics while sanitizing paste noise', () => {
+    const dirty = '[Refrão]\nSanto\u200B\nSanto';
+    const { text } = normalizePastedSongText(dirty);
+
+    expect(text).toBe('[Refrão]\nSanto\nSanto');
+    expect(text.match(/Santo/g)).toHaveLength(2);
+  });
 });
