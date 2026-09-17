@@ -1,0 +1,34 @@
+/* AI import + chord display fidelity ---------------------------------------
+ * Chord rows are preformatted musical coordinates, not prose. On narrow
+ * screens Safari/textarea soft wrapping was moving the last chord of a row
+ * (for example B or F#) onto a new visual line and making the imported chart
+ * look structurally wrong. Preserve the row and allow deliberate horizontal
+ * scrolling instead. Lyrics keep their normal wrapping behavior.
+ */
+
+textarea[spellcheck="false"].font-mono {
+  white-space: pre !important;
+  text-wrap: nowrap !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  overflow-x: auto !important;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ChordsRenderer: only chord rows have this exact direct-child signature. */
+.whitespace-pre-wrap > .font-bold.tracking-wider,
+.whitespace-pre-wrap > .font-bold.tracking-wider > div {
+  white-space: pre !important;
+  text-wrap: nowrap !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
+.whitespace-pre-wrap > .font-bold.tracking-wider {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}

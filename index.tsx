@@ -7,6 +7,7 @@ import { markStartupMetric, incrementStartupCounter, markStartupFailure } from '
 import './performance-v2.css';
 import './operational-v2.css';
 import './premium-v2-completion.css';
+import './ai-import-fidelity.css';
 
 
 const urlParams = new URLSearchParams(window.location.search);

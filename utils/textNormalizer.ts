@@ -2,6 +2,7 @@ import {
   hasRecoverableChordDocumentCorruption,
   normalizeChordDocumentStructure,
 } from './chordDocumentNormalizer';
+import { repairChordImportFidelity } from './chordImportFidelityRepair';
 
 export function normalizePastedSongText(input: string): {
   text: string;
@@ -108,9 +109,18 @@ export function normalizePastedSongText(input: string): {
   // must keep its original whitespace/semantics.
   if (hasRecoverableChordDocumentCorruption(text)) {
     const structurallyNormalized = normalizeChordDocumentStructure(text);
+    const fidelityRepaired = repairChordImportFidelity(structurallyNormalized);
+
     if (structurallyNormalized !== text) {
-      text = structurallyNormalized;
       transformations.push('normalized_chord_structure');
+    }
+
+    if (fidelityRepaired !== structurallyNormalized) {
+      transformations.push('repaired_chord_import_fidelity');
+    }
+
+    if (fidelityRepaired !== text) {
+      text = fidelityRepaired;
       // Existing server callers use this boolean as the signal to consume the
       // returned normalized text, so structural cleanup must mark a change.
       wasDecoded = true;
