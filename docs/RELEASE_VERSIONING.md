@@ -4,7 +4,7 @@ MusicScale follows Semantic Versioning 2.0.0 using the release shape:
 
 `MAJOR.MINOR.PATCH-prerelease.iteration`
 
-The version for this feature release is **0.2.0-beta.0**.
+The version for this feature release is **0.3.0-beta.0**.
 
 ## Beta rules
 
@@ -21,7 +21,7 @@ Legacy versions such as `0.1.5-beta` remain readable by the validator so existin
 
 ## Where the installed version appears
 
-The installed version is shown only in **Help → Version**. Navigation, the Header, the Sidebar and What’s New do not carry a permanent version label. The Help surface shows the public core version (for example `MusicScale 0.2.0`), a small localized Beta badge and the complete technical build (`0.2.0-beta.0`).
+The installed version is shown only in **Help → Version**. Navigation, the Header, the Sidebar and What’s New do not carry a permanent version label. The Help surface shows the public core version (for example `MusicScale 0.3.0`), a small localized Beta badge and the complete technical build (`0.3.0-beta.0`).
 
 ## What’s New policy
 
