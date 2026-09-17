@@ -1,0 +1,43 @@
+name: Temporary Release Lock Sync
+
+on:
+  push:
+    branches:
+      - feat/stage-tools-offline-pad-v2
+
+permissions:
+  contents: write
+
+jobs:
+  sync-lock:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/stage-tools-offline-pad-v2
+          fetch-depth: 0
+
+      - name: Align package-lock root version with package.json
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          lock.version = pkg.version;
+          if (!lock.packages || !lock.packages['']) throw new Error('package-lock root package is missing');
+          lock.packages[''].version = pkg.version;
+          fs.writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n');
+          NODE
+
+      - name: Commit lockfile only when needed
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo 'package-lock already aligned'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json
+          git commit -m 'release: sync package-lock for 0.3.0-beta.0'
+          git push origin HEAD:feat/stage-tools-offline-pad-v2
