@@ -7,7 +7,7 @@ import { releaseNewsTranslations } from '../../locales/releaseNews';
 const releaseKey = FEATURE_RELEASE.translationKey.replace(
   'releaseNews.',
   '',
-) as keyof typeof releaseNewsTranslations.pt;
+) as 'stageToolsBeta02' | 'stageToolsBeta03';
 const currentRelease = releaseNewsTranslations.pt[releaseKey];
 
 test('Relevant release auto-opens once and can be reopened manually', async ({ page }, testInfo) => {
