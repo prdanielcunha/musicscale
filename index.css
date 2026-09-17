@@ -427,6 +427,27 @@ p {
   backdrop-filter: none;
 }
 
+/* Keep native desktop select popups readable in dark mode. Browsers may render
+   the option menu outside the styled select surface, so both color-scheme and
+   explicit option colors are required. */
+select {
+  color-scheme: light;
+}
+
+select option {
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.dark select {
+  color-scheme: dark;
+}
+
+.dark select option {
+  color: #f5f7fa;
+  background: #111318;
+}
+
 input:focus,
 select:focus,
 textarea:focus,
