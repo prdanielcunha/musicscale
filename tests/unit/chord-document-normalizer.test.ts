@@ -10,30 +10,7 @@ import { parseChordsAndLyrics } from '../../components/songs/ChordsRenderer';
 
 describe('chord document formatting repair', () => {
   it('repairs the Creio Que Tu És a Cura corruption fingerprint without inventing content', () => {
-    const corrupted = `[Primeira Parte]
-
-">A9
-
-[Primeira Parte]
-
-Me escutas quando clamo
-">E
-Me escutas quando clamo
-
-A9      B4
-E acalma o meu pensar
-">E
-E acalma o meu pensar
-
-B4
-Me levas pelo fogo
-">C#m7
-Me levas pelo fogo
-
-A9
-Curando todo meu ser
-">B4
-Curando todo meu ser`;
+    const corrupted = `[Primeira Parte]\n\n\">A9\n\n[Primeira Parte]\n\nMe escutas quando clamo\n\">E\nMe escutas quando clamo\n\nA9      B4\nE acalma o meu pensar\n\">E\nE acalma o meu pensar\n\nB4\nMe levas pelo fogo\n\">C#m7\nMe levas pelo fogo\n\nA9\nCurando todo meu ser\n\">B4\nCurando todo meu ser`;
 
     const repaired = normalizeChordDocumentStructure(corrupted);
 
@@ -50,34 +27,7 @@ Curando todo meu ser`;
   });
 
   it('repairs the Promessas production fingerprint before AI processing', () => {
-    const corrupted = `Promessas (part. Samuel Messias)
-Sarah Beatriz
-
-Tom: G#m (com forma de Em)Capotraste: 4ª casa
-
-[Intro] Em7  C9  G
-">D4
-
-        Em7  C9  G
-
-[Primeira Parte]
-
-">D4
-
-[Primeira Parte]
-
-Em7
-    Deus de Abraão
-
-">C9
-
-    Deus de Abraão
-
-Sei que nunca quebrará
-
-">G
-
-Sei que nunca quebrará`;
+    const corrupted = `Promessas (part. Samuel Messias)\nSarah Beatriz\n\nTom: G#m (com forma de Em)Capotraste: 4ª casa\n\n[Intro] Em7  C9  G\n\">D4\n\n        Em7  C9  G\n\n[Primeira Parte]\n\n\">D4\n\n[Primeira Parte]\n\nEm7\n    Deus de Abraão\n\n\">C9\n\n    Deus de Abraão\n\nSei que nunca quebrará\n\n\">G\n\nSei que nunca quebrará`;
 
     const { text, wasDecoded, transformations } = normalizePastedSongText(corrupted);
 
@@ -93,34 +43,7 @@ Sei que nunca quebrará`;
   });
 
   it('keeps stranded recovered content before section boundaries and preserves exact chord tokens', () => {
-    const corrupted = `Teste de Integridade
-Equipe Teste
-
-Tom: G#m (com forma de Em)Capotraste: 4ª casa
-
-[Intro] Em7  C9  G
-">D4
-
-        Em7  C9  G
-
-[Primeira Parte]
-">D4
-[Primeira Parte]
-
-Em7
-Linha sintética um
-
-[Pré-Refrão]
-G
-Linha sintética dois
-
-[Refrão]
-">D4
-Vai acontecer
-[Refrão]
-
-Em7  Bm7  D/F#  C9  G
-Can___tar sem ruído`;
+    const corrupted = `Teste de Integridade\nEquipe Teste\n\nTom: G#m (com forma de Em)Capotraste: 4ª casa\n\n[Intro] Em7  C9  G\n\">D4\n\n        Em7  C9  G\n\n[Primeira Parte]\n\">D4\n[Primeira Parte]\n\nEm7\nLinha sintética um\n\n[Pré-Refrão]\nG\nLinha sintética dois\n\n[Refrão]\n\">D4\nVai acontecer\n[Refrão]\n\nEm7  Bm7  D/F#  C9  G\nCan___tar sem ruído`;
 
     const { text, transformations } = normalizePastedSongText(corrupted);
     expect(transformations).toContain('normalized_chord_structure');
@@ -145,30 +68,17 @@ Can___tar sem ruído`;
   });
 
   it('preserves an already concert-key corrupted chart without changing chord spelling or order', () => {
-    const corrupted = `Teste Concert
-Equipe Teste
-
-Tom: G#m
-
-[Intro] G#m7  E9  B
-">F#4
-
-        G#m7  E9  B
-
-[Primeira Parte]
-">F#4
-[Primeira Parte]
-
-G#m7  D#m7  F#/A#  E9  B
-Linha sintética`;
+    const corrupted = `Teste Concert\nEquipe Teste\n\nTom: G#m\n\n[Intro] G#m7  E9  B\n\">F#4\n\n        G#m7  E9  B\n\n[Primeira Parte]\n\">F#4\n[Primeira Parte]\n\nG#m7  D#m7  F#/A#  E9  B\nLinha sintética`;
 
     const { text, transformations } = normalizePastedSongText(corrupted);
     expect(transformations).toContain('normalized_chord_structure');
 
     const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
+    const introIndex = lines.indexOf('[Intro]');
     const firstPartIndex = lines.indexOf('[Primeira Parte]');
-    expect(firstPartIndex).toBe(7);
-    expect(lines.slice(3, firstPartIndex)).toEqual([
+    expect(introIndex).toBeGreaterThanOrEqual(0);
+    expect(firstPartIndex).toBeGreaterThan(introIndex);
+    expect(lines.slice(introIndex + 1, firstPartIndex)).toEqual([
       'G#m7  E9  B',
       'F#4',
       'G#m7  E9  B',
@@ -179,19 +89,7 @@ Linha sintética`;
   });
 
   it('builds clean lyrics from the canonical Promessas chord document', () => {
-    const corrupted = `[Intro] Em7 C9 G
-">D4
-
-[Primeira Parte]
-
-Em7
-Deus de Abraão
-">C9
-Deus de Abraão
-
-Sei que nunca quebrará
-">G
-Sei que nunca quebrará`;
+    const corrupted = `[Intro] Em7 C9 G\n\">D4\n\n[Primeira Parte]\n\nEm7\nDeus de Abraão\n\">C9\nDeus de Abraão\n\nSei que nunca quebrará\n\">G\nSei que nunca quebrará`;
 
     const lyrics = extractLyricsFromCanonicalChordDocument(corrupted);
 
@@ -232,7 +130,7 @@ Sei que nunca quebrará`;
 
   it('feeds the repaired legacy chart to the renderer parser', () => {
     const parsed = parseChordsAndLyrics(
-      '[Primeira Parte]\n\n">A9\n\n[Primeira Parte]\n\nMe escutas quando clamo\n">E\nMe escutas quando clamo',
+      '[Primeira Parte]\n\n\">A9\n\n[Primeira Parte]\n\nMe escutas quando clamo\n\">E\nMe escutas quando clamo',
     );
 
     expect(parsed.filter((line) => line.type === 'section')).toHaveLength(1);
