@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Capability, CommandResult } from '@musicscale-live/domain';
 import type { useLiveNode } from './useLiveNode';
 import { useLiveCueCoordinator } from './LiveCueCoordinator';
+import { useLiveOperatorShortcuts } from './useLiveOperatorShortcuts';
 
 type Controller = ReturnType<typeof useLiveNode>;
 type ToolMode = 'song' | 'bible' | 'media' | 'stage';
@@ -449,6 +450,16 @@ export function LiveControlPanel({
     providers.find(provider => provider.observed?.screenMode)?.observed?.screenMode || 'normal'
   );
 
+  useLiveOperatorShortcuts({
+    enabled: can('presentation.navigation') && busy === null && !clearArmed,
+    onPrevious: () => {
+      void navigatePresentation('previous');
+    },
+    onNext: () => {
+      void navigatePresentation('next');
+    }
+  });
+
   return (
     <section className="live-control-panel">
       <div className="live-control-header">
@@ -548,7 +559,7 @@ export function LiveControlPanel({
                     ? '…'
                     : cueCoordinator?.armedVisualCue
                       ? t('liveControls.takeLinked')
-                      : t('liveControls.takeNext')} →
+                      : t('liveControls.takeNext')} <kbd>→</kbd>
                 </button>
               </footer>
             </section>
@@ -559,7 +570,7 @@ export function LiveControlPanel({
               disabled={!can('presentation.navigation') || busy !== null}
               onClick={() => void navigatePresentation('previous')}
             >
-              ← {t('liveControls.previous')}
+              <kbd>←</kbd> {t('liveControls.previous')}
             </button>
             {can('presentation.screen.mode') && (
               <div className="screen-mode-controls">
