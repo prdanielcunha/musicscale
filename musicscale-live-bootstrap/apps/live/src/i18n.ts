@@ -125,6 +125,8 @@ const resources = {
       description: 'Plano e vínculos com o provider estão armazenados neste Live Node.',
       cached: 'Disponível offline',
       ready: 'Pronta',
+      live: 'No ar',
+      completed: 'Concluída',
       notLinked: 'Sem vínculo'
     },
     preflight: {
@@ -219,6 +221,8 @@ const resources = {
       description: 'The plan and provider links are stored on this Live Node.',
       cached: 'Available offline',
       ready: 'Ready',
+      live: 'Live',
+      completed: 'Completed',
       notLinked: 'Not linked'
     },
     preflight: {
@@ -313,6 +317,8 @@ const resources = {
       description: 'El plan y los vínculos con el provider están almacenados en este Live Node.',
       cached: 'Disponible offline',
       ready: 'Lista',
+      live: 'En vivo',
+      completed: 'Completada',
       notLinked: 'Sin vínculo'
     },
     preflight: {
