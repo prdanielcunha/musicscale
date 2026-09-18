@@ -22,11 +22,14 @@ describe('ChordsRenderer column alignment', () => {
       .toBe('    Linha um');
   });
 
-  it('uses the same monospaced column metrics for chord and lyric lines', () => {
-    const source = fs.readFileSync('components/songs/ChordsRenderer.tsx', 'utf8');
+  it('uses the same monospaced column metrics in both reusable and live Performance renderers', () => {
+    const reusableRenderer = fs.readFileSync('components/songs/ChordsRenderer.tsx', 'utf8');
+    const performanceRenderer = fs.readFileSync('components/songs/ChordsViewerModal.tsx', 'utf8');
 
-    expect(source).toContain('className="font-mono font-bold tracking-normal"');
-    expect(source).toContain('className="font-mono font-semibold tracking-normal"');
-    expect(source).not.toContain('className="font-bold tracking-wider"');
+    for (const source of [reusableRenderer, performanceRenderer]) {
+      expect(source).toContain('className="font-mono font-bold tracking-normal"');
+      expect(source).toContain('className="font-mono font-semibold tracking-normal"');
+      expect(source).not.toContain('className="font-bold tracking-wider"');
+    }
   });
 });

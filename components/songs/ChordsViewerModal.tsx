@@ -1517,7 +1517,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                         return (
                           <div
                             key={index}
-                            className="font-bold tracking-wider"
+                            className="font-mono font-bold tracking-normal"
                             style={{
                               color: activeChordsColor,
                               marginBottom: isNextLyric ? "-0.1em" : "0",
@@ -1548,7 +1548,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                         return (
                           <div
                             key={index}
-                            className="font-semibold"
+                            className="font-mono font-semibold tracking-normal"
                             style={{
                               color: activeLyricsColor,
                               marginBottom:
