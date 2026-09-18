@@ -572,6 +572,54 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [duplicateSongInfo, user, userProfile, refreshData, closeAllModals, api]);
 
+  const handleReplaceDuplicateSong = useCallback(async (existingSong: PopulatedSong) => {
+    if (!duplicateSongInfo || !user || !userProfile || !api || !existingSong?.id) return;
+    if (!duplicateSongInfo.options.saveToOrganization) return;
+
+    const pending = duplicateSongInfo;
+    const hasGlobalMatch = pending.matches.some((match) => match.location === 'global_library');
+    const isEcosystemAdmin =
+      userProfile?.systemRole === "ceo" ||
+      userProfile?.systemRole === "admin" ||
+      userProfile?.systemRole === "global_admin";
+
+    setIsSubmitting(true);
+    try {
+      await api.replaceSongContent(existingSong.id, pending.newSongData as Partial<Song>);
+
+      // If this work is already represented in the global library, do not create
+      // another global copy. Otherwise preserve the user's selected destination.
+      if (pending.options.saveToGlobalLibrary && isEcosystemAdmin && !hasGlobalMatch) {
+        await api.submitToGlobal(userProfile, pending.newSongData);
+      }
+
+      setDuplicateSongInfo(null);
+      setSongToEdit(null);
+      pending.onSuccess?.();
+      await refreshData();
+
+      toast({
+        type: 'success',
+        message: t('songDuplicate.replacedTitle'),
+        description: t('songDuplicate.replacedDescription'),
+      });
+    } catch (error) {
+      logger.error("Failed to replace duplicate song", error);
+      const errDetails = extractErrorDetails(error);
+      let errorMsg = errDetails.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
+      if (errDetails.code === 'permission-denied') {
+        errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
+      }
+      toast({
+        type: 'error',
+        message: t('common.errorSavingSong', "Erro ao salvar música"),
+        description: `${t('common.details', 'Detalhes')}: ${errorMsg}`,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [duplicateSongInfo, user, userProfile, api, refreshData, t, toast]);
+
   const handleDeleteSong = useCallback(async () => {
     if (!songToDelete || !api) return;
     setIsSubmitting(true);
@@ -1172,6 +1220,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               setDuplicateSongInfo(null);
               openSongForm(song);
             }}
+            onReplaceExisting={handleReplaceDuplicateSong}
             isLoading={isSubmitting}
           />
         )}
