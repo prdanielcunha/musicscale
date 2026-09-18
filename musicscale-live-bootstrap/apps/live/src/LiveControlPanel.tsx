@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Capability, CommandResult } from '@musicscale-live/domain';
 import type { useLiveNode } from './useLiveNode';
@@ -51,6 +51,30 @@ function getPresentationFromResults(results: CommandResult[]): Record<string, un
   return null;
 }
 
+function slidePreviewUrl(slide: Record<string, unknown> | undefined): string | null {
+  const preview = slide?.preview;
+  if (typeof preview !== 'string' || !preview.trim()) return null;
+  const value = preview.trim();
+  if (value.startsWith('data:image/')) return value;
+  const mime = value.startsWith('iVBOR')
+    ? 'image/png'
+    : value.startsWith('/9j/')
+      ? 'image/jpeg'
+      : 'image/jpeg';
+  return `data:${mime};base64,${value}`;
+}
+
+function samePresentationFrame(
+  left: Record<string, unknown> | null,
+  right: Record<string, unknown> | null
+): boolean {
+  if (!left || !right) return false;
+  return (
+    String(left.id || '') === String(right.id || '') &&
+    Number(left.slide_number) === Number(right.slide_number)
+  );
+}
+
 function getMediaResults(results: CommandResult[]): SearchMediaResult[] {
   return results
     .flatMap(result => {
@@ -94,6 +118,7 @@ export function LiveControlPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [clearArmed, setClearArmed] = useState(false);
   const clearTimer = useRef<number | null>(null);
+  const previewRequestSignature = useRef<string>('');
 
   const providers = controller.nodeState?.providers || [];
   const capabilitySet = useMemo(
@@ -116,7 +141,43 @@ export function LiveControlPanel({
   }, [providers]);
 
   const can = (capability: Capability) => capabilitySet.has(capability);
+  const canPreviewSnapshot = capabilitySet.has('preview.snapshot');
 
+  useEffect(() => {
+    if (!canPreviewSnapshot || !currentPresentation) return;
+
+    const signature = `${String(currentPresentation.id || '')}:${String(currentPresentation.slide_number || '')}`;
+    if (!signature || previewRequestSignature.current === signature) return;
+    previewRequestSignature.current = signature;
+
+    let cancelled = false;
+    void controller.executeCommand({
+      capability: 'preview.snapshot',
+      payload: { previewSize: '640x360' },
+      liveSessionId,
+      actorId,
+      safetyLevel: 'normal'
+    }).then(results => {
+      if (cancelled) return;
+      const presentation = getPresentationFromResults(results);
+      if (presentation) setPreviewPresentation(presentation);
+    }).catch(() => {
+      if (!cancelled) previewRequestSignature.current = '';
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    actorId,
+    canPreviewSnapshot,
+    controller,
+    currentPresentation,
+    liveSessionId
+  ]);
+
+  // Automatically hydrate the operator deck with image previews only when the
+  // presentation frame changes. Background health polling stays lightweight.
   async function run(
     key: string,
     capability: Capability,
@@ -235,7 +296,10 @@ export function LiveControlPanel({
     void run('clear', 'presentation.clear', {}, 'guarded');
   }
 
-  const effectivePresentation = previewPresentation || currentPresentation;
+  const effectivePresentation =
+    samePresentationFrame(previewPresentation, currentPresentation)
+      ? previewPresentation
+      : currentPresentation;
   const slideNumber = Number(effectivePresentation?.slide_number);
   const totalSlides = Number(effectivePresentation?.total_slides);
   const presentationName =
@@ -252,6 +316,14 @@ export function LiveControlPanel({
     : undefined;
   const currentSlideText = currentSlide?.text ? String(currentSlide.text) : '';
   const nextSlideText = nextSlide?.text ? String(nextSlide.text) : '';
+  const currentSlidePreview = slidePreviewUrl(currentSlide);
+  const nextSlidePreview = slidePreviewUrl(nextSlide);
+  const currentSlideDescription = currentSlide?.slide_description
+    ? String(currentSlide.slide_description)
+    : '';
+  const nextSlideDescription = nextSlide?.slide_description
+    ? String(nextSlide.slide_description)
+    : '';
   const currentScreenMode = String(
     providers.find(provider => provider.observed?.screenMode)?.observed?.screenMode || 'normal'
   );
@@ -272,7 +344,10 @@ export function LiveControlPanel({
       <div className="live-control-grid">
         <article className="operator-card program-card">
           <div className="operator-card-head">
-            <span>{t('liveControls.program')}</span>
+            <div>
+              <span>{t('liveControls.program')}</span>
+              <small className="operator-subtitle">{presentationName}</small>
+            </div>
             <div className="program-head-actions">
               {can('presentation.preview') && (
                 <button
@@ -287,51 +362,88 @@ export function LiveControlPanel({
               )}
             </div>
           </div>
-          <div className="program-state">
-            <small>{String(currentPresentation?.type || t('liveControls.waiting')).toUpperCase()}</small>
-            <strong>{presentationName}</strong>
-            <span>{t('liveControls.observedState')}</span>
-          </div>
-          {(currentSlideText || nextSlideText) && (
-            <div className="slide-context-grid">
-              <div>
-                <small>{t('liveControls.currentSlide')}</small>
-                <p>{currentSlideText || '—'}</p>
+
+          <div className="now-next-deck" aria-label={t('liveControls.nowNext')}>
+            <section className="deck-monitor deck-monitor-live">
+              <header>
+                <span className="deck-live-dot" />
+                <div>
+                  <strong>{t('liveControls.currentSlide')}</strong>
+                  <small>{t('liveControls.programLabel')}</small>
+                </div>
+                {currentSlideDescription && <em>{currentSlideDescription}</em>}
+              </header>
+              <div className="deck-frame">
+                {currentSlidePreview ? (
+                  <img src={currentSlidePreview} alt={t('liveControls.currentSlide')} />
+                ) : (
+                  <div className="deck-text-fallback">
+                    <small>{String(effectivePresentation?.type || t('liveControls.waiting')).toUpperCase()}</small>
+                    <p>{currentSlideText || presentationName}</p>
+                  </div>
+                )}
               </div>
-              <div>
-                <small>{t('liveControls.nextSlide')}</small>
-                <p>{nextSlideText || '—'}</p>
-              </div>
+              <footer>
+                <span>{currentSlideText || t('liveControls.noSlideText')}</span>
+              </footer>
+            </section>
+
+            <div className="deck-flow" aria-hidden="true">
+              <span>→</span>
             </div>
-          )}
-          {can('presentation.screen.mode') && (
-            <div className="screen-mode-controls">
-              {(['normal','wallpaper','blank','black'] as const).map(mode => (
+
+            <section className="deck-monitor deck-monitor-next">
+              <header>
+                <div>
+                  <strong>{t('liveControls.nextSlide')}</strong>
+                  <small>{t('liveControls.previewLabel')}</small>
+                </div>
+                {nextSlideDescription && <em>{nextSlideDescription}</em>}
+              </header>
+              <div className="deck-frame">
+                {nextSlidePreview ? (
+                  <img src={nextSlidePreview} alt={t('liveControls.nextSlide')} />
+                ) : (
+                  <div className="deck-text-fallback">
+                    <small>{t('liveControls.upNext')}</small>
+                    <p>{nextSlideText || t('liveControls.endOfPresentation')}</p>
+                  </div>
+                )}
+              </div>
+              <footer>
+                <span>{nextSlideText || t('liveControls.endOfPresentation')}</span>
                 <button
-                  key={mode}
-                  className={currentScreenMode === mode ? 'active' : ''}
-                  disabled={busy !== null}
-                  onClick={() => void setScreenMode(mode)}
+                  className="deck-take"
+                  disabled={!nextSlide || !can('presentation.navigation') || busy !== null}
+                  onClick={() => void navigatePresentation('next')}
                 >
-                  {t(`liveControls.screenModes.${mode}`)}
+                  {busy === 'next' ? '…' : t('liveControls.takeNext')} →
                 </button>
-              ))}
-            </div>
-          )}
-          <div className="transport-controls">
+              </footer>
+            </section>
+          </div>
+
+          <div className="live-command-strip">
             <button
               disabled={!can('presentation.navigation') || busy !== null}
               onClick={() => void navigatePresentation('previous')}
             >
               ← {t('liveControls.previous')}
             </button>
-            <button
-              className="take-button"
-              disabled={!can('presentation.navigation') || busy !== null}
-              onClick={() => void navigatePresentation('next')}
-            >
-              {busy === 'next' ? '…' : t('liveControls.next')} →
-            </button>
+            {can('presentation.screen.mode') && (
+              <div className="screen-mode-controls">
+                {(['normal','wallpaper','blank','black'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    className={currentScreenMode === mode ? 'active' : ''}
+                    disabled={busy !== null}
+                    onClick={() => void setScreenMode(mode)}
+                  >
+                    {t(`liveControls.screenModes.${mode}`)}
+                  </button>
+                ))}
+              </div>
+            )}
             <button
               className={clearArmed ? 'danger-armed' : ''}
               disabled={!can('presentation.clear') || busy !== null}
