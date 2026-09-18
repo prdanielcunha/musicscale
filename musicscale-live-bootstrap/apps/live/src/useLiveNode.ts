@@ -7,8 +7,11 @@ import type {
   LiveNodeHealth,
   LiveCommand,
   PairingChallenge,
+  PairingRequest,
   PairingScope,
-  SafetyLevel
+  ProviderLink,
+  SafetyLevel,
+  ServicePlan
 } from '@musicscale-live/domain';
 import {
   clearLiveNodeCredential,
@@ -18,6 +21,7 @@ import {
 } from './credentialStore';
 import { defaultDeviceName, getOrCreateDeviceId } from './deviceIdentity';
 import {
+  cacheNodeServicePlan,
   completePairing,
   executeNodeCommand,
   heartbeatNode,
@@ -103,7 +107,7 @@ export function useLiveNode() {
 
   const beginPairing = useCallback(async (
     baseUrlInput: string,
-    scope: PairingScope,
+    scope?: PairingScope,
     requestedDeviceName?: string
   ) => {
     setState('probing');
@@ -118,11 +122,12 @@ export function useLiveNode() {
       const deviceName = requestedDeviceName?.trim() || defaultDeviceName();
 
       setState('pairing');
-      const challenge = await requestPairing(baseUrl, {
-        ...scope,
+      const pairingRequest: PairingRequest = {
         deviceId,
-        deviceName
-      });
+        deviceName,
+        ...(scope || {})
+      };
+      const challenge = await requestPairing(baseUrl, pairingRequest);
       const value = { baseUrl, challenge, deviceId, deviceName, transportKind: transport.kind };
       setPending(value);
       return value;
@@ -211,6 +216,25 @@ export function useLiveNode() {
     return response.results;
   }, [credential]);
 
+  const cacheServicePlan = useCallback(async (
+    plan: ServicePlan,
+    providerLinks: ProviderLink[] = []
+  ) => {
+    if (!credential) throw new Error('node_not_paired');
+    await cacheNodeServicePlan(
+      credential.baseUrl,
+      credential.token,
+      plan,
+      providerLinks
+    );
+    const refreshed = await loadNodeState(
+      credential.baseUrl,
+      credential.token
+    );
+    setNodeState(refreshed);
+    return refreshed;
+  }, [credential]);
+
   const disconnect = useCallback(async () => {
     const current = credential;
     if (current) {
@@ -240,6 +264,7 @@ export function useLiveNode() {
     beginPairing,
     finishPairing,
     executeCommand,
+    cacheServicePlan,
     disconnect
   };
 }
