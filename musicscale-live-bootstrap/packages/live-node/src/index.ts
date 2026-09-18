@@ -859,10 +859,11 @@ async function start(): Promise<void> {
     if (req.method === 'GET' && url.pathname === '/local/diagnostics') {
       if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
 
-      const [runtime, pairedDevices, holyricsConfig] = await Promise.all([
+      const [runtime, pairedDevices, holyricsConfig, resolumeConfig] = await Promise.all([
         runtimeState.load(),
         pairingStore.activePairingCount(),
-        providerConfigStore.getHolyrics()
+        providerConfigStore.getHolyrics(),
+        providerConfigStore.getResolume()
       ]);
       const providers = capabilityEngine.quickSnapshot();
 
@@ -884,6 +885,11 @@ async function start(): Promise<void> {
           configured: Boolean(HOLYRICS_TOKEN || holyricsConfig?.token),
           source: HOLYRICS_TOKEN ? 'environment' : holyricsConfig ? 'local' : 'none',
           baseUrl: HOLYRICS_TOKEN ? HOLYRICS_URL : holyricsConfig?.baseUrl || HOLYRICS_URL
+        },
+        resolume: {
+          configured: Boolean(RESOLUME_URL || resolumeConfig?.baseUrl),
+          source: RESOLUME_URL ? 'environment' : resolumeConfig ? 'local' : 'none',
+          baseUrl: RESOLUME_URL || resolumeConfig?.baseUrl || DEFAULT_RESOLUME_URL
         }
       }));
     }
