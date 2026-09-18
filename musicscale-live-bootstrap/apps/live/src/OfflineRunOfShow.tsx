@@ -35,6 +35,7 @@ export function OfflineRunOfShow({
         payload: { id: link.externalId },
         targetProviderIds: [link.providerInstanceId],
         liveSessionId: controller.nodeState?.state.activeLiveSessionId || `service-plan:${plan.id}`,
+        serviceItemId: itemId,
         actorId
       });
     } finally {
