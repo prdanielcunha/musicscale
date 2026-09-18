@@ -4,7 +4,7 @@ import {
   getFirestore,
   initializeFirestore,
   persistentLocalCache,
-  persistentMultipleTabManager
+  persistentMultipleTabManager,
   type Firestore
 } from 'firebase/firestore';
 
