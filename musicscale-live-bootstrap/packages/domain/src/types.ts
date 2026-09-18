@@ -63,6 +63,7 @@ export interface LiveCommand<TPayload = Record<string, unknown>> {
   venueId: string;
   liveSystemId: string;
   liveSessionId: string;
+  serviceItemId?: string;
   actorId: string;
   origin: CommandOrigin;
   capability: Capability;
