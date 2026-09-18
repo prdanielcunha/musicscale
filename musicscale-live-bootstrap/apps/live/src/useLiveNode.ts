@@ -5,6 +5,7 @@ import type {
   CommandResult,
   LiveNodeConnectionState,
   LiveNodeHealth,
+  LiveCommand,
   PairingChallenge,
   PairingScope,
   SafetyLevel
@@ -179,7 +180,7 @@ export function useLiveNode() {
     if (!credential) throw new Error('node_not_paired');
 
     const id = crypto.randomUUID();
-    const command = {
+    const command: LiveCommand = {
       id,
       correlationId: crypto.randomUUID(),
       organizationId: credential.binding.organizationId,
@@ -195,7 +196,7 @@ export function useLiveNode() {
       idempotencyKey: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       safetyLevel: input.safetyLevel || 'normal'
-    } as const;
+    };
 
     const response = await executeNodeCommand(
       credential.baseUrl,
