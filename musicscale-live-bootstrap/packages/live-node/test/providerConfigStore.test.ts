@@ -20,6 +20,29 @@ describe('ProviderConfigStore', () => {
     expect(await readFile(path, 'utf8')).toContain('local-token');
   });
 
+  it('stores a local Resolume Webserver endpoint without a cloud secret', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'ms-live-provider-'));
+    const path = join(dir, 'providers.json');
+    const store = new ProviderConfigStore(path);
+
+    await store.setResolume({
+      baseUrl: 'http://192.168.1.50:8080'
+    });
+
+    const restored = new ProviderConfigStore(path);
+    expect((await restored.getResolume())?.baseUrl).toBe('http://192.168.1.50:8080');
+    expect(await readFile(path, 'utf8')).toContain('192.168.1.50:8080');
+  });
+
+  it('rejects public internet Resolume endpoints', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'ms-live-provider-'));
+    const store = new ProviderConfigStore(join(dir, 'providers.json'));
+
+    await expect(store.setResolume({
+      baseUrl: 'https://example.com'
+    })).rejects.toThrow('resolume_url_must_be_local');
+  });
+
   it('rejects public internet Holyrics endpoints for local provider setup', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'ms-live-provider-'));
     const store = new ProviderConfigStore(join(dir, 'providers.json'));
