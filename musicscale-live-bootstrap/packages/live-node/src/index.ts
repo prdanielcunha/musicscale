@@ -24,6 +24,7 @@ import { ProviderConfigStore } from './providerConfigStore';
 import { buildLiveNodeDiagnostics } from './diagnostics';
 import { isTrustedLiveWebOrigin } from './networkPolicy';
 import { SceneExecutor } from './sceneExecutor';
+import { sanitizeObservedStateForPersistence } from './observedStateSanitizer';
 import { HolyricsAdapter, HolyricsHttpClient } from '@musicscale-live/adapter-holyrics';
 import { ResolumeAdapter, ResolumeRestClient } from '@musicscale-live/adapter-resolume';
 import { toString as qrToString } from 'qrcode';
@@ -206,7 +207,7 @@ async function observeOnlineProviders(): Promise<void> {
         if (previousJson !== nextJson) {
           observed[snapshot.providerId] = {
             ...(observed[snapshot.providerId] || {}),
-            ...(state.observed || {})
+            ...sanitizeObservedStateForPersistence(state.observed || {})
           };
           changed = true;
         }
@@ -652,7 +653,10 @@ async function execute(command: LiveCommand): Promise<CommandResult[]> {
   const providerObservedState = { ...current.providerObservedState };
   for (const result of results) {
     if (result.accepted && result.observedState) {
-      providerObservedState[result.providerInstanceId] = result.observedState;
+      providerObservedState[result.providerInstanceId] = {
+        ...(providerObservedState[result.providerInstanceId] || {}),
+        ...sanitizeObservedStateForPersistence(result.observedState)
+      };
     }
   }
   const anyAccepted = results.some(result => result.accepted);
