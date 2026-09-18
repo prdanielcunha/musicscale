@@ -31,6 +31,7 @@ export interface SharedScale {
   date: string;
   time?: string;
   timeZone?: string;
+  publishRevision?: number;
   observations?: string;
   eventName?: string;
   locationName?: string;
@@ -93,6 +94,7 @@ export async function loadNextScale(organizationId: string): Promise<SharedScale
     date: String(next.date || ''),
     time: next.time ? String(next.time) : undefined,
     timeZone: next.timeZone ? String(next.timeZone) : undefined,
+    publishRevision: Number.isInteger(next.publishRevision) ? Number(next.publishRevision) : undefined,
     observations: next.observations ? String(next.observations) : undefined,
     eventName: next.eventNameId ? String(eventNamesById.get(next.eventNameId)?.name || '') : undefined,
     locationName: next.locationId ? String(locationsById.get(next.locationId)?.name || '') : undefined,
