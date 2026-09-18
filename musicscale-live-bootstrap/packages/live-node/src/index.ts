@@ -142,7 +142,10 @@ async function observeOnlineProviders(): Promise<void> {
         const previousJson = JSON.stringify(observed[snapshot.providerId] || {});
         const nextJson = JSON.stringify(state.observed || {});
         if (previousJson !== nextJson) {
-          observed[snapshot.providerId] = state.observed || {};
+          observed[snapshot.providerId] = {
+            ...(observed[snapshot.providerId] || {}),
+            ...(state.observed || {})
+          };
           changed = true;
         }
       } catch {
