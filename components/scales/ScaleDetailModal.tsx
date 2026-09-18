@@ -367,12 +367,22 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
       populatedBandScales.find((bandScale) => bandScale.id === scale.bandScaleId) ||
       null;
 
-    const names = (linkedBandScale?.assignments || [])
+    const canonicalAssignmentNames = (scale.eventAssignments || [])
+      .filter(
+        (assignment) =>
+          assignment.active !== false && assignment.userId === user.uid,
+      )
+      .map((assignment) => assignment.functionName?.trim())
+      .filter((name): name is string => Boolean(name));
+
+    const linkedAssignmentNames = (linkedBandScale?.assignments || [])
       .filter((assignment) => assignment.user?.uid === user.uid)
       .map((assignment) => assignment.instrument?.name?.trim())
       .filter((name): name is string => Boolean(name));
 
-    return Array.from(new Set(names));
+    return Array.from(
+      new Set([...canonicalAssignmentNames, ...linkedAssignmentNames]),
+    );
   }, [scale, populatedBandScales, user?.uid]);
 
   const buildSongScaleContext = (
