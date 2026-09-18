@@ -22,6 +22,11 @@ export interface LiveNodeDiagnosticInput {
     source: 'environment' | 'local' | 'none';
     baseUrl: string;
   };
+  resolume: {
+    configured: boolean;
+    source: 'environment' | 'local' | 'none';
+    baseUrl: string;
+  };
 }
 
 export function buildLiveNodeDiagnostics(input: LiveNodeDiagnosticInput) {
@@ -62,6 +67,11 @@ export function buildLiveNodeDiagnostics(input: LiveNodeDiagnosticInput) {
       configured: input.holyrics.configured,
       source: input.holyrics.source,
       baseUrl: input.holyrics.baseUrl
+    },
+    resolume: {
+      configured: input.resolume.configured,
+      source: input.resolume.source,
+      baseUrl: input.resolume.baseUrl
     },
     security: {
       providerSecretsIncluded: false,
