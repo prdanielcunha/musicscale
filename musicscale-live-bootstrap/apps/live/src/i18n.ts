@@ -85,7 +85,11 @@ const resources = {
     liveWorkspace: {
       onAir: 'AO VIVO',
       adHoc: 'Sessão livre',
-      lanPath: 'Controle local pronto'
+      lanPath: 'Controle local pronto',
+      fullscreen: 'Foco total',
+      exitFullscreen: 'Sair do foco',
+      screenAwake: 'Tela protegida contra bloqueio',
+      wakeUnavailable: 'Proteção de tela indisponível'
     },
     nodeStatus: {
       connecting: 'Conectando',
@@ -253,7 +257,11 @@ const resources = {
     liveWorkspace: {
       onAir: 'LIVE',
       adHoc: 'Ad-hoc session',
-      lanPath: 'Local control ready'
+      lanPath: 'Local control ready',
+      fullscreen: 'Focus mode',
+      exitFullscreen: 'Exit focus',
+      screenAwake: 'Screen kept awake',
+      wakeUnavailable: 'Wake protection unavailable'
     },
     nodeStatus: { connecting: 'Connecting', reconnecting: 'Reconnecting', offline: 'Offline' },
     nodeSetup: {
@@ -417,7 +425,11 @@ const resources = {
     liveWorkspace: {
       onAir: 'EN VIVO',
       adHoc: 'Sesión libre',
-      lanPath: 'Control local listo'
+      lanPath: 'Control local listo',
+      fullscreen: 'Modo enfoque',
+      exitFullscreen: 'Salir del enfoque',
+      screenAwake: 'Pantalla protegida del bloqueo',
+      wakeUnavailable: 'Protección de pantalla no disponible'
     },
     nodeStatus: { connecting: 'Conectando', reconnecting: 'Reconectando', offline: 'Offline' },
     nodeSetup: {
