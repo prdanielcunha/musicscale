@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CommandResult } from '@musicscale-live/domain';
 import type { useLiveNode } from './useLiveNode';
+import {
+  useLiveCueCoordinator,
+  type ArmedVisualCue
+} from './LiveCueCoordinator';
 
 type Controller = ReturnType<typeof useLiveNode>;
 
@@ -22,12 +26,6 @@ interface VisualOutput {
   name: string;
 }
 
-interface ArmedVisualCue {
-  clipId: string;
-  clipName: string;
-  layerId: string;
-  layerName: string;
-}
 
 function parameterValue(value: unknown): unknown {
   if (value && typeof value === 'object' && 'value' in (value as Record<string, unknown>)) {
@@ -99,13 +97,17 @@ export function VisualControlPanel({
   liveSessionId: string;
 }) {
   const { t } = useTranslation();
+  const cueCoordinator = useLiveCueCoordinator();
   const [busy, setBusy] = useState<string | null>(null);
   const [localComposition, setLocalComposition] = useState<unknown>(null);
   const [outputs, setOutputs] = useState<VisualOutput[]>([]);
   const [selectedOutputId, setSelectedOutputId] = useState('');
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
-  const [armedClip, setArmedClip] = useState<ArmedVisualCue | null>(null);
+  const [localArmedClip, setLocalArmedClip] = useState<ArmedVisualCue | null>(null);
   const [clearAllArmed, setClearAllArmed] = useState(false);
+  const armedClip = cueCoordinator?.armedVisualCue || localArmedClip;
+  const armVisualCue = cueCoordinator?.armVisualCue || setLocalArmedClip;
+  const clearVisualCue = cueCoordinator?.clearVisualCue || (() => setLocalArmedClip(null));
 
   const provider = useMemo(
     () => (controller.nodeState?.providers || []).find(candidate =>
@@ -189,7 +191,7 @@ export function VisualControlPanel({
     if (!armedClip) return;
     const results = await triggerClip(armedClip.clipId);
     if (results?.some(result => result.accepted)) {
-      setArmedClip(null);
+      clearVisualCue();
     }
   }
 
@@ -394,7 +396,8 @@ export function VisualControlPanel({
                       armedClip?.clipId === clip.id ? 'armed' : ''
                     ].filter(Boolean).join(' ')}
                     disabled={busy !== null}
-                    onClick={() => setArmedClip({
+                    onClick={() => armVisualCue({
+                      providerId: activeProvider.providerId,
                       clipId: clip.id,
                       clipName: clip.name,
                       layerId: layer.id,
