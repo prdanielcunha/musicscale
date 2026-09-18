@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchExternalSong, type SongIdentity } from '@musicscale-live/domain';
 import type { SharedScale } from './musicScaleBridge';
@@ -58,7 +58,9 @@ export function ScalePreflight({
   const [running, setRunning] = useState(false);
   const [syncArmed, setSyncArmed] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [offlinePrepared, setOfflinePrepared] = useState(false);
   const syncTimer = useRef<number | null>(null);
+  const cachedSignature = useRef<string | null>(null);
 
   const capabilities = useMemo(
     () => new Set(
@@ -81,6 +83,58 @@ export function ScalePreflight({
   const unresolvedCount = rows.length - readyCount;
   const canSearch = Boolean(provider) && capabilities.has('songs.search');
   const canSync = Boolean(provider) && provider?.capabilities.includes('playlist.sync') === true;
+
+  useEffect(() => {
+    if (
+      running ||
+      !provider ||
+      !controller.credential ||
+      rows.length === 0 ||
+      unresolvedCount > 0
+    ) {
+      if (unresolvedCount > 0) setOfflinePrepared(false);
+      return;
+    }
+
+    const prepared = rows
+      .filter(row => row.matched)
+      .map(row => ({
+        musicScaleSongId: row.source.id,
+        providerInstanceId: provider.providerId,
+        externalId: row.matched!.id,
+        fingerprint: `${row.matched!.title}|${row.matched!.artist || ''}`
+      }));
+
+    const signature = prepared
+      .map(link => `${link.musicScaleSongId}:${link.externalId}`)
+      .join('|');
+
+    if (!signature || cachedSignature.current === signature) return;
+    cachedSignature.current = signature;
+
+    const { plan, providerLinks } = buildServicePlan(
+      scale,
+      {
+        venueId: controller.credential.binding.venueId,
+        liveSystemId: controller.credential.binding.liveSystemId
+      },
+      prepared
+    );
+
+    controller.cacheServicePlan(plan, providerLinks)
+      .then(() => setOfflinePrepared(true))
+      .catch(() => {
+        cachedSignature.current = null;
+        setOfflinePrepared(false);
+      });
+  }, [
+    controller,
+    provider,
+    rows,
+    running,
+    scale,
+    unresolvedCount
+  ]);
 
   async function runPreflight() {
     if (!canSearch || running) return;
@@ -213,6 +267,7 @@ export function ScalePreflight({
           prepared
         );
         await controller.cacheServicePlan(plan, providerLinks);
+        setOfflinePrepared(true);
         setSyncMessage(t('preflight.syncDoneOffline'));
       } else {
         setSyncMessage(t('preflight.syncDone'));
@@ -237,6 +292,7 @@ export function ScalePreflight({
         <div className="preflight-score">
           <strong>{readyCount}/{rows.length}</strong>
           <small>{t('preflight.ready')}</small>
+          {offlinePrepared && <em>{t('preflight.offlineReady')}</em>}
         </div>
       </div>
 
