@@ -134,6 +134,14 @@ export class HolyricsAdapter implements ProviderAdapter {
     return this.supported;
   }
 
+  peekState(): ProviderState {
+    return {
+      health: this.lastState.health,
+      updatedAt: this.lastState.updatedAt,
+      observed: { ...this.lastState.observed }
+    };
+  }
+
   async getState(): Promise<ProviderState> {
     if (!this.supported.has('presentation.slides.read')) {
       return this.lastState;
