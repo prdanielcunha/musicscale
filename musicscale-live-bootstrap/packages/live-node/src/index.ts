@@ -499,7 +499,7 @@ function localConsoleHtml(): string {
 :root{font-family:Inter,system-ui,sans-serif;color:#f5f6fa;background:#0b0c11}
 body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 70% 10%,#241d4a 0,transparent 35%),#0b0c11}
 main{width:min(680px,calc(100vw - 32px));background:#12131a;border:1px solid #292b36;border-radius:24px;padding:32px;box-shadow:0 24px 90px #0008}
-small{color:#aaaebe}.brand{letter-spacing:.16em;color:#9b8cff;font-size:11px;font-weight:800}.pin{font-size:58px;letter-spacing:.12em;font-variant-numeric:tabular-nums;margin:18px 0}.muted{color:#8e93a5}.box{background:#0d0e14;border:1px solid #252733;border-radius:16px;padding:18px;margin-top:18px}code{color:#b8aeff}ul{padding-left:20px}
+small{color:#aaaebe}.brand{letter-spacing:.16em;color:#9b8cff;font-size:11px;font-weight:800}.pin{font-size:58px;letter-spacing:.12em;font-variant-numeric:tabular-nums;margin:18px 0}.muted{color:#8e93a5}.box{background:#0d0e14;border:1px solid #252733;border-radius:16px;padding:18px;margin-top:18px}code{color:#b8aeff}ul{padding-left:20px}.field{display:grid;gap:6px;margin-top:10px}.field span{font-size:11px;color:#8e93a5}.field input{background:#111219;border:1px solid #2d303c;color:#f5f6fa;border-radius:10px;padding:10px 11px;font:inherit}.row{display:flex;gap:8px;align-items:center;margin-top:12px}.btn{border:0;border-radius:10px;background:#7c5cff;color:white;padding:10px 13px;font:inherit;font-weight:700;cursor:pointer}.btn.secondary{background:#191b24;color:#d9dbe4;border:1px solid #2a2d38}.statusline{font-size:11px;color:#8e93a5;margin-top:10px;line-height:1.45}
 </style>
 </head>
 <body><main>
@@ -510,6 +510,16 @@ small{color:#aaaebe}.brand{letter-spacing:.16em;color:#9b8cff;font-size:11px;fon
 <small>CÓDIGO DE PAREAMENTO ATIVO</small>
 <div id="pin" class="pin">------</div>
 <p id="status" class="muted">Solicite o pareamento no MusicScale Live. O código aparece somente neste computador.</p>
+</div>
+<div class="box">
+<small>PROVIDER · HOLYRICS</small>
+<div class="field"><span>Endereço da API local</span><input id="holyrics-url" value="http://127.0.0.1:8091" autocomplete="off"/></div>
+<div class="field"><span>Token do Holyrics</span><input id="holyrics-token" type="password" placeholder="Cole o token criado no Holyrics" autocomplete="new-password"/></div>
+<div class="row">
+<button class="btn" onclick="saveHolyrics()">Salvar e testar</button>
+<button class="btn secondary" onclick="refreshProvider()">Testar novamente</button>
+</div>
+<div id="provider-status" class="statusline">Verificando configuração…</div>
 </div>
 <div class="box"><small>ENDEREÇOS NA REDE LOCAL</small><ul>${addresses || '<li>Nenhum IPv4 LAN detectado</li>'}</ul></div>
 <script>
@@ -522,7 +532,38 @@ async function refresh(){
     document.getElementById('status').textContent=d.pin?'Digite este código no MusicScale Live. Expira em até 2 minutos.':'Aguardando solicitação de pareamento…';
   }catch{}
 }
-refresh();setInterval(refresh,1000);
+async function refreshProvider(){
+  const el=document.getElementById('provider-status');
+  try{
+    const r=await fetch('/local/providers',{cache:'no-store'});
+    const d=await r.json();
+    if(!r.ok){el.textContent='Configuração disponível apenas neste computador.';return}
+    const h=d.holyrics||{};
+    document.getElementById('holyrics-url').value=h.baseUrl||'http://127.0.0.1:8091';
+    if(!h.configured){el.textContent='Holyrics ainda não configurado.';return}
+    const count=Array.isArray(h.capabilities)?h.capabilities.length:0;
+    el.textContent=(h.health==='online'?'Conectado':'Configurado, mas offline')+' · '+count+' capacidades detectadas'+(h.source==='environment'?' · gerenciado pelo ambiente':'');
+  }catch{el.textContent='Não foi possível ler a configuração.'}
+}
+async function saveHolyrics(){
+  const el=document.getElementById('provider-status');
+  const baseUrl=document.getElementById('holyrics-url').value;
+  const token=document.getElementById('holyrics-token').value;
+  if(!token){el.textContent='Informe o token do Holyrics para salvar.';return}
+  el.textContent='Salvando e testando…';
+  try{
+    const r=await fetch('/local/providers/holyrics',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({baseUrl,token})
+    });
+    const d=await r.json();
+    document.getElementById('holyrics-token').value='';
+    if(!r.ok){el.textContent='Falha: '+(d.error||d.reason||'não foi possível conectar');return}
+    el.textContent='Holyrics conectado · '+(d.capabilities||[]).length+' capacidades · v'+(d.version||'detectada');
+  }catch{el.textContent='Não foi possível salvar a configuração.'}
+}
+refresh();refreshProvider();setInterval(refresh,1000);
 </script>
 </main></body></html>`;
 }
