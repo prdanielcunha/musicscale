@@ -138,8 +138,7 @@ export class HolyricsAdapter implements ProviderAdapter {
 
     try {
       const presentation = await this.api.request<CurrentPresentation | null>(
-        'GetCurrentPresentation',
-        { include_slides: true, include_slide_comment: true }
+        'GetCurrentPresentation'
       );
       this.lastState = {
         health: 'online',
