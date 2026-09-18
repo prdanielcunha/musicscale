@@ -238,7 +238,8 @@ export class HolyricsAdapter implements ProviderAdapter {
           throw new Error('invalid_navigation_action');
         }
         const currentPresentation = await this.api.request<CurrentPresentation | null>(
-          'GetCurrentPresentation'
+          'GetCurrentPresentation',
+          { include_slides: true, include_slide_comment: true }
         );
         return { currentPresentation };
       }
