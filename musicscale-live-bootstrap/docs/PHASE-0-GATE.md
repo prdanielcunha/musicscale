@@ -1,27 +1,21 @@
 # Phase 0 — Gate
 
-## Implemented in this bootstrap
+## Implemented
 - Independent repo-ready workspace.
-- Neutral domain contracts.
-- Capability naming and ProviderAdapter contract.
-- LiveCommand / CommandResult envelopes and idempotency.
-- Event Bus baseline.
-- Live Node process with health/capability/command endpoints.
+- Neutral domain contracts and ProviderAdapter boundary.
+- Capability naming; LiveCommand / CommandResult; idempotency; Event Bus.
 - Shared MillionsNest Firebase/Auth/Firestore read bridge.
-- PT/EN/ES app foundation.
-- Live + Studio responsive shell and design tokens.
-- Feature-flag and telemetry baseline.
-- Threat model.
-- Transport Broker decision recorded before LAN implementation.
+- PT/EN/ES responsive Live + Studio shell.
+- Feature flags, telemetry and threat model.
+- Transport Broker with direct-lan / local-console / future cloud-relay.
+- CI covering install, typecheck, tests and build.
 
-## Gate still required before closing Phase 0
-- Move this workspace to the dedicated `musicscale-live` repository.
-- Add CI in the dedicated repository.
-- Add dedicated Firebase Hosting target/deploy.
-- Finalize shared RBAC contract for Live roles.
-- Add Firestore rules/tests for Live collections before any cloud writes.
-- Run responsive/browser QA on real iPad + Android tablet + desktop.
-- Version and publish the frozen domain contracts.
+## External/repository gate still open
+- Move workspace to dedicated `musicscale-live` repository.
+- Dedicated Firebase Hosting target/deploy.
+- Final shared RBAC contract for Live cloud roles.
+- Firestore rules + emulator tests before enabling any Live cloud writes.
+- Real-device responsive/browser QA.
+- Freeze/version public domain contracts.
 
-## Phase 1 next
-PWA ↔ Node transport, pairing, discovery, local session, heartbeat, reconnect, state store and crash recovery.
+Phase 0 engineering foundation is otherwise complete. Phase 1 is tracked separately in `PHASE-1-GATE.md`.
