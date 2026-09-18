@@ -11,6 +11,8 @@ import type {
   PairingScope,
   ProviderLink,
   SafetyLevel,
+  Scene,
+  SceneExecutionResult,
   ServicePlan
 } from '@musicscale-live/domain';
 import {
@@ -24,6 +26,7 @@ import {
   cacheNodeServicePlan,
   completePairing,
   executeNodeCommand,
+  executeNodeScene,
   fetchProviderOutputSnapshot,
   heartbeatNode,
   loadNodeState,
@@ -219,6 +222,42 @@ export function useLiveNode() {
     return response.results;
   }, [credential]);
 
+  const executeScene = useCallback(async (input: {
+    scene: Scene;
+    liveSessionId: string;
+    serviceItemId?: string;
+    actorId: string;
+    origin?: CommandOrigin;
+  }): Promise<SceneExecutionResult> => {
+    if (!credential) throw new Error('node_not_paired');
+
+    const requestId = crypto.randomUUID();
+    const result = await executeNodeScene(
+      credential.baseUrl,
+      credential.token,
+      {
+        id: requestId,
+        correlationId: crypto.randomUUID(),
+        organizationId: credential.binding.organizationId,
+        venueId: credential.binding.venueId,
+        liveSystemId: credential.binding.liveSystemId,
+        liveSessionId: input.liveSessionId,
+        serviceItemId: input.serviceItemId,
+        actorId: input.actorId,
+        origin: input.origin || 'live-ui',
+        scene: input.scene,
+        idempotencyKey: crypto.randomUUID()
+      }
+    );
+
+    const refreshed = await loadNodeState(
+      credential.baseUrl,
+      credential.token
+    ).catch(() => null);
+    if (refreshed) setNodeState(refreshed);
+    return result;
+  }, [credential]);
+
   const fetchOutputSnapshot = useCallback(async (
     providerId: string,
     targetId: string,
@@ -282,6 +321,7 @@ export function useLiveNode() {
     beginPairing,
     finishPairing,
     executeCommand,
+    executeScene,
     fetchOutputSnapshot,
     cacheServicePlan,
     disconnect
