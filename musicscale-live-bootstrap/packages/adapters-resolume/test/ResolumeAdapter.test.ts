@@ -17,6 +17,14 @@ class FakeApi implements ResolumeRestApi {
     this.calls.push({ method: 'POST', path, body });
     return undefined as T;
   }
+
+  async getBinary(path: string) {
+    this.calls.push({ method: 'GET_BINARY', path });
+    return {
+      contentType: 'image/jpeg',
+      body: new Uint8Array([1, 2, 3])
+    };
+  }
 }
 
 function command(
@@ -53,6 +61,8 @@ describe('ResolumeAdapter', () => {
     expect(probe.capabilities).toContain('visual.clip.trigger');
     expect(probe.capabilities).toContain('visual.layer.clear');
     expect(probe.capabilities).toContain('visual.composition.clear');
+    expect(probe.capabilities).toContain('visual.outputs.read');
+    expect(probe.capabilities).toContain('visual.output.snapshot');
   });
 
   it('triggers clips by stable id', async () => {
@@ -68,6 +78,25 @@ describe('ResolumeAdapter', () => {
     expect(api.calls.some(call =>
       call.method === 'POST' &&
       call.path === '/composition/clips/by-id/1658311521181/connect'
+    )).toBe(true);
+  });
+
+  it('fetches monitor snapshots through the neutral asset contract', async () => {
+    const api = new FakeApi();
+    const adapter = new ResolumeAdapter({ id: 'resolume-1', nodeId: 'node-1', api });
+    await adapter.probe();
+
+    const asset = await adapter.fetchAsset({
+      kind: 'output.snapshot',
+      targetId: 'monitor-main',
+      format: 'jpeg'
+    });
+
+    expect(asset.contentType).toBe('image/jpeg');
+    expect(asset.body.byteLength).toBe(3);
+    expect(api.calls.some(call =>
+      call.method === 'GET_BINARY' &&
+      call.path === '/composition/monitors/monitor-main/snapshot.jpg'
     )).toBe(true);
   });
 
