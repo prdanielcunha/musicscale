@@ -40,6 +40,30 @@ describe('CapabilityEngine', () => {
     expect(engine.can('provider-1', 'bible.search')).toBe(false);
   });
 
+  it('returns cached provider health without awaiting getState', () => {
+    const engine = new CapabilityEngine();
+    const cachedAdapter: ProviderAdapter = {
+      ...adapter,
+      descriptor: { ...adapter.descriptor, id: 'provider-cached' },
+      peekState() {
+        return {
+          health: 'degraded',
+          updatedAt: new Date(0).toISOString(),
+          observed: { reason: 'provider_offline' }
+        };
+      },
+      async getState() {
+        throw new Error('network_should_not_be_called');
+      }
+    };
+
+    engine.register(cachedAdapter);
+    const snapshot = engine.quickSnapshot();
+
+    expect(snapshot[0]?.health).toBe('degraded');
+    expect(snapshot[0]?.observed?.reason).toBe('provider_offline');
+  });
+
   it('prevents duplicate provider ids', () => {
     const engine = new CapabilityEngine();
     engine.register(adapter);
