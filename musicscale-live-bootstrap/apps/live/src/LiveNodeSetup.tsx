@@ -50,7 +50,7 @@ export function LiveNodeSetup({
             <div className="node-meta-grid">
               <div><small>{t('nodeSetup.address')}</small><strong>{controller.credential.baseUrl}</strong></div>
               <div><small>{t('nodeSetup.providers')}</small><strong>{controller.health?.providers ?? 0}</strong></div>
-              <div><small>{t('nodeSetup.transport')}</small><strong>Direct LAN</strong></div>
+              <div><small>{t('nodeSetup.transport')}</small><strong>{controller.credential.transportKind === 'local-console' ? 'Local Console' : 'Direct LAN'}</strong></div>
             </div>
           </>
         ) : controller.pending ? (
