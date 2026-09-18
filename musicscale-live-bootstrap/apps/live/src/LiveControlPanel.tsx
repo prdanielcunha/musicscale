@@ -13,6 +13,14 @@ interface SearchSongResult {
   bpm?: number;
 }
 
+interface SearchMediaResult {
+  name: string;
+  isDir?: boolean;
+  durationMs?: number;
+  width?: number;
+  height?: number;
+}
+
 function getSongResults(results: CommandResult[]): SearchSongResult[] {
   const raw = results
     .flatMap(result => {
@@ -33,6 +41,27 @@ function getSongResults(results: CommandResult[]): SearchSongResult[] {
     .slice(0, 12);
 }
 
+function getMediaResults(results: CommandResult[]): SearchMediaResult[] {
+  return results
+    .flatMap(result => {
+      const value = result.observedState?.results;
+      return Array.isArray(value) ? value : [];
+    })
+    .filter(value => value && typeof value === 'object')
+    .map(value => {
+      const item = value as Record<string, unknown>;
+      return {
+        name: String(item.name || ''),
+        isDir: Boolean(item.isDir),
+        durationMs: typeof item.duration_ms === 'number' ? item.duration_ms : undefined,
+        width: typeof item.width === 'number' ? item.width : undefined,
+        height: typeof item.height === 'number' ? item.height : undefined
+      };
+    })
+    .filter(item => item.name)
+    .slice(0, 18);
+}
+
 export function LiveControlPanel({
   controller,
   actorId,
@@ -46,6 +75,10 @@ export function LiveControlPanel({
   const [songQuery, setSongQuery] = useState('');
   const [songResults, setSongResults] = useState<SearchSongResult[]>([]);
   const [bibleReference, setBibleReference] = useState('');
+  const [mediaKind, setMediaKind] = useState<'video' | 'image' | 'audio'>('video');
+  const [mediaQuery, setMediaQuery] = useState('');
+  const [mediaResults, setMediaResults] = useState<SearchMediaResult[]>([]);
+  const [stageText, setStageText] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [clearArmed, setClearArmed] = useState(false);
@@ -122,6 +155,44 @@ export function LiveControlPanel({
     const reference = bibleReference.trim();
     if (!reference || !can('bible.present')) return;
     await run('bible', 'bible.present', { references: reference });
+  }
+
+  async function searchMedia() {
+    if (!can('media.search')) return;
+    const results = await run('media-search', 'media.search', {
+      kind: mediaKind,
+      filter: mediaQuery.trim(),
+      includeMetadata: true,
+      includeThumbnail: false
+    });
+    setMediaResults(getMediaResults(results));
+  }
+
+  async function openMedia(item: SearchMediaResult) {
+    if (item.isDir || !can('media.open')) return;
+    await run(`media:${item.name}`, 'media.open', {
+      kind: mediaKind,
+      file: item.name
+    });
+  }
+
+  async function showStageMessage() {
+    const text = stageText.trim();
+    if (!text || !can('stage.message')) return;
+    await run('stage-message', 'stage.message', {
+      text,
+      show: true,
+      displayAhead: true
+    });
+  }
+
+  async function hideStageMessage() {
+    if (!can('stage.message')) return;
+    await run('stage-message-hide', 'stage.message', {
+      text: stageText.trim(),
+      show: false,
+      displayAhead: true
+    });
   }
 
   function requestClear() {
@@ -250,6 +321,98 @@ export function LiveControlPanel({
           </div>
           <p className="operator-help">{t('liveControls.capabilityDriven')}</p>
         </article>
+
+        {can('media.search') && (
+          <article className="operator-card operator-card-wide">
+            <div className="operator-card-head">
+              <span>{t('liveControls.media')}</span>
+              <div className="operator-segmented">
+                {(['video','image','audio'] as const).map(kind => (
+                  <button
+                    key={kind}
+                    className={mediaKind === kind ? 'active' : ''}
+                    onClick={() => {
+                      setMediaKind(kind);
+                      setMediaResults([]);
+                    }}
+                  >
+                    {t(`liveControls.mediaKinds.${kind}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="operator-inline">
+              <input
+                value={mediaQuery}
+                onChange={event => setMediaQuery(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter') void searchMedia();
+                }}
+                placeholder={t('liveControls.mediaPlaceholder')}
+              />
+              <button
+                className="secondary"
+                disabled={busy !== null}
+                onClick={() => void searchMedia()}
+              >
+                {t('liveControls.search')}
+              </button>
+            </div>
+            <div className="provider-search-results media-results">
+              {mediaResults.map(item => (
+                <button
+                  key={item.name}
+                  disabled={Boolean(item.isDir) || !can('media.open') || busy !== null}
+                  onClick={() => void openMedia(item)}
+                >
+                  <span>
+                    <strong>{item.name}</strong>
+                    <small>
+                      {item.isDir
+                        ? t('liveControls.folder')
+                        : item.width && item.height
+                          ? `${item.width}×${item.height}`
+                          : item.durationMs
+                            ? `${Math.round(item.durationMs / 1000)}s`
+                            : t('liveControls.mediaReady')}
+                    </small>
+                  </span>
+                  <em>{item.isDir ? '—' : t('liveControls.open')}</em>
+                </button>
+              ))}
+            </div>
+          </article>
+        )}
+
+        {can('stage.message') && (
+          <article className="operator-card">
+            <div className="operator-card-head"><span>{t('liveControls.stage')}</span></div>
+            <textarea
+              className="operator-textarea"
+              value={stageText}
+              onChange={event => setStageText(event.target.value)}
+              placeholder={t('liveControls.stagePlaceholder')}
+              rows={4}
+            />
+            <div className="operator-dual-actions">
+              <button
+                className="secondary"
+                disabled={!stageText.trim() || busy !== null}
+                onClick={() => void showStageMessage()}
+              >
+                {t('liveControls.showStage')}
+              </button>
+              <button
+                className="ghost-action"
+                disabled={busy !== null}
+                onClick={() => void hideStageMessage()}
+              >
+                {t('liveControls.hideStage')}
+              </button>
+            </div>
+          </article>
+        )}
+
       </div>
 
       {message && <div className="operator-message">{message}</div>}
