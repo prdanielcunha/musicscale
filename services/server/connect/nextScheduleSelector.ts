@@ -25,6 +25,7 @@ export interface ConnectScaleRecord {
   locationId?: string | null;
   bandScaleId?: string | null;
   songIds?: string[] | null;
+  songSettings?: Record<string, { key?: string | null; bpm?: number | null }> | null;
   eventAssignments?: ConnectEventAssignmentRecord[] | null;
 }
 
