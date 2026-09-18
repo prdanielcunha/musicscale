@@ -17,8 +17,10 @@ class FakeApi implements HolyricsApi {
           'ActionPrevious',
           'ActionGoToIndex',
           'CloseCurrentPresentation',
+          'IdentifyVerseReferences',
           'ShowVerse',
           'SearchLyrics',
+          'ShowLyrics',
           'AddLyricsToPlaylist',
           'SetTextCommunicationPanel'
         ].join(',')
@@ -59,7 +61,9 @@ describe('HolyricsAdapter', () => {
 
     expect(probe.reachable).toBe(true);
     expect(probe.capabilities).toContain('presentation.navigation');
+    expect(probe.capabilities).toContain('bible.search');
     expect(probe.capabilities).toContain('bible.present');
+    expect(probe.capabilities).toContain('songs.present');
     expect(probe.capabilities).toContain('playlist.write');
   });
 
@@ -71,6 +75,16 @@ describe('HolyricsAdapter', () => {
 
     expect(result.accepted).toBe(true);
     expect(api.calls.some(call => call.action === 'ActionNext')).toBe(true);
+  });
+
+  it('maps song presentation to ShowLyrics', async () => {
+    const api = new FakeApi();
+    const adapter = new HolyricsAdapter({ id: 'holyrics-1', nodeId: 'node-1', api });
+    await adapter.probe();
+    const result = await adapter.execute(command('songs.present', { id: 'song-44' }));
+
+    expect(result.accepted).toBe(true);
+    expect(api.calls.some(call => call.action === 'ShowLyrics' && call.input.id === 'song-44')).toBe(true);
   });
 
   it('maps Bible presentation to ShowVerse without leaking Holyrics into the command schema', async () => {
