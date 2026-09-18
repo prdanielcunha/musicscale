@@ -19,7 +19,13 @@
 - Active service item persisted as commands run.
 - QR handoff from production PC to tablet/cellphone.
 - Local-only provider setup surface.
-- Automated tests for pairing scope, persistence, crash recovery and provider config.
+- Redacted local diagnostic export.
+- Single-executable SEA build pipeline.
+- Windows alpha installer with user autostart + private-network firewall onboarding.
+- macOS alpha installer with LaunchAgent autostart.
+- Cross-platform release workflow prepared for Windows/macOS artifacts.
+- Linux SEA executable is built and smoke-tested on every foundation CI run.
+- Automated tests for pairing scope, persistence, crash recovery, network policy, diagnostics and provider config.
 
 ## Offline operating path now implemented
 
@@ -29,7 +35,8 @@ The cloud is no longer a hard runtime dependency after the plan has been prepare
 
 ## Gate still required before declaring Phase 1 production-ready
 
-- Package/install Live Node for Windows and macOS with auto-start/update.
+- Execute and validate the prepared Windows/macOS release matrix on native hosted runners; the workflow exists but has not yet been manually dispatched from this branch.
+- Add signed, verified auto-update only after the dedicated repository + signing identities exist.
 - Replace private-file provider token fallback with OS credential vault on supported platforms.
 - Real LAN test on:
   - Windows production PC + iPad;
