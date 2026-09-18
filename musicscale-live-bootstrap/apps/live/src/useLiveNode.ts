@@ -24,6 +24,7 @@ import {
   cacheNodeServicePlan,
   completePairing,
   executeNodeCommand,
+  fetchProviderOutputSnapshot,
   heartbeatNode,
   loadNodeState,
   probeNode,
@@ -218,6 +219,21 @@ export function useLiveNode() {
     return response.results;
   }, [credential]);
 
+  const fetchOutputSnapshot = useCallback(async (
+    providerId: string,
+    targetId: string,
+    format: 'jpeg' | 'png' = 'jpeg'
+  ): Promise<Blob> => {
+    if (!credential) throw new Error('node_not_paired');
+    return fetchProviderOutputSnapshot(
+      credential.baseUrl,
+      credential.token,
+      providerId,
+      targetId,
+      format
+    );
+  }, [credential]);
+
   const cacheServicePlan = useCallback(async (
     plan: ServicePlan,
     providerLinks: ProviderLink[] = []
@@ -266,6 +282,7 @@ export function useLiveNode() {
     beginPairing,
     finishPairing,
     executeCommand,
+    fetchOutputSnapshot,
     cacheServicePlan,
     disconnect
   };
