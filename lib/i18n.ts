@@ -9,6 +9,7 @@ import { curationTranslations } from "../locales/curation";
 import { curationModalTranslations } from "../locales/curationModals";
 import { dashboardGreetingTranslations } from "../locales/dashboardGreetings";
 import { premiumV2Translations } from "../locales/premiumV2";
+import { songDuplicateResolutionTranslations } from "../locales/songDuplicateResolution";
 import { trackMissingKey } from "../utils/languageDiagnostics";
 
 const SUPPORTED_DOCUMENT_LANGUAGES = new Set(["pt", "en", "es"]);
@@ -29,9 +30,11 @@ const buildTranslationResource = (
   dashboardGreetings: Record<string, string>,
   premium: (typeof premiumV2Translations)[keyof typeof premiumV2Translations],
   releaseNews: (typeof releaseNewsTranslations)[keyof typeof releaseNewsTranslations],
+  songDuplicate: (typeof songDuplicateResolutionTranslations)[keyof typeof songDuplicateResolutionTranslations],
 ) => ({
   ...base,
   releaseNews,
+  songDuplicate,
   dashboard: {
     ...(base.dashboard || {}),
     greetings: {
@@ -67,6 +70,7 @@ i18n
           dashboardGreetingTranslations.pt,
           premiumV2Translations.pt,
           releaseNewsTranslations.pt,
+          songDuplicateResolutionTranslations.pt,
         ),
       },
       en: {
@@ -76,6 +80,7 @@ i18n
           dashboardGreetingTranslations.en,
           premiumV2Translations.en,
           releaseNewsTranslations.en,
+          songDuplicateResolutionTranslations.en,
         ),
       },
       es: {
@@ -85,6 +90,7 @@ i18n
           dashboardGreetingTranslations.es,
           premiumV2Translations.es,
           releaseNewsTranslations.es,
+          songDuplicateResolutionTranslations.es,
         ),
       },
     },
