@@ -60,6 +60,45 @@ describe('PairingStore', () => {
     expect(await store.revoke('device_1')).toBe(true);
     expect(await store.authorize(completed.token)).toBeNull();
   });
+  it('inherits the bound scope for a local recovery device', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'ms-live-pairing-'));
+    const store = new PairingStore(join(dir, 'pairings.json'), 'node_test');
+
+    const primary = await store.createChallenge({
+      organizationId: 'org_a',
+      venueId: 'venue_a',
+      liveSystemId: 'system_a',
+      deviceId: 'primary',
+      deviceName: 'Primary console'
+    });
+    await store.complete(primary.challengeId, primary.pin, 'primary', 'Primary console');
+
+    const recovery = await store.createChallenge({
+      deviceId: 'ipad-recovery',
+      deviceName: 'iPad recovery'
+    });
+    const completed = await store.complete(
+      recovery.challengeId,
+      recovery.pin,
+      'ipad-recovery',
+      'iPad recovery'
+    );
+
+    expect(completed.binding.organizationId).toBe('org_a');
+    expect(completed.binding.venueId).toBe('venue_a');
+    expect(completed.binding.liveSystemId).toBe('system_a');
+  });
+
+  it('requires an explicit scope for the first device', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'ms-live-pairing-'));
+    const store = new PairingStore(join(dir, 'pairings.json'), 'node_test');
+
+    await expect(store.createChallenge({
+      deviceId: 'recovery-only',
+      deviceName: 'Recovery'
+    })).rejects.toThrow('pairing_scope_required');
+  });
+
   it('locks an active Node binding to one environment', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'ms-live-pairing-'));
     const store = new PairingStore(join(dir, 'pairings.json'), 'node_test');
