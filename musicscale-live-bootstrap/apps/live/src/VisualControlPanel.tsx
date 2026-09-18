@@ -120,6 +120,7 @@ export function VisualControlPanel({
   }, [snapshotUrl]);
 
   if (!provider) return null;
+  const activeProvider = provider;
 
   async function execute(
     key: string,
@@ -137,7 +138,7 @@ export function VisualControlPanel({
       const results = await controller.executeCommand({
         capability,
         payload,
-        targetProviderIds: [provider.providerId],
+        targetProviderIds: [activeProvider.providerId],
         liveSessionId,
         actorId,
         safetyLevel: guarded ? 'guarded' : 'normal'
@@ -165,7 +166,7 @@ export function VisualControlPanel({
   }
 
   async function loadOutputs() {
-    if (!provider.capabilities.includes('visual.outputs.read')) return;
+    if (!activeProvider.capabilities.includes('visual.outputs.read')) return;
     const results = await execute('outputs', 'visual.outputs.read');
     const next = outputsFromResults(results || []);
     setOutputs(next);
@@ -174,11 +175,11 @@ export function VisualControlPanel({
 
   async function refreshSnapshot() {
     const targetId = selectedOutputId || outputs[0]?.id;
-    if (!targetId || !provider.capabilities.includes('visual.output.snapshot')) return;
+    if (!targetId || !activeProvider.capabilities.includes('visual.output.snapshot')) return;
     setBusy('snapshot');
     try {
       const blob = await controller.fetchOutputSnapshot(
-        provider.providerId,
+        activeProvider.providerId,
         targetId,
         'jpeg'
       );
@@ -230,7 +231,7 @@ export function VisualControlPanel({
       </div>
 
 
-      {provider.capabilities.includes('visual.outputs.read') && (
+      {activeProvider.capabilities.includes('visual.outputs.read') && (
         <div className="visual-output-strip">
           <div className="visual-output-copy">
             <small>{t('visualControls.outputPreview')}</small>
@@ -259,7 +260,7 @@ export function VisualControlPanel({
               disabled={
                 busy !== null ||
                 !selectedOutputId ||
-                !provider.capabilities.includes('visual.output.snapshot')
+                !activeProvider.capabilities.includes('visual.output.snapshot')
               }
               onClick={() => void refreshSnapshot()}
             >
