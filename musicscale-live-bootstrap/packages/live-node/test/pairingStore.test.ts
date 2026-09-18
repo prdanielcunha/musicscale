@@ -60,4 +60,25 @@ describe('PairingStore', () => {
     expect(await store.revoke('device_1')).toBe(true);
     expect(await store.authorize(completed.token)).toBeNull();
   });
+  it('locks an active Node binding to one environment', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'ms-live-pairing-'));
+    const store = new PairingStore(join(dir, 'pairings.json'), 'node_test');
+
+    const first = await store.createChallenge({
+      organizationId: 'org_a',
+      venueId: 'venue_a',
+      liveSystemId: 'system_a',
+      deviceId: 'device_a',
+      deviceName: 'Console A'
+    });
+    await store.complete(first.challengeId, first.pin, 'device_a', 'Console A');
+
+    await expect(store.createChallenge({
+      organizationId: 'org_b',
+      venueId: 'venue_b',
+      liveSystemId: 'system_b',
+      deviceId: 'device_b',
+      deviceName: 'Console B'
+    })).rejects.toThrow('pairing_scope_conflict');
+  });
 });
