@@ -3,6 +3,8 @@ import type {
   CommandResult,
   LiveCommand,
   ProviderAdapter,
+  ProviderAsset,
+  ProviderAssetRequest,
   ProviderDescriptor,
   ProviderState
 } from '@musicscale-live/domain';
@@ -12,7 +14,9 @@ const RESOLUME_CAPABILITIES: Capability[] = [
   'visual.composition.read',
   'visual.clip.trigger',
   'visual.layer.clear',
-  'visual.composition.clear'
+  'visual.composition.clear',
+  'visual.outputs.read',
+  'visual.output.snapshot'
 ];
 
 interface ProductInfo {
@@ -123,6 +127,27 @@ export class ResolumeAdapter implements ProviderAdapter {
     return this.peekState();
   }
 
+  async fetchAsset(request: ProviderAssetRequest): Promise<ProviderAsset> {
+    if (request.kind !== 'output.snapshot') {
+      throw new Error('capability_not_supported');
+    }
+    if (!this.supported.has('visual.output.snapshot')) {
+      throw new Error('capability_not_supported');
+    }
+
+    const targetId = String(request.targetId || '');
+    if (!targetId) throw new Error('resolume_monitor_id_required');
+    const extension = request.format === 'png' ? 'png' : 'jpg';
+    const response = await this.api.getBinary(
+      `/composition/monitors/${encodeURIComponent(targetId)}/snapshot.${extension}`
+    );
+    return {
+      contentType: response.contentType,
+      body: response.body,
+      cacheControl: 'no-store'
+    };
+  }
+
   async execute(command: LiveCommand): Promise<CommandResult> {
     const started = performance.now();
     try {
@@ -184,6 +209,14 @@ export class ResolumeAdapter implements ProviderAdapter {
       case 'visual.composition.clear':
         await this.api.post('/composition/disconnect-all');
         return { compositionCleared: true };
+
+      case 'visual.outputs.read': {
+        const outputs = await this.api.get<unknown[]>('/composition/monitors');
+        return { outputs: Array.isArray(outputs) ? outputs : [] };
+      }
+
+      case 'visual.output.snapshot':
+        return { assetRequired: true };
 
       default:
         throw new Error('capability_not_supported');
