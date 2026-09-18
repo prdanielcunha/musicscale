@@ -72,7 +72,7 @@ export function App() {
   }
 
   const nodeConnected = liveNode.state === 'connected';
-  const providersConnected = (liveNode.health?.providers ?? 0) > 0;
+  const providersConnected = (liveNode.health?.providersOnline ?? 0) > 0;
 
   return (
     <div className="app-shell">
@@ -117,7 +117,7 @@ export function App() {
           </article>
           <article>
             <span className={`status ${providersConnected ? 'ok' : 'warn'}`} />
-            <div><small>{t('providers')}</small><strong>{providersConnected ? String(liveNode.health?.providers) : t('pending')}</strong></div>
+            <div><small>{t('providers')}</small><strong>{providersConnected ? `${liveNode.health?.providersOnline ?? 0}/${liveNode.health?.providers ?? 0}` : t('pending')}</strong></div>
           </article>
         </section>
 
