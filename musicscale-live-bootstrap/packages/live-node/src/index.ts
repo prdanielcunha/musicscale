@@ -13,6 +13,8 @@ import {
   type PairingRequest,
   type ProviderAssetRequest,
   type ProviderLink,
+  type SceneExecutionRequest,
+  type SceneExecutionResult,
   type ServicePlan
 } from '@musicscale-live/domain';
 import { IdempotencyStore } from './idempotencyStore';
@@ -21,6 +23,7 @@ import { RuntimeStateStore } from './runtimeStateStore';
 import { ProviderConfigStore } from './providerConfigStore';
 import { buildLiveNodeDiagnostics } from './diagnostics';
 import { isTrustedLiveWebOrigin } from './networkPolicy';
+import { SceneExecutor } from './sceneExecutor';
 import { HolyricsAdapter, HolyricsHttpClient } from '@musicscale-live/adapter-holyrics';
 import { ResolumeAdapter, ResolumeRestClient } from '@musicscale-live/adapter-resolume';
 import { toString as qrToString } from 'qrcode';
@@ -57,6 +60,7 @@ const nodeId = process.env.MUSICSCALE_LIVE_NODE_ID ||
 
 const capabilityEngine = new CapabilityEngine();
 const idempotency = new IdempotencyStore<CommandResult[]>();
+const sceneIdempotency = new IdempotencyStore<SceneExecutionResult>();
 const pairingStore = new PairingStore(join(STATE_DIR, 'pairings.json'), nodeId);
 const runtimeState = new RuntimeStateStore(join(STATE_DIR, 'runtime.json'), nodeId);
 const providerConfigStore = new ProviderConfigStore(join(STATE_DIR, 'providers.json'));
@@ -470,6 +474,76 @@ function isCapability(value: unknown): value is Capability {
   return typeof value === 'string' && (CAPABILITIES as readonly string[]).includes(value);
 }
 
+function validateSceneExecutionRequest(value: unknown): SceneExecutionRequest {
+  if (!value || typeof value !== 'object') throw new Error('invalid_scene_execution');
+  const candidate = value as Partial<SceneExecutionRequest>;
+  const requiredStrings = [
+    candidate.id,
+    candidate.correlationId,
+    candidate.organizationId,
+    candidate.venueId,
+    candidate.liveSystemId,
+    candidate.liveSessionId,
+    candidate.actorId,
+    candidate.idempotencyKey
+  ];
+  if (requiredStrings.some(item => typeof item !== 'string' || !item)) {
+    throw new Error('invalid_scene_execution');
+  }
+  if (!['live-ui','pastor','conductor','automation','api'].includes(String(candidate.origin))) {
+    throw new Error('invalid_origin');
+  }
+
+  const scene = candidate.scene;
+  if (!scene || typeof scene !== 'object') throw new Error('invalid_scene');
+  if (
+    typeof scene.id !== 'string' ||
+    !scene.id ||
+    typeof scene.organizationId !== 'string' ||
+    typeof scene.venueId !== 'string' ||
+    typeof scene.name !== 'string' ||
+    !Array.isArray(scene.actions) ||
+    scene.actions.length < 1 ||
+    scene.actions.length > 32
+  ) {
+    throw new Error('invalid_scene');
+  }
+  if (
+    scene.organizationId !== candidate.organizationId ||
+    scene.venueId !== candidate.venueId ||
+    (scene.liveSystemId && scene.liveSystemId !== candidate.liveSystemId)
+  ) {
+    throw new Error('forbidden_scope');
+  }
+
+  const actionIds = new Set<string>();
+  for (const action of scene.actions) {
+    if (!action || typeof action !== 'object') throw new Error('invalid_scene_action');
+    if (typeof action.id !== 'string' || !action.id || actionIds.has(action.id)) {
+      throw new Error('invalid_scene_action');
+    }
+    actionIds.add(action.id);
+    if (!isCapability(action.capability)) throw new Error('invalid_capability');
+    if (!Array.isArray(action.targetProviderIds) || !Array.isArray(action.outputTargets)) {
+      throw new Error('invalid_targets');
+    }
+    if (!action.payload || typeof action.payload !== 'object' || Array.isArray(action.payload)) {
+      throw new Error('invalid_scene_action');
+    }
+    if (!['normal','guarded','critical'].includes(String(action.safetyLevel))) {
+      throw new Error('invalid_safety_level');
+    }
+    if (
+      action.offsetMs != null &&
+      (!Number.isFinite(action.offsetMs) || Number(action.offsetMs) < 0 || Number(action.offsetMs) > 60_000)
+    ) {
+      throw new Error('invalid_scene_offset');
+    }
+  }
+
+  return candidate as SceneExecutionRequest;
+}
+
 function validateCommand(value: unknown): LiveCommand {
   if (!value || typeof value !== 'object') throw new Error('invalid_command');
   const candidate = value as Partial<LiveCommand>;
@@ -507,6 +581,20 @@ async function authorize(req: IncomingMessage) {
   }
   const binding = await pairingStore.authorize(token);
   return binding ? { dev: false as const, token, binding } : null;
+}
+
+function assertSceneScope(
+  request: SceneExecutionRequest,
+  binding: Awaited<ReturnType<typeof pairingStore.authorize>>
+): void {
+  if (!binding) return;
+  if (
+    request.organizationId !== binding.organizationId ||
+    request.venueId !== binding.venueId ||
+    request.liveSystemId !== binding.liveSystemId
+  ) {
+    throw new Error('forbidden_scope');
+  }
 }
 
 function assertCommandScope(
@@ -597,6 +685,7 @@ async function execute(command: LiveCommand): Promise<CommandResult[]> {
   return results;
 }
 
+const sceneExecutor = new SceneExecutor({ executeCommand: execute });
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -1189,6 +1278,35 @@ async function start(): Promise<void> {
         return send(res, 403, { error: 'cannot_revoke_other_device' });
       }
       return send(res, 200, { revoked: await pairingStore.revoke(deviceId) });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/scenes/execute') {
+      const session = await authorize(req);
+      if (!session) return send(res, 401, { error: 'unauthorized' });
+
+      const sceneRequest = validateSceneExecutionRequest(await readJson(req));
+      assertSceneScope(sceneRequest, session.binding);
+
+      const cached = sceneIdempotency.get(sceneRequest.idempotencyKey);
+      if (cached) return send(res, 200, cached);
+
+      const safetyLevels = sceneRequest.scene.actions.map(action => action.safetyLevel);
+      if (
+        safetyLevels.includes('critical') &&
+        process.env.MUSICSCALE_LIVE_CRITICAL_ACTIONS_ENABLED !== 'true'
+      ) {
+        return send(res, 403, { error: 'critical_action_blocked' });
+      }
+      if (
+        safetyLevels.some(level => level === 'guarded' || level === 'critical') &&
+        req.headers['x-live-confirmation'] !== sceneRequest.id
+      ) {
+        return send(res, 409, { error: 'guarded_action_confirmation_required' });
+      }
+
+      const result = await sceneExecutor.execute(sceneRequest);
+      sceneIdempotency.set(sceneRequest.idempotencyKey, result);
+      return send(res, 200, result);
     }
 
     if (req.method === 'POST' && url.pathname === '/commands') {
