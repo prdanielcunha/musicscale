@@ -15,6 +15,7 @@ export interface LiveNodeStateResponse {
     providerId: string;
     capabilities: string[];
     health: string;
+    observed?: Record<string, unknown>;
   }>;
 }
 
