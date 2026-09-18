@@ -2433,6 +2433,8 @@ REGRAS DE INTEGRIDADE:
 4. Não invente título, artista, tom, BPM, ritmo ou seção. Quando a evidência for insuficiente, retorne null/unknown e adicione um warning curto.
 5. Para originalKey, use somente um tom musical válido quando houver evidência clara no conteúdo. NÃO transponha acordes.
 6. Para sections, descreva apenas as seções que aparecem no documento e mantenha a ordem observada. Esse campo é apenas metadado; não controla o corpo da cifra.
+7. Para sectionAnnotations, use SOMENTE nomes de seção que existam literalmente no documento. Classifique partes instrumentais quando houver evidência: solo, riff, instrumental, interlude, intro, outro ou technical. Se a seção for vocal, use vocal. Se não souber, unknown. Nunca crie uma nova seção para explicar sua inferência.
+8. instrument é um vocabulário fechado: guitar, acoustic_guitar, bass, keys, piano, synth, drums, sax, violin, strings, other ou unknown. Não devolva nomes livres de instrumentos.
 
 POSSÍVEIS DADOS DE IDENTIFICAÇÃO DA FONTE:
 Título candidato: ${preProcessed?.title || "não identificado"}
@@ -2448,6 +2450,7 @@ ${textToProcess}
 RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
 {
   "sections": [{"name": "string", "type": "intro|verse|chorus|bridge|outro|unknown"}],
+  "sectionAnnotations": [{"section": "nome exato da seção", "type": "solo|riff|instrumental|interlude|intro|outro|technical|vocal|unknown", "instrument": "guitar|acoustic_guitar|bass|keys|piano|synth|drums|sax|violin|strings|other|unknown", "confidence": "high|medium|low"}],
   "language": "pt | en | es | unknown",
   "suggestedBpm": number | null,
   "suggestedRhythm": "string | null",
@@ -2495,6 +2498,108 @@ RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
 
         const parsedAiObj = JSON.parse(sanitizedJsonStr);
         logInfo("9_RESP_PARSING", "Gemini response parsed into JSON schema flawlessly");
+
+        const normalizeSectionIdentity = (value: string): string =>
+          value
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/[\[\]]/g, "")
+            .replace(/[_–—-]+/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+
+        const parserSections = Array.isArray(preProcessed?.sections)
+          ? preProcessed.sections.filter(
+              (section: unknown): section is string =>
+                typeof section === "string" && section.trim().length > 0,
+            )
+          : [];
+        const parserSectionLookup = new Map(
+          parserSections.map((section: string) => [
+            normalizeSectionIdentity(section),
+            section.trim(),
+          ]),
+        );
+        const allowedSectionAnnotationTypes = new Set([
+          "solo",
+          "riff",
+          "instrumental",
+          "interlude",
+          "intro",
+          "outro",
+          "technical",
+          "vocal",
+          "unknown",
+        ]);
+        const allowedSectionAnnotationInstruments = new Set([
+          "guitar",
+          "acoustic_guitar",
+          "bass",
+          "keys",
+          "piano",
+          "synth",
+          "drums",
+          "sax",
+          "violin",
+          "strings",
+          "other",
+          "unknown",
+        ]);
+        const allowedSectionAnnotationConfidence = new Set([
+          "high",
+          "medium",
+          "low",
+        ]);
+        const sectionAnnotations: Array<{
+          section: string;
+          type: string;
+          instrument: string;
+          confidence: string;
+        }> = [];
+
+        if (Array.isArray(parsedAiObj.sectionAnnotations)) {
+          for (const rawAnnotation of parsedAiObj.sectionAnnotations) {
+            if (
+              !rawAnnotation ||
+              typeof rawAnnotation !== "object" ||
+              Array.isArray(rawAnnotation)
+            ) {
+              continue;
+            }
+
+            const section =
+              typeof rawAnnotation.section === "string"
+                ? parserSectionLookup.get(
+                    normalizeSectionIdentity(rawAnnotation.section),
+                  )
+                : undefined;
+            const type =
+              typeof rawAnnotation.type === "string" &&
+              allowedSectionAnnotationTypes.has(rawAnnotation.type)
+                ? rawAnnotation.type
+                : "unknown";
+            const instrument =
+              typeof rawAnnotation.instrument === "string" &&
+              allowedSectionAnnotationInstruments.has(rawAnnotation.instrument)
+                ? rawAnnotation.instrument
+                : "unknown";
+            const confidence =
+              typeof rawAnnotation.confidence === "string" &&
+              allowedSectionAnnotationConfidence.has(rawAnnotation.confidence)
+                ? rawAnnotation.confidence
+                : "low";
+
+            if (!section) continue;
+
+            sectionAnnotations.push({
+              section,
+              type,
+              instrument,
+              confidence,
+            });
+          }
+        }
 
         let finalBpm = null;
         let finalSuggestedBpm = null;
@@ -2585,7 +2690,10 @@ RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
               : []),
           language: parsedAiObj.language || "pt",
           tabs: preProcessed?.tabs || [],
-          metadata: preProcessed?.metadata || {}
+          metadata: {
+            ...(preProcessed?.metadata || {}),
+            ...(sectionAnnotations.length > 0 ? { sectionAnnotations } : {})
+          }
         };
         usedAi = true;
 
