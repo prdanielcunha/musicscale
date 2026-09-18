@@ -7,6 +7,7 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import {
   CAPABILITIES,
   CapabilityEngine,
+  routeGroupForCapability,
   type Capability,
   type CommandResult,
   type LiveCommand,
@@ -21,12 +22,17 @@ import { IdempotencyStore } from './idempotencyStore';
 import { PairingStore } from './pairingStore';
 import { RuntimeStateStore } from './runtimeStateStore';
 import { ProviderConfigStore } from './providerConfigStore';
+import { ProviderRoutingStore } from './providerRoutingStore';
 import { buildLiveNodeDiagnostics } from './diagnostics';
 import { isTrustedLiveWebOrigin } from './networkPolicy';
 import { SceneExecutor } from './sceneExecutor';
 import { sanitizeObservedStateForPersistence } from './observedStateSanitizer';
 import { HolyricsAdapter, HolyricsHttpClient } from '@musicscale-live/adapter-holyrics';
 import { ResolumeAdapter, ResolumeRestClient } from '@musicscale-live/adapter-resolume';
+import {
+  ProPresenterAdapter,
+  ProPresenterHttpClient
+} from '@musicscale-live/adapter-propresenter';
 import { toString as qrToString } from 'qrcode';
 
 const PORT = Number(process.env.MUSICSCALE_LIVE_NODE_PORT || 4317);
@@ -38,6 +44,8 @@ const HOLYRICS_TOKEN = process.env.MUSICSCALE_LIVE_HOLYRICS_TOKEN?.trim() || '';
 const HOLYRICS_URL = process.env.MUSICSCALE_LIVE_HOLYRICS_URL?.trim() || 'http://127.0.0.1:8091';
 const DEFAULT_RESOLUME_URL = 'http://127.0.0.1:8080';
 const RESOLUME_URL = process.env.MUSICSCALE_LIVE_RESOLUME_URL?.trim() || '';
+const DEFAULT_PROPRESENTER_URL = 'http://127.0.0.1:50001';
+const PROPRESENTER_URL = process.env.MUSICSCALE_LIVE_PROPRESENTER_URL?.trim() || '';
 const STATE_DIR = process.env.MUSICSCALE_LIVE_STATE_DIR || join(homedir(), '.musicscale-live');
 const PACKAGED_WEB_ROOT = resolve(dirname(process.execPath), 'web');
 const WORKSPACE_WEB_ROOT = resolve(process.cwd(), 'apps/live/dist');
@@ -165,6 +173,60 @@ async function registerResolumeProvider(): Promise<{
   console.log(JSON.stringify({
     event: 'provider_probe',
     providerKey: 'resolume',
+    providerId: adapter.descriptor.id,
+    reachable: probe.reachable,
+    version: probe.version || null,
+    capabilities: probe.capabilities,
+    reason: probe.reason || null,
+    configurationSource: source
+  }));
+
+  return {
+    configured: true,
+    source,
+    probe,
+    baseUrl
+  };
+}
+
+
+async function registerProPresenterProvider(): Promise<{
+  configured: boolean;
+  source: 'environment' | 'local' | 'none';
+  probe?: Awaited<ReturnType<ProPresenterAdapter['probe']>>;
+  baseUrl?: string;
+}> {
+  capabilityEngine.unregister('propresenter-primary');
+
+  const localConfig = await providerConfigStore.getProPresenter();
+  const baseUrl = PROPRESENTER_URL || localConfig?.baseUrl || '';
+  const source = PROPRESENTER_URL
+    ? 'environment' as const
+    : localConfig
+      ? 'local' as const
+      : 'none' as const;
+
+  if (!baseUrl) {
+    console.log(JSON.stringify({
+      event: 'provider_not_configured',
+      providerKey: 'propresenter'
+    }));
+    return { configured: false, source };
+  }
+
+  const adapter = new ProPresenterAdapter({
+    id: 'propresenter-primary',
+    nodeId,
+    displayName: 'ProPresenter',
+    api: new ProPresenterHttpClient({ baseUrl })
+  });
+
+  capabilityEngine.register(adapter);
+  const probe = await adapter.probe();
+
+  console.log(JSON.stringify({
+    event: 'provider_probe',
+    providerKey: 'propresenter',
     providerId: adapter.descriptor.id,
     reachable: probe.reachable,
     version: probe.version || null,
@@ -915,8 +977,10 @@ async function start(): Promise<void> {
   await pairingStore.load();
   await runtimeState.load();
   await providerConfigStore.load();
+  await providerRoutingStore.load();
   await registerHolyricsProvider();
   await registerResolumeProvider();
+  await registerProPresenterProvider();
 
   const server = createServer(async (req, res) => {
   setCors(req, res);
