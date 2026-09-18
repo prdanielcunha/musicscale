@@ -6,6 +6,7 @@ import { useMusic } from '../contexts/MusicDataContext';
 import { useHomeExperience } from '../hooks/useHomeExperience';
 import { usePreparationIntelligence } from '../hooks/usePreparationIntelligence';
 import { getPersonalPreparationMode } from '../utils/preparationIntelligence';
+import { buildPersonalPracticeSummary } from '../components/songs/personalPractice';
 import { buildTeamAttentionEntries } from '../utils/teamAttention';
 import { useCapability } from '../hooks/useCapability';
 import { useModals } from '../contexts/ModalContext';
@@ -98,6 +99,28 @@ export const DashboardPage: React.FC = () => {
   const additionalPreparationViews = preparation.views.filter(
     view => view.event.id !== experience.event?.id
   );
+  const personalPracticeByEventId = useMemo(() => {
+    const result = new Map<string, ReturnType<typeof buildPersonalPracticeSummary>>();
+
+    preparation.views.forEach(({ event }) => {
+      if (event.type !== 'music') return;
+      const scale = populatedScales?.find(candidate => candidate.id === event.id);
+      if (!scale?.songs?.length) return;
+
+      const summary = buildPersonalPracticeSummary(
+        scale.songs,
+        event.userFunctionNames,
+      );
+      if (summary.songCount > 0) {
+        result.set(event.id, summary);
+      }
+    });
+
+    return result;
+  }, [preparation.views, populatedScales]);
+  const focusPracticeSummary = experience.event
+    ? personalPracticeByEventId.get(experience.event.id) || null
+    : null;
 
   const teamAttentionEntries = useMemo(() => {
     const candidates = experience.draftEvent
@@ -270,7 +293,12 @@ export const DashboardPage: React.FC = () => {
         openSongDetail(
           scale.songs[0],
           true,
-          { songs: scale.songs, currentIndex: 0 },
+          {
+            scaleId: scale.id,
+            songs: scale.songs,
+            currentIndex: 0,
+            assignmentNames: eventSummary.userFunctionNames,
+          },
           true
         );
       }
@@ -295,11 +323,18 @@ export const DashboardPage: React.FC = () => {
       return;
     }
 
-    openSongDetail(scale.songs[0], {
+    const practiceSummary = personalPracticeByEventId.get(eventSummary.id);
+    const focusSongIndex = practiceSummary?.firstSongId
+      ? scale.songs.findIndex(song => song.id === practiceSummary.firstSongId)
+      : -1;
+    const currentIndex = focusSongIndex >= 0 ? focusSongIndex : 0;
+
+    openSongDetail(scale.songs[currentIndex], {
       scaleContext: {
         scaleId: scale.id,
         songs: scale.songs,
-        currentIndex: 0,
+        currentIndex,
+        assignmentNames: eventSummary.userFunctionNames,
       },
       mode: preparationMode,
     });
@@ -596,6 +631,7 @@ export const DashboardPage: React.FC = () => {
           onOpenPerformance={handleOpenPerformance}
           onOpenPreparation={handleOpenPreparation}
           preparationView={focusPreparationView}
+          practiceSummary={focusPracticeSummary}
           preparationBusy={preparation.busyScaleId === experience.event?.id}
           onReviewPreparationChanges={handleReviewPreparationChanges}
           onMarkPrepared={handleMarkPrepared}
@@ -615,6 +651,7 @@ export const DashboardPage: React.FC = () => {
       {experience.mode !== 'first-value' && additionalPreparationViews.length > 0 && (
         <HomePreparationWeek
           views={additionalPreparationViews}
+          practiceByEventId={personalPracticeByEventId}
           busyScaleId={preparation.busyScaleId}
           onPrepareEvent={handleOpenPreparation}
           onReviewChanges={handleReviewPreparationChanges}

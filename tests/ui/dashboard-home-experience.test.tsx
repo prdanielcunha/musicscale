@@ -527,7 +527,8 @@ describe('Dashboard Home Experience UI', () => {
         scaleContext: {
           scaleId: 's1',
           songs: [{ id: 'song1' }],
-          currentIndex: 0
+          currentIndex: 0,
+          assignmentNames: []
         },
         mode: 'chords'
       }
@@ -553,7 +554,15 @@ describe('Dashboard Home Experience UI', () => {
     fireEvent.click(perfBtn);
 
     expect(mockOpenSongDetail).toHaveBeenCalledWith(
-      { id: 'song1' }, true, { songs: [{ id: 'song1' }], currentIndex: 0 }, true
+      { id: 'song1' },
+      true,
+      {
+        scaleId: 's1',
+        songs: [{ id: 'song1' }],
+        currentIndex: 0,
+        assignmentNames: []
+      },
+      true
     );
   });
 

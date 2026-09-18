@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import { HomeExperience, HomeAttentionItem, HomeEventSummary, getLocalDateKey, HomeEventSongSummary, canUsePerformanceMode } from '../../utils/homeExperience';
-import { Play, AlertCircle, CheckCircle2, BookOpenCheck, RefreshCcw, Trash2 } from 'lucide-react';
+import { Play, AlertCircle, CheckCircle2, BookOpenCheck, RefreshCcw, Trash2, Target } from 'lucide-react';
 import {
   requiresRepertoirePreparation,
   type EventPreparationView,
 } from '../../utils/preparationIntelligence';
 import { describePreparationChange } from '../../utils/preparationPresentation';
+import type { PersonalPracticeSummary } from '../songs/personalPractice';
 
 interface HomeFocusCardProps {
   experience: HomeExperience;
@@ -18,6 +19,7 @@ interface HomeFocusCardProps {
   onOpenPerformance: (event: HomeEventSummary) => void;
   onOpenPreparation?: (event: HomeEventSummary) => void;
   preparationView?: EventPreparationView | null;
+  practiceSummary?: PersonalPracticeSummary | null;
   preparationBusy?: boolean;
   onReviewPreparationChanges?: (event: HomeEventSummary) => void | Promise<void>;
   onMarkPrepared?: (event: HomeEventSummary) => void | Promise<void>;
@@ -35,6 +37,7 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
   onOpenPerformance,
   onOpenPreparation,
   preparationView,
+  practiceSummary,
   preparationBusy = false,
   onReviewPreparationChanges,
   onMarkPrepared,
@@ -217,6 +220,10 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
         ? preparationView
         : null;
     const hasPreparationChanges = Boolean(targetPreparation?.changes.length);
+    const targetPractice =
+      targetEvent.id === experience.event?.id
+        ? practiceSummary
+        : null;
     const needsRepertoirePreparation = requiresRepertoirePreparation(targetEvent);
 
     return (
@@ -328,6 +335,36 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
             </div>
           )}
 
+          {targetPractice && targetPractice.songCount > 0 && (
+            <div className="rounded-2xl border border-indigo-500/15 bg-indigo-500/[0.055] p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-indigo-400/15 bg-indigo-500/10 text-indigo-300">
+                  <Target className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100">
+                    {t('dashboard.preparation.personalFocusTitle')}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-indigo-800/70 dark:text-indigo-100/60">
+                    {t('dashboard.preparation.focusSongs', { count: targetPractice.songCount })}
+                    {' · '}
+                    {t('dashboard.preparation.focusParts', { count: targetPractice.partCount })}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {targetPractice.songs.slice(0, 3).map(song => (
+                      <span
+                        key={song.songId}
+                        className="rounded-lg border border-indigo-500/10 bg-indigo-500/[0.06] px-2.5 py-1 text-[10.5px] font-semibold text-indigo-700 dark:text-indigo-200"
+                      >
+                        {song.title} · {t('dashboard.preparation.songFocusParts', { count: song.focusPartCount })}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {targetPreparation && targetPreparation.changes.length > 0 && (
             <div className="rounded-2xl border border-amber-500/15 bg-amber-500/[0.055] p-4">
               <div className="mb-2 flex items-center justify-between gap-3">
@@ -386,9 +423,11 @@ export const HomeFocusCard: React.FC<HomeFocusCardProps> = ({
                 ) : needsRepertoirePreparation && targetPreparation && onOpenPreparation ? (
                   <Button onClick={() => onOpenPreparation(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
                     <BookOpenCheck className="w-5 h-5 mr-2" />
-                    {targetPreparation?.status === 'prepared'
-                      ? t('dashboard.preparation.reviewRepertoire', 'Revisar repertório')
-                      : t('dashboard.preparation.startPreparation', 'Preparar repertório')}
+                    {targetPractice && targetPractice.songCount > 0
+                      ? t('dashboard.preparation.practiceMyFocus')
+                      : targetPreparation?.status === 'prepared'
+                        ? t('dashboard.preparation.reviewRepertoire', 'Revisar repertório')
+                        : t('dashboard.preparation.startPreparation', 'Preparar repertório')}
                   </Button>
                 ) : (
                   <Button onClick={() => onOpenEvent(targetEvent)} className="w-full sm:w-auto rounded-2xl sm:rounded-[16px] h-12 sm:h-[50px] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out shadow-lg shadow-indigo-500/25 px-8" size="lg" variant="primary">
