@@ -150,6 +150,11 @@ export function LiveControlPanel({
     }
   }
 
+  async function setScreenMode(mode: 'normal' | 'wallpaper' | 'blank' | 'black') {
+    if (!can('presentation.screen.mode')) return;
+    await run(`screen-mode:${mode}`, 'presentation.screen.mode', { mode });
+  }
+
   async function refreshPresentationPreview() {
     if (!can('presentation.preview')) return;
     const results = await run('presentation-preview', 'presentation.preview', {});
@@ -247,6 +252,9 @@ export function LiveControlPanel({
     : undefined;
   const currentSlideText = currentSlide?.text ? String(currentSlide.text) : '';
   const nextSlideText = nextSlide?.text ? String(nextSlide.text) : '';
+  const currentScreenMode = String(
+    providers.find(provider => provider.observed?.screenMode)?.observed?.screenMode || 'normal'
+  );
 
   return (
     <section className="live-control-panel">
@@ -294,6 +302,20 @@ export function LiveControlPanel({
                 <small>{t('liveControls.nextSlide')}</small>
                 <p>{nextSlideText || '—'}</p>
               </div>
+            </div>
+          )}
+          {can('presentation.screen.mode') && (
+            <div className="screen-mode-controls">
+              {(['normal','wallpaper','blank','black'] as const).map(mode => (
+                <button
+                  key={mode}
+                  className={currentScreenMode === mode ? 'active' : ''}
+                  disabled={busy !== null}
+                  onClick={() => void setScreenMode(mode)}
+                >
+                  {t(`liveControls.screenModes.${mode}`)}
+                </button>
+              ))}
             </div>
           )}
           <div className="transport-controls">
