@@ -34,3 +34,29 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+      - name: Package Live Node SEA
+        run: npm run package:sea --prefix packages/live-node
+      - name: Smoke packaged Live Node
+        shell: bash
+        run: |
+          set -euo pipefail
+          export MUSICSCALE_LIVE_NODE_PORT=4417
+          export MUSICSCALE_LIVE_STATE_DIR="$RUNNER_TEMP/musicscale-live-state"
+          export MUSICSCALE_LIVE_WEB_ROOT="$PWD/apps/live/dist"
+          ./packages/live-node/dist/MusicScaleLiveNode >"$RUNNER_TEMP/live-node.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" >/dev/null 2>&1 || true' EXIT
+          ok=0
+          for i in {1..20}; do
+            sleep 0.5
+            if curl --fail --silent "http://127.0.0.1:4417/health" | grep -q '"product":"MusicScale Live Node"'; then
+              ok=1
+              break
+            fi
+          done
+          if [ "$ok" != "1" ]; then
+            cat "$RUNNER_TEMP/live-node.log"
+            exit 1
+          fi
+          kill "$pid" >/dev/null 2>&1 || true
+          trap - EXIT
