@@ -5,6 +5,7 @@ import {
 import { doc, writeBatch, serverTimestamp, addDoc, collection, runTransaction } from 'firebase/firestore';
 import { db } from './firebase';
 import { transposeChordDocument, normalizeKey, isValidKey, getSignedSemitones, areKeysEnharmonicallyEquivalent, analyzeChordDocumentKeyCandidates, validateTransposedPreview, toEpochMillis, resolveChordContentSourceKey, buildChordKeyCorrectionMetadata } from '../utils/chordEngine';
+import { buildSongContentReplacementPatch } from '../utils/songReplacement';
 
 export class MusicRepository {
     private readonly orgId: string;
@@ -266,6 +267,27 @@ export class MusicRepository {
             submittedBy: user.uid,
             status: 'pending',
             createdAt: serverTimestamp(),
+        });
+    }
+
+    async replaceSongContent(songId: string, candidate: Partial<Song>): Promise<void> {
+        if (!songId) {
+            throw new Error("ID da música é obrigatório para substituição.");
+        }
+
+        const existingSong = await this.songs.getById(songId);
+        if (!existingSong || existingSong.organizationId !== this.orgId) {
+            throw new Error("Operação negada: música não encontrada na organização atual.");
+        }
+
+        const replacementPatch = buildSongContentReplacementPatch(candidate);
+        if (!replacementPatch.title?.trim()) {
+            throw new Error("O título da música é obrigatório.");
+        }
+
+        await this.songs.update(songId, {
+            ...replacementPatch,
+            chordsLastModifiedAt: serverTimestamp() as any,
         });
     }
 
