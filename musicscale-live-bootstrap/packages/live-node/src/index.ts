@@ -74,6 +74,7 @@ const sceneIdempotency = new IdempotencyStore<SceneExecutionResult>();
 const pairingStore = new PairingStore(join(STATE_DIR, 'pairings.json'), nodeId);
 const runtimeState = new RuntimeStateStore(join(STATE_DIR, 'runtime.json'), nodeId);
 const providerConfigStore = new ProviderConfigStore(join(STATE_DIR, 'providers.json'));
+const providerRoutingStore = new ProviderRoutingStore(join(STATE_DIR, 'routing.json'));
 
 const pairingRequestHits = new Map<string, number>();
 
