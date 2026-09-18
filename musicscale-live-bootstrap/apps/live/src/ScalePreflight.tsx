@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchExternalSong, type SongIdentity } from '@musicscale-live/domain';
 import type { SharedScale } from './musicScaleBridge';
+import { buildServicePlan } from './servicePlanBuilder';
 import type { useLiveNode } from './useLiveNode';
 
 type Controller = ReturnType<typeof useLiveNode>;
@@ -68,10 +69,18 @@ export function ScalePreflight({
     [controller.nodeState]
   );
 
+  const provider = useMemo(
+    () => (controller.nodeState?.providers || []).find(candidate =>
+      (candidate.health === 'online' || candidate.health === 'degraded') &&
+      candidate.capabilities.includes('songs.search')
+    ) || null,
+    [controller.nodeState]
+  );
+
   const readyCount = rows.filter(row => row.status === 'matched' && row.matched).length;
   const unresolvedCount = rows.length - readyCount;
-  const canSearch = capabilities.has('songs.search');
-  const canSync = capabilities.has('playlist.sync');
+  const canSearch = Boolean(provider) && capabilities.has('songs.search');
+  const canSync = Boolean(provider) && provider?.capabilities.includes('playlist.sync') === true;
 
   async function runPreflight() {
     if (!canSearch || running) return;
@@ -94,7 +103,8 @@ export function ScalePreflight({
             fields: 'id,title,artist,key,bpm'
           },
           liveSessionId: `preflight:${scale.id}`,
-          actorId
+          actorId,
+          targetProviderIds: provider ? [provider.providerId] : []
         });
 
         const externalSongs = extractExternalSongs(results);
@@ -175,14 +185,38 @@ export function ScalePreflight({
         payload: { ids },
         liveSessionId: `music-scale:${scale.id}`,
         actorId,
+        targetProviderIds: provider ? [provider.providerId] : [],
         safetyLevel: 'guarded'
       });
       const failed = result.find(item => !item.accepted);
-      setSyncMessage(
-        failed
-          ? t('preflight.syncFailed', { code: failed.errorCode || 'provider_error' })
-          : t('preflight.syncDone')
-      );
+
+      if (failed) {
+        setSyncMessage(t('preflight.syncFailed', {
+          code: failed.errorCode || 'provider_error'
+        }));
+      } else if (controller.credential && provider) {
+        const prepared = rows
+          .filter(row => row.matched)
+          .map(row => ({
+            musicScaleSongId: row.source.id,
+            providerInstanceId: provider.providerId,
+            externalId: row.matched!.id,
+            fingerprint: `${row.matched!.title}|${row.matched!.artist || ''}`
+          }));
+
+        const { plan, providerLinks } = buildServicePlan(
+          scale,
+          {
+            venueId: controller.credential.binding.venueId,
+            liveSystemId: controller.credential.binding.liveSystemId
+          },
+          prepared
+        );
+        await controller.cacheServicePlan(plan, providerLinks);
+        setSyncMessage(t('preflight.syncDoneOffline'));
+      } else {
+        setSyncMessage(t('preflight.syncDone'));
+      }
     } catch (error) {
       setSyncMessage(t('preflight.syncFailed', {
         code: error instanceof Error ? error.message : 'unknown'
