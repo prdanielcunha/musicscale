@@ -241,8 +241,8 @@ export class HolyricsAdapter implements ProviderAdapter {
         const text = String(payload.text || payload.reference || '');
         if (!text.trim()) throw new Error('bible_search_text_required');
         const matches = await this.api.request<unknown>('IdentifyVerseReferences', {
-          text,
-          version: payload.version ? String(payload.version) : undefined
+          value: text,
+          language_id: payload.languageId ? String(payload.languageId) : undefined
         });
         return { matches };
       }
@@ -264,8 +264,9 @@ export class HolyricsAdapter implements ProviderAdapter {
         if (!id) throw new Error('song_id_required');
         await this.api.request('ShowLyrics', {
           id,
-          quick_presentation: payload.quickPresentation !== false,
-          reset: payload.reset !== false
+          initial_index: Number.isInteger(payload.initialIndex)
+            ? payload.initialIndex
+            : 0
         });
         const currentPresentation = this.supported.has('presentation.slides.read')
           ? await this.api.request<CurrentPresentation | null>('GetCurrentPresentation')
@@ -281,7 +282,8 @@ export class HolyricsAdapter implements ProviderAdapter {
         await this.api.request('AddLyricsToPlaylist', {
           ids,
           index: Number.isInteger(payload.index) ? payload.index : -1,
-          media_playlist: Boolean(payload.mediaPlaylist)
+          media_playlist: Boolean(payload.mediaPlaylist),
+          event_id: payload.eventId ? String(payload.eventId) : undefined
         });
         return { addedSongIds: ids };
       }
