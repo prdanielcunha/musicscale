@@ -4,19 +4,21 @@ export type LiveEventHandler<TPayload = Record<string, unknown>> = (
   event: LiveEvent<TPayload>
 ) => void | Promise<void>;
 
+type AnyHandler = LiveEventHandler<any>;
+
 export class LiveEventBus {
-  private readonly handlers = new Map<string, Set<LiveEventHandler>>();
+  private readonly handlers = new Map<string, Set<AnyHandler>>();
 
   on<TPayload = Record<string, unknown>>(
     type: string,
     handler: LiveEventHandler<TPayload>
   ): () => void {
-    const group = this.handlers.get(type) ?? new Set<LiveEventHandler>();
-    group.add(handler as LiveEventHandler);
+    const group = this.handlers.get(type) ?? new Set<AnyHandler>();
+    group.add(handler as AnyHandler);
     this.handlers.set(type, group);
 
     return () => {
-      group.delete(handler as LiveEventHandler);
+      group.delete(handler as AnyHandler);
       if (group.size === 0) this.handlers.delete(type);
     };
   }
