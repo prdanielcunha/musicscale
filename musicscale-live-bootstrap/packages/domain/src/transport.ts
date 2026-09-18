@@ -18,6 +18,7 @@ export interface LiveNodeHealth {
   health: 'online' | 'degraded';
   lanAddresses: string[];
   providers: number;
+  providersOnline: number;
   now: string;
   pairing: {
     pairedDevices: number;
