@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
+  Capability,
+  CommandOrigin,
+  CommandResult,
   LiveNodeConnectionState,
   LiveNodeHealth,
   PairingChallenge,
-  PairingScope
+  PairingScope,
+  SafetyLevel
 } from '@musicscale-live/domain';
 import {
   clearLiveNodeCredential,
@@ -14,11 +18,14 @@ import {
 import { defaultDeviceName, getOrCreateDeviceId } from './deviceIdentity';
 import {
   completePairing,
+  executeNodeCommand,
   heartbeatNode,
+  loadNodeState,
   probeNode,
   requestPairing,
   revokeNodePairing,
-  type LiveNodeApiError
+  type LiveNodeApiError,
+  type LiveNodeStateResponse
 } from './liveNodeClient';
 import { transportBroker } from './transportBroker';
 
@@ -34,6 +41,7 @@ export function useLiveNode() {
   const [state, setState] = useState<LiveNodeConnectionState>('unconfigured');
   const [health, setHealth] = useState<LiveNodeHealth | null>(null);
   const [credential, setCredential] = useState<StoredLiveNodeCredential | null>(null);
+  const [nodeState, setNodeState] = useState<LiveNodeStateResponse | null>(null);
   const [pending, setPending] = useState<PendingPairing | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const failures = useRef(0);
@@ -47,9 +55,13 @@ export function useLiveNode() {
   const heartbeat = useCallback(async (value: StoredLiveNodeCredential) => {
     try {
       await heartbeatNode(value.baseUrl, value.token);
-      const nextHealth = await probeNode(value.baseUrl);
+      const [nextHealth, nextState] = await Promise.all([
+        probeNode(value.baseUrl),
+        loadNodeState(value.baseUrl, value.token)
+      ]);
       failures.current = 0;
       setHealth(nextHealth);
+      setNodeState(nextState);
       setState('connected');
       setErrorCode(null);
       return true;
@@ -154,6 +166,50 @@ export function useLiveNode() {
     }
   }, [heartbeat, pending]);
 
+  const executeCommand = useCallback(async (input: {
+    capability: Capability;
+    payload?: Record<string, unknown>;
+    liveSessionId: string;
+    actorId: string;
+    origin?: CommandOrigin;
+    outputTargets?: string[];
+    targetProviderIds?: string[];
+    safetyLevel?: SafetyLevel;
+  }): Promise<CommandResult[]> => {
+    if (!credential) throw new Error('node_not_paired');
+
+    const id = crypto.randomUUID();
+    const command = {
+      id,
+      correlationId: crypto.randomUUID(),
+      organizationId: credential.binding.organizationId,
+      venueId: credential.binding.venueId,
+      liveSystemId: credential.binding.liveSystemId,
+      liveSessionId: input.liveSessionId,
+      actorId: input.actorId,
+      origin: input.origin || 'live-ui',
+      capability: input.capability,
+      targetProviderIds: input.targetProviderIds || [],
+      outputTargets: input.outputTargets || ['main'],
+      payload: input.payload || {},
+      idempotencyKey: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      safetyLevel: input.safetyLevel || 'normal'
+    } as const;
+
+    const response = await executeNodeCommand(
+      credential.baseUrl,
+      credential.token,
+      command
+    );
+    const refreshed = await loadNodeState(
+      credential.baseUrl,
+      credential.token
+    ).catch(() => null);
+    if (refreshed) setNodeState(refreshed);
+    return response.results;
+  }, [credential]);
+
   const disconnect = useCallback(async () => {
     const current = credential;
     if (current) {
@@ -167,6 +223,7 @@ export function useLiveNode() {
     setCredential(null);
     setPending(null);
     setHealth(null);
+    setNodeState(null);
     setState('unconfigured');
     setErrorCode(null);
     failures.current = 0;
@@ -176,10 +233,12 @@ export function useLiveNode() {
     state,
     health,
     credential,
+    nodeState,
     pending,
     errorCode,
     beginPairing,
     finishPairing,
+    executeCommand,
     disconnect
   };
 }
