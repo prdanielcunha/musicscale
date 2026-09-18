@@ -11,7 +11,8 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@musicscale-live/domain": "file:../../packages/domain"
+    "@musicscale-live/domain": "file:../../packages/domain",
+    "@musicscale-live/adapter-holyrics": "file:../adapters-holyrics"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
