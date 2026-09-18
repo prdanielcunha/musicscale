@@ -12,10 +12,16 @@ export interface ResolumeLocalConfig {
   updatedAt: string;
 }
 
+export interface ProPresenterLocalConfig {
+  baseUrl: string;
+  updatedAt: string;
+}
+
 interface ProviderConfigFile {
   version: 1;
   holyrics?: HolyricsLocalConfig;
   resolume?: ResolumeLocalConfig;
+  propresenter?: ProPresenterLocalConfig;
 }
 
 function normalizeLocalHttpUrl(
@@ -119,6 +125,33 @@ export class ProviderConfigStore {
   async clearResolume(): Promise<void> {
     await this.load();
     delete this.file.resolume;
+    await this.persist();
+  }
+
+  async getProPresenter(): Promise<ProPresenterLocalConfig | null> {
+    await this.load();
+    return this.file.propresenter ? structuredClone(this.file.propresenter) : null;
+  }
+
+  async setProPresenter(input: {
+    baseUrl: string;
+  }): Promise<ProPresenterLocalConfig> {
+    await this.load();
+    const baseUrl = input.baseUrl.trim();
+    if (!baseUrl) throw new Error('propresenter_url_required');
+
+    const value: ProPresenterLocalConfig = {
+      baseUrl: normalizeLocalHttpUrl(baseUrl, 'propresenter_url_must_be_local'),
+      updatedAt: new Date().toISOString()
+    };
+    this.file.propresenter = value;
+    await this.persist();
+    return structuredClone(value);
+  }
+
+  async clearProPresenter(): Promise<void> {
+    await this.load();
+    delete this.file.propresenter;
     await this.persist();
   }
 
