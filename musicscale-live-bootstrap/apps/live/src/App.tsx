@@ -9,6 +9,7 @@ import { liveFeatureFlags } from './featureFlags';
 import { loadNextScale, loadSharedContext, type SharedContext, type SharedScale } from './musicScaleBridge';
 import { ScalePreflight } from './ScalePreflight';
 import { VisualControlPanel } from './VisualControlPanel';
+import { LiveCueCoordinatorProvider } from './LiveCueCoordinator';
 import { detectSameOriginLiveNode } from './liveNodeClient';
 import { markLiveMetric } from './telemetry';
 import { useLiveNode } from './useLiveNode';
@@ -184,7 +185,7 @@ export function App() {
         )}
 
         {surface === 'live' && liveNode.state === 'connected' && (
-          <>
+          <LiveCueCoordinatorProvider>
             <LiveControlPanel
               controller={liveNode}
               actorId={user.uid}
@@ -195,7 +196,7 @@ export function App() {
               actorId={user.uid}
               liveSessionId={scale ? `music-scale:${scale.id}` : `ad-hoc:${context?.organizationId || user.uid}`}
             />
-          </>
+          </LiveCueCoordinatorProvider>
         )}
 
         {surface !== 'live' && <section className="content-grid">
