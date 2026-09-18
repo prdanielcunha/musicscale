@@ -293,13 +293,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                          // Precedence 2: Check global transversal collection organization_members
                                          let foundInGlobal = false;
                                          try {
-                                             const gDoc1 = await getDoc(doc(db, 'organization_members', `${user.uid}_${idToTest}`));
+                                             const gDoc1 = await withEcosystemTimeout(
+                                               getDoc(doc(db, 'organization_members', `${user.uid}_${idToTest}`)),
+                                               'ORG_MEMBER_DIRECT_UID_ORG'
+                                             );
                                              if (gDoc1.exists()) {
                                                  const gd = gDoc1.data();
                                                  resolvedRole = gd.role || gd.organizationRole || gd.musicscaleRole || resolvedRole;
                                                  foundInGlobal = true;
                                              } else {
-                                                 const gDoc2 = await getDoc(doc(db, 'organization_members', `${idToTest}_${user.uid}`));
+                                                 const gDoc2 = await withEcosystemTimeout(
+                                                   getDoc(doc(db, 'organization_members', `${idToTest}_${user.uid}`)),
+                                                   'ORG_MEMBER_DIRECT_ORG_UID'
+                                                 );
                                                  if (gDoc2.exists()) {
                                                      const gd = gDoc2.data();
                                                      resolvedRole = gd.role || gd.organizationRole || gd.musicscaleRole || resolvedRole;
@@ -313,7 +319,10 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                          // Precedence 3: Check dynamic organization members subcollection
                                          if (!foundInGlobal || resolvedRole === 'visitor' || !resolvedRole) {
                                              try {
-                                                 const memDoc = await getDoc(doc(db, 'organizations', idToTest, 'members', user.uid));
+                                                 const memDoc = await withEcosystemTimeout(
+                                                   getDoc(doc(db, 'organizations', idToTest, 'members', user.uid)),
+                                                   'ORG_MEMBER_SUBCOLLECTION'
+                                                 );
                                                  if (memDoc.exists()) {
                                                      const md = memDoc.data();
                                                      resolvedRole = md.organizationRole || md.musicscaleRole || md.role || md.ministryFunction || resolvedRole;
