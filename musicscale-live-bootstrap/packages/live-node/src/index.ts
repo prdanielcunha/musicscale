@@ -11,6 +11,7 @@ import {
   type CommandResult,
   type LiveCommand,
   type PairingRequest,
+  type ProviderAssetRequest,
   type ProviderLink,
   type ServicePlan
 } from '@musicscale-live/domain';
@@ -276,6 +277,19 @@ function send(res: ServerResponse, status: number, payload: unknown): void {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   res.end(JSON.stringify(payload));
+}
+
+function sendBinary(
+  res: ServerResponse,
+  status: number,
+  contentType: string,
+  body: Uint8Array,
+  cacheControl = 'no-store'
+): void {
+  res.statusCode = status;
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Cache-Control', cacheControl);
+  res.end(Buffer.from(body));
 }
 
 function sendSvg(res: ServerResponse, status: number, svg: string): void {
@@ -1071,6 +1085,41 @@ async function start(): Promise<void> {
         state,
         providers
       });
+    }
+
+    if (req.method === 'GET' && url.pathname.startsWith('/provider-assets/')) {
+      const session = await authorize(req);
+      if (!session) return send(res, 401, { error: 'unauthorized' });
+
+      const parts = url.pathname.split('/').filter(Boolean);
+      const providerId = decodeURIComponent(parts[1] || '');
+      const assetKind = parts[2] || '';
+      const provider = capabilityEngine.get(providerId);
+      if (!provider || !provider.fetchAsset) {
+        return send(res, 404, { error: 'provider_asset_not_supported' });
+      }
+
+      if (assetKind !== 'output-snapshot') {
+        return send(res, 404, { error: 'provider_asset_kind_not_supported' });
+      }
+
+      const targetId = String(url.searchParams.get('targetId') || '');
+      const format = url.searchParams.get('format') === 'png' ? 'png' : 'jpeg';
+      if (!targetId) return send(res, 400, { error: 'asset_target_required' });
+
+      const request: ProviderAssetRequest = {
+        kind: 'output.snapshot',
+        targetId,
+        format
+      };
+      const asset = await provider.fetchAsset(request);
+      return sendBinary(
+        res,
+        200,
+        asset.contentType,
+        asset.body,
+        asset.cacheControl || 'no-store'
+      );
     }
 
     if (req.method === 'POST' && url.pathname === '/heartbeat') {
