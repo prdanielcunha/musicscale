@@ -15,16 +15,16 @@ import { defaultDeviceName, getOrCreateDeviceId } from './deviceIdentity';
 import {
   completePairing,
   heartbeatNode,
-  mixedContentWouldBlock,
-  normalizePrivateNodeUrl,
   probeNode,
   requestPairing,
   revokeNodePairing,
   type LiveNodeApiError
 } from './liveNodeClient';
+import { transportBroker } from './transportBroker';
 
 interface PendingPairing {
   baseUrl: string;
+  transportKind: 'direct-lan' | 'local-console' | 'cloud-relay';
   challenge: PairingChallenge;
   deviceId: string;
   deviceName: string;
@@ -96,12 +96,8 @@ export function useLiveNode() {
     setState('probing');
     setErrorCode(null);
     try {
-      const baseUrl = normalizePrivateNodeUrl(baseUrlInput);
-      if (mixedContentWouldBlock(baseUrl)) {
-        setState('blocked');
-        setErrorCode('mixed_content_blocked');
-        return null;
-      }
+      const transport = transportBroker.resolve(baseUrlInput);
+      const baseUrl = transport.baseUrl;
 
       const nextHealth = await probeNode(baseUrl);
       setHealth(nextHealth);
@@ -114,10 +110,16 @@ export function useLiveNode() {
         deviceId,
         deviceName
       });
-      const value = { baseUrl, challenge, deviceId, deviceName };
+      const value = { baseUrl, challenge, deviceId, deviceName, transportKind: transport.kind };
       setPending(value);
       return value;
     } catch (error) {
+      const code = error instanceof Error ? error.message : '';
+      if (code === 'mixed_content_blocked') {
+        setState('blocked');
+        setErrorCode(code);
+        return null;
+      }
       markError(error, 'offline');
       return null;
     }
@@ -135,6 +137,7 @@ export function useLiveNode() {
       });
       const nextCredential: StoredLiveNodeCredential = {
         baseUrl: pending.baseUrl,
+        transportKind: pending.transportKind,
         token: completed.token,
         binding: completed.binding
       };
