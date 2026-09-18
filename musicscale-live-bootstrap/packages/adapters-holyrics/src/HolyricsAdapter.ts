@@ -30,8 +30,10 @@ const ACTIONS_BY_CAPABILITY: Partial<Record<Capability, string[]>> = {
   'presentation.navigation': ['ActionNext', 'ActionPrevious', 'ActionGoToIndex'],
   'presentation.preview': ['GetCurrentPresentation'],
   'presentation.clear': ['CloseCurrentPresentation'],
+  'bible.search': ['IdentifyVerseReferences'],
   'bible.present': ['ShowVerse'],
   'songs.search': ['SearchLyrics'],
+  'songs.present': ['ShowLyrics'],
   'playlist.write': ['AddLyricsToPlaylist'],
   'preview.snapshot': ['GetCurrentPresentation'],
   'stage.message': ['SetTextCommunicationPanel']
@@ -235,6 +237,16 @@ export class HolyricsAdapter implements ProviderAdapter {
         await this.api.request('CloseCurrentPresentation');
         return { currentPresentation: null };
 
+      case 'bible.search': {
+        const text = String(payload.text || payload.reference || '');
+        if (!text.trim()) throw new Error('bible_search_text_required');
+        const matches = await this.api.request<unknown>('IdentifyVerseReferences', {
+          text,
+          version: payload.version ? String(payload.version) : undefined
+        });
+        return { matches };
+      }
+
       case 'songs.search': {
         const results = await this.api.request<unknown[]>('SearchLyrics', {
           text: String(payload.text || ''),
@@ -245,6 +257,20 @@ export class HolyricsAdapter implements ProviderAdapter {
           fields: String(payload.fields || 'id,title,artist,author,key,bpm')
         });
         return { results };
+      }
+
+      case 'songs.present': {
+        const id = String(payload.id || '');
+        if (!id) throw new Error('song_id_required');
+        await this.api.request('ShowLyrics', {
+          id,
+          quick_presentation: payload.quickPresentation !== false,
+          reset: payload.reset !== false
+        });
+        const currentPresentation = this.supported.has('presentation.slides.read')
+          ? await this.api.request<CurrentPresentation | null>('GetCurrentPresentation')
+          : null;
+        return { songId: id, currentPresentation };
       }
 
       case 'playlist.write': {
