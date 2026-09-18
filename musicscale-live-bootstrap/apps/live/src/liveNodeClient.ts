@@ -7,6 +7,8 @@ import type {
   PairingCompleteResponse,
   PairingRequest,
   ProviderLink,
+  SceneExecutionRequest,
+  SceneExecutionResult,
   ServicePlan
 } from '@musicscale-live/domain';
 
@@ -210,6 +212,25 @@ export async function executeNodeCommand(
   }, 5000);
 }
 
+
+export async function executeNodeScene(
+  baseUrl: string,
+  token: string,
+  request: SceneExecutionRequest
+): Promise<SceneExecutionResult> {
+  const guarded = request.scene.actions.some(
+    action => action.safetyLevel === 'guarded' || action.safetyLevel === 'critical'
+  );
+
+  return requestJson<SceneExecutionResult>(baseUrl, '/scenes/execute', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(guarded ? { 'x-live-confirmation': request.id } : {})
+    },
+    body: JSON.stringify(request)
+  }, 70_000);
+}
 
 export async function cacheNodeServicePlan(
   baseUrl: string,
