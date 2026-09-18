@@ -4,10 +4,12 @@ import { dirname } from 'node:path';
 import type {
   PairingBinding,
   PairingCompleteResponse,
-  PairingRequest
+  PairingDevice,
+  PairingRequest,
+  PairingScope
 } from '@musicscale-live/domain';
 
-interface ChallengeRecord extends PairingRequest {
+interface ChallengeRecord extends PairingScope, PairingDevice {
   challengeId: string;
   pin: string;
   expiresAtMs: number;
@@ -73,22 +75,44 @@ export class PairingStore {
     this.pruneChallenges();
 
     const activeBinding = this.file.pairings.find(item => !item.revokedAt)?.binding;
-    if (
-      activeBinding &&
-      (
-        activeBinding.organizationId !== request.organizationId ||
-        activeBinding.venueId !== request.venueId ||
-        activeBinding.liveSystemId !== request.liveSystemId
-      )
-    ) {
-      throw new Error('pairing_scope_conflict');
+    let scope: PairingScope;
+
+    if (activeBinding) {
+      const providedScope = [request.organizationId, request.venueId, request.liveSystemId];
+      const hasProvidedScope = providedScope.some(Boolean);
+      if (
+        hasProvidedScope &&
+        (
+          activeBinding.organizationId !== request.organizationId ||
+          activeBinding.venueId !== request.venueId ||
+          activeBinding.liveSystemId !== request.liveSystemId
+        )
+      ) {
+        throw new Error('pairing_scope_conflict');
+      }
+      scope = {
+        organizationId: activeBinding.organizationId,
+        venueId: activeBinding.venueId,
+        liveSystemId: activeBinding.liveSystemId
+      };
+    } else {
+      if (!request.organizationId || !request.venueId || !request.liveSystemId) {
+        throw new Error('pairing_scope_required');
+      }
+      scope = {
+        organizationId: request.organizationId,
+        venueId: request.venueId,
+        liveSystemId: request.liveSystemId
+      };
     }
 
     const challengeId = randomBytes(18).toString('base64url');
     const pin = String(randomInt(0, 1_000_000)).padStart(6, '0');
     const expiresAtMs = Date.now() + this.challengeTtlMs;
     this.challenges.set(challengeId, {
-      ...request,
+      ...scope,
+      deviceId: request.deviceId,
+      deviceName: request.deviceName,
       challengeId,
       pin,
       expiresAtMs,
