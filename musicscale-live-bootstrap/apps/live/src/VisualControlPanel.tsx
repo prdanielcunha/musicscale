@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CommandResult } from '@musicscale-live/domain';
 import type { useLiveNode } from './useLiveNode';
@@ -15,6 +15,11 @@ interface VisualLayer {
   id: string;
   name: string;
   clips: VisualClip[];
+}
+
+interface VisualOutput {
+  id: string;
+  name: string;
 }
 
 function parameterValue(value: unknown): unknown {
@@ -53,6 +58,22 @@ function normalizeComposition(value: unknown): VisualLayer[] {
     .filter(layer => layer.id);
 }
 
+function outputsFromResults(results: CommandResult[]): VisualOutput[] {
+  const raw = results
+    .flatMap(result => {
+      const outputs = result.observedState?.outputs;
+      return Array.isArray(outputs) ? outputs : [];
+    })
+    .filter(output => output && typeof output === 'object') as Array<Record<string, unknown>>;
+
+  return raw
+    .map(output => ({
+      id: String(output.id || output.monitor_id || ''),
+      name: String(parameterValue(output.name) || output.display_name || output.id || 'Output')
+    }))
+    .filter(output => output.id);
+}
+
 function compositionFromResults(results: CommandResult[]): unknown {
   for (const result of results) {
     const composition = result.observedState?.composition;
@@ -73,6 +94,9 @@ export function VisualControlPanel({
   const { t } = useTranslation();
   const [busy, setBusy] = useState<string | null>(null);
   const [localComposition, setLocalComposition] = useState<unknown>(null);
+  const [outputs, setOutputs] = useState<VisualOutput[]>([]);
+  const [selectedOutputId, setSelectedOutputId] = useState('');
+  const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const [clearAllArmed, setClearAllArmed] = useState(false);
 
   const provider = useMemo(
@@ -89,11 +113,22 @@ export function VisualControlPanel({
       : null;
   const layers = normalizeComposition(localComposition || observedComposition);
 
+  useEffect(() => {
+    return () => {
+      if (snapshotUrl) URL.revokeObjectURL(snapshotUrl);
+    };
+  }, [snapshotUrl]);
+
   if (!provider) return null;
 
   async function execute(
     key: string,
-    capability: 'visual.composition.read' | 'visual.clip.trigger' | 'visual.layer.clear' | 'visual.composition.clear',
+    capability:
+      | 'visual.composition.read'
+      | 'visual.clip.trigger'
+      | 'visual.layer.clear'
+      | 'visual.composition.clear'
+      | 'visual.outputs.read',
     payload: Record<string, unknown> = {},
     guarded = false
   ) {
@@ -127,6 +162,34 @@ export function VisualControlPanel({
   async function clearLayer(layerId: string) {
     await execute(`layer:${layerId}`, 'visual.layer.clear', { layerId });
     window.setTimeout(() => void refresh(), 120);
+  }
+
+  async function loadOutputs() {
+    if (!provider.capabilities.includes('visual.outputs.read')) return;
+    const results = await execute('outputs', 'visual.outputs.read');
+    const next = outputsFromResults(results || []);
+    setOutputs(next);
+    if (!selectedOutputId && next[0]) setSelectedOutputId(next[0].id);
+  }
+
+  async function refreshSnapshot() {
+    const targetId = selectedOutputId || outputs[0]?.id;
+    if (!targetId || !provider.capabilities.includes('visual.output.snapshot')) return;
+    setBusy('snapshot');
+    try {
+      const blob = await controller.fetchOutputSnapshot(
+        provider.providerId,
+        targetId,
+        'jpeg'
+      );
+      const nextUrl = URL.createObjectURL(blob);
+      setSnapshotUrl(current => {
+        if (current) URL.revokeObjectURL(current);
+        return nextUrl;
+      });
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function clearAll() {
@@ -165,6 +228,51 @@ export function VisualControlPanel({
           </button>
         </div>
       </div>
+
+
+      {provider.capabilities.includes('visual.outputs.read') && (
+        <div className="visual-output-strip">
+          <div className="visual-output-copy">
+            <small>{t('visualControls.outputPreview')}</small>
+            <strong>{t('visualControls.outputPreviewDescription')}</strong>
+          </div>
+          <div className="visual-output-actions">
+            <select
+              value={selectedOutputId}
+              onChange={event => setSelectedOutputId(event.target.value)}
+              aria-label={t('visualControls.output')}
+            >
+              <option value="">{t('visualControls.chooseOutput')}</option>
+              {outputs.map(output => (
+                <option key={output.id} value={output.id}>{output.name}</option>
+              ))}
+            </select>
+            <button
+              className="secondary"
+              disabled={busy !== null}
+              onClick={() => void loadOutputs()}
+            >
+              {t('visualControls.outputs')}
+            </button>
+            <button
+              className="primary"
+              disabled={
+                busy !== null ||
+                !selectedOutputId ||
+                !provider.capabilities.includes('visual.output.snapshot')
+              }
+              onClick={() => void refreshSnapshot()}
+            >
+              {busy === 'snapshot' ? '…' : t('visualControls.snapshot')}
+            </button>
+          </div>
+          {snapshotUrl && (
+            <div className="visual-output-preview">
+              <img src={snapshotUrl} alt={t('visualControls.outputSnapshotAlt')} />
+            </div>
+          )}
+        </div>
+      )}
 
       {layers.length ? (
         <div className="visual-layer-list">
