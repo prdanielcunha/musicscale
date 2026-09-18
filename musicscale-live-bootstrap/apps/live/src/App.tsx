@@ -122,28 +122,58 @@ export function App() {
       </aside>
 
       <main className="workspace">
-        <section className="hero">
-          <div>
-            <span className="eyebrow">{t('foundation')} · 0.1.0-alpha.1</span>
-            <h1>{surface === 'studio' ? 'Live Studio' : t(surface)}</h1>
-            <p>{context?.organizationName || t('organization')}</p>
-          </div>
-          <div className="pill-row">
-            <span>{t('lanFirst')}</span><span>{t('providerAgnostic')}</span><span>{t('offlineReady')}</span>
-          </div>
-        </section>
+        {surface === 'live' ? (
+          <section className="live-session-strip">
+            <div className="live-session-identity">
+              <span className="live-session-dot" />
+              <div>
+                <small>{t('liveWorkspace.onAir')}</small>
+                <strong>{scale?.eventName || t('liveWorkspace.adHoc')}</strong>
+                <span>
+                  {context?.organizationName || t('organization')}
+                  {scale?.time ? ` · ${scale.time}` : ''}
+                  {scale?.locationName ? ` · ${scale.locationName}` : ''}
+                </span>
+              </div>
+            </div>
+            <div className="live-session-health">
+              <span className={nodeConnected ? 'ok' : 'warn'}>
+                <b />{t('node')} · {nodeStatus}
+              </span>
+              <span className={providersConnected ? 'ok' : 'warn'}>
+                <b />{t('providers')} · {providersConnected ? `${liveNode.health?.providersOnline ?? 0}/${liveNode.health?.providers ?? 0}` : t('pending')}
+              </span>
+              <span className="ok">
+                <b />{t('liveWorkspace.lanPath')}
+              </span>
+            </div>
+          </section>
+        ) : (
+          <>
+            <section className="hero">
+              <div>
+                <span className="eyebrow">{t('foundation')} · 0.1.0-alpha.1</span>
+                <h1>{surface === 'studio' ? 'Live Studio' : t(surface)}</h1>
+                <p>{context?.organizationName || t('organization')}</p>
+              </div>
+              <div className="pill-row">
+                <span>{t('lanFirst')}</span><span>{t('providerAgnostic')}</span><span>{t('offlineReady')}</span>
+              </div>
+            </section>
 
-        <section className="health-grid">
-          <article><span className="status ok" /><div><small>{t('cloud')}</small><strong>{t('connected')}</strong></div></article>
-          <article>
-            <span className={`status ${nodeConnected ? 'ok' : liveNode.state === 'offline' || liveNode.state === 'blocked' ? 'danger' : 'warn'}`} />
-            <div><small>{t('node')}</small><strong>{nodeStatus}</strong></div>
-          </article>
-          <article>
-            <span className={`status ${providersConnected ? 'ok' : 'warn'}`} />
-            <div><small>{t('providers')}</small><strong>{providersConnected ? `${liveNode.health?.providersOnline ?? 0}/${liveNode.health?.providers ?? 0}` : t('pending')}</strong></div>
-          </article>
-        </section>
+            <section className="health-grid">
+              <article><span className="status ok" /><div><small>{t('cloud')}</small><strong>{t('connected')}</strong></div></article>
+              <article>
+                <span className={`status ${nodeConnected ? 'ok' : liveNode.state === 'offline' || liveNode.state === 'blocked' ? 'danger' : 'warn'}`} />
+                <div><small>{t('node')}</small><strong>{nodeStatus}</strong></div>
+              </article>
+              <article>
+                <span className={`status ${providersConnected ? 'ok' : 'warn'}`} />
+                <div><small>{t('providers')}</small><strong>{providersConnected ? `${liveNode.health?.providersOnline ?? 0}/${liveNode.health?.providers ?? 0}` : t('pending')}</strong></div>
+              </article>
+            </section>
+          </>
+        )}
 
         {surface === 'studio' && context && liveFeatureFlags.liveNodeTransport && (
           <LiveNodeSetup controller={liveNode} organizationId={context.organizationId} />
@@ -168,7 +198,7 @@ export function App() {
           </>
         )}
 
-        <section className="content-grid">
+        {surface !== 'live' && <section className="content-grid">
           <article className="panel next-service">
             <div className="panel-head"><span>{t('nextService')}</span><small>{t('readOnlyBridge')}</small></div>
             {scale ? (
@@ -197,7 +227,7 @@ export function App() {
               <button>{t('now')}</button><button>{t('timeline')}</button><button>{t('bible')}</button><button>{t('media')}</button><button>{t('requests')}</button>
             </nav>
           </article>
-        </section>
+        </section>}
       </main>
     </div>
   );
