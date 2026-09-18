@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildSongParts, hasSongParts } from "../../components/songs/songParts";
+import {
+  buildSongParts,
+  getFocusedSongParts,
+  hasSongParts,
+  resolveSongPartFocusInstruments,
+} from "../../components/songs/songParts";
 
 describe("intelligent song parts", () => {
   it("derives solo and riff focus from the canonical chart without duplicating the song", () => {
@@ -165,6 +170,49 @@ describe("intelligent song parts", () => {
       format: "mixed",
       preservesFingering: false,
     });
+  });
+
+  it("maps the current scale assignment to safe instrumental focus targets", () => {
+    expect(resolveSongPartFocusInstruments(["Teclado"])).toEqual([
+      "keys",
+      "piano",
+      "synth",
+    ]);
+    expect(resolveSongPartFocusInstruments(["Piano"])).toEqual([
+      "piano",
+      "keys",
+    ]);
+    expect(resolveSongPartFocusInstruments(["Guitarra"])).toEqual(["guitar"]);
+    expect(resolveSongPartFocusInstruments(["Violão"])).toEqual([
+      "acoustic_guitar",
+    ]);
+    expect(resolveSongPartFocusInstruments(["Vocal", "Ministro"])).toEqual([]);
+  });
+
+  it("shows only parts that match the instrument assigned in this specific scale", () => {
+    const parts = buildSongParts({
+      chords: [
+        "[Solo Guitarra]",
+        "Am F C G",
+        "[Riff Baixo]",
+        "Am G F",
+        "[Instrumental Teclado]",
+        "F G Am",
+      ].join("\n"),
+      metadata: {},
+      tabs: [],
+    });
+
+    expect(
+      getFocusedSongParts(parts, ["Guitarra"]).map((part) => part.label),
+    ).toEqual(["Solo Guitarra"]);
+    expect(
+      getFocusedSongParts(parts, ["Baixo"]).map((part) => part.label),
+    ).toEqual(["Riff Baixo"]);
+    expect(
+      getFocusedSongParts(parts, ["Teclado"]).map((part) => part.label),
+    ).toEqual(["Instrumental Teclado"]);
+    expect(getFocusedSongParts(parts, ["Vocal"])).toEqual([]);
   });
 
   it("keeps legacy tab-only content available as a technical part", () => {
