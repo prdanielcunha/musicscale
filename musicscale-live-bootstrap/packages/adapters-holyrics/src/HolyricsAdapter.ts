@@ -30,6 +30,7 @@ const ACTIONS_BY_CAPABILITY: Partial<Record<Capability, string[]>> = {
   'presentation.navigation': ['ActionNext', 'ActionPrevious', 'ActionGoToIndex'],
   'presentation.preview': ['GetCurrentPresentation'],
   'presentation.clear': ['CloseCurrentPresentation'],
+  'presentation.screen.mode': ['SetF8', 'SetF9', 'SetF10'],
   'bible.search': ['IdentifyVerseReferences'],
   'bible.present': ['ShowVerse'],
   'songs.search': ['SearchLyrics'],
@@ -155,6 +156,7 @@ export class HolyricsAdapter implements ProviderAdapter {
         health: 'online',
         updatedAt: new Date().toISOString(),
         observed: {
+          ...this.lastState.observed,
           currentPresentation: presentation
         }
       };
@@ -247,6 +249,27 @@ export class HolyricsAdapter implements ProviderAdapter {
       case 'presentation.clear':
         await this.api.request('CloseCurrentPresentation');
         return { currentPresentation: null };
+
+      case 'presentation.screen.mode': {
+        const mode = String(payload.mode || 'normal');
+        if (!['normal', 'wallpaper', 'blank', 'black'].includes(mode)) {
+          throw new Error('invalid_screen_mode');
+        }
+
+        await this.api.request('SetF8', { enable: mode === 'wallpaper' });
+        await this.api.request('SetF9', { enable: mode === 'blank' });
+        await this.api.request('SetF10', { enable: mode === 'black' });
+
+        this.lastState = {
+          health: 'online',
+          updatedAt: new Date().toISOString(),
+          observed: {
+            ...this.lastState.observed,
+            screenMode: mode
+          }
+        };
+        return { screenMode: mode };
+      }
 
       case 'bible.search': {
         const text = String(payload.text || payload.reference || '');
