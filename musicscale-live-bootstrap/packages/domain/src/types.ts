@@ -93,3 +93,230 @@ export interface CapabilitySnapshot {
   capabilities: Capability[];
   health: ProviderHealth;
 }
+
+
+export type EntityId = string;
+
+export interface Venue {
+  id: EntityId;
+  organizationId: EntityId;
+  name: string;
+  timeZone: string;
+  active: boolean;
+}
+
+export interface LiveSystem {
+  id: EntityId;
+  organizationId: EntityId;
+  venueId: EntityId;
+  name: string;
+  activeProfileId?: EntityId | null;
+}
+
+export interface LiveNodeRecord {
+  id: EntityId;
+  organizationId: EntityId;
+  venueId: EntityId;
+  liveSystemId: EntityId;
+  displayName: string;
+  platform: 'windows' | 'macos' | 'linux' | 'unknown';
+  status: ProviderHealth;
+  lastSeenAt?: string | null;
+  pairedAt?: string | null;
+}
+
+export interface ProviderInstance {
+  id: EntityId;
+  organizationId: EntityId;
+  venueId: EntityId;
+  liveSystemId: EntityId;
+  nodeId: EntityId;
+  providerKey: string;
+  displayName: string;
+  kinds: ProviderKind[];
+  version?: string;
+  capabilities: Capability[];
+  health: ProviderHealth;
+}
+
+export type OutputTargetKind =
+  | 'main'
+  | 'stage'
+  | 'confidence'
+  | 'broadcast'
+  | 'foyer'
+  | 'side_left'
+  | 'side_right'
+  | 'recording'
+  | 'custom';
+
+export interface OutputTarget {
+  id: EntityId;
+  organizationId: EntityId;
+  venueId: EntityId;
+  liveSystemId: EntityId;
+  kind: OutputTargetKind;
+  name: string;
+  active: boolean;
+}
+
+export type RouteContentType =
+  | 'lyrics'
+  | 'bible'
+  | 'announcements'
+  | 'media'
+  | 'stage'
+  | 'broadcast'
+  | 'custom';
+
+export interface Route {
+  id: EntityId;
+  organizationId: EntityId;
+  venueId: EntityId;
+  liveSystemId: EntityId;
+  name: string;
+  contentTypes: RouteContentType[];
+  sourceProviderIds: EntityId[];
+  processorProviderIds: EntityId[];
+  outputTargetIds: EntityId[];
+  enabled: boolean;
+}
+
+export interface LiveProfile {
+  id: EntityId;
+  organizationId: EntityId;
+  venueId: EntityId;
+  liveSystemId: EntityId;
+  name: string;
+  routeIds: EntityId[];
+  outputTargetIds: EntityId[];
+  providerInstanceIds: EntityId[];
+}
+
+export type ServiceItemType =
+  | 'song'
+  | 'bible'
+  | 'video'
+  | 'image'
+  | 'audio'
+  | 'text'
+  | 'announcement'
+  | 'presentation'
+  | 'action'
+  | 'macro'
+  | 'scene'
+  | 'custom';
+
+export type ServiceItemState =
+  | 'planned'
+  | 'prepared'
+  | 'live'
+  | 'completed'
+  | 'skipped'
+  | 'warning'
+  | 'error';
+
+export interface ServiceItem {
+  id: EntityId;
+  type: ServiceItemType;
+  title: string;
+  plannedDurationSeconds?: number;
+  plannedStartAt?: string;
+  responsibleUserId?: EntityId;
+  sourceEntityId?: EntityId;
+  providerLinkId?: EntityId;
+  state: ServiceItemState;
+  payload?: Record<string, unknown>;
+}
+
+export interface ServicePlan {
+  id: EntityId;
+  organizationId: EntityId;
+  venueId: EntityId;
+  liveSystemId: EntityId;
+  sourceMusicScaleId?: EntityId;
+  title: string;
+  scheduledAt: string;
+  profileId?: EntityId;
+  items: ServiceItem[];
+  revision: number;
+}
+
+export interface LiveSession {
+  id: EntityId;
+  organizationId: EntityId;
+  venueId: EntityId;
+  liveSystemId: EntityId;
+  servicePlanId: EntityId;
+  startedAt: string;
+  endedAt?: string;
+  status: 'preflight' | 'live' | 'ended' | 'aborted';
+  activeServiceItemId?: EntityId | null;
+}
+
+export interface ProviderLink {
+  id: EntityId;
+  organizationId: EntityId;
+  venueId: EntityId;
+  providerInstanceId: EntityId;
+  entityType: string;
+  musicScaleEntityId?: EntityId;
+  externalId: string;
+  fingerprint?: string;
+  lastVerifiedAt?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SceneAction {
+  id: EntityId;
+  capability: Capability;
+  targetProviderIds: EntityId[];
+  outputTargets: EntityId[];
+  payload: Record<string, unknown>;
+  safetyLevel: SafetyLevel;
+}
+
+export interface Scene {
+  id: EntityId;
+  organizationId: EntityId;
+  venueId: EntityId;
+  name: string;
+  actions: SceneAction[];
+}
+
+export interface AutomationRule {
+  id: EntityId;
+  organizationId: EntityId;
+  venueId: EntityId;
+  name: string;
+  enabled: boolean;
+  trigger: string;
+  conditions: Array<Record<string, unknown>>;
+  actions: SceneAction[];
+}
+
+export interface MediaAsset {
+  id: EntityId;
+  organizationId: EntityId;
+  venueId?: EntityId;
+  name: string;
+  mediaType: 'image' | 'video' | 'audio' | 'pdf' | 'presentation' | 'other';
+  locations: Array<{
+    kind: 'cloud' | 'node' | 'provider';
+    ref: string;
+  }>;
+}
+
+export type RequestKind = 'bible' | 'section' | 'media' | 'message';
+
+export interface LiveRequest {
+  id: EntityId;
+  organizationId: EntityId;
+  venueId: EntityId;
+  liveSessionId: EntityId;
+  actorId: EntityId;
+  kind: RequestKind;
+  payload: Record<string, unknown>;
+  status: 'pending' | 'accepted' | 'rejected' | 'completed';
+  createdAt: string;
+}
