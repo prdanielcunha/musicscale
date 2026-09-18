@@ -118,6 +118,33 @@ async function registerBuiltInProviders(): Promise<{
   };
 }
 
+async function recoverUnhealthyProviders(): Promise<void> {
+  const unhealthy = capabilityEngine
+    .quickSnapshot()
+    .filter(provider => provider.health !== 'online');
+
+  for (const snapshot of unhealthy) {
+    const provider = capabilityEngine.get(snapshot.providerId);
+    if (!provider) continue;
+    try {
+      const probe = await provider.probe();
+      if (probe.reachable) {
+        console.log(JSON.stringify({
+          event: 'provider_recovered',
+          providerId: snapshot.providerId,
+          capabilities: probe.capabilities
+        }));
+      }
+    } catch (error) {
+      console.log(JSON.stringify({
+        event: 'provider_recovery_waiting',
+        providerId: snapshot.providerId,
+        error: error instanceof Error ? error.message : 'unknown'
+      }));
+    }
+  }
+}
+
 function lanAddresses(): string[] {
   const addresses: string[] = [];
   for (const group of Object.values(networkInterfaces())) {
@@ -972,6 +999,11 @@ async function start(): Promise<void> {
       pairingEnabled: PAIRING_ENABLED
     }));
   });
+
+  const providerRecoveryTimer = setInterval(() => {
+    void recoverUnhealthyProviders();
+  }, 10_000);
+  providerRecoveryTimer.unref();
 }
 
 void start().catch(error => {
