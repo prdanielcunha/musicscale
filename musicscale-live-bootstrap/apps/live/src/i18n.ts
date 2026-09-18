@@ -162,7 +162,14 @@ const resources = {
       ready: 'Pronto',
       noClips: 'Nenhum clip nesta layer.',
       loadHint: 'Carregue a composição para enxergar os clips disponíveis sem depender da interface do Resolume.',
-      loadComposition: 'Carregar composição'
+      loadComposition: 'Carregar composição',
+      outputPreview: 'SAÍDA VISUAL',
+      outputPreviewDescription: 'Prévia capturada diretamente do render target do provider visual.',
+      output: 'Saída visual',
+      outputs: 'Carregar saídas',
+      chooseOutput: 'Escolha uma saída…',
+      snapshot: 'Atualizar prévia',
+      outputSnapshotAlt: 'Prévia da saída visual'
     },
     liveControls: {
       kicker: 'OPERADOR AO VIVO',
@@ -286,7 +293,14 @@ const resources = {
       ready: 'Ready',
       noClips: 'No clips in this layer.',
       loadHint: 'Load the composition to see available clips without depending on the Resolume UI.',
-      loadComposition: 'Load composition'
+      loadComposition: 'Load composition',
+      outputPreview: 'VISUAL OUTPUT',
+      outputPreviewDescription: 'Preview captured directly from the visual provider render target.',
+      output: 'Visual output',
+      outputs: 'Load outputs',
+      chooseOutput: 'Choose an output…',
+      snapshot: 'Refresh preview',
+      outputSnapshotAlt: 'Visual output preview'
     },
     liveControls: {
       kicker: 'LIVE OPERATOR',
@@ -410,7 +424,14 @@ const resources = {
       ready: 'Listo',
       noClips: 'No hay clips en esta layer.',
       loadHint: 'Cargue la composición para ver los clips disponibles sin depender de la interfaz de Resolume.',
-      loadComposition: 'Cargar composición'
+      loadComposition: 'Cargar composición',
+      outputPreview: 'SALIDA VISUAL',
+      outputPreviewDescription: 'Vista previa capturada directamente del render target del provider visual.',
+      output: 'Salida visual',
+      outputs: 'Cargar salidas',
+      chooseOutput: 'Elija una salida…',
+      snapshot: 'Actualizar vista previa',
+      outputSnapshotAlt: 'Vista previa de la salida visual'
     },
     liveControls: {
       kicker: 'OPERADOR EN VIVO',
