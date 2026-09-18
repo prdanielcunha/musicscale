@@ -50,4 +50,33 @@ describe('HolyricsHttpClient', () => {
       .digest('hex');
     expect(actionCall?.url).toContain(`rid=1&dtoken=${expected}`);
   });
+  it('serializes concurrent requests so signed request ids remain monotonic', async () => {
+    const actionRids: number[] = [];
+    const fakeFetch: typeof fetch = async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/Auth')) {
+        return jsonResponse({ status: 'ok', data: { sid: 'sid-2', nonce: 'nonce-2' } });
+      }
+      if (url.includes('/api/Auth?')) {
+        return jsonResponse({ status: 'ok' });
+      }
+      const rid = Number(new URL(url).searchParams.get('rid'));
+      actionRids.push(rid);
+      await new Promise(resolve => setTimeout(resolve, rid === 1 ? 10 : 0));
+      return jsonResponse({ status: 'ok', data: { rid } });
+    };
+
+    const client = new HolyricsHttpClient({
+      token: 'secret',
+      fetchImpl: fakeFetch
+    });
+
+    await Promise.all([
+      client.request('GetCurrentPresentation'),
+      client.request('GetTokenInfo'),
+      client.request('SearchLyrics', { text: 'x' })
+    ]);
+
+    expect(actionRids).toEqual([1, 2, 3]);
+  });
 });
