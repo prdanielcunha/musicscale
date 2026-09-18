@@ -9,7 +9,8 @@ export function getOrCreateDeviceId(): string {
 }
 
 export function defaultDeviceName(): string {
-  const platform = navigator.userAgentData?.platform || navigator.platform || 'Browser';
+  const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+  const platform = nav.userAgentData?.platform || navigator.platform || 'Browser';
   const touch = navigator.maxTouchPoints > 0 ? 'Touch' : 'Desktop';
   return `${platform} · ${touch}`;
 }
