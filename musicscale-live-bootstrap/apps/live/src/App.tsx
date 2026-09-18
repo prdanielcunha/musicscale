@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
 import { auth } from './firebase';
+import { LiveNodeSetup } from './LiveNodeSetup';
+import { liveFeatureFlags } from './featureFlags';
 import { loadNextScale, loadSharedContext, type SharedContext, type SharedScale } from './musicScaleBridge';
 import { markLiveMetric } from './telemetry';
+import { useLiveNode } from './useLiveNode';
 
 type Surface = 'live' | 'studio' | 'pastor' | 'conductor';
 
@@ -14,6 +17,7 @@ export function App() {
   const [scale, setScale] = useState<SharedScale | null>(null);
   const [loading, setLoading] = useState(true);
   const [surface, setSurface] = useState<Surface>('studio');
+  const liveNode = useLiveNode();
 
   useEffect(() => {
     markLiveMetric('shell-mounted');
@@ -39,6 +43,14 @@ export function App() {
     });
   }, []);
 
+  const nodeStatus = useMemo(() => {
+    if (liveNode.state === 'connected') return t('connected');
+    if (liveNode.state === 'probing' || liveNode.state === 'pairing') return t('nodeStatus.connecting');
+    if (liveNode.state === 'degraded' || liveNode.state === 'reconnecting') return t('nodeStatus.reconnecting');
+    if (liveNode.state === 'offline' || liveNode.state === 'blocked') return t('nodeStatus.offline');
+    return t('pending');
+  }, [liveNode.state, t]);
+
   const login = () => signInWithPopup(auth, new GoogleAuthProvider());
   const logout = () => signOut(auth);
 
@@ -58,6 +70,9 @@ export function App() {
       </main>
     );
   }
+
+  const nodeConnected = liveNode.state === 'connected';
+  const providersConnected = (liveNode.health?.providers ?? 0) > 0;
 
   return (
     <div className="app-shell">
@@ -85,7 +100,7 @@ export function App() {
       <main className="workspace">
         <section className="hero">
           <div>
-            <span className="eyebrow">{t('foundation')} · 0.0.1</span>
+            <span className="eyebrow">{t('foundation')} · 0.1.0-alpha.1</span>
             <h1>{surface === 'studio' ? 'Live Studio' : t(surface)}</h1>
             <p>{context?.organizationName || t('organization')}</p>
           </div>
@@ -96,9 +111,19 @@ export function App() {
 
         <section className="health-grid">
           <article><span className="status ok" /><div><small>{t('cloud')}</small><strong>{t('connected')}</strong></div></article>
-          <article><span className="status warn" /><div><small>{t('node')}</small><strong>{t('pending')}</strong></div></article>
-          <article><span className="status warn" /><div><small>{t('providers')}</small><strong>{t('pending')}</strong></div></article>
+          <article>
+            <span className={`status ${nodeConnected ? 'ok' : liveNode.state === 'offline' || liveNode.state === 'blocked' ? 'danger' : 'warn'}`} />
+            <div><small>{t('node')}</small><strong>{nodeStatus}</strong></div>
+          </article>
+          <article>
+            <span className={`status ${providersConnected ? 'ok' : 'warn'}`} />
+            <div><small>{t('providers')}</small><strong>{providersConnected ? String(liveNode.health?.providers) : t('pending')}</strong></div>
+          </article>
         </section>
+
+        {surface === 'studio' && context && liveFeatureFlags.liveNodeTransport && (
+          <LiveNodeSetup controller={liveNode} organizationId={context.organizationId} />
+        )}
 
         <section className="content-grid">
           <article className="panel next-service">
