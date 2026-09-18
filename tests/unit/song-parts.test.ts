@@ -89,6 +89,39 @@ describe("intelligent song parts", () => {
     expect(parts.some((part) => part.label === "Solo Inventado")).toBe(false);
   });
 
+  it("lets AI classify custom bracketed section names without treating ChordPro chords as sections", () => {
+    const parts = buildSongParts({
+      chords: [
+        "[Verso]",
+        "[C]Graça que me alcançou",
+        "[Lead Guitar]",
+        "C G Am F",
+        "[Refrão]",
+        "F G C",
+      ].join("\n"),
+      tabs: [],
+      metadata: {
+        sectionAnnotations: [
+          {
+            section: "Lead Guitar",
+            type: "solo",
+            instrument: "guitar",
+            confidence: "medium",
+          },
+        ],
+      },
+    });
+
+    expect(parts).toHaveLength(1);
+    expect(parts[0]).toMatchObject({
+      label: "Lead Guitar",
+      kind: "solo",
+      instrument: "guitar",
+      confidence: "medium",
+    });
+    expect(parts.some((part) => part.label === "C")).toBe(false);
+  });
+
   it("merges matching tablature into the chart part while preserving original fingering", () => {
     const song = {
       chords: ["[Solo Guitarra]", "Am F C G", "[Ponte]", "F G Am"].join("\n"),
