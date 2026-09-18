@@ -35,6 +35,7 @@ const ACTIONS_BY_CAPABILITY: Partial<Record<Capability, string[]>> = {
   'songs.search': ['SearchLyrics'],
   'songs.present': ['ShowLyrics'],
   'playlist.write': ['AddLyricsToPlaylist'],
+  'playlist.sync': ['GetLyricsPlaylist', 'RemoveFromLyricsPlaylist', 'AddLyricsToPlaylist'],
   'preview.snapshot': ['GetCurrentPresentation'],
   'stage.message': ['SetTextCommunicationPanel']
 };
@@ -271,6 +272,38 @@ export class HolyricsAdapter implements ProviderAdapter {
           ? await this.api.request<CurrentPresentation | null>('GetCurrentPresentation')
           : null;
         return { songId: id, currentPresentation };
+      }
+
+      case 'playlist.sync': {
+        const ids = Array.isArray(payload.ids)
+          ? payload.ids.map(String).filter(Boolean)
+          : [];
+        if (!ids.length) throw new Error('playlist_ids_required');
+
+        const existing = await this.api.request<Array<{ id?: string }>>('GetLyricsPlaylist');
+        const existingIds = existing.map(item => String(item.id || '')).filter(Boolean);
+        const alreadyEqual =
+          existingIds.length === ids.length &&
+          existingIds.every((id, index) => id === ids[index]);
+
+        if (!alreadyEqual) {
+          if (existing.length > 0) {
+            await this.api.request('RemoveFromLyricsPlaylist', {
+              indexes: existing.map((_, index) => index)
+            });
+          }
+          await this.api.request('AddLyricsToPlaylist', {
+            ids,
+            index: -1,
+            media_playlist: false
+          });
+        }
+
+        return {
+          playlistSongIds: ids,
+          replacedSongIds: existingIds,
+          changed: !alreadyEqual
+        };
       }
 
       case 'playlist.write': {
