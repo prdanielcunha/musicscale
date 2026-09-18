@@ -24,6 +24,12 @@ class FakeApi implements HolyricsApi {
           'AddLyricsToPlaylist',
           'GetLyricsPlaylist',
           'RemoveFromLyricsPlaylist',
+          'GetAudios',
+          'GetVideos',
+          'GetImages',
+          'PlayAudio',
+          'PlayVideo',
+          'ShowImage',
           'SetTextCommunicationPanel'
         ].join(',')
       } as T;
@@ -68,6 +74,8 @@ describe('HolyricsAdapter', () => {
     expect(probe.capabilities).toContain('songs.present');
     expect(probe.capabilities).toContain('playlist.write');
     expect(probe.capabilities).toContain('playlist.sync');
+    expect(probe.capabilities).toContain('media.search');
+    expect(probe.capabilities).toContain('media.open');
   });
 
   it('maps neutral next navigation to the documented Holyrics ActionNext action', async () => {
@@ -112,6 +120,23 @@ describe('HolyricsAdapter', () => {
 
     expect(result.accepted).toBe(true);
     expect(api.calls.some(call => call.action === 'ShowLyrics' && call.input.id === 'song-44')).toBe(true);
+  });
+
+  it('maps neutral media open to the correct Holyrics media action', async () => {
+    const api = new FakeApi();
+    const adapter = new HolyricsAdapter({ id: 'holyrics-1', nodeId: 'node-1', api });
+    await adapter.probe();
+
+    const result = await adapter.execute(command('media.open', {
+      kind: 'video',
+      file: 'backgrounds/intro.mp4'
+    }));
+
+    expect(result.accepted).toBe(true);
+    expect(api.calls.some(call =>
+      call.action === 'PlayVideo' &&
+      call.input.file === 'backgrounds/intro.mp4'
+    )).toBe(true);
   });
 
   it('maps Bible presentation to ShowVerse without leaking Holyrics into the command schema', async () => {
