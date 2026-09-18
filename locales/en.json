@@ -700,7 +700,8 @@
     "my_focus": "My focus",
     "all_sections": "All",
     "your_part": "Your part",
-    "focus_for_assignment": "Parts related to your assignment in this set: {{assignment}}"
+    "focus_for_assignment": "Parts related to your assignment in this set: {{assignment}}",
+    "live_your_part_now": "Your part now"
   },
   "onboarding": {
     "breadcrumbs": "Setlist · Event · Team",

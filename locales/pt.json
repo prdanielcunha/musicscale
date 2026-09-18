@@ -700,7 +700,8 @@
     "my_focus": "Meu foco",
     "all_sections": "Todas",
     "your_part": "Sua parte",
-    "focus_for_assignment": "Partes relacionadas à sua função nesta escala: {{assignment}}"
+    "focus_for_assignment": "Partes relacionadas à sua função nesta escala: {{assignment}}",
+    "live_your_part_now": "Sua parte agora"
   },
   "onboarding": {
     "breadcrumbs": "Repertório · Evento · Equipe",

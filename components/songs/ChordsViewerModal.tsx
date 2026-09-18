@@ -267,7 +267,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     () => song?.key || song?.selectedKey || song?.originalKey || "C",
     [song?.key, song?.selectedKey, song?.originalKey],
   );
-  const { liveSession, isLeader, changeKeyOverride } = useLiveWorshipSession(
+  const { liveSession, isLeader, isLive, changeKeyOverride } = useLiveWorshipSession(
     scaleContext?.scaleId,
   );
   const { isFollowingDirection } = useLiveDirectionFollow(scaleContext?.scaleId);
@@ -1028,6 +1028,34 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     [activeSectionIndex, sectionNavigatorItems],
   );
 
+  const liveFocusedSectionItem = useMemo(() => {
+    const target = liveSession?.activeSection;
+    if (
+      !isLive ||
+      !isFollowingDirection ||
+      !song ||
+      !target ||
+      target.songId !== song.id ||
+      !focusedSectionIndexes.has(target.sectionIndex)
+    ) {
+      return null;
+    }
+
+    return (
+      sectionNavigatorItems.find(
+        (section) => section.index === target.sectionIndex,
+      ) || null
+    );
+  }, [
+    focusedSectionIndexes,
+    isFollowingDirection,
+    isLive,
+    liveSession?.activeSection?.sectionIndex,
+    liveSession?.activeSection?.songId,
+    sectionNavigatorItems,
+    song?.id,
+  ]);
+
   const scrollToSectionIndex = useCallback((sectionIndex: number) => {
     const container = scrollContainerRef.current;
     const target = sectionRefs.current.get(sectionIndex);
@@ -1487,11 +1515,13 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                       scrollToSectionIndex(section.index);
                     }}
                     className={`shrink-0 h-8 px-3.5 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-[0.11em] transition-all active:scale-[0.97] ${
-                      isActive
-                        ? "bg-white text-black shadow-[0_6px_18px_rgba(255,255,255,0.08)]"
-                        : isFocused
-                          ? "text-violet-200/80 bg-violet-400/[0.06] hover:bg-violet-400/[0.1]"
-                          : "text-white/45 hover:text-white/80 hover:bg-white/[0.055]"
+                      isActive && isFocused
+                        ? "bg-violet-100 text-violet-950 shadow-[0_6px_22px_rgba(196,181,253,0.18)]"
+                        : isActive
+                          ? "bg-white text-black shadow-[0_6px_18px_rgba(255,255,255,0.08)]"
+                          : isFocused
+                            ? "text-violet-200/80 bg-violet-400/[0.06] hover:bg-violet-400/[0.1]"
+                            : "text-white/45 hover:text-white/80 hover:bg-white/[0.055]"
                     }`}
                   >
                     {section.displayLabel}
@@ -1502,6 +1532,35 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {liveFocusedSectionItem && (
+          <motion.div
+            key={`live-personal-focus-${song?.id || "song"}-${liveSession?.activeSection?.commandId || liveFocusedSectionItem.index}`}
+            role="status"
+            aria-live="polite"
+            initial={{ opacity: 0, y: 10, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            transition={{ duration: isPowerSave ? 0 : 0.18, ease: "easeOut" }}
+            className="pointer-events-none fixed bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5.25rem)] left-1/2 z-[146] w-[min(92vw,360px)] -translate-x-1/2"
+          >
+            <div className="rounded-[20px] border border-violet-300/20 bg-[#121016]/94 px-4 py-3.5 text-center shadow-[0_18px_54px_rgba(76,29,149,0.28)] backdrop-blur-2xl">
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-violet-200/70">
+                {t("performance.live_your_part_now")}
+              </p>
+              <p className="mt-1 truncate text-[15px] font-bold tracking-[-0.02em] text-white">
+                {liveFocusedSectionItem.displayLabel}
+              </p>
+              {performanceAssignmentLabel && (
+                <p className="mt-1 truncate text-[10px] font-semibold text-white/42">
+                  {performanceAssignmentLabel}
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div
         ref={scrollContainerRef}
