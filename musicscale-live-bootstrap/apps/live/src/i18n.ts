@@ -82,6 +82,11 @@ const resources = {
     bible: 'Bíblia',
     media: 'Mídia',
     requests: 'Requests',
+    liveWorkspace: {
+      onAir: 'AO VIVO',
+      adHoc: 'Sessão livre',
+      lanPath: 'Controle local pronto'
+    },
     nodeStatus: {
       connecting: 'Conectando',
       reconnecting: 'Reconectando',
@@ -224,6 +229,11 @@ const resources = {
     providers: 'Providers', pending: 'Pending', connected: 'Connected', readOnlyBridge: 'MusicScale read-only bridge',
     loading: 'Loading context...', chooseMode: 'Prepared surfaces', now: 'Now', timeline: 'Run of Show',
     bible: 'Bible', media: 'Media', requests: 'Requests',
+    liveWorkspace: {
+      onAir: 'LIVE',
+      adHoc: 'Ad-hoc session',
+      lanPath: 'Local control ready'
+    },
     nodeStatus: { connecting: 'Connecting', reconnecting: 'Reconnecting', offline: 'Offline' },
     nodeSetup: {
       kicker: 'LOCAL CONTROL PLANE',
@@ -362,6 +372,11 @@ const resources = {
     providers: 'Providers', pending: 'Pendiente', connected: 'Conectado', readOnlyBridge: 'Bridge MusicScale en modo lectura',
     loading: 'Cargando contexto...', chooseMode: 'Superficies preparadas', now: 'Ahora', timeline: 'Guion',
     bible: 'Biblia', media: 'Media', requests: 'Requests',
+    liveWorkspace: {
+      onAir: 'EN VIVO',
+      adHoc: 'Sesión libre',
+      lanPath: 'Control local listo'
+    },
     nodeStatus: { connecting: 'Conectando', reconnecting: 'Reconectando', offline: 'Offline' },
     nodeSetup: {
       kicker: 'LOCAL CONTROL PLANE',
