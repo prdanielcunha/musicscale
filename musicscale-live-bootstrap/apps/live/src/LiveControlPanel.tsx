@@ -159,7 +159,7 @@ export function LiveControlPanel({
           <div className="operator-card-head">
             <span>{t('liveControls.program')}</span>
             {Number.isFinite(slideNumber) && Number.isFinite(totalSlides) && (
-              <small>{slideNumber + 1}/{totalSlides}</small>
+              <small>{slideNumber}/{totalSlides}</small>
             )}
           </div>
           <div className="program-state">
