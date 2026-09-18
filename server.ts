@@ -49,6 +49,7 @@ import { writeMusicScaleMemberProjection } from "./services/server/musicScaleMem
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
 import { createConnectNextScheduleReadHandler } from "./services/server/connect/nextScheduleReadHandler.js";
 import { createConnectNextScheduleRepertoireReadHandler } from "./services/server/connect/nextScheduleRepertoireReadHandler.js";
+import { createConnectNextSchedulePresenceReadHandler } from "./services/server/connect/nextSchedulePresenceReadHandler.js";
 import { createInvitationCompatibilityHandlers } from "./services/server/musicScaleInvitationCompatibility.js";
 import { createJoinRequestCompatibilityHandlers } from "./services/server/musicScaleJoinRequestCompatibility.js";
 import { createMemberRemovalCompatibilityHandler } from "./services/server/musicScaleMemberRemovalCompatibility.js";
@@ -212,6 +213,13 @@ const connectNextScheduleRepertoireReadHandler = createConnectNextScheduleRepert
   logger,
 });
 app.get("/api/v1/connect/next-schedule/repertoire", connectNextScheduleRepertoireReadHandler);
+
+const connectNextSchedulePresenceReadHandler = createConnectNextSchedulePresenceReadHandler({
+  db,
+  auth,
+  logger,
+});
+app.get("/api/v1/connect/next-schedule/presence", connectNextSchedulePresenceReadHandler);
 
   app.post("/api/admin/backfill-global-titles", requireEcosystemRole, async (req: any, res: any) => {
     try {
