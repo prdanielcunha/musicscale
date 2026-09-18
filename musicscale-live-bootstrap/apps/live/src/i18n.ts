@@ -174,7 +174,16 @@ const resources = {
       outputs: 'Carregar saídas',
       chooseOutput: 'Escolha uma saída…',
       snapshot: 'Atualizar prévia',
-      outputSnapshotAlt: 'Prévia da saída visual'
+      outputSnapshotAlt: 'Prévia da saída visual',
+      nowNext: 'Visual atual e próximo',
+      current: 'Agora',
+      program: 'PROGRAM · no ar',
+      next: 'Próximo',
+      preview: 'PREVIEW · preparado',
+      nothingLive: 'Nenhum clip visual ativo',
+      chooseClip: 'Escolha um clip abaixo para preparar',
+      armed: 'Preparado para entrar',
+      take: 'Colocar no ar'
     },
     liveControls: {
       kicker: 'OPERADOR AO VIVO',
@@ -321,7 +330,16 @@ const resources = {
       outputs: 'Load outputs',
       chooseOutput: 'Choose an output…',
       snapshot: 'Refresh preview',
-      outputSnapshotAlt: 'Visual output preview'
+      outputSnapshotAlt: 'Visual output preview',
+      nowNext: 'Current and next visual',
+      current: 'Current',
+      program: 'PROGRAM · on air',
+      next: 'Next',
+      preview: 'PREVIEW · ready',
+      nothingLive: 'No visual clip is active',
+      chooseClip: 'Choose a clip below to prepare it',
+      armed: 'Armed and ready',
+      take: 'Take'
     },
     liveControls: {
       kicker: 'LIVE OPERATOR',
@@ -468,7 +486,16 @@ const resources = {
       outputs: 'Cargar salidas',
       chooseOutput: 'Elija una salida…',
       snapshot: 'Actualizar vista previa',
-      outputSnapshotAlt: 'Vista previa de la salida visual'
+      outputSnapshotAlt: 'Vista previa de la salida visual',
+      nowNext: 'Visual actual y siguiente',
+      current: 'Ahora',
+      program: 'PROGRAM · al aire',
+      next: 'Siguiente',
+      preview: 'PREVIEW · preparado',
+      nothingLive: 'No hay clip visual activo',
+      chooseClip: 'Elija un clip abajo para prepararlo',
+      armed: 'Preparado para entrar',
+      take: 'Poner al aire'
     },
     liveControls: {
       kicker: 'OPERADOR EN VIVO',
