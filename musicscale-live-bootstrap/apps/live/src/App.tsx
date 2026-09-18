@@ -220,7 +220,7 @@ export function App() {
           <article className="panel live-preview">
             <div className="preview-screen">
               <span>PROGRAM</span>
-              <strong>{surface === 'live' ? t('now') : 'LIVE GRAPH'}</strong>
+              <strong>LIVE GRAPH</strong>
               <small>{surface === 'studio' ? 'Nodes · Providers · Routes · Outputs' : 'Preview / Program / Take'}</small>
             </div>
             <nav className="quick-nav">
