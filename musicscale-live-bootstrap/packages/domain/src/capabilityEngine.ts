@@ -29,6 +29,22 @@ export class CapabilityEngine {
     );
   }
 
+  quickSnapshot(): CapabilitySnapshot[] {
+    return [...this.providers.values()].map(provider => {
+      const state = provider.peekState?.() || {
+        health: 'manual' as const,
+        updatedAt: new Date(0).toISOString(),
+        observed: {}
+      };
+      return {
+        providerId: provider.descriptor.id,
+        capabilities: [...provider.capabilities()],
+        health: state.health,
+        observed: state.observed
+      };
+    });
+  }
+
   async snapshot(): Promise<CapabilitySnapshot[]> {
     return Promise.all(
       [...this.providers.values()].map(async provider => {
