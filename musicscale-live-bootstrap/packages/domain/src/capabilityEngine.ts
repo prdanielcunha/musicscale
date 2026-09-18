@@ -36,7 +36,8 @@ export class CapabilityEngine {
         return {
           providerId: provider.descriptor.id,
           capabilities: [...provider.capabilities()],
-          health: state.health
+          health: state.health,
+          observed: state.observed
         };
       })
     );
