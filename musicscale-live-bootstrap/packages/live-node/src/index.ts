@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { homedir, hostname, networkInterfaces } from 'node:os';
+import { existsSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { dirname, extname, join, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   CAPABILITIES,
   CapabilityEngine,
@@ -29,8 +29,14 @@ const PAIRING_ENABLED = process.env.MUSICSCALE_LIVE_PAIRING_ENABLED !== 'false';
 const HOLYRICS_TOKEN = process.env.MUSICSCALE_LIVE_HOLYRICS_TOKEN?.trim() || '';
 const HOLYRICS_URL = process.env.MUSICSCALE_LIVE_HOLYRICS_URL?.trim() || 'http://127.0.0.1:8091';
 const STATE_DIR = process.env.MUSICSCALE_LIVE_STATE_DIR || join(homedir(), '.musicscale-live');
-const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_WEB_ROOT = resolve(MODULE_DIR, '../../../apps/live/dist');
+const PACKAGED_WEB_ROOT = resolve(dirname(process.execPath), 'web');
+const WORKSPACE_WEB_ROOT = resolve(process.cwd(), 'apps/live/dist');
+const PACKAGE_CWD_WEB_ROOT = resolve(process.cwd(), '../../apps/live/dist');
+const DEFAULT_WEB_ROOT = [
+  PACKAGED_WEB_ROOT,
+  WORKSPACE_WEB_ROOT,
+  PACKAGE_CWD_WEB_ROOT
+].find(candidate => existsSync(join(candidate, 'index.html'))) || PACKAGED_WEB_ROOT;
 const WEB_ROOT = resolve(process.env.MUSICSCALE_LIVE_WEB_ROOT || DEFAULT_WEB_ROOT);
 
 const allowedOrigins = new Set(
