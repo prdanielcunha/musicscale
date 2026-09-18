@@ -298,6 +298,14 @@ export interface PopulatedSong extends Song {
     tags: Tag[];
 }
 
+export interface ScaleSongNavigationContext {
+  scaleId?: string;
+  songs: PopulatedSong[];
+  currentIndex: number;
+  /** Function/instrument names assigned to the current user in this specific scale. */
+  assignmentNames?: string[];
+}
+
 export interface ChordKeyRepairDraftSong {
   title?: string;
   artist?: string;
