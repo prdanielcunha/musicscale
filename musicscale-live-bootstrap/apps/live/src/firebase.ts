@@ -5,6 +5,7 @@ import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager
+  type Firestore
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -20,7 +21,7 @@ const firebaseConfig = {
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
-let db;
+let db: Firestore;
 try {
   db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
