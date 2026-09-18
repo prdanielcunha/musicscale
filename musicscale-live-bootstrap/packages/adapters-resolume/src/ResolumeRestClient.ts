@@ -1,6 +1,12 @@
+export interface ResolumeBinaryResponse {
+  contentType: string;
+  body: Uint8Array;
+}
+
 export interface ResolumeRestApi {
   get<T = unknown>(path: string): Promise<T>;
   post<T = unknown>(path: string, body?: unknown): Promise<T>;
+  getBinary(path: string): Promise<ResolumeBinaryResponse>;
 }
 
 export interface ResolumeRestClientOptions {
@@ -60,6 +66,31 @@ export class ResolumeRestClient implements ResolumeRestApi {
 
   post<T = unknown>(path: string, body?: unknown): Promise<T> {
     return this.request<T>('POST', path, body);
+  }
+
+  async getBinary(path: string): Promise<ResolumeBinaryResponse> {
+    if (!path.startsWith('/')) throw new Error('resolume_invalid_path');
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+        method: 'GET',
+        signal: controller.signal
+      });
+      if (!response.ok) throw new Error(`resolume_http_${response.status}`);
+      return {
+        contentType: response.headers.get('content-type') || 'application/octet-stream',
+        body: new Uint8Array(await response.arrayBuffer())
+      };
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('resolume_timeout');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   private async request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
