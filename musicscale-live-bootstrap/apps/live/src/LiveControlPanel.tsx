@@ -4,6 +4,7 @@ import type { Capability, CommandResult } from '@musicscale-live/domain';
 import type { useLiveNode } from './useLiveNode';
 
 type Controller = ReturnType<typeof useLiveNode>;
+type ToolMode = 'song' | 'bible' | 'media' | 'stage';
 
 interface SearchSongResult {
   id: string;
@@ -113,6 +114,7 @@ export function LiveControlPanel({
   const [mediaQuery, setMediaQuery] = useState('');
   const [mediaResults, setMediaResults] = useState<SearchMediaResult[]>([]);
   const [stageText, setStageText] = useState('');
+  const [toolMode, setToolMode] = useState<ToolMode>('song');
   const [previewPresentation, setPreviewPresentation] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -142,6 +144,19 @@ export function LiveControlPanel({
 
   const can = (capability: Capability) => capabilitySet.has(capability);
   const canPreviewSnapshot = capabilitySet.has('preview.snapshot');
+  const toolAvailability = useMemo<Record<ToolMode, boolean>>(() => ({
+    song: capabilitySet.has('songs.search') || capabilitySet.has('songs.present'),
+    bible: capabilitySet.has('bible.present'),
+    media: capabilitySet.has('media.search') || capabilitySet.has('media.open'),
+    stage: capabilitySet.has('stage.message')
+  }), [capabilitySet]);
+
+  useEffect(() => {
+    if (toolAvailability[toolMode]) return;
+    const fallback = (['song', 'bible', 'media', 'stage'] as ToolMode[])
+      .find(mode => toolAvailability[mode]);
+    if (fallback) setToolMode(fallback);
+  }, [toolAvailability, toolMode]);
 
   useEffect(() => {
     if (!canPreviewSnapshot || !currentPresentation) return;
@@ -454,7 +469,24 @@ export function LiveControlPanel({
           </div>
         </article>
 
-        <article className="operator-card">
+        <div className="live-tool-dock" role="tablist" aria-label={t('liveControls.tools')}>
+          {(['song','bible','media','stage'] as ToolMode[]).map(mode => (
+            <button
+              key={mode}
+              role="tab"
+              aria-selected={toolMode === mode}
+              className={toolMode === mode ? 'active' : ''}
+              disabled={!toolAvailability[mode]}
+              onClick={() => setToolMode(mode)}
+            >
+              <span>{t(`liveControls.toolTabs.${mode}`)}</span>
+              <small>{toolAvailability[mode] ? t('liveControls.available') : t('liveControls.unavailable')}</small>
+            </button>
+          ))}
+        </div>
+
+        {toolMode === 'song' && toolAvailability.song && (
+        <article className="operator-card live-tool-card">
           <div className="operator-card-head"><span>{t('liveControls.song')}</span></div>
           <div className="operator-inline">
             <input
@@ -490,8 +522,10 @@ export function LiveControlPanel({
             )}
           </div>
         </article>
+        )}
 
-        <article className="operator-card">
+        {toolMode === 'bible' && toolAvailability.bible && (
+        <article className="operator-card live-tool-card">
           <div className="operator-card-head"><span>{t('liveControls.bible')}</span></div>
           <div className="operator-inline">
             <input
@@ -513,9 +547,10 @@ export function LiveControlPanel({
           </div>
           <p className="operator-help">{t('liveControls.capabilityDriven')}</p>
         </article>
+        )}
 
-        {can('media.search') && (
-          <article className="operator-card operator-card-wide">
+        {toolMode === 'media' && toolAvailability.media && (
+          <article className="operator-card live-tool-card operator-card-wide">
             <div className="operator-card-head">
               <span>{t('liveControls.media')}</span>
               <div className="operator-segmented">
@@ -576,8 +611,8 @@ export function LiveControlPanel({
           </article>
         )}
 
-        {can('stage.message') && (
-          <article className="operator-card">
+        {toolMode === 'stage' && toolAvailability.stage && (
+          <article className="operator-card live-tool-card">
             <div className="operator-card-head"><span>{t('liveControls.stage')}</span></div>
             <textarea
               className="operator-textarea"
