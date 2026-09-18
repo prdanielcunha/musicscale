@@ -7,12 +7,12 @@ import {
 } from "../../components/songs/ChordsRenderer";
 
 describe("worship song section parser", () => {
-  it("splits an inline Intro heading from chords instead of losing navigation", () => {
+  it("splits an inline Intro heading while preserving the original chord column", () => {
     const parsed = parseChordsAndLyrics("[Intro] C Am F7M Am F7M\n[Primeira Parte]\nC\nFoi por amor");
 
     expect(parsed.slice(0, 4)).toEqual([
       { type: "section", content: "[Intro]" },
-      { type: "chord", content: "C Am F7M Am F7M" },
+      { type: "chord", content: "        C Am F7M Am F7M" },
       { type: "section", content: "[Primeira Parte]" },
       { type: "chord", content: "C" },
     ]);
