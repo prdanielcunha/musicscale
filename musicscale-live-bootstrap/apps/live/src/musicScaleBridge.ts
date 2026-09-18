@@ -15,14 +15,27 @@ export interface SharedContext {
   profileName: string;
 }
 
+export interface SharedScaleSong {
+  id: string;
+  title: string;
+  artist?: string;
+  key?: string;
+  bpm?: number | null;
+  selectedKey?: string;
+  selectedBpm?: number | null;
+}
+
 export interface SharedScale {
   id: string;
+  organizationId: string;
   date: string;
   time?: string;
+  timeZone?: string;
+  observations?: string;
   eventName?: string;
   locationName?: string;
   songIds: string[];
-  songs: Array<{ id: string; title: string; artist?: string }>;
+  songs: SharedScaleSong[];
 }
 
 function resolveOrganizationId(profile: Record<string, unknown>): string | null {
@@ -76,14 +89,26 @@ export async function loadNextScale(organizationId: string): Promise<SharedScale
 
   return {
     id: String(next.id),
+    organizationId,
     date: String(next.date || ''),
     time: next.time ? String(next.time) : undefined,
+    timeZone: next.timeZone ? String(next.timeZone) : undefined,
+    observations: next.observations ? String(next.observations) : undefined,
     eventName: next.eventNameId ? String(eventNamesById.get(next.eventNameId)?.name || '') : undefined,
     locationName: next.locationId ? String(locationsById.get(next.locationId)?.name || '') : undefined,
     songIds,
     songs: songIds.map((id: string) => {
       const song = songsById.get(id) || {};
-      return { id, title: String(song.title || 'Música'), artist: song.artist ? String(song.artist) : undefined };
+      const settings = next.songSettings?.[id] || {};
+      return {
+        id,
+        title: String(song.title || 'Música'),
+        artist: song.artist ? String(song.artist) : undefined,
+        key: song.key ? String(song.key) : undefined,
+        bpm: typeof song.bpm === 'number' ? song.bpm : null,
+        selectedKey: settings.key ? String(settings.key) : undefined,
+        selectedBpm: typeof settings.bpm === 'number' ? settings.bpm : null
+      };
     })
   };
 }
