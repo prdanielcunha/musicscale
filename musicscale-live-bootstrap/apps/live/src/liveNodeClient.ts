@@ -5,7 +5,9 @@ import type {
   LiveNodeRuntimeState,
   PairingChallenge,
   PairingCompleteResponse,
-  PairingRequest
+  PairingRequest,
+  ProviderLink,
+  ServicePlan
 } from '@musicscale-live/domain';
 
 export interface LiveNodeStateResponse {
@@ -206,4 +208,32 @@ export async function executeNodeCommand(
     },
     body: JSON.stringify(command)
   }, 5000);
+}
+
+
+export async function cacheNodeServicePlan(
+  baseUrl: string,
+  token: string,
+  plan: ServicePlan,
+  providerLinks: ProviderLink[] = []
+): Promise<{ nodeId: string; servicePlanId: string; providerLinks: number; stateRevision: number }> {
+  return requestJson(baseUrl, '/service-plan', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ plan, providerLinks })
+  }, 5000);
+}
+
+export async function detectSameOriginLiveNode(): Promise<boolean> {
+  try {
+    const response = await fetch('/.well-known/musicscale-live-node', {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(1200)
+    });
+    if (!response.ok) return false;
+    const body = await response.json().catch(() => null);
+    return body?.product === 'MusicScale Live Node';
+  } catch {
+    return false;
+  }
 }
