@@ -15,7 +15,15 @@ export class RuntimeStateStore {
     try {
       const raw = await readFile(this.filePath, 'utf8');
       const parsed = JSON.parse(raw) as LiveNodeRuntimeState;
-      this.state = parsed.nodeId === this.nodeId ? parsed : this.fresh();
+      this.state = parsed.nodeId === this.nodeId
+        ? {
+            ...this.fresh(),
+            ...parsed,
+            providerObservedState: parsed.providerObservedState || {},
+            providerLinks: Array.isArray(parsed.providerLinks) ? parsed.providerLinks : [],
+            servicePlan: parsed.servicePlan || null
+          }
+        : this.fresh();
     } catch (error: any) {
       if (error?.code !== 'ENOENT') throw error;
       this.state = this.fresh();
@@ -47,7 +55,8 @@ export class RuntimeStateStore {
       activeLiveSessionId: null,
       activeServiceItemId: null,
       providerObservedState: {},
-      servicePlan: null
+      servicePlan: null,
+      providerLinks: []
     };
   }
 
