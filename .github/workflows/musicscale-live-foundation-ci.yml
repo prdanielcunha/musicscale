@@ -1,0 +1,36 @@
+name: MusicScale Live Foundation CI
+
+on:
+  push:
+    branches:
+      - live/foundation-bootstrap
+    paths:
+      - 'musicscale-live-bootstrap/**'
+      - '.github/workflows/musicscale-live-foundation-ci.yml'
+  pull_request:
+    paths:
+      - 'musicscale-live-bootstrap/**'
+
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: musicscale-live-bootstrap
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: musicscale-live-bootstrap/package.json
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build
