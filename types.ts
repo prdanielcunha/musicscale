@@ -530,6 +530,7 @@ export interface PopulatedScale {
   time?: string;
   durationMinutes?: number;
   status?: 'draft' | 'published' | 'cancelled' | 'completed';
+  eventAssignments?: EventAssignment[];
   observations: string;
   songs: PopulatedSong[];
   songSettings?: Record<string, ScaleSongSettings>;
