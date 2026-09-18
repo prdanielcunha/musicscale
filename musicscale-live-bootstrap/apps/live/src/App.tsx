@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
 import { auth } from './firebase';
+import { LiveControlPanel } from './LiveControlPanel';
 import { LiveNodeSetup } from './LiveNodeSetup';
 import { liveFeatureFlags } from './featureFlags';
 import { loadNextScale, loadSharedContext, type SharedContext, type SharedScale } from './musicScaleBridge';
@@ -123,6 +124,14 @@ export function App() {
 
         {surface === 'studio' && context && liveFeatureFlags.liveNodeTransport && (
           <LiveNodeSetup controller={liveNode} organizationId={context.organizationId} />
+        )}
+
+        {surface === 'live' && liveNode.state === 'connected' && (
+          <LiveControlPanel
+            controller={liveNode}
+            actorId={user.uid}
+            liveSessionId={scale ? `music-scale:${scale.id}` : `ad-hoc:${context?.organizationId || user.uid}`}
+          />
         )}
 
         <section className="content-grid">
