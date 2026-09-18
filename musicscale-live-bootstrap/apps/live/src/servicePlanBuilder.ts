@@ -66,7 +66,7 @@ export function buildServicePlan(
     title: scale.eventName || 'Culto',
     scheduledAt,
     items,
-    revision: 1
+    revision: Math.max(1, scale.publishRevision || 1)
   };
 
   return { plan, providerLinks };
