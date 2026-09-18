@@ -14,6 +14,7 @@ const nodeErrors = {
     pairing_challenge_expired: 'O código expirou. Solicite um novo.',
     pairing_attempts_exceeded: 'Muitas tentativas de código. Solicite um novo pareamento.',
     pairing_device_mismatch: 'O pareamento não pertence a este dispositivo.',
+    pairing_scope_conflict: 'Este Live Node já está vinculado a outro ambiente. Revogue os dispositivos no ambiente atual antes de vinculá-lo novamente.',
     pairing_failed: 'Não foi possível concluir o pareamento.'
   },
   en: {
@@ -27,6 +28,7 @@ const nodeErrors = {
     pairing_challenge_expired: 'The code expired. Request a new one.',
     pairing_attempts_exceeded: 'Too many code attempts. Request a new pairing.',
     pairing_device_mismatch: 'This pairing does not belong to this device.',
+    pairing_scope_conflict: 'This Live Node is already bound to another environment. Revoke the current devices before binding it again.',
     pairing_failed: 'Pairing could not be completed.'
   },
   es: {
@@ -40,6 +42,7 @@ const nodeErrors = {
     pairing_challenge_expired: 'El código expiró. Solicite uno nuevo.',
     pairing_attempts_exceeded: 'Demasiados intentos de código. Solicite un nuevo emparejamiento.',
     pairing_device_mismatch: 'Este emparejamiento no pertenece a este dispositivo.',
+    pairing_scope_conflict: 'Este Live Node ya está vinculado a otro entorno. Revoque los dispositivos actuales antes de vincularlo nuevamente.',
     pairing_failed: 'No fue posible completar el emparejamiento.'
   }
 };
