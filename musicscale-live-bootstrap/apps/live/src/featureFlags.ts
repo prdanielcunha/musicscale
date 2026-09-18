@@ -1,6 +1,6 @@
 export const liveFeatureFlags = {
   sharedMusicScaleReadBridge: true,
-  liveNodeTransport: false,
+  liveNodeTransport: true,
   providerAdapters: false,
   servicePlanWrites: false,
   remoteControl: false
