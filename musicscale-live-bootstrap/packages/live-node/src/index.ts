@@ -21,6 +21,7 @@ import { ProviderConfigStore } from './providerConfigStore';
 import { buildLiveNodeDiagnostics } from './diagnostics';
 import { isTrustedLiveWebOrigin } from './networkPolicy';
 import { HolyricsAdapter, HolyricsHttpClient } from '@musicscale-live/adapter-holyrics';
+import { ResolumeAdapter, ResolumeRestClient } from '@musicscale-live/adapter-resolume';
 import { toString as qrToString } from 'qrcode';
 
 const PORT = Number(process.env.MUSICSCALE_LIVE_NODE_PORT || 4317);
@@ -30,6 +31,8 @@ const DEV_TOKEN = process.env.MUSICSCALE_LIVE_DEV_TOKEN || '';
 const PAIRING_ENABLED = process.env.MUSICSCALE_LIVE_PAIRING_ENABLED !== 'false';
 const HOLYRICS_TOKEN = process.env.MUSICSCALE_LIVE_HOLYRICS_TOKEN?.trim() || '';
 const HOLYRICS_URL = process.env.MUSICSCALE_LIVE_HOLYRICS_URL?.trim() || 'http://127.0.0.1:8091';
+const DEFAULT_RESOLUME_URL = 'http://127.0.0.1:8080';
+const RESOLUME_URL = process.env.MUSICSCALE_LIVE_RESOLUME_URL?.trim() || '';
 const STATE_DIR = process.env.MUSICSCALE_LIVE_STATE_DIR || join(homedir(), '.musicscale-live');
 const PACKAGED_WEB_ROOT = resolve(dirname(process.execPath), 'web');
 const WORKSPACE_WEB_ROOT = resolve(process.cwd(), 'apps/live/dist');
@@ -59,7 +62,7 @@ const providerConfigStore = new ProviderConfigStore(join(STATE_DIR, 'providers.j
 
 const pairingRequestHits = new Map<string, number>();
 
-async function registerBuiltInProviders(): Promise<{
+async function registerHolyricsProvider(): Promise<{
   configured: boolean;
   source: 'environment' | 'local' | 'none';
   probe?: Awaited<ReturnType<HolyricsAdapter['probe']>>;
@@ -102,6 +105,60 @@ async function registerBuiltInProviders(): Promise<{
   console.log(JSON.stringify({
     event: 'provider_probe',
     providerKey: 'holyrics',
+    providerId: adapter.descriptor.id,
+    reachable: probe.reachable,
+    version: probe.version || null,
+    capabilities: probe.capabilities,
+    reason: probe.reason || null,
+    configurationSource: source
+  }));
+
+  return {
+    configured: true,
+    source,
+    probe,
+    baseUrl
+  };
+}
+
+
+async function registerResolumeProvider(): Promise<{
+  configured: boolean;
+  source: 'environment' | 'local' | 'none';
+  probe?: Awaited<ReturnType<ResolumeAdapter['probe']>>;
+  baseUrl?: string;
+}> {
+  capabilityEngine.unregister('resolume-primary');
+
+  const localConfig = await providerConfigStore.getResolume();
+  const baseUrl = RESOLUME_URL || localConfig?.baseUrl || '';
+  const source = RESOLUME_URL
+    ? 'environment' as const
+    : localConfig
+      ? 'local' as const
+      : 'none' as const;
+
+  if (!baseUrl) {
+    console.log(JSON.stringify({
+      event: 'provider_not_configured',
+      providerKey: 'resolume'
+    }));
+    return { configured: false, source };
+  }
+
+  const adapter = new ResolumeAdapter({
+    id: 'resolume-primary',
+    nodeId,
+    displayName: 'Resolume Arena',
+    api: new ResolumeRestClient({ baseUrl })
+  });
+
+  capabilityEngine.register(adapter);
+  const probe = await adapter.probe();
+
+  console.log(JSON.stringify({
+    event: 'provider_probe',
+    providerKey: 'resolume',
     providerId: adapter.descriptor.id,
     reachable: probe.reachable,
     version: probe.version || null,
@@ -711,7 +768,8 @@ async function start(): Promise<void> {
   await pairingStore.load();
   await runtimeState.load();
   await providerConfigStore.load();
-  await registerBuiltInProviders();
+  await registerHolyricsProvider();
+  await registerResolumeProvider();
 
   const server = createServer(async (req, res) => {
   setCors(req, res);
@@ -831,7 +889,7 @@ async function start(): Promise<void> {
       const baseUrl = String(candidate.baseUrl || HOLYRICS_URL);
       const token = String(candidate.token || '');
       await providerConfigStore.setHolyrics({ baseUrl, token });
-      const result = await registerBuiltInProviders();
+      const result = await registerHolyricsProvider();
       return send(res, result.probe?.reachable ? 200 : 422, {
         configured: result.configured,
         source: result.source,
