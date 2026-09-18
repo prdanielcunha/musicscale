@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@musicscale-live/domain": "0.0.1"
+    "@musicscale-live/domain": "file:../../packages/domain"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
