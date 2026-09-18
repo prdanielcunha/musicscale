@@ -46,8 +46,9 @@ describe('PairingStore', () => {
       deviceName: 'Control'
     });
 
+    const wrongPin = challenge.pin === '000000' ? '000001' : '000000';
     await expect(
-      store.complete(challenge.challengeId, '000000', 'device_1', 'Control')
+      store.complete(challenge.challengeId, wrongPin, 'device_1', 'Control')
     ).rejects.toThrow('pairing_pin_invalid');
 
     const completed = await store.complete(
