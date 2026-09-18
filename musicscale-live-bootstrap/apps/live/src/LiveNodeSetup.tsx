@@ -6,10 +6,12 @@ type LiveNodeController = ReturnType<typeof useLiveNode>;
 
 export function LiveNodeSetup({
   controller,
-  organizationId
+  organizationId,
+  localRecovery = false
 }: {
   controller: LiveNodeController;
-  organizationId: string;
+  organizationId?: string;
+  localRecovery?: boolean;
 }) {
   const { t } = useTranslation();
   const [nodeUrl, setNodeUrl] = useState(
@@ -18,11 +20,14 @@ export function LiveNodeSetup({
   );
   const [pin, setPin] = useState('');
 
-  const scope = useMemo(() => ({
-    organizationId,
-    venueId: `bootstrap-venue:${organizationId}`,
-    liveSystemId: `bootstrap-system:${organizationId}`
-  }), [organizationId]);
+  const scope = useMemo(() => {
+    if (!organizationId) return undefined;
+    return {
+      organizationId,
+      venueId: `bootstrap-venue:${organizationId}`,
+      liveSystemId: `bootstrap-system:${organizationId}`
+    };
+  }, [organizationId]);
 
   const connected = controller.state === 'connected';
 
@@ -30,8 +35,8 @@ export function LiveNodeSetup({
     <section className="node-setup">
       <div className="node-setup-copy">
         <span className="eyebrow">{t('nodeSetup.kicker')}</span>
-        <h2>{t('nodeSetup.title')}</h2>
-        <p>{t('nodeSetup.description')}</p>
+        <h2>{localRecovery ? t('nodeSetup.localRecoveryTitle') : t('nodeSetup.title')}</h2>
+        <p>{localRecovery ? t('nodeSetup.localRecoveryDescription') : t('nodeSetup.description')}</p>
       </div>
 
       <div className="node-setup-card">
@@ -100,14 +105,14 @@ export function LiveNodeSetup({
             <div className="node-actions">
               <button
                 className="primary"
-                disabled={!organizationId || controller.state === 'probing'}
+                disabled={controller.state === 'probing'}
                 onClick={() => controller.beginPairing(nodeUrl, scope)}
               >
                 {controller.state === 'probing' ? t('nodeSetup.probing') : t('nodeSetup.pair')}
               </button>
               <span>{t('nodeSetup.noCloudSecret')}</span>
             </div>
-            {controller.errorCode && <p className="node-error">{t(`nodeErrors.${controller.errorCode}`, controller.errorCode)}</p>}
+            {controller.errorCode && <p className="node-error">{t(`nodeErrors.${controller.errorCode}`, { defaultValue: controller.errorCode })}</p>}
           </>
         )}
       </div>
