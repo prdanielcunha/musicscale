@@ -602,11 +602,49 @@
   },
   "technicalParts": {
     "button": "Partes",
-    "eyebrow": "Partes técnicas",
+    "eyebrow": "Partes da música",
     "part": "Parte",
-    "close": "Fechar partes técnicas",
-    "original_fingering": "Digitação original",
-    "key_notice": "Esta parte técnica preserva a digitação original. A cifra atual pode estar em outro tom."
+    "close": "Fechar partes da música",
+    "detected_count": "{{count}} partes detectadas",
+    "original_fingering": "Digitação original preservada",
+    "key_notice": "A tablatura mantém a digitação original. A harmonia pode mudar de tom sem alterar as casas da tablatura.",
+    "ai_classified": "Classificado por IA",
+    "before": "Antes",
+    "after": "Depois",
+    "transpose_down": "Baixar 1 semitom",
+    "transpose_up": "Subir 1 semitom",
+    "reset_key": "Voltar ao tom original",
+    "key": "Tom",
+    "open_full_performance": "Abrir Performance completo",
+    "kind": {
+      "solo": "Solo",
+      "riff": "Riff",
+      "instrumental": "Instrumental",
+      "interlude": "Interlúdio",
+      "intro": "Introdução",
+      "outro": "Final",
+      "technical": "Parte técnica"
+    },
+    "instrument": {
+      "guitar": "Guitarra",
+      "acoustic_guitar": "Violão",
+      "bass": "Baixo",
+      "keys": "Teclado",
+      "piano": "Piano",
+      "synth": "Synth",
+      "drums": "Bateria",
+      "sax": "Sax",
+      "violin": "Violino",
+      "strings": "Cordas",
+      "other": "Outro instrumento",
+      "unknown": "Instrumento"
+    },
+    "format": {
+      "chords": "Acordes",
+      "tab": "Tablatura",
+      "mixed": "Acordes + tab",
+      "text": "Anotação"
+    }
   },
   "performance": {
     "double_tap_to_unlock": "Dê um toque duplo na tela para sair",
@@ -1755,7 +1793,9 @@
       "lyricsOnly": "Esta importação não possui cifra.",
       "saveSong": "Salvar música",
       "transposeSuccess": "A cifra foi atualizada de {{from}} para {{to}}. {{count}} acordes foram ajustados.",
-      "transposeSuccessOne": "A cifra foi atualizada de {{from}} para {{to}}. 1 acorde foi ajustado."
+      "transposeSuccessOne": "A cifra foi atualizada de {{from}} para {{to}}. 1 acorde foi ajustado.",
+      "partsLabel": "Partes:",
+      "partsDetected": "{{count}} partes detectadas"
     }
   },
   "profile": {
