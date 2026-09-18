@@ -46,7 +46,8 @@ export class RuntimeStateStore {
       updatedAt: new Date(0).toISOString(),
       activeLiveSessionId: null,
       activeServiceItemId: null,
-      providerObservedState: {}
+      providerObservedState: {},
+      servicePlan: null
     };
   }
 
