@@ -9,6 +9,7 @@ export const CAPABILITIES = [
   'songs.search',
   'songs.present',
   'playlist.write',
+  'playlist.sync',
   'media.search',
   'media.open',
   'preview.snapshot',
