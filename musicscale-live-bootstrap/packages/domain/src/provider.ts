@@ -19,6 +19,7 @@ export interface ProviderAdapter {
   probe(): Promise<ProviderProbeResult>;
   capabilities(): ReadonlySet<Capability>;
   getState(): Promise<ProviderState>;
+  peekState?(): ProviderState;
   execute(command: LiveCommand): Promise<CommandResult>;
   dispose?(): Promise<void>;
 }
