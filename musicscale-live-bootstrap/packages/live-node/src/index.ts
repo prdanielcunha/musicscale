@@ -678,11 +678,48 @@ async function execute(command: LiveCommand): Promise<CommandResult[]> {
   const cached = idempotency.get(command.idempotencyKey);
   if (cached) return cached;
 
-  const targets = command.targetProviderIds.length
+  let targets = command.targetProviderIds.length
     ? command.targetProviderIds
         .map(id => capabilityEngine.get(id))
         .filter((provider): provider is NonNullable<typeof provider> => Boolean(provider))
-    : capabilityEngine.targetsFor(command.capability);
+    : [];
+
+  if (!command.targetProviderIds.length) {
+    const candidates = capabilityEngine.targetsFor(command.capability);
+    const routeGroup = routeGroupForCapability(command.capability);
+    const preferredProviderId = await providerRoutingStore.get(routeGroup);
+
+    if (preferredProviderId) {
+      const preferred = capabilityEngine.get(preferredProviderId);
+      if (preferred?.capabilities().has(command.capability)) {
+        targets = [preferred];
+      } else {
+        const result: CommandResult[] = [{
+          commandId: command.id,
+          providerInstanceId: preferredProviderId,
+          accepted: false,
+          latencyMs: 0,
+          errorCode: 'configured_provider_route_unavailable',
+          recoverable: true
+        }];
+        idempotency.set(command.idempotencyKey, result);
+        return result;
+      }
+    } else if (candidates.length === 1) {
+      targets = candidates;
+    } else if (candidates.length > 1) {
+      const result: CommandResult[] = [{
+        commandId: command.id,
+        providerInstanceId: 'ambiguous',
+        accepted: false,
+        latencyMs: 0,
+        errorCode: 'ambiguous_provider_route',
+        recoverable: true
+      }];
+      idempotency.set(command.idempotencyKey, result);
+      return result;
+    }
+  }
 
   if (!targets.length) {
     const result: CommandResult[] = [{
