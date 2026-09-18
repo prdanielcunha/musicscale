@@ -60,6 +60,7 @@ export function OfflineRunOfShow({
           return (
             <button
               key={item.id}
+              className={controller.nodeState?.state.activeServiceItemId === item.id ? 'active' : ''}
               disabled={item.type !== 'song' || !link || busyItemId !== null}
               onClick={() => void present(item.id, item.providerLinkId)}
             >
