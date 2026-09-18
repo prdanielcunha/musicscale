@@ -616,12 +616,13 @@ refresh();refreshProvider();setInterval(refresh,1000);
 </main></body></html>`;
 }
 
-await pairingStore.load();
-await runtimeState.load();
-await providerConfigStore.load();
-await registerBuiltInProviders();
+async function start(): Promise<void> {
+  await pairingStore.load();
+  await runtimeState.load();
+  await providerConfigStore.load();
+  await registerBuiltInProviders();
 
-const server = createServer(async (req, res) => {
+  const server = createServer(async (req, res) => {
   setCors(req, res);
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
@@ -924,16 +925,25 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, HOST, () => {
-  const urls = lanAddresses().map(ip => `http://${ip}:${PORT}`);
-  console.log(JSON.stringify({
-    event: 'live_node_started',
-    nodeId,
-    version: VERSION,
-    local: `http://127.0.0.1:${PORT}`,
-    lan: urls,
-    stateDir: STATE_DIR,
-    webRoot: WEB_ROOT,
-    pairingEnabled: PAIRING_ENABLED
+  server.listen(PORT, HOST, () => {
+    const urls = lanAddresses().map(ip => `http://${ip}:${PORT}`);
+    console.log(JSON.stringify({
+      event: 'live_node_started',
+      nodeId,
+      version: VERSION,
+      local: `http://127.0.0.1:${PORT}`,
+      lan: urls,
+      stateDir: STATE_DIR,
+      webRoot: WEB_ROOT,
+      pairingEnabled: PAIRING_ENABLED
+    }));
+  });
+}
+
+void start().catch(error => {
+  console.error(JSON.stringify({
+    event: 'live_node_fatal',
+    error: error instanceof Error ? error.message : 'unknown'
   }));
+  process.exitCode = 1;
 });
