@@ -43,6 +43,7 @@ export class HolyricsHttpClient implements HolyricsApi {
   private readonly fetchImpl: typeof fetch;
   private session: HashSession | null = null;
   private authPromise: Promise<void> | null = null;
+  private requestQueue: Promise<void> = Promise.resolve();
 
   constructor(options: HolyricsHttpClientOptions) {
     if (!options.token.trim()) throw new Error('holyrics_token_required');
@@ -52,9 +53,21 @@ export class HolyricsHttpClient implements HolyricsApi {
     this.fetchImpl = options.fetchImpl || fetch;
   }
 
-  async request<T = unknown>(
+  request<T = unknown>(
     action: string,
     input: Record<string, unknown> = {}
+  ): Promise<T> {
+    const operation = this.requestQueue.then(() => this.performRequest<T>(action, input));
+    this.requestQueue = operation.then(
+      () => undefined,
+      () => undefined
+    );
+    return operation;
+  }
+
+  private async performRequest<T>(
+    action: string,
+    input: Record<string, unknown>
   ): Promise<T> {
     if (!/^[A-Za-z0-9_]+$/.test(action)) throw new Error('holyrics_invalid_action');
     await this.ensureAuthenticated();
