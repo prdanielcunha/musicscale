@@ -27,7 +27,7 @@ jobs:
           cache: npm
           cache-dependency-path: musicscale-live-bootstrap/package.json
       - name: Install
-        run: npm install --no-audit --no-fund
+        run: npm run setup
       - name: Typecheck
         run: npm run typecheck
       - name: Tests
