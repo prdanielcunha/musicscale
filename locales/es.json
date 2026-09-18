@@ -602,11 +602,55 @@
   },
   "technicalParts": {
     "button": "Partes",
-    "eyebrow": "Partes técnicas",
+    "eyebrow": "Partes de la canción",
     "part": "Parte",
-    "close": "Cerrar partes técnicas",
-    "original_fingering": "Digitación original",
-    "key_notice": "Esta parte técnica conserva la digitación original. La cifra actual puede estar en otro tono."
+    "close": "Cerrar partes de la canción",
+    "detected_count": "{{count}} partes detectadas",
+    "focus_detected_count": "{{focus}} de {{total}} partes para ti",
+    "assignment_focus": "Tu foco en esta escala",
+    "my_focus": "Mi foco",
+    "all_parts": "Todas",
+    "for_you_count": "{{count}} para ti",
+    "focus_badge_title": "{{focus}} de {{total}} partes coinciden con tu función en esta escala",
+    "original_fingering": "Digitación original preservada",
+    "key_notice": "La tablatura conserva su digitación original. La armonía puede cambiar de tono sin alterar los trastes de la tablatura.",
+    "ai_classified": "Clasificado por IA",
+    "before": "Antes",
+    "after": "Después",
+    "transpose_down": "Bajar 1 semitono",
+    "transpose_up": "Subir 1 semitono",
+    "reset_key": "Volver al tono original",
+    "key": "Tono",
+    "open_full_performance": "Abrir Performance completo",
+    "kind": {
+      "solo": "Solo",
+      "riff": "Riff",
+      "instrumental": "Instrumental",
+      "interlude": "Interludio",
+      "intro": "Introducción",
+      "outro": "Final",
+      "technical": "Parte técnica"
+    },
+    "instrument": {
+      "guitar": "Guitarra",
+      "acoustic_guitar": "Guitarra acústica",
+      "bass": "Bajo",
+      "keys": "Teclado",
+      "piano": "Piano",
+      "synth": "Synth",
+      "drums": "Batería",
+      "sax": "Sax",
+      "violin": "Violín",
+      "strings": "Cuerdas",
+      "other": "Otro instrumento",
+      "unknown": "Instrumento"
+    },
+    "format": {
+      "chords": "Acordes",
+      "tab": "Tablatura",
+      "mixed": "Acordes + tab",
+      "text": "Anotación"
+    }
   },
   "performance": {
     "double_tap_to_unlock": "Toca dos veces la pantalla para salir",
@@ -644,7 +688,11 @@
     "following_direction": "Siguiendo dirección",
     "free_navigation": "Libre",
     "follow_direction_hint": "Toque para navegar libremente sin salir de la sesión",
-    "free_direction_hint": "Toque para volver a la posición actual de la dirección"
+    "free_direction_hint": "Toque para volver a la posición actual de la dirección",
+    "my_focus": "Mi foco",
+    "all_sections": "Todas",
+    "your_part": "Tu parte",
+    "focus_for_assignment": "Partes relacionadas con tu función en esta escala: {{assignment}}"
   },
   "onboarding": {
     "breadcrumbs": "Repertorio · Evento · Equipo",
@@ -1755,7 +1803,9 @@
       "lyricsOnly": "Esta importación no tiene acordes.",
       "saveSong": "Guardar canción",
       "transposeSuccess": "Los acordes se actualizaron de {{from}} a {{to}}. {{count}} acordes fueron ajustados.",
-      "transposeSuccessOne": "Los acordes se actualizaron de {{from}} a {{to}}. 1 acorde fue ajustado."
+      "transposeSuccessOne": "Los acordes se actualizaron de {{from}} a {{to}}. 1 acorde fue ajustado.",
+      "partsLabel": "Partes:",
+      "partsDetected": "{{count}} partes detectadas"
     }
   },
   "profile": {

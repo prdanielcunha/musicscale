@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "motion/react";
 import Modal from "../common/Modal";
@@ -28,6 +28,7 @@ import { useMusicScaleFeature } from "../../hooks/useMusicScaleEntitlements";
 import { auth } from "../../services/firebase";
 import { FeatureLockedCard } from "../premium/EntitlementGates";
 import { transposeChordDocument, validateChordContentKeyConsistency, isValidKey, normalizeKey, areKeysEnharmonicallyEquivalent } from "../../utils/chordEngine";
+import { buildSongParts } from "./songParts";
 
 type AiPreviewKeyValidationStatus =
   | "MATCH"
@@ -127,6 +128,20 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
   const [duplicateInfo, setDuplicateInfo] = useState<{ songData: any, matches: DuplicateMatch[] } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { openSongForm } = useModals();
+
+  const previewParts = useMemo(
+    () =>
+      buildSongParts(
+        previewData
+          ? {
+              chords: previewData.chords || "",
+              tabs: previewData.tabs || [],
+              metadata: previewData.metadata || {},
+            }
+          : null,
+      ),
+    [previewData?.chords, previewData?.tabs, previewData?.metadata],
+  );
 
   useEffect(() => {
     if (previewData?.language) {
@@ -962,9 +977,15 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
                      placeholder={t("aiImport.versionPlaceholder", "Versão (Ex: Ao Vivo)")}
                    />
                  </div>
-                 <div className="flex justify-between items-center text-[11px] font-semibold text-slate-400 mt-2">
-                   <span>{t("aiImport.sectionsLabel", "Seções:")}</span>
-                   <span className="text-indigo-600 dark:text-indigo-400 font-bold">{previewData.sections?.length || 0}</span>
+                 <div className="space-y-1.5 mt-2">
+                   <div className="flex justify-between items-center text-[11px] font-semibold text-slate-400">
+                     <span>{t("aiImport.sectionsLabel", "Seções:")}</span>
+                     <span className="text-indigo-600 dark:text-indigo-400 font-bold">{previewData.sections?.length || 0}</span>
+                   </div>
+                   <div className="flex justify-between items-center text-[11px] font-semibold text-slate-400">
+                     <span>{t("aiImport.preview.partsLabel")}</span>
+                     <span className="text-violet-600 dark:text-violet-400 font-bold">{previewParts.length}</span>
+                   </div>
                  </div>
               </div>
            </div>
@@ -1007,20 +1028,33 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
                    </label>
                  )}
                  
-                 {previewData.tabs && previewData.tabs.length > 0 && (
-                   <div className="mt-4 border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
+                 {previewParts.length > 0 && (
+                   <div className="mt-4 border border-violet-200/70 dark:border-violet-400/10 rounded-xl overflow-hidden">
                       <details className="group">
-                        <summary className="flex items-center justify-between p-3 cursor-pointer bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
-                           <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                              <Music className="w-4 h-4" />
-                              Ver Tablaturas Detectadas ({previewData.tabs.length})
+                        <summary className="flex items-center justify-between p-3 cursor-pointer bg-violet-50/70 dark:bg-violet-400/[0.055] hover:bg-violet-100/70 dark:hover:bg-violet-400/[0.09] transition-colors">
+                           <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest flex items-center gap-2">
+                              <Music className="w-4 h-4 text-violet-500" />
+                              {t("aiImport.preview.partsDetected", { count: previewParts.length })}
                            </span>
                         </summary>
-                        <div className="p-4 bg-white dark:bg-black/20 space-y-4">
-                           {previewData.tabs.map((tab: any, i: number) => (
-                             <div key={i} className="space-y-1">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{tab.section}</span>
-                                <pre className="font-mono text-[10px] text-slate-600 dark:text-slate-400 overflow-x-auto bg-slate-50 dark:bg-white/5 p-2 rounded-lg">{tab.content}</pre>
+                        <div className="p-4 bg-white dark:bg-black/20 space-y-3">
+                           {previewParts.map((part) => (
+                             <div key={part.id} className="rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50/70 dark:bg-white/[0.025] p-3">
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
+                                  <span className="text-[10px] font-black text-slate-600 dark:text-slate-200 uppercase tracking-widest">{part.displayLabel}</span>
+                                  <span className="text-[9px] font-bold text-violet-600 dark:text-violet-300 uppercase tracking-wider">
+                                    {t(`technicalParts.kind.${part.kind}`)}
+                                  </span>
+                                  {part.instrument !== "unknown" && (
+                                    <span className="text-[9px] font-semibold text-slate-400">
+                                      {t(`technicalParts.instrument.${part.instrument}`)}
+                                    </span>
+                                  )}
+                                </div>
+                                <pre className="font-mono text-[10px] leading-relaxed text-slate-500 dark:text-slate-400 overflow-x-auto whitespace-pre">
+                                  {part.content.split("\n").slice(0, 8).join("\n")}
+                                  {part.content.split("\n").length > 8 ? "\n…" : ""}
+                                </pre>
                              </div>
                            ))}
                         </div>

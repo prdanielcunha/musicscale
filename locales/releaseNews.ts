@@ -63,6 +63,34 @@ export const releaseNewsTranslations = {
         ],
       },
     },
+    intelligentPartsBeta04: {
+      title: 'Cada músico agora enxerga o que realmente precisa tocar.',
+      description: 'O MusicScale ganhou Partes Inteligentes, foco pela função real da escala e navegação contextual dentro do Performance Mode.',
+      stageTools: {
+        title: 'Partes Inteligentes',
+        body: 'Solos, riffs, instrumentais e outras partes técnicas passam a nascer da própria cifra canônica, sem criar cópias separadas da música.',
+        how: 'Abra Partes na música para ver os trechos detectados, transpor conteúdo harmônico quando for seguro e manter tablaturas com a digitação original.',
+      },
+      deviceAudio: {
+        title: 'Meu Foco por escala',
+        body: 'O MusicScale usa a função atribuída naquele culto para priorizar as partes realmente relevantes para cada músico.',
+        how: 'Se você estiver escalado na guitarra, baixo, teclado ou outro instrumento compatível, Meu Foco aparece primeiro; Todas continua disponível a qualquer momento.',
+      },
+      updates: {
+        title: 'Performance contextual',
+        body: 'O Performance Mode agora destaca suas partes e permite saltar diretamente para elas sem esconder a cifra completa.',
+        how: 'Use Meu Foco no navegador de seções para ir aos seus trechos. Cabeçalhos personalizados seguros são reconhecidos sem confundir acordes ChordPro.',
+      },
+      refinements: {
+        summary: 'Leia mais — correções e refinamentos',
+        title: 'Correções e refinamentos',
+        items: [
+          { date: '18/09', text: 'Partes e Performance agora compartilham o mesmo parser canônico de seções.' },
+          { date: '18/09', text: 'Tablaturas preservam a digitação original e acordes continuam transponíveis quando apropriado.' },
+          { date: '18/09', text: 'Reconhecimento de seções recebeu proteção contra falsos positivos em ChordPro, tom, capo e marcadores numéricos.' },
+        ],
+      },
+    },
   },
   en: {
     label: 'What’s new',
@@ -128,6 +156,34 @@ export const releaseNewsTranslations = {
         ],
       },
     },
+    intelligentPartsBeta04: {
+      title: 'Every musician now sees what they actually need to play.',
+      description: 'MusicScale now brings Intelligent Parts, assignment-aware focus and contextual navigation directly into Performance Mode.',
+      stageTools: {
+        title: 'Intelligent Parts',
+        body: 'Solos, riffs, instrumentals and other technical parts are derived from the canonical chart instead of creating separate copies of the song.',
+        how: 'Open Parts on a song to review detected sections, transpose harmonic content when safe and keep tablature fingering exactly as written.',
+      },
+      deviceAudio: {
+        title: 'My Focus for each set',
+        body: 'MusicScale uses the role assigned for that specific service to prioritize the parts that matter to each musician.',
+        how: 'If you are assigned to guitar, bass, keys or another supported instrument, My Focus opens first; All remains available at any time.',
+      },
+      updates: {
+        title: 'Contextual Performance',
+        body: 'Performance Mode now highlights your parts and lets you jump directly to them without hiding the complete chart.',
+        how: 'Use My Focus in the section rail to jump to your sections. Safe custom headings are supported without mistaking ChordPro chords for sections.',
+      },
+      refinements: {
+        summary: 'Read more — fixes and refinements',
+        title: 'Fixes and refinements',
+        items: [
+          { date: 'Sep 18', text: 'Parts and Performance now share the same canonical section parser.' },
+          { date: 'Sep 18', text: 'Tablature keeps original fingering while harmonic content remains transposable when appropriate.' },
+          { date: 'Sep 18', text: 'Section recognition now guards against false positives from ChordPro, key, capo and numeric markers.' },
+        ],
+      },
+    },
   },
   es: {
     label: 'Novedades',
@@ -190,6 +246,34 @@ export const releaseNewsTranslations = {
           { date: '17/09', text: 'Se corrigieron el desbordamiento horizontal y las áreas de toque de Herramientas de Escenario en móviles.' },
           { date: '17/09', text: 'Las descargas de biblioteca y escalas comparten el mismo repertorio local con deduplicación por revisión.' },
           { date: '17/09', text: 'La caché sin conexión y los Pads personales quedan aislados por usuario, organización y dispositivo.' },
+        ],
+      },
+    },
+    intelligentPartsBeta04: {
+      title: 'Cada músico ahora ve lo que realmente necesita tocar.',
+      description: 'MusicScale incorpora Partes Inteligentes, foco según la función real de la escala y navegación contextual dentro del Modo Performance.',
+      stageTools: {
+        title: 'Partes Inteligentes',
+        body: 'Solos, riffs, instrumentales y otras partes técnicas nacen de la cifra canónica, sin crear copias separadas de la canción.',
+        how: 'Abre Partes en la canción para revisar los fragmentos detectados, transponer contenido armónico cuando sea seguro y conservar la digitación original de las tablaturas.',
+      },
+      deviceAudio: {
+        title: 'Mi Foco por escala',
+        body: 'MusicScale usa la función asignada en ese culto para priorizar las partes realmente relevantes para cada músico.',
+        how: 'Si estás asignado a guitarra, bajo, teclado u otro instrumento compatible, Mi Foco aparece primero; Todas sigue disponible en cualquier momento.',
+      },
+      updates: {
+        title: 'Performance contextual',
+        body: 'El Modo Performance ahora destaca tus partes y permite saltar directamente a ellas sin ocultar la cifra completa.',
+        how: 'Usa Mi Foco en el navegador de secciones para ir a tus fragmentos. Los encabezados personalizados seguros se reconocen sin confundir acordes ChordPro.',
+      },
+      refinements: {
+        summary: 'Leer más — correcciones y refinamientos',
+        title: 'Correcciones y refinamientos',
+        items: [
+          { date: '18/09', text: 'Partes y Performance ahora comparten el mismo parser canónico de secciones.' },
+          { date: '18/09', text: 'Las tablaturas conservan la digitación original y el contenido armónico sigue siendo transponible cuando corresponde.' },
+          { date: '18/09', text: 'El reconocimiento de secciones evita falsos positivos de ChordPro, tono, capo y marcadores numéricos.' },
         ],
       },
     },

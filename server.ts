@@ -48,6 +48,9 @@ import { requireEcosystemRole } from "./services/server/ecosystemAuth.js";
 import { writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
 import { createConnectNextScheduleReadHandler } from "./services/server/connect/nextScheduleReadHandler.js";
+import { createConnectNextScheduleRepertoireReadHandler } from "./services/server/connect/nextScheduleRepertoireReadHandler.js";
+import { createConnectNextSchedulePresenceReadHandler } from "./services/server/connect/nextSchedulePresenceReadHandler.js";
+import { createConnectNextScheduleChartReadHandler } from "./services/server/connect/nextScheduleChartReadHandler.js";
 import { createInvitationCompatibilityHandlers } from "./services/server/musicScaleInvitationCompatibility.js";
 import { createJoinRequestCompatibilityHandlers } from "./services/server/musicScaleJoinRequestCompatibility.js";
 import { createMemberRemovalCompatibilityHandler } from "./services/server/musicScaleMemberRemovalCompatibility.js";
@@ -204,6 +207,27 @@ const connectNextScheduleReadHandler = createConnectNextScheduleReadHandler({
   logger,
 });
 app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);
+
+const connectNextScheduleRepertoireReadHandler = createConnectNextScheduleRepertoireReadHandler({
+  db,
+  auth,
+  logger,
+});
+app.get("/api/v1/connect/next-schedule/repertoire", connectNextScheduleRepertoireReadHandler);
+
+const connectNextSchedulePresenceReadHandler = createConnectNextSchedulePresenceReadHandler({
+  db,
+  auth,
+  logger,
+});
+app.get("/api/v1/connect/next-schedule/presence", connectNextSchedulePresenceReadHandler);
+
+const connectNextScheduleChartReadHandler = createConnectNextScheduleChartReadHandler({
+  db,
+  auth,
+  logger,
+});
+app.get("/api/v1/connect/next-schedule/chart", connectNextScheduleChartReadHandler);
 
   app.post("/api/admin/backfill-global-titles", requireEcosystemRole, async (req: any, res: any) => {
     try {
@@ -2409,6 +2433,8 @@ REGRAS DE INTEGRIDADE:
 4. Não invente título, artista, tom, BPM, ritmo ou seção. Quando a evidência for insuficiente, retorne null/unknown e adicione um warning curto.
 5. Para originalKey, use somente um tom musical válido quando houver evidência clara no conteúdo. NÃO transponha acordes.
 6. Para sections, descreva apenas as seções que aparecem no documento e mantenha a ordem observada. Esse campo é apenas metadado; não controla o corpo da cifra.
+7. Para sectionAnnotations, use SOMENTE nomes de seção que existam literalmente no documento. Classifique partes instrumentais quando houver evidência: solo, riff, instrumental, interlude, intro, outro ou technical. Se a seção for vocal, use vocal. Se não souber, unknown. Nunca crie uma nova seção para explicar sua inferência.
+8. instrument é um vocabulário fechado: guitar, acoustic_guitar, bass, keys, piano, synth, drums, sax, violin, strings, other ou unknown. Não devolva nomes livres de instrumentos.
 
 POSSÍVEIS DADOS DE IDENTIFICAÇÃO DA FONTE:
 Título candidato: ${preProcessed?.title || "não identificado"}
@@ -2424,6 +2450,7 @@ ${textToProcess}
 RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
 {
   "sections": [{"name": "string", "type": "intro|verse|chorus|bridge|outro|unknown"}],
+  "sectionAnnotations": [{"section": "nome exato da seção", "type": "solo|riff|instrumental|interlude|intro|outro|technical|vocal|unknown", "instrument": "guitar|acoustic_guitar|bass|keys|piano|synth|drums|sax|violin|strings|other|unknown", "confidence": "high|medium|low"}],
   "language": "pt | en | es | unknown",
   "suggestedBpm": number | null,
   "suggestedRhythm": "string | null",
@@ -2471,6 +2498,114 @@ RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
 
         const parsedAiObj = JSON.parse(sanitizedJsonStr);
         logInfo("9_RESP_PARSING", "Gemini response parsed into JSON schema flawlessly");
+
+        const normalizeSectionIdentity = (value: string): string =>
+          value
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/[\[\]]/g, "")
+            .replace(/[_–—-]+/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+
+        const parserSections = Array.isArray(preProcessed?.sections)
+          ? preProcessed.sections.filter(
+              (section: unknown): section is string =>
+                typeof section === "string" && section.trim().length > 0,
+            )
+          : [];
+        const parserSectionLookup = new Map<string, string>(
+          parserSections.map(
+            (section: string): [string, string] => [
+              normalizeSectionIdentity(section),
+              section.trim(),
+            ],
+          ),
+        );
+        const allowedSectionAnnotationTypes = new Set([
+          "solo",
+          "riff",
+          "instrumental",
+          "interlude",
+          "intro",
+          "outro",
+          "technical",
+          "vocal",
+          "unknown",
+        ]);
+        const allowedSectionAnnotationInstruments = new Set([
+          "guitar",
+          "acoustic_guitar",
+          "bass",
+          "keys",
+          "piano",
+          "synth",
+          "drums",
+          "sax",
+          "violin",
+          "strings",
+          "other",
+          "unknown",
+        ]);
+        const allowedSectionAnnotationConfidence = new Set([
+          "high",
+          "medium",
+          "low",
+        ]);
+        const sectionAnnotations: Array<{
+          section: string;
+          type: string;
+          instrument: string;
+          confidence: string;
+        }> = [];
+
+        if (Array.isArray(parsedAiObj.sectionAnnotations)) {
+          for (const rawAnnotation of parsedAiObj.sectionAnnotations) {
+            if (
+              !rawAnnotation ||
+              typeof rawAnnotation !== "object" ||
+              Array.isArray(rawAnnotation)
+            ) {
+              continue;
+            }
+
+            const rawSection = rawAnnotation.section;
+            const section: string | undefined =
+              typeof rawSection === "string"
+                ? parserSectionLookup.get(
+                    normalizeSectionIdentity(rawSection),
+                  )
+                : undefined;
+            const rawType = rawAnnotation.type;
+            const rawInstrument = rawAnnotation.instrument;
+            const rawConfidence = rawAnnotation.confidence;
+            const type: string =
+              typeof rawType === "string" &&
+              allowedSectionAnnotationTypes.has(rawType)
+                ? rawType
+                : "unknown";
+            const instrument: string =
+              typeof rawInstrument === "string" &&
+              allowedSectionAnnotationInstruments.has(rawInstrument)
+                ? rawInstrument
+                : "unknown";
+            const confidence: string =
+              typeof rawConfidence === "string" &&
+              allowedSectionAnnotationConfidence.has(rawConfidence)
+                ? rawConfidence
+                : "low";
+
+            if (!section) continue;
+
+            sectionAnnotations.push({
+              section,
+              type,
+              instrument,
+              confidence,
+            });
+          }
+        }
 
         let finalBpm = null;
         let finalSuggestedBpm = null;
@@ -2561,7 +2696,10 @@ RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
               : []),
           language: parsedAiObj.language || "pt",
           tabs: preProcessed?.tabs || [],
-          metadata: preProcessed?.metadata || {}
+          metadata: {
+            ...(preProcessed?.metadata || {}),
+            ...(sectionAnnotations.length > 0 ? { sectionAnnotations } : {})
+          }
         };
         usedAi = true;
 

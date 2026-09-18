@@ -602,11 +602,55 @@
   },
   "technicalParts": {
     "button": "Parts",
-    "eyebrow": "Technical parts",
+    "eyebrow": "Song parts",
     "part": "Part",
-    "close": "Close technical parts",
-    "original_fingering": "Original fingering",
-    "key_notice": "This technical part preserves the original fingering. The current chord chart may be in another key."
+    "close": "Close song parts",
+    "detected_count": "{{count}} parts detected",
+    "focus_detected_count": "{{focus}} of {{total}} parts for you",
+    "assignment_focus": "Your focus for this set",
+    "my_focus": "My focus",
+    "all_parts": "All",
+    "for_you_count": "{{count}} for you",
+    "focus_badge_title": "{{focus}} of {{total}} parts match your assignment for this set",
+    "original_fingering": "Original fingering preserved",
+    "key_notice": "Tablature keeps its original fingering. Harmony can change key without changing tab fret positions.",
+    "ai_classified": "AI classified",
+    "before": "Before",
+    "after": "After",
+    "transpose_down": "Down 1 semitone",
+    "transpose_up": "Up 1 semitone",
+    "reset_key": "Reset original key",
+    "key": "Key",
+    "open_full_performance": "Open full Performance",
+    "kind": {
+      "solo": "Solo",
+      "riff": "Riff",
+      "instrumental": "Instrumental",
+      "interlude": "Interlude",
+      "intro": "Intro",
+      "outro": "Outro",
+      "technical": "Technical part"
+    },
+    "instrument": {
+      "guitar": "Guitar",
+      "acoustic_guitar": "Acoustic guitar",
+      "bass": "Bass",
+      "keys": "Keys",
+      "piano": "Piano",
+      "synth": "Synth",
+      "drums": "Drums",
+      "sax": "Sax",
+      "violin": "Violin",
+      "strings": "Strings",
+      "other": "Other instrument",
+      "unknown": "Instrument"
+    },
+    "format": {
+      "chords": "Chords",
+      "tab": "Tablature",
+      "mixed": "Chords + tab",
+      "text": "Note"
+    }
   },
   "performance": {
     "double_tap_to_unlock": "Double tap the screen to exit",
@@ -644,7 +688,11 @@
     "following_direction": "Following direction",
     "free_navigation": "Free",
     "follow_direction_hint": "Tap to browse freely without leaving the live session",
-    "free_direction_hint": "Tap to return to the current directed position"
+    "free_direction_hint": "Tap to return to the current directed position",
+    "my_focus": "My focus",
+    "all_sections": "All",
+    "your_part": "Your part",
+    "focus_for_assignment": "Parts related to your assignment in this set: {{assignment}}"
   },
   "onboarding": {
     "breadcrumbs": "Setlist · Event · Team",
@@ -1755,7 +1803,9 @@
       "lyricsOnly": "This import has no chords.",
       "saveSong": "Save song",
       "transposeSuccess": "The chords were updated from {{from}} to {{to}}. {{count}} chords were adjusted.",
-      "transposeSuccessOne": "The chords were updated from {{from}} to {{to}}. 1 chord was adjusted."
+      "transposeSuccessOne": "The chords were updated from {{from}} to {{to}}. 1 chord was adjusted.",
+      "partsLabel": "Parts:",
+      "partsDetected": "{{count}} parts detected"
     }
   },
   "profile": {

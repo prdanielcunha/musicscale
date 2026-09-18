@@ -9,7 +9,7 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import type { PopulatedSong, PopulatedScale } from "../../types";
+import type { PopulatedSong, PopulatedScale, ScaleSongNavigationContext } from "../../types";
 import { useApi } from "../../contexts/ApiContext";
 import { useMusic } from "../../contexts/MusicDataContext";
 import { useModals } from "../../contexts/ModalContext";
@@ -31,6 +31,7 @@ import { LyricsIcon } from "../icons/LyricsIcon";
 import WebViewerModal from "../common/WebViewerModal";
 import LyricsViewerModal from "./LyricsViewerModal";
 import TechnicalPartsModal from "./TechnicalPartsModal";
+import { buildSongParts, getFocusedSongParts } from "./songParts";
 import Metronome from "../common/Metronome";
 import { useToast } from "../../contexts/ToastContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -251,7 +252,7 @@ interface SongDetailModalProps {
   onEdit: (song: PopulatedSong) => void;
   onDelete: (song: PopulatedSong) => void;
   onCreateScale: (song: PopulatedSong) => void;
-  scaleContext: { scaleId?: string, songs: PopulatedSong[]; currentIndex: number } | null;
+  scaleContext: ScaleSongNavigationContext | null;
   onNavigate: (direction: "next" | "previous" | number) => void;
   startInPerformanceMode?: boolean;
   openMode?: "detail" | "lyrics" | "chords" | "performance";
@@ -316,6 +317,11 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
   const [isWebViewerOpen, setIsWebViewerOpen] = useState(false);
   const [isLyricsViewerOpen, setIsLyricsViewerOpen] = useState(false);
   const [isTechnicalPartsOpen, setIsTechnicalPartsOpen] = useState(false);
+  const songParts = useMemo(() => buildSongParts(song), [song]);
+  const focusedSongParts = useMemo(
+    () => getFocusedSongParts(songParts, scaleContext?.assignmentNames),
+    [songParts, scaleContext?.assignmentNames],
+  );
 
   // Sharing
   const shareRef = useRef<HTMLDivElement>(null);
@@ -632,7 +638,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
                           <LyricsIcon className="w-4 h-4 text-emerald-400" /> Letra
                        </button>
                     )}
-                    {(song.tabs || []).some((part) => part?.content?.trim()) && (
+                    {songParts.length > 0 && (
                        <button
                          onClick={() => setIsTechnicalPartsOpen(true)}
                          className="col-span-2 sm:col-span-1 h-12 rounded-[14px] bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] text-white font-semibold text-[14px] flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
@@ -640,7 +646,22 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-4 h-4 text-violet-300" aria-hidden>
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" d="M7 4v16M17 4v16M4 8h16M4 16h16M9.5 6l5 12" />
                           </svg>
-                          {t("technicalParts.button", "Partes")}
+                          {t("technicalParts.button")}
+                          <span
+                            className="min-w-5 h-5 px-1.5 rounded-full bg-violet-400/10 border border-violet-300/10 text-[10px] font-black text-violet-200/70 flex items-center justify-center"
+                            title={
+                              focusedSongParts.length > 0
+                                ? t("technicalParts.focus_badge_title", {
+                                    focus: focusedSongParts.length,
+                                    total: songParts.length,
+                                  })
+                                : undefined
+                            }
+                          >
+                            {focusedSongParts.length > 0
+                              ? `${focusedSongParts.length}/${songParts.length}`
+                              : songParts.length}
+                          </span>
                        </button>
                     )}
                  </div>
@@ -809,6 +830,12 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
         isOpen={isTechnicalPartsOpen}
         onClose={() => setIsTechnicalPartsOpen(false)}
         song={song}
+        focusAssignmentNames={scaleContext?.assignmentNames}
+        onOpenPerformance={() => {
+          setIsTechnicalPartsOpen(false);
+          setPerformanceStartTime(Date.now());
+          setIsChordsViewerOpen(true);
+        }}
       />
 
       {song.chordsUrl && !song.chords && (

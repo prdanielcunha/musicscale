@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, ReactNode, useCallback, use
 import { useTranslation } from 'react-i18next';
 import { useToast } from './ToastContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import type { PopulatedSong, Song, Scale, PopulatedScale, BandScale, PopulatedBandScale, MusicScalePublishPayload, MusicScalePublishPatch, ChordKeyRepairDraftSong } from '../types';
+import type { PopulatedSong, Song, Scale, PopulatedScale, BandScale, PopulatedBandScale, MusicScalePublishPayload, MusicScalePublishPatch, ChordKeyRepairDraftSong, ScaleSongNavigationContext } from '../types';
 
 export type ChordKeyRepairState =
   | {
@@ -109,7 +109,7 @@ export type SongOpenMode = 'detail' | 'lyrics' | 'chords' | 'performance';
 
 export interface OpenSongDetailOptions {
   keepCurrentOpen?: boolean;
-  scaleContext?: { scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null;
+  scaleContext?: ScaleSongNavigationContext | null;
   mode?: SongOpenMode;
 }
 
@@ -128,7 +128,7 @@ interface ModalContextType {
   openSongDetail: (
     song: PopulatedSong,
     options?: OpenSongDetailOptions | boolean,
-    scaleContext?: {  scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null,
+    scaleContext?: ScaleSongNavigationContext | null,
     startInPerformanceMode?: boolean
   ) => void;
   openDeleteSongConfirmation: (song: PopulatedSong) => void;
@@ -279,7 +279,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [linkingOptions, setLinkingOptions] = useState<{ linkToMusicScaleId: string } | null>(null);
 
   // In-modal navigation state
-  const [scaleNavigationContext, setScaleNavigationContext] = useState<{ scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null>(null);
+  const [scaleNavigationContext, setScaleNavigationContext] = useState<ScaleSongNavigationContext | null>(null);
 
 
   // Chord Modals State
@@ -407,7 +407,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const openSongDetail = useCallback((
     song: PopulatedSong,
     options?: OpenSongDetailOptions | boolean,
-    scaleContext: { scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null = null,
+    scaleContext: ScaleSongNavigationContext | null = null,
     startInPerformanceMode = false
   ) => {
     let keepCurrentOpen = false;
@@ -1005,7 +1005,11 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (newIndex >= 0 && newIndex < songs.length) {
         const newSong = songs[newIndex];
         setSongToView(newSong);
-        setScaleNavigationContext({ songs, currentIndex: newIndex });
+        setScaleNavigationContext({
+          ...scaleNavigationContext,
+          songs,
+          currentIndex: newIndex,
+        });
     }
   }, [scaleNavigationContext]);
 

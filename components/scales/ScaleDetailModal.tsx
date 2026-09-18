@@ -10,6 +10,7 @@ import type {
   Scale,
   BandScale,
   PopulatedSong,
+  ScaleSongNavigationContext,
 } from "../../types";
 import Modal from "../common/Modal";
 import Button from "../common/Button";
@@ -43,6 +44,7 @@ import { resolveScaleDurationMinutes } from "../../utils/calendar";
 import { getScaleTitle } from "../../utils/scaleHelper";
 import AssignmentResponseActions from "./AssignmentResponseActions";
 import TeamStatusSummary from "./TeamStatusSummary";
+import { countFocusedSongParts } from "../songs/songParts";
 
 const EditIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg
@@ -210,7 +212,7 @@ interface ScaleDetailModalProps {
   openSongDetail: (
     song: PopulatedSong,
     keepCurrentOpen?: boolean,
-    scaleContext?: { scaleId?: string, songs: PopulatedSong[]; currentIndex: number } | null,
+    scaleContext?: ScaleSongNavigationContext | null,
     startInPerformanceMode?: boolean,
   ) => void;
   openBandScaleForm: (
@@ -356,6 +358,44 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
   const { t } = useTranslation();
   const { populatedBandScales, populatedScales, refreshData, songs: librarySongs } = useMusic();
   const api = useApi();
+
+  const currentAssignmentNames = useMemo(() => {
+    if (!scale || !isMusicScale(scale) || !user?.uid) return [];
+
+    const linkedBandScale =
+      scale.bandScale ||
+      populatedBandScales.find((bandScale) => bandScale.id === scale.bandScaleId) ||
+      null;
+
+    const canonicalAssignmentNames = (scale.eventAssignments || [])
+      .filter(
+        (assignment) =>
+          assignment.active !== false && assignment.userId === user.uid,
+      )
+      .map((assignment) => assignment.functionName?.trim())
+      .filter((name): name is string => Boolean(name));
+
+    const linkedAssignmentNames = (linkedBandScale?.assignments || [])
+      .filter((assignment) => assignment.user?.uid === user.uid)
+      .map((assignment) => assignment.instrument?.name?.trim())
+      .filter((name): name is string => Boolean(name));
+
+    return Array.from(
+      new Set([...canonicalAssignmentNames, ...linkedAssignmentNames]),
+    );
+  }, [scale, populatedBandScales, user?.uid]);
+
+  const buildSongScaleContext = (
+    songs: PopulatedSong[],
+    currentIndex: number,
+  ): ScaleSongNavigationContext => ({
+    scaleId: scale && isMusicScale(scale) ? scale.id : undefined,
+    songs,
+    currentIndex,
+    ...(currentAssignmentNames.length > 0
+      ? { assignmentNames: currentAssignmentNames }
+      : {}),
+  });
 
   const shareRef = useRef<HTMLDivElement>(null);
   const [isSharing, setIsSharing] = useState(false);
@@ -718,7 +758,7 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
                      </div>
                      <div className="flex items-center gap-3">
                         {scale.songs.length > 0 && (
-                          <button onClick={() => openSongDetail(scale.songs[0], true, { songs: scale.songs, currentIndex: 0, scaleId: scale.id }, true)} className="h-9 md:h-10 px-5 md:px-6 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white text-[13px] md:text-[14px] font-bold transition-all hover:scale-105 active:scale-95 flex items-center gap-2 shadow-[0_4px_12px_rgba(99,102,241,0.3)] hover:shadow-[0_6px_20px_rgba(99,102,241,0.4)]">
+                          <button onClick={() => openSongDetail(scale.songs[0], true, buildSongScaleContext(scale.songs, 0), true)} className="h-9 md:h-10 px-5 md:px-6 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white text-[13px] md:text-[14px] font-bold transition-all hover:scale-105 active:scale-95 flex items-center gap-2 shadow-[0_4px_12px_rgba(99,102,241,0.3)] hover:shadow-[0_6px_20px_rgba(99,102,241,0.4)]">
                              <svg className="w-4 h-4 md:w-5 md:h-5 opacity-90" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                              Modo Performance
                           </button>
@@ -733,6 +773,10 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
                              {localSongs.map((song, index) => {
                                 const hasLyrics = !!song.lyrics?.trim();
                                 const hasChords = !!song.chords?.trim();
+                                const focusedPartCount = countFocusedSongParts(
+                                  song,
+                                  currentAssignmentNames,
+                                );
                                 
                                 let contentStatus = { label: "INCOMPLETA", color: "text-slate-500 bg-slate-100 dark:bg-white/5 dark:text-slate-400" };
                                 if (hasLyrics && hasChords) contentStatus = { label: "COMPLETA", color: "text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-500/20 shadow-sm" };
@@ -741,7 +785,7 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
 
                                 return (
                                 <div key={song.id} data-testid={`detail-song-card-${song.id}`} className="group relative flex items-center justify-between p-4 rounded-[20px] bg-[#121318]/50 border border-white/[0.04] hover:bg-[#1A1C23] hover:border-white/[0.08] transition-all backdrop-blur-xl shadow-sm">
-                                   <div className="flex items-center gap-4 md:gap-5 overflow-hidden flex-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); openSongDetail(song, true, { songs: localSongs, currentIndex: index, scaleId: scale.id }) }}>
+                                   <div className="flex items-center gap-4 md:gap-5 overflow-hidden flex-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); openSongDetail(song, true, buildSongScaleContext(localSongs, index)) }}>
                                      
                                      <div className="relative w-10 h-10 rounded-full bg-[#1A1D24] shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-white/[0.03] flex items-center justify-center shrink-0 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-all">
                                         <span className="text-[13px] font-bold text-white/40 group-hover:text-indigo-400 transition-colors font-mono">{index + 1}</span>
@@ -753,6 +797,11 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
                                            <span className={`px-2 py-0.5 inline-flex text-[9px] tracking-widest uppercase font-extrabold rounded-md border ${contentStatus.color}`}>
                                               {contentStatus.label}
                                            </span>
+                                           {focusedPartCount > 0 && (
+                                             <span className="px-2 py-0.5 inline-flex text-[9px] tracking-wider font-bold rounded-md border border-violet-400/15 bg-violet-400/[0.08] text-violet-200/80">
+                                               {t("technicalParts.for_you_count", { count: focusedPartCount })}
+                                             </span>
+                                           )}
                                         </div>
                                         <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1">
                                            {song.artist && <p className="text-[13px] font-medium text-white/40 truncate max-w-[120px] md:max-w-[200px]">{song.artist}</p>}
