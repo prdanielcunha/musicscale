@@ -19,6 +19,7 @@ import {
 } from "../../utils/chordEngine";
 import {
   buildSongParts,
+  getFocusedSongParts,
   type SongPart,
   type SongPartInstrument,
   type SongPartKind,
@@ -28,6 +29,7 @@ interface TechnicalPartsModalProps {
   isOpen: boolean;
   onClose: () => void;
   song: PopulatedSong | null;
+  focusAssignmentNames?: string[];
   onOpenPerformance?: () => void;
 }
 
@@ -60,20 +62,47 @@ const TechnicalPartsModal: React.FC<TechnicalPartsModalProps> = ({
   isOpen,
   onClose,
   song,
+  focusAssignmentNames,
   onOpenPerformance,
 }) => {
   const { t } = useTranslation();
   const parts = useMemo(() => buildSongParts(song), [song]);
+  const focusedParts = useMemo(
+    () => getFocusedSongParts(parts, focusAssignmentNames),
+    [parts, focusAssignmentNames],
+  );
+  const [focusMode, setFocusMode] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
   const [transpose, setTranspose] = useState(0);
 
-  const safeIndex = activeIndex < parts.length ? activeIndex : 0;
-  const activePart: SongPart | undefined = parts[safeIndex];
+  const hasPersonalFocus = focusedParts.length > 0;
+  const visibleParts =
+    focusMode && hasPersonalFocus ? focusedParts : parts;
+  const safeIndex = activeIndex < visibleParts.length ? activeIndex : 0;
+  const activePart: SongPart | undefined = visibleParts[safeIndex];
+
+  const assignmentLabel = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (focusAssignmentNames || [])
+            .map((name) => name.trim())
+            .filter(Boolean),
+        ),
+      ).join(" · "),
+    [focusAssignmentNames],
+  );
+
+  useEffect(() => {
+    setFocusMode(true);
+    setActiveIndex(0);
+    setTranspose(0);
+  }, [song?.id, assignmentLabel]);
 
   useEffect(() => {
     setActiveIndex(0);
     setTranspose(0);
-  }, [song?.id]);
+  }, [focusMode]);
 
   useEffect(() => {
     setTranspose(0);
@@ -172,7 +201,12 @@ const TechnicalPartsModal: React.FC<TechnicalPartsModalProps> = ({
                 {song.title}
               </h2>
               <p className="text-[11px] md:text-xs text-white/40 truncate mt-0.5">
-                {t("technicalParts.detected_count", { count: parts.length })}
+                {hasPersonalFocus
+                  ? t("technicalParts.focus_detected_count", {
+                      focus: focusedParts.length,
+                      total: parts.length,
+                    })
+                  : t("technicalParts.detected_count", { count: parts.length })}
               </p>
             </div>
 
@@ -181,8 +215,49 @@ const TechnicalPartsModal: React.FC<TechnicalPartsModalProps> = ({
 
           <div className="relative z-10 flex-1 overflow-hidden flex flex-col">
             <div className="flex-none px-4 md:px-7 pt-5 pb-3">
-              <div className="max-w-5xl mx-auto flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-                {parts.map((part, index) => (
+              <div className="max-w-5xl mx-auto">
+                {hasPersonalFocus && (
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-200/60">
+                        {t("technicalParts.assignment_focus")}
+                      </p>
+                      {assignmentLabel && (
+                        <p className="mt-0.5 text-[11px] text-white/30 truncate">
+                          {assignmentLabel}
+                        </p>
+                      )}
+                    </div>
+                    {focusedParts.length < parts.length && (
+                      <div className="inline-flex rounded-full border border-white/[0.07] bg-white/[0.025] p-1">
+                        <button
+                          type="button"
+                          onClick={() => setFocusMode(true)}
+                          className={`h-8 px-3 rounded-full text-[10px] font-bold uppercase tracking-[0.1em] transition-all ${
+                            focusMode
+                              ? "bg-white text-black"
+                              : "text-white/40 hover:text-white/75"
+                          }`}
+                        >
+                          {t("technicalParts.my_focus")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFocusMode(false)}
+                          className={`h-8 px-3 rounded-full text-[10px] font-bold uppercase tracking-[0.1em] transition-all ${
+                            !focusMode
+                              ? "bg-white text-black"
+                              : "text-white/40 hover:text-white/75"
+                          }`}
+                        >
+                          {t("technicalParts.all_parts")}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                {visibleParts.map((part, index) => (
                   <button
                     type="button"
                     key={part.id}
@@ -196,6 +271,7 @@ const TechnicalPartsModal: React.FC<TechnicalPartsModalProps> = ({
                     {part.displayLabel}
                   </button>
                 ))}
+                </div>
               </div>
             </div>
 
