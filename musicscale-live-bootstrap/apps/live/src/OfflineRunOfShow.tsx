@@ -60,7 +60,10 @@ export function OfflineRunOfShow({
           return (
             <button
               key={item.id}
-              className={controller.nodeState?.state.activeServiceItemId === item.id ? 'active' : ''}
+              className={[
+                controller.nodeState?.state.activeServiceItemId === item.id ? 'active' : '',
+                `item-${item.state}`
+              ].filter(Boolean).join(' ')}
               disabled={item.type !== 'song' || !link || busyItemId !== null}
               onClick={() => void present(item.id, item.providerLinkId)}
             >
@@ -72,7 +75,15 @@ export function OfflineRunOfShow({
                   {item.payload?.key ? ` · ${item.payload.key}` : ''}
                 </small>
               </span>
-              <em>{link ? t('offlineRun.ready') : t('offlineRun.notLinked')}</em>
+              <em>
+                {item.state === 'completed'
+                  ? t('offlineRun.completed')
+                  : item.state === 'live'
+                    ? t('offlineRun.live')
+                    : link
+                      ? t('offlineRun.ready')
+                      : t('offlineRun.notLinked')}
+              </em>
             </button>
           );
         })}
