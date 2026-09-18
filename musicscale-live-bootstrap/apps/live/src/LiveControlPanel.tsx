@@ -41,6 +41,16 @@ function getSongResults(results: CommandResult[]): SearchSongResult[] {
     .slice(0, 12);
 }
 
+function getPresentationFromResults(results: CommandResult[]): Record<string, unknown> | null {
+  for (const result of results) {
+    const value = result.observedState?.currentPresentation;
+    if (value && typeof value === 'object') {
+      return value as Record<string, unknown>;
+    }
+  }
+  return null;
+}
+
 function getMediaResults(results: CommandResult[]): SearchMediaResult[] {
   return results
     .flatMap(result => {
@@ -79,6 +89,7 @@ export function LiveControlPanel({
   const [mediaQuery, setMediaQuery] = useState('');
   const [mediaResults, setMediaResults] = useState<SearchMediaResult[]>([]);
   const [stageText, setStageText] = useState('');
+  const [previewPresentation, setPreviewPresentation] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [clearArmed, setClearArmed] = useState(false);
@@ -137,6 +148,19 @@ export function LiveControlPanel({
     } finally {
       setBusy(null);
     }
+  }
+
+  async function refreshPresentationPreview() {
+    if (!can('presentation.preview')) return;
+    const results = await run('presentation-preview', 'presentation.preview', {});
+    setPreviewPresentation(getPresentationFromResults(results));
+  }
+
+  async function navigatePresentation(action: 'next' | 'previous') {
+    if (!can('presentation.navigation')) return;
+    const results = await run(action, 'presentation.navigation', { action });
+    const presentation = getPresentationFromResults(results);
+    if (presentation) setPreviewPresentation(presentation);
   }
 
   async function searchSongs() {
@@ -206,11 +230,23 @@ export function LiveControlPanel({
     void run('clear', 'presentation.clear', {}, 'guarded');
   }
 
-  const slideNumber = Number(currentPresentation?.slide_number);
-  const totalSlides = Number(currentPresentation?.total_slides);
+  const effectivePresentation = previewPresentation || currentPresentation;
+  const slideNumber = Number(effectivePresentation?.slide_number);
+  const totalSlides = Number(effectivePresentation?.total_slides);
   const presentationName =
-    String(currentPresentation?.name || currentPresentation?.title || '') ||
+    String(effectivePresentation?.name || effectivePresentation?.title || '') ||
     t('liveControls.noPresentation');
+  const slides = Array.isArray(effectivePresentation?.slides)
+    ? effectivePresentation.slides as Array<Record<string, unknown>>
+    : [];
+  const currentSlide = Number.isFinite(slideNumber) && slideNumber > 0
+    ? slides[slideNumber - 1]
+    : undefined;
+  const nextSlide = Number.isFinite(slideNumber) && slideNumber > 0
+    ? slides[slideNumber]
+    : undefined;
+  const currentSlideText = currentSlide?.text ? String(currentSlide.text) : '';
+  const nextSlideText = nextSlide?.text ? String(nextSlide.text) : '';
 
   return (
     <section className="live-control-panel">
@@ -229,26 +265,48 @@ export function LiveControlPanel({
         <article className="operator-card program-card">
           <div className="operator-card-head">
             <span>{t('liveControls.program')}</span>
-            {Number.isFinite(slideNumber) && Number.isFinite(totalSlides) && (
-              <small>{slideNumber}/{totalSlides}</small>
-            )}
+            <div className="program-head-actions">
+              {can('presentation.preview') && (
+                <button
+                  onClick={() => void refreshPresentationPreview()}
+                  disabled={busy !== null}
+                >
+                  {t('liveControls.refreshPreview')}
+                </button>
+              )}
+              {Number.isFinite(slideNumber) && Number.isFinite(totalSlides) && (
+                <small>{slideNumber}/{totalSlides}</small>
+              )}
+            </div>
           </div>
           <div className="program-state">
             <small>{String(currentPresentation?.type || t('liveControls.waiting')).toUpperCase()}</small>
             <strong>{presentationName}</strong>
             <span>{t('liveControls.observedState')}</span>
           </div>
+          {(currentSlideText || nextSlideText) && (
+            <div className="slide-context-grid">
+              <div>
+                <small>{t('liveControls.currentSlide')}</small>
+                <p>{currentSlideText || '—'}</p>
+              </div>
+              <div>
+                <small>{t('liveControls.nextSlide')}</small>
+                <p>{nextSlideText || '—'}</p>
+              </div>
+            </div>
+          )}
           <div className="transport-controls">
             <button
               disabled={!can('presentation.navigation') || busy !== null}
-              onClick={() => void run('previous', 'presentation.navigation', { action: 'previous' })}
+              onClick={() => void navigatePresentation('previous')}
             >
               ← {t('liveControls.previous')}
             </button>
             <button
               className="take-button"
               disabled={!can('presentation.navigation') || busy !== null}
-              onClick={() => void run('next', 'presentation.navigation', { action: 'next' })}
+              onClick={() => void navigatePresentation('next')}
             >
               {busy === 'next' ? '…' : t('liveControls.next')} →
             </button>
