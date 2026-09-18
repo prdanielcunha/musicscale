@@ -668,7 +668,7 @@ async function start(): Promise<void> {
     }
 
     if (req.method === 'GET' && url.pathname === '/health') {
-      const providerSnapshot = await capabilityEngine.snapshot();
+      const providerSnapshot = capabilityEngine.quickSnapshot();
       return send(res, 200, {
         product: 'MusicScale Live Node',
         version: VERSION,
