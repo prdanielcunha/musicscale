@@ -123,6 +123,9 @@ export function LiveControlPanel({
   const previewRequestSignature = useRef<string>('');
 
   const providers = controller.nodeState?.providers || [];
+  const servicePlan = controller.nodeState?.state.servicePlan || null;
+  const providerLinks = controller.nodeState?.state.providerLinks || [];
+  const activeServiceItemId = controller.nodeState?.state.activeServiceItemId || null;
   const capabilitySet = useMemo(
     () => new Set(
       providers
@@ -131,6 +134,27 @@ export function LiveControlPanel({
     ),
     [providers]
   );
+
+  const serviceHorizon = useMemo(() => {
+    if (!servicePlan?.items.length) {
+      return {
+        current: null,
+        next: null,
+        activeIndex: -1
+      };
+    }
+
+    const activeIndex = activeServiceItemId
+      ? servicePlan.items.findIndex(item => item.id === activeServiceItemId)
+      : servicePlan.items.findIndex(item => item.state === 'live');
+
+    const current = activeIndex >= 0 ? servicePlan.items[activeIndex] : null;
+    const next =
+      servicePlan.items[activeIndex >= 0 ? activeIndex + 1 : 0] ||
+      null;
+
+    return { current, next, activeIndex };
+  }, [activeServiceItemId, servicePlan]);
 
   const currentPresentation = useMemo(() => {
     for (const provider of providers) {
@@ -197,7 +221,8 @@ export function LiveControlPanel({
     key: string,
     capability: Capability,
     payload: Record<string, unknown>,
-    safetyLevel: 'normal' | 'guarded' = 'normal'
+    safetyLevel: 'normal' | 'guarded' = 'normal',
+    serviceItemId?: string
   ): Promise<CommandResult[]> {
     setBusy(key);
     setMessage(null);
@@ -206,6 +231,7 @@ export function LiveControlPanel({
         capability,
         payload,
         liveSessionId,
+        serviceItemId,
         actorId,
         safetyLevel
       });
@@ -242,6 +268,21 @@ export function LiveControlPanel({
     const results = await run(action, 'presentation.navigation', { action });
     const presentation = getPresentationFromResults(results);
     if (presentation) setPreviewPresentation(presentation);
+  }
+
+  async function advanceServiceItem() {
+    const item = serviceHorizon.next;
+    if (!item || item.type !== 'song' || !item.providerLinkId) return;
+    const link = providerLinks.find(candidate => candidate.id === item.providerLinkId);
+    if (!link) return;
+
+    await run(
+      `service-item:${item.id}`,
+      'songs.present',
+      { id: link.externalId },
+      'normal',
+      item.id
+    );
   }
 
   async function searchSongs() {
@@ -468,6 +509,39 @@ export function LiveControlPanel({
             </button>
           </div>
         </article>
+
+
+        {servicePlan && (serviceHorizon.current || serviceHorizon.next) && (
+          <div className="service-horizon">
+            <div className="service-horizon-label">
+              <small>{t('liveControls.serviceHorizon')}</small>
+              <strong>{servicePlan.title}</strong>
+            </div>
+            <div className="service-horizon-item current">
+              <small>{t('liveControls.currentItem')}</small>
+              <strong>{serviceHorizon.current?.title || t('liveControls.waiting')}</strong>
+              <span>{serviceHorizon.current?.type || '—'}</span>
+            </div>
+            <div className="service-horizon-arrow" aria-hidden="true">→</div>
+            <div className="service-horizon-item next">
+              <small>{t('liveControls.nextItem')}</small>
+              <strong>{serviceHorizon.next?.title || t('liveControls.endOfService')}</strong>
+              <span>{serviceHorizon.next?.type || '—'}</span>
+            </div>
+            <button
+              className="service-horizon-take"
+              disabled={
+                !serviceHorizon.next ||
+                serviceHorizon.next.type !== 'song' ||
+                !serviceHorizon.next.providerLinkId ||
+                busy !== null
+              }
+              onClick={() => void advanceServiceItem()}
+            >
+              {t('liveControls.advanceItem')} →
+            </button>
+          </div>
+        )}
 
         <div className="live-tool-dock" role="tablist" aria-label={t('liveControls.tools')}>
           {(['song','bible','media','stage'] as ToolMode[]).map(mode => (
