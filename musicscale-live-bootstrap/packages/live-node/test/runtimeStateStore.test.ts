@@ -21,6 +21,26 @@ describe('RuntimeStateStore', () => {
     expect(restored.activeServiceItemId).toBe('item_7');
     expect(restored.revision).toBe(2);
   });
+  it('serializes concurrent patches without losing revision or state', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'ms-live-state-'));
+    const path = join(dir, 'runtime.json');
+    const store = new RuntimeStateStore(path, 'node_1');
+
+    const [a, b, c] = await Promise.all([
+      store.patch({ activeLiveSessionId: 'session_parallel' }),
+      store.patch({ activeServiceItemId: 'item_parallel' }),
+      store.patch({ providerObservedState: { visual: { clip: 'A' } } })
+    ]);
+
+    expect([a.revision, b.revision, c.revision].sort((x, y) => x - y)).toEqual([1, 2, 3]);
+
+    const restored = await new RuntimeStateStore(path, 'node_1').load();
+    expect(restored.revision).toBe(3);
+    expect(restored.activeLiveSessionId).toBe('session_parallel');
+    expect(restored.activeServiceItemId).toBe('item_parallel');
+    expect(restored.providerObservedState.visual).toEqual({ clip: 'A' });
+  });
+
   it('persists cached service plans and provider links for recovery', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'ms-live-state-'));
     const path = join(dir, 'runtime.json');
