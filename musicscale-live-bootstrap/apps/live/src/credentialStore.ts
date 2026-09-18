@@ -1,7 +1,8 @@
-import type { PairingBinding } from '@musicscale-live/domain';
+import type { LiveNodeTransportKind, PairingBinding } from '@musicscale-live/domain';
 
 export interface StoredLiveNodeCredential {
   baseUrl: string;
+  transportKind?: LiveNodeTransportKind;
   token: string;
   binding: PairingBinding;
 }
