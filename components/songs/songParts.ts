@@ -134,9 +134,16 @@ const inferInstrumentFromLabel = (label: string): SongPartInstrument => {
   return "unknown";
 };
 
-const detectFormat = (content: string): SongPartFormat => {
+const classifyPartContent = (content: string) => {
   const lines = content.replace(/\r/g, "").split("\n");
-  const classified = lines.map((line, index) => classifyLine(line, index, lines));
+  return lines.map((line, index) => classifyLine(line, index, lines));
+};
+
+const contentContainsTablature = (content: string): boolean =>
+  classifyPartContent(content).some((line) => line.type === LineType.TAB_LINE);
+
+const detectFormat = (content: string): SongPartFormat => {
+  const classified = classifyPartContent(content);
 
   const hasTab = classified.some((line) => line.type === LineType.TAB_LINE);
   const hasChord = classified.some(
@@ -341,7 +348,7 @@ export const buildSongParts = (song: SongPartsSource | null | undefined): SongPa
       format: part.format,
       content: part.content,
       source: "chart",
-      preservesFingering: part.format === "tab" || part.format === "mixed",
+      preservesFingering: contentContainsTablature(part.content),
       occurrence,
       totalOccurrences,
       sectionIndex: part.sectionIndex,
