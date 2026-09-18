@@ -907,10 +907,18 @@ async function start(): Promise<void> {
     if (req.method === 'GET' && url.pathname === '/state') {
       const session = await authorize(req);
       if (!session) return send(res, 401, { error: 'unauthorized' });
+      const state = await runtimeState.load();
+      const providers = capabilityEngine.quickSnapshot().map(provider => ({
+        ...provider,
+        observed:
+          state.providerObservedState[provider.providerId] ||
+          provider.observed ||
+          {}
+      }));
       return send(res, 200, {
         nodeId,
-        state: await runtimeState.load(),
-        providers: capabilityEngine.quickSnapshot()
+        state,
+        providers
       });
     }
 
