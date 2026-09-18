@@ -13,6 +13,7 @@ import { LiveCueCoordinatorProvider } from './LiveCueCoordinator';
 import { detectSameOriginLiveNode } from './liveNodeClient';
 import { markLiveMetric } from './telemetry';
 import { useLiveNode } from './useLiveNode';
+import { useLiveFocus } from './useLiveFocus';
 
 type Surface = 'live' | 'studio' | 'pastor' | 'conductor';
 
@@ -26,6 +27,7 @@ export function App() {
   const [localNodeDetectionDone, setLocalNodeDetectionDone] = useState(false);
   const [surface, setSurface] = useState<Surface>('studio');
   const liveNode = useLiveNode();
+  const liveFocus = useLiveFocus(surface === 'live');
 
   useEffect(() => {
     let cancelled = false;
@@ -100,7 +102,11 @@ export function App() {
   const providersConnected = (liveNode.health?.providersOnline ?? 0) > 0;
 
   return (
-    <div className="app-shell">
+    <div className={[
+      'app-shell',
+      surface === 'live' ? 'live-surface' : '',
+      liveFocus.fullscreen ? 'live-focus-mode' : ''
+    ].filter(Boolean).join(' ')}>
       <header className="topbar">
         <div>
           <div className="brand-kicker">MUSICSCALE / LIVE</div>
@@ -147,6 +153,22 @@ export function App() {
               <span className="ok">
                 <b />{t('liveWorkspace.lanPath')}
               </span>
+              {liveFocus.wakeSupported && (
+                <span className={liveFocus.wakeActive ? 'ok' : 'warn'}>
+                  <b />{liveFocus.wakeActive
+                    ? t('liveWorkspace.screenAwake')
+                    : t('liveWorkspace.wakeUnavailable')}
+                </span>
+              )}
+              <button
+                className="live-focus-button"
+                type="button"
+                onClick={() => void liveFocus.toggleFullscreen()}
+              >
+                {liveFocus.fullscreen
+                  ? t('liveWorkspace.exitFullscreen')
+                  : t('liveWorkspace.fullscreen')}
+              </button>
             </div>
           </section>
         ) : (
