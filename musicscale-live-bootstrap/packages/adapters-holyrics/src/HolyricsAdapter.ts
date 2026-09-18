@@ -36,6 +36,8 @@ const ACTIONS_BY_CAPABILITY: Partial<Record<Capability, string[]>> = {
   'songs.present': ['ShowLyrics'],
   'playlist.write': ['AddLyricsToPlaylist'],
   'playlist.sync': ['GetLyricsPlaylist', 'RemoveFromLyricsPlaylist', 'AddLyricsToPlaylist'],
+  'media.search': ['GetAudios', 'GetVideos', 'GetImages'],
+  'media.open': ['PlayAudio', 'PlayVideo', 'ShowImage'],
   'preview.snapshot': ['GetCurrentPresentation'],
   'stage.message': ['SetTextCommunicationPanel']
 };
@@ -337,11 +339,65 @@ export class HolyricsAdapter implements ProviderAdapter {
         return { biblePresentationRequested: input };
       }
 
+      case 'media.search': {
+        const kind = String(payload.kind || 'video');
+        const action =
+          kind === 'audio' ? 'GetAudios' :
+          kind === 'image' ? 'GetImages' :
+          kind === 'video' ? 'GetVideos' :
+          null;
+        if (!action) throw new Error('unsupported_media_kind');
+
+        const results = await this.api.request<unknown[]>(action, {
+          folder: payload.folder ? String(payload.folder) : undefined,
+          filter: payload.filter ? String(payload.filter) : undefined,
+          include_metadata: payload.includeMetadata !== false,
+          include_thumbnail: Boolean(payload.includeThumbnail)
+        });
+        return { mediaType: kind, results };
+      }
+
+      case 'media.open': {
+        const kind = String(payload.kind || '');
+        const file = String(payload.file || '');
+        if (!file) throw new Error('media_file_required');
+
+        if (kind === 'audio') {
+          await this.api.request('PlayAudio', {
+            file,
+            settings: payload.settings && typeof payload.settings === 'object'
+              ? payload.settings
+              : undefined
+          });
+        } else if (kind === 'video') {
+          await this.api.request('PlayVideo', {
+            file,
+            settings: payload.settings && typeof payload.settings === 'object'
+              ? payload.settings
+              : undefined
+          });
+        } else if (kind === 'image') {
+          await this.api.request('ShowImage', {
+            file,
+            automatic: payload.automatic && typeof payload.automatic === 'object'
+              ? payload.automatic
+              : undefined
+          });
+        } else {
+          throw new Error('unsupported_media_kind');
+        }
+
+        return { mediaType: kind, file, opened: true };
+      }
+
       case 'stage.message':
         await this.api.request('SetTextCommunicationPanel', {
           text: String(payload.text || ''),
           show: payload.show !== false,
-          display_ahead: payload.displayAhead !== false
+          display_ahead: payload.displayAhead !== false,
+          theme: payload.theme && typeof payload.theme === 'object'
+            ? payload.theme
+            : undefined
         });
         return { stageMessageVisible: payload.show !== false };
 
