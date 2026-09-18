@@ -19,6 +19,7 @@ import { PairingStore } from './pairingStore';
 import { RuntimeStateStore } from './runtimeStateStore';
 import { ProviderConfigStore } from './providerConfigStore';
 import { buildLiveNodeDiagnostics } from './diagnostics';
+import { isTrustedLiveWebOrigin } from './networkPolicy';
 import { HolyricsAdapter, HolyricsHttpClient } from '@musicscale-live/adapter-holyrics';
 import { toString as qrToString } from 'qrcode';
 
@@ -129,7 +130,7 @@ function lanAddresses(): string[] {
 
 function setCors(req: IncomingMessage, res: ServerResponse): void {
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.has(origin)) {
+  if (origin && isTrustedLiveWebOrigin(origin, allowedOrigins)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
   }
