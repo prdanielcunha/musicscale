@@ -101,6 +101,25 @@ const resources = {
       pair: 'Conectar e parear',
       noCloudSecret: 'As credenciais dos providers permanecem somente no computador local.'
     },
+    preflight: {
+      kicker: 'PREFLIGHT',
+      title: 'Preparar escala no provider',
+      ready: 'músicas vinculadas',
+      check: 'Verificar repertório',
+      checking: 'Verificando…',
+      sync: 'Sincronizar playlist atual',
+      confirmReplace: 'Confirmar substituição',
+      replaceWarning: 'A playlist de músicas atualmente selecionada no provider será substituída por esta escala. Clique novamente para confirmar.',
+      syncDone: 'Playlist sincronizada com a escala.',
+      syncFailed: 'Não foi possível sincronizar: {{code}}',
+      idle: 'Não verificado',
+      matched: 'Vinculada',
+      missing: 'Não encontrada',
+      error: 'Erro na verificação',
+      choose: 'Escolher correspondência…',
+      searchUnavailable: 'O provider conectado não liberou a capacidade de busca de músicas para este token.',
+      syncUnavailable: 'A busca está disponível, mas o token não permite sincronizar a playlist atual.'
+    },
     liveControls: {
       kicker: 'OPERADOR AO VIVO',
       title: 'Controle do culto',
@@ -154,6 +173,25 @@ const resources = {
       pair: 'Connect and pair',
       noCloudSecret: 'Provider credentials remain on the local computer only.'
     },
+    preflight: {
+      kicker: 'PREFLIGHT',
+      title: 'Prepare schedule on provider',
+      ready: 'songs linked',
+      check: 'Check repertoire',
+      checking: 'Checking…',
+      sync: 'Sync current playlist',
+      confirmReplace: 'Confirm replacement',
+      replaceWarning: 'The song playlist currently selected on the provider will be replaced by this schedule. Click again to confirm.',
+      syncDone: 'Playlist synced with the schedule.',
+      syncFailed: 'Could not sync: {{code}}',
+      idle: 'Not checked',
+      matched: 'Linked',
+      missing: 'Not found',
+      error: 'Check failed',
+      choose: 'Choose match…',
+      searchUnavailable: 'The connected provider did not grant song-search capability to this token.',
+      syncUnavailable: 'Search is available, but the token cannot synchronize the current playlist.'
+    },
     liveControls: {
       kicker: 'LIVE OPERATOR',
       title: 'Service control',
@@ -206,6 +244,25 @@ const resources = {
       probing: 'Buscando…',
       pair: 'Conectar y emparejar',
       noCloudSecret: 'Las credenciales de los providers permanecen solo en el ordenador local.'
+    },
+    preflight: {
+      kicker: 'PREFLIGHT',
+      title: 'Preparar escala en el provider',
+      ready: 'canciones vinculadas',
+      check: 'Verificar repertorio',
+      checking: 'Verificando…',
+      sync: 'Sincronizar playlist actual',
+      confirmReplace: 'Confirmar sustitución',
+      replaceWarning: 'La playlist de canciones actualmente seleccionada en el provider será sustituida por esta escala. Haga clic de nuevo para confirmar.',
+      syncDone: 'Playlist sincronizada con la escala.',
+      syncFailed: 'No fue posible sincronizar: {{code}}',
+      idle: 'No verificado',
+      matched: 'Vinculada',
+      missing: 'No encontrada',
+      error: 'Error de verificación',
+      choose: 'Elegir coincidencia…',
+      searchUnavailable: 'El provider conectado no concedió la capacidad de buscar canciones a este token.',
+      syncUnavailable: 'La búsqueda está disponible, pero el token no puede sincronizar la playlist actual.'
     },
     liveControls: {
       kicker: 'OPERADOR EN VIVO',
