@@ -150,6 +150,20 @@ const resources = {
       searchUnavailable: 'O provider conectado não liberou a capacidade de busca de músicas para este token.',
       syncUnavailable: 'A busca está disponível, mas o token não permite sincronizar a playlist atual.'
     },
+    visualControls: {
+      kicker: 'VISUAIS AO VIVO',
+      title: 'Resolume / visual engine',
+      description: 'Clips e layers aparecem a partir das capacidades do provider visual conectado.',
+      refresh: 'Atualizar composição',
+      clearAll: 'Parar todos',
+      confirmClearAll: 'Confirmar parar todos',
+      clearLayer: 'Limpar layer',
+      live: 'No ar',
+      ready: 'Pronto',
+      noClips: 'Nenhum clip nesta layer.',
+      loadHint: 'Carregue a composição para enxergar os clips disponíveis sem depender da interface do Resolume.',
+      loadComposition: 'Carregar composição'
+    },
     liveControls: {
       kicker: 'OPERADOR AO VIVO',
       title: 'Controle do culto',
@@ -260,6 +274,20 @@ const resources = {
       searchUnavailable: 'The connected provider did not grant song-search capability to this token.',
       syncUnavailable: 'Search is available, but the token cannot synchronize the current playlist.'
     },
+    visualControls: {
+      kicker: 'LIVE VISUALS',
+      title: 'Resolume / visual engine',
+      description: 'Clips and layers are shown from the capabilities of the connected visual provider.',
+      refresh: 'Refresh composition',
+      clearAll: 'Stop all',
+      confirmClearAll: 'Confirm stop all',
+      clearLayer: 'Clear layer',
+      live: 'Live',
+      ready: 'Ready',
+      noClips: 'No clips in this layer.',
+      loadHint: 'Load the composition to see available clips without depending on the Resolume UI.',
+      loadComposition: 'Load composition'
+    },
     liveControls: {
       kicker: 'LIVE OPERATOR',
       title: 'Service control',
@@ -369,6 +397,20 @@ const resources = {
       choose: 'Elegir coincidencia…',
       searchUnavailable: 'El provider conectado no concedió la capacidad de buscar canciones a este token.',
       syncUnavailable: 'La búsqueda está disponible, pero el token no puede sincronizar la playlist actual.'
+    },
+    visualControls: {
+      kicker: 'VISUALES EN VIVO',
+      title: 'Resolume / motor visual',
+      description: 'Los clips y layers aparecen según las capacidades del provider visual conectado.',
+      refresh: 'Actualizar composición',
+      clearAll: 'Detener todo',
+      confirmClearAll: 'Confirmar detener todo',
+      clearLayer: 'Limpiar layer',
+      live: 'En vivo',
+      ready: 'Listo',
+      noClips: 'No hay clips en esta layer.',
+      loadHint: 'Cargue la composición para ver los clips disponibles sin depender de la interfaz de Resolume.',
+      loadComposition: 'Cargar composición'
     },
     liveControls: {
       kicker: 'OPERADOR EN VIVO',
