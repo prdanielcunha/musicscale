@@ -13,7 +13,8 @@ export function LiveNodeSetup({
 }) {
   const { t } = useTranslation();
   const [nodeUrl, setNodeUrl] = useState(
-    controller.credential?.baseUrl || 'http://127.0.0.1:4317'
+    controller.credential?.baseUrl ||
+    (window.location.port === '4317' ? window.location.origin : 'http://127.0.0.1:4317')
   );
   const [pin, setPin] = useState('');
 
@@ -80,7 +81,7 @@ export function LiveNodeSetup({
                 {t('nodeSetup.confirm')}
               </button>
             </div>
-            {controller.errorCode && <p className="node-error">{t(`nodeErrors.${controller.errorCode}`, controller.errorCode)}</p>}
+            {controller.errorCode && <p className="node-error">{t(`nodeErrors.${controller.errorCode}`, { defaultValue: controller.errorCode })}</p>}
           </>
         ) : (
           <>
