@@ -96,7 +96,7 @@ export class HolyricsHttpClient implements HolyricsApi {
     const dtoken = sha256(`${nonce}:0:${this.token}:auth`);
     await this.rawPost(
       `/api/Auth?sid=${encodeURIComponent(sid)}&rid=0&dtoken=${dtoken}`,
-      '{}'
+      'auth'
     );
     this.session = { sid, nonce, rid: 0 };
   }
