@@ -15,12 +15,15 @@ import {
 import { IdempotencyStore } from './idempotencyStore';
 import { PairingStore } from './pairingStore';
 import { RuntimeStateStore } from './runtimeStateStore';
+import { HolyricsAdapter, HolyricsHttpClient } from '@musicscale-live/adapter-holyrics';
 
 const PORT = Number(process.env.MUSICSCALE_LIVE_NODE_PORT || 4317);
 const HOST = process.env.MUSICSCALE_LIVE_NODE_HOST || '0.0.0.0';
 const VERSION = '0.1.0-alpha.1';
 const DEV_TOKEN = process.env.MUSICSCALE_LIVE_DEV_TOKEN || '';
 const PAIRING_ENABLED = process.env.MUSICSCALE_LIVE_PAIRING_ENABLED !== 'false';
+const HOLYRICS_TOKEN = process.env.MUSICSCALE_LIVE_HOLYRICS_TOKEN?.trim() || '';
+const HOLYRICS_URL = process.env.MUSICSCALE_LIVE_HOLYRICS_URL?.trim() || 'http://127.0.0.1:8091';
 const STATE_DIR = process.env.MUSICSCALE_LIVE_STATE_DIR || join(homedir(), '.musicscale-live');
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_WEB_ROOT = resolve(MODULE_DIR, '../../../apps/live/dist');
@@ -42,6 +45,39 @@ const pairingStore = new PairingStore(join(STATE_DIR, 'pairings.json'), nodeId);
 const runtimeState = new RuntimeStateStore(join(STATE_DIR, 'runtime.json'), nodeId);
 
 const pairingRequestHits = new Map<string, number>();
+
+async function registerBuiltInProviders(): Promise<void> {
+  if (!HOLYRICS_TOKEN) {
+    console.log(JSON.stringify({
+      event: 'provider_not_configured',
+      providerKey: 'holyrics'
+    }));
+    return;
+  }
+
+  const adapter = new HolyricsAdapter({
+    id: 'holyrics-primary',
+    nodeId,
+    displayName: 'Holyrics',
+    api: new HolyricsHttpClient({
+      baseUrl: HOLYRICS_URL,
+      token: HOLYRICS_TOKEN
+    })
+  });
+
+  capabilityEngine.register(adapter);
+  const probe = await adapter.probe();
+
+  console.log(JSON.stringify({
+    event: 'provider_probe',
+    providerKey: 'holyrics',
+    providerId: adapter.descriptor.id,
+    reachable: probe.reachable,
+    version: probe.version || null,
+    capabilities: probe.capabilities,
+    reason: probe.reason || null
+  }));
+}
 
 function lanAddresses(): string[] {
   const addresses: string[] = [];
@@ -311,9 +347,15 @@ async function serveWebApp(res: ServerResponse, pathname: string): Promise<boole
     const extension = extname(target).toLowerCase();
     res.statusCode = 200;
     res.setHeader('Content-Type', MIME_TYPES[extension] || 'application/octet-stream');
+    const basename = target.split(sep).pop() || '';
+    const mustRevalidate =
+      extension === '.html' ||
+      basename === 'sw.js' ||
+      basename === 'registerSW.js' ||
+      basename === 'manifest.webmanifest';
     res.setHeader(
       'Cache-Control',
-      extension === '.html'
+      mustRevalidate
         ? 'no-cache,no-store,must-revalidate'
         : 'public,max-age=31536000,immutable'
     );
@@ -368,6 +410,7 @@ refresh();setInterval(refresh,1000);
 
 await pairingStore.load();
 await runtimeState.load();
+await registerBuiltInProviders();
 
 const server = createServer(async (req, res) => {
   setCors(req, res);
@@ -394,14 +437,18 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/health') {
+      const providerSnapshot = await capabilityEngine.snapshot();
       return send(res, 200, {
         product: 'MusicScale Live Node',
         version: VERSION,
         nodeId,
         hostname: hostname(),
-        health: 'online',
+        health: providerSnapshot.some(provider => provider.health === 'degraded') ? 'degraded' : 'online',
         lanAddresses: lanAddresses(),
-        providers: (await capabilityEngine.snapshot()).length,
+        providers: providerSnapshot.length,
+        providersOnline: providerSnapshot.filter(
+          provider => provider.health === 'online' || provider.health === 'degraded'
+        ).length,
         now: new Date().toISOString(),
         pairing: {
           pairedDevices: await pairingStore.activePairingCount(),
