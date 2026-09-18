@@ -1,3 +1,5 @@
+import type { ServicePlan } from './types';
+
 export type LiveNodeTransportKind = 'direct-lan' | 'local-console' | 'cloud-relay';
 
 export type LiveNodeConnectionState =
@@ -37,7 +39,11 @@ export interface PairingDevice {
   deviceName: string;
 }
 
-export interface PairingRequest extends PairingScope, PairingDevice {}
+export interface PairingRequest extends PairingDevice {
+  organizationId?: string;
+  venueId?: string;
+  liveSystemId?: string;
+}
 
 export interface PairingChallenge {
   challengeId: string;
@@ -73,4 +79,5 @@ export interface LiveNodeRuntimeState {
   activeLiveSessionId: string | null;
   activeServiceItemId: string | null;
   providerObservedState: Record<string, Record<string, unknown>>;
+  servicePlan: ServicePlan | null;
 }
