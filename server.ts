@@ -2515,11 +2515,13 @@ RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
                 typeof section === "string" && section.trim().length > 0,
             )
           : [];
-        const parserSectionLookup = new Map(
-          parserSections.map((section: string) => [
-            normalizeSectionIdentity(section),
-            section.trim(),
-          ]),
+        const parserSectionLookup = new Map<string, string>(
+          parserSections.map(
+            (section: string): [string, string] => [
+              normalizeSectionIdentity(section),
+              section.trim(),
+            ],
+          ),
         );
         const allowedSectionAnnotationTypes = new Set([
           "solo",
@@ -2568,10 +2570,11 @@ RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
               continue;
             }
 
-            const section =
-              typeof rawAnnotation.section === "string"
+            const rawSection = rawAnnotation.section;
+            const section: string | undefined =
+              typeof rawSection === "string"
                 ? parserSectionLookup.get(
-                    normalizeSectionIdentity(rawAnnotation.section),
+                    normalizeSectionIdentity(rawSection),
                   )
                 : undefined;
             const rawType = rawAnnotation.type;
