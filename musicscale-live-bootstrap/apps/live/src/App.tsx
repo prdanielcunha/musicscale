@@ -8,6 +8,7 @@ import { LiveNodeSetup } from './LiveNodeSetup';
 import { liveFeatureFlags } from './featureFlags';
 import { loadNextScale, loadSharedContext, type SharedContext, type SharedScale } from './musicScaleBridge';
 import { ScalePreflight } from './ScalePreflight';
+import { VisualControlPanel } from './VisualControlPanel';
 import { detectSameOriginLiveNode } from './liveNodeClient';
 import { markLiveMetric } from './telemetry';
 import { useLiveNode } from './useLiveNode';
@@ -153,11 +154,18 @@ export function App() {
         )}
 
         {surface === 'live' && liveNode.state === 'connected' && (
-          <LiveControlPanel
-            controller={liveNode}
-            actorId={user.uid}
-            liveSessionId={scale ? `music-scale:${scale.id}` : `ad-hoc:${context?.organizationId || user.uid}`}
-          />
+          <>
+            <LiveControlPanel
+              controller={liveNode}
+              actorId={user.uid}
+              liveSessionId={scale ? `music-scale:${scale.id}` : `ad-hoc:${context?.organizationId || user.uid}`}
+            />
+            <VisualControlPanel
+              controller={liveNode}
+              actorId={user.uid}
+              liveSessionId={scale ? `music-scale:${scale.id}` : `ad-hoc:${context?.organizationId || user.uid}`}
+            />
+          </>
         )}
 
         <section className="content-grid">
