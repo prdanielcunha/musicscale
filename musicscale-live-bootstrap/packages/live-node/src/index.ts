@@ -18,6 +18,7 @@ import { IdempotencyStore } from './idempotencyStore';
 import { PairingStore } from './pairingStore';
 import { RuntimeStateStore } from './runtimeStateStore';
 import { ProviderConfigStore } from './providerConfigStore';
+import { buildLiveNodeDiagnostics } from './diagnostics';
 import { HolyricsAdapter, HolyricsHttpClient } from '@musicscale-live/adapter-holyrics';
 import { toString as qrToString } from 'qrcode';
 
@@ -537,6 +538,13 @@ small{color:#aaaebe}.brand{letter-spacing:.16em;color:#9b8cff;font-size:11px;fon
 <div id="provider-status" class="statusline">Verificando configuração…</div>
 </div>
 <div class="box">
+<small>DIAGNÓSTICO LOCAL</small>
+<div class="row">
+<button class="btn secondary" onclick="downloadDiagnostics()">Baixar diagnóstico</button>
+<span class="muted" style="font-size:11px">O arquivo não inclui token do Holyrics nem credenciais de pareamento.</span>
+</div>
+</div>
+<div class="box">
 <small>CONECTAR TABLET OU CELULAR</small>
 <div style="display:flex;gap:16px;align-items:center;margin-top:12px;flex-wrap:wrap">
 <img src="/local/connect-qr.svg" alt="QR para abrir MusicScale Live na rede local" width="150" height="150" style="background:white;border-radius:14px;padding:8px"/>
@@ -566,6 +574,24 @@ async function refreshProvider(){
     const count=Array.isArray(h.capabilities)?h.capabilities.length:0;
     el.textContent=(h.health==='online'?'Conectado':'Configurado, mas offline')+' · '+count+' capacidades detectadas'+(h.source==='environment'?' · gerenciado pelo ambiente':'');
   }catch{el.textContent='Não foi possível ler a configuração.'}
+}
+async function downloadDiagnostics(){
+  try{
+    const r=await fetch('/local/diagnostics',{cache:'no-store'});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error||'diagnostics_failed');
+    const blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='musicscale-live-diagnostics.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }catch(error){
+    alert('Não foi possível gerar o diagnóstico local.');
+  }
 }
 async function saveHolyrics(){
   const el=document.getElementById('provider-status');
@@ -638,6 +664,38 @@ const server = createServer(async (req, res) => {
           pairingEnabled: PAIRING_ENABLED
         }
       });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/local/diagnostics') {
+      if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
+
+      const [runtime, providers, pairedDevices, holyricsConfig] = await Promise.all([
+        runtimeState.load(),
+        capabilityEngine.snapshot(),
+        pairingStore.activePairingCount(),
+        providerConfigStore.getHolyrics()
+      ]);
+
+      return send(res, 200, buildLiveNodeDiagnostics({
+        nodeId,
+        version: VERSION,
+        hostname: hostname(),
+        platform: process.platform,
+        arch: process.arch,
+        nodeVersion: process.version,
+        port: PORT,
+        lanAddresses: lanAddresses(),
+        webAppPresent: existsSync(join(WEB_ROOT, 'index.html')),
+        pairingEnabled: PAIRING_ENABLED,
+        pairedDevices,
+        runtime,
+        providers,
+        holyrics: {
+          configured: Boolean(HOLYRICS_TOKEN || holyricsConfig?.token),
+          source: HOLYRICS_TOKEN ? 'environment' : holyricsConfig ? 'local' : 'none',
+          baseUrl: HOLYRICS_TOKEN ? HOLYRICS_URL : holyricsConfig?.baseUrl || HOLYRICS_URL
+        }
+      }));
     }
 
     if (req.method === 'GET' && url.pathname === '/local/connect-qr.svg') {
