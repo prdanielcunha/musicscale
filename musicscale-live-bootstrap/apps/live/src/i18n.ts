@@ -101,6 +101,27 @@ const resources = {
       pair: 'Conectar e parear',
       noCloudSecret: 'As credenciais dos providers permanecem somente no computador local.'
     },
+    liveControls: {
+      kicker: 'OPERADOR AO VIVO',
+      title: 'Controle do culto',
+      program: 'Program',
+      waiting: 'Aguardando',
+      noPresentation: 'Nenhuma apresentação ativa',
+      observedState: 'Estado observado no provider',
+      previous: 'Anterior',
+      next: 'Próximo',
+      clear: 'Limpar',
+      confirmClear: 'Confirmar limpar',
+      song: 'Música',
+      songPlaceholder: 'Buscar música no provider…',
+      search: 'Buscar',
+      searchHint: 'Busque pelo título ou artista para apresentar diretamente.',
+      bible: 'Bíblia',
+      biblePlaceholder: 'Ex.: João 3:16',
+      present: 'Apresentar',
+      capabilityDriven: 'Os controles aparecem somente quando o provider conectado declara suporte à ação.',
+      commandFailed: 'A ação não foi concluída: {{code}}'
+    },
     nodeErrors: nodeErrors.pt
   }},
   en: { translation: {
@@ -133,6 +154,27 @@ const resources = {
       pair: 'Connect and pair',
       noCloudSecret: 'Provider credentials remain on the local computer only.'
     },
+    liveControls: {
+      kicker: 'LIVE OPERATOR',
+      title: 'Service control',
+      program: 'Program',
+      waiting: 'Waiting',
+      noPresentation: 'No active presentation',
+      observedState: 'State observed from provider',
+      previous: 'Previous',
+      next: 'Next',
+      clear: 'Clear',
+      confirmClear: 'Confirm clear',
+      song: 'Song',
+      songPlaceholder: 'Search song on provider…',
+      search: 'Search',
+      searchHint: 'Search by title or artist to present directly.',
+      bible: 'Bible',
+      biblePlaceholder: 'e.g. John 3:16',
+      present: 'Present',
+      capabilityDriven: 'Controls appear only when the connected provider declares support for the action.',
+      commandFailed: 'The action could not be completed: {{code}}'
+    },
     nodeErrors: nodeErrors.en
   }},
   es: { translation: {
@@ -164,6 +206,27 @@ const resources = {
       probing: 'Buscando…',
       pair: 'Conectar y emparejar',
       noCloudSecret: 'Las credenciales de los providers permanecen solo en el ordenador local.'
+    },
+    liveControls: {
+      kicker: 'OPERADOR EN VIVO',
+      title: 'Control del culto',
+      program: 'Program',
+      waiting: 'Esperando',
+      noPresentation: 'No hay presentación activa',
+      observedState: 'Estado observado en el provider',
+      previous: 'Anterior',
+      next: 'Siguiente',
+      clear: 'Limpiar',
+      confirmClear: 'Confirmar limpiar',
+      song: 'Canción',
+      songPlaceholder: 'Buscar canción en el provider…',
+      search: 'Buscar',
+      searchHint: 'Busque por título o artista para presentar directamente.',
+      bible: 'Biblia',
+      biblePlaceholder: 'Ej.: Juan 3:16',
+      present: 'Presentar',
+      capabilityDriven: 'Los controles aparecen solo cuando el provider conectado declara soporte para la acción.',
+      commandFailed: 'La acción no se pudo completar: {{code}}'
     },
     nodeErrors: nodeErrors.es
   }}
