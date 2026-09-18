@@ -11,6 +11,7 @@ import {
   type CommandResult,
   type LiveCommand,
   type PairingRequest,
+  type ProviderLink,
   type ServicePlan
 } from '@musicscale-live/domain';
 import { IdempotencyStore } from './idempotencyStore';
@@ -224,6 +225,46 @@ function validateServicePlan(value: unknown): ServicePlan {
     throw new Error('invalid_service_plan_revision');
   }
   return candidate as ServicePlan;
+}
+
+function validateProviderLinks(value: unknown): ProviderLink[] {
+  if (value == null) return [];
+  if (!Array.isArray(value)) throw new Error('invalid_provider_links');
+
+  return value.map(item => {
+    if (!item || typeof item !== 'object') throw new Error('invalid_provider_link');
+    const link = item as Partial<ProviderLink>;
+    const requiredStrings = [
+      link.id,
+      link.organizationId,
+      link.venueId,
+      link.providerInstanceId,
+      link.entityType,
+      link.externalId
+    ];
+    if (requiredStrings.some(field => typeof field !== 'string' || !field)) {
+      throw new Error('invalid_provider_link');
+    }
+    if (!capabilityEngine.get(String(link.providerInstanceId))) {
+      throw new Error('provider_link_target_missing');
+    }
+    return link as ProviderLink;
+  });
+}
+
+function assertProviderLinksScope(
+  links: ProviderLink[],
+  binding: Awaited<ReturnType<typeof pairingStore.authorize>>
+): void {
+  if (!binding) return;
+  for (const link of links) {
+    if (
+      link.organizationId !== binding.organizationId ||
+      link.venueId !== binding.venueId
+    ) {
+      throw new Error('forbidden_scope');
+    }
+  }
 }
 
 function assertServicePlanScope(
@@ -586,16 +627,31 @@ const server = createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/service-plan') {
       const session = await authorize(req);
       if (!session) return send(res, 401, { error: 'unauthorized' });
-      const plan = validateServicePlan(await readJson(req));
+
+      const body = await readJson(req);
+      const wrapper = (
+        body &&
+        typeof body === 'object' &&
+        'plan' in (body as Record<string, unknown>)
+      )
+        ? body as Record<string, unknown>
+        : { plan: body, providerLinks: [] };
+
+      const plan = validateServicePlan(wrapper.plan);
+      const providerLinks = validateProviderLinks(wrapper.providerLinks);
       assertServicePlanScope(plan, session.binding);
+      assertProviderLinksScope(providerLinks, session.binding);
+
       const state = await runtimeState.patch({
         servicePlan: plan,
+        providerLinks,
         activeLiveSessionId: `service-plan:${plan.id}`,
         activeServiceItemId: plan.items[0]?.id || null
       });
       return send(res, 200, {
         nodeId,
         servicePlanId: plan.id,
+        providerLinks: providerLinks.length,
         stateRevision: state.revision
       });
     }
@@ -646,6 +702,7 @@ const server = createServer(async (req, res) => {
     const status =
       message === 'payload_too_large' ? 413 :
       message === 'forbidden_scope' ? 403 :
+      message === 'provider_link_target_missing' ? 409 :
       message.includes('expired') ? 410 :
       message.includes('attempts_exceeded') ? 429 :
       message.includes('pin_invalid') || message.startsWith('invalid_') ? 400 :
