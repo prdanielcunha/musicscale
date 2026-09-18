@@ -8,6 +8,7 @@ import {
   Clock3,
   MapPin,
   RefreshCcw,
+  Target,
 } from 'lucide-react';
 import type { HomeEventSummary } from '../../utils/homeExperience';
 import {
@@ -15,9 +16,11 @@ import {
   type EventPreparationView,
 } from '../../utils/preparationIntelligence';
 import { describePreparationChange } from '../../utils/preparationPresentation';
+import type { PersonalPracticeSummary } from '../songs/personalPractice';
 
 interface HomePreparationWeekProps {
   views: EventPreparationView[];
+  practiceByEventId?: ReadonlyMap<string, PersonalPracticeSummary>;
   busyScaleId?: string | null;
   onPrepareEvent: (event: HomeEventSummary) => void;
   onReviewChanges: (event: HomeEventSummary) => void | Promise<void>;
@@ -46,6 +49,7 @@ function formatRelativeDay(
 
 export const HomePreparationWeek: React.FC<HomePreparationWeekProps> = ({
   views,
+  practiceByEventId,
   busyScaleId,
   onPrepareEvent,
   onReviewChanges,
@@ -122,6 +126,7 @@ export const HomePreparationWeek: React.FC<HomePreparationWeekProps> = ({
           const needsRepertoirePreparation = requiresRepertoirePreparation(event);
           const role = event.userFunctionNames.join(', ');
           const visibleSongs = (event.songs || []).slice(0, 3);
+          const personalPractice = practiceByEventId?.get(event.id) || null;
           const hasChanges = changes.length > 0;
 
           return (
@@ -189,6 +194,34 @@ export const HomePreparationWeek: React.FC<HomePreparationWeekProps> = ({
                     </div>
                   )}
 
+                  {personalPractice && personalPractice.songCount > 0 && (
+                    <div className="mt-4 rounded-[14px] border border-indigo-400/[0.13] bg-indigo-500/[0.045] p-3.5">
+                      <div className="flex items-start gap-2.5">
+                        <Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-300" />
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold text-indigo-100">
+                            {t('dashboard.preparation.personalFocusTitle')}
+                          </p>
+                          <p className="mt-1 text-[10.5px] leading-relaxed text-indigo-100/55">
+                            {t('dashboard.preparation.focusSongs', { count: personalPractice.songCount })}
+                            {' · '}
+                            {t('dashboard.preparation.focusParts', { count: personalPractice.partCount })}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {personalPractice.songs.slice(0, 3).map(song => (
+                              <span
+                                key={song.songId}
+                                className="rounded-[8px] border border-indigo-300/[0.1] bg-indigo-400/[0.055] px-2 py-1 text-[10px] font-medium text-indigo-100/75"
+                              >
+                                {song.title} · {t('dashboard.preparation.songFocusParts', { count: song.focusPartCount })}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {hasChanges && (
                     <div className="mt-4 rounded-[14px] border border-amber-400/[0.14] bg-amber-500/[0.055] p-3.5">
                       <div className="mb-2 flex items-center gap-2">
@@ -220,7 +253,11 @@ export const HomePreparationWeek: React.FC<HomePreparationWeekProps> = ({
                     </button>
                   ) : isMusic ? (
                     <button type="button" onClick={() => onPrepareEvent(event)} className="ms-btn-primary min-h-[44px] w-full px-4 text-[12px]">
-                      <span className="inline-flex items-center justify-center gap-2"><BookOpenCheck className="h-4 w-4" />{status === 'prepared' ? t('dashboard.preparation.reviewRepertoire') : t('dashboard.preparation.startPreparation')}</span>
+                      <span className="inline-flex items-center justify-center gap-2"><BookOpenCheck className="h-4 w-4" />{personalPractice && personalPractice.songCount > 0
+                        ? t('dashboard.preparation.practiceMyFocus')
+                        : status === 'prepared'
+                          ? t('dashboard.preparation.reviewRepertoire')
+                          : t('dashboard.preparation.startPreparation')}</span>
                     </button>
                   ) : null}
 
