@@ -5,6 +5,7 @@ import type { LiveNodeRuntimeState } from '@musicscale-live/domain';
 export class RuntimeStateStore {
   private state: LiveNodeRuntimeState;
   private loaded = false;
+  private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(private readonly filePath: string, private readonly nodeId: string) {
     this.state = this.fresh();
@@ -35,16 +36,31 @@ export class RuntimeStateStore {
   async patch(
     patch: Partial<Omit<LiveNodeRuntimeState, 'nodeId' | 'revision' | 'updatedAt'>>
   ): Promise<LiveNodeRuntimeState> {
-    await this.load();
-    this.state = {
-      ...this.state,
-      ...patch,
-      nodeId: this.nodeId,
-      revision: this.state.revision + 1,
-      updatedAt: new Date().toISOString()
-    };
-    await this.persist();
-    return structuredClone(this.state);
+    let resolveResult!: (state: LiveNodeRuntimeState) => void;
+    let rejectResult!: (error: unknown) => void;
+    const result = new Promise<LiveNodeRuntimeState>((resolve, reject) => {
+      resolveResult = resolve;
+      rejectResult = reject;
+    });
+
+    this.writeQueue = this.writeQueue
+      .then(async () => {
+        await this.load();
+        this.state = {
+          ...this.state,
+          ...patch,
+          nodeId: this.nodeId,
+          revision: this.state.revision + 1,
+          updatedAt: new Date().toISOString()
+        };
+        await this.persist();
+        resolveResult(structuredClone(this.state));
+      })
+      .catch(error => {
+        rejectResult(error);
+      });
+
+    return result;
   }
 
   private fresh(): LiveNodeRuntimeState {
