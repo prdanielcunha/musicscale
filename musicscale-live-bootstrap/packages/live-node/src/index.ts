@@ -118,6 +118,46 @@ async function registerBuiltInProviders(): Promise<{
   };
 }
 
+let providerObservationBusy = false;
+
+async function observeOnlineProviders(): Promise<void> {
+  if (providerObservationBusy) return;
+  providerObservationBusy = true;
+  try {
+    const online = capabilityEngine
+      .quickSnapshot()
+      .filter(provider => provider.health === 'online');
+
+    if (!online.length) return;
+
+    const current = await runtimeState.load();
+    const observed = { ...current.providerObservedState };
+    let changed = false;
+
+    for (const snapshot of online) {
+      const provider = capabilityEngine.get(snapshot.providerId);
+      if (!provider) continue;
+      try {
+        const state = await provider.getState();
+        const previousJson = JSON.stringify(observed[snapshot.providerId] || {});
+        const nextJson = JSON.stringify(state.observed || {});
+        if (previousJson !== nextJson) {
+          observed[snapshot.providerId] = state.observed || {};
+          changed = true;
+        }
+      } catch {
+        // Provider adapters own their degraded/offline transition semantics.
+      }
+    }
+
+    if (changed) {
+      await runtimeState.patch({ providerObservedState: observed });
+    }
+  } finally {
+    providerObservationBusy = false;
+  }
+}
+
 async function recoverUnhealthyProviders(): Promise<void> {
   const unhealthy = capabilityEngine
     .quickSnapshot()
@@ -718,12 +758,12 @@ async function start(): Promise<void> {
     if (req.method === 'GET' && url.pathname === '/local/diagnostics') {
       if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
 
-      const [runtime, providers, pairedDevices, holyricsConfig] = await Promise.all([
+      const [runtime, pairedDevices, holyricsConfig] = await Promise.all([
         runtimeState.load(),
-        capabilityEngine.snapshot(),
         pairingStore.activePairingCount(),
         providerConfigStore.getHolyrics()
       ]);
+      const providers = capabilityEngine.quickSnapshot();
 
       return send(res, 200, buildLiveNodeDiagnostics({
         nodeId,
@@ -861,7 +901,7 @@ async function start(): Promise<void> {
     if (req.method === 'GET' && url.pathname === '/capabilities') {
       const session = await authorize(req);
       if (!session) return send(res, 401, { error: 'unauthorized' });
-      return send(res, 200, { nodeId, providers: await capabilityEngine.snapshot() });
+      return send(res, 200, { nodeId, providers: capabilityEngine.quickSnapshot() });
     }
 
     if (req.method === 'GET' && url.pathname === '/state') {
@@ -870,7 +910,7 @@ async function start(): Promise<void> {
       return send(res, 200, {
         nodeId,
         state: await runtimeState.load(),
-        providers: await capabilityEngine.snapshot()
+        providers: capabilityEngine.quickSnapshot()
       });
     }
 
@@ -999,6 +1039,11 @@ async function start(): Promise<void> {
       pairingEnabled: PAIRING_ENABLED
     }));
   });
+
+  const providerObservationTimer = setInterval(() => {
+    void observeOnlineProviders();
+  }, 1_500);
+  providerObservationTimer.unref();
 
   const providerRecoveryTimer = setInterval(() => {
     void recoverUnhealthyProviders();
