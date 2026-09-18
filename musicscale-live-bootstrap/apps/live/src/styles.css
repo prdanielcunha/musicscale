@@ -143,3 +143,6 @@ radial-gradient(circle at 50% 50%,rgba(124,92,255,.17),transparent 34%),#08090D;
 .local-focus-mode .local-recovery-topbar{height:54px}.local-focus-mode .local-recovery-workspace{width:min(1800px,100%);padding:12px 14px 32px}.local-focus-mode .local-recovery-hero{display:none}
 @media(max-width:900px){.app-shell.live-surface{grid-template-columns:1fr}.live-surface>.sidebar{padding:6px 8px}.live-surface>.sidebar button{padding:8px 10px}.live-surface>.workspace{padding:16px 12px 34px}.live-focus-mode>.sidebar{display:none}}
 @media(max-width:650px){.local-recovery-actions .live-focus-button{font-size:7px;padding:6px 8px}.live-session-health .live-focus-button{width:100%}}
+
+.live-control-panel kbd{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border:1px solid rgba(255,255,255,.09);border-bottom-color:rgba(255,255,255,.15);border-radius:5px;background:rgba(255,255,255,.035);color:#9297a7;font:600 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 1px 0 rgba(255,255,255,.025)}
+.deck-take kbd{margin-left:4px;color:#b5abef;border-color:rgba(124,92,255,.18);background:rgba(124,92,255,.07)}
