@@ -686,6 +686,15 @@ small{color:#aaaebe}.brand{letter-spacing:.16em;color:#9b8cff;font-size:11px;fon
 <div id="provider-status" class="statusline">Verificando configuração…</div>
 </div>
 <div class="box">
+<small>PROVIDER · RESOLUME ARENA / AVENUE</small>
+<div class="field"><span>Endereço do Webserver / REST API</span><input id="resolume-url" value="http://127.0.0.1:8080" autocomplete="off"/></div>
+<div class="row">
+<button class="btn" onclick="saveResolume()">Salvar e testar</button>
+<button class="btn secondary" onclick="refreshProvider()">Testar novamente</button>
+</div>
+<div id="resolume-status" class="statusline">Verificando configuração…</div>
+</div>
+<div class="box">
 <small>DIAGNÓSTICO LOCAL</small>
 <div class="row">
 <button class="btn secondary" onclick="downloadDiagnostics()">Baixar diagnóstico</button>
@@ -718,10 +727,26 @@ async function refreshProvider(){
     if(!r.ok){el.textContent='Configuração disponível apenas neste computador.';return}
     const h=d.holyrics||{};
     document.getElementById('holyrics-url').value=h.baseUrl||'http://127.0.0.1:8091';
-    if(!h.configured){el.textContent='Holyrics ainda não configurado.';return}
-    const count=Array.isArray(h.capabilities)?h.capabilities.length:0;
-    el.textContent=(h.health==='online'?'Conectado':'Configurado, mas offline')+' · '+count+' capacidades detectadas'+(h.source==='environment'?' · gerenciado pelo ambiente':'');
-  }catch{el.textContent='Não foi possível ler a configuração.'}
+    if(!h.configured){
+      el.textContent='Holyrics ainda não configurado.';
+    }else{
+      const count=Array.isArray(h.capabilities)?h.capabilities.length:0;
+      el.textContent=(h.health==='online'?'Conectado':'Configurado, mas offline')+' · '+count+' capacidades detectadas'+(h.source==='environment'?' · gerenciado pelo ambiente':'');
+    }
+
+    const re=d.resolume||{};
+    const rel=document.getElementById('resolume-status');
+    document.getElementById('resolume-url').value=re.baseUrl||'http://127.0.0.1:8080';
+    if(!re.configured){
+      rel.textContent='Resolume ainda não configurado.';
+    }else{
+      const count=Array.isArray(re.capabilities)?re.capabilities.length:0;
+      rel.textContent=(re.health==='online'?'Conectado':'Configurado, mas offline')+' · '+count+' capacidades detectadas'+(re.source==='environment'?' · gerenciado pelo ambiente':'');
+    }
+  }catch{
+    el.textContent='Não foi possível ler a configuração.';
+    document.getElementById('resolume-status').textContent='Não foi possível ler a configuração.';
+  }
 }
 async function downloadDiagnostics(){
   try{
@@ -740,6 +765,21 @@ async function downloadDiagnostics(){
   }catch(error){
     alert('Não foi possível gerar o diagnóstico local.');
   }
+}
+async function saveResolume(){
+  const el=document.getElementById('resolume-status');
+  const baseUrl=document.getElementById('resolume-url').value;
+  el.textContent='Salvando e testando…';
+  try{
+    const r=await fetch('/local/providers/resolume',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({baseUrl})
+    });
+    const d=await r.json();
+    if(!r.ok){el.textContent='Falha: '+(d.error||d.reason||'não foi possível conectar');return}
+    el.textContent='Resolume conectado · '+(d.capabilities||[]).length+' capacidades'+(d.version?' · v'+d.version:'');
+  }catch{el.textContent='Não foi possível salvar a configuração.'}
 }
 async function saveHolyrics(){
   const el=document.getElementById('provider-status');
