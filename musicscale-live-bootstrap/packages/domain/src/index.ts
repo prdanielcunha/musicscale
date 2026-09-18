@@ -3,3 +3,4 @@ export * from './provider';
 export * from './capabilityEngine';
 export * from './eventBus';
 export * from './errors';
+export * from './transport';
