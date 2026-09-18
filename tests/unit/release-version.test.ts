@@ -20,13 +20,13 @@ const runBump = (version: string, kind: string) => {
 };
 
 describe('release metadata', () => {
-  it('uses the 0.4 intelligent-parts release metadata and keeps package versions synchronized', () => {
+  it('uses the 0.5 personal-preparation release metadata and keeps package versions synchronized', () => {
     const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-    expect(APP_VERSION).toBe('0.4.0-beta.0');
+    expect(APP_VERSION).toBe('0.5.0-beta.0');
     expect(lock.version).toBe(APP_VERSION);
     expect(lock.packages[''].version).toBe(APP_VERSION);
-    expect(FEATURE_RELEASE.version).toBe('0.4.0-beta.0');
-    expect(FEATURE_RELEASE.id).toBe('intelligent-parts-focus-performance-beta-0.4');
+    expect(FEATURE_RELEASE.version).toBe('0.5.0-beta.0');
+    expect(FEATURE_RELEASE.id).toBe('personal-preparation-safe-duplicates-beta-0.5');
     expect(FEATURE_RELEASE.kind).toBe('feature');
     expect(Date.parse(FEATURE_RELEASE.publishedAt)).not.toBeNaN();
   });
@@ -51,9 +51,9 @@ describe('release metadata', () => {
     expect(revision.lock.packages[''].version).toBe(revision.pkg.version);
   });
 
-  it('provides the three 0.4 feature highlights and refinements in every language', () => {
+  it('provides the three 0.5 feature highlights and refinements in every language', () => {
     for (const language of ['pt', 'en', 'es'] as const) {
-      const copy = releaseNewsTranslations[language].intelligentPartsBeta04;
+      const copy = releaseNewsTranslations[language].personalPreparationBeta05;
       expect(copy.title.length).toBeGreaterThan(0);
       for (const feature of ['stageTools', 'deviceAudio', 'updates'] as const) {
         expect(copy[feature].title.length).toBeGreaterThan(0);
