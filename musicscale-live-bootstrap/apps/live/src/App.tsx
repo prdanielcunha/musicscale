@@ -3,10 +3,12 @@ import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, type 
 import { useTranslation } from 'react-i18next';
 import { auth } from './firebase';
 import { LiveControlPanel } from './LiveControlPanel';
+import { LocalRecoveryView } from './LocalRecoveryView';
 import { LiveNodeSetup } from './LiveNodeSetup';
 import { liveFeatureFlags } from './featureFlags';
 import { loadNextScale, loadSharedContext, type SharedContext, type SharedScale } from './musicScaleBridge';
 import { ScalePreflight } from './ScalePreflight';
+import { detectSameOriginLiveNode } from './liveNodeClient';
 import { markLiveMetric } from './telemetry';
 import { useLiveNode } from './useLiveNode';
 
@@ -18,8 +20,23 @@ export function App() {
   const [context, setContext] = useState<SharedContext | null>(null);
   const [scale, setScale] = useState<SharedScale | null>(null);
   const [loading, setLoading] = useState(true);
+  const [localNodeOrigin, setLocalNodeOrigin] = useState(false);
+  const [localNodeDetectionDone, setLocalNodeDetectionDone] = useState(false);
   const [surface, setSurface] = useState<Surface>('studio');
   const liveNode = useLiveNode();
+
+  useEffect(() => {
+    let cancelled = false;
+    detectSameOriginLiveNode().then(isLocal => {
+      if (!cancelled) {
+        setLocalNodeOrigin(isLocal);
+        setLocalNodeDetectionDone(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     markLiveMetric('shell-mounted');
@@ -56,8 +73,12 @@ export function App() {
   const login = () => signInWithPopup(auth, new GoogleAuthProvider());
   const logout = () => signOut(auth);
 
-  if (loading) {
+  if (loading || (!user && !localNodeDetectionDone)) {
     return <main className="center"><div className="boot-orb" /><p>{t('loading')}</p></main>;
+  }
+
+  if (!user && localNodeOrigin) {
+    return <LocalRecoveryView controller={liveNode} />;
   }
 
   if (!user) {
