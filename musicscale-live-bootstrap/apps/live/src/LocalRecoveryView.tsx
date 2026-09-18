@@ -5,6 +5,7 @@ import { OfflineRunOfShow } from './OfflineRunOfShow';
 import { VisualControlPanel } from './VisualControlPanel';
 import { LiveCueCoordinatorProvider } from './LiveCueCoordinator';
 import type { useLiveNode } from './useLiveNode';
+import { useLiveFocus } from './useLiveFocus';
 
 type Controller = ReturnType<typeof useLiveNode>;
 
@@ -15,6 +16,7 @@ export function LocalRecoveryView({
 }) {
   const { t, i18n } = useTranslation();
   const connected = controller.state === 'connected' && Boolean(controller.credential);
+  const liveFocus = useLiveFocus(connected);
   const plan = controller.nodeState?.state.servicePlan || null;
   const providerLinks = controller.nodeState?.state.providerLinks || [];
   const actorId = controller.credential
@@ -25,20 +27,36 @@ export function LocalRecoveryView({
     (plan ? `service-plan:${plan.id}` : 'local-recovery');
 
   return (
-    <div className="local-recovery-shell">
+    <div className={[
+      'local-recovery-shell',
+      liveFocus.fullscreen ? 'local-focus-mode' : ''
+    ].filter(Boolean).join(' ')}>
       <header className="local-recovery-topbar">
         <div>
           <div className="brand-kicker">MUSICSCALE / LIVE</div>
           <strong>{t('localRecovery.mode')}</strong>
         </div>
-        <select
-          value={i18n.resolvedLanguage || 'pt'}
-          onChange={event => i18n.changeLanguage(event.target.value)}
-        >
-          <option value="pt">PT</option>
-          <option value="en">EN</option>
-          <option value="es">ES</option>
-        </select>
+        <div className="local-recovery-actions">
+          {connected && (
+            <button
+              className="live-focus-button"
+              type="button"
+              onClick={() => void liveFocus.toggleFullscreen()}
+            >
+              {liveFocus.fullscreen
+                ? t('liveWorkspace.exitFullscreen')
+                : t('liveWorkspace.fullscreen')}
+            </button>
+          )}
+          <select
+            value={i18n.resolvedLanguage || 'pt'}
+            onChange={event => i18n.changeLanguage(event.target.value)}
+          >
+            <option value="pt">PT</option>
+            <option value="en">EN</option>
+            <option value="es">ES</option>
+          </select>
+        </div>
       </header>
 
       <main className="local-recovery-workspace">
