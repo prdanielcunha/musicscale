@@ -17,6 +17,7 @@ import {
 import { IdempotencyStore } from './idempotencyStore';
 import { PairingStore } from './pairingStore';
 import { RuntimeStateStore } from './runtimeStateStore';
+import { ProviderConfigStore } from './providerConfigStore';
 import { HolyricsAdapter, HolyricsHttpClient } from '@musicscale-live/adapter-holyrics';
 
 const PORT = Number(process.env.MUSICSCALE_LIVE_NODE_PORT || 4317);
@@ -45,16 +46,35 @@ const capabilityEngine = new CapabilityEngine();
 const idempotency = new IdempotencyStore<CommandResult[]>();
 const pairingStore = new PairingStore(join(STATE_DIR, 'pairings.json'), nodeId);
 const runtimeState = new RuntimeStateStore(join(STATE_DIR, 'runtime.json'), nodeId);
+const providerConfigStore = new ProviderConfigStore(join(STATE_DIR, 'providers.json'));
 
 const pairingRequestHits = new Map<string, number>();
 
-async function registerBuiltInProviders(): Promise<void> {
-  if (!HOLYRICS_TOKEN) {
+async function registerBuiltInProviders(): Promise<{
+  configured: boolean;
+  source: 'environment' | 'local' | 'none';
+  probe?: Awaited<ReturnType<HolyricsAdapter['probe']>>;
+  baseUrl?: string;
+}> {
+  capabilityEngine.unregister('holyrics-primary');
+
+  const localConfig = await providerConfigStore.getHolyrics();
+  const token = HOLYRICS_TOKEN || localConfig?.token || '';
+  const baseUrl = HOLYRICS_TOKEN
+    ? HOLYRICS_URL
+    : localConfig?.baseUrl || HOLYRICS_URL;
+  const source = HOLYRICS_TOKEN
+    ? 'environment' as const
+    : localConfig
+      ? 'local' as const
+      : 'none' as const;
+
+  if (!token) {
     console.log(JSON.stringify({
       event: 'provider_not_configured',
       providerKey: 'holyrics'
     }));
-    return;
+    return { configured: false, source };
   }
 
   const adapter = new HolyricsAdapter({
@@ -62,8 +82,8 @@ async function registerBuiltInProviders(): Promise<void> {
     nodeId,
     displayName: 'Holyrics',
     api: new HolyricsHttpClient({
-      baseUrl: HOLYRICS_URL,
-      token: HOLYRICS_TOKEN
+      baseUrl,
+      token
     })
   });
 
@@ -77,8 +97,16 @@ async function registerBuiltInProviders(): Promise<void> {
     reachable: probe.reachable,
     version: probe.version || null,
     capabilities: probe.capabilities,
-    reason: probe.reason || null
+    reason: probe.reason || null,
+    configurationSource: source
   }));
+
+  return {
+    configured: true,
+    source,
+    probe,
+    baseUrl
+  };
 }
 
 function lanAddresses(): string[] {
@@ -501,6 +529,7 @@ refresh();setInterval(refresh,1000);
 
 await pairingStore.load();
 await runtimeState.load();
+await providerConfigStore.load();
 await registerBuiltInProviders();
 
 const server = createServer(async (req, res) => {
@@ -546,6 +575,56 @@ const server = createServer(async (req, res) => {
           pairingEnabled: PAIRING_ENABLED
         }
       });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/local/providers') {
+      if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
+      const config = await providerConfigStore.getHolyrics();
+      const snapshot = await capabilityEngine.snapshot();
+      const holyrics = snapshot.find(provider => provider.providerId === 'holyrics-primary');
+      return send(res, 200, {
+        holyrics: {
+          configured: Boolean(HOLYRICS_TOKEN || config?.token),
+          source: HOLYRICS_TOKEN ? 'environment' : config ? 'local' : 'none',
+          baseUrl: HOLYRICS_TOKEN ? HOLYRICS_URL : config?.baseUrl || HOLYRICS_URL,
+          health: holyrics?.health || 'offline',
+          capabilities: holyrics?.capabilities || [],
+          observed: holyrics?.observed || {}
+        }
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/local/providers/holyrics') {
+      if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
+      if (HOLYRICS_TOKEN) {
+        return send(res, 409, { error: 'holyrics_managed_by_environment' });
+      }
+      const body = await readJson(req);
+      if (!body || typeof body !== 'object') throw new Error('invalid_holyrics_config');
+      const candidate = body as Record<string, unknown>;
+      const baseUrl = String(candidate.baseUrl || HOLYRICS_URL);
+      const token = String(candidate.token || '');
+      await providerConfigStore.setHolyrics({ baseUrl, token });
+      const result = await registerBuiltInProviders();
+      return send(res, result.probe?.reachable ? 200 : 422, {
+        configured: result.configured,
+        source: result.source,
+        baseUrl: result.baseUrl,
+        reachable: result.probe?.reachable || false,
+        version: result.probe?.version || null,
+        capabilities: result.probe?.capabilities || [],
+        reason: result.probe?.reason || null
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/local/providers/holyrics/clear') {
+      if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
+      if (HOLYRICS_TOKEN) {
+        return send(res, 409, { error: 'holyrics_managed_by_environment' });
+      }
+      await providerConfigStore.clearHolyrics();
+      capabilityEngine.unregister('holyrics-primary');
+      return send(res, 200, { cleared: true });
     }
 
     if (req.method === 'GET' && url.pathname === '/local/pairing') {
