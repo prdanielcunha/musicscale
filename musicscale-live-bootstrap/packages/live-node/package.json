@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/index.js",
+    "start": "node dist/index.cjs",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --target=node24 --outfile=dist/index.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --config vitest.config.ts"
+    "test": "vitest run --config vitest.config.ts",
+    "package:sea": "npm run build && node scripts/build-sea.mjs"
   },
   "dependencies": {
     "@musicscale-live/domain": "file:../../packages/domain",
@@ -21,6 +22,7 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vitest": "^4.1.10",
-    "@types/qrcode": "^1.5.5"
+    "@types/qrcode": "^1.5.5",
+    "postject": "^1.0.0-alpha.6"
   }
 }
