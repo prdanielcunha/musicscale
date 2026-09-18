@@ -22,6 +22,13 @@ interface VisualOutput {
   name: string;
 }
 
+interface ArmedVisualCue {
+  clipId: string;
+  clipName: string;
+  layerId: string;
+  layerName: string;
+}
+
 function parameterValue(value: unknown): unknown {
   if (value && typeof value === 'object' && 'value' in (value as Record<string, unknown>)) {
     return (value as Record<string, unknown>).value;
@@ -97,6 +104,7 @@ export function VisualControlPanel({
   const [outputs, setOutputs] = useState<VisualOutput[]>([]);
   const [selectedOutputId, setSelectedOutputId] = useState('');
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
+  const [armedClip, setArmedClip] = useState<ArmedVisualCue | null>(null);
   const [clearAllArmed, setClearAllArmed] = useState(false);
 
   const provider = useMemo(
@@ -112,6 +120,19 @@ export function VisualControlPanel({
       ? provider.observed.composition
       : null;
   const layers = normalizeComposition(localComposition || observedComposition);
+  const activeClips = useMemo(
+    () => layers.flatMap(layer =>
+      layer.clips
+        .filter(clip => clip.connected)
+        .map(clip => ({
+          clipId: clip.id,
+          clipName: clip.name,
+          layerId: layer.id,
+          layerName: layer.name
+        }))
+    ),
+    [layers]
+  );
 
   useEffect(() => {
     return () => {
@@ -156,8 +177,20 @@ export function VisualControlPanel({
   }
 
   async function triggerClip(clipId: string) {
-    await execute(`clip:${clipId}`, 'visual.clip.trigger', { clipId });
+    const results = await execute(`clip:${clipId}`, 'visual.clip.trigger', { clipId });
     window.setTimeout(() => void refresh(), 120);
+    if (selectedOutputId) {
+      window.setTimeout(() => void refreshSnapshot(), 320);
+    }
+    return results;
+  }
+
+  async function takeArmedClip() {
+    if (!armedClip) return;
+    const results = await triggerClip(armedClip.clipId);
+    if (results?.some(result => result.accepted)) {
+      setArmedClip(null);
+    }
   }
 
   async function clearLayer(layerId: string) {
@@ -231,6 +264,70 @@ export function VisualControlPanel({
       </div>
 
 
+
+      <div className="visual-now-next" aria-label={t('visualControls.nowNext')}>
+        <section className="visual-cue visual-cue-live">
+          <header>
+            <span className="deck-live-dot" />
+            <div>
+              <strong>{t('visualControls.current')}</strong>
+              <small>{t('visualControls.program')}</small>
+            </div>
+          </header>
+          <div className="visual-cue-body">
+            {snapshotUrl ? (
+              <img src={snapshotUrl} alt={t('visualControls.outputSnapshotAlt')} />
+            ) : activeClips.length ? (
+              <div className="visual-current-list">
+                {activeClips.slice(0, 4).map(clip => (
+                  <div key={clip.clipId}>
+                    <small>{clip.layerName}</small>
+                    <strong>{clip.clipName}</strong>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="visual-cue-empty">
+                <span>{t('visualControls.nothingLive')}</span>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <div className="deck-flow" aria-hidden="true"><span>→</span></div>
+
+        <section className="visual-cue visual-cue-next">
+          <header>
+            <div>
+              <strong>{t('visualControls.next')}</strong>
+              <small>{t('visualControls.preview')}</small>
+            </div>
+          </header>
+          <div className="visual-cue-body">
+            {armedClip ? (
+              <div className="visual-armed-cue">
+                <small>{armedClip.layerName}</small>
+                <strong>{armedClip.clipName}</strong>
+                <span>{t('visualControls.armed')}</span>
+              </div>
+            ) : (
+              <div className="visual-cue-empty">
+                <span>{t('visualControls.chooseClip')}</span>
+              </div>
+            )}
+          </div>
+          <footer>
+            <button
+              className="deck-take"
+              disabled={!armedClip || busy !== null}
+              onClick={() => void takeArmedClip()}
+            >
+              {busy?.startsWith('clip:') ? '…' : t('visualControls.take')} →
+            </button>
+          </footer>
+        </section>
+      </div>
+
       {activeProvider.capabilities.includes('visual.outputs.read') && (
         <div className="visual-output-strip">
           <div className="visual-output-copy">
@@ -292,13 +389,27 @@ export function VisualControlPanel({
                 {layer.clips.map(clip => (
                   <button
                     key={clip.id}
-                    className={clip.connected ? 'active' : ''}
+                    className={[
+                      clip.connected ? 'active' : '',
+                      armedClip?.clipId === clip.id ? 'armed' : ''
+                    ].filter(Boolean).join(' ')}
                     disabled={busy !== null}
-                    onClick={() => void triggerClip(clip.id)}
+                    onClick={() => setArmedClip({
+                      clipId: clip.id,
+                      clipName: clip.name,
+                      layerId: layer.id,
+                      layerName: layer.name
+                    })}
                     title={clip.id}
                   >
                     <span>{clip.name}</span>
-                    <small>{clip.connected ? t('visualControls.live') : t('visualControls.ready')}</small>
+                    <small>
+                      {armedClip?.clipId === clip.id
+                        ? t('visualControls.next')
+                        : clip.connected
+                          ? t('visualControls.live')
+                          : t('visualControls.ready')}
+                    </small>
                   </button>
                 ))}
                 {!layer.clips.length && (
