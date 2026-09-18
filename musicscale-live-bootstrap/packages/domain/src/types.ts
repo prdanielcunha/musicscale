@@ -15,6 +15,10 @@ export const CAPABILITIES = [
   'media.open',
   'preview.snapshot',
   'stage.message',
+  'visual.composition.read',
+  'visual.clip.trigger',
+  'visual.layer.clear',
+  'visual.composition.clear',
   'audio.route.read',
   'audio.route.write',
   'automation.trigger'
