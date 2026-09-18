@@ -34,6 +34,29 @@ describe('ProviderConfigStore', () => {
     expect(await readFile(path, 'utf8')).toContain('192.168.1.50:8080');
   });
 
+  it('stores a local ProPresenter API endpoint', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'ms-live-provider-'));
+    const path = join(dir, 'providers.json');
+    const store = new ProviderConfigStore(path);
+
+    await store.setProPresenter({
+      baseUrl: 'http://192.168.1.60:50001'
+    });
+
+    const restored = new ProviderConfigStore(path);
+    expect((await restored.getProPresenter())?.baseUrl)
+      .toBe('http://192.168.1.60:50001');
+  });
+
+  it('rejects public internet ProPresenter endpoints', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'ms-live-provider-'));
+    const store = new ProviderConfigStore(join(dir, 'providers.json'));
+
+    await expect(store.setProPresenter({
+      baseUrl: 'https://example.com'
+    })).rejects.toThrow('propresenter_url_must_be_local');
+  });
+
   it('rejects public internet Resolume endpoints', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'ms-live-provider-'));
     const store = new ProviderConfigStore(join(dir, 'providers.json'));
