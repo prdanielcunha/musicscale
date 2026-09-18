@@ -96,6 +96,7 @@ export interface CapabilitySnapshot {
   providerId: string;
   capabilities: Capability[];
   health: ProviderHealth;
+  observed?: Record<string, unknown>;
 }
 
 
