@@ -34,6 +34,11 @@ describe('Live Node diagnostics', () => {
         configured: true,
         source: 'local',
         baseUrl: 'http://127.0.0.1:8091'
+      },
+      resolume: {
+        configured: true,
+        source: 'local',
+        baseUrl: 'http://127.0.0.1:8080'
       }
     });
 
