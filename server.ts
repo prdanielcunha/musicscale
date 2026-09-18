@@ -2574,20 +2574,23 @@ RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
                     normalizeSectionIdentity(rawAnnotation.section),
                   )
                 : undefined;
-            const type =
-              typeof rawAnnotation.type === "string" &&
-              allowedSectionAnnotationTypes.has(rawAnnotation.type)
-                ? rawAnnotation.type
+            const rawType = rawAnnotation.type;
+            const rawInstrument = rawAnnotation.instrument;
+            const rawConfidence = rawAnnotation.confidence;
+            const type: string =
+              typeof rawType === "string" &&
+              allowedSectionAnnotationTypes.has(rawType)
+                ? rawType
                 : "unknown";
-            const instrument =
-              typeof rawAnnotation.instrument === "string" &&
-              allowedSectionAnnotationInstruments.has(rawAnnotation.instrument)
-                ? rawAnnotation.instrument
+            const instrument: string =
+              typeof rawInstrument === "string" &&
+              allowedSectionAnnotationInstruments.has(rawInstrument)
+                ? rawInstrument
                 : "unknown";
-            const confidence =
-              typeof rawAnnotation.confidence === "string" &&
-              allowedSectionAnnotationConfidence.has(rawAnnotation.confidence)
-                ? rawAnnotation.confidence
+            const confidence: string =
+              typeof rawConfidence === "string" &&
+              allowedSectionAnnotationConfidence.has(rawConfidence)
+                ? rawConfidence
                 : "low";
 
             if (!section) continue;
