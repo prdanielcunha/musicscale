@@ -288,14 +288,49 @@ export interface SceneAction {
   outputTargets: EntityId[];
   payload: Record<string, unknown>;
   safetyLevel: SafetyLevel;
+  /**
+   * Relative delay from the scene start. Allows tightly coordinated provider
+   * transitions without leaking provider-specific sequencing into the domain.
+   */
+  offsetMs?: number;
 }
 
 export interface Scene {
   id: EntityId;
   organizationId: EntityId;
   venueId: EntityId;
+  liveSystemId?: EntityId;
   name: string;
   actions: SceneAction[];
+}
+
+export interface SceneExecutionRequest {
+  id: EntityId;
+  correlationId: EntityId;
+  organizationId: EntityId;
+  venueId: EntityId;
+  liveSystemId: EntityId;
+  liveSessionId: EntityId;
+  serviceItemId?: EntityId;
+  actorId: EntityId;
+  origin: CommandOrigin;
+  scene: Scene;
+  idempotencyKey: string;
+}
+
+export interface SceneActionExecutionResult {
+  actionId: EntityId;
+  offsetMs: number;
+  results: CommandResult[];
+}
+
+export interface SceneExecutionResult {
+  sceneId: EntityId;
+  correlationId: EntityId;
+  status: 'completed' | 'partial' | 'failed';
+  startedAt: string;
+  completedAt: string;
+  actions: SceneActionExecutionResult[];
 }
 
 export interface AutomationRule {
