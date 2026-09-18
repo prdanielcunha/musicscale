@@ -515,6 +515,46 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
     }
   };
 
+  const executeReplace = async (existingSong: any, songDataToSave: any) => {
+    if (!api || !userProfile || !existingSong?.id) return;
+
+    const hasGlobalMatch = duplicateInfo?.matches.some((match) => match.location === 'global_library') ?? false;
+    setIsSaving(true);
+    if (error) setError(null);
+
+    try {
+      await api.replaceSongContent(existingSong.id, songDataToSave);
+
+      if (options.saveToGlobalLibrary && isEcosystemAdmin && !hasGlobalMatch) {
+        await api.submitToGlobal(userProfile, songDataToSave);
+      }
+
+      await refreshData();
+      setDuplicateInfo(null);
+      onClose();
+      success(
+        t('songDuplicate.replacedTitle'),
+        t('songDuplicate.replacedDescription'),
+      );
+
+      setTimeout(() => {
+        setStep("input");
+        setFormData({ title: "", artist: "", rawText: "", url: "", desiredKey: "", version: "", bpm: "" });
+        setOptions({ saveToOrganization: true, saveToGlobalLibrary: false });
+        setPreviewData(null);
+        setDuplicateInfo(null);
+      }, 300);
+    } catch (err: any) {
+      if (err?.code === 'permission-denied') {
+        setError(t('common.permissionDenied', "Sem permissão. Verifique seu perfil."));
+      } else {
+        setError(err?.message || t('common.errorSavingSong', "Erro ao salvar música."));
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSave = async (forceSave = false) => {
     if (!api || !userProfile || !previewData) return;
     
@@ -1122,6 +1162,13 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
               onClose();
               openSongForm(song);
           }}
+          onReplaceExisting={(song) => {
+              const incomingSong = duplicateInfo?.songData;
+              if (incomingSong) {
+                void executeReplace(song, incomingSong);
+              }
+          }}
+          isLoading={isSaving}
        />
       </>
       )}
