@@ -114,6 +114,26 @@ describe("intelligent song parts", () => {
     expect(parts[0].content).toContain("e|--5--7--8--|");
   });
 
+  it("does not mark chord-and-text content as preserved fingering when there is no tablature", () => {
+    const parts = buildSongParts({
+      chords: [
+        "[Solo]",
+        "Am F C G",
+        "Tocar suave e crescer no final",
+        "[Ponte]",
+        "F G Am",
+      ].join("\n"),
+      tabs: [],
+      metadata: {},
+    });
+
+    expect(parts).toHaveLength(1);
+    expect(parts[0]).toMatchObject({
+      format: "mixed",
+      preservesFingering: false,
+    });
+  });
+
   it("keeps legacy tab-only content available as a technical part", () => {
     const parts = buildSongParts({
       chords: "[Verso]\nC\nGraça sem fim",
