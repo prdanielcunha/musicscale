@@ -74,6 +74,45 @@ describe("worship song section parser", () => {
     ]);
   });
 
+  it("accepts safe custom bracketed section names for personalized Performance navigation", () => {
+    const parsed = parseChordsAndLyrics(
+      "[Verso]\nC\nGraça sem fim\n[Lead Guitar]\nAm F C G\n[Keys Atmosphere] Dm G",
+    );
+    const items = buildSongSectionNavigatorItems(parsed);
+
+    expect(items.map((item) => item.label)).toEqual([
+      "Verso",
+      "Lead Guitar",
+      "Keys Atmosphere",
+    ]);
+    expect(
+      parsed.some(
+        (line) => line.type === "chord" && line.content.trim() === "Dm G",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not mistake ChordPro chords, key metadata, or numeric markers for custom sections", () => {
+    const parsed = parseChordsAndLyrics(
+      "[C]Graça que me alcançou\n[Am]Hoje eu vivo\n[Key G]\n[Capo 2]\n[2]\nC G Am F",
+    );
+    const sectionLabels = buildSongSectionNavigatorItems(parsed).map(
+      (item) => item.label,
+    );
+
+    expect(sectionLabels).toEqual([]);
+    expect(
+      parsed.some(
+        (line) => line.type === "section" && line.content.includes("Key"),
+      ),
+    ).toBe(false);
+    expect(
+      parsed.some(
+        (line) => line.type === "section" && line.content.includes("Capo"),
+      ),
+    ).toBe(false);
+  });
+
   it("keeps technical solo headings navigable but does not turn arbitrary bracket metadata into a section", () => {
     const parsed = parseChordsAndLyrics(
       "[Tab - Solo Intro]\n(sem capotraste)\n[Capotraste 2]\nC G Am F",

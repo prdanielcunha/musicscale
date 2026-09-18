@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { isChordOnlyCandidate, normalizeChordDocumentStructure } from '../../utils/chordDocumentNormalizer';
+import { isChordToken } from '../../utils/chordEngine';
 
 export const getNotesArray = () => [
   "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
@@ -119,15 +120,37 @@ export const splitSongSectionPrefix = (line: string): SectionPrefixMatch | null 
   // the removed prefix with spaces instead of trimming it away. This keeps
   // the first inline Intro row aligned with indented continuation rows.
   const bracketed = rawLine.match(/^(\s*)\[([^\]]+)\](\s*)(.*)$/);
-  if (bracketed && isRecognizedSongSection(bracketed[2])) {
+  if (bracketed) {
+    const bracketLabel = cleanSectionLabel(bracketed[2]);
+    const foldedBracketLabel = foldSectionLabel(bracketLabel);
     const trailingContent = bracketed[4].trimEnd();
-    const chordColumnPrefix =
-      " ".repeat(bracketed[1].length + bracketed[2].length + 2 + bracketed[3].length);
+    const isKnownSection = isRecognizedSongSection(bracketLabel);
+    const isSafeCustomSection =
+      !!bracketLabel &&
+      bracketLabel.length <= 80 &&
+      !isChordToken(bracketLabel) &&
+      !/^(?:tom|tono|key|capo|capotraste|cejilla|bpm)\b/.test(
+        foldedBracketLabel,
+      ) &&
+      !/^(?:\d+|x\s*\d+|\d+\s*x)$/.test(foldedBracketLabel) &&
+      (!trailingContent || isChordOnlyCandidate(trailingContent.trim()));
 
-    return {
-      label: cleanSectionLabel(bracketed[2]),
-      remainder: trailingContent ? chordColumnPrefix + trailingContent : "",
-    };
+    if (isKnownSection || isSafeCustomSection) {
+      const chordColumnPrefix =
+        " ".repeat(
+          bracketed[1].length +
+            bracketed[2].length +
+            2 +
+            bracketed[3].length,
+        );
+
+      return {
+        label: bracketLabel,
+        remainder: trailingContent
+          ? chordColumnPrefix + trailingContent
+          : "",
+      };
+    }
   }
 
   const wholeLabel = trimmed.replace(/\s*[:.]\s*$/, "");

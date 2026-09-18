@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { buildSongParts, hasSongParts } from "../../components/songs/songParts";
+import {
+  buildSongParts,
+  getFocusedSongParts,
+  hasSongParts,
+  resolveSongPartFocusInstruments,
+} from "../../components/songs/songParts";
+import {
+  buildSongSectionNavigatorItems,
+  parseChordsAndLyrics,
+} from "../../components/songs/ChordsRenderer";
 
 describe("intelligent song parts", () => {
   it("derives solo and riff focus from the canonical chart without duplicating the song", () => {
@@ -122,6 +131,42 @@ describe("intelligent song parts", () => {
     expect(parts.some((part) => part.label === "C")).toBe(false);
   });
 
+  it("keeps custom AI-classified part ordinals aligned with Performance section navigation", () => {
+    const song = {
+      chords: [
+        "[Verso]",
+        "C",
+        "Graça que me alcançou",
+        "[Lead Guitar]",
+        "Am F C G",
+        "[Refrão]",
+        "F G C",
+      ].join("\n"),
+      tabs: [],
+      metadata: {
+        sectionAnnotations: [
+          {
+            section: "Lead Guitar",
+            type: "solo",
+            instrument: "guitar",
+            confidence: "high",
+          },
+        ],
+      },
+    };
+
+    const parts = buildSongParts(song);
+    const sections = buildSongSectionNavigatorItems(
+      parseChordsAndLyrics(song.chords),
+    );
+
+    expect(parts).toHaveLength(1);
+    expect(parts[0].sectionIndex).toBe(1);
+    expect(sections[parts[0].sectionIndex!]).toMatchObject({
+      label: "Lead Guitar",
+    });
+  });
+
   it("merges matching tablature into the chart part while preserving original fingering", () => {
     const song = {
       chords: ["[Solo Guitarra]", "Am F C G", "[Ponte]", "F G Am"].join("\n"),
@@ -165,6 +210,49 @@ describe("intelligent song parts", () => {
       format: "mixed",
       preservesFingering: false,
     });
+  });
+
+  it("maps the current scale assignment to safe instrumental focus targets", () => {
+    expect(resolveSongPartFocusInstruments(["Teclado"])).toEqual([
+      "keys",
+      "piano",
+      "synth",
+    ]);
+    expect(resolveSongPartFocusInstruments(["Piano"])).toEqual([
+      "piano",
+      "keys",
+    ]);
+    expect(resolveSongPartFocusInstruments(["Guitarra"])).toEqual(["guitar"]);
+    expect(resolveSongPartFocusInstruments(["Violão"])).toEqual([
+      "acoustic_guitar",
+    ]);
+    expect(resolveSongPartFocusInstruments(["Vocal", "Ministro"])).toEqual([]);
+  });
+
+  it("shows only parts that match the instrument assigned in this specific scale", () => {
+    const parts = buildSongParts({
+      chords: [
+        "[Solo Guitarra]",
+        "Am F C G",
+        "[Riff Baixo]",
+        "Am G F",
+        "[Instrumental Teclado]",
+        "F G Am",
+      ].join("\n"),
+      metadata: {},
+      tabs: [],
+    });
+
+    expect(
+      getFocusedSongParts(parts, ["Guitarra"]).map((part) => part.label),
+    ).toEqual(["Solo Guitarra"]);
+    expect(
+      getFocusedSongParts(parts, ["Baixo"]).map((part) => part.label),
+    ).toEqual(["Riff Baixo"]);
+    expect(
+      getFocusedSongParts(parts, ["Teclado"]).map((part) => part.label),
+    ).toEqual(["Instrumental Teclado"]);
+    expect(getFocusedSongParts(parts, ["Vocal"])).toEqual([]);
   });
 
   it("keeps legacy tab-only content available as a technical part", () => {

@@ -63,6 +63,62 @@ export const releaseNewsTranslations = {
         ],
       },
     },
+    intelligentPartsBeta04: {
+      title: 'Cada músico agora enxerga o que realmente precisa tocar.',
+      description: 'O MusicScale ganhou Partes Inteligentes, foco pela função real da escala e navegação contextual dentro do Performance Mode.',
+      stageTools: {
+        title: 'Partes Inteligentes',
+        body: 'Solos, riffs, instrumentais e outras partes técnicas passam a nascer da própria cifra canônica, sem criar cópias separadas da música.',
+        how: 'Abra Partes na música para ver os trechos detectados, transpor conteúdo harmônico quando for seguro e manter tablaturas com a digitação original.',
+      },
+      deviceAudio: {
+        title: 'Meu Foco por escala',
+        body: 'O MusicScale usa a função atribuída naquele culto para priorizar as partes realmente relevantes para cada músico.',
+        how: 'Se você estiver escalado na guitarra, baixo, teclado ou outro instrumento compatível, Meu Foco aparece primeiro; Todas continua disponível a qualquer momento.',
+      },
+      updates: {
+        title: 'Performance contextual',
+        body: 'O Performance Mode agora destaca suas partes e permite saltar diretamente para elas sem esconder a cifra completa.',
+        how: 'Use Meu Foco no navegador de seções para ir aos seus trechos. Cabeçalhos personalizados seguros são reconhecidos sem confundir acordes ChordPro.',
+      },
+      refinements: {
+        summary: 'Leia mais — correções e refinamentos',
+        title: 'Correções e refinamentos',
+        items: [
+          { date: '18/09', text: 'Partes e Performance agora compartilham o mesmo parser canônico de seções.' },
+          { date: '18/09', text: 'Tablaturas preservam a digitação original e acordes continuam transponíveis quando apropriado.' },
+          { date: '18/09', text: 'Reconhecimento de seções recebeu proteção contra falsos positivos em ChordPro, tom, capo e marcadores numéricos.' },
+        ],
+      },
+    },
+    personalPreparationBeta05: {
+      title: 'Seu preparo ficou mais pessoal — e o repertório mais seguro.',
+      description: 'O MusicScale agora mostra o que você precisa praticar na próxima escala e trata músicas duplicadas com uma decisão clara antes de salvar.',
+      stageTools: {
+        title: 'Praticar meu foco',
+        body: 'O Dashboard usa sua função real na escala para destacar somente as músicas e partes que precisam da sua atenção, preservando a ordem do repertório.',
+        how: 'Abra sua próxima escala pelo Dashboard e toque em “Praticar meu foco” para começar pela primeira música que tem uma parte relevante para você.',
+      },
+      deviceAudio: {
+        title: 'Duplicatas sob controle',
+        body: 'Ao criar ou importar uma música já existente, o MusicScale mostra a correspondência antes de salvar e deixa você escolher entre cancelar, criar uma nova cópia ou substituir a existente.',
+        how: 'Revise a música encontrada e escolha a ação desejada. A substituição exige uma confirmação adicional antes de alterar qualquer conteúdo.',
+      },
+      updates: {
+        title: 'Substituição sem quebrar escalas',
+        body: 'Quando você substitui uma música, o mesmo ID e os vínculos com escalas existentes são preservados, enquanto os novos dados musicais assumem o lugar da versão anterior.',
+        how: 'Título, artista, tom, BPM, letra, cifra, seções, solos, partes, tabs e metadados são atualizados juntos; dados antigos de arranjo que não existem na nova versão são limpos.',
+      },
+      refinements: {
+        summary: 'Leia mais — correções e refinamentos',
+        title: 'Correções e refinamentos',
+        items: [
+          { date: '18/09', text: 'Criação manual e importação por IA agora compartilham o mesmo fluxo de decisão para músicas semelhantes.' },
+          { date: '18/09', text: 'A substituição preserva identidade, vínculos e histórico operacional da música, com atualização auditável do conteúdo.' },
+          { date: '18/09', text: 'O preparo pessoal reutiliza as Partes Inteligentes e a função atribuída na escala, sem inventar um foco técnico para quem não possui parte compatível.' },
+        ],
+      },
+    },
   },
   en: {
     label: 'What’s new',
@@ -128,6 +184,62 @@ export const releaseNewsTranslations = {
         ],
       },
     },
+    intelligentPartsBeta04: {
+      title: 'Every musician now sees what they actually need to play.',
+      description: 'MusicScale now brings Intelligent Parts, assignment-aware focus and contextual navigation directly into Performance Mode.',
+      stageTools: {
+        title: 'Intelligent Parts',
+        body: 'Solos, riffs, instrumentals and other technical parts are derived from the canonical chart instead of creating separate copies of the song.',
+        how: 'Open Parts on a song to review detected sections, transpose harmonic content when safe and keep tablature fingering exactly as written.',
+      },
+      deviceAudio: {
+        title: 'My Focus for each set',
+        body: 'MusicScale uses the role assigned for that specific service to prioritize the parts that matter to each musician.',
+        how: 'If you are assigned to guitar, bass, keys or another supported instrument, My Focus opens first; All remains available at any time.',
+      },
+      updates: {
+        title: 'Contextual Performance',
+        body: 'Performance Mode now highlights your parts and lets you jump directly to them without hiding the complete chart.',
+        how: 'Use My Focus in the section rail to jump to your sections. Safe custom headings are supported without mistaking ChordPro chords for sections.',
+      },
+      refinements: {
+        summary: 'Read more — fixes and refinements',
+        title: 'Fixes and refinements',
+        items: [
+          { date: 'Sep 18', text: 'Parts and Performance now share the same canonical section parser.' },
+          { date: 'Sep 18', text: 'Tablature keeps original fingering while harmonic content remains transposable when appropriate.' },
+          { date: 'Sep 18', text: 'Section recognition now guards against false positives from ChordPro, key, capo and numeric markers.' },
+        ],
+      },
+    },
+    personalPreparationBeta05: {
+      title: 'Preparation is now more personal — and the repertoire is safer.',
+      description: 'MusicScale now shows what you need to practice for the next schedule and handles duplicate songs with a clear decision before saving.',
+      stageTools: {
+        title: 'Practice my focus',
+        body: 'The Dashboard uses your actual assignment in the schedule to highlight only the songs and parts that need your attention, while preserving setlist order.',
+        how: 'Open your next schedule from the Dashboard and choose “Practice my focus” to start with the first song that contains a relevant part for you.',
+      },
+      deviceAudio: {
+        title: 'Duplicates under control',
+        body: 'When creating or importing a song that already exists, MusicScale shows the match before saving and lets you cancel, create a new copy or replace the existing song.',
+        how: 'Review the matched song and choose the action you want. Replacement requires an additional confirmation before any content is changed.',
+      },
+      updates: {
+        title: 'Replace without breaking schedules',
+        body: 'When you replace a song, the same ID and existing schedule links are preserved while the new musical data replaces the previous version.',
+        how: 'Title, artist, key, BPM, lyrics, chords, sections, solos, parts, tabs and metadata are updated together; stale arrangement data that is absent from the new version is cleared.',
+      },
+      refinements: {
+        summary: 'Read more — fixes and refinements',
+        title: 'Fixes and refinements',
+        items: [
+          { date: 'Sep 18', text: 'Manual creation and AI import now share the same decision flow for similar songs.' },
+          { date: 'Sep 18', text: 'Replacement preserves song identity, links and operational history while applying an auditable content update.' },
+          { date: 'Sep 18', text: 'Personal preparation reuses Intelligent Parts and the actual schedule assignment without inventing a technical focus for unsupported roles.' },
+        ],
+      },
+    },
   },
   es: {
     label: 'Novedades',
@@ -190,6 +302,62 @@ export const releaseNewsTranslations = {
           { date: '17/09', text: 'Se corrigieron el desbordamiento horizontal y las áreas de toque de Herramientas de Escenario en móviles.' },
           { date: '17/09', text: 'Las descargas de biblioteca y escalas comparten el mismo repertorio local con deduplicación por revisión.' },
           { date: '17/09', text: 'La caché sin conexión y los Pads personales quedan aislados por usuario, organización y dispositivo.' },
+        ],
+      },
+    },
+    intelligentPartsBeta04: {
+      title: 'Cada músico ahora ve lo que realmente necesita tocar.',
+      description: 'MusicScale incorpora Partes Inteligentes, foco según la función real de la escala y navegación contextual dentro del Modo Performance.',
+      stageTools: {
+        title: 'Partes Inteligentes',
+        body: 'Solos, riffs, instrumentales y otras partes técnicas nacen de la cifra canónica, sin crear copias separadas de la canción.',
+        how: 'Abre Partes en la canción para revisar los fragmentos detectados, transponer contenido armónico cuando sea seguro y conservar la digitación original de las tablaturas.',
+      },
+      deviceAudio: {
+        title: 'Mi Foco por escala',
+        body: 'MusicScale usa la función asignada en ese culto para priorizar las partes realmente relevantes para cada músico.',
+        how: 'Si estás asignado a guitarra, bajo, teclado u otro instrumento compatible, Mi Foco aparece primero; Todas sigue disponible en cualquier momento.',
+      },
+      updates: {
+        title: 'Performance contextual',
+        body: 'El Modo Performance ahora destaca tus partes y permite saltar directamente a ellas sin ocultar la cifra completa.',
+        how: 'Usa Mi Foco en el navegador de secciones para ir a tus fragmentos. Los encabezados personalizados seguros se reconocen sin confundir acordes ChordPro.',
+      },
+      refinements: {
+        summary: 'Leer más — correcciones y refinamientos',
+        title: 'Correcciones y refinamientos',
+        items: [
+          { date: '18/09', text: 'Partes y Performance ahora comparten el mismo parser canónico de secciones.' },
+          { date: '18/09', text: 'Las tablaturas conservan la digitación original y el contenido armónico sigue siendo transponible cuando corresponde.' },
+          { date: '18/09', text: 'El reconocimiento de secciones evita falsos positivos de ChordPro, tono, capo y marcadores numéricos.' },
+        ],
+      },
+    },
+    personalPreparationBeta05: {
+      title: 'Tu preparación ahora es más personal — y el repertorio más seguro.',
+      description: 'MusicScale ahora muestra lo que necesitas practicar para la próxima escala y trata las canciones duplicadas con una decisión clara antes de guardar.',
+      stageTools: {
+        title: 'Practicar mi foco',
+        body: 'El Dashboard usa tu función real en la escala para destacar solo las canciones y partes que necesitan tu atención, conservando el orden del repertorio.',
+        how: 'Abre tu próxima escala desde el Dashboard y elige “Practicar mi foco” para comenzar por la primera canción que tenga una parte relevante para ti.',
+      },
+      deviceAudio: {
+        title: 'Duplicados bajo control',
+        body: 'Al crear o importar una canción que ya existe, MusicScale muestra la coincidencia antes de guardar y permite cancelar, crear una copia nueva o sustituir la existente.',
+        how: 'Revisa la canción encontrada y elige la acción deseada. La sustitución exige una confirmación adicional antes de cambiar cualquier contenido.',
+      },
+      updates: {
+        title: 'Sustituir sin romper escalas',
+        body: 'Cuando sustituyes una canción, se conservan el mismo ID y los vínculos con las escalas existentes, mientras los nuevos datos musicales reemplazan la versión anterior.',
+        how: 'Título, artista, tono, BPM, letra, acordes, secciones, solos, partes, tabs y metadatos se actualizan juntos; los datos antiguos de arreglo que no existan en la nueva versión se eliminan.',
+      },
+      refinements: {
+        summary: 'Leer más — correcciones y refinamientos',
+        title: 'Correcciones y refinamientos',
+        items: [
+          { date: '18/09', text: 'La creación manual y la importación con IA ahora comparten el mismo flujo de decisión para canciones similares.' },
+          { date: '18/09', text: 'La sustitución conserva identidad, vínculos e historial operativo de la canción con una actualización auditable del contenido.' },
+          { date: '18/09', text: 'La preparación personal reutiliza Partes Inteligentes y la función asignada en la escala sin inventar un foco técnico para roles no compatibles.' },
         ],
       },
     },

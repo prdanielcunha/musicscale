@@ -1,6 +1,5 @@
 import {
   classifyLine,
-  isChordToken,
   LineType,
 } from "../../utils/chordEngine";
 import { splitSongSectionPrefix } from "./ChordsRenderer";
@@ -216,39 +215,8 @@ interface SectionBlock {
 
 const splitCanonicalSectionHeader = (
   line: string,
-): { label: string; remainder: string } | null => {
-  const knownSection = splitSongSectionPrefix(line);
-  if (knownSection) return knownSection;
-
-  const bracketed = line.match(/^(\s*)\[([^\]]{1,80})\](\s*)(.*)$/);
-  if (!bracketed) return null;
-
-  const label = bracketed[2].trim();
-  const foldedLabel = fold(label);
-  if (
-    !label ||
-    isChordToken(label) ||
-    /^(?:capo|capotraste|cejilla|tom|tono|key|bpm)\b/.test(foldedLabel)
-  ) {
-    return null;
-  }
-
-  const trailingContent = bracketed[4].trimEnd();
-  const preservedColumnPrefix =
-    " ".repeat(
-      bracketed[1].length +
-        bracketed[2].length +
-        2 +
-        bracketed[3].length,
-    );
-
-  return {
-    label,
-    remainder: trailingContent
-      ? preservedColumnPrefix + trailingContent
-      : "",
-  };
-};
+): { label: string; remainder: string } | null =>
+  splitSongSectionPrefix(line);
 
 const buildSectionBlocks = (chords: string): SectionBlock[] => {
   if (!chords.trim()) return [];
@@ -448,6 +416,84 @@ export const buildSongParts = (song: SongPartsSource | null | undefined): SongPa
 
   return parts;
 };
+
+
+const resolveAssignmentInstrumentTargets = (
+  assignmentName: string,
+): SongPartInstrument[] => {
+  const value = fold(assignmentName);
+
+  if (!value) return [];
+
+  if (/\b(violao|guitarra acustica|acoustic guitar|acoustic)\b/.test(value)) {
+    return ["acoustic_guitar"];
+  }
+  if (/\b(guitarra|guitar|guitarrista|lead guitar)\b/.test(value)) {
+    return ["guitar"];
+  }
+  if (/\b(baixo|bass|baixista)\b/.test(value)) {
+    return ["bass"];
+  }
+  if (/\b(teclado|keyboard|keys|tecladista)\b/.test(value)) {
+    return ["keys", "piano", "synth"];
+  }
+  if (/\b(piano|pianista)\b/.test(value)) {
+    return ["piano", "keys"];
+  }
+  if (/\b(synth|sintetizador|sintetista)\b/.test(value)) {
+    return ["synth", "keys"];
+  }
+  if (/\b(bateria|drums|drummer|baterista)\b/.test(value)) {
+    return ["drums"];
+  }
+  if (/\b(sax|saxofone|saxophone|saxofonista)\b/.test(value)) {
+    return ["sax"];
+  }
+  if (/\b(violino|violin|violinista)\b/.test(value)) {
+    return ["violin"];
+  }
+  if (/\b(strings|cordas)\b/.test(value)) {
+    return ["strings"];
+  }
+
+  return [];
+};
+
+export const resolveSongPartFocusInstruments = (
+  assignmentNames: string[] | null | undefined,
+): SongPartInstrument[] => {
+  const result = new Set<SongPartInstrument>();
+
+  (assignmentNames || []).forEach((assignmentName) => {
+    resolveAssignmentInstrumentTargets(assignmentName).forEach((instrument) => {
+      result.add(instrument);
+    });
+  });
+
+  return Array.from(result);
+};
+
+export const getFocusedSongParts = (
+  parts: SongPart[],
+  assignmentNames: string[] | null | undefined,
+): SongPart[] => {
+  const focusInstruments = new Set(
+    resolveSongPartFocusInstruments(assignmentNames),
+  );
+
+  if (focusInstruments.size === 0) return [];
+
+  return parts.filter(
+    (part) =>
+      part.instrument !== "unknown" &&
+      focusInstruments.has(part.instrument),
+  );
+};
+
+export const countFocusedSongParts = (
+  song: SongPartsSource | null | undefined,
+  assignmentNames: string[] | null | undefined,
+): number => getFocusedSongParts(buildSongParts(song), assignmentNames).length;
 
 export const hasSongParts = (song: SongPartsSource | null | undefined): boolean =>
   buildSongParts(song).length > 0;

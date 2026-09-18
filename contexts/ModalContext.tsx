@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, ReactNode, useCallback, use
 import { useTranslation } from 'react-i18next';
 import { useToast } from './ToastContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import type { PopulatedSong, Song, Scale, PopulatedScale, BandScale, PopulatedBandScale, MusicScalePublishPayload, MusicScalePublishPatch, ChordKeyRepairDraftSong } from '../types';
+import type { PopulatedSong, Song, Scale, PopulatedScale, BandScale, PopulatedBandScale, MusicScalePublishPayload, MusicScalePublishPatch, ChordKeyRepairDraftSong, ScaleSongNavigationContext } from '../types';
 
 export type ChordKeyRepairState =
   | {
@@ -109,7 +109,7 @@ export type SongOpenMode = 'detail' | 'lyrics' | 'chords' | 'performance';
 
 export interface OpenSongDetailOptions {
   keepCurrentOpen?: boolean;
-  scaleContext?: { scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null;
+  scaleContext?: ScaleSongNavigationContext | null;
   mode?: SongOpenMode;
 }
 
@@ -128,7 +128,7 @@ interface ModalContextType {
   openSongDetail: (
     song: PopulatedSong,
     options?: OpenSongDetailOptions | boolean,
-    scaleContext?: {  scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null,
+    scaleContext?: ScaleSongNavigationContext | null,
     startInPerformanceMode?: boolean
   ) => void;
   openDeleteSongConfirmation: (song: PopulatedSong) => void;
@@ -279,7 +279,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [linkingOptions, setLinkingOptions] = useState<{ linkToMusicScaleId: string } | null>(null);
 
   // In-modal navigation state
-  const [scaleNavigationContext, setScaleNavigationContext] = useState<{ scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null>(null);
+  const [scaleNavigationContext, setScaleNavigationContext] = useState<ScaleSongNavigationContext | null>(null);
 
 
   // Chord Modals State
@@ -407,7 +407,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const openSongDetail = useCallback((
     song: PopulatedSong,
     options?: OpenSongDetailOptions | boolean,
-    scaleContext: { scaleId?: string, songs: PopulatedSong[], currentIndex: number } | null = null,
+    scaleContext: ScaleSongNavigationContext | null = null,
     startInPerformanceMode = false
   ) => {
     let keepCurrentOpen = false;
@@ -571,6 +571,54 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setIsSubmitting(false);
     }
   }, [duplicateSongInfo, user, userProfile, refreshData, closeAllModals, api]);
+
+  const handleReplaceDuplicateSong = useCallback(async (existingSong: PopulatedSong) => {
+    if (!duplicateSongInfo || !user || !userProfile || !api || !existingSong?.id) return;
+    if (!duplicateSongInfo.options.saveToOrganization) return;
+
+    const pending = duplicateSongInfo;
+    const hasGlobalMatch = pending.matches.some((match) => match.location === 'global_library');
+    const isEcosystemAdmin =
+      userProfile?.systemRole === "ceo" ||
+      userProfile?.systemRole === "admin" ||
+      userProfile?.systemRole === "global_admin";
+
+    setIsSubmitting(true);
+    try {
+      await api.replaceSongContent(existingSong.id, pending.newSongData as Partial<Song>);
+
+      // If this work is already represented in the global library, do not create
+      // another global copy. Otherwise preserve the user's selected destination.
+      if (pending.options.saveToGlobalLibrary && isEcosystemAdmin && !hasGlobalMatch) {
+        await api.submitToGlobal(userProfile, pending.newSongData);
+      }
+
+      setDuplicateSongInfo(null);
+      setSongToEdit(null);
+      pending.onSuccess?.();
+      await refreshData();
+
+      toast({
+        type: 'success',
+        message: t('songDuplicate.replacedTitle'),
+        description: t('songDuplicate.replacedDescription'),
+      });
+    } catch (error) {
+      logger.error("Failed to replace duplicate song", error);
+      const errDetails = extractErrorDetails(error);
+      let errorMsg = errDetails.message || t('common.unknownError', "Ocorreu um erro desconhecido.");
+      if (errDetails.code === 'permission-denied') {
+        errorMsg = t('common.permissionDenied', "Sem permissão. Verifique seu papel na organização.");
+      }
+      toast({
+        type: 'error',
+        message: t('common.errorSavingSong', "Erro ao salvar música"),
+        description: `${t('common.details', 'Detalhes')}: ${errorMsg}`,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [duplicateSongInfo, user, userProfile, api, refreshData, t, toast]);
 
   const handleDeleteSong = useCallback(async () => {
     if (!songToDelete || !api) return;
@@ -1005,7 +1053,11 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (newIndex >= 0 && newIndex < songs.length) {
         const newSong = songs[newIndex];
         setSongToView(newSong);
-        setScaleNavigationContext({ songs, currentIndex: newIndex });
+        setScaleNavigationContext({
+          ...scaleNavigationContext,
+          songs,
+          currentIndex: newIndex,
+        });
     }
   }, [scaleNavigationContext]);
 
@@ -1168,6 +1220,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               setDuplicateSongInfo(null);
               openSongForm(song);
             }}
+            onReplaceExisting={handleReplaceDuplicateSong}
             isLoading={isSubmitting}
           />
         )}

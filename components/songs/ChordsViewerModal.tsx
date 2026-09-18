@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
-import type { PopulatedSong } from "../../types";
+import type { PopulatedSong, ScaleSongNavigationContext } from "../../types";
 import Button from "../common/Button";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -36,6 +36,7 @@ import { ScaleSongNavigation, ScaleSongNavigationMobile } from "./ScaleSongNavig
 import Metronome from "../common/Metronome";
 import StagePadPlayer from "./StagePadPlayer";
 import { formatPadDisplayKey } from "../../services/stagePadEngine";
+import { buildSongParts, getFocusedSongParts } from "./songParts";
 
 // --- Adaptive UI & Battery Detection (Experimental API) ---
 const useAdaptivePerformance = () => {
@@ -132,6 +133,7 @@ import {
   isChordLine,
   parseChordsAndLyrics,
   buildSongSectionNavigatorItems,
+  foldSectionLabel,
   lightThemeColors,
   darkThemeColors
 } from "./ChordsRenderer";
@@ -221,11 +223,7 @@ interface ChordsViewerModalProps {
   onSave: (data: { songId: string; chords: string }) => Promise<void>;
   onSongUpdate?: (updatedSong: PopulatedSong) => void;
   isSubmitting: boolean;
-  scaleContext: {
-    scaleId?: string;
-    songs: PopulatedSong[];
-    currentIndex: number;
-  } | null;
+  scaleContext: ScaleSongNavigationContext | null;
   onNavigate: (direction: "next" | "previous" | number) => void;
 }
 
@@ -294,6 +292,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isStageMetronomeOpen, setIsStageMetronomeOpen] = useState(false);
   const [isStagePadOpen, setIsStagePadOpen] = useState(false);
+  const [sectionRailMode, setSectionRailMode] = useState<"focus" | "all">("focus");
   const [controlsActivityTick, setControlsActivityTick] = useState(0);
 
   const markControlsActivity = useCallback(() => {
@@ -957,6 +956,68 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     [parsedContent],
   );
 
+  const performanceSongParts = useMemo(() => buildSongParts(song), [song]);
+  const focusedPerformanceParts = useMemo(
+    () =>
+      getFocusedSongParts(
+        performanceSongParts,
+        scaleContext?.assignmentNames,
+      ),
+    [performanceSongParts, scaleContext?.assignmentNames],
+  );
+
+  const focusedSectionNavigatorItems = useMemo(() => {
+    const seen = new Set<number>();
+    return focusedPerformanceParts
+      .map((part) => {
+        if (part.sectionIndex === null) return null;
+        const target = sectionNavigatorItems[part.sectionIndex];
+        if (
+          !target ||
+          foldSectionLabel(target.label) !== foldSectionLabel(part.label) ||
+          seen.has(target.index)
+        ) {
+          return null;
+        }
+        seen.add(target.index);
+        return target;
+      })
+      .filter(
+        (
+          section,
+        ): section is (typeof sectionNavigatorItems)[number] =>
+          Boolean(section),
+      );
+  }, [focusedPerformanceParts, sectionNavigatorItems]);
+
+  const focusedSectionIndexes = useMemo(
+    () =>
+      new Set(
+        focusedSectionNavigatorItems.map((section) => section.index),
+      ),
+    [focusedSectionNavigatorItems],
+  );
+  const hasPerformanceFocus = focusedSectionNavigatorItems.length > 0;
+  const visibleSectionNavigatorItems =
+    sectionRailMode === "focus" && hasPerformanceFocus
+      ? focusedSectionNavigatorItems
+      : sectionNavigatorItems;
+  const performanceAssignmentLabel = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (scaleContext?.assignmentNames || [])
+            .map((name) => name.trim())
+            .filter(Boolean),
+        ),
+      ).join(" · "),
+    [scaleContext?.assignmentNames],
+  );
+
+  useEffect(() => {
+    setSectionRailMode("focus");
+  }, [song?.id, performanceAssignmentLabel]);
+
   const activeSectionItem = useMemo(
     () =>
       activeSectionIndex === null
@@ -1370,8 +1431,53 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         <div className="fixed top-20 md:top-24 inset-x-0 z-[38] pointer-events-none">
           <div className="mx-auto max-w-4xl px-3 md:px-6 pt-2">
             <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto hide-scrollbar rounded-full border border-white/[0.07] bg-[#0A0A0C]/[0.82] backdrop-blur-2xl p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.24)]">
-              {sectionNavigatorItems.map((section) => {
+              {hasPerformanceFocus && (
+                <div className="shrink-0 inline-flex items-center rounded-full border border-violet-300/10 bg-violet-400/[0.06] p-1">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setSectionRailMode("focus");
+                      markControlsActivity();
+                    }}
+                    className={`h-7 px-2.5 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-[0.11em] transition-all ${
+                      sectionRailMode === "focus"
+                        ? "bg-violet-100 text-violet-950 shadow-sm"
+                        : "text-violet-100/55 hover:text-violet-100"
+                    }`}
+                    title={
+                      performanceAssignmentLabel
+                        ? t("performance.focus_for_assignment", {
+                            assignment: performanceAssignmentLabel,
+                          })
+                        : undefined
+                    }
+                  >
+                    {t("performance.my_focus")}
+                  </button>
+                  {focusedSectionNavigatorItems.length <
+                    sectionNavigatorItems.length && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setSectionRailMode("all");
+                        markControlsActivity();
+                      }}
+                      className={`h-7 px-2.5 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-[0.11em] transition-all ${
+                        sectionRailMode === "all"
+                          ? "bg-white text-black shadow-sm"
+                          : "text-white/35 hover:text-white/70"
+                      }`}
+                    >
+                      {t("performance.all_sections")}
+                    </button>
+                  )}
+                </div>
+              )}
+              {visibleSectionNavigatorItems.map((section) => {
                 const isActive = activeSectionIndex === section.index;
+                const isFocused = focusedSectionIndexes.has(section.index);
                 return (
                   <button
                     key={`${section.index}-${section.label}`}
@@ -1383,7 +1489,9 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                     className={`shrink-0 h-8 px-3.5 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-[0.11em] transition-all active:scale-[0.97] ${
                       isActive
                         ? "bg-white text-black shadow-[0_6px_18px_rgba(255,255,255,0.08)]"
-                        : "text-white/45 hover:text-white/80 hover:bg-white/[0.055]"
+                        : isFocused
+                          ? "text-violet-200/80 bg-violet-400/[0.06] hover:bg-violet-400/[0.1]"
+                          : "text-white/45 hover:text-white/80 hover:bg-white/[0.055]"
                     }`}
                   >
                     {section.displayLabel}
@@ -1498,6 +1606,8 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                       const isNextLyric =
                         index < parsedContent.length - 1 &&
                         parsedContent[index + 1]?.type === "lyric";
+                      const isFocusedSection =
+                        focusedSectionIndexes.has(index);
 
                       if (line.type === "section") {
                         return (
@@ -1507,10 +1617,19 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                               if (el) sectionRefs.current.set(index, el);
                               else sectionRefs.current.delete(index);
                             }}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 mt-8 mb-4 text-[0.75em] font-black tracking-[0.1em] uppercase rounded-xl border border-white/[0.08] dark:border-white/[0.08] bg-black-50/5 dark:bg-white/5 backdrop-blur-md shadow-sm"
+                            className={`inline-flex items-center gap-2 px-3 py-1.5 mt-8 mb-4 text-[0.75em] font-black tracking-[0.1em] uppercase rounded-xl border backdrop-blur-md shadow-sm transition-all ${
+                              isFocusedSection
+                                ? "border-violet-300/25 bg-violet-400/[0.08] shadow-[0_8px_24px_rgba(139,92,246,0.08)]"
+                                : "border-white/[0.08] dark:border-white/[0.08] bg-black-50/5 dark:bg-white/5"
+                            }`}
                             style={{ color: activeChordsColor }}
                           >
                             {line.content.replace(/^\[?|\]?:?$/g, "")}
+                            {isFocusedSection && (
+                              <span className="rounded-full border border-violet-200/10 bg-violet-200/[0.08] px-2 py-0.5 text-[0.55em] font-black tracking-[0.12em] text-violet-100/70">
+                                {t("performance.your_part")}
+                              </span>
+                            )}
                           </div>
                         );
                       } else if (line.type === "chord") {
