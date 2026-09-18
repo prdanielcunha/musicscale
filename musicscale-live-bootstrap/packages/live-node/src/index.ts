@@ -14,6 +14,7 @@ import {
   type PairingRequest,
   type ProviderAssetRequest,
   type ProviderLink,
+  type ProviderRouteGroup,
   type SceneExecutionRequest,
   type SceneExecutionResult,
   type ServicePlan
@@ -1117,14 +1118,28 @@ async function start(): Promise<void> {
 
     if (req.method === 'GET' && url.pathname === '/local/providers') {
       if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
-      const [holyricsConfig, resolumeConfig] = await Promise.all([
+      const [holyricsConfig, resolumeConfig, propresenterConfig, routing] = await Promise.all([
         providerConfigStore.getHolyrics(),
-        providerConfigStore.getResolume()
+        providerConfigStore.getResolume(),
+        providerConfigStore.getProPresenter(),
+        providerRoutingStore.all()
       ]);
       const snapshot = capabilityEngine.quickSnapshot();
       const holyrics = snapshot.find(provider => provider.providerId === 'holyrics-primary');
       const resolume = snapshot.find(provider => provider.providerId === 'resolume-primary');
+      const propresenter = snapshot.find(provider => provider.providerId === 'propresenter-primary');
+      const providers = snapshot.map(provider => {
+        const descriptor = capabilityEngine.get(provider.providerId)?.descriptor;
+        return {
+          ...provider,
+          displayName: descriptor?.displayName || provider.providerId,
+          providerKey: descriptor?.providerKey || 'unknown',
+          kind: descriptor?.kind || 'control'
+        };
+      });
       return send(res, 200, {
+        providers,
+        routing,
         holyrics: {
           configured: Boolean(HOLYRICS_TOKEN || holyricsConfig?.token),
           source: HOLYRICS_TOKEN ? 'environment' : holyricsConfig ? 'local' : 'none',
@@ -1140,6 +1155,14 @@ async function start(): Promise<void> {
           health: resolume?.health || 'offline',
           capabilities: resolume?.capabilities || [],
           observed: resolume?.observed || {}
+        },
+        propresenter: {
+          configured: Boolean(PROPRESENTER_URL || propresenterConfig?.baseUrl),
+          source: PROPRESENTER_URL ? 'environment' : propresenterConfig ? 'local' : 'none',
+          baseUrl: PROPRESENTER_URL || propresenterConfig?.baseUrl || DEFAULT_PROPRESENTER_URL,
+          health: propresenter?.health || 'offline',
+          capabilities: propresenter?.capabilities || [],
+          observed: propresenter?.observed || {}
         }
       });
     }
@@ -1186,6 +1209,70 @@ async function start(): Promise<void> {
         version: result.probe?.version || null,
         capabilities: result.probe?.capabilities || [],
         reason: result.probe?.reason || null
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/local/providers/propresenter') {
+      if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
+      if (PROPRESENTER_URL) {
+        return send(res, 409, { error: 'propresenter_managed_by_environment' });
+      }
+      const body = await readJson(req);
+      if (!body || typeof body !== 'object') throw new Error('invalid_propresenter_config');
+      const candidate = body as Record<string, unknown>;
+      const baseUrl = String(candidate.baseUrl || DEFAULT_PROPRESENTER_URL);
+      await providerConfigStore.setProPresenter({ baseUrl });
+      const result = await registerProPresenterProvider();
+      return send(res, result.probe?.reachable ? 200 : 422, {
+        configured: result.configured,
+        source: result.source,
+        baseUrl: result.baseUrl,
+        reachable: result.probe?.reachable || false,
+        version: result.probe?.version || null,
+        capabilities: result.probe?.capabilities || [],
+        reason: result.probe?.reason || null
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/local/providers/propresenter/clear') {
+      if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
+      if (PROPRESENTER_URL) {
+        return send(res, 409, { error: 'propresenter_managed_by_environment' });
+      }
+      await providerConfigStore.clearProPresenter();
+      capabilityEngine.unregister('propresenter-primary');
+      return send(res, 200, { cleared: true });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/local/routing') {
+      if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
+      const body = await readJson(req);
+      if (!body || typeof body !== 'object') throw new Error('invalid_route');
+      const candidate = body as Record<string, unknown>;
+      const group = String(candidate.group || '') as ProviderRouteGroup;
+      const providerId = candidate.providerId == null
+        ? null
+        : String(candidate.providerId).trim() || null;
+
+      if (![
+        'presentation','songs','bible','media','stage','visual','audio','automation'
+      ].includes(group)) {
+        throw new Error('invalid_route_group');
+      }
+
+      if (providerId) {
+        const provider = capabilityEngine.get(providerId);
+        if (!provider) throw new Error('route_provider_missing');
+        const supportsGroup = [...provider.capabilities()]
+          .some(capability => routeGroupForCapability(capability) === group);
+        if (!supportsGroup) throw new Error('route_provider_incompatible');
+      }
+
+      await providerRoutingStore.set(group, providerId);
+      return send(res, 200, {
+        group,
+        providerId,
+        routing: await providerRoutingStore.all()
       });
     }
 
