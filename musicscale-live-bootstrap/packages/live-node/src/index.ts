@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { homedir, hostname, networkInterfaces } from 'node:os';
-import { join } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
+import { dirname, extname, join, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   CAPABILITIES,
   CapabilityEngine,
@@ -20,6 +22,9 @@ const VERSION = '0.1.0-alpha.1';
 const DEV_TOKEN = process.env.MUSICSCALE_LIVE_DEV_TOKEN || '';
 const PAIRING_ENABLED = process.env.MUSICSCALE_LIVE_PAIRING_ENABLED !== 'false';
 const STATE_DIR = process.env.MUSICSCALE_LIVE_STATE_DIR || join(homedir(), '.musicscale-live');
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+const DEFAULT_WEB_ROOT = resolve(MODULE_DIR, '../../../apps/live/dist');
+const WEB_ROOT = resolve(process.env.MUSICSCALE_LIVE_WEB_ROOT || DEFAULT_WEB_ROOT);
 
 const allowedOrigins = new Set(
   (process.env.MUSICSCALE_LIVE_ALLOWED_ORIGINS || 'http://localhost:4316,http://127.0.0.1:4316')
@@ -259,6 +264,66 @@ async function execute(command: LiveCommand): Promise<CommandResult[]> {
   return results;
 }
 
+
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2'
+};
+
+async function webAppAvailable(): Promise<boolean> {
+  try {
+    return (await stat(join(WEB_ROOT, 'index.html'))).isFile();
+  } catch {
+    return false;
+  }
+}
+
+async function serveWebApp(res: ServerResponse, pathname: string): Promise<boolean> {
+  if (!(await webAppAvailable())) return false;
+
+  let requested = pathname === '/' ? 'index.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
+  if (!requested || requested.includes('..')) requested = 'index.html';
+
+  let target = resolve(WEB_ROOT, requested);
+  if (target !== WEB_ROOT && !target.startsWith(WEB_ROOT + sep)) {
+    target = join(WEB_ROOT, 'index.html');
+  }
+
+  try {
+    const info = await stat(target);
+    if (!info.isFile()) throw new Error('not_file');
+  } catch {
+    target = join(WEB_ROOT, 'index.html');
+  }
+
+  try {
+    const data = await readFile(target);
+    const extension = extname(target).toLowerCase();
+    res.statusCode = 200;
+    res.setHeader('Content-Type', MIME_TYPES[extension] || 'application/octet-stream');
+    res.setHeader(
+      'Cache-Control',
+      extension === '.html'
+        ? 'no-cache,no-store,must-revalidate'
+        : 'public,max-age=31536000,immutable'
+    );
+    res.end(data);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function localConsoleHtml(): string {
   const addresses = lanAddresses()
     .map(ip => `<li>http://${ip}:${PORT}</li>`)
@@ -314,7 +379,7 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
   try {
-    if (req.method === 'GET' && url.pathname === '/') {
+    if (req.method === 'GET' && url.pathname === '/node') {
       return sendHtml(res, 200, localConsoleHtml());
     }
 
@@ -458,6 +523,10 @@ const server = createServer(async (req, res) => {
       });
     }
 
+    if (req.method === 'GET' && await serveWebApp(res, url.pathname)) {
+      return;
+    }
+
     return send(res, 404, { error: 'not_found' });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'internal_error';
@@ -481,6 +550,7 @@ server.listen(PORT, HOST, () => {
     local: `http://127.0.0.1:${PORT}`,
     lan: urls,
     stateDir: STATE_DIR,
+    webRoot: WEB_ROOT,
     pairingEnabled: PAIRING_ENABLED
   }));
 });
