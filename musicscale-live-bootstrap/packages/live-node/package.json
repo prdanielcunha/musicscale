@@ -12,13 +12,15 @@
   },
   "dependencies": {
     "@musicscale-live/domain": "file:../../packages/domain",
-    "@musicscale-live/adapter-holyrics": "file:../adapters-holyrics"
+    "@musicscale-live/adapter-holyrics": "file:../adapters-holyrics",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
     "esbuild": "^0.28.0",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "@types/qrcode": "^1.5.5"
   }
 }
