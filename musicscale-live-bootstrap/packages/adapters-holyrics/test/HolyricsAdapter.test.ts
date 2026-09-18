@@ -17,6 +17,9 @@ class FakeApi implements HolyricsApi {
           'ActionPrevious',
           'ActionGoToIndex',
           'CloseCurrentPresentation',
+          'SetF8',
+          'SetF9',
+          'SetF10',
           'IdentifyVerseReferences',
           'ShowVerse',
           'SearchLyrics',
@@ -69,6 +72,7 @@ describe('HolyricsAdapter', () => {
 
     expect(probe.reachable).toBe(true);
     expect(probe.capabilities).toContain('presentation.navigation');
+    expect(probe.capabilities).toContain('presentation.screen.mode');
     expect(probe.capabilities).toContain('bible.search');
     expect(probe.capabilities).toContain('bible.present');
     expect(probe.capabilities).toContain('songs.present');
@@ -76,6 +80,19 @@ describe('HolyricsAdapter', () => {
     expect(probe.capabilities).toContain('playlist.sync');
     expect(probe.capabilities).toContain('media.search');
     expect(probe.capabilities).toContain('media.open');
+  });
+
+  it('maps neutral black screen mode without exposing Holyrics F-keys to the domain', async () => {
+    const api = new FakeApi();
+    const adapter = new HolyricsAdapter({ id: 'holyrics-1', nodeId: 'node-1', api });
+    await adapter.probe();
+
+    const result = await adapter.execute(command('presentation.screen.mode', { mode: 'black' }));
+
+    expect(result.accepted).toBe(true);
+    expect(api.calls.some(call => call.action === 'SetF10' && call.input.enable === true)).toBe(true);
+    expect(api.calls.some(call => call.action === 'SetF8' && call.input.enable === false)).toBe(true);
+    expect(api.calls.some(call => call.action === 'SetF9' && call.input.enable === false)).toBe(true);
   });
 
   it('maps neutral next navigation to the documented Holyrics ActionNext action', async () => {
