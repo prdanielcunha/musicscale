@@ -6,17 +6,17 @@ interface WakeLockSentinelLike {
   addEventListener?(type: 'release', listener: () => void): void;
 }
 
-interface WakeLockNavigator extends Navigator {
+type WakeLockNavigatorLike = {
   wakeLock?: {
     request(type: 'screen'): Promise<WakeLockSentinelLike>;
   };
-}
+};
 
 export function useLiveFocus(enabled: boolean) {
   const [fullscreen, setFullscreen] = useState(Boolean(document.fullscreenElement));
   const [wakeActive, setWakeActive] = useState(false);
   const sentinel = useRef<WakeLockSentinelLike | null>(null);
-  const wakeSupported = Boolean((navigator as WakeLockNavigator).wakeLock?.request);
+  const wakeSupported = Boolean((navigator as unknown as WakeLockNavigatorLike).wakeLock?.request);
 
   const requestWakeLock = useCallback(async () => {
     if (!enabled || !wakeSupported || document.visibilityState !== 'visible') return false;
@@ -25,7 +25,7 @@ export function useLiveFocus(enabled: boolean) {
         setWakeActive(true);
         return true;
       }
-      const next = await (navigator as WakeLockNavigator).wakeLock!.request('screen');
+      const next = await (navigator as unknown as WakeLockNavigatorLike).wakeLock!.request('screen');
       sentinel.current = next;
       setWakeActive(true);
       next.addEventListener?.('release', () => {
