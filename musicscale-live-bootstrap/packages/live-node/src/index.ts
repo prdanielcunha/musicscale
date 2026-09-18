@@ -856,6 +856,18 @@ async function start(): Promise<void> {
       assertServicePlanScope(plan, session.binding);
       assertProviderLinksScope(providerLinks, session.binding);
 
+      const currentRuntime = await runtimeState.load();
+      if (
+        currentRuntime.servicePlan?.id === plan.id &&
+        plan.revision < currentRuntime.servicePlan.revision
+      ) {
+        return send(res, 409, {
+          error: 'stale_service_plan',
+          currentRevision: currentRuntime.servicePlan.revision,
+          incomingRevision: plan.revision
+        });
+      }
+
       const state = await runtimeState.patch({
         servicePlan: plan,
         providerLinks,
@@ -917,6 +929,7 @@ async function start(): Promise<void> {
       message === 'payload_too_large' ? 413 :
       message === 'forbidden_scope' ? 403 :
       message === 'provider_link_target_missing' ? 409 :
+      message === 'stale_service_plan' ? 409 :
       message.includes('expired') ? 410 :
       message.includes('attempts_exceeded') ? 429 :
       message.includes('pin_invalid') || message.startsWith('invalid_') ? 400 :
