@@ -57,6 +57,9 @@ export interface ProviderState {
 export interface LiveCommand<TPayload = Record<string, unknown>> {
   id: string;
   correlationId: string;
+  organizationId: string;
+  venueId: string;
+  liveSystemId: string;
   liveSessionId: string;
   actorId: string;
   origin: CommandOrigin;
