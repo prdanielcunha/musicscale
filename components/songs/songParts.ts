@@ -1,5 +1,6 @@
 import {
   classifyLine,
+  isChordToken,
   LineType,
 } from "../../utils/chordEngine";
 import { splitSongSectionPrefix } from "./ChordsRenderer";
@@ -213,6 +214,42 @@ interface SectionBlock {
   nextLabel: string | null;
 }
 
+const splitCanonicalSectionHeader = (
+  line: string,
+): { label: string; remainder: string } | null => {
+  const knownSection = splitSongSectionPrefix(line);
+  if (knownSection) return knownSection;
+
+  const bracketed = line.match(/^(\s*)\[([^\]]{1,80})\](\s*)(.*)$/);
+  if (!bracketed) return null;
+
+  const label = bracketed[2].trim();
+  const foldedLabel = fold(label);
+  if (
+    !label ||
+    isChordToken(label) ||
+    /^(?:capo|capotraste|cejilla|tom|tono|key|bpm)\b/.test(foldedLabel)
+  ) {
+    return null;
+  }
+
+  const trailingContent = bracketed[4].trimEnd();
+  const preservedColumnPrefix =
+    " ".repeat(
+      bracketed[1].length +
+        bracketed[2].length +
+        2 +
+        bracketed[3].length,
+    );
+
+  return {
+    label,
+    remainder: trailingContent
+      ? preservedColumnPrefix + trailingContent
+      : "",
+  };
+};
+
 const buildSectionBlocks = (chords: string): SectionBlock[] => {
   if (!chords.trim()) return [];
 
@@ -241,7 +278,7 @@ const buildSectionBlocks = (chords: string): SectionBlock[] => {
   };
 
   rawLines.forEach((line) => {
-    const section = splitSongSectionPrefix(line);
+    const section = splitCanonicalSectionHeader(line);
     if (section) {
       flush();
       current = {
