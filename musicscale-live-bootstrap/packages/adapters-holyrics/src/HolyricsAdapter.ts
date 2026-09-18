@@ -1,0 +1,309 @@
+import type {
+  Capability,
+  CommandResult,
+  LiveCommand,
+  ProviderAdapter,
+  ProviderDescriptor,
+  ProviderState
+} from '@musicscale-live/domain';
+import type { HolyricsApi } from './HolyricsHttpClient';
+
+interface TokenInfo {
+  version?: string;
+  permissions?: string;
+}
+
+interface CurrentPresentation {
+  id?: string;
+  type?: string;
+  name?: string;
+  song_id?: string;
+  slide_number?: number;
+  total_slides?: number;
+  slide_type?: string;
+  slides?: unknown[];
+  [key: string]: unknown;
+}
+
+const ACTIONS_BY_CAPABILITY: Partial<Record<Capability, string[]>> = {
+  'presentation.slides.read': ['GetCurrentPresentation'],
+  'presentation.navigation': ['ActionNext', 'ActionPrevious', 'ActionGoToIndex'],
+  'presentation.preview': ['GetCurrentPresentation'],
+  'presentation.clear': ['CloseCurrentPresentation'],
+  'bible.present': ['ShowVerse'],
+  'songs.search': ['SearchLyrics'],
+  'playlist.write': ['AddLyricsToPlaylist'],
+  'preview.snapshot': ['GetCurrentPresentation'],
+  'stage.message': ['SetTextCommunicationPanel']
+};
+
+function permissionsToSet(value?: string): Set<string> {
+  return new Set(
+    String(value || '')
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean)
+  );
+}
+
+function requiredActionsAllowed(
+  granted: Set<string>,
+  actions: string[]
+): boolean {
+  return actions.every(action => granted.has(action));
+}
+
+export interface HolyricsAdapterOptions {
+  id: string;
+  nodeId: string;
+  displayName?: string;
+  api: HolyricsApi;
+}
+
+export class HolyricsAdapter implements ProviderAdapter {
+  readonly descriptor: ProviderDescriptor;
+  private readonly api: HolyricsApi;
+  private readonly supported = new Set<Capability>();
+  private lastState: ProviderState = {
+    health: 'offline',
+    updatedAt: new Date(0).toISOString(),
+    observed: {}
+  };
+
+  constructor(options: HolyricsAdapterOptions) {
+    this.api = options.api;
+    this.descriptor = {
+      id: options.id,
+      nodeId: options.nodeId,
+      kind: 'presentation',
+      displayName: options.displayName || 'Holyrics',
+      providerKey: 'holyrics'
+    };
+  }
+
+  async probe() {
+    try {
+      const tokenInfo = await this.api.request<TokenInfo>('GetTokenInfo');
+      const permissions = permissionsToSet(tokenInfo.permissions);
+      this.supported.clear();
+
+      for (const [capability, actions] of Object.entries(ACTIONS_BY_CAPABILITY) as Array<[Capability, string[]]>) {
+        if (requiredActionsAllowed(permissions, actions)) {
+          this.supported.add(capability);
+        }
+      }
+
+      this.descriptor.version = tokenInfo.version;
+      this.lastState = {
+        health: 'online',
+        updatedAt: new Date().toISOString(),
+        observed: {
+          version: tokenInfo.version,
+          permissionCount: permissions.size
+        }
+      };
+
+      return {
+        reachable: true,
+        version: tokenInfo.version,
+        capabilities: [...this.supported]
+      };
+    } catch (error) {
+      this.supported.clear();
+      this.lastState = {
+        health: 'offline',
+        updatedAt: new Date().toISOString(),
+        observed: {
+          error: error instanceof Error ? error.message : 'holyrics_probe_failed'
+        }
+      };
+      return {
+        reachable: false,
+        capabilities: [] as Capability[],
+        reason: error instanceof Error ? error.message : 'holyrics_probe_failed'
+      };
+    }
+  }
+
+  capabilities(): ReadonlySet<Capability> {
+    return this.supported;
+  }
+
+  async getState(): Promise<ProviderState> {
+    if (!this.supported.has('presentation.slides.read')) {
+      return this.lastState;
+    }
+
+    try {
+      const presentation = await this.api.request<CurrentPresentation | null>(
+        'GetCurrentPresentation',
+        { include_slides: true, include_slide_comment: true }
+      );
+      this.lastState = {
+        health: 'online',
+        updatedAt: new Date().toISOString(),
+        observed: {
+          currentPresentation: presentation
+        }
+      };
+    } catch (error) {
+      this.lastState = {
+        health: 'degraded',
+        updatedAt: new Date().toISOString(),
+        observed: {
+          ...this.lastState.observed,
+          error: error instanceof Error ? error.message : 'holyrics_state_failed'
+        }
+      };
+    }
+    return this.lastState;
+  }
+
+  async execute(command: LiveCommand): Promise<CommandResult> {
+    const started = performance.now();
+    try {
+      if (!this.supported.has(command.capability)) {
+        return this.result(command, started, false, 'capability_not_supported', true);
+      }
+
+      const observedState = await this.executeCapability(command);
+      return {
+        commandId: command.id,
+        providerInstanceId: this.descriptor.id,
+        accepted: true,
+        latencyMs: Math.max(0, Math.round(performance.now() - started)),
+        observedState
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'holyrics_command_failed';
+      const recoverable =
+        message.includes('timeout') ||
+        message.includes('session') ||
+        message.includes('http_');
+      return this.result(
+        command,
+        started,
+        false,
+        recoverable ? 'provider_timeout' : 'provider_permission_denied',
+        recoverable
+      );
+    }
+  }
+
+  private async executeCapability(
+    command: LiveCommand
+  ): Promise<Record<string, unknown> | undefined> {
+    const payload = command.payload as Record<string, any>;
+
+    switch (command.capability) {
+      case 'presentation.slides.read':
+      case 'presentation.preview':
+      case 'preview.snapshot': {
+        const currentPresentation = await this.api.request<CurrentPresentation | null>(
+          'GetCurrentPresentation',
+          {
+            include_slides: true,
+            include_slide_comment: true,
+            include_slide_preview: command.capability === 'preview.snapshot',
+            slide_preview_size: command.capability === 'preview.snapshot'
+              ? String(payload.previewSize || '320x180')
+              : undefined
+          }
+        );
+        return { currentPresentation };
+      }
+
+      case 'presentation.navigation': {
+        const action = String(payload.action || '');
+        if (action === 'next') await this.api.request('ActionNext');
+        else if (action === 'previous') await this.api.request('ActionPrevious');
+        else if (action === 'goto') {
+          if (!Number.isInteger(payload.index) || payload.index < 0) {
+            throw new Error('invalid_slide_index');
+          }
+          await this.api.request('ActionGoToIndex', { index: payload.index });
+        } else {
+          throw new Error('invalid_navigation_action');
+        }
+        const currentPresentation = await this.api.request<CurrentPresentation | null>(
+          'GetCurrentPresentation'
+        );
+        return { currentPresentation };
+      }
+
+      case 'presentation.clear':
+        await this.api.request('CloseCurrentPresentation');
+        return { currentPresentation: null };
+
+      case 'songs.search': {
+        const results = await this.api.request<unknown[]>('SearchLyrics', {
+          text: String(payload.text || ''),
+          title: payload.title !== false,
+          artist: payload.artist !== false,
+          note: Boolean(payload.note),
+          lyrics: Boolean(payload.lyrics),
+          fields: String(payload.fields || 'id,title,artist,author,key,bpm')
+        });
+        return { results };
+      }
+
+      case 'playlist.write': {
+        const ids = Array.isArray(payload.ids)
+          ? payload.ids.map(String).filter(Boolean)
+          : payload.id ? [String(payload.id)] : [];
+        if (!ids.length) throw new Error('playlist_ids_required');
+        await this.api.request('AddLyricsToPlaylist', {
+          ids,
+          index: Number.isInteger(payload.index) ? payload.index : -1,
+          media_playlist: Boolean(payload.mediaPlaylist)
+        });
+        return { addedSongIds: ids };
+      }
+
+      case 'bible.present': {
+        const input: Record<string, unknown> = {};
+        if (payload.id) input.id = String(payload.id);
+        if (Array.isArray(payload.ids)) input.ids = payload.ids.map(String);
+        if (payload.reference) input.references = String(payload.reference);
+        if (payload.references) input.references = String(payload.references);
+        if (payload.version) input.version = String(payload.version);
+        if (payload.quickPresentation !== undefined) {
+          input.quick_presentation = Boolean(payload.quickPresentation);
+        }
+        if (!input.id && !input.ids && !input.references) {
+          throw new Error('bible_reference_required');
+        }
+        await this.api.request('ShowVerse', input);
+        return { biblePresentationRequested: input };
+      }
+
+      case 'stage.message':
+        await this.api.request('SetTextCommunicationPanel', {
+          text: String(payload.text || ''),
+          show: payload.show !== false,
+          display_ahead: payload.displayAhead !== false
+        });
+        return { stageMessageVisible: payload.show !== false };
+
+      default:
+        throw new Error('capability_not_supported');
+    }
+  }
+
+  private result(
+    command: LiveCommand,
+    started: number,
+    accepted: boolean,
+    errorCode: string,
+    recoverable: boolean
+  ): CommandResult {
+    return {
+      commandId: command.id,
+      providerInstanceId: this.descriptor.id,
+      accepted,
+      latencyMs: Math.max(0, Math.round(performance.now() - started)),
+      errorCode,
+      recoverable
+    };
+  }
+}
