@@ -3,6 +3,7 @@ import { LiveControlPanel } from './LiveControlPanel';
 import { LiveNodeSetup } from './LiveNodeSetup';
 import { OfflineRunOfShow } from './OfflineRunOfShow';
 import { VisualControlPanel } from './VisualControlPanel';
+import { LiveCueCoordinatorProvider } from './LiveCueCoordinator';
 import type { useLiveNode } from './useLiveNode';
 
 type Controller = ReturnType<typeof useLiveNode>;
@@ -96,16 +97,18 @@ export function LocalRecoveryView({
               </section>
             )}
 
-            <LiveControlPanel
-              controller={controller}
-              actorId={actorId}
-              liveSessionId={liveSessionId}
-            />
-            <VisualControlPanel
-              controller={controller}
-              actorId={actorId}
-              liveSessionId={liveSessionId}
-            />
+            <LiveCueCoordinatorProvider>
+              <LiveControlPanel
+                controller={controller}
+                actorId={actorId}
+                liveSessionId={liveSessionId}
+              />
+              <VisualControlPanel
+                controller={controller}
+                actorId={actorId}
+                liveSessionId={liveSessionId}
+              />
+            </LiveCueCoordinatorProvider>
           </>
         )}
       </main>
