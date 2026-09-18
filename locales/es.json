@@ -688,7 +688,11 @@
     "following_direction": "Siguiendo dirección",
     "free_navigation": "Libre",
     "follow_direction_hint": "Toque para navegar libremente sin salir de la sesión",
-    "free_direction_hint": "Toque para volver a la posición actual de la dirección"
+    "free_direction_hint": "Toque para volver a la posición actual de la dirección",
+    "my_focus": "Mi foco",
+    "all_sections": "Todas",
+    "your_part": "Tu parte",
+    "focus_for_assignment": "Partes relacionadas con tu función en esta escala: {{assignment}}"
   },
   "onboarding": {
     "breadcrumbs": "Repertorio · Evento · Equipo",

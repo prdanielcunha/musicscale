@@ -688,7 +688,11 @@
     "following_direction": "Following direction",
     "free_navigation": "Free",
     "follow_direction_hint": "Tap to browse freely without leaving the live session",
-    "free_direction_hint": "Tap to return to the current directed position"
+    "free_direction_hint": "Tap to return to the current directed position",
+    "my_focus": "My focus",
+    "all_sections": "All",
+    "your_part": "Your part",
+    "focus_for_assignment": "Parts related to your assignment in this set: {{assignment}}"
   },
   "onboarding": {
     "breadcrumbs": "Setlist · Event · Team",

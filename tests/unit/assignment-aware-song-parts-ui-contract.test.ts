@@ -18,6 +18,10 @@ const technicalParts = fs.readFileSync(
   path.join(process.cwd(), "components/songs/TechnicalPartsModal.tsx"),
   "utf8",
 );
+const performance = fs.readFileSync(
+  path.join(process.cwd(), "components/songs/ChordsViewerModal.tsx"),
+  "utf8",
+);
 
 describe("assignment-aware song parts UI contract", () => {
   it("derives personal focus from the current scale assignment instead of global profile guesses", () => {
@@ -43,6 +47,26 @@ describe("assignment-aware song parts UI contract", () => {
     expect(songDetail).toContain("getFocusedSongParts");
     expect(songDetail).toContain("focus_badge_title");
     expect(songDetail).toContain("focusAssignmentNames={scaleContext?.assignmentNames}");
+  });
+
+  it("carries the same assignment-aware focus into Performance section navigation", () => {
+    expect(performance).toContain("buildSongParts");
+    expect(performance).toContain("getFocusedSongParts");
+    expect(performance).toContain("focusedSectionNavigatorItems");
+    expect(performance).toContain('sectionRailMode === "focus"');
+    expect(performance).toContain("performance.my_focus");
+    expect(performance).toContain("performance.all_sections");
+    expect(performance).toContain("performance.your_part");
+  });
+
+  it("maps focused parts by structural section ordinal instead of fuzzy label search", () => {
+    expect(performance).toContain(
+      "const target = sectionNavigatorItems[part.sectionIndex]",
+    );
+    expect(performance).toContain(
+      "foldSectionLabel(target.label) !== foldSectionLabel(part.label)",
+    );
+    expect(performance).not.toContain("includes(part.label)");
   });
 
   it("defaults to My Focus but always preserves access to all detected parts", () => {
