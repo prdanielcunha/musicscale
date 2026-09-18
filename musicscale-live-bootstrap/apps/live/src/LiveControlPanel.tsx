@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Capability, CommandResult } from '@musicscale-live/domain';
 import type { useLiveNode } from './useLiveNode';
+import { useLiveCueCoordinator } from './LiveCueCoordinator';
 
 type Controller = ReturnType<typeof useLiveNode>;
 type ToolMode = 'song' | 'bible' | 'media' | 'stage';
@@ -107,6 +108,7 @@ export function LiveControlPanel({
   liveSessionId: string;
 }) {
   const { t } = useTranslation();
+  const cueCoordinator = useLiveCueCoordinator();
   const [songQuery, setSongQuery] = useState('');
   const [songResults, setSongResults] = useState<SearchSongResult[]>([]);
   const [bibleReference, setBibleReference] = useState('');
@@ -265,6 +267,69 @@ export function LiveControlPanel({
 
   async function navigatePresentation(action: 'next' | 'previous') {
     if (!can('presentation.navigation')) return;
+
+    const armedVisual = cueCoordinator?.armedVisualCue || null;
+    const credential = controller.credential;
+
+    if (action === 'next' && armedVisual && credential) {
+      setBusy('next');
+      setMessage(null);
+      try {
+        const sceneId = crypto.randomUUID();
+        const result = await controller.executeScene({
+          liveSessionId,
+          actorId,
+          scene: {
+            id: sceneId,
+            organizationId: credential.binding.organizationId,
+            venueId: credential.binding.venueId,
+            liveSystemId: credential.binding.liveSystemId,
+            name: 'Linked Take',
+            actions: [
+              {
+                id: 'presentation-next',
+                capability: 'presentation.navigation',
+                targetProviderIds: [],
+                outputTargets: ['main'],
+                payload: { action: 'next' },
+                safetyLevel: 'normal'
+              },
+              {
+                id: 'visual-take',
+                capability: 'visual.clip.trigger',
+                targetProviderIds: [armedVisual.providerId],
+                outputTargets: ['main'],
+                payload: { clipId: armedVisual.clipId },
+                safetyLevel: 'normal'
+              }
+            ]
+          }
+        });
+
+        const presentationResults = result.actions
+          .find(item => item.actionId === 'presentation-next')
+          ?.results || [];
+        const presentation = getPresentationFromResults(presentationResults);
+        if (presentation) setPreviewPresentation(presentation);
+
+        const visualAccepted = result.actions
+          .find(item => item.actionId === 'visual-take')
+          ?.results.some(item => item.accepted);
+        if (visualAccepted) cueCoordinator?.clearVisualCue();
+
+        if (result.status !== 'completed') {
+          setMessage(t('liveControls.linkedTakePartial'));
+        }
+      } catch (error) {
+        setMessage(t('liveControls.commandFailed', {
+          code: error instanceof Error ? error.message : 'unknown'
+        }));
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
+
     const results = await run(action, 'presentation.navigation', { action });
     const presentation = getPresentationFromResults(results);
     if (presentation) setPreviewPresentation(presentation);
@@ -454,7 +519,13 @@ export function LiveControlPanel({
                   <strong>{t('liveControls.nextSlide')}</strong>
                   <small>{t('liveControls.previewLabel')}</small>
                 </div>
-                {nextSlideDescription && <em>{nextSlideDescription}</em>}
+                {cueCoordinator?.armedVisualCue ? (
+                  <em className="linked-cue-badge">
+                    {t('liveControls.visualLinked')} · {cueCoordinator.armedVisualCue.clipName}
+                  </em>
+                ) : nextSlideDescription ? (
+                  <em>{nextSlideDescription}</em>
+                ) : null}
               </header>
               <div className="deck-frame">
                 {nextSlidePreview ? (
@@ -473,7 +544,11 @@ export function LiveControlPanel({
                   disabled={!nextSlide || !can('presentation.navigation') || busy !== null}
                   onClick={() => void navigatePresentation('next')}
                 >
-                  {busy === 'next' ? '…' : t('liveControls.takeNext')} →
+                  {busy === 'next'
+                    ? '…'
+                    : cueCoordinator?.armedVisualCue
+                      ? t('liveControls.takeLinked')
+                      : t('liveControls.takeNext')} →
                 </button>
               </footer>
             </section>
