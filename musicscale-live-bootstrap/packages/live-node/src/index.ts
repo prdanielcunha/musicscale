@@ -19,6 +19,7 @@ import { PairingStore } from './pairingStore';
 import { RuntimeStateStore } from './runtimeStateStore';
 import { ProviderConfigStore } from './providerConfigStore';
 import { HolyricsAdapter, HolyricsHttpClient } from '@musicscale-live/adapter-holyrics';
+import { toString as qrToString } from 'qrcode';
 
 const PORT = Number(process.env.MUSICSCALE_LIVE_NODE_PORT || 4317);
 const HOST = process.env.MUSICSCALE_LIVE_NODE_HOST || '0.0.0.0';
@@ -140,6 +141,13 @@ function send(res: ServerResponse, status: number, payload: unknown): void {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   res.end(JSON.stringify(payload));
+}
+
+function sendSvg(res: ServerResponse, status: number, svg: string): void {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.end(svg);
 }
 
 function sendHtml(res: ServerResponse, status: number, html: string): void {
@@ -522,6 +530,13 @@ small{color:#aaaebe}.brand{letter-spacing:.16em;color:#9b8cff;font-size:11px;fon
 </div>
 <div id="provider-status" class="statusline">Verificando configuração…</div>
 </div>
+<div class="box">
+<small>CONECTAR TABLET OU CELULAR</small>
+<div style="display:flex;gap:16px;align-items:center;margin-top:12px;flex-wrap:wrap">
+<img src="/local/connect-qr.svg" alt="QR para abrir MusicScale Live na rede local" width="150" height="150" style="background:white;border-radius:14px;padding:8px"/>
+<div class="muted" style="max-width:330px;line-height:1.5">Escaneie este QR no dispositivo que ficará com o operador. Ele abre o MusicScale Live diretamente pelo Live Node, sem depender da internet.</div>
+</div>
+</div>
 <div class="box"><small>ENDEREÇOS NA REDE LOCAL</small><ul>${addresses || '<li>Nenhum IPv4 LAN detectado</li>'}</ul></div>
 <script>
 async function refresh(){
@@ -617,6 +632,19 @@ const server = createServer(async (req, res) => {
           pairingEnabled: PAIRING_ENABLED
         }
       });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/local/connect-qr.svg') {
+      if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
+      const ip = lanAddresses()[0] || '127.0.0.1';
+      const target = `http://${ip}:${PORT}/`;
+      const svg = await qrToString(target, {
+        type: 'svg',
+        margin: 1,
+        width: 320,
+        errorCorrectionLevel: 'M'
+      });
+      return sendSvg(res, 200, svg);
     }
 
     if (req.method === 'GET' && url.pathname === '/local/providers') {
