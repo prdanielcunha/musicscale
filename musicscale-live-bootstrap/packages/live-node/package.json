@@ -15,7 +15,8 @@
     "@musicscale-live/domain": "file:../../packages/domain",
     "@musicscale-live/adapter-holyrics": "file:../adapters-holyrics",
     "qrcode": "^1.5.4",
-    "@musicscale-live/adapter-resolume": "file:../adapters-resolume"
+    "@musicscale-live/adapter-resolume": "file:../adapters-resolume",
+    "@musicscale-live/adapter-propresenter": "file:../adapters-propresenter"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
