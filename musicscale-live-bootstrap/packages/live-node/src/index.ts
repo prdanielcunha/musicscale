@@ -475,7 +475,6 @@ const server = createServer(async (req, res) => {
         event: 'pairing_code_created',
         nodeId,
         challengeId: challenge.challengeId,
-        pin: challenge.pin,
         expiresAt: challenge.expiresAt,
         deviceName: request.deviceName
       }));
