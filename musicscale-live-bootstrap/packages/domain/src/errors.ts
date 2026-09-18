@@ -12,6 +12,8 @@ export const LIVE_ERROR_CODES = [
   'provider_permission_denied',
   'capability_not_supported',
   'no_provider_for_capability',
+  'ambiguous_provider_route',
+  'configured_provider_route_unavailable',
   'state_diverged',
   'route_unavailable',
   'output_unavailable',
