@@ -7,6 +7,7 @@ export const CAPABILITIES = [
   'bible.search',
   'bible.present',
   'songs.search',
+  'songs.present',
   'playlist.write',
   'media.search',
   'media.open',
