@@ -426,12 +426,29 @@ async function execute(command: LiveCommand): Promise<CommandResult[]> {
     }
   }
   const anyAccepted = results.some(result => result.accepted);
+  const nextServicePlan =
+    anyAccepted && command.serviceItemId && current.servicePlan
+      ? {
+          ...current.servicePlan,
+          items: current.servicePlan.items.map(item => {
+            if (item.id === command.serviceItemId) {
+              return { ...item, state: 'live' as const };
+            }
+            if (item.state === 'live') {
+              return { ...item, state: 'completed' as const };
+            }
+            return item;
+          })
+        }
+      : current.servicePlan;
+
   await runtimeState.patch({
     activeLiveSessionId: command.liveSessionId,
     activeServiceItemId: anyAccepted
       ? command.serviceItemId || current.activeServiceItemId
       : current.activeServiceItemId,
-    providerObservedState
+    providerObservedState,
+    servicePlan: nextServicePlan
   });
 
   idempotency.set(command.idempotencyKey, results);
