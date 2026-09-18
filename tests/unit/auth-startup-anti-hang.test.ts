@@ -10,8 +10,12 @@ describe('P0 auth/startup anti-hang contract', () => {
   it('does not block a successful Google sign-in on Firestore profile hydration', () => {
     expect(authService).toContain('void (async () =>');
     expect(authService).toContain('Google sign-in succeeded; deferred profile sync');
-    expect(authService.indexOf('return userCredential;')).toBeGreaterThan(
-      authService.indexOf('void (async () =>')
+    const googleSignIn = authService.slice(
+      authService.indexOf('export const signInWithGoogle'),
+      authService.indexOf('export const signOutUser')
+    );
+    expect(googleSignIn.indexOf('return userCredential;')).toBeGreaterThan(
+      googleSignIn.indexOf('void (async () =>')
     );
   });
 
