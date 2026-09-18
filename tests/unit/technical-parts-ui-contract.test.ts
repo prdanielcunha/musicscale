@@ -17,12 +17,15 @@ describe('Technical parts UI contract', () => {
     expect(detail).toContain('> Cifra');
     expect(detail).toContain('> Letra');
     expect(detail).toContain('TechnicalPartsModal');
-    expect(detail).toContain('song.tabs');
+    expect(detail).toContain('buildSongParts');
+    expect(detail).toContain('songParts.length > 0');
   });
 
   it('renders imported technical content in a dedicated premium viewer', () => {
-    expect(technical).toContain('song?.tabs');
-    expect(technical).toContain('original_fingering');
+    expect(technical).toContain('buildSongParts(song)');
+    expect(technical).toContain('transposeChordDocument');
+    expect(technical).toContain('preservesFingering');
+    expect(technical).toContain('open_full_performance');
     expect(technical).toContain('<pre');
   });
 });
