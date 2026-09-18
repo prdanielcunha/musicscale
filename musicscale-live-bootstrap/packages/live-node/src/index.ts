@@ -863,17 +863,29 @@ async function start(): Promise<void> {
 
     if (req.method === 'GET' && url.pathname === '/local/providers') {
       if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
-      const config = await providerConfigStore.getHolyrics();
-      const snapshot = await capabilityEngine.snapshot();
+      const [holyricsConfig, resolumeConfig] = await Promise.all([
+        providerConfigStore.getHolyrics(),
+        providerConfigStore.getResolume()
+      ]);
+      const snapshot = capabilityEngine.quickSnapshot();
       const holyrics = snapshot.find(provider => provider.providerId === 'holyrics-primary');
+      const resolume = snapshot.find(provider => provider.providerId === 'resolume-primary');
       return send(res, 200, {
         holyrics: {
-          configured: Boolean(HOLYRICS_TOKEN || config?.token),
-          source: HOLYRICS_TOKEN ? 'environment' : config ? 'local' : 'none',
-          baseUrl: HOLYRICS_TOKEN ? HOLYRICS_URL : config?.baseUrl || HOLYRICS_URL,
+          configured: Boolean(HOLYRICS_TOKEN || holyricsConfig?.token),
+          source: HOLYRICS_TOKEN ? 'environment' : holyricsConfig ? 'local' : 'none',
+          baseUrl: HOLYRICS_TOKEN ? HOLYRICS_URL : holyricsConfig?.baseUrl || HOLYRICS_URL,
           health: holyrics?.health || 'offline',
           capabilities: holyrics?.capabilities || [],
           observed: holyrics?.observed || {}
+        },
+        resolume: {
+          configured: Boolean(RESOLUME_URL || resolumeConfig?.baseUrl),
+          source: RESOLUME_URL ? 'environment' : resolumeConfig ? 'local' : 'none',
+          baseUrl: RESOLUME_URL || resolumeConfig?.baseUrl || DEFAULT_RESOLUME_URL,
+          health: resolume?.health || 'offline',
+          capabilities: resolume?.capabilities || [],
+          observed: resolume?.observed || {}
         }
       });
     }
@@ -899,6 +911,38 @@ async function start(): Promise<void> {
         capabilities: result.probe?.capabilities || [],
         reason: result.probe?.reason || null
       });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/local/providers/resolume') {
+      if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
+      if (RESOLUME_URL) {
+        return send(res, 409, { error: 'resolume_managed_by_environment' });
+      }
+      const body = await readJson(req);
+      if (!body || typeof body !== 'object') throw new Error('invalid_resolume_config');
+      const candidate = body as Record<string, unknown>;
+      const baseUrl = String(candidate.baseUrl || DEFAULT_RESOLUME_URL);
+      await providerConfigStore.setResolume({ baseUrl });
+      const result = await registerResolumeProvider();
+      return send(res, result.probe?.reachable ? 200 : 422, {
+        configured: result.configured,
+        source: result.source,
+        baseUrl: result.baseUrl,
+        reachable: result.probe?.reachable || false,
+        version: result.probe?.version || null,
+        capabilities: result.probe?.capabilities || [],
+        reason: result.probe?.reason || null
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/local/providers/resolume/clear') {
+      if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
+      if (RESOLUME_URL) {
+        return send(res, 409, { error: 'resolume_managed_by_environment' });
+      }
+      await providerConfigStore.clearResolume();
+      capabilityEngine.unregister('resolume-primary');
+      return send(res, 200, { cleared: true });
     }
 
     if (req.method === 'POST' && url.pathname === '/local/providers/holyrics/clear') {
