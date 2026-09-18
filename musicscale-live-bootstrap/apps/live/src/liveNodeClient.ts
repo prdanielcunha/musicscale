@@ -241,3 +241,48 @@ export async function detectSameOriginLiveNode(): Promise<boolean> {
     window.clearTimeout(timeout);
   }
 }
+
+
+export async function fetchProviderOutputSnapshot(
+  baseUrl: string,
+  token: string,
+  providerId: string,
+  targetId: string,
+  format: 'jpeg' | 'png' = 'jpeg'
+): Promise<Blob> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 5000);
+  try {
+    const networkInit = {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller.signal,
+      targetAddressSpace: targetAddressSpaceFor(baseUrl),
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    } as RequestInit & { targetAddressSpace?: 'local' | 'loopback' };
+
+    const url =
+      `${baseUrl}/provider-assets/${encodeURIComponent(providerId)}/output-snapshot` +
+      `?targetId=${encodeURIComponent(targetId)}&format=${format}`;
+
+    const response = await fetch(url, networkInit);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new LiveNodeApiError(
+        String(body?.error || 'provider_asset_failed'),
+        response.status
+      );
+    }
+    return response.blob();
+  } catch (error) {
+    if (error instanceof LiveNodeApiError) throw error;
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new LiveNodeApiError('provider_asset_timeout', 0);
+    }
+    throw new LiveNodeApiError('provider_asset_unreachable', 0);
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
