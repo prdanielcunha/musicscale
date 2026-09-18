@@ -66,6 +66,16 @@ export function normalizePrivateNodeUrl(input: string): string {
   return url.toString().replace(/\/$/, '');
 }
 
+function targetAddressSpaceFor(baseUrl: string): 'local' | 'loopback' | undefined {
+  const host = new URL(baseUrl).hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host === '::1' || host.startsWith('127.')) return 'loopback';
+  return 'local';
+}
+
+function browserSupportsLocalNetworkAccess(): boolean {
+  return typeof Request !== 'undefined' && 'targetAddressSpace' in Request.prototype;
+}
+
 async function requestJson<T>(
   baseUrl: string,
   path: string,
@@ -75,15 +85,17 @@ async function requestJson<T>(
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(`${baseUrl}${path}`, {
+    const networkInit = {
       ...init,
       cache: 'no-store',
       signal: controller.signal,
+      targetAddressSpace: targetAddressSpaceFor(baseUrl),
       headers: {
         'Content-Type': 'application/json',
         ...(init.headers || {})
       }
-    });
+    } as RequestInit & { targetAddressSpace?: 'local' | 'loopback' };
+    const response = await fetch(`${baseUrl}${path}`, networkInit);
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new LiveNodeApiError(
@@ -104,7 +116,10 @@ async function requestJson<T>(
 }
 
 export function mixedContentWouldBlock(baseUrl: string): boolean {
-  return window.location.protocol === 'https:' && new URL(baseUrl).protocol === 'http:';
+  if (window.location.protocol !== 'https:' || new URL(baseUrl).protocol !== 'http:') {
+    return false;
+  }
+  return !browserSupportsLocalNetworkAccess();
 }
 
 export async function probeNode(baseUrlInput: string): Promise<LiveNodeHealth> {
