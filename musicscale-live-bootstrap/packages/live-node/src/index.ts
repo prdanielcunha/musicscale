@@ -412,6 +412,7 @@ async function execute(command: LiveCommand): Promise<CommandResult[]> {
   }
   await runtimeState.patch({
     activeLiveSessionId: command.liveSessionId,
+    activeServiceItemId: command.serviceItemId || current.activeServiceItemId,
     providerObservedState
   });
 
