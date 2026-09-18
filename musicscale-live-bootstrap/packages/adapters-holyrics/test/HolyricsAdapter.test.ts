@@ -22,6 +22,8 @@ class FakeApi implements HolyricsApi {
           'SearchLyrics',
           'ShowLyrics',
           'AddLyricsToPlaylist',
+          'GetLyricsPlaylist',
+          'RemoveFromLyricsPlaylist',
           'SetTextCommunicationPanel'
         ].join(',')
       } as T;
@@ -65,6 +67,7 @@ describe('HolyricsAdapter', () => {
     expect(probe.capabilities).toContain('bible.present');
     expect(probe.capabilities).toContain('songs.present');
     expect(probe.capabilities).toContain('playlist.write');
+    expect(probe.capabilities).toContain('playlist.sync');
   });
 
   it('maps neutral next navigation to the documented Holyrics ActionNext action', async () => {
@@ -75,6 +78,30 @@ describe('HolyricsAdapter', () => {
 
     expect(result.accepted).toBe(true);
     expect(api.calls.some(call => call.action === 'ActionNext')).toBe(true);
+  });
+
+  it('synchronizes the current playlist idempotently', async () => {
+    const api = new FakeApi();
+    const adapter = new HolyricsAdapter({ id: 'holyrics-1', nodeId: 'node-1', api });
+    await adapter.probe();
+
+    const originalRequest = api.request.bind(api);
+    api.request = async <T,>(action: string, input: Record<string, unknown> = {}): Promise<T> => {
+      if (action === 'GetLyricsPlaylist') {
+        api.calls.push({ action, input });
+        return [{ id: 'old-1' }, { id: 'old-2' }] as T;
+      }
+      return originalRequest<T>(action, input);
+    };
+
+    const result = await adapter.execute(command('playlist.sync', { ids: ['new-1', 'new-2'] }));
+    expect(result.accepted).toBe(true);
+    expect(api.calls.some(call => call.action === 'RemoveFromLyricsPlaylist')).toBe(true);
+    expect(api.calls.some(call =>
+      call.action === 'AddLyricsToPlaylist' &&
+      Array.isArray(call.input.ids) &&
+      call.input.ids[0] === 'new-1'
+    )).toBe(true);
   });
 
   it('maps song presentation to ShowLyrics', async () => {
