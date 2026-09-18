@@ -16,7 +16,8 @@ export function LiveNodeSetup({
   const { t } = useTranslation();
   const [nodeUrl, setNodeUrl] = useState(
     controller.credential?.baseUrl ||
-    (window.location.port === '4317' ? window.location.origin : 'http://127.0.0.1:4317')
+    (localRecovery ? window.location.origin :
+      window.location.port === '4317' ? window.location.origin : 'http://127.0.0.1:4317')
   );
   const [pin, setPin] = useState('');
 
