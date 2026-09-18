@@ -15,6 +15,7 @@ const nodeErrors = {
     pairing_attempts_exceeded: 'Muitas tentativas de código. Solicite um novo pareamento.',
     pairing_device_mismatch: 'O pareamento não pertence a este dispositivo.',
     pairing_scope_conflict: 'Este Live Node já está vinculado a outro ambiente. Revogue os dispositivos no ambiente atual antes de vinculá-lo novamente.',
+    pairing_scope_required: 'Este Live Node ainda não foi vinculado a um ambiente. Faça primeiro o pareamento pelo MusicScale Live conectado à sua organização.',
     pairing_failed: 'Não foi possível concluir o pareamento.'
   },
   en: {
@@ -29,6 +30,7 @@ const nodeErrors = {
     pairing_attempts_exceeded: 'Too many code attempts. Request a new pairing.',
     pairing_device_mismatch: 'This pairing does not belong to this device.',
     pairing_scope_conflict: 'This Live Node is already bound to another environment. Revoke the current devices before binding it again.',
+    pairing_scope_required: 'This Live Node has not been bound to an environment yet. Pair it first from MusicScale Live while signed in to your organization.',
     pairing_failed: 'Pairing could not be completed.'
   },
   es: {
@@ -43,6 +45,7 @@ const nodeErrors = {
     pairing_attempts_exceeded: 'Demasiados intentos de código. Solicite un nuevo emparejamiento.',
     pairing_device_mismatch: 'Este emparejamiento no pertenece a este dispositivo.',
     pairing_scope_conflict: 'Este Live Node ya está vinculado a otro entorno. Revoque los dispositivos actuales antes de vincularlo nuevamente.',
+    pairing_scope_required: 'Este Live Node todavía no está vinculado a un entorno. Empárelo primero desde MusicScale Live con sesión iniciada en su organización.',
     pairing_failed: 'No fue posible completar el emparejamiento.'
   }
 };
@@ -88,6 +91,8 @@ const resources = {
       kicker: 'LOCAL CONTROL PLANE',
       title: 'Conectar este ambiente ao Live Node',
       description: 'O Live Node roda no computador de produção e mantém o controle local funcionando mesmo sem internet.',
+      localRecoveryTitle: 'Reconectar ao Live Node local',
+      localRecoveryDescription: 'Este modo funciona sem login na nuvem. O dispositivo herda o ambiente já vinculado ao Live Node após confirmar o PIN local.',
       connected: 'Live Node conectado',
       disconnect: 'Desconectar',
       address: 'Endereço',
@@ -104,6 +109,24 @@ const resources = {
       pair: 'Conectar e parear',
       noCloudSecret: 'As credenciais dos providers permanecem somente no computador local.'
     },
+    localRecovery: {
+      mode: 'Modo de recuperação local',
+      kicker: 'OFFLINE CONTROL',
+      title: 'O culto continua mesmo sem nuvem',
+      description: 'Esta interface está sendo servida diretamente pelo Live Node na rede local. Login, Firebase e internet não são necessários para operar o plano já preparado.',
+      noCloudRequired: 'Nuvem não obrigatória',
+      plan: 'Roteiro local',
+      cached: 'Em cache',
+      noPlanTitle: 'Nenhum culto preparado neste Live Node',
+      noPlanDescription: 'Conecte pela interface principal, faça o preflight e sincronize a escala. Depois disso o roteiro fica disponível aqui mesmo se a internet cair.'
+    },
+    offlineRun: {
+      kicker: 'ROTEIRO LOCAL',
+      description: 'Plano e vínculos com o provider estão armazenados neste Live Node.',
+      cached: 'Disponível offline',
+      ready: 'Pronta',
+      notLinked: 'Sem vínculo'
+    },
     preflight: {
       kicker: 'PREFLIGHT',
       title: 'Preparar escala no provider',
@@ -114,6 +137,7 @@ const resources = {
       confirmReplace: 'Confirmar substituição',
       replaceWarning: 'A playlist de músicas atualmente selecionada no provider será substituída por esta escala. Clique novamente para confirmar.',
       syncDone: 'Playlist sincronizada com a escala.',
+      syncDoneOffline: 'Playlist sincronizada e culto preparado no Live Node para operação local/offline.',
       syncFailed: 'Não foi possível sincronizar: {{code}}',
       idle: 'Não verificado',
       matched: 'Vinculada',
@@ -160,6 +184,8 @@ const resources = {
       kicker: 'LOCAL CONTROL PLANE',
       title: 'Connect this environment to Live Node',
       description: 'Live Node runs on the production computer and keeps local control working even when the internet is down.',
+      localRecoveryTitle: 'Reconnect to the local Live Node',
+      localRecoveryDescription: 'This mode works without cloud sign-in. The device inherits the environment already bound to Live Node after local PIN confirmation.',
       connected: 'Live Node connected',
       disconnect: 'Disconnect',
       address: 'Address',
@@ -176,6 +202,24 @@ const resources = {
       pair: 'Connect and pair',
       noCloudSecret: 'Provider credentials remain on the local computer only.'
     },
+    localRecovery: {
+      mode: 'Local recovery mode',
+      kicker: 'OFFLINE CONTROL',
+      title: 'The service keeps running without cloud',
+      description: 'This interface is being served directly by Live Node on the local network. Sign-in, Firebase and internet are not required to operate the prepared plan.',
+      noCloudRequired: 'Cloud not required',
+      plan: 'Local run of show',
+      cached: 'Cached',
+      noPlanTitle: 'No service has been prepared on this Live Node',
+      noPlanDescription: 'Connect from the main interface, run preflight and sync the schedule. The run of show will then remain available here if the internet goes down.'
+    },
+    offlineRun: {
+      kicker: 'LOCAL RUN OF SHOW',
+      description: 'The plan and provider links are stored on this Live Node.',
+      cached: 'Available offline',
+      ready: 'Ready',
+      notLinked: 'Not linked'
+    },
     preflight: {
       kicker: 'PREFLIGHT',
       title: 'Prepare schedule on provider',
@@ -186,6 +230,7 @@ const resources = {
       confirmReplace: 'Confirm replacement',
       replaceWarning: 'The song playlist currently selected on the provider will be replaced by this schedule. Click again to confirm.',
       syncDone: 'Playlist synced with the schedule.',
+      syncDoneOffline: 'Playlist synced and the service was cached on Live Node for local/offline operation.',
       syncFailed: 'Could not sync: {{code}}',
       idle: 'Not checked',
       matched: 'Linked',
@@ -232,6 +277,8 @@ const resources = {
       kicker: 'LOCAL CONTROL PLANE',
       title: 'Conectar este entorno al Live Node',
       description: 'Live Node se ejecuta en el ordenador de producción y mantiene el control local incluso sin internet.',
+      localRecoveryTitle: 'Reconectar al Live Node local',
+      localRecoveryDescription: 'Este modo funciona sin iniciar sesión en la nube. El dispositivo hereda el entorno ya vinculado al Live Node después de confirmar el PIN local.',
       connected: 'Live Node conectado',
       disconnect: 'Desconectar',
       address: 'Dirección',
@@ -248,6 +295,24 @@ const resources = {
       pair: 'Conectar y emparejar',
       noCloudSecret: 'Las credenciales de los providers permanecen solo en el ordenador local.'
     },
+    localRecovery: {
+      mode: 'Modo de recuperación local',
+      kicker: 'OFFLINE CONTROL',
+      title: 'El culto continúa incluso sin nube',
+      description: 'Esta interfaz se sirve directamente desde Live Node en la red local. No se necesita sesión, Firebase ni internet para operar el plan preparado.',
+      noCloudRequired: 'Nube no obligatoria',
+      plan: 'Guion local',
+      cached: 'En caché',
+      noPlanTitle: 'No hay culto preparado en este Live Node',
+      noPlanDescription: 'Conéctese desde la interfaz principal, ejecute el preflight y sincronice la escala. Después el guion seguirá disponible aquí si cae internet.'
+    },
+    offlineRun: {
+      kicker: 'GUION LOCAL',
+      description: 'El plan y los vínculos con el provider están almacenados en este Live Node.',
+      cached: 'Disponible offline',
+      ready: 'Lista',
+      notLinked: 'Sin vínculo'
+    },
     preflight: {
       kicker: 'PREFLIGHT',
       title: 'Preparar escala en el provider',
@@ -258,6 +323,7 @@ const resources = {
       confirmReplace: 'Confirmar sustitución',
       replaceWarning: 'La playlist de canciones actualmente seleccionada en el provider será sustituida por esta escala. Haga clic de nuevo para confirmar.',
       syncDone: 'Playlist sincronizada con la escala.',
+      syncDoneOffline: 'Playlist sincronizada y culto guardado en Live Node para operación local/offline.',
       syncFailed: 'No fue posible sincronizar: {{code}}',
       idle: 'No verificado',
       matched: 'Vinculada',
