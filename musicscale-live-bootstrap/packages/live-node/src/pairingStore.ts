@@ -71,6 +71,19 @@ export class PairingStore {
   async createChallenge(request: PairingRequest): Promise<PairingChallengeInternal> {
     await this.load();
     this.pruneChallenges();
+
+    const activeBinding = this.file.pairings.find(item => !item.revokedAt)?.binding;
+    if (
+      activeBinding &&
+      (
+        activeBinding.organizationId !== request.organizationId ||
+        activeBinding.venueId !== request.venueId ||
+        activeBinding.liveSystemId !== request.liveSystemId
+      )
+    ) {
+      throw new Error('pairing_scope_conflict');
+    }
+
     const challengeId = randomBytes(18).toString('base64url');
     const pin = String(randomInt(0, 1_000_000)).padStart(6, '0');
     const expiresAtMs = Date.now() + this.challengeTtlMs;
