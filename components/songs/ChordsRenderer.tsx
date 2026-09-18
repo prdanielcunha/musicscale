@@ -109,14 +109,24 @@ interface SectionPrefixMatch {
 }
 
 export const splitSongSectionPrefix = (line: string): SectionPrefixMatch | null => {
-  const trimmed = String(line || "").trim();
+  const rawLine = String(line || "").replace(/\r/g, "");
+  const trimmed = rawLine.trim();
   if (!trimmed) return null;
 
-  const bracketed = trimmed.match(/^\[([^\]]+)\]\s*(.*)$/);
-  if (bracketed && isRecognizedSongSection(bracketed[1])) {
+  // When a source puts chords on the same row as a bracketed section
+  // (e.g. "[Intro] G#m7 E9"), Performance renders the section label on its
+  // own row. Preserve the chord's ORIGINAL horizontal column by replacing
+  // the removed prefix with spaces instead of trimming it away. This keeps
+  // the first inline Intro row aligned with indented continuation rows.
+  const bracketed = rawLine.match(/^(\s*)\[([^\]]+)\](\s*)(.*)$/);
+  if (bracketed && isRecognizedSongSection(bracketed[2])) {
+    const trailingContent = bracketed[4].trimEnd();
+    const chordColumnPrefix =
+      " ".repeat(bracketed[1].length + bracketed[2].length + 2 + bracketed[3].length);
+
     return {
-      label: cleanSectionLabel(bracketed[1]),
-      remainder: bracketed[2].trim(),
+      label: cleanSectionLabel(bracketed[2]),
+      remainder: trailingContent ? chordColumnPrefix + trailingContent : "",
     };
   }
 
