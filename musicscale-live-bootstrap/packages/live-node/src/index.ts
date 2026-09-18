@@ -10,7 +10,8 @@ import {
   type Capability,
   type CommandResult,
   type LiveCommand,
-  type PairingRequest
+  type PairingRequest,
+  type ServicePlan
 } from '@musicscale-live/domain';
 import { IdempotencyStore } from './idempotencyStore';
 import { PairingStore } from './pairingStore';
@@ -178,16 +179,65 @@ function validatePairingRequest(value: unknown): PairingRequest {
   const candidate = value as Record<string, unknown>;
   requireStrings(
     candidate,
-    ['organizationId', 'venueId', 'liveSystemId', 'deviceId', 'deviceName'],
+    ['deviceId', 'deviceName'],
     'invalid_pairing_request'
   );
+
+  const scopeValues = [
+    candidate.organizationId,
+    candidate.venueId,
+    candidate.liveSystemId
+  ];
+  const scopeCount = scopeValues.filter(
+    value => typeof value === 'string' && String(value).trim()
+  ).length;
+
+  if (scopeCount !== 0 && scopeCount !== 3) {
+    throw new Error('invalid_pairing_scope');
+  }
+
   return {
-    organizationId: String(candidate.organizationId),
-    venueId: String(candidate.venueId),
-    liveSystemId: String(candidate.liveSystemId),
+    organizationId: scopeCount === 3 ? String(candidate.organizationId) : undefined,
+    venueId: scopeCount === 3 ? String(candidate.venueId) : undefined,
+    liveSystemId: scopeCount === 3 ? String(candidate.liveSystemId) : undefined,
     deviceId: String(candidate.deviceId),
     deviceName: String(candidate.deviceName)
   };
+}
+
+function validateServicePlan(value: unknown): ServicePlan {
+  if (!value || typeof value !== 'object') throw new Error('invalid_service_plan');
+  const candidate = value as Partial<ServicePlan>;
+  const requiredStrings = [
+    candidate.id,
+    candidate.organizationId,
+    candidate.venueId,
+    candidate.liveSystemId,
+    candidate.title,
+    candidate.scheduledAt
+  ];
+  if (requiredStrings.some(item => typeof item !== 'string' || !item)) {
+    throw new Error('invalid_service_plan');
+  }
+  if (!Array.isArray(candidate.items)) throw new Error('invalid_service_plan');
+  if (!Number.isInteger(candidate.revision) || Number(candidate.revision) < 1) {
+    throw new Error('invalid_service_plan_revision');
+  }
+  return candidate as ServicePlan;
+}
+
+function assertServicePlanScope(
+  plan: ServicePlan,
+  binding: Awaited<ReturnType<typeof pairingStore.authorize>>
+): void {
+  if (!binding) return;
+  if (
+    plan.organizationId !== binding.organizationId ||
+    plan.venueId !== binding.venueId ||
+    plan.liveSystemId !== binding.liveSystemId
+  ) {
+    throw new Error('forbidden_scope');
+  }
 }
 
 function isCapability(value: unknown): value is Capability {
@@ -530,6 +580,23 @@ const server = createServer(async (req, res) => {
         now: new Date().toISOString(),
         binding,
         stateRevision: (await runtimeState.load()).revision
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/service-plan') {
+      const session = await authorize(req);
+      if (!session) return send(res, 401, { error: 'unauthorized' });
+      const plan = validateServicePlan(await readJson(req));
+      assertServicePlanScope(plan, session.binding);
+      const state = await runtimeState.patch({
+        servicePlan: plan,
+        activeLiveSessionId: `service-plan:${plan.id}`,
+        activeServiceItemId: plan.items[0]?.id || null
+      });
+      return send(res, 200, {
+        nodeId,
+        servicePlanId: plan.id,
+        stateRevision: state.revision
       });
     }
 
