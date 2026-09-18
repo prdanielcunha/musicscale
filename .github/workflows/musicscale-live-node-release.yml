@@ -1,0 +1,144 @@
+name: MusicScale Live Node Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'musicscale-live-v*'
+
+jobs:
+  build-node:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: musicscale-live-bootstrap
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install
+        run: npm run setup
+
+      - name: Validate
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Build web and Node
+        run: npm run build
+
+      - name: Build native Live Node executable
+        run: npm run package:sea --prefix packages/live-node
+
+      - name: Assemble Windows package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $release = "release/MusicScaleLiveNode"
+          New-Item -ItemType Directory -Force -Path "$release/web" | Out-Null
+          Copy-Item "packages/live-node/dist/MusicScaleLiveNode.exe" "$release/MusicScaleLiveNode.exe"
+          Copy-Item "apps/live/dist/*" "$release/web" -Recurse
+          Copy-Item "distribution/windows/install.ps1" "$release/install.ps1"
+          Copy-Item "distribution/windows/uninstall.ps1" "$release/uninstall.ps1"
+          Copy-Item "distribution/README-INSTALL.md" "$release/README-INSTALL.md"
+
+      - name: Smoke test Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:MUSICSCALE_LIVE_NODE_PORT = "4417"
+          $env:MUSICSCALE_LIVE_STATE_DIR = "$env:RUNNER_TEMP\musicscale-live-state"
+          $env:MUSICSCALE_LIVE_WEB_ROOT = "$PWD\release\MusicScaleLiveNode\web"
+          $exe = "$PWD\release\MusicScaleLiveNode\MusicScaleLiveNode.exe"
+          $proc = Start-Process -FilePath $exe -PassThru -WindowStyle Hidden
+          try {
+            $ok = $false
+            for ($i = 0; $i -lt 20; $i++) {
+              Start-Sleep -Milliseconds 500
+              try {
+                $health = Invoke-RestMethod "http://127.0.0.1:4417/health" -TimeoutSec 2
+                if ($health.product -eq "MusicScale Live Node") {
+                  $ok = $true
+                  break
+                }
+              } catch {}
+            }
+            if (-not $ok) { throw "Live Node executable did not become healthy" }
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Archive Windows package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $name = "MusicScale-Live-Node-windows-$env:PROCESSOR_ARCHITECTURE"
+          Compress-Archive -Path "release/MusicScaleLiveNode/*" -DestinationPath "release/$name.zip" -Force
+          "PACKAGE_PATH=musicscale-live-bootstrap/release/$name.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Assemble macOS package
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          release="release/MusicScaleLiveNode"
+          mkdir -p "$release/web"
+          cp "packages/live-node/dist/MusicScaleLiveNode" "$release/MusicScaleLiveNode"
+          chmod +x "$release/MusicScaleLiveNode"
+          cp -R apps/live/dist/. "$release/web/"
+          cp distribution/macos/install.command "$release/install.command"
+          cp distribution/macos/uninstall.command "$release/uninstall.command"
+          cp distribution/README-INSTALL.md "$release/README-INSTALL.md"
+          chmod +x "$release/install.command" "$release/uninstall.command"
+
+      - name: Smoke test macOS executable
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export MUSICSCALE_LIVE_NODE_PORT=4417
+          export MUSICSCALE_LIVE_STATE_DIR="$RUNNER_TEMP/musicscale-live-state"
+          export MUSICSCALE_LIVE_WEB_ROOT="$PWD/release/MusicScaleLiveNode/web"
+          ./release/MusicScaleLiveNode/MusicScaleLiveNode >"$RUNNER_TEMP/live-node.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" >/dev/null 2>&1 || true' EXIT
+          ok=0
+          for i in {1..20}; do
+            sleep 0.5
+            if curl --fail --silent "http://127.0.0.1:4417/health" | grep -q '"product":"MusicScale Live Node"'; then
+              ok=1
+              break
+            fi
+          done
+          test "$ok" = "1"
+          kill "$pid" >/dev/null 2>&1 || true
+          trap - EXIT
+
+      - name: Archive macOS package
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          arch="$(node -p 'process.arch')"
+          name="MusicScale-Live-Node-macos-$arch"
+          tar -C release -czf "release/$name.tar.gz" MusicScaleLiveNode
+          echo "PACKAGE_PATH=musicscale-live-bootstrap/release/$name.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MusicScale-Live-Node-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ env.PACKAGE_PATH }}
+          if-no-files-found: error
