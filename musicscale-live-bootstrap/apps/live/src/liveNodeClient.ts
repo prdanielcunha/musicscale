@@ -1,4 +1,6 @@
 import type {
+  CommandResult,
+  LiveCommand,
   LiveNodeHealth,
   LiveNodeRuntimeState,
   PairingChallenge,
@@ -167,4 +169,25 @@ export async function revokeNodePairing(
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ deviceId })
   });
+}
+
+
+export async function executeNodeCommand(
+  baseUrl: string,
+  token: string,
+  command: LiveCommand
+): Promise<{ correlationId: string; results: CommandResult[] }> {
+  const guardedHeaders: Record<string, string> =
+    command.safetyLevel === 'guarded'
+      ? { 'x-live-confirmation': command.id }
+      : {};
+
+  return requestJson(baseUrl, '/commands', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...guardedHeaders
+    },
+    body: JSON.stringify(command)
+  }, 5000);
 }
