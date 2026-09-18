@@ -22,4 +22,14 @@ describe('AI import musical document integrity contract', () => {
     expect(serverSource).toContain('Array.isArray(preProcessed?.sections)');
     expect(serverSource).toContain('rawText.includes("\\uFFFD")');
   });
+
+  it('allows AI section enrichment only for parser-confirmed sections', () => {
+    expect(serverSource).toContain('sectionAnnotations');
+    expect(serverSource).toContain('parserSectionLookup.get');
+    expect(serverSource).toContain('if (!section) continue;');
+    expect(serverSource).toContain('allowedSectionAnnotationTypes');
+    expect(serverSource).toContain('allowedSectionAnnotationInstruments');
+    expect(serverSource).toContain('...(sectionAnnotations.length > 0 ? { sectionAnnotations } : {})');
+    expect(serverSource).toContain('use SOMENTE nomes de seção que existam literalmente no documento');
+  });
 });
