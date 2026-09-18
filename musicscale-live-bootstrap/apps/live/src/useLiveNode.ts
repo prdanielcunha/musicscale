@@ -176,6 +176,7 @@ export function useLiveNode() {
     capability: Capability;
     payload?: Record<string, unknown>;
     liveSessionId: string;
+    serviceItemId?: string;
     actorId: string;
     origin?: CommandOrigin;
     outputTargets?: string[];
@@ -192,6 +193,7 @@ export function useLiveNode() {
       venueId: credential.binding.venueId,
       liveSystemId: credential.binding.liveSystemId,
       liveSessionId: input.liveSessionId,
+      serviceItemId: input.serviceItemId,
       actorId: input.actorId,
       origin: input.origin || 'live-ui',
       capability: input.capability,
