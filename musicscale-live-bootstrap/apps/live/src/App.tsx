@@ -15,6 +15,8 @@ import { detectSameOriginLiveNode } from './liveNodeClient';
 import { markLiveMetric } from './telemetry';
 import { useLiveNode } from './useLiveNode';
 import { useLiveFocus } from './useLiveFocus';
+import { RequestSurface } from './RequestSurface';
+import { LiveRequestInbox } from './LiveRequestInbox';
 
 type Surface = 'live' | 'studio' | 'pastor' | 'conductor';
 
@@ -223,10 +225,31 @@ export function App() {
               actorId={user.uid}
               liveSessionId={scale ? `music-scale:${scale.id}` : `ad-hoc:${context?.organizationId || user.uid}`}
             />
+            <LiveRequestInbox
+              controller={liveNode}
+              actorId={user.uid}
+              liveSessionId={scale ? `music-scale:${scale.id}` : `ad-hoc:${context?.organizationId || user.uid}`}
+            />
           </LiveCueCoordinatorProvider>
         )}
 
-        {surface !== 'live' && <section className="content-grid">
+        {(surface === 'pastor' || surface === 'conductor') && liveNode.state === 'connected' && (
+          <RequestSurface
+            controller={liveNode}
+            actorId={user.uid}
+            liveSessionId={scale ? `music-scale:${scale.id}` : `ad-hoc:${context?.organizationId || user.uid}`}
+            mode={surface}
+          />
+        )}
+
+        {(surface === 'pastor' || surface === 'conductor') && liveNode.state !== 'connected' && (
+          <section className="panel request-node-required">
+            <strong>{t('requestsSurface.nodeRequiredTitle')}</strong>
+            <p>{t('requestsSurface.nodeRequiredDescription')}</p>
+          </section>
+        )}
+
+        {surface === 'studio' && <section className="content-grid">
           <article className="panel next-service">
             <div className="panel-head"><span>{t('nextService')}</span><small>{t('readOnlyBridge')}</small></div>
             {scale ? (
