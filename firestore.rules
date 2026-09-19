@@ -155,6 +155,41 @@ service cloud.firestore {
         hasPermission(orgId, 'musicscale.live.conduct');
     }
 
+    function hasLiveConfigAuthority(orgId) {
+      return isAuthenticated() && (
+        isSystemAdmin() ||
+        isOrgOwner(orgId) ||
+        hasPermission(orgId, 'canManageSettings') ||
+        isMemberWithExplicitPermission(orgId, 'musicscale.live.configure')
+      );
+    }
+
+    function liveOrgRead(data) {
+      return isAuthenticated() &&
+        data.get('organizationId', '') is string &&
+        checkOrgAccess(data.get('organizationId', '')) &&
+        isOrgActive(data.get('organizationId', ''));
+    }
+
+    function liveOrgCreateWithAuthority(data, configureOnly) {
+      let orgId = data.get('organizationId', '');
+      return isAuthenticated() &&
+        orgId is string &&
+        orgId.size() > 0 &&
+        isOrgActive(orgId) &&
+        (configureOnly ? hasLiveConfigAuthority(orgId) : hasLiveSessionAuthority(orgId));
+    }
+
+    function liveOrgUnchanged() {
+      return request.resource.data.get('organizationId', '') ==
+        resource.data.get('organizationId', '');
+    }
+
+    function liveActorOwnsCreate(data) {
+      return isAuthenticated() &&
+        data.get('actorId', '') == request.auth.uid;
+    }
+
     function isOrgAdmin(orgId) {
       return isSystemAdmin() || orgId == request.auth.uid || 
              isMemberWithRole(orgId, 'admin') || 
@@ -529,6 +564,136 @@ service cloud.firestore {
         hasLiveSessionAuthority(resource.data.get('organizationId', '')) &&
         checkOrgAccess(resource.data.get('organizationId', '')) &&
         isOrgActive(resource.data.get('organizationId', ''));
+    }
+
+    // ==========================================
+    // MUSICSCALE LIVE — CLOUD CONTROL PLANE
+    // ==========================================
+    // These collections are deliberately top-level. The generic
+    // organizations/{orgId}/{app=**} wildcard is intentionally not used here,
+    // because Firestore ORs overlapping rules and the Live control plane needs
+    // narrower role boundaries than a generic tenant member write.
+
+    match /musicScaleLiveVenues/{id} {
+      allow read: if liveOrgRead(resource.data);
+      allow create: if liveOrgCreateWithAuthority(incoming(), true);
+      allow update: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', '')) &&
+        liveOrgUnchanged();
+      allow delete: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', ''));
+    }
+
+    match /musicScaleLiveSystems/{id} {
+      allow read: if liveOrgRead(resource.data);
+      allow create: if liveOrgCreateWithAuthority(incoming(), true);
+      allow update: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', '')) &&
+        liveOrgUnchanged();
+      allow delete: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', ''));
+    }
+
+    match /musicScaleLiveNodes/{id} {
+      allow read: if liveOrgRead(resource.data);
+      allow create: if liveOrgCreateWithAuthority(incoming(), true);
+      allow update: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', '')) &&
+        liveOrgUnchanged();
+      allow delete: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', ''));
+    }
+
+    match /musicScaleLiveProfiles/{id} {
+      allow read: if liveOrgRead(resource.data);
+      allow create: if liveOrgCreateWithAuthority(incoming(), true);
+      allow update: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', '')) &&
+        liveOrgUnchanged();
+      allow delete: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', ''));
+    }
+
+    match /musicScaleLiveScenes/{id} {
+      allow read: if liveOrgRead(resource.data);
+      allow create: if liveOrgCreateWithAuthority(incoming(), true);
+      allow update: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', '')) &&
+        liveOrgUnchanged();
+      allow delete: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', ''));
+    }
+
+    match /musicScaleLiveAutomations/{id} {
+      allow read: if liveOrgRead(resource.data);
+      allow create: if liveOrgCreateWithAuthority(incoming(), true);
+      allow update: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', '')) &&
+        liveOrgUnchanged();
+      allow delete: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', ''));
+    }
+
+    match /musicScaleLiveProviderLinks/{id} {
+      allow read: if liveOrgRead(resource.data);
+      allow create: if liveOrgCreateWithAuthority(incoming(), false);
+      allow update: if liveOrgRead(resource.data) &&
+        hasLiveSessionAuthority(resource.data.get('organizationId', '')) &&
+        liveOrgUnchanged();
+      allow delete: if liveOrgRead(resource.data) &&
+        hasLiveSessionAuthority(resource.data.get('organizationId', ''));
+    }
+
+    match /musicScaleLiveServicePlans/{id} {
+      allow read: if liveOrgRead(resource.data);
+      allow create: if liveOrgCreateWithAuthority(incoming(), false);
+      allow update: if liveOrgRead(resource.data) &&
+        hasLiveSessionAuthority(resource.data.get('organizationId', '')) &&
+        liveOrgUnchanged();
+      allow delete: if liveOrgRead(resource.data) &&
+        hasLiveSessionAuthority(resource.data.get('organizationId', ''));
+    }
+
+    match /musicScaleLiveSessions/{id} {
+      allow read: if liveOrgRead(resource.data);
+      allow create: if liveOrgCreateWithAuthority(incoming(), false) &&
+        incoming().get('startedBy', request.auth.uid) == request.auth.uid;
+      allow update: if liveOrgRead(resource.data) &&
+        hasLiveSessionAuthority(resource.data.get('organizationId', '')) &&
+        liveOrgUnchanged();
+      allow delete: if false;
+    }
+
+    match /musicScaleLiveRequests/{id} {
+      allow read: if liveOrgRead(resource.data);
+      allow create: if isAuthenticated() &&
+        incoming().get('organizationId', '') is string &&
+        checkOrgAccess(incoming().get('organizationId', '')) &&
+        isOrgActive(incoming().get('organizationId', '')) &&
+        liveActorOwnsCreate(incoming()) &&
+        incoming().get('status', '') == 'pending';
+      allow update: if liveOrgRead(resource.data) &&
+        hasLiveSessionAuthority(resource.data.get('organizationId', '')) &&
+        liveOrgUnchanged() &&
+        request.resource.data.get('actorId', '') == resource.data.get('actorId', '');
+      allow delete: if false;
+    }
+
+    match /musicScaleLiveEvents/{id} {
+      allow read: if liveOrgRead(resource.data);
+      allow create: if liveOrgCreateWithAuthority(incoming(), false) &&
+        liveActorOwnsCreate(incoming());
+      allow update, delete: if false;
+    }
+
+    match /musicScaleLiveMediaAssets/{id} {
+      allow read: if liveOrgRead(resource.data);
+      allow create: if liveOrgCreateWithAuthority(incoming(), true);
+      allow update: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', '')) &&
+        liveOrgUnchanged();
+      allow delete: if liveOrgRead(resource.data) &&
+        hasLiveConfigAuthority(resource.data.get('organizationId', ''));
     }
 
     match /roles/{roleId} {

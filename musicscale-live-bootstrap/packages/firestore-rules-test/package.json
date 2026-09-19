@@ -1,0 +1,16 @@
+{
+  "name": "@musicscale-live/firestore-rules-test",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project demo-musicscale-live --config ../../../firebase.json \"vitest run --config vitest.config.ts\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "firebase": "^12.13.0",
+    "firebase-tools": "^14.0.0",
+    "typescript": "~5.8.2",
+    "vitest": "^4.1.10"
+  }
+}

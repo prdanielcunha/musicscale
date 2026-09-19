@@ -1,0 +1,42 @@
+name: MusicScale Live Firestore Rules CI
+
+on:
+  push:
+    branches:
+      - live/foundation-bootstrap
+    paths:
+      - 'firestore.rules'
+      - 'firebase.json'
+      - 'musicscale-live-bootstrap/packages/firestore-rules-test/**'
+      - '.github/workflows/musicscale-live-firestore-rules-ci.yml'
+  pull_request:
+    paths:
+      - 'firestore.rules'
+      - 'firebase.json'
+      - 'musicscale-live-bootstrap/packages/firestore-rules-test/**'
+      - '.github/workflows/musicscale-live-firestore-rules-ci.yml'
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: musicscale-live-bootstrap/packages/firestore-rules-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: musicscale-live-bootstrap/packages/firestore-rules-test/package.json
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Firestore emulator rules tests
+        run: npm test
