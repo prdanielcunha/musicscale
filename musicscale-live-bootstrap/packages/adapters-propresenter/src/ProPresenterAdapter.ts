@@ -15,6 +15,8 @@ const PROPRESENTER_CAPABILITIES: Capability[] = [
   'presentation.take',
   'preview.snapshot',
   'presentation.clear',
+  'songs.search',
+  'songs.present',
   'stage.message',
   'automation.trigger'
 ];
@@ -49,6 +51,20 @@ interface SlideStatusItem {
 interface SlideStatus {
   current?: SlideStatusItem | null;
   next?: SlideStatusItem | null;
+}
+
+interface ProPresenterLibrary {
+  id?: PresentationIdentity;
+}
+
+interface ProPresenterLibraryUpdate {
+  items?: PresentationIdentity[];
+}
+
+interface IndexedPresentation {
+  id: string;
+  title: string;
+  libraryId: string;
 }
 
 interface PresentationSlide {
@@ -158,6 +174,8 @@ export class ProPresenterAdapter implements ProviderAdapter {
   readonly observationIntervalMs = 500;
   private readonly api: ProPresenterApi;
   private readonly supported = new Set<Capability>();
+  private libraryIndex: IndexedPresentation[] = [];
+  private libraryIndexAt = 0;
   private lastState: ProviderState = {
     health: 'offline',
     updatedAt: new Date(0).toISOString(),
@@ -292,6 +310,45 @@ export class ProPresenterAdapter implements ProviderAdapter {
     }
   }
 
+  private async loadLibraryIndex(force = false): Promise<IndexedPresentation[]> {
+    const now = Date.now();
+    if (!force && this.libraryIndex.length && now - this.libraryIndexAt < 30_000) {
+      return this.libraryIndex;
+    }
+
+    const libraries = await this.api.get<ProPresenterLibrary[]>('/v1/libraries');
+    const updates = await Promise.all(
+      (libraries || []).map(async library => {
+        const libraryId = String(
+          library.id?.uuid ||
+          library.id?.name ||
+          library.id?.index ??
+          ''
+        );
+        if (!libraryId) return [] as IndexedPresentation[];
+
+        try {
+          const update = await this.api.getInitial<ProPresenterLibraryUpdate>(
+            `/v1/library/${encodeURIComponent(libraryId)}`
+          );
+          return (update.items || [])
+            .map(item => ({
+              id: String(item.uuid || ''),
+              title: String(item.name || ''),
+              libraryId
+            }))
+            .filter(item => item.id && item.title);
+        } catch {
+          return [] as IndexedPresentation[];
+        }
+      })
+    );
+
+    this.libraryIndex = updates.flat();
+    this.libraryIndexAt = now;
+    return this.libraryIndex;
+  }
+
   private async readDetailedPresentation(): Promise<Record<string, unknown> | null> {
     const indexStatus = await this.api.getInitial<SlideIndexStatus>(
       '/v1/presentation/slide_index'
@@ -353,6 +410,37 @@ export class ProPresenterAdapter implements ProviderAdapter {
       case 'presentation.clear':
         await this.api.get('/v1/clear/layer/slide');
         return { currentPresentation: null };
+
+      case 'songs.search': {
+        const query = String(payload.text || payload.query || '')
+          .trim()
+          .toLocaleLowerCase();
+        if (!query) return { results: [] };
+
+        const presentations = await this.loadLibraryIndex();
+        const results = presentations
+          .filter(item => item.title.toLocaleLowerCase().includes(query))
+          .slice(0, 30)
+          .map(item => ({
+            id: item.id,
+            title: item.title,
+            providerLibraryId: item.libraryId
+          }));
+
+        return { results };
+      }
+
+      case 'songs.present': {
+        const id = String(payload.id || '');
+        if (!id) throw new Error('presentation_id_required');
+        await this.api.get(
+          `/v1/presentation/${encodeURIComponent(id)}/trigger`
+        );
+        return {
+          presentationId: id,
+          currentPresentation: await this.readDetailedPresentation()
+        };
+      }
 
       case 'stage.message': {
         const show = payload.show !== false;
