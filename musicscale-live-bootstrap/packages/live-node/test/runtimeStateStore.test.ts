@@ -79,6 +79,33 @@ describe('RuntimeStateStore', () => {
     expect(restored.servicePlan?.id).toBe('plan_1');
     expect(restored.providerLinks[0]?.externalId).toBe('h1');
   });
+  it('persists cached scenes for offline TAKE', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'ms-live-state-'));
+    const path = join(dir, 'runtime.json');
+    const store = new RuntimeStateStore(path, 'node_1');
+
+    await store.patch({
+      scenes: [{
+        id: 'scene_1',
+        organizationId: 'org_1',
+        venueId: 'venue_1',
+        liveSystemId: 'system_1',
+        name: 'Pregação',
+        actions: [{
+          id: 'screen',
+          capability: 'presentation.screen.mode',
+          targetProviderIds: [],
+          outputTargets: ['main'],
+          payload: { mode: 'normal' },
+          safetyLevel: 'normal'
+        }]
+      }]
+    });
+
+    const restored = await new RuntimeStateStore(path, 'node_1').load();
+    expect(restored.scenes[0]?.name).toBe('Pregação');
+  });
+
   it('persists local Live requests for operator recovery', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'ms-live-state-'));
     const path = join(dir, 'runtime.json');
