@@ -11,18 +11,52 @@ class FakeApi implements ProPresenterApi {
 
   async get<T>(path: string): Promise<T> {
     this.calls.push({ method: 'GET', path });
-    if (path === '/version') return { version: '21.4', name: 'ProPresenter' } as T;
-    if (path === '/v1/status/slide') {
+
+    if (path === '/version') {
       return {
-        current: { text: 'Amazing grace', image_uuid: 'img-current' },
-        next: { text: 'How sweet the sound', image_uuid: 'img-next' }
+        name: 'Main sanctuary ProPresenter',
+        platform: 'win',
+        os_version: '11',
+        host_description: 'ProPresenter',
+        api_version: 'v1'
       } as T;
     }
-    if (path === '/v1/presentation/slide_index') return { index: 2 } as T;
-    if (path === '/v1/presentation/active') {
-      return { id: 'presentation-1', name: 'Amazing Grace', cue_count: 8 } as T;
+    if (path === '/v1/status/slide') {
+      return {
+        current: { text: 'Amazing grace', notes: 'quiet', uuid: 'slide-current' },
+        next: { text: 'How sweet the sound', notes: 'build', uuid: 'slide-next' }
+      } as T;
     }
-    return {} as T;
+    if (path === '/v1/presentation/slide_index') {
+      return {
+        presentation: {
+          index: 2,
+          presentation_id: {
+            uuid: 'presentation-1',
+            name: 'Amazing Grace',
+            index: 0
+          }
+        }
+      } as T;
+    }
+    if (path === '/v1/presentation/current') {
+      return {
+        presentation: {
+          id: { uuid: 'presentation-1', name: 'Amazing Grace' },
+          name: 'Amazing Grace',
+          groups: [{
+            name: 'Verse 1',
+            slides: [
+              { text: 'Slide 1', label: 'Verse 1', image: '/9j/a' },
+              { text: 'Slide 2', label: 'Verse 1', image: '/9j/b' },
+              { text: 'Amazing grace', label: 'Verse 1', image: '/9j/c' },
+              { text: 'How sweet the sound', label: 'Verse 1', image: '/9j/d' }
+            ]
+          }]
+        }
+      } as T;
+    }
+    return undefined as T;
   }
 
   async put<T>(path: string, body?: unknown): Promise<T> {
@@ -40,7 +74,7 @@ class FakeApi implements ProPresenterApi {
     return undefined as T;
   }
 
-  async getBinary(): Promise<ProPresenterBinaryResponse> {
+  async getBinary(_path: string): Promise<ProPresenterBinaryResponse> {
     return { contentType: 'image/jpeg', body: new Uint8Array([1]) };
   }
 }
@@ -69,7 +103,7 @@ function command(
 }
 
 describe('ProPresenterAdapter', () => {
-  it('exposes only the verified neutral capability surface', async () => {
+  it('probes the local API and exposes only verified neutral capabilities', async () => {
     const api = new FakeApi();
     const adapter = new ProPresenterAdapter({
       id: 'propresenter-1',
@@ -78,6 +112,7 @@ describe('ProPresenterAdapter', () => {
     });
 
     const probe = await adapter.probe();
+
     expect(probe.reachable).toBe(true);
     expect(probe.capabilities).toContain('presentation.navigation');
     expect(probe.capabilities).toContain('presentation.preview');
@@ -85,7 +120,25 @@ describe('ProPresenterAdapter', () => {
     expect(probe.capabilities).not.toContain('songs.search');
   });
 
-  it('maps neutral next navigation to the public trigger endpoint', async () => {
+  it('keeps lightweight state aligned to the actual slide index', async () => {
+    const api = new FakeApi();
+    const adapter = new ProPresenterAdapter({
+      id: 'propresenter-1',
+      nodeId: 'node-1',
+      api
+    });
+    await adapter.probe();
+
+    const state = await adapter.getState();
+    const presentation = state.observed.currentPresentation as any;
+
+    expect(presentation.slide_number).toBe(3);
+    expect(presentation.slides[2].text).toBe('Amazing grace');
+    expect(presentation.slides[3].text).toBe('How sweet the sound');
+    expect(api.calls.some(call => call.path === '/v1/presentation/active')).toBe(false);
+  });
+
+  it('uses /v1/trigger/cue/{index} for neutral goto', async () => {
     const api = new FakeApi();
     const adapter = new ProPresenterAdapter({
       id: 'propresenter-1',
@@ -95,14 +148,14 @@ describe('ProPresenterAdapter', () => {
     await adapter.probe();
 
     const result = await adapter.execute(
-      command('presentation.navigation', { action: 'next' })
+      command('presentation.navigation', { action: 'goto', index: 5 })
     );
 
     expect(result.accepted).toBe(true);
-    expect(api.calls.some(call => call.path === '/v1/trigger/next')).toBe(true);
+    expect(api.calls.some(call => call.path === '/v1/trigger/cue/5')).toBe(true);
   });
 
-  it('normalizes current and next slide text into the common Live model', async () => {
+  it('returns detailed current and next preview images in the common Live shape', async () => {
     const api = new FakeApi();
     const adapter = new ProPresenterAdapter({
       id: 'propresenter-1',
@@ -111,16 +164,17 @@ describe('ProPresenterAdapter', () => {
     });
     await adapter.probe();
 
-    const result = await adapter.execute(command('presentation.preview'));
-    const presentation = result.observedState?.currentPresentation as Record<string, unknown>;
-    const slides = presentation.slides as Array<Record<string, unknown>>;
+    const result = await adapter.execute(command('preview.snapshot'));
+    const presentation = result.observedState?.currentPresentation as any;
 
+    expect(presentation.name).toBe('Amazing Grace');
     expect(presentation.slide_number).toBe(3);
-    expect(slides[0]?.text).toBe('Amazing grace');
-    expect(slides[1]?.text).toBe('How sweet the sound');
+    expect(presentation.slides[2].text).toBe('Amazing grace');
+    expect(presentation.slides[2].preview).toContain('data:image/jpeg;base64,');
+    expect(presentation.slides[3].text).toBe('How sweet the sound');
   });
 
-  it('maps stage messages without exposing ProPresenter semantics to the domain', async () => {
+  it('maps stage messaging to PUT and DELETE', async () => {
     const api = new FakeApi();
     const adapter = new ProPresenterAdapter({
       id: 'propresenter-1',
@@ -130,14 +184,22 @@ describe('ProPresenterAdapter', () => {
     await adapter.probe();
 
     await adapter.execute(command('stage.message', {
-      text: 'Go to bridge',
+      text: 'Bridge after chorus',
       show: true
+    }));
+    await adapter.execute(command('stage.message', {
+      text: '',
+      show: false
     }));
 
     expect(api.calls.some(call =>
       call.method === 'PUT' &&
       call.path === '/v1/stage/message' &&
-      call.body === 'Go to bridge'
+      call.body === 'Bridge after chorus'
+    )).toBe(true);
+    expect(api.calls.some(call =>
+      call.method === 'DELETE' &&
+      call.path === '/v1/stage/message'
     )).toBe(true);
   });
 });
