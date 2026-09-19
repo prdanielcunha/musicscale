@@ -99,3 +99,37 @@ Names such as F8/F9/F10, REST endpoint paths or provider-specific internal termi
 ## 10. Recovery must preserve the mental model
 
 If cloud/Firebase disappears, the Local Recovery UI keeps the same NOW → NEXT orientation and the same command semantics. Losing internet must not force the operator to learn a second interface during a service.
+
+
+## 11. Prepare before TAKE is the default
+
+Selecting content should not unexpectedly put it on air.
+
+The following actions prepare the NEXT side first:
+
+- a song selected from provider search;
+- a Bible reference;
+- an image/video/audio item;
+- the next compatible item from Run of Show;
+- a visual clip;
+- a multi-provider linked cue.
+
+The operator then commits the prepared intent through the same TAKE boundary.
+
+Exceptions must be explicit and justified by provider semantics. Search results are not “fire buttons”.
+
+## 12. Multi-provider ambiguity is a setup problem, never a live gamble
+
+When exactly one provider supports a route group, routing is automatic.
+
+When two or more providers can own the same function, MusicScale Live requires an explicit primary route. It must not broadcast a routine presentation command to multiple providers or silently choose one based on registration order.
+
+The Studio topology should expose the resulting system graph. The local Node setup owns route mutation so service-time tablets cannot accidentally change infrastructure.
+
+## 13. Reduce duplication before adding controls
+
+A preview should have one authoritative visual home.
+
+For example, a Resolume output snapshot belongs on the left NOW surface. Output selection is a utility control; it must not create a second competing large preview below the operator deck.
+
+The same rule applies as more providers are added: new capability does not automatically justify a new dashboard card.
