@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const read = (relativePath: string) =>
   fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf8');
 
+// Certification trigger: this contract travels with the complete responsive ServeGuard experience.
 describe('ServeGuard experience contract', () => {
   it('keeps personal preference UI behind the authenticated ServeGuard client', () => {
     const profile = read('pages/ProfilePage.tsx');
