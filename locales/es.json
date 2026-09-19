@@ -1838,7 +1838,7 @@
     "serve_guard": {
       "title": "Mi disponibilidad de servicio",
       "optional": "Opcional",
-      "description": "Define preferencias para que MusicScale avise al liderazgo antes de crear una escala que supere lo que consideras sostenible para tu rutina.",
+      "description": "Define preferencias para que MusicScale avise al liderazgo antes de crear una escala que supere lo que consideras compatible con tu rutina.",
       "weekly_limit": "Máximo por semana",
       "weekly_help": "Cuántas escalas prefieres asumir en una misma semana. Déjalo vacío para no definir un límite.",
       "monthly_limit": "Máximo por mes",
