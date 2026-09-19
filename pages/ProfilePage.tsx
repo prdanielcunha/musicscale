@@ -18,6 +18,10 @@ import {
   reauthenticateCurrentUser,
   deleteAuthUser,
 } from "../services/authService";
+import {
+  getServeGuardPreference,
+  saveServeGuardPreference,
+} from "../services/serveGuardService";
 // FIX: Removed firestoreService import in favor of useApi
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
@@ -39,6 +43,7 @@ import { MusicNoteIcon } from "../components/icons/MusicNoteIcon";
 import { SparklesIcon } from "../components/icons/SparklesIcon";
 import { MicIcon } from "../components/icons/MicIcon";
 import { CheckIcon } from "../components/icons/CheckIcon";
+import { X as XIcon } from "lucide-react";
 
 const formInputClass = "mt-1 input-base";
 const formLabelClass =
@@ -221,6 +226,18 @@ const ProfilePage: React.FC = () => {
   const [isProfileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState({ type: "", text: "" });
 
+  // ServeGuard: personal service availability/preferences. These are intentionally
+  // separate from the public profile and are only read/written through the
+  // authenticated server boundary.
+  const [serveGuardMaxWeek, setServeGuardMaxWeek] = useState("");
+  const [serveGuardMaxMonth, setServeGuardMaxMonth] = useState("");
+  const [serveGuardPausedUntil, setServeGuardPausedUntil] = useState("");
+  const [serveGuardUnavailableDates, setServeGuardUnavailableDates] = useState<string[]>([]);
+  const [serveGuardDateDraft, setServeGuardDateDraft] = useState("");
+  const [isServeGuardLoading, setServeGuardLoading] = useState(false);
+  const [isServeGuardSaving, setServeGuardSaving] = useState(false);
+  const [serveGuardLoadError, setServeGuardLoadError] = useState(false);
+
   // Org state
   const [orgName, setOrgName] = useState("");
   const [isOrgSaving, setIsOrgSaving] = useState(false);
@@ -390,6 +407,50 @@ const ProfilePage: React.FC = () => {
     fetchProfile();
   }, [user, userProfile]);
 
+  const loadServeGuardPreferenceForProfile = React.useCallback(async () => {
+    if (!user || !organization?.id) {
+      setServeGuardMaxWeek("");
+      setServeGuardMaxMonth("");
+      setServeGuardPausedUntil("");
+      setServeGuardUnavailableDates([]);
+      setServeGuardLoadError(false);
+      return;
+    }
+
+    setServeGuardLoading(true);
+    setServeGuardLoadError(false);
+
+    try {
+      const preference = await getServeGuardPreference(
+        user,
+        organization.id,
+        user.uid,
+      );
+
+      setServeGuardMaxWeek(
+        preference?.maxServicesPerWeek != null
+          ? String(preference.maxServicesPerWeek)
+          : "",
+      );
+      setServeGuardMaxMonth(
+        preference?.maxServicesPerMonth != null
+          ? String(preference.maxServicesPerMonth)
+          : "",
+      );
+      setServeGuardPausedUntil(preference?.pausedUntil || "");
+      setServeGuardUnavailableDates(preference?.unavailableDates || []);
+    } catch (error) {
+      logger.error("[ProfilePage] Failed loading ServeGuard preference:", error);
+      setServeGuardLoadError(true);
+    } finally {
+      setServeGuardLoading(false);
+    }
+  }, [user, organization?.id]);
+
+  useEffect(() => {
+    void loadServeGuardPreferenceForProfile();
+  }, [loadServeGuardPreferenceForProfile]);
+
   const instrumentsByCategory = useMemo(() => {
     const categoryOrder: InstrumentCategory[] = [
       "Ministro",
@@ -517,6 +578,61 @@ const ProfilePage: React.FC = () => {
       });
     } finally {
       setProfileSaving(false);
+    }
+  };
+
+  const handleAddServeGuardUnavailableDate = () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(serveGuardDateDraft)) return;
+
+    setServeGuardUnavailableDates(current =>
+      Array.from(new Set([...current, serveGuardDateDraft])).sort(),
+    );
+    setServeGuardDateDraft("");
+  };
+
+  const handleSaveServeGuard = async () => {
+    if (!user || !organization?.id || isServeGuardSaving) return;
+
+    setServeGuardSaving(true);
+
+    try {
+      const toLimit = (value: string): number | null => {
+        if (!value.trim()) return null;
+        const parsed = Number.parseInt(value, 10);
+        return Number.isInteger(parsed) ? parsed : null;
+      };
+
+      const saved = await saveServeGuardPreference(
+        user,
+        organization.id,
+        user.uid,
+        {
+          maxServicesPerWeek: toLimit(serveGuardMaxWeek),
+          maxServicesPerMonth: toLimit(serveGuardMaxMonth),
+          unavailableDates: serveGuardUnavailableDates,
+          pausedUntil: serveGuardPausedUntil || null,
+        },
+      );
+
+      setServeGuardMaxWeek(
+        saved.maxServicesPerWeek != null
+          ? String(saved.maxServicesPerWeek)
+          : "",
+      );
+      setServeGuardMaxMonth(
+        saved.maxServicesPerMonth != null
+          ? String(saved.maxServicesPerMonth)
+          : "",
+      );
+      setServeGuardPausedUntil(saved.pausedUntil || "");
+      setServeGuardUnavailableDates(saved.unavailableDates || []);
+      setServeGuardLoadError(false);
+      showToast(t("profile.serve_guard.saved"), "success");
+    } catch (error) {
+      logger.error("[ProfilePage] Failed saving ServeGuard preference:", error);
+      showToast(t("profile.serve_guard.save_error"), "error");
+    } finally {
+      setServeGuardSaving(false);
     }
   };
 
@@ -816,6 +932,180 @@ const ProfilePage: React.FC = () => {
               </div>
             </Card>
           </form>
+
+          <Card padding="none" className="overflow-hidden">
+            <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/50 px-6 py-5 dark:border-gray-800 dark:bg-gray-800/50 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-slate-800 dark:text-white">
+                    {t("profile.serve_guard.title")}
+                  </h3>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                    {t("profile.serve_guard.optional")}
+                  </span>
+                </div>
+                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-gray-400">
+                  {t("profile.serve_guard.description")}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 md:p-8">
+              {isServeGuardLoading ? (
+                <div className="flex min-h-36 items-center justify-center">
+                  <Spinner />
+                </div>
+              ) : serveGuardLoadError ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/20 dark:bg-amber-500/10">
+                  <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                    {t("profile.serve_guard.load_error")}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => void loadServeGuardPreferenceForProfile()}
+                  >
+                    {t("profile.serve_guard.retry")}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-7">
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="serve-guard-weekly" className={formLabelClass}>
+                        {t("profile.serve_guard.weekly_limit")}
+                      </label>
+                      <input
+                        id="serve-guard-weekly"
+                        type="number"
+                        min={1}
+                        max={14}
+                        inputMode="numeric"
+                        value={serveGuardMaxWeek}
+                        onChange={event => setServeGuardMaxWeek(event.target.value)}
+                        className={formInputClass}
+                        placeholder={t("profile.serve_guard.no_limit")}
+                      />
+                      <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-gray-400">
+                        {t("profile.serve_guard.weekly_help")}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label htmlFor="serve-guard-monthly" className={formLabelClass}>
+                        {t("profile.serve_guard.monthly_limit")}
+                      </label>
+                      <input
+                        id="serve-guard-monthly"
+                        type="number"
+                        min={1}
+                        max={62}
+                        inputMode="numeric"
+                        value={serveGuardMaxMonth}
+                        onChange={event => setServeGuardMaxMonth(event.target.value)}
+                        className={formInputClass}
+                        placeholder={t("profile.serve_guard.no_limit")}
+                      />
+                      <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-gray-400">
+                        {t("profile.serve_guard.monthly_help")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/5 dark:bg-white/[0.025] sm:p-5">
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                      <div>
+                        <label htmlFor="serve-guard-pause" className={formLabelClass}>
+                          {t("profile.serve_guard.pause_until")}
+                        </label>
+                        <input
+                          id="serve-guard-pause"
+                          type="date"
+                          value={serveGuardPausedUntil}
+                          onChange={event => setServeGuardPausedUntil(event.target.value)}
+                          className={formInputClass}
+                        />
+                        <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-gray-400">
+                          {t("profile.serve_guard.pause_help")}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label htmlFor="serve-guard-unavailable-date" className={formLabelClass}>
+                          {t("profile.serve_guard.unavailable_dates")}
+                        </label>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <input
+                            id="serve-guard-unavailable-date"
+                            type="date"
+                            value={serveGuardDateDraft}
+                            onChange={event => setServeGuardDateDraft(event.target.value)}
+                            className={formInputClass}
+                          />
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className="sm:mt-1 sm:shrink-0"
+                            disabled={!serveGuardDateDraft}
+                            onClick={handleAddServeGuardUnavailableDate}
+                          >
+                            {t("profile.serve_guard.add_date")}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {serveGuardUnavailableDates.length > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {serveGuardUnavailableDates.map(date => (
+                          <button
+                            key={date}
+                            type="button"
+                            onClick={() =>
+                              setServeGuardUnavailableDates(current =>
+                                current.filter(item => item !== date),
+                              )
+                            }
+                            className="inline-flex min-h-9 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-red-200 hover:text-red-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:border-red-500/30 dark:hover:text-red-300"
+                            title={t("profile.serve_guard.remove_date")}
+                          >
+                            <span>
+                              {new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language, {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              }).format(new Date(date + "T12:00:00"))}
+                            </span>
+                            <XIcon className="h-3.5 w-3.5" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-4 rounded-2xl border border-primary/10 bg-primary/[0.035] p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="max-w-2xl text-xs leading-relaxed text-slate-600 dark:text-gray-300">
+                      {t("profile.serve_guard.advisory_note")}
+                    </p>
+                    <Button
+                      type="button"
+                      className="shrink-0"
+                      disabled={isServeGuardSaving}
+                      onClick={() => void handleSaveServeGuard()}
+                    >
+                      {isServeGuardSaving ? (
+                        <Spinner size="sm" />
+                      ) : (
+                        t("profile.serve_guard.save")
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
         </div>
 
         {/* Right Column: Settings & Danger Zone */}
