@@ -48,6 +48,35 @@ describe('ProPresenterHttpClient', () => {
     });
   });
 
+  it('reads only the initial JSON object from a chunked status stream', async () => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(
+          JSON.stringify({ current: { text: 'Now' }, next: { text: 'Next' } }) +
+          '\r\n\r\n'
+        ));
+        controller.enqueue(encoder.encode(
+          JSON.stringify({ current: { text: 'Later' } }) + '\r\n\r\n'
+        ));
+      }
+    });
+
+    const fakeFetch: typeof fetch = async () => new Response(stream, {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const client = new ProPresenterHttpClient({
+      baseUrl: 'http://127.0.0.1:1025',
+      fetchImpl: fakeFetch
+    });
+
+    const first = await client.getInitial<any>('/v1/status/slide');
+    expect(first.current.text).toBe('Now');
+    expect(first.next.text).toBe('Next');
+  });
+
   it('JSON-encodes stage message string bodies', async () => {
     let body: BodyInit | null | undefined;
     const fakeFetch: typeof fetch = async (_input, init) => {
