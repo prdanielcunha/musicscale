@@ -159,6 +159,33 @@ const resources = {
       searchUnavailable: 'O provider conectado não liberou a capacidade de busca de músicas para este token.',
       syncUnavailable: 'A busca está disponível, mas o token não permite sincronizar a playlist atual.'
     },
+    topology: {
+      kicker: 'SISTEMA AO VIVO',
+      title: 'Tudo conectado, sem adivinhação',
+      description: 'O Live Node coordena os providers locais e mostra claramente quem responde por cada função.',
+      readiness: 'Prontidão',
+      ready: 'Roteamento claro',
+      needsRouting_one: '{{count}} função precisa de escolha',
+      needsRouting_other: '{{count}} funções precisam de escolha',
+      localControl: 'LAN-first · continua localmente',
+      noProviders: 'Nenhum provider conectado neste Live Node.',
+      routes: 'Roteamento operacional',
+      routesHint: 'Com um provider compatível, o caminho é automático. Com dois ou mais, a escolha é explícita.',
+      choosePrimary: 'Escolha o principal no Live Node',
+      multipleCandidates_one: '{{count}} opção disponível',
+      multipleCandidates_other: '{{count}} opções disponíveis',
+      explicitRoute: 'Rota explícita',
+      groups: {
+        presentation: 'Apresentação',
+        songs: 'Músicas',
+        bible: 'Bíblia',
+        media: 'Mídia',
+        stage: 'Palco',
+        visual: 'Visuais',
+        audio: 'Áudio',
+        automation: 'Automações'
+      }
+    },
     visualControls: {
       kicker: 'VISUAIS AO VIVO',
       title: 'Visuais',
@@ -348,6 +375,33 @@ const resources = {
       searchUnavailable: 'The connected provider did not grant song-search capability to this token.',
       syncUnavailable: 'Search is available, but the token cannot synchronize the current playlist.'
     },
+    topology: {
+      kicker: 'LIVE SYSTEM',
+      title: 'Everything connected, nothing guessed',
+      description: 'Live Node coordinates local providers and makes it clear which one owns each function.',
+      readiness: 'Readiness',
+      ready: 'Routing is clear',
+      needsRouting_one: '{{count}} function needs a choice',
+      needsRouting_other: '{{count}} functions need a choice',
+      localControl: 'LAN-first · keeps running locally',
+      noProviders: 'No providers connected to this Live Node.',
+      routes: 'Operational routing',
+      routesHint: 'With one compatible provider the path is automatic. With two or more, the choice is explicit.',
+      choosePrimary: 'Choose primary on Live Node',
+      multipleCandidates_one: '{{count}} option available',
+      multipleCandidates_other: '{{count}} options available',
+      explicitRoute: 'Explicit route',
+      groups: {
+        presentation: 'Presentation',
+        songs: 'Songs',
+        bible: 'Bible',
+        media: 'Media',
+        stage: 'Stage',
+        visual: 'Visuals',
+        audio: 'Audio',
+        automation: 'Automations'
+      }
+    },
     visualControls: {
       kicker: 'LIVE VISUALS',
       title: 'Visuals',
@@ -536,6 +590,33 @@ const resources = {
       choose: 'Elegir coincidencia…',
       searchUnavailable: 'El provider conectado no concedió la capacidad de buscar canciones a este token.',
       syncUnavailable: 'La búsqueda está disponible, pero el token no puede sincronizar la playlist actual.'
+    },
+    topology: {
+      kicker: 'SISTEMA EN VIVO',
+      title: 'Todo conectado, nada adivinado',
+      description: 'Live Node coordina los providers locales y muestra claramente cuál responde por cada función.',
+      readiness: 'Preparación',
+      ready: 'Ruteo claro',
+      needsRouting_one: '{{count}} función necesita elección',
+      needsRouting_other: '{{count}} funciones necesitan elección',
+      localControl: 'LAN-first · continúa localmente',
+      noProviders: 'No hay providers conectados a este Live Node.',
+      routes: 'Ruteo operativo',
+      routesHint: 'Con un provider compatible el camino es automático. Con dos o más, la elección es explícita.',
+      choosePrimary: 'Elija el principal en Live Node',
+      multipleCandidates_one: '{{count}} opción disponible',
+      multipleCandidates_other: '{{count}} opciones disponibles',
+      explicitRoute: 'Ruta explícita',
+      groups: {
+        presentation: 'Presentación',
+        songs: 'Canciones',
+        bible: 'Biblia',
+        media: 'Medios',
+        stage: 'Escenario',
+        visual: 'Visuales',
+        audio: 'Audio',
+        automation: 'Automatizaciones'
+      }
     },
     visualControls: {
       kicker: 'VISUALES EN VIVO',
