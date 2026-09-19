@@ -1495,7 +1495,8 @@ async function start(): Promise<void> {
       return send(res, 200, {
         nodeId,
         state,
-        providers
+        providers,
+        routing: await providerRoutingStore.all()
       });
     }
 
