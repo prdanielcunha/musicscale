@@ -27,6 +27,7 @@ export interface ProviderProbeResult {
 
 export interface ProviderAdapter {
   readonly descriptor: ProviderDescriptor;
+  readonly observationIntervalMs?: number;
 
   probe(): Promise<ProviderProbeResult>;
   capabilities(): ReadonlySet<Capability>;
