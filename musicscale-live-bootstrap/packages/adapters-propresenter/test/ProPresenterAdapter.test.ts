@@ -39,24 +39,26 @@ class FakeApi implements ProPresenterApi {
         }
       } as T;
     }
-    if (path === '/v1/presentation/current') {
+    if (path === '/v1/presentation/presentation-1') {
       return {
-        presentation: {
-          id: { uuid: 'presentation-1', name: 'Amazing Grace' },
-          name: 'Amazing Grace',
-          groups: [{
-            name: 'Verse 1',
-            slides: [
-              { text: 'Slide 1', label: 'Verse 1', image: '/9j/a' },
-              { text: 'Slide 2', label: 'Verse 1', image: '/9j/b' },
-              { text: 'Amazing grace', label: 'Verse 1', image: '/9j/c' },
-              { text: 'How sweet the sound', label: 'Verse 1', image: '/9j/d' }
-            ]
-          }]
-        }
+        id: { uuid: 'presentation-1', name: 'Amazing Grace' },
+        name: 'Amazing Grace',
+        groups: [{
+          name: 'Verse 1',
+          slides: [
+            { text: 'Slide 1', label: 'Verse 1', image: '/9j/a' },
+            { text: 'Slide 2', label: 'Verse 1', image: '/9j/b' },
+            { text: 'Amazing grace', label: 'Verse 1', image: '/9j/c' },
+            { text: 'How sweet the sound', label: 'Verse 1', image: '/9j/d' }
+          ]
+        }]
       } as T;
     }
     return undefined as T;
+  }
+
+  async getInitial<T>(path: string): Promise<T> {
+    return this.get<T>(path);
   }
 
   async put<T>(path: string, body?: unknown): Promise<T> {
@@ -172,6 +174,23 @@ describe('ProPresenterAdapter', () => {
     expect(presentation.slides[2].text).toBe('Amazing grace');
     expect(presentation.slides[2].preview).toContain('data:image/jpeg;base64,');
     expect(presentation.slides[3].text).toBe('How sweet the sound');
+    expect(api.calls.some(call => call.path === '/v1/presentation/current')).toBe(false);
+    expect(api.calls.some(call =>
+      call.path === '/v1/presentation/presentation-1'
+    )).toBe(true);
+  });
+
+  it('does not call the streaming presentation/current endpoint', async () => {
+    const api = new FakeApi();
+    const adapter = new ProPresenterAdapter({
+      id: 'propresenter-1',
+      nodeId: 'node-1',
+      api
+    });
+    await adapter.probe();
+    await adapter.execute(command('preview.snapshot'));
+
+    expect(api.calls.some(call => call.path === '/v1/presentation/current')).toBe(false);
   });
 
   it('maps stage messaging to PUT and DELETE', async () => {
