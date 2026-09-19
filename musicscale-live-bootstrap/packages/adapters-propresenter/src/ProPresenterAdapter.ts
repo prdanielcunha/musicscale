@@ -322,8 +322,7 @@ export class ProPresenterAdapter implements ProviderAdapter {
         const libraryId = String(
           library.id?.uuid ||
           library.id?.name ||
-          library.id?.index ??
-          ''
+          (library.id?.index ?? '')
         );
         if (!libraryId) return [] as IndexedPresentation[];
 
