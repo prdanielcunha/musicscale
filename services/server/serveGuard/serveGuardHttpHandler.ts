@@ -60,6 +60,12 @@ function safeId(value: unknown): string {
   return value.trim();
 }
 
+function maskIdentifier(value: string): string {
+  const normalized = value.trim();
+  if (normalized.length <= 6) return '***';
+  return normalized.slice(0, 3) + '***' + normalized.slice(-3);
+}
+
 function safeDate(value: unknown): string {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
     ? value.trim()
@@ -319,7 +325,7 @@ export function createServeGuardHttpHandlers(deps: ServeGuardHttpDependencies) {
     } catch (error) {
       logger.error?.('[ServeGuard] preference read failed', {
         organizationId,
-        targetUserId,
+        targetUserId: maskIdentifier(targetUserId),
         error: error instanceof Error ? error.message : 'unknown_error',
       });
       return res.status(503).json({
@@ -397,7 +403,7 @@ export function createServeGuardHttpHandlers(deps: ServeGuardHttpDependencies) {
     } catch (error) {
       logger.error?.('[ServeGuard] preference write failed', {
         organizationId,
-        targetUserId,
+        targetUserId: maskIdentifier(targetUserId),
         error: error instanceof Error ? error.message : 'unknown_error',
       });
       return res.status(503).json({
@@ -477,8 +483,8 @@ export function createServeGuardHttpHandlers(deps: ServeGuardHttpDependencies) {
 
       logger.info?.('[ServeGuard] advisory evaluation', {
         organizationId,
-        actorUid: actor.uid,
-        targetUserId,
+        actorUid: maskIdentifier(actor.uid),
+        targetUserId: maskIdentifier(targetUserId),
         candidateDate,
         primarySignal: evaluation.primarySignal,
         requiresExplicitOverride: evaluation.requiresExplicitOverride,
@@ -492,7 +498,7 @@ export function createServeGuardHttpHandlers(deps: ServeGuardHttpDependencies) {
     } catch (error) {
       logger.error?.('[ServeGuard] evaluation failed', {
         organizationId,
-        targetUserId,
+        targetUserId: maskIdentifier(targetUserId),
         error: error instanceof Error ? error.message : 'unknown_error',
       });
       return res.status(503).json({
@@ -603,7 +609,7 @@ export function createServeGuardHttpHandlers(deps: ServeGuardHttpDependencies) {
 
       logger.info?.('[ServeGuard] advisory batch evaluation', {
         organizationId,
-        actorUid: actor.uid,
+        actorUid: maskIdentifier(actor.uid),
         candidateDate,
         requestedCount: targetUserIds.length,
         evaluatedCount: evaluations.length,
