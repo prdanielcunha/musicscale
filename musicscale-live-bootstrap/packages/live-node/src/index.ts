@@ -1485,13 +1485,19 @@ async function start(): Promise<void> {
       const session = await authorize(req);
       if (!session) return send(res, 401, { error: 'unauthorized' });
       const state = await runtimeState.load();
-      const providers = capabilityEngine.quickSnapshot().map(provider => ({
-        ...provider,
-        observed:
-          state.providerObservedState[provider.providerId] ||
-          provider.observed ||
-          {}
-      }));
+      const providers = capabilityEngine.quickSnapshot().map(provider => {
+        const descriptor = capabilityEngine.get(provider.providerId)?.descriptor;
+        return {
+          ...provider,
+          displayName: descriptor?.displayName || provider.providerId,
+          providerKey: descriptor?.providerKey || 'unknown',
+          kind: descriptor?.kind || 'control',
+          observed:
+            state.providerObservedState[provider.providerId] ||
+            provider.observed ||
+            {}
+        };
+      });
       return send(res, 200, {
         nodeId,
         state,
