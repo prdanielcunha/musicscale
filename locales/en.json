@@ -1817,7 +1817,28 @@
     }
   },
   "profile": {
-    "invite_person": "Invite person"
+    "invite_person": "Invite person",
+    "serve_guard": {
+      "title": "My service availability",
+      "optional": "Optional",
+      "description": "Set preferences so MusicScale can warn leaders before creating a schedule that goes beyond what you consider sustainable for your routine.",
+      "weekly_limit": "Maximum per week",
+      "weekly_help": "How many schedules you prefer to serve in during the same week. Leave blank for no limit.",
+      "monthly_limit": "Maximum per month",
+      "monthly_help": "How many schedules you prefer to serve in during the same month. Leave blank for no limit.",
+      "no_limit": "No limit",
+      "pause_until": "Pause schedules until",
+      "pause_help": "During the pause, new schedules for you will require an explicit leadership confirmation.",
+      "unavailable_dates": "Unavailable dates",
+      "add_date": "Add",
+      "remove_date": "Remove date",
+      "advisory_note": "ServeGuard does not diagnose fatigue and does not block you automatically. It compares new schedules with the preferences you set and shows leaders a warning when there is a conflict.",
+      "save": "Save availability",
+      "saved": "Service availability updated.",
+      "save_error": "We could not save your service availability.",
+      "load_error": "We could not load your availability right now.",
+      "retry": "Try again"
+    }
   },
   "refinement": {
     "fullAccess": "Full access",
