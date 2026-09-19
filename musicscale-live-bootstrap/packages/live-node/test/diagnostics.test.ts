@@ -39,6 +39,11 @@ describe('Live Node diagnostics', () => {
         configured: true,
         source: 'local',
         baseUrl: 'http://127.0.0.1:8080'
+      },
+      propresenter: {
+        configured: true,
+        source: 'local',
+        baseUrl: 'http://192.168.1.44:1025'
       }
     });
 
