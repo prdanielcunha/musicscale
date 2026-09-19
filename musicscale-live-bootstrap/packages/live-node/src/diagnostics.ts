@@ -27,6 +27,11 @@ export interface LiveNodeDiagnosticInput {
     source: 'environment' | 'local' | 'none';
     baseUrl: string;
   };
+  propresenter: {
+    configured: boolean;
+    source: 'environment' | 'local' | 'none';
+    baseUrl: string;
+  };
 }
 
 export function buildLiveNodeDiagnostics(input: LiveNodeDiagnosticInput) {
@@ -72,6 +77,11 @@ export function buildLiveNodeDiagnostics(input: LiveNodeDiagnosticInput) {
       configured: input.resolume.configured,
       source: input.resolume.source,
       baseUrl: input.resolume.baseUrl
+    },
+    propresenter: {
+      configured: input.propresenter.configured,
+      source: input.propresenter.source,
+      baseUrl: input.propresenter.baseUrl
     },
     security: {
       providerSecretsIncluded: false,
