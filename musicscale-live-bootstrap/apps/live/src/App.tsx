@@ -26,7 +26,6 @@ export function App() {
   const [localNodeOrigin, setLocalNodeOrigin] = useState(false);
   const [localNodeDetectionDone, setLocalNodeDetectionDone] = useState(false);
   const [surface, setSurface] = useState<Surface>('studio');
-  const [liveFocus, setLiveFocus] = useState(false);
   const liveNode = useLiveNode();
   const liveFocus = useLiveFocus(surface === 'live');
 
@@ -74,10 +73,6 @@ export function App() {
     if (liveNode.state === 'offline' || liveNode.state === 'blocked') return t('nodeStatus.offline');
     return t('pending');
   }, [liveNode.state, t]);
-
-  useEffect(() => {
-    if (surface !== 'live' && liveFocus) setLiveFocus(false);
-  }, [liveFocus, surface]);
 
   const login = () => signInWithPopup(auth, new GoogleAuthProvider());
   const logout = () => signOut(auth);
@@ -149,12 +144,6 @@ export function App() {
               </div>
             </div>
             <div className="live-session-health">
-              <button
-                className="live-focus-toggle"
-                onClick={() => setLiveFocus(value => !value)}
-              >
-                {liveFocus ? t('liveWorkspace.exitFocus') : t('liveWorkspace.focus')}
-              </button>
               <span className={nodeConnected ? 'ok' : 'warn'}>
                 <b />{t('node')} · {nodeStatus}
               </span>
