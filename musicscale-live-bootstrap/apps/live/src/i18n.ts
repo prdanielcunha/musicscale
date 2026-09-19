@@ -329,6 +329,42 @@ const resources = {
       reject: 'Recusar',
       complete: 'Concluir'
     },
+    sceneStudio: {
+      kicker: 'CENAS',
+      title: 'Uma ação para vários sistemas',
+      description: 'Monte combinações reutilizáveis sem expor detalhes de Holyrics, ProPresenter ou Resolume ao operador.',
+      offline: 'Disponível offline',
+      cached: 'cenas no Node',
+      name: 'Nome da cena',
+      namePlaceholder: 'Ex.: Pregação, Apelo, Avisos',
+      screen: 'Tela / apresentação',
+      visual: 'Visual',
+      stage: 'Mensagem de palco',
+      stagePlaceholder: 'Opcional · ex.: Banda, preparar saída',
+      noChange: 'Não alterar',
+      save: 'Salvar cena',
+      remove: 'Remover',
+      saved: 'Cena salva e enviada ao Live Node.',
+      cloudPending: 'Cena salva localmente. A sincronização com a nuvem ficou pendente.',
+      actionRequired: 'Escolha pelo menos uma ação para a cena.',
+      emptyTitle: 'Nenhuma cena criada',
+      emptyDescription: 'Crie uma cena simples acima. Ela fica disponível no Live mesmo sem internet.',
+      capabilities: {
+        'presentation.screen.mode': 'Tela',
+        'visual.clip.trigger': 'Visual',
+        'stage.message': 'Palco'
+      }
+    },
+    liveScenes: {
+      kicker: 'CENAS RÁPIDAS',
+      title: 'Prepare e execute combinações',
+      take: 'TAKE',
+      actions: 'ações',
+      completed: '{{name}} executada.',
+      partial: '{{name}} executou parcialmente. Confira o NOW antes de repetir.',
+      failed: '{{name}} não foi executada.',
+      failedCode: 'Cena não executada: {{code}}'
+    },
     nodeErrors: nodeErrors.pt
   }},
   en: { translation: {
@@ -583,6 +619,42 @@ const resources = {
       reject: 'Reject',
       complete: 'Complete'
     },
+    sceneStudio: {
+      kicker: 'SCENES',
+      title: 'One action across multiple systems',
+      description: 'Build reusable combinations without exposing Holyrics, ProPresenter or Resolume internals to the operator.',
+      offline: 'Available offline',
+      cached: 'scenes on Node',
+      name: 'Scene name',
+      namePlaceholder: 'e.g. Sermon, Altar call, Announcements',
+      screen: 'Screen / presentation',
+      visual: 'Visual',
+      stage: 'Stage message',
+      stagePlaceholder: 'Optional · e.g. Band, prepare ending',
+      noChange: 'No change',
+      save: 'Save scene',
+      remove: 'Remove',
+      saved: 'Scene saved and sent to Live Node.',
+      cloudPending: 'Scene saved locally. Cloud sync is pending.',
+      actionRequired: 'Choose at least one action for the scene.',
+      emptyTitle: 'No scenes yet',
+      emptyDescription: 'Create a simple scene above. It remains available in Live without internet.',
+      capabilities: {
+        'presentation.screen.mode': 'Screen',
+        'visual.clip.trigger': 'Visual',
+        'stage.message': 'Stage'
+      }
+    },
+    liveScenes: {
+      kicker: 'QUICK SCENES',
+      title: 'Prepare and execute combinations',
+      take: 'TAKE',
+      actions: 'actions',
+      completed: '{{name}} executed.',
+      partial: '{{name}} executed partially. Check NOW before retrying.',
+      failed: '{{name}} was not executed.',
+      failedCode: 'Scene not executed: {{code}}'
+    },
     nodeErrors: nodeErrors.en
   }},
   es: { translation: {
@@ -836,6 +908,42 @@ const resources = {
       accept: 'Aceptar',
       reject: 'Rechazar',
       complete: 'Completar'
+    },
+    sceneStudio: {
+      kicker: 'ESCENAS',
+      title: 'Una acción para varios sistemas',
+      description: 'Cree combinaciones reutilizables sin exponer detalles de Holyrics, ProPresenter o Resolume al operador.',
+      offline: 'Disponible offline',
+      cached: 'escenas en Node',
+      name: 'Nombre de la escena',
+      namePlaceholder: 'Ej.: Predicación, Llamado, Avisos',
+      screen: 'Pantalla / presentación',
+      visual: 'Visual',
+      stage: 'Mensaje de escenario',
+      stagePlaceholder: 'Opcional · ej.: Banda, preparar final',
+      noChange: 'No cambiar',
+      save: 'Guardar escena',
+      remove: 'Eliminar',
+      saved: 'Escena guardada y enviada al Live Node.',
+      cloudPending: 'Escena guardada localmente. La sincronización con la nube quedó pendiente.',
+      actionRequired: 'Elija al menos una acción para la escena.',
+      emptyTitle: 'No hay escenas creadas',
+      emptyDescription: 'Cree una escena simple arriba. Permanecerá disponible en Live sin internet.',
+      capabilities: {
+        'presentation.screen.mode': 'Pantalla',
+        'visual.clip.trigger': 'Visual',
+        'stage.message': 'Escenario'
+      }
+    },
+    liveScenes: {
+      kicker: 'ESCENAS RÁPIDAS',
+      title: 'Prepare y ejecute combinaciones',
+      take: 'TAKE',
+      actions: 'acciones',
+      completed: '{{name}} ejecutada.',
+      partial: '{{name}} se ejecutó parcialmente. Revise NOW antes de repetir.',
+      failed: '{{name}} no se ejecutó.',
+      failedCode: 'Escena no ejecutada: {{code}}'
     },
     nodeErrors: nodeErrors.es
   }}
