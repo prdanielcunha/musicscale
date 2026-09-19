@@ -24,6 +24,17 @@ interface SearchMediaResult {
   height?: number;
 }
 
+interface PreparedProgramCue {
+  id: string;
+  kind: 'song' | 'bible' | 'media';
+  title: string;
+  subtitle?: string;
+  capability: 'songs.present' | 'bible.present' | 'media.open';
+  payload: Record<string, unknown>;
+  targetProviderIds?: string[];
+  serviceItemId?: string;
+}
+
 function getSongResults(results: CommandResult[]): SearchSongResult[] {
   const raw = results
     .flatMap(result => {
@@ -118,6 +129,7 @@ export function LiveControlPanel({
   const [mediaResults, setMediaResults] = useState<SearchMediaResult[]>([]);
   const [stageText, setStageText] = useState('');
   const [toolMode, setToolMode] = useState<ToolMode>('song');
+  const [preparedCue, setPreparedCue] = useState<PreparedProgramCue | null>(null);
   const [previewPresentation, setPreviewPresentation] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -336,19 +348,22 @@ export function LiveControlPanel({
     if (presentation) setPreviewPresentation(presentation);
   }
 
-  async function advanceServiceItem() {
+  function prepareServiceItem() {
     const item = serviceHorizon.next;
     if (!item || item.type !== 'song' || !item.providerLinkId) return;
     const link = providerLinks.find(candidate => candidate.id === item.providerLinkId);
     if (!link) return;
 
-    await run(
-      `service-item:${item.id}`,
-      'songs.present',
-      { id: link.externalId },
-      'normal',
-      item.id
-    );
+    setPreparedCue({
+      id: `service-item:${item.id}`,
+      kind: 'song',
+      title: item.title,
+      subtitle: t('liveControls.fromRunOfShow'),
+      capability: 'songs.present',
+      payload: { id: link.externalId },
+      targetProviderIds: [link.providerInstanceId],
+      serviceItemId: item.id
+    });
   }
 
   async function searchSongs() {
@@ -358,15 +373,31 @@ export function LiveControlPanel({
     setSongResults(getSongResults(results));
   }
 
-  async function presentSong(song: SearchSongResult) {
+  function prepareSong(song: SearchSongResult) {
     if (!can('songs.present')) return;
-    await run(`song:${song.id}`, 'songs.present', { id: song.id });
+    setPreparedCue({
+      id: `song:${song.id}`,
+      kind: 'song',
+      title: song.title,
+      subtitle: [song.artist, song.key, song.bpm ? `${song.bpm} BPM` : '']
+        .filter(Boolean)
+        .join(' · '),
+      capability: 'songs.present',
+      payload: { id: song.id }
+    });
   }
 
-  async function presentBible() {
+  function prepareBible() {
     const reference = bibleReference.trim();
     if (!reference || !can('bible.present')) return;
-    await run('bible', 'bible.present', { references: reference });
+    setPreparedCue({
+      id: `bible:${reference}`,
+      kind: 'bible',
+      title: reference,
+      subtitle: t('liveControls.bible'),
+      capability: 'bible.present',
+      payload: { references: reference }
+    });
   }
 
   async function searchMedia() {
@@ -380,12 +411,109 @@ export function LiveControlPanel({
     setMediaResults(getMediaResults(results));
   }
 
-  async function openMedia(item: SearchMediaResult) {
+  function prepareMedia(item: SearchMediaResult) {
     if (item.isDir || !can('media.open')) return;
-    await run(`media:${item.name}`, 'media.open', {
-      kind: mediaKind,
-      file: item.name
+    const detail =
+      item.width && item.height
+        ? `${item.width}×${item.height}`
+        : item.durationMs
+          ? `${Math.round(item.durationMs / 1000)}s`
+          : t(`liveControls.mediaKinds.${mediaKind}`);
+
+    setPreparedCue({
+      id: `media:${mediaKind}:${item.name}`,
+      kind: 'media',
+      title: item.name,
+      subtitle: detail,
+      capability: 'media.open',
+      payload: {
+        kind: mediaKind,
+        file: item.name
+      }
     });
+  }
+
+  async function takePreparedCue() {
+    if (!preparedCue) return;
+
+    const armedVisual = cueCoordinator?.armedVisualCue || null;
+    const credential = controller.credential;
+
+    if (armedVisual && credential) {
+      setBusy('prepared-take');
+      setMessage(null);
+      try {
+        const result = await controller.executeScene({
+          liveSessionId,
+          serviceItemId: preparedCue.serviceItemId,
+          actorId,
+          scene: {
+            id: crypto.randomUUID(),
+            organizationId: credential.binding.organizationId,
+            venueId: credential.binding.venueId,
+            liveSystemId: credential.binding.liveSystemId,
+            name: `Prepared Take · ${preparedCue.title}`,
+            actions: [
+              {
+                id: 'program-take',
+                capability: preparedCue.capability,
+                targetProviderIds: preparedCue.targetProviderIds || [],
+                outputTargets: ['main'],
+                payload: preparedCue.payload,
+                safetyLevel: 'normal'
+              },
+              {
+                id: 'visual-take',
+                capability: 'visual.clip.trigger',
+                targetProviderIds: [armedVisual.providerId],
+                outputTargets: ['main'],
+                payload: { clipId: armedVisual.clipId },
+                safetyLevel: 'normal'
+              }
+            ]
+          }
+        });
+
+        const programAccepted = result.actions
+          .find(action => action.actionId === 'program-take')
+          ?.results.some(item => item.accepted);
+        const visualAccepted = result.actions
+          .find(action => action.actionId === 'visual-take')
+          ?.results.some(item => item.accepted);
+
+        if (programAccepted) setPreparedCue(null);
+        if (visualAccepted) cueCoordinator?.clearVisualCue();
+        if (result.status !== 'completed') {
+          setMessage(t('liveControls.linkedTakePartial'));
+        }
+      } catch (error) {
+        setMessage(t('liveControls.commandFailed', {
+          code: error instanceof Error ? error.message : 'unknown'
+        }));
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
+
+    const results = await run(
+      'prepared-take',
+      preparedCue.capability,
+      preparedCue.payload,
+      'normal',
+      preparedCue.serviceItemId
+    );
+    if (results.some(result => result.accepted)) {
+      setPreparedCue(null);
+    }
+  }
+
+  async function takePrimaryNext() {
+    if (preparedCue) {
+      await takePreparedCue();
+      return;
+    }
+    await navigatePresentation('next');
   }
 
   async function showStageMessage() {
@@ -456,7 +584,7 @@ export function LiveControlPanel({
       void navigatePresentation('previous');
     },
     onNext: () => {
-      void navigatePresentation('next');
+      void takePrimaryNext();
     }
   });
 
@@ -534,12 +662,20 @@ export function LiveControlPanel({
                   <em className="linked-cue-badge">
                     {t('liveControls.visualLinked')} · {cueCoordinator.armedVisualCue.clipName}
                   </em>
+                ) : preparedCue?.subtitle ? (
+                  <em>{preparedCue.subtitle}</em>
                 ) : nextSlideDescription ? (
                   <em>{nextSlideDescription}</em>
                 ) : null}
               </header>
               <div className="deck-frame">
-                {nextSlidePreview ? (
+                {preparedCue ? (
+                  <div className="deck-prepared-cue">
+                    <small>{t(`liveControls.preparedKinds.${preparedCue.kind}`)}</small>
+                    <strong>{preparedCue.title}</strong>
+                    <span>{preparedCue.subtitle || t('liveControls.prepared')}</span>
+                  </div>
+                ) : nextSlidePreview ? (
                   <img src={nextSlidePreview} alt={t('liveControls.nextSlide')} />
                 ) : (
                   <div className="deck-text-fallback">
@@ -549,17 +685,26 @@ export function LiveControlPanel({
                 )}
               </div>
               <footer>
-                <span>{nextSlideText || t('liveControls.endOfPresentation')}</span>
+                <span>
+                  {preparedCue
+                    ? t('liveControls.preparedReady')
+                    : nextSlideText || t('liveControls.endOfPresentation')}
+                </span>
                 <button
                   className="deck-take"
-                  disabled={!nextSlide || !can('presentation.navigation') || busy !== null}
-                  onClick={() => void navigatePresentation('next')}
+                  disabled={
+                    busy !== null ||
+                    (!preparedCue && (!nextSlide || !can('presentation.navigation')))
+                  }
+                  onClick={() => void takePrimaryNext()}
                 >
-                  {busy === 'next'
+                  {busy === 'next' || busy === 'prepared-take'
                     ? '…'
                     : cueCoordinator?.armedVisualCue
                       ? t('liveControls.takeLinked')
-                      : t('liveControls.takeNext')} <kbd>→</kbd>
+                      : preparedCue
+                        ? t('liveControls.takePrepared')
+                        : t('liveControls.takeNext')} <kbd>→</kbd>
                 </button>
               </footer>
             </section>
@@ -622,9 +767,9 @@ export function LiveControlPanel({
                 !serviceHorizon.next.providerLinkId ||
                 busy !== null
               }
-              onClick={() => void advanceServiceItem()}
+              onClick={prepareServiceItem}
             >
-              {t('liveControls.advanceItem')} →
+              {t('liveControls.prepareItem')} →
             </button>
           </div>
         )}
@@ -671,10 +816,17 @@ export function LiveControlPanel({
               <button
                 key={song.id}
                 disabled={!can('songs.present') || busy !== null}
-                onClick={() => void presentSong(song)}
+                className={preparedCue?.id === `song:${song.id}` ? 'prepared' : ''}
+                onClick={() => prepareSong(song)}
               >
                 <span><strong>{song.title}</strong><small>{song.artist || ''}</small></span>
-                <em>{song.key || ''}{song.bpm ? ` · ${song.bpm} BPM` : ''}</em>
+                <em>
+                  {preparedCue?.id === `song:${song.id}`
+                    ? t('liveControls.prepared')
+                    : song.key || song.bpm
+                      ? `${song.key || ''}${song.bpm ? ` · ${song.bpm} BPM` : ''}`
+                      : t('liveControls.prepare')}
+                </em>
               </button>
             ))}
             {songQuery && !songResults.length && busy !== 'song-search' && (
@@ -692,7 +844,7 @@ export function LiveControlPanel({
               value={bibleReference}
               onChange={event => setBibleReference(event.target.value)}
               onKeyDown={event => {
-                if (event.key === 'Enter') void presentBible();
+                if (event.key === 'Enter') prepareBible();
               }}
               placeholder={t('liveControls.biblePlaceholder')}
               disabled={!can('bible.present')}
@@ -700,9 +852,9 @@ export function LiveControlPanel({
             <button
               className="secondary"
               disabled={!bibleReference.trim() || !can('bible.present') || busy !== null}
-              onClick={() => void presentBible()}
+              onClick={prepareBible}
             >
-              {t('liveControls.present')}
+              {t('liveControls.prepare')}
             </button>
           </div>
           <p className="operator-help">{t('liveControls.capabilityDriven')}</p>
@@ -750,7 +902,8 @@ export function LiveControlPanel({
                 <button
                   key={item.name}
                   disabled={Boolean(item.isDir) || !can('media.open') || busy !== null}
-                  onClick={() => void openMedia(item)}
+                  className={preparedCue?.id === `media:${mediaKind}:${item.name}` ? 'prepared' : ''}
+                  onClick={() => prepareMedia(item)}
                 >
                   <span>
                     <strong>{item.name}</strong>
@@ -764,7 +917,13 @@ export function LiveControlPanel({
                             : t('liveControls.mediaReady')}
                     </small>
                   </span>
-                  <em>{item.isDir ? '—' : t('liveControls.open')}</em>
+                  <em>
+                    {item.isDir
+                      ? '—'
+                      : preparedCue?.id === `media:${mediaKind}:${item.name}`
+                        ? t('liveControls.prepared')
+                        : t('liveControls.prepare')}
+                  </em>
                 </button>
               ))}
             </div>
