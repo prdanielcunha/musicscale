@@ -24,6 +24,8 @@ describe('ServeGuard experience contract', () => {
     const handler = read('services/server/serveGuard/serveGuardHttpHandler.ts');
 
     expect(builder).toContain('evaluateServeGuardBatch');
+    expect(builder).toContain('Promise.allSettled');
+    expect(builder).toContain('setPendingServeGuardOverride(null)');
     expect(builder).toContain('requiresExplicitOverride');
     expect(builder).toContain('pendingServeGuardOverride');
     expect(builder).toContain('bandScaleModal.serveGuard.addAnyway');
