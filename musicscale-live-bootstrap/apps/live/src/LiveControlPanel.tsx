@@ -219,6 +219,22 @@ export function LiveControlPanel({
 
   const can = (capability: Capability) => capabilitySet.has(capability);
   const canPreviewSnapshot = capabilitySet.has('preview.snapshot');
+  const presentationProviders = providers.filter(provider =>
+    (provider.health === 'online' || provider.health === 'degraded') &&
+    provider.capabilities.some(capability =>
+      capability.startsWith('presentation.') || capability === 'preview.snapshot'
+    )
+  );
+  const presentationRouteMissing =
+    presentationProviders.length > 1 &&
+    !controller.nodeState?.routing?.presentation;
+
+  const commandFailure = (code: string) => t(
+    `liveControls.errors.${code}`,
+    {
+      defaultValue: t('liveControls.commandFailed', { code })
+    }
+  );
   const toolAvailability = useMemo<Record<ToolMode, boolean>>(() => ({
     song: capabilitySet.has('songs.search') || capabilitySet.has('songs.present'),
     bible: capabilitySet.has('bible.present'),
@@ -290,15 +306,11 @@ export function LiveControlPanel({
       });
       const rejected = results.find(result => !result.accepted);
       if (rejected) {
-        setMessage(t('liveControls.commandFailed', {
-          code: rejected.errorCode || 'provider_error'
-        }));
+        setMessage(commandFailure(rejected.errorCode || 'provider_error'));
       }
       return results;
     } catch (error) {
-      setMessage(t('liveControls.commandFailed', {
-        code: error instanceof Error ? error.message : 'unknown'
-      }));
+      setMessage(commandFailure(error instanceof Error ? error.message : 'unknown'));
       return [];
     } finally {
       setBusy(null);
@@ -372,9 +384,7 @@ export function LiveControlPanel({
           setMessage(t('liveControls.linkedTakePartial'));
         }
       } catch (error) {
-        setMessage(t('liveControls.commandFailed', {
-          code: error instanceof Error ? error.message : 'unknown'
-        }));
+        setMessage(commandFailure(error instanceof Error ? error.message : 'unknown'));
       } finally {
         setBusy(null);
       }
@@ -542,9 +552,7 @@ export function LiveControlPanel({
           setMessage(t('liveControls.linkedTakePartial'));
         }
       } catch (error) {
-        setMessage(t('liveControls.commandFailed', {
-          code: error instanceof Error ? error.message : 'unknown'
-        }));
+        setMessage(commandFailure(error instanceof Error ? error.message : 'unknown'));
       } finally {
         setBusy(null);
       }
@@ -656,6 +664,16 @@ export function LiveControlPanel({
           <span>{providers.length} {t('providers')}</span>
         </div>
       </div>
+
+      {presentationRouteMissing && (
+        <div className="live-route-warning" role="status">
+          <div>
+            <strong>{t('liveControls.routeRequiredTitle')}</strong>
+            <span>{t('liveControls.routeRequiredDescription')}</span>
+          </div>
+          <em>{presentationProviders.length} {t('liveControls.presentationProviders')}</em>
+        </div>
+      )}
 
       <div className="live-control-grid">
         <article className="operator-card program-card">
