@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { matchExternalSong, type SongIdentity } from '@musicscale-live/domain';
 import type { SharedScale } from './musicScaleBridge';
 import { buildServicePlan } from './servicePlanBuilder';
+import { liveFeatureFlags } from './featureFlags';
+import { syncPreparedServicePlan } from './liveCloudRepository';
 import type { useLiveNode } from './useLiveNode';
 
 type Controller = ReturnType<typeof useLiveNode>;
@@ -59,6 +61,7 @@ export function ScalePreflight({
   const [syncArmed, setSyncArmed] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [offlinePrepared, setOfflinePrepared] = useState(false);
+  const [cloudSync, setCloudSync] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const syncTimer = useRef<number | null>(null);
   const cachedSignature = useRef<string | null>(null);
 
@@ -122,7 +125,18 @@ export function ScalePreflight({
     );
 
     controller.cacheServicePlan(plan, providerLinks)
-      .then(() => setOfflinePrepared(true))
+      .then(async () => {
+        setOfflinePrepared(true);
+        if (liveFeatureFlags.servicePlanWrites) {
+          setCloudSync('syncing');
+          try {
+            await syncPreparedServicePlan(plan, providerLinks, actorId);
+            setCloudSync('synced');
+          } catch {
+            setCloudSync('error');
+          }
+        }
+      })
       .catch(() => {
         cachedSignature.current = null;
         setOfflinePrepared(false);
@@ -268,6 +282,15 @@ export function ScalePreflight({
         );
         await controller.cacheServicePlan(plan, providerLinks);
         setOfflinePrepared(true);
+        if (liveFeatureFlags.servicePlanWrites) {
+          setCloudSync('syncing');
+          try {
+            await syncPreparedServicePlan(plan, providerLinks, actorId);
+            setCloudSync('synced');
+          } catch {
+            setCloudSync('error');
+          }
+        }
         setSyncMessage(t('preflight.syncDoneOffline'));
       } else {
         setSyncMessage(t('preflight.syncDone'));
@@ -293,6 +316,11 @@ export function ScalePreflight({
           <strong>{readyCount}/{rows.length}</strong>
           <small>{t('preflight.ready')}</small>
           {offlinePrepared && <em>{t('preflight.offlineReady')}</em>}
+          {liveFeatureFlags.servicePlanWrites && cloudSync !== 'idle' && (
+            <em className={`cloud-sync-${cloudSync}`}>
+              {t(`preflight.cloudSync.${cloudSync}`)}
+            </em>
+          )}
         </div>
       </div>
 
