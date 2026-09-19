@@ -1817,7 +1817,28 @@
     }
   },
   "profile": {
-    "invite_person": "Convidar pessoa"
+    "invite_person": "Convidar pessoa",
+    "serve_guard": {
+      "title": "Minha disponibilidade de serviço",
+      "optional": "Opcional",
+      "description": "Defina preferências para que o MusicScale avise a liderança antes de montar uma escala que ultrapasse o que você considera saudável para sua rotina.",
+      "weekly_limit": "Máximo por semana",
+      "weekly_help": "Quantas escalas você prefere assumir em uma mesma semana. Deixe vazio para não definir limite.",
+      "monthly_limit": "Máximo por mês",
+      "monthly_help": "Quantas escalas você prefere assumir no mesmo mês. Deixe vazio para não definir limite.",
+      "no_limit": "Sem limite",
+      "pause_until": "Pausar escalas até",
+      "pause_help": "Durante a pausa, novas escalas para você exigirão uma confirmação explícita da liderança.",
+      "unavailable_dates": "Datas indisponíveis",
+      "add_date": "Adicionar",
+      "remove_date": "Remover data",
+      "advisory_note": "O ServeGuard não diagnostica cansaço e não bloqueia você automaticamente. Ele compara novas escalas com as preferências que você informou e mostra um alerta à liderança quando houver conflito.",
+      "save": "Salvar disponibilidade",
+      "saved": "Disponibilidade de serviço atualizada.",
+      "save_error": "Não foi possível salvar sua disponibilidade de serviço.",
+      "load_error": "Não foi possível carregar sua disponibilidade agora.",
+      "retry": "Tentar novamente"
+    }
   },
   "refinement": {
     "fullAccess": "Acesso completo",
