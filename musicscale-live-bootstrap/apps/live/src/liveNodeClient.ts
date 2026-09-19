@@ -9,6 +9,7 @@ import type {
   PairingRequest,
   ProviderLink,
   ProviderRouteGroup,
+  Scene,
   SceneExecutionRequest,
   SceneExecutionResult,
   ServicePlan
@@ -341,4 +342,17 @@ export async function updateNodeLiveRequestStatus(
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ status, resolvedBy })
   }, 3500);
+}
+
+
+export async function cacheNodeScenes(
+  baseUrl: string,
+  token: string,
+  scenes: Scene[]
+): Promise<{ nodeId: string; scenes: number; stateRevision: number }> {
+  return requestJson(baseUrl, '/scenes/cache', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ scenes })
+  }, 5000);
 }
