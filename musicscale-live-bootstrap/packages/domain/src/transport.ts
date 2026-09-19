@@ -1,4 +1,4 @@
-import type { ProviderLink, ServicePlan } from './types';
+import type { ProviderLink, Scene, ServicePlan } from './types';
 
 export type LiveNodeTransportKind = 'direct-lan' | 'local-console' | 'cloud-relay';
 
@@ -82,4 +82,5 @@ export interface LiveNodeRuntimeState {
   servicePlan: ServicePlan | null;
   providerLinks: ProviderLink[];
   requests: import('./types').LiveRequest[];
+  scenes: Scene[];
 }
