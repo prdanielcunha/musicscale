@@ -21,6 +21,20 @@ class FakeApi implements ProPresenterApi {
         api_version: 'v1'
       } as T;
     }
+    if (path === '/v1/libraries') {
+      return [{
+        id: { uuid: 'library-1', name: 'Worship', index: 0 }
+      }] as T;
+    }
+    if (path === '/v1/library/library-1') {
+      return {
+        updateType: 'all',
+        items: [
+          { uuid: 'presentation-1', name: 'Amazing Grace', index: 0 },
+          { uuid: 'presentation-2', name: 'Holy Forever', index: 1 }
+        ]
+      } as T;
+    }
     if (path === '/v1/status/slide') {
       return {
         current: { text: 'Amazing grace', notes: 'quiet', uuid: 'slide-current' },
@@ -119,7 +133,8 @@ describe('ProPresenterAdapter', () => {
     expect(probe.capabilities).toContain('presentation.navigation');
     expect(probe.capabilities).toContain('presentation.preview');
     expect(probe.capabilities).toContain('stage.message');
-    expect(probe.capabilities).not.toContain('songs.search');
+    expect(probe.capabilities).toContain('songs.search');
+    expect(probe.capabilities).toContain('songs.present');
   });
 
   it('keeps lightweight state aligned to the actual slide index', async () => {
@@ -191,6 +206,50 @@ describe('ProPresenterAdapter', () => {
     await adapter.execute(command('preview.snapshot'));
 
     expect(api.calls.some(call => call.path === '/v1/presentation/current')).toBe(false);
+  });
+
+  it('indexes presentations from local libraries for MusicScale song matching', async () => {
+    const api = new FakeApi();
+    const adapter = new ProPresenterAdapter({
+      id: 'propresenter-1',
+      nodeId: 'node-1',
+      api
+    });
+    await adapter.probe();
+
+    const result = await adapter.execute(command('songs.search', {
+      text: 'amazing'
+    }));
+
+    expect(result.accepted).toBe(true);
+    const results = result.observedState?.results as Array<any>;
+    expect(results).toEqual([
+      expect.objectContaining({
+        id: 'presentation-1',
+        title: 'Amazing Grace'
+      })
+    ]);
+    expect(api.calls.some(call => call.path === '/v1/libraries')).toBe(true);
+    expect(api.calls.some(call => call.path === '/v1/library/library-1')).toBe(true);
+  });
+
+  it('presents a matched MusicScale song through its stable presentation UUID', async () => {
+    const api = new FakeApi();
+    const adapter = new ProPresenterAdapter({
+      id: 'propresenter-1',
+      nodeId: 'node-1',
+      api
+    });
+    await adapter.probe();
+
+    const result = await adapter.execute(command('songs.present', {
+      id: 'presentation-1'
+    }));
+
+    expect(result.accepted).toBe(true);
+    expect(api.calls.some(call =>
+      call.path === '/v1/presentation/presentation-1/trigger'
+    )).toBe(true);
   });
 
   it('maps stage messaging to PUT and DELETE', async () => {
