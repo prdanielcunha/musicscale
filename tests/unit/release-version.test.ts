@@ -20,9 +20,9 @@ const runBump = (version: string, kind: string) => {
 };
 
 describe('release metadata', () => {
-  it('uses the 0.5 personal-preparation release metadata and keeps package versions synchronized', () => {
+  it('uses the 0.5 auth/startup hotfix version while keeping the 0.5 feature announcement stable', () => {
     const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-    expect(APP_VERSION).toBe('0.5.0-beta.0');
+    expect(APP_VERSION).toBe('0.5.0-beta.1');
     expect(lock.version).toBe(APP_VERSION);
     expect(lock.packages[''].version).toBe(APP_VERSION);
     expect(FEATURE_RELEASE.version).toBe('0.5.0-beta.0');
