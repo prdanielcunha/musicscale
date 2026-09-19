@@ -7,6 +7,7 @@ import type {
   PairingCompleteResponse,
   PairingRequest,
   ProviderLink,
+  ProviderRouteGroup,
   SceneExecutionRequest,
   SceneExecutionResult,
   ServicePlan
@@ -21,6 +22,7 @@ export interface LiveNodeStateResponse {
     health: string;
     observed?: Record<string, unknown>;
   }>;
+  routing?: Partial<Record<ProviderRouteGroup, string>>;
 }
 
 export class LiveNodeApiError extends Error {
