@@ -11,7 +11,6 @@ import type {
   PairingRequest,
   PairingScope,
   ProviderLink,
-  Scene,
   SafetyLevel,
   Scene,
   SceneExecutionResult,
