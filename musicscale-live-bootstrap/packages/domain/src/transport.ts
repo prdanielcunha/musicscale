@@ -81,4 +81,5 @@ export interface LiveNodeRuntimeState {
   providerObservedState: Record<string, Record<string, unknown>>;
   servicePlan: ServicePlan | null;
   providerLinks: ProviderLink[];
+  requests: import('./types').LiveRequest[];
 }
