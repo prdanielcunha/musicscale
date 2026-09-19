@@ -871,7 +871,7 @@ function localConsoleHtml(): string {
 :root{font-family:Inter,system-ui,sans-serif;color:#f5f6fa;background:#0b0c11}
 body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 70% 10%,#241d4a 0,transparent 35%),#0b0c11}
 main{width:min(680px,calc(100vw - 32px));background:#12131a;border:1px solid #292b36;border-radius:24px;padding:32px;box-shadow:0 24px 90px #0008}
-small{color:#aaaebe}.brand{letter-spacing:.16em;color:#9b8cff;font-size:11px;font-weight:800}.pin{font-size:58px;letter-spacing:.12em;font-variant-numeric:tabular-nums;margin:18px 0}.muted{color:#8e93a5}.box{background:#0d0e14;border:1px solid #252733;border-radius:16px;padding:18px;margin-top:18px}code{color:#b8aeff}ul{padding-left:20px}.field{display:grid;gap:6px;margin-top:10px}.field span{font-size:11px;color:#8e93a5}.field input{background:#111219;border:1px solid #2d303c;color:#f5f6fa;border-radius:10px;padding:10px 11px;font:inherit}.row{display:flex;gap:8px;align-items:center;margin-top:12px}.btn{border:0;border-radius:10px;background:#7c5cff;color:white;padding:10px 13px;font:inherit;font-weight:700;cursor:pointer}.btn.secondary{background:#191b24;color:#d9dbe4;border:1px solid #2a2d38}.statusline{font-size:11px;color:#8e93a5;margin-top:10px;line-height:1.45}
+small{color:#aaaebe}.brand{letter-spacing:.16em;color:#9b8cff;font-size:11px;font-weight:800}.pin{font-size:58px;letter-spacing:.12em;font-variant-numeric:tabular-nums;margin:18px 0}.muted{color:#8e93a5}.box{background:#0d0e14;border:1px solid #252733;border-radius:16px;padding:18px;margin-top:18px}code{color:#b8aeff}ul{padding-left:20px}.field{display:grid;gap:6px;margin-top:10px}.field span{font-size:11px;color:#8e93a5}.field input,.field select{background:#111219;border:1px solid #2d303c;color:#f5f6fa;border-radius:10px;padding:10px 11px;font:inherit}.routing-field{margin-top:12px}.row{display:flex;gap:8px;align-items:center;margin-top:12px}.btn{border:0;border-radius:10px;background:#7c5cff;color:white;padding:10px 13px;font:inherit;font-weight:700;cursor:pointer}.btn.secondary{background:#191b24;color:#d9dbe4;border:1px solid #2a2d38}.statusline{font-size:11px;color:#8e93a5;margin-top:10px;line-height:1.45}
 </style>
 </head>
 <body><main>
@@ -915,6 +915,12 @@ small{color:#aaaebe}.brand{letter-spacing:.16em;color:#9b8cff;font-size:11px;fon
 </div>
 <div id="propresenter-status" class="statusline">Verificando configuração…</div>
 </div>
+<div class="box" id="routing-box" style="display:none">
+<small>QUEM CONTROLA O QUÊ</small>
+<p class="muted" style="font-size:11px;line-height:1.45">Quando mais de um provider consegue executar a mesma função, escolha aqui quem é o principal. Com apenas um provider compatível, o Live roteia automaticamente.</p>
+<div id="routing-controls"></div>
+<div id="routing-status" class="statusline"></div>
+</div>
 <div class="box">
 <small>DIAGNÓSTICO LOCAL</small>
 <div class="row">
@@ -940,12 +946,89 @@ async function refresh(){
     document.getElementById('status').textContent=d.pin?'Digite este código no MusicScale Live. Expira em até 2 minutos.':'Aguardando solicitação de pareamento…';
   }catch{}
 }
+function routeGroupForCapabilityClient(capability){
+  if(capability.startsWith('presentation.')||capability==='preview.snapshot')return 'presentation';
+  if(capability.startsWith('songs.')||capability.startsWith('playlist.'))return 'songs';
+  if(capability.startsWith('bible.'))return 'bible';
+  if(capability.startsWith('media.'))return 'media';
+  if(capability.startsWith('stage.'))return 'stage';
+  if(capability.startsWith('visual.'))return 'visual';
+  if(capability.startsWith('audio.'))return 'audio';
+  return 'automation';
+}
+function routeGroupLabel(group){
+  return ({
+    presentation:'Apresentação / slides',
+    songs:'Músicas / playlists',
+    bible:'Bíblia',
+    media:'Mídia',
+    stage:'Palco / comunicação',
+    visual:'Visuais',
+    audio:'Áudio',
+    automation:'Automações'
+  })[group]||group;
+}
+function renderRouting(providers,routing){
+  const box=document.getElementById('routing-box');
+  const root=document.getElementById('routing-controls');
+  const groups=['presentation','songs','bible','media','stage','visual','audio','automation'];
+  const rows=[];
+
+  for(const group of groups){
+    const candidates=(providers||[]).filter(provider =>
+      Array.isArray(provider.capabilities) &&
+      provider.capabilities.some(cap => routeGroupForCapabilityClient(cap)===group)
+    );
+    if(candidates.length<2) continue;
+
+    const options=[
+      '<option value="">Escolha o provider principal…</option>',
+      ...candidates.map(provider => {
+        const selected=routing&&routing[group]===provider.providerId?' selected':'';
+        const health=provider.health==='online'?' · online':' · '+provider.health;
+        return '<option value="'+provider.providerId+'"'+selected+'>'+provider.displayName+health+'</option>';
+      })
+    ].join('');
+
+    rows.push(
+      '<label class="field routing-field"><span>'+routeGroupLabel(group)+'</span>'+
+      '<select data-route-group="'+group+'" onchange="saveRoute(this)">'+options+'</select></label>'
+    );
+  }
+
+  root.innerHTML=rows.join('');
+  box.style.display=rows.length?'block':'none';
+}
+async function saveRoute(select){
+  const status=document.getElementById('routing-status');
+  const group=select.dataset.routeGroup;
+  const providerId=select.value||null;
+  status.textContent='Salvando roteamento…';
+  try{
+    const r=await fetch('/local/routing',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({group,providerId})
+    });
+    const d=await r.json();
+    if(!r.ok){
+      status.textContent='Falha: '+(d.error||'não foi possível salvar');
+      return;
+    }
+    status.textContent=providerId
+      ? routeGroupLabel(group)+' definido.'
+      : routeGroupLabel(group)+' voltará ao roteamento automático quando não houver ambiguidade.';
+  }catch{
+    status.textContent='Não foi possível salvar o roteamento.';
+  }
+}
 async function refreshProvider(){
   const el=document.getElementById('provider-status');
   try{
     const r=await fetch('/local/providers',{cache:'no-store'});
     const d=await r.json();
     if(!r.ok){el.textContent='Configuração disponível apenas neste computador.';return}
+    renderRouting(d.providers||[],d.routing||{});
     const h=d.holyrics||{};
     document.getElementById('holyrics-url').value=h.baseUrl||'http://127.0.0.1:8091';
     if(!h.configured){
