@@ -6,6 +6,7 @@ import type {
   LiveNodeConnectionState,
   LiveNodeHealth,
   LiveCommand,
+  LiveRequest,
   PairingChallenge,
   PairingRequest,
   PairingScope,
@@ -33,6 +34,8 @@ import {
   probeNode,
   requestPairing,
   revokeNodePairing,
+  submitNodeLiveRequest,
+  updateNodeLiveRequestStatus,
   type LiveNodeApiError,
   type LiveNodeStateResponse
 } from './liveNodeClient';
@@ -175,6 +178,55 @@ export function useLiveNode() {
       return false;
     }
   }, [heartbeat, pending]);
+
+  const refreshState = useCallback(async () => {
+    if (!credential) throw new Error('node_not_paired');
+    const refreshed = await loadNodeState(credential.baseUrl, credential.token);
+    setNodeState(refreshed);
+    return refreshed;
+  }, [credential]);
+
+  const submitRequest = useCallback(async (input: {
+    liveSessionId: string;
+    actorId: string;
+    kind: LiveRequest['kind'];
+    payload: Record<string, unknown>;
+  }) => {
+    if (!credential) throw new Error('node_not_paired');
+
+    const request: LiveRequest = {
+      id: crypto.randomUUID(),
+      organizationId: credential.binding.organizationId,
+      venueId: credential.binding.venueId,
+      liveSessionId: input.liveSessionId,
+      actorId: input.actorId,
+      kind: input.kind,
+      payload: input.payload,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+
+    await submitNodeLiveRequest(credential.baseUrl, credential.token, request);
+    await refreshState();
+    return request;
+  }, [credential, refreshState]);
+
+  const updateRequestStatus = useCallback(async (
+    requestId: string,
+    status: 'accepted' | 'rejected' | 'completed',
+    resolvedBy: string
+  ) => {
+    if (!credential) throw new Error('node_not_paired');
+    const response = await updateNodeLiveRequestStatus(
+      credential.baseUrl,
+      credential.token,
+      requestId,
+      status,
+      resolvedBy
+    );
+    await refreshState();
+    return response.request;
+  }, [credential, refreshState]);
 
   const executeCommand = useCallback(async (input: {
     capability: Capability;
@@ -324,6 +376,9 @@ export function useLiveNode() {
     executeScene,
     fetchOutputSnapshot,
     cacheServicePlan,
+    refreshState,
+    submitRequest,
+    updateRequestStatus,
     disconnect
   };
 }
