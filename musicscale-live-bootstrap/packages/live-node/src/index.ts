@@ -903,6 +903,19 @@ small{color:#aaaebe}.brand{letter-spacing:.16em;color:#9b8cff;font-size:11px;fon
 <div id="resolume-status" class="statusline">Verificando configuração…</div>
 </div>
 <div class="box">
+<small>PROVIDER · PROPRESENTER</small>
+<div class="field">
+<span>Endereço da Network API</span>
+<input id="propresenter-url" value="" placeholder="Ex.: 192.168.1.44:porta exibida no ProPresenter" autocomplete="off"/>
+</div>
+<p class="muted" style="font-size:11px;line-height:1.45">No ProPresenter, habilite Network e copie exatamente o IP e a porta mostrados ali. O MusicScale Live não presume uma porta fixa.</p>
+<div class="row">
+<button class="btn" onclick="saveProPresenter()">Salvar e testar</button>
+<button class="btn secondary" onclick="refreshProvider()">Testar novamente</button>
+</div>
+<div id="propresenter-status" class="statusline">Verificando configuração…</div>
+</div>
+<div class="box">
 <small>DIAGNÓSTICO LOCAL</small>
 <div class="row">
 <button class="btn secondary" onclick="downloadDiagnostics()">Baixar diagnóstico</button>
@@ -951,9 +964,20 @@ async function refreshProvider(){
       const count=Array.isArray(re.capabilities)?re.capabilities.length:0;
       rel.textContent=(re.health==='online'?'Conectado':'Configurado, mas offline')+' · '+count+' capacidades detectadas'+(re.source==='environment'?' · gerenciado pelo ambiente':'');
     }
+
+    const pp=d.propresenter||{};
+    const pel=document.getElementById('propresenter-status');
+    document.getElementById('propresenter-url').value=pp.baseUrl||'';
+    if(!pp.configured){
+      pel.textContent='ProPresenter ainda não configurado.';
+    }else{
+      const count=Array.isArray(pp.capabilities)?pp.capabilities.length:0;
+      pel.textContent=(pp.health==='online'?'Conectado':'Configurado, mas offline')+' · '+count+' capacidades detectadas'+(pp.source==='environment'?' · gerenciado pelo ambiente':'');
+    }
   }catch{
     el.textContent='Não foi possível ler a configuração.';
     document.getElementById('resolume-status').textContent='Não foi possível ler a configuração.';
+    document.getElementById('propresenter-status').textContent='Não foi possível ler a configuração.';
   }
 }
 async function downloadDiagnostics(){
@@ -973,6 +997,22 @@ async function downloadDiagnostics(){
   }catch(error){
     alert('Não foi possível gerar o diagnóstico local.');
   }
+}
+async function saveProPresenter(){
+  const el=document.getElementById('propresenter-status');
+  const baseUrl=document.getElementById('propresenter-url').value.trim();
+  if(!baseUrl){el.textContent='Informe o IP e a porta exibidos em Network no ProPresenter.';return}
+  el.textContent='Salvando e testando…';
+  try{
+    const r=await fetch('/local/providers/propresenter',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({baseUrl})
+    });
+    const d=await r.json();
+    if(!r.ok){el.textContent='Falha: '+(d.error||d.reason||'não foi possível conectar');return}
+    el.textContent='ProPresenter conectado · '+(d.capabilities||[]).length+' capacidades'+(d.version?' · '+d.version:'');
+  }catch{el.textContent='Não foi possível salvar a configuração.'}
 }
 async function saveResolume(){
   const el=document.getElementById('resolume-status');
