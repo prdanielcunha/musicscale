@@ -56,6 +56,25 @@ export default function LoginPage() {
     return candidate && candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : null;
   };
 
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const { finishGoogleRedirectSignIn } = await import("../services/authService");
+        const credential = await finishGoogleRedirectSignIn();
+        if (!active || !credential) return;
+        const redirectPath = safeRedirect();
+        navigate(redirectPath || "/start", { replace: true });
+      } catch (err: any) {
+        if (!active) return;
+        logger.error("Google redirect completion error:", err);
+        setError(getFirebaseErrorMessage(err) || "Não foi possível concluir o login com Google.");
+      }
+    })();
+    return () => { active = false; };
+  }, [navigate]);
+
   useEffect(() => {
      const params = new URLSearchParams(window.location.search);
      
@@ -108,7 +127,8 @@ export default function LoginPage() {
         import("../services/authService"),
         'AUTH_MODULE'
       );
-      await withLoginTimeout(signInWithGoogle(), 'GOOGLE_SIGN_IN');
+      const credential = await withLoginTimeout(signInWithGoogle(), 'GOOGLE_SIGN_IN');
+      if (!credential) return;
       
       const params = new URLSearchParams(window.location.search);
       const redirectPath = safeRedirect();
