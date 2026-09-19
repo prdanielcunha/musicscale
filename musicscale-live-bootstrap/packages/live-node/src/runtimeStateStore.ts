@@ -63,6 +63,43 @@ export class RuntimeStateStore {
     return result;
   }
 
+  async mergeProviderObservedState(
+    providerId: string,
+    observed: Record<string, unknown>
+  ): Promise<LiveNodeRuntimeState> {
+    let resolveResult!: (state: LiveNodeRuntimeState) => void;
+    let rejectResult!: (error: unknown) => void;
+    const result = new Promise<LiveNodeRuntimeState>((resolve, reject) => {
+      resolveResult = resolve;
+      rejectResult = reject;
+    });
+
+    this.writeQueue = this.writeQueue
+      .then(async () => {
+        await this.load();
+        this.state = {
+          ...this.state,
+          providerObservedState: {
+            ...this.state.providerObservedState,
+            [providerId]: {
+              ...(this.state.providerObservedState[providerId] || {}),
+              ...observed
+            }
+          },
+          nodeId: this.nodeId,
+          revision: this.state.revision + 1,
+          updatedAt: new Date().toISOString()
+        };
+        await this.persist();
+        resolveResult(structuredClone(this.state));
+      })
+      .catch(error => {
+        rejectResult(error);
+      });
+
+    return result;
+  }
+
   private fresh(): LiveNodeRuntimeState {
     return {
       revision: 0,
