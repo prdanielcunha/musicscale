@@ -633,6 +633,43 @@ function validateCommand(value: unknown): LiveCommand {
   return candidate as LiveCommand;
 }
 
+function validateLiveRequest(value: unknown): LiveRequest {
+  if (!value || typeof value !== 'object') throw new Error('invalid_live_request');
+  const candidate = value as Partial<LiveRequest>;
+  const required = [
+    candidate.id,
+    candidate.organizationId,
+    candidate.venueId,
+    candidate.liveSessionId,
+    candidate.actorId,
+    candidate.createdAt
+  ];
+  if (required.some(item => typeof item !== 'string' || !item)) {
+    throw new Error('invalid_live_request');
+  }
+  if (!['bible','section','media','message'].includes(String(candidate.kind))) {
+    throw new Error('invalid_live_request_kind');
+  }
+  if (candidate.status !== 'pending') throw new Error('invalid_live_request_status');
+  if (!candidate.payload || typeof candidate.payload !== 'object' || Array.isArray(candidate.payload)) {
+    throw new Error('invalid_live_request_payload');
+  }
+  return candidate as LiveRequest;
+}
+
+function assertLiveRequestScope(
+  request: LiveRequest,
+  binding: Awaited<ReturnType<typeof pairingStore.authorize>>
+): void {
+  if (!binding) return;
+  if (
+    request.organizationId !== binding.organizationId ||
+    request.venueId !== binding.venueId
+  ) {
+    throw new Error('forbidden_scope');
+  }
+}
+
 async function authorize(req: IncomingMessage) {
   const token = bearerToken(req);
   if (DEV_TOKEN && token === DEV_TOKEN) {
@@ -1602,6 +1639,77 @@ async function start(): Promise<void> {
         return send(res, 403, { error: 'cannot_revoke_other_device' });
       }
       return send(res, 200, { revoked: await pairingStore.revoke(deviceId) });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/requests') {
+      const session = await authorize(req);
+      if (!session) return send(res, 401, { error: 'unauthorized' });
+      const state = await runtimeState.load();
+      const liveSessionId = String(url.searchParams.get('liveSessionId') || '');
+      const requests = state.requests
+        .filter(item => !liveSessionId || item.liveSessionId === liveSessionId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return send(res, 200, { requests });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/requests') {
+      const session = await authorize(req);
+      if (!session) return send(res, 401, { error: 'unauthorized' });
+
+      const request = validateLiveRequest(await readJson(req));
+      assertLiveRequestScope(request, session.binding);
+
+      const state = await runtimeState.load();
+      const existing = state.requests.find(item => item.id === request.id);
+      if (existing) return send(res, 200, { request: existing, stateRevision: state.revision });
+
+      const nextRequests = [request, ...state.requests]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 200);
+      const next = await runtimeState.patch({ requests: nextRequests });
+      return send(res, 201, { request, stateRevision: next.revision });
+    }
+
+    if (req.method === 'POST' && url.pathname.startsWith('/requests/') && url.pathname.endsWith('/status')) {
+      const session = await authorize(req);
+      if (!session) return send(res, 401, { error: 'unauthorized' });
+
+      const parts = url.pathname.split('/').filter(Boolean);
+      const requestId = decodeURIComponent(parts[1] || '');
+      if (!requestId) throw new Error('invalid_live_request_id');
+
+      const body = await readJson(req);
+      if (!body || typeof body !== 'object') throw new Error('invalid_live_request_status');
+      const candidate = body as Record<string, unknown>;
+      const status = String(candidate.status || '');
+      if (!['accepted','rejected','completed'].includes(status)) {
+        throw new Error('invalid_live_request_status');
+      }
+      const resolvedBy = String(candidate.resolvedBy || '');
+      if (!resolvedBy) throw new Error('invalid_live_request_resolver');
+
+      const state = await runtimeState.load();
+      const current = state.requests.find(item => item.id === requestId);
+      if (!current) return send(res, 404, { error: 'live_request_not_found' });
+      assertLiveRequestScope(current, session.binding);
+
+      const now = new Date().toISOString();
+      const requests = state.requests.map(item =>
+        item.id === requestId
+          ? {
+              ...item,
+              status: status as LiveRequest['status'],
+              updatedAt: now,
+              resolvedAt: status === 'accepted' ? item.resolvedAt : now,
+              resolvedBy
+            }
+          : item
+      );
+      const next = await runtimeState.patch({ requests });
+      return send(res, 200, {
+        request: requests.find(item => item.id === requestId),
+        stateRevision: next.revision
+      });
     }
 
     if (req.method === 'POST' && url.pathname === '/scenes/execute') {
