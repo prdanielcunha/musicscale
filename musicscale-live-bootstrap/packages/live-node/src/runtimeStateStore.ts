@@ -22,6 +22,7 @@ export class RuntimeStateStore {
             ...parsed,
             providerObservedState: parsed.providerObservedState || {},
             providerLinks: Array.isArray(parsed.providerLinks) ? parsed.providerLinks : [],
+            requests: Array.isArray(parsed.requests) ? parsed.requests : [],
             servicePlan: parsed.servicePlan || null
           }
         : this.fresh();
@@ -109,7 +110,8 @@ export class RuntimeStateStore {
       activeServiceItemId: null,
       providerObservedState: {},
       servicePlan: null,
-      providerLinks: []
+      providerLinks: [],
+      requests: []
     };
   }
 
