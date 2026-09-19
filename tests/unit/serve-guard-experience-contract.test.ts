@@ -13,7 +13,7 @@ describe('ServeGuard experience contract', () => {
     expect(profile).toContain('getServeGuardPreference');
     expect(profile).toContain('saveServeGuardPreference');
     expect(profile).toContain('profile.serve_guard.title');
-    expect(profile).not.toContain("collection(db, 'organizations', organization.id, 'serveGuardPreferences')");
+    expect(profile).not.toContain('serveGuardPreferences');
     expect(client).toContain('/serve-guard/preferences/');
     expect(client).toContain('Authorization');
     expect(client).toContain('Bearer');
