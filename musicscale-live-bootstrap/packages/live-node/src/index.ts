@@ -45,7 +45,7 @@ const HOLYRICS_TOKEN = process.env.MUSICSCALE_LIVE_HOLYRICS_TOKEN?.trim() || '';
 const HOLYRICS_URL = process.env.MUSICSCALE_LIVE_HOLYRICS_URL?.trim() || 'http://127.0.0.1:8091';
 const DEFAULT_RESOLUME_URL = 'http://127.0.0.1:8080';
 const RESOLUME_URL = process.env.MUSICSCALE_LIVE_RESOLUME_URL?.trim() || '';
-const DEFAULT_PROPRESENTER_URL = 'http://127.0.0.1:50001';
+const DEFAULT_PROPRESENTER_URL = '';
 const PROPRESENTER_URL = process.env.MUSICSCALE_LIVE_PROPRESENTER_URL?.trim() || '';
 const STATE_DIR = process.env.MUSICSCALE_LIVE_STATE_DIR || join(homedir(), '.musicscale-live');
 const PACKAGED_WEB_ROOT = resolve(dirname(process.execPath), 'web');
@@ -1069,11 +1069,12 @@ async function start(): Promise<void> {
     if (req.method === 'GET' && url.pathname === '/local/diagnostics') {
       if (!isLoopback(req)) return send(res, 403, { error: 'local_only' });
 
-      const [runtime, pairedDevices, holyricsConfig, resolumeConfig] = await Promise.all([
+      const [runtime, pairedDevices, holyricsConfig, resolumeConfig, propresenterConfig] = await Promise.all([
         runtimeState.load(),
         pairingStore.activePairingCount(),
         providerConfigStore.getHolyrics(),
-        providerConfigStore.getResolume()
+        providerConfigStore.getResolume(),
+        providerConfigStore.getProPresenter()
       ]);
       const providers = capabilityEngine.quickSnapshot();
 
@@ -1100,6 +1101,11 @@ async function start(): Promise<void> {
           configured: Boolean(RESOLUME_URL || resolumeConfig?.baseUrl),
           source: RESOLUME_URL ? 'environment' : resolumeConfig ? 'local' : 'none',
           baseUrl: RESOLUME_URL || resolumeConfig?.baseUrl || DEFAULT_RESOLUME_URL
+        },
+        propresenter: {
+          configured: Boolean(PROPRESENTER_URL || propresenterConfig?.baseUrl),
+          source: PROPRESENTER_URL ? 'environment' : propresenterConfig ? 'local' : 'none',
+          baseUrl: PROPRESENTER_URL || propresenterConfig?.baseUrl || ''
         }
       }));
     }
@@ -1160,7 +1166,7 @@ async function start(): Promise<void> {
         propresenter: {
           configured: Boolean(PROPRESENTER_URL || propresenterConfig?.baseUrl),
           source: PROPRESENTER_URL ? 'environment' : propresenterConfig ? 'local' : 'none',
-          baseUrl: PROPRESENTER_URL || propresenterConfig?.baseUrl || DEFAULT_PROPRESENTER_URL,
+          baseUrl: PROPRESENTER_URL || propresenterConfig?.baseUrl || '',
           health: propresenter?.health || 'offline',
           capabilities: propresenter?.capabilities || [],
           observed: propresenter?.observed || {}
@@ -1221,7 +1227,8 @@ async function start(): Promise<void> {
       const body = await readJson(req);
       if (!body || typeof body !== 'object') throw new Error('invalid_propresenter_config');
       const candidate = body as Record<string, unknown>;
-      const baseUrl = String(candidate.baseUrl || DEFAULT_PROPRESENTER_URL);
+      const baseUrl = String(candidate.baseUrl || '').trim();
+      if (!baseUrl) throw new Error('propresenter_url_required');
       await providerConfigStore.setProPresenter({ baseUrl });
       const result = await registerProPresenterProvider();
       return send(res, result.probe?.reachable ? 200 : 422, {
