@@ -23,7 +23,8 @@ describe('Live Node diagnostics', () => {
         activeServiceItemId: 'song:s1',
         providerObservedState: {},
         servicePlan: null,
-        providerLinks: []
+        providerLinks: [],
+        requests: []
       },
       providers: [{
         providerId: 'holyrics-primary',
