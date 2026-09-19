@@ -3,6 +3,7 @@ import type {
   LiveCommand,
   LiveNodeHealth,
   LiveNodeRuntimeState,
+  LiveRequest,
   PairingChallenge,
   PairingCompleteResponse,
   PairingRequest,
@@ -311,4 +312,31 @@ export async function fetchProviderOutputSnapshot(
   } finally {
     window.clearTimeout(timeout);
   }
+}
+
+
+export async function submitNodeLiveRequest(
+  baseUrl: string,
+  token: string,
+  request: LiveRequest
+): Promise<{ request: LiveRequest; stateRevision: number }> {
+  return requestJson(baseUrl, '/requests', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(request)
+  }, 3500);
+}
+
+export async function updateNodeLiveRequestStatus(
+  baseUrl: string,
+  token: string,
+  requestId: string,
+  status: 'accepted' | 'rejected' | 'completed',
+  resolvedBy: string
+): Promise<{ request: LiveRequest; stateRevision: number }> {
+  return requestJson(baseUrl, `/requests/${encodeURIComponent(requestId)}/status`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ status, resolvedBy })
+  }, 3500);
 }
