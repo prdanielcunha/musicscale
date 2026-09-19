@@ -146,3 +146,7 @@ radial-gradient(circle at 50% 50%,rgba(124,92,255,.17),transparent 34%),#08090D;
 
 .live-control-panel kbd{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border:1px solid rgba(255,255,255,.09);border-bottom-color:rgba(255,255,255,.15);border-radius:5px;background:rgba(255,255,255,.035);color:#9297a7;font:600 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 1px 0 rgba(255,255,255,.025)}
 .deck-take kbd{margin-left:4px;color:#b5abef;border-color:rgba(124,92,255,.18);background:rgba(124,92,255,.07)}
+
+.deck-prepared-cue{position:absolute;inset:0;display:grid;place-items:center;align-content:center;text-align:center;padding:28px;background:radial-gradient(circle at 50% 45%,rgba(124,92,255,.18),transparent 48%),linear-gradient(180deg,#0b0c12,#07080c)}
+.deck-prepared-cue small{font-size:8px;letter-spacing:.14em;color:#8f83dc;margin-bottom:9px}.deck-prepared-cue strong{max-width:92%;font-size:clamp(17px,1.7vw,28px);line-height:1.12;letter-spacing:-.025em;color:#f4f2ff;overflow:hidden;text-overflow:ellipsis}.deck-prepared-cue span{margin-top:8px;max-width:88%;color:#858a9b;font-size:9px;line-height:1.4}
+.provider-search-results>button.prepared{background:rgba(124,92,255,.09);box-shadow:inset 2px 0 #7c5cff}.provider-search-results>button.prepared em{color:#c0b6ff}
