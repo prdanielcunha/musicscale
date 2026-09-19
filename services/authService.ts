@@ -54,6 +54,7 @@ export const signInWithEmail = async (email: string, password: string, keepLogge
 };
 
 const GOOGLE_PROFILE_SYNC_TIMEOUT_MS = 5000;
+export const GOOGLE_REDIRECT_PENDING_KEY = 'musicscale_google_redirect_pending';
 
 const withAuthSideEffectTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
   new Promise((resolve, reject) => {
@@ -108,6 +109,7 @@ export const signInWithGoogle = async (): Promise<UserCredential | null> => {
       error?.code === 'auth/operation-not-supported-in-this-environment' ||
       error?.code === 'auth/web-storage-unsupported'
     ) {
+      try { sessionStorage.setItem(GOOGLE_REDIRECT_PENDING_KEY, '1'); } catch {}
       await signInWithRedirect(auth, googleProvider());
       return null;
     }
@@ -117,6 +119,7 @@ export const signInWithGoogle = async (): Promise<UserCredential | null> => {
 
 export const finishGoogleRedirectSignIn = async (): Promise<UserCredential | null> => {
   const userCredential = await getRedirectResult(auth);
+  try { sessionStorage.removeItem(GOOGLE_REDIRECT_PENDING_KEY); } catch {}
   if (userCredential) syncGoogleProfile(userCredential);
   return userCredential;
 };
