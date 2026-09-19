@@ -165,3 +165,37 @@ export async function evaluateServeGuard(
 
   return payload.evaluation;
 }
+
+
+export async function evaluateServeGuardBatch(
+  user: TokenUser,
+  organizationId: string,
+  input: {
+    userIds: string[];
+    candidateDate: string;
+    excludeScaleId?: string | null;
+  },
+): Promise<{
+  evaluations: ServeGuardEvaluation[];
+  skippedUserIds: string[];
+}> {
+  const payload = await requestJson<{
+    success: true;
+    evaluations: ServeGuardEvaluation[];
+    skippedUserIds?: string[];
+  }>(
+    user,
+    `/api/v1/organizations/${encodeURIComponent(
+      organizationId,
+    )}/serve-guard/evaluate-batch`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+
+  return {
+    evaluations: payload.evaluations || [],
+    skippedUserIds: payload.skippedUserIds || [],
+  };
+}
