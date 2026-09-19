@@ -368,4 +368,7 @@ export interface LiveRequest {
   payload: Record<string, unknown>;
   status: 'pending' | 'accepted' | 'rejected' | 'completed';
   createdAt: string;
+  updatedAt?: string;
+  resolvedAt?: string;
+  resolvedBy?: EntityId;
 }
