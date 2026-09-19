@@ -11,6 +11,7 @@ import type {
   PairingRequest,
   PairingScope,
   ProviderLink,
+  Scene,
   SafetyLevel,
   Scene,
   SceneExecutionResult,
@@ -25,6 +26,7 @@ import {
 import { defaultDeviceName, getOrCreateDeviceId } from './deviceIdentity';
 import {
   cacheNodeServicePlan,
+  cacheNodeScenes,
   completePairing,
   executeNodeCommand,
   executeNodeScene,
@@ -348,6 +350,14 @@ export function useLiveNode() {
     return refreshed;
   }, [credential]);
 
+  const cacheScenes = useCallback(async (scenes: Scene[]) => {
+    if (!credential) throw new Error('node_not_paired');
+    await cacheNodeScenes(credential.baseUrl, credential.token, scenes);
+    const refreshed = await loadNodeState(credential.baseUrl, credential.token);
+    setNodeState(refreshed);
+    return refreshed;
+  }, [credential]);
+
   const disconnect = useCallback(async () => {
     const current = credential;
     if (current) {
@@ -383,6 +393,7 @@ export function useLiveNode() {
     refreshState,
     submitRequest,
     updateRequestStatus,
+    cacheScenes,
     disconnect
   };
 }
