@@ -509,13 +509,17 @@ export function createServeGuardHttpHandlers(deps: ServeGuardHttpDependencies) {
     const excludeScaleId = req.body?.excludeScaleId == null
       ? null
       : safeId(req.body.excludeScaleId);
-    const rawUserIds = Array.isArray(req.body?.userIds)
+    const rawUserIds: unknown[] = Array.isArray(req.body?.userIds)
       ? req.body.userIds
       : [];
 
-    const normalizedUserIds = rawUserIds.map(safeId);
-    const targetUserIds = Array.from(
-      new Set(normalizedUserIds.filter(Boolean)),
+    const normalizedUserIds: string[] = rawUserIds.map(value =>
+      safeId(value),
+    );
+    const targetUserIds: string[] = Array.from(
+      new Set(
+        normalizedUserIds.filter(userId => userId.length > 0),
+      ),
     );
 
     if (
