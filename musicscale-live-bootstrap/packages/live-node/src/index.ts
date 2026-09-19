@@ -245,46 +245,40 @@ async function registerProPresenterProvider(): Promise<{
   };
 }
 
-let providerObservationBusy = false;
+const providerObservationInFlight = new Set<string>();
+const providerLastObservedAt = new Map<string, number>();
 
-async function observeOnlineProviders(): Promise<void> {
-  if (providerObservationBusy) return;
-  providerObservationBusy = true;
-  try {
-    const online = capabilityEngine
-      .quickSnapshot()
-      .filter(provider => provider.health === 'online');
+function observeOnlineProviders(): void {
+  const now = Date.now();
+  const online = capabilityEngine
+    .quickSnapshot()
+    .filter(provider => provider.health === 'online');
 
-    if (!online.length) return;
+  for (const snapshot of online) {
+    const provider = capabilityEngine.get(snapshot.providerId);
+    if (!provider || providerObservationInFlight.has(snapshot.providerId)) continue;
 
-    const current = await runtimeState.load();
-    const observed = { ...current.providerObservedState };
-    let changed = false;
+    const cadence = Math.max(200, provider.observationIntervalMs ?? 1200);
+    const lastObservedAt = providerLastObservedAt.get(snapshot.providerId) || 0;
+    if (now - lastObservedAt < cadence) continue;
 
-    for (const snapshot of online) {
-      const provider = capabilityEngine.get(snapshot.providerId);
-      if (!provider) continue;
-      try {
-        const state = await provider.getState();
-        const previousJson = JSON.stringify(observed[snapshot.providerId] || {});
-        const nextJson = JSON.stringify(state.observed || {});
-        if (previousJson !== nextJson) {
-          observed[snapshot.providerId] = {
-            ...(observed[snapshot.providerId] || {}),
-            ...sanitizeObservedStateForPersistence(state.observed || {})
-          };
-          changed = true;
-        }
-      } catch {
+    providerObservationInFlight.add(snapshot.providerId);
+    providerLastObservedAt.set(snapshot.providerId, now);
+
+    void provider.getState()
+      .then(async state => {
+        const observed = sanitizeObservedStateForPersistence(state.observed || {});
+        await runtimeState.mergeProviderObservedState(
+          snapshot.providerId,
+          observed
+        );
+      })
+      .catch(() => {
         // Provider adapters own their degraded/offline transition semantics.
-      }
-    }
-
-    if (changed) {
-      await runtimeState.patch({ providerObservedState: observed });
-    }
-  } finally {
-    providerObservationBusy = false;
+      })
+      .finally(() => {
+        providerObservationInFlight.delete(snapshot.providerId);
+      });
   }
 }
 
@@ -1697,8 +1691,8 @@ async function start(): Promise<void> {
   });
 
   const providerObservationTimer = setInterval(() => {
-    void observeOnlineProviders();
-  }, 1_500);
+    observeOnlineProviders();
+  }, 100);
   providerObservationTimer.unref();
 
   const providerRecoveryTimer = setInterval(() => {
