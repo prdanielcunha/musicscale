@@ -25,6 +25,11 @@ interface SearchMediaResult {
   thumbnail?: string;
 }
 
+interface BibleReferenceMatch {
+  reference: string;
+  ids: string[];
+}
+
 interface PreparedProgramCue {
   id: string;
   kind: 'song' | 'bible' | 'media';
@@ -89,6 +94,26 @@ function samePresentationFrame(
     String(left.id || '') === String(right.id || '') &&
     Number(left.slide_number) === Number(right.slide_number)
   );
+}
+
+function getBibleReferenceMatch(results: CommandResult[]): BibleReferenceMatch | null {
+  for (const result of results) {
+    const raw = result.observedState?.matches;
+    const candidate = Array.isArray(raw) ? raw[0] : raw;
+    if (!candidate || typeof candidate !== 'object') continue;
+    const value = candidate as Record<string, unknown>;
+    const reference = String(value.reference || '').trim();
+    const ids = Array.isArray(value.ids)
+      ? value.ids.map(String).filter(Boolean)
+      : [];
+    if (reference || ids.length) {
+      return {
+        reference: reference || String(ids[0] || ''),
+        ids
+      };
+    }
+  }
+  return null;
 }
 
 function mediaThumbnailUrl(value: string | undefined): string | undefined {
@@ -400,16 +425,32 @@ export function LiveControlPanel({
     });
   }
 
-  function prepareBible() {
+  async function prepareBible() {
     const reference = bibleReference.trim();
     if (!reference || !can('bible.present')) return;
+
+    let normalized: BibleReferenceMatch | null = null;
+    if (can('bible.search')) {
+      const results = await run('bible-prepare', 'bible.search', { text: reference });
+      normalized = getBibleReferenceMatch(results);
+      if (!normalized) {
+        setMessage(t('liveControls.bibleNotFound'));
+        return;
+      }
+    }
+
+    const title = normalized?.reference || reference;
     setPreparedCue({
-      id: `bible:${reference}`,
+      id: `bible:${title}`,
       kind: 'bible',
-      title: reference,
-      subtitle: t('liveControls.bible'),
+      title,
+      subtitle: normalized?.ids.length
+        ? t('liveControls.verseCount', { count: normalized.ids.length })
+        : t('liveControls.bible'),
       capability: 'bible.present',
-      payload: { references: reference }
+      payload: normalized?.ids.length
+        ? { ids: normalized.ids }
+        : { references: reference }
     });
   }
 
@@ -880,7 +921,7 @@ export function LiveControlPanel({
               value={bibleReference}
               onChange={event => setBibleReference(event.target.value)}
               onKeyDown={event => {
-                if (event.key === 'Enter') prepareBible();
+                if (event.key === 'Enter') void prepareBible();
               }}
               placeholder={t('liveControls.biblePlaceholder')}
               disabled={!can('bible.present')}
@@ -888,7 +929,7 @@ export function LiveControlPanel({
             <button
               className="secondary"
               disabled={!bibleReference.trim() || !can('bible.present') || busy !== null}
-              onClick={prepareBible}
+              onClick={() => void prepareBible()}
             >
               {t('liveControls.prepare')}
             </button>
