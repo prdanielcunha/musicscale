@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CommandResult } from '@musicscale-live/domain';
 import type { useLiveNode } from './useLiveNode';
@@ -105,6 +105,8 @@ export function VisualControlPanel({
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const [localArmedClip, setLocalArmedClip] = useState<ArmedVisualCue | null>(null);
   const [clearAllArmed, setClearAllArmed] = useState(false);
+  const outputDiscoveryProvider = useRef('');
+  const lastSnapshotSignature = useRef('');
   const armedClip = cueCoordinator?.armedVisualCue || localArmedClip;
   const armVisualCue = cueCoordinator?.armVisualCue || setLocalArmedClip;
   const clearVisualCue = cueCoordinator?.clearVisualCue || (() => setLocalArmedClip(null));
@@ -141,6 +143,95 @@ export function VisualControlPanel({
       if (snapshotUrl) URL.revokeObjectURL(snapshotUrl);
     };
   }, [snapshotUrl]);
+
+  // Automatically discover visual outputs once per provider. The operator should
+  // see NOW without having to understand or manually query Resolume monitors.
+  useEffect(() => {
+    if (
+      !provider ||
+      !provider.capabilities.includes('visual.outputs.read') ||
+      outputDiscoveryProvider.current === provider.providerId
+    ) {
+      return;
+    }
+
+    outputDiscoveryProvider.current = provider.providerId;
+    let cancelled = false;
+
+    void controller.executeCommand({
+      capability: 'visual.outputs.read',
+      payload: {},
+      targetProviderIds: [provider.providerId],
+      liveSessionId,
+      actorId,
+      safetyLevel: 'normal'
+    }).then(results => {
+      if (cancelled) return;
+      const next = outputsFromResults(results);
+      setOutputs(next);
+      setSelectedOutputId(current => current || next[0]?.id || '');
+    }).catch(() => {
+      if (!cancelled) outputDiscoveryProvider.current = '';
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    actorId,
+    controller.executeCommand,
+    liveSessionId,
+    provider
+  ]);
+
+  const activeClipSignature = activeClips
+    .map(clip => `${clip.layerId}:${clip.clipId}`)
+    .join('|');
+
+  // Snapshot only when the visual program actually changes (or output changes).
+  // This keeps the left NOW preview fresh without turning health polling into a
+  // high-bandwidth video stream.
+  useEffect(() => {
+    if (
+      !provider ||
+      !selectedOutputId ||
+      !provider.capabilities.includes('visual.output.snapshot')
+    ) {
+      return;
+    }
+
+    const signature = `${provider.providerId}:${selectedOutputId}:${activeClipSignature}`;
+    if (lastSnapshotSignature.current === signature) return;
+    lastSnapshotSignature.current = signature;
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void controller.fetchOutputSnapshot(
+        provider.providerId,
+        selectedOutputId,
+        'jpeg'
+      ).then(blob => {
+        if (cancelled) return;
+        const nextUrl = URL.createObjectURL(blob);
+        setSnapshotUrl(current => {
+          if (current) URL.revokeObjectURL(current);
+          return nextUrl;
+        });
+      }).catch(() => {
+        if (!cancelled) lastSnapshotSignature.current = '';
+      });
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    activeClipSignature,
+    controller.fetchOutputSnapshot,
+    provider,
+    selectedOutputId
+  ]);
 
   if (!provider) return null;
   const activeProvider = provider;
