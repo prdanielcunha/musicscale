@@ -1084,7 +1084,8 @@
         "over_monthly_limit": "Por encima del límite mensual",
         "unavailable": "Fecha no disponible",
         "paused": "Período de pausa"
-      }
+      },
+      "cancel": "Cancelar"
     }
   },
   "billing": {
