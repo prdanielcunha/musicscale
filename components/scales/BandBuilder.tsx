@@ -201,8 +201,14 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
       return;
     }
 
-    const userIds = Array.from(
-      new Set(allUsers.map(member => member.uid).filter(Boolean)),
+    const userIds: string[] = Array.from(
+      new Set(
+        allUsers
+          .map(member =>
+            typeof member.uid === "string" ? member.uid.trim() : "",
+          )
+          .filter(userId => userId.length > 0),
+      ),
     );
 
     if (userIds.length === 0) {
