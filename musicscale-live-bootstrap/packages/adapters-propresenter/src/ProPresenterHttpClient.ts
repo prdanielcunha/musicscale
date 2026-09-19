@@ -5,6 +5,7 @@ export interface ProPresenterBinaryResponse {
 
 export interface ProPresenterApi {
   get<T = unknown>(path: string): Promise<T>;
+  getInitial<T = unknown>(path: string): Promise<T>;
   put<T = unknown>(path: string, body?: unknown): Promise<T>;
   post<T = unknown>(path: string, body?: unknown): Promise<T>;
   delete<T = unknown>(path: string): Promise<T>;
@@ -62,6 +63,63 @@ export class ProPresenterHttpClient implements ProPresenterApi {
 
   get<T = unknown>(path: string): Promise<T> {
     return this.request<T>('GET', path);
+  }
+
+  async getInitial<T = unknown>(path: string): Promise<T> {
+    if (!path.startsWith('/')) throw new Error('propresenter_invalid_path');
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+
+    try {
+      const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+        method: 'GET',
+        signal: controller.signal
+      });
+      if (!response.ok) throw new Error(`propresenter_http_${response.status}`);
+
+      if (!response.body) {
+        const text = await response.text();
+        return JSON.parse(text) as T;
+      }
+
+      reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (buffer.length < 2_000_000) {
+        const { value, done } = await reader.read();
+        if (value) buffer += decoder.decode(value, { stream: !done });
+
+        const separator = buffer.indexOf('\r\n\r\n');
+        const candidate = (
+          separator >= 0 ? buffer.slice(0, separator) : buffer
+        ).trim();
+
+        if (candidate) {
+          try {
+            const parsed = JSON.parse(candidate) as T;
+            await reader.cancel().catch(() => {});
+            return parsed;
+          } catch {
+            // A streaming JSON update may span multiple chunks.
+          }
+        }
+
+        if (done) break;
+      }
+
+      throw new Error('propresenter_stream_initial_invalid');
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('propresenter_timeout');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+      await reader?.cancel().catch(() => {});
+    }
   }
 
   put<T = unknown>(path: string, body?: unknown): Promise<T> {
