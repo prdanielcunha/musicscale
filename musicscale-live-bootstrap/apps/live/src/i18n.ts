@@ -291,6 +291,44 @@ const resources = {
         provider_timeout: 'O provider demorou demais para responder. O estado não foi assumido como concluído.'
       }
     },
+    requestsSurface: {
+      safeFlow: 'Pedido, não comando',
+      safeFlowHint: 'Nada entra no telão sem o operador',
+      nodeRequiredTitle: 'Conecte ao Live Node',
+      nodeRequiredDescription: 'Pastor e condutor enviam pedidos pelo caminho local do culto. Conecte este dispositivo ao Live Node primeiro.',
+      send: 'Enviar pedido',
+      sent: 'Pedido enviado ao operador.',
+      myRequests: 'Meus pedidos',
+      operatorDecides: 'O operador confirma antes de colocar no ar',
+      empty: 'Nenhum pedido enviado nesta sessão.',
+      pastor: {
+        kicker: 'PASTOR / PALCO',
+        title: 'Peça sem interromper a operação',
+        description: 'Envie uma referência, mídia ou recado ao operador. O pedido aparece no Live e só entra no ar após confirmação.'
+      },
+      conductor: {
+        kicker: 'CONDUTOR',
+        title: 'Condução conectada ao operador',
+        description: 'Sinalize seção ou instrução sem disputar o controle do telão.'
+      },
+      kinds: { bible: 'Bíblia', section: 'Seção', media: 'Mídia', message: 'Mensagem' },
+      placeholders: {
+        bible: 'Ex.: João 3:16-17',
+        section: 'Ex.: Voltar ao refrão',
+        media: 'Ex.: Vídeo de testemunho',
+        message: 'Ex.: Segurar neste slide'
+      },
+      status: { pending: 'Aguardando', accepted: 'Aceito', rejected: 'Recusado', completed: 'Concluído' }
+    },
+    requestInbox: {
+      kicker: 'PEDIDOS AO VIVO',
+      title: 'Chegou do palco',
+      pendingHint: 'Aguardando decisão do operador',
+      acceptedHint: 'Aceito · execute quando fizer sentido',
+      accept: 'Aceitar',
+      reject: 'Recusar',
+      complete: 'Concluir'
+    },
     nodeErrors: nodeErrors.pt
   }},
   en: { translation: {
@@ -507,6 +545,44 @@ const resources = {
         provider_timeout: 'The provider took too long to respond. Live did not assume the action completed.'
       }
     },
+    requestsSurface: {
+      safeFlow: 'Request, not command',
+      safeFlowHint: 'Nothing goes on air without the operator',
+      nodeRequiredTitle: 'Connect to Live Node',
+      nodeRequiredDescription: 'Pastor and conductor requests use the local service path. Connect this device to Live Node first.',
+      send: 'Send request',
+      sent: 'Request sent to the operator.',
+      myRequests: 'My requests',
+      operatorDecides: 'The operator confirms before anything goes on air',
+      empty: 'No requests sent in this session.',
+      pastor: {
+        kicker: 'PASTOR / STAGE',
+        title: 'Request without interrupting operation',
+        description: 'Send a Bible reference, media cue or message to the operator. It appears in Live and goes on air only after confirmation.'
+      },
+      conductor: {
+        kicker: 'CONDUCTOR',
+        title: 'Conduct with the operator',
+        description: 'Signal a section or instruction without fighting for screen control.'
+      },
+      kinds: { bible: 'Bible', section: 'Section', media: 'Media', message: 'Message' },
+      placeholders: {
+        bible: 'e.g. John 3:16-17',
+        section: 'e.g. Back to chorus',
+        media: 'e.g. Testimony video',
+        message: 'e.g. Hold this slide'
+      },
+      status: { pending: 'Waiting', accepted: 'Accepted', rejected: 'Rejected', completed: 'Completed' }
+    },
+    requestInbox: {
+      kicker: 'LIVE REQUESTS',
+      title: 'From the stage',
+      pendingHint: 'Waiting for the operator',
+      acceptedHint: 'Accepted · execute when appropriate',
+      accept: 'Accept',
+      reject: 'Reject',
+      complete: 'Complete'
+    },
     nodeErrors: nodeErrors.en
   }},
   es: { translation: {
@@ -722,6 +798,44 @@ const resources = {
         no_provider_for_capability: 'Ningún provider conectado puede ejecutar esta acción ahora.',
         provider_timeout: 'El provider tardó demasiado en responder. Live no asumió que la acción se completó.'
       }
+    },
+    requestsSurface: {
+      safeFlow: 'Pedido, no comando',
+      safeFlowHint: 'Nada sale al aire sin el operador',
+      nodeRequiredTitle: 'Conéctese al Live Node',
+      nodeRequiredDescription: 'Los pedidos del pastor y del conductor usan el camino local del culto. Conecte este dispositivo al Live Node primero.',
+      send: 'Enviar pedido',
+      sent: 'Pedido enviado al operador.',
+      myRequests: 'Mis pedidos',
+      operatorDecides: 'El operador confirma antes de poner algo al aire',
+      empty: 'No hay pedidos enviados en esta sesión.',
+      pastor: {
+        kicker: 'PASTOR / ESCENARIO',
+        title: 'Pida sin interrumpir la operación',
+        description: 'Envíe una referencia bíblica, media o mensaje al operador. Aparece en Live y solo sale al aire después de confirmación.'
+      },
+      conductor: {
+        kicker: 'CONDUCTOR',
+        title: 'Conducción conectada al operador',
+        description: 'Señale una sección o instrucción sin disputar el control de pantalla.'
+      },
+      kinds: { bible: 'Biblia', section: 'Sección', media: 'Media', message: 'Mensaje' },
+      placeholders: {
+        bible: 'Ej.: Juan 3:16-17',
+        section: 'Ej.: Volver al coro',
+        media: 'Ej.: Video de testimonio',
+        message: 'Ej.: Mantener este slide'
+      },
+      status: { pending: 'Esperando', accepted: 'Aceptado', rejected: 'Rechazado', completed: 'Completado' }
+    },
+    requestInbox: {
+      kicker: 'PEDIDOS EN VIVO',
+      title: 'Llegó del escenario',
+      pendingHint: 'Esperando decisión del operador',
+      acceptedHint: 'Aceptado · ejecute cuando corresponda',
+      accept: 'Aceptar',
+      reject: 'Rechazar',
+      complete: 'Completar'
     },
     nodeErrors: nodeErrors.es
   }}
