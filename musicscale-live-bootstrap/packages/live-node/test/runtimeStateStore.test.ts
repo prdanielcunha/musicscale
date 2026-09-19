@@ -79,4 +79,26 @@ describe('RuntimeStateStore', () => {
     expect(restored.servicePlan?.id).toBe('plan_1');
     expect(restored.providerLinks[0]?.externalId).toBe('h1');
   });
+  it('serializes independent provider state merges without losing another provider', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'ms-live-state-'));
+    const path = join(dir, 'runtime.json');
+    const store = new RuntimeStateStore(path, 'node_1');
+
+    await Promise.all([
+      store.mergeProviderObservedState('holyrics-primary', {
+        currentPresentation: { id: 'song-1', slide_number: 2 }
+      }),
+      store.mergeProviderObservedState('resolume-primary', {
+        composition: { id: 'comp-1' }
+      }),
+      store.mergeProviderObservedState('propresenter-primary', {
+        currentPresentation: { id: 'presentation-1', slide_number: 4 }
+      })
+    ]);
+
+    const state = await store.load();
+    expect(state.providerObservedState['holyrics-primary']).toBeTruthy();
+    expect(state.providerObservedState['resolume-primary']).toBeTruthy();
+    expect(state.providerObservedState['propresenter-primary']).toBeTruthy();
+  });
 });
