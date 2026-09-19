@@ -8,6 +8,7 @@ import { LiveNodeSetup } from './LiveNodeSetup';
 import { liveFeatureFlags } from './featureFlags';
 import { loadNextScale, loadSharedContext, type SharedContext, type SharedScale } from './musicScaleBridge';
 import { ScalePreflight } from './ScalePreflight';
+import { SystemTopologyPanel } from './SystemTopologyPanel';
 import { VisualControlPanel } from './VisualControlPanel';
 import { LiveCueCoordinatorProvider } from './LiveCueCoordinator';
 import { detectSameOriginLiveNode } from './liveNodeClient';
@@ -200,6 +201,10 @@ export function App() {
 
         {surface === 'studio' && context && liveFeatureFlags.liveNodeTransport && (
           <LiveNodeSetup controller={liveNode} organizationId={context.organizationId} />
+        )}
+
+        {surface === 'studio' && liveNode.state === 'connected' && (
+          <SystemTopologyPanel controller={liveNode} />
         )}
 
         {surface === 'studio' && liveNode.state === 'connected' && scale && (
