@@ -16,6 +16,28 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
+const LOGIN_RUNTIME_TIMEOUT_MS = 12000;
+
+const withLoginTimeout = <T,>(promise: Promise<T>, label: string): Promise<T> =>
+  new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      const error = new Error(`${label}_TIMEOUT`) as Error & { code?: string };
+      error.code = 'auth/network-request-failed';
+      reject(error);
+    }, LOGIN_RUNTIME_TIMEOUT_MS);
+
+    promise.then(
+      value => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      error => {
+        window.clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -82,8 +104,11 @@ export default function LoginPage() {
     try {
       setLoading(true);
       setError("");
-      const { signInWithGoogle } = await import("../services/authService");
-      const authResult = await signInWithGoogle();
+      const { signInWithGoogle } = await withLoginTimeout(
+        import("../services/authService"),
+        'AUTH_MODULE'
+      );
+      await withLoginTimeout(signInWithGoogle(), 'GOOGLE_SIGN_IN');
       
       const params = new URLSearchParams(window.location.search);
       const redirectPath = safeRedirect();
@@ -110,13 +135,15 @@ export default function LoginPage() {
     try {
       setLoading(true);
       setError("");
-      const { signInWithEmail, signUpWithEmail } = await import("../services/authService");
+      const { signInWithEmail, signUpWithEmail } = await withLoginTimeout(
+        import("../services/authService"),
+        'AUTH_MODULE'
+      );
       
-      let authResult;
       if (isRegister) {
-          authResult = await signUpWithEmail(email, password, displayName);
+          await withLoginTimeout(signUpWithEmail(email, password, displayName), 'EMAIL_SIGN_UP');
       } else {
-          authResult = await signInWithEmail(email, password, rememberMe);
+          await withLoginTimeout(signInWithEmail(email, password, rememberMe), 'EMAIL_SIGN_IN');
       }
 
       const params = new URLSearchParams(window.location.search);

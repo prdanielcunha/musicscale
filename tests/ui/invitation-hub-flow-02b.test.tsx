@@ -72,7 +72,7 @@ describe('Login redirect security contract (S-AA)', () => {
   const source = readFileSync('pages/LoginPage.tsx', 'utf8');
   it('S contains no invite acceptance import/call', () => { expect(source).not.toContain("import('../services/inviteService')"); expect(source).not.toContain('acceptInvite('); });
   it('T-U both authentication methods only navigate to safe redirect', () => {
-    expect(source).toContain('await signInWithGoogle()'); expect(source).toContain('await signInWithEmail(email, password, rememberMe)');
+    expect(source).toContain("withLoginTimeout(signInWithGoogle(), 'GOOGLE_SIGN_IN')"); expect(source).toContain("withLoginTimeout(signInWithEmail(email, password, rememberMe), 'EMAIL_SIGN_IN')");
     expect(source.match(/navigate\(redirectPath, \{ replace: true \}\)/g)).toHaveLength(2);
   });
   it.each(['/join/org?token=x', '/invite?token=x', '/ordinary'])('V,W,AA accepts local path %s by predicate', path => {

@@ -66,6 +66,23 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const AUTH_PROFILE_TIMEOUT_MS = 6000;
+
+const withAuthBootstrapTimeout = <T,>(promise: Promise<T>): Promise<T> =>
+  new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('AUTH_PROFILE_TIMEOUT')), AUTH_PROFILE_TIMEOUT_MS);
+    promise.then(
+      value => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      error => {
+        window.clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+
 export function normalizeGlobalSystemRole(input: any): string {
   if (!input) return "";
   return String(input).trim().toLowerCase();
@@ -156,7 +173,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!currentUser) return;
     
     try {
-      const docSnap = await getDoc(doc(db, 'users', currentUser.uid));
+      const docSnap = await withAuthBootstrapTimeout(getDoc(doc(db, 'users', currentUser.uid)));
       let profileData = docSnap.exists() ? (docSnap.data() as UserProfile) : null;
       
       if (!profileData) {

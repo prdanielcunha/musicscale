@@ -34,6 +34,23 @@ const EcosystemContext = createContext<EcosystemContextValue>({
 
 export const useEcosystem = () => useContext(EcosystemContext);
 
+const ECOSYSTEM_FIRESTORE_TIMEOUT_MS = 6000;
+
+const withEcosystemTimeout = <T,>(promise: Promise<T>, label: string): Promise<T> =>
+  new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(`${label}_TIMEOUT`)), ECOSYSTEM_FIRESTORE_TIMEOUT_MS);
+    promise.then(
+      value => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      error => {
+        window.clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+
 const DENIED_PERMISSIONS = {
   canManageOrganization: false,
   canManageMembers: false,
@@ -129,7 +146,10 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                        let systemRole = 'user';
                        let displayName = user.displayName || '';
 
-                       const userSnap = await getDoc(doc(db, 'users', user.uid));
+                       const userSnap = await withEcosystemTimeout(
+                         getDoc(doc(db, 'users', user.uid)),
+                         'ECOSYSTEM_USER_PROFILE'
+                       );
                        let userHasActive = null;
                        let userHasPrimary = null;
                        let userHasLegacy = null;
@@ -147,7 +167,10 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
                        let earlyGlobalCatalogPromise: Promise<any> | null = null;
                        if (isGlobalOrganizationCatalogRole(systemRole)) {
-                           earlyGlobalCatalogPromise = getDocs(collection(db, 'organizations')).catch((e) => {
+                           earlyGlobalCatalogPromise = withEcosystemTimeout(
+                             getDocs(collection(db, 'organizations')),
+                             'ECOSYSTEM_GLOBAL_CATALOG'
+                           ).catch((e) => {
                                console.warn("Global admin early catalog fetch failed:", e);
                                return null;
                            });
@@ -167,7 +190,10 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                            earlyAbortController = new AbortController();
                            activeControllers.push(earlyAbortController);
                            
-                           earlyOrgDocPromise = getDoc(doc(db, 'organizations', candidateOrgId)).catch(() => null);
+                           earlyOrgDocPromise = withEcosystemTimeout(
+                             getDoc(doc(db, 'organizations', candidateOrgId)),
+                             'ECOSYSTEM_CANDIDATE_ORG'
+                           ).catch(() => null);
                            earlyTokenPromise = user.getIdToken(false).catch(() => '');
                            
                            markStartupMetric('ecosystem_access_context_started_ms');
@@ -240,7 +266,10 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                    }
                                } catch (e) {}
                            }
-                           return getDoc(doc(db, 'organizations', targetOrgId)).catch(() => null);
+                           return withEcosystemTimeout(
+                             getDoc(doc(db, 'organizations', targetOrgId)),
+                             'ECOSYSTEM_ORG_LOOKUP'
+                           ).catch(() => null);
                        };
 
                        // Function to check if an org is valid
@@ -264,13 +293,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                          // Precedence 2: Check global transversal collection organization_members
                                          let foundInGlobal = false;
                                          try {
-                                             const gDoc1 = await getDoc(doc(db, 'organization_members', `${user.uid}_${idToTest}`));
+                                             const gDoc1 = await withEcosystemTimeout(
+                                               getDoc(doc(db, 'organization_members', `${user.uid}_${idToTest}`)),
+                                               'ORG_MEMBER_DIRECT_UID_ORG'
+                                             );
                                              if (gDoc1.exists()) {
                                                  const gd = gDoc1.data();
                                                  resolvedRole = gd.role || gd.organizationRole || gd.musicscaleRole || resolvedRole;
                                                  foundInGlobal = true;
                                              } else {
-                                                 const gDoc2 = await getDoc(doc(db, 'organization_members', `${idToTest}_${user.uid}`));
+                                                 const gDoc2 = await withEcosystemTimeout(
+                                                   getDoc(doc(db, 'organization_members', `${idToTest}_${user.uid}`)),
+                                                   'ORG_MEMBER_DIRECT_ORG_UID'
+                                                 );
                                                  if (gDoc2.exists()) {
                                                      const gd = gDoc2.data();
                                                      resolvedRole = gd.role || gd.organizationRole || gd.musicscaleRole || resolvedRole;
@@ -284,7 +319,10 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                          // Precedence 3: Check dynamic organization members subcollection
                                          if (!foundInGlobal || resolvedRole === 'visitor' || !resolvedRole) {
                                              try {
-                                                 const memDoc = await getDoc(doc(db, 'organizations', idToTest, 'members', user.uid));
+                                                 const memDoc = await withEcosystemTimeout(
+                                                   getDoc(doc(db, 'organizations', idToTest, 'members', user.uid)),
+                                                   'ORG_MEMBER_SUBCOLLECTION'
+                                                 );
                                                  if (memDoc.exists()) {
                                                      const md = memDoc.data();
                                                      resolvedRole = md.organizationRole || md.musicscaleRole || md.role || md.ministryFunction || resolvedRole;
@@ -316,13 +354,13 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         let membershipOrgs: any[] = [];
 
                         const queries = [
-                            getDocs(query(collection(db, 'organizations'), where('ownerUid', '==', user.uid))),
-                            getDocs(query(collection(db, 'organizations'), where('ownerUserId', '==', user.uid))),
-                            getDocs(query(collectionGroup(db, 'members'), where('uid', '==', user.uid))),
-                            getDocs(query(collectionGroup(db, 'members'), where('userId', '==', user.uid))),
-                            getDocs(query(collection(db, 'organization_members'), where('uid', '==', user.uid))),
-                            getDocs(query(collection(db, 'organization_members'), where('userId', '==', user.uid))),
-                            getDocs(query(collection(db, 'organization_members'), where('user_id', '==', user.uid)))
+                            withEcosystemTimeout(getDocs(query(collection(db, 'organizations'), where('ownerUid', '==', user.uid))), 'ORG_OWNER_UID'),
+                            withEcosystemTimeout(getDocs(query(collection(db, 'organizations'), where('ownerUserId', '==', user.uid))), 'ORG_OWNER_USER_ID'),
+                            withEcosystemTimeout(getDocs(query(collectionGroup(db, 'members'), where('uid', '==', user.uid))), 'MEMBERS_UID'),
+                            withEcosystemTimeout(getDocs(query(collectionGroup(db, 'members'), where('userId', '==', user.uid))), 'MEMBERS_USER_ID'),
+                            withEcosystemTimeout(getDocs(query(collection(db, 'organization_members'), where('uid', '==', user.uid))), 'ORG_MEMBERS_UID'),
+                            withEcosystemTimeout(getDocs(query(collection(db, 'organization_members'), where('userId', '==', user.uid))), 'ORG_MEMBERS_USER_ID'),
+                            withEcosystemTimeout(getDocs(query(collection(db, 'organization_members'), where('user_id', '==', user.uid))), 'ORG_MEMBERS_USER_ID_SNAKE')
                         ];
 
                         const results = await Promise.allSettled(queries);
