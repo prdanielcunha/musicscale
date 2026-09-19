@@ -68,9 +68,6 @@ interface PresentationDetail {
   }>;
 }
 
-interface ActivePresentationResponse {
-  presentation?: PresentationDetail | null;
-}
 
 function sparseSlideList(
   status: SlideStatus,
@@ -116,11 +113,9 @@ function normalizeLightweightPresentation(
 }
 
 function normalizeDetailedPresentation(
-  active: ActivePresentationResponse,
+  presentation: PresentationDetail,
   indexStatus: SlideIndexStatus
 ): Record<string, unknown> | null {
-  const presentation = active.presentation;
-  if (!presentation) return null;
 
   const identity = indexStatus.presentation?.presentation_id || presentation.id;
   const index = Math.max(0, Number(indexStatus.presentation?.index ?? 0));
@@ -240,8 +235,8 @@ export class ProPresenterAdapter implements ProviderAdapter {
 
     try {
       const [status, indexStatus] = await Promise.all([
-        this.api.get<SlideStatus>('/v1/status/slide'),
-        this.api.get<SlideIndexStatus>('/v1/presentation/slide_index')
+        this.api.getInitial<SlideStatus>('/v1/status/slide'),
+        this.api.getInitial<SlideIndexStatus>('/v1/presentation/slide_index')
       ]);
       this.lastState = {
         health: 'online',
@@ -297,11 +292,21 @@ export class ProPresenterAdapter implements ProviderAdapter {
   }
 
   private async readDetailedPresentation(): Promise<Record<string, unknown> | null> {
-    const [active, indexStatus] = await Promise.all([
-      this.api.get<ActivePresentationResponse>('/v1/presentation/current'),
-      this.api.get<SlideIndexStatus>('/v1/presentation/slide_index')
-    ]);
-    return normalizeDetailedPresentation(active, indexStatus);
+    const indexStatus = await this.api.getInitial<SlideIndexStatus>(
+      '/v1/presentation/slide_index'
+    );
+    const identity = indexStatus.presentation?.presentation_id;
+    const uuid = String(identity?.uuid || '');
+
+    if (!uuid) {
+      const status = await this.api.getInitial<SlideStatus>('/v1/status/slide');
+      return normalizeLightweightPresentation(status, indexStatus);
+    }
+
+    const presentation = await this.api.get<PresentationDetail>(
+      `/v1/presentation/${encodeURIComponent(uuid)}`
+    );
+    return normalizeDetailedPresentation(presentation, indexStatus);
   }
 
   private async executeCapability(
