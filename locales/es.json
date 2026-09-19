@@ -1069,7 +1069,23 @@
     "otherMembers": "Otros Integrantes",
     "hideIncompatible": "Ocultar incompatibles",
     "noMembersFound": "Ningún integrante encontrado",
-    "noSpecialtyDesc": "Parece que nadie posee la especialidad de {{instrument}}."
+    "noSpecialtyDesc": "Parece que nadie posee la especialidad de {{instrument}}.",
+    "serveGuard": {
+      "checking": "Verificando disponibilidad y carga programada del equipo…",
+      "unavailable": "ServeGuard no pudo validar la carga ahora. La escala sigue siendo editable; confirma manualmente la disponibilidad antes de publicar.",
+      "noLimit": "sin límite",
+      "projectedLoad": "Proyección: {{week}}/semana (límite {{weekLimit}}) · {{month}}/mes (límite {{monthLimit}}).",
+      "overridePrompt": "Esta nueva escala entra en conflicto con la preferencia configurada por este integrante. Confirma conscientemente si deseas continuar.",
+      "addAnyway": "Agregar de todos modos",
+      "status": {
+        "at_weekly_limit": "En el límite semanal",
+        "at_monthly_limit": "En el límite mensual",
+        "over_weekly_limit": "Por encima del límite semanal",
+        "over_monthly_limit": "Por encima del límite mensual",
+        "unavailable": "Fecha no disponible",
+        "paused": "Período de pausa"
+      }
+    }
   },
   "billing": {
     "currentPlan": "Plan actual",
