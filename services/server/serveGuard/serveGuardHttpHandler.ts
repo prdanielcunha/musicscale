@@ -502,9 +502,133 @@ export function createServeGuardHttpHandlers(deps: ServeGuardHttpDependencies) {
     }
   };
 
+  const evaluateBatch = async (req: Request, res: Response) => {
+    privateNoStore(res);
+    const organizationId = safeId(req.params.organizationId);
+    const candidateDate = safeDate(req.body?.candidateDate);
+    const excludeScaleId = req.body?.excludeScaleId == null
+      ? null
+      : safeId(req.body.excludeScaleId);
+    const rawUserIds = Array.isArray(req.body?.userIds)
+      ? req.body.userIds
+      : [];
+
+    const normalizedUserIds = rawUserIds.map(safeId);
+    const targetUserIds = Array.from(
+      new Set(normalizedUserIds.filter(Boolean)),
+    );
+
+    if (
+      !organizationId ||
+      !candidateDate ||
+      rawUserIds.length === 0 ||
+      rawUserIds.length > 100 ||
+      normalizedUserIds.some(userId => !userId) ||
+      targetUserIds.length === 0 ||
+      (req.body?.excludeScaleId != null && !excludeScaleId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_REQUEST',
+      });
+    }
+
+    try {
+      const authorization = await resolveActor(req, organizationId, deps);
+      if (authorization.ok === false) {
+        return res.status(authorization.status).json({
+          success: false,
+          code: authorization.code,
+        });
+      }
+
+      const { actor } = authorization;
+      const onlySelf =
+        targetUserIds.length === 1 &&
+        targetUserIds[0] === actor.uid;
+
+      if (!onlySelf && !actor.canManageSchedules) {
+        return res.status(403).json({
+          success: false,
+          code: 'SERVEGUARD_EVALUATION_AUTHORITY_REQUIRED',
+        });
+      }
+
+      const membershipResults = await Promise.all(
+        targetUserIds.map(async userId => ({
+          userId,
+          active: await confirmTargetMembership(
+            organizationId,
+            userId,
+            deps,
+          ),
+        })),
+      );
+
+      const activeUserIds = membershipResults
+        .filter(item => item.active)
+        .map(item => item.userId);
+      const skippedUserIds = membershipResults
+        .filter(item => !item.active)
+        .map(item => item.userId);
+
+      const scales = await loadScales(organizationId, deps.db);
+      const preferences = await Promise.all(
+        activeUserIds.map(async userId => ({
+          userId,
+          preference: await loadPreference(
+            organizationId,
+            userId,
+            deps.db,
+          ),
+        })),
+      );
+
+      const evaluations = preferences
+        .map(({ userId, preference }) =>
+          evaluateServeGuard({
+            organizationId,
+            userId,
+            candidateDate,
+            preference,
+            scales,
+            excludeScaleId,
+          }),
+        )
+        .filter(Boolean);
+
+      logger.info?.('[ServeGuard] advisory batch evaluation', {
+        organizationId,
+        actorUid: actor.uid,
+        candidateDate,
+        requestedCount: targetUserIds.length,
+        evaluatedCount: evaluations.length,
+        skippedCount: skippedUserIds.length,
+      });
+
+      return res.status(200).json({
+        success: true,
+        organizationId,
+        evaluations,
+        skippedUserIds,
+      });
+    } catch (error) {
+      logger.error?.('[ServeGuard] batch evaluation failed', {
+        organizationId,
+        requestedCount: targetUserIds.length,
+        error: error instanceof Error ? error.message : 'unknown_error',
+      });
+      return res.status(503).json({
+        success: false,
+        code: 'SERVICE_UNAVAILABLE',
+      });
+    }
+  };
+
   return {
     getPreference,
     putPreference,
     evaluate,
+    evaluateBatch,
   };
 }
