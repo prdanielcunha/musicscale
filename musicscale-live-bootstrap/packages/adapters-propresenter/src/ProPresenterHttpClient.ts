@@ -12,7 +12,7 @@ export interface ProPresenterApi {
 }
 
 export interface ProPresenterHttpClientOptions {
-  baseUrl?: string;
+  baseUrl: string;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
 }
@@ -29,10 +29,10 @@ function isPrivateHostname(hostname: string): boolean {
   return host.startsWith('fe80:') || host.startsWith('fc') || host.startsWith('fd');
 }
 
-export function normalizeProPresenterApiUrl(
-  input = 'http://127.0.0.1:50001'
-): string {
-  const raw = input.trim() || 'http://127.0.0.1:50001';
+export function normalizeProPresenterApiUrl(input: string): string {
+  const raw = input.trim();
+  if (!raw) throw new Error('propresenter_url_required');
+
   const withProtocol = /^https?:\/\//i.test(raw) ? raw : `http://${raw}`;
   const url = new URL(withProtocol);
 
@@ -54,7 +54,7 @@ export class ProPresenterHttpClient implements ProPresenterApi {
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch;
 
-  constructor(options: ProPresenterHttpClientOptions = {}) {
+  constructor(options: ProPresenterHttpClientOptions) {
     this.baseUrl = normalizeProPresenterApiUrl(options.baseUrl);
     this.timeoutMs = options.timeoutMs ?? 2500;
     this.fetchImpl = options.fetchImpl || fetch;
@@ -78,9 +78,9 @@ export class ProPresenterHttpClient implements ProPresenterApi {
 
   async getBinary(path: string): Promise<ProPresenterBinaryResponse> {
     if (!path.startsWith('/')) throw new Error('propresenter_invalid_path');
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-
     try {
       const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
         method: 'GET',
@@ -117,19 +117,17 @@ export class ProPresenterHttpClient implements ProPresenterApi {
         body: body === undefined
           ? undefined
           : typeof body === 'string'
-            ? body
+            ? JSON.stringify(body)
             : JSON.stringify(body),
         signal: controller.signal
       });
 
-      if (!response.ok) {
-        throw new Error(`propresenter_http_${response.status}`);
-      }
+      if (!response.ok) throw new Error(`propresenter_http_${response.status}`);
       if (response.status === 204) return undefined as T;
 
-      const contentType = response.headers.get('content-type') || '';
       const text = await response.text();
       if (!text) return undefined as T;
+      const contentType = response.headers.get('content-type') || '';
       if (contentType.includes('application/json')) return JSON.parse(text) as T;
       try {
         return JSON.parse(text) as T;
