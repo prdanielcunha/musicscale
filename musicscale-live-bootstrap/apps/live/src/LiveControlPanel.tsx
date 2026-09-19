@@ -22,6 +22,7 @@ interface SearchMediaResult {
   durationMs?: number;
   width?: number;
   height?: number;
+  thumbnail?: string;
 }
 
 interface PreparedProgramCue {
@@ -33,6 +34,7 @@ interface PreparedProgramCue {
   payload: Record<string, unknown>;
   targetProviderIds?: string[];
   serviceItemId?: string;
+  previewDataUrl?: string;
 }
 
 function getSongResults(results: CommandResult[]): SearchSongResult[] {
@@ -89,6 +91,14 @@ function samePresentationFrame(
   );
 }
 
+function mediaThumbnailUrl(value: string | undefined): string | undefined {
+  if (!value?.trim()) return undefined;
+  const normalized = value.trim();
+  if (normalized.startsWith('data:image/')) return normalized;
+  const mime = normalized.startsWith('iVBOR') ? 'image/png' : 'image/jpeg';
+  return `data:${mime};base64,${normalized}`;
+}
+
 function getMediaResults(results: CommandResult[]): SearchMediaResult[] {
   return results
     .flatMap(result => {
@@ -103,7 +113,8 @@ function getMediaResults(results: CommandResult[]): SearchMediaResult[] {
         isDir: Boolean(item.isDir),
         durationMs: typeof item.duration_ms === 'number' ? item.duration_ms : undefined,
         width: typeof item.width === 'number' ? item.width : undefined,
-        height: typeof item.height === 'number' ? item.height : undefined
+        height: typeof item.height === 'number' ? item.height : undefined,
+        thumbnail: typeof item.thumbnail === 'string' ? item.thumbnail : undefined
       };
     })
     .filter(item => item.name)
@@ -408,7 +419,7 @@ export function LiveControlPanel({
       kind: mediaKind,
       filter: mediaQuery.trim(),
       includeMetadata: true,
-      includeThumbnail: false
+      includeThumbnail: mediaKind !== 'audio'
     });
     setMediaResults(getMediaResults(results));
   }
@@ -431,7 +442,8 @@ export function LiveControlPanel({
       payload: {
         kind: mediaKind,
         file: item.name
-      }
+      },
+      previewDataUrl: mediaThumbnailUrl(item.thumbnail)
     });
   }
 
@@ -681,7 +693,15 @@ export function LiveControlPanel({
                 </div>
               </header>
               <div className="deck-frame">
-                {preparedCue ? (
+                {preparedCue?.previewDataUrl ? (
+                  <div className="deck-prepared-media">
+                    <img src={preparedCue.previewDataUrl} alt={preparedCue.title} />
+                    <div>
+                      <small>{t(`liveControls.preparedKinds.${preparedCue.kind}`)}</small>
+                      <strong>{preparedCue.title}</strong>
+                    </div>
+                  </div>
+                ) : preparedCue ? (
                   <div className="deck-prepared-cue">
                     <small>{t(`liveControls.preparedKinds.${preparedCue.kind}`)}</small>
                     <strong>{preparedCue.title}</strong>
