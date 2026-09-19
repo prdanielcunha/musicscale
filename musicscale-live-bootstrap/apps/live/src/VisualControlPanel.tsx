@@ -428,16 +428,22 @@ export function VisualControlPanel({
             <strong>{t('visualControls.outputPreviewDescription')}</strong>
           </div>
           <div className="visual-output-actions">
-            <select
-              value={selectedOutputId}
-              onChange={event => setSelectedOutputId(event.target.value)}
-              aria-label={t('visualControls.output')}
-            >
-              <option value="">{t('visualControls.chooseOutput')}</option>
-              {outputs.map(output => (
-                <option key={output.id} value={output.id}>{output.name}</option>
-              ))}
-            </select>
+            {outputs.length > 1 ? (
+              <select
+                value={selectedOutputId}
+                onChange={event => setSelectedOutputId(event.target.value)}
+                aria-label={t('visualControls.output')}
+              >
+                <option value="">{t('visualControls.chooseOutput')}</option>
+                {outputs.map(output => (
+                  <option key={output.id} value={output.id}>{output.name}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="visual-output-selected">
+                {outputs[0]?.name || t('visualControls.outputAuto')}
+              </span>
+            )}
             <button
               className="secondary"
               disabled={busy !== null}
@@ -457,11 +463,6 @@ export function VisualControlPanel({
               {busy === 'snapshot' ? '…' : t('visualControls.snapshot')}
             </button>
           </div>
-          {snapshotUrl && (
-            <div className="visual-output-preview">
-              <img src={snapshotUrl} alt={t('visualControls.outputSnapshotAlt')} />
-            </div>
-          )}
         </div>
       )}
 
