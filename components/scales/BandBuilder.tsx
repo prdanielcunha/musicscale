@@ -215,10 +215,11 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
       chunks.push(userIds.slice(index, index + 100));
     }
 
+    setPendingServeGuardOverride(null);
     setServeGuardLoading(true);
     setServeGuardUnavailable(false);
 
-    void Promise.all(
+    void Promise.allSettled(
       chunks.map(chunk =>
         evaluateServeGuardBatch(user, organization.id, {
           userIds: chunk,
@@ -236,18 +237,21 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
         if (cancelled) return;
 
         const next: Record<string, ServeGuardEvaluation> = {};
-        results
-          .flatMap(result => result.evaluations)
-          .forEach(evaluation => {
+        let rejectedCount = 0;
+
+        for (const result of results) {
+          if (result.status === "rejected") {
+            rejectedCount += 1;
+            continue;
+          }
+
+          result.value.evaluations.forEach(evaluation => {
             next[evaluation.userId] = evaluation;
           });
+        }
 
         setServeGuardByUserId(next);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setServeGuardByUserId({});
-        setServeGuardUnavailable(true);
+        setServeGuardUnavailable(rejectedCount > 0);
       })
       .finally(() => {
         if (!cancelled) setServeGuardLoading(false);
