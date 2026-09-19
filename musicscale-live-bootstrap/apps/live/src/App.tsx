@@ -17,6 +17,8 @@ import { useLiveNode } from './useLiveNode';
 import { useLiveFocus } from './useLiveFocus';
 import { RequestSurface } from './RequestSurface';
 import { LiveRequestInbox } from './LiveRequestInbox';
+import { SceneStudio } from './SceneStudio';
+import { LiveSceneBar } from './LiveSceneBar';
 
 type Surface = 'live' | 'studio' | 'pastor' | 'conductor';
 
@@ -213,9 +215,18 @@ export function App() {
           <ScalePreflight controller={liveNode} scale={scale} actorId={user.uid} />
         )}
 
+        {surface === 'studio' && liveNode.state === 'connected' && (
+          <SceneStudio controller={liveNode} actorId={user.uid} />
+        )}
+
         {surface === 'live' && liveNode.state === 'connected' && (
           <LiveCueCoordinatorProvider>
             <LiveControlPanel
+              controller={liveNode}
+              actorId={user.uid}
+              liveSessionId={scale ? `music-scale:${scale.id}` : `ad-hoc:${context?.organizationId || user.uid}`}
+            />
+            <LiveSceneBar
               controller={liveNode}
               actorId={user.uid}
               liveSessionId={scale ? `music-scale:${scale.id}` : `ad-hoc:${context?.organizationId || user.uid}`}
