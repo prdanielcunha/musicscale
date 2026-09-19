@@ -18,6 +18,9 @@ export interface LiveNodeStateResponse {
   state: LiveNodeRuntimeState;
   providers: Array<{
     providerId: string;
+    displayName?: string;
+    providerKey?: string;
+    kind?: string;
     capabilities: string[];
     health: string;
     observed?: Record<string, unknown>;
