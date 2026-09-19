@@ -177,11 +177,14 @@ export function SceneStudio({
       return;
     }
 
+    const activeCredential = controller.credential;
+    if (!activeCredential) return;
+
     const scene: Scene = {
       id: crypto.randomUUID(),
-      organizationId: credential.binding.organizationId,
-      venueId: credential.binding.venueId,
-      liveSystemId: credential.binding.liveSystemId,
+      organizationId: activeCredential.binding.organizationId,
+      venueId: activeCredential.binding.venueId,
+      liveSystemId: activeCredential.binding.liveSystemId,
       name: cleanName,
       actions
     };
