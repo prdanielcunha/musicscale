@@ -59,6 +59,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     let active = true;
+    let redirectPending = false;
+    try { redirectPending = sessionStorage.getItem('musicscale_google_redirect_pending') === '1'; } catch {}
+    if (!redirectPending) return () => { active = false; };
+
     void (async () => {
       try {
         const { finishGoogleRedirectSignIn } = await import("../services/authService");
