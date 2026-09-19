@@ -238,6 +238,7 @@ export function useLiveNode() {
     outputTargets?: string[];
     targetProviderIds?: string[];
     safetyLevel?: SafetyLevel;
+    confirmed?: boolean;
   }): Promise<CommandResult[]> => {
     if (!credential) throw new Error('node_not_paired');
 
@@ -264,7 +265,8 @@ export function useLiveNode() {
     const response = await executeNodeCommand(
       credential.baseUrl,
       credential.token,
-      command
+      command,
+      input.confirmed === true
     );
     const refreshed = await loadNodeState(
       credential.baseUrl,
@@ -280,6 +282,7 @@ export function useLiveNode() {
     serviceItemId?: string;
     actorId: string;
     origin?: CommandOrigin;
+    confirmed?: boolean;
   }): Promise<SceneExecutionResult> => {
     if (!credential) throw new Error('node_not_paired');
 
@@ -299,7 +302,8 @@ export function useLiveNode() {
         origin: input.origin || 'live-ui',
         scene: input.scene,
         idempotencyKey: crypto.randomUUID()
-      }
+      },
+      input.confirmed === true
     );
 
     const refreshed = await loadNodeState(
