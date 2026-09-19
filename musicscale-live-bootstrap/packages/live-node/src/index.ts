@@ -16,6 +16,7 @@ import {
   type ProviderAssetRequest,
   type ProviderLink,
   type ProviderRouteGroup,
+  type Scene,
   type SceneExecutionRequest,
   type SceneExecutionResult,
   type ServicePlan
@@ -602,6 +603,78 @@ function validateSceneExecutionRequest(value: unknown): SceneExecutionRequest {
   }
 
   return candidate as SceneExecutionRequest;
+}
+
+function validateCachedScenes(value: unknown): Scene[] {
+  if (!Array.isArray(value) || value.length > 100) throw new Error('invalid_scenes_cache');
+
+  const ids = new Set<string>();
+  return value.map(raw => {
+    if (!raw || typeof raw !== 'object') throw new Error('invalid_scene');
+    const scene = raw as Scene;
+
+    if (
+      typeof scene.id !== 'string' ||
+      !scene.id ||
+      ids.has(scene.id) ||
+      typeof scene.organizationId !== 'string' ||
+      !scene.organizationId ||
+      typeof scene.venueId !== 'string' ||
+      !scene.venueId ||
+      typeof scene.name !== 'string' ||
+      !scene.name.trim() ||
+      !Array.isArray(scene.actions) ||
+      scene.actions.length < 1 ||
+      scene.actions.length > 32
+    ) {
+      throw new Error('invalid_scene');
+    }
+    ids.add(scene.id);
+
+    const actionIds = new Set<string>();
+    for (const action of scene.actions) {
+      if (
+        !action ||
+        typeof action !== 'object' ||
+        typeof action.id !== 'string' ||
+        !action.id ||
+        actionIds.has(action.id) ||
+        !isCapability(action.capability) ||
+        !Array.isArray(action.targetProviderIds) ||
+        !Array.isArray(action.outputTargets) ||
+        !action.payload ||
+        typeof action.payload !== 'object' ||
+        Array.isArray(action.payload) ||
+        !['normal','guarded','critical'].includes(String(action.safetyLevel))
+      ) {
+        throw new Error('invalid_scene_action');
+      }
+      actionIds.add(action.id);
+      if (
+        action.offsetMs != null &&
+        (!Number.isFinite(action.offsetMs) || Number(action.offsetMs) < 0 || Number(action.offsetMs) > 60_000)
+      ) {
+        throw new Error('invalid_scene_offset');
+      }
+    }
+    return scene;
+  });
+}
+
+function assertCachedSceneScope(
+  scenes: Scene[],
+  binding: Awaited<ReturnType<typeof pairingStore.authorize>>
+): void {
+  if (!binding) return;
+  for (const scene of scenes) {
+    if (
+      scene.organizationId !== binding.organizationId ||
+      scene.venueId !== binding.venueId ||
+      (scene.liveSystemId && scene.liveSystemId !== binding.liveSystemId)
+    ) {
+      throw new Error('forbidden_scope');
+    }
+  }
 }
 
 function validateCommand(value: unknown): LiveCommand {
@@ -1640,6 +1713,23 @@ async function start(): Promise<void> {
         return send(res, 403, { error: 'cannot_revoke_other_device' });
       }
       return send(res, 200, { revoked: await pairingStore.revoke(deviceId) });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/scenes/cache') {
+      const session = await authorize(req);
+      if (!session) return send(res, 401, { error: 'unauthorized' });
+
+      const body = await readJson(req);
+      if (!body || typeof body !== 'object') throw new Error('invalid_scenes_cache');
+      const scenes = validateCachedScenes((body as Record<string, unknown>).scenes);
+      assertCachedSceneScope(scenes, session.binding);
+
+      const next = await runtimeState.patch({ scenes });
+      return send(res, 200, {
+        nodeId,
+        scenes: scenes.length,
+        stateRevision: next.revision
+      });
     }
 
     if (req.method === 'GET' && url.pathname === '/requests') {
