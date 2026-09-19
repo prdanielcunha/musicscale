@@ -40,9 +40,10 @@ function runTests() {
     // 5-9. Fallbacks and exists() logic
     assert(ecosystemContext.includes('getReusableOrganizationSnapshot = async (targetOrgId: string)'), "5-9. Must have getReusableOrganizationSnapshot helper");
     assert(ecosystemContext.includes('if (targetOrgId === candidateOrgId && earlyOrgDocPromise)'), "9. Must check earlyOrgDocPromise");
-    assert(ecosystemContext.includes('return getDoc(doc(db, \'organizations\', targetOrgId)).catch(() => null);'), "6/7/8. Must fallback to getDoc");
+    assert(ecosystemContext.includes("getDoc(doc(db, 'organizations', targetOrgId))"), "6/7/8. Must fallback to getDoc");
+    assert(ecosystemContext.includes("'ECOSYSTEM_ORG_LOOKUP'"), "6/7/8. Fallback getDoc must be timeout-bounded");
     // 11 (was 5). A Promise do catálogo global é criada antes do array das consultas de descoberta.
-    const globalPromiseIndex = ecosystemContext.indexOf('earlyGlobalCatalogPromise = getDocs(collection(db, \'organizations\'))');
+    const globalPromiseIndex = ecosystemContext.indexOf('earlyGlobalCatalogPromise = withEcosystemTimeout(');
     const queriesArrayIndex = ecosystemContext.indexOf('const queries = [');
     assert(globalPromiseIndex > -1 && queriesArrayIndex > -1 && globalPromiseIndex < queriesArrayIndex, "11. earlyGlobalCatalogPromise must be created before queries array");
     // A Promise iniciada antecipadamente é reutilizada no bloco global.
