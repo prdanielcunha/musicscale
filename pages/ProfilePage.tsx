@@ -584,6 +584,14 @@ const ProfilePage: React.FC = () => {
   const handleAddServeGuardUnavailableDate = () => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(serveGuardDateDraft)) return;
 
+    if (
+      !serveGuardUnavailableDates.includes(serveGuardDateDraft) &&
+      serveGuardUnavailableDates.length >= 90
+    ) {
+      showToast(t("profile.serve_guard.too_many_dates"), "error");
+      return;
+    }
+
     setServeGuardUnavailableDates(current =>
       Array.from(new Set([...current, serveGuardDateDraft])).sort(),
     );
@@ -602,13 +610,30 @@ const ProfilePage: React.FC = () => {
         return Number.isInteger(parsed) ? parsed : null;
       };
 
+      const maxServicesPerWeek = toLimit(serveGuardMaxWeek);
+      const maxServicesPerMonth = toLimit(serveGuardMaxMonth);
+
+      if (
+        (serveGuardMaxWeek.trim() &&
+          (maxServicesPerWeek === null ||
+            maxServicesPerWeek < 1 ||
+            maxServicesPerWeek > 14)) ||
+        (serveGuardMaxMonth.trim() &&
+          (maxServicesPerMonth === null ||
+            maxServicesPerMonth < 1 ||
+            maxServicesPerMonth > 62))
+      ) {
+        showToast(t("profile.serve_guard.validation_error"), "error");
+        return;
+      }
+
       const saved = await saveServeGuardPreference(
         user,
         organization.id,
         user.uid,
         {
-          maxServicesPerWeek: toLimit(serveGuardMaxWeek),
-          maxServicesPerMonth: toLimit(serveGuardMaxMonth),
+          maxServicesPerWeek,
+          maxServicesPerMonth,
           unavailableDates: serveGuardUnavailableDates,
           pausedUntil: serveGuardPausedUntil || null,
         },
