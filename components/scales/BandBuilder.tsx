@@ -381,7 +381,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
           )}
           {conflicts && conflicts.length > 0 && (
             <span className="text-[10px] bg-amber-500/10 text-amber-500 font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
-              <AlertTriangleIcon className="w-3 h-3" /> {t('bandScaleModal.conflictWarning')} {new Date(formData.date + "T00:00:00").toLocaleDateString()}
+              <AlertTriangleIcon className="w-3 h-3" /> {t('bandScaleModal.conflictWarning')} {new Date((formData.date || resolvedServeGuardDate) + "T00:00:00").toLocaleDateString()}
             </span>
           )}
           {!isCompatible && !isAdded && (
