@@ -79,6 +79,31 @@ describe('RuntimeStateStore', () => {
     expect(restored.servicePlan?.id).toBe('plan_1');
     expect(restored.providerLinks[0]?.externalId).toBe('h1');
   });
+  it('persists local Live requests for operator recovery', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'ms-live-state-'));
+    const path = join(dir, 'runtime.json');
+    const store = new RuntimeStateStore(path, 'node_1');
+
+    await store.patch({
+      requests: [{
+        id: 'req_1',
+        organizationId: 'org_1',
+        venueId: 'venue_1',
+        liveSessionId: 'session_1',
+        actorId: 'pastor_1',
+        kind: 'bible',
+        payload: { reference: 'João 3:16' },
+        status: 'pending',
+        createdAt: '2026-09-19T00:00:00.000Z'
+      }]
+    });
+
+    const restored = await new RuntimeStateStore(path, 'node_1').load();
+    expect(restored.requests).toHaveLength(1);
+    expect(restored.requests[0]?.kind).toBe('bible');
+    expect(restored.requests[0]?.status).toBe('pending');
+  });
+
   it('serializes independent provider state merges without losing another provider', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'ms-live-state-'));
     const path = join(dir, 'runtime.json');
