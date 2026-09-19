@@ -11,6 +11,7 @@ import {
   type Capability,
   type CommandResult,
   type LiveCommand,
+  type LiveRequest,
   type PairingRequest,
   type ProviderAssetRequest,
   type ProviderLink,
