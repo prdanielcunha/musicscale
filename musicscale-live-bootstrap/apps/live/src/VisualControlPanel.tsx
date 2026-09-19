@@ -255,7 +255,8 @@ export function VisualControlPanel({
         targetProviderIds: [activeProvider.providerId],
         liveSessionId,
         actorId,
-        safetyLevel: guarded ? 'guarded' : 'normal'
+        safetyLevel: guarded ? 'guarded' : 'normal',
+        confirmed: guarded
       });
       const composition = compositionFromResults(results);
       if (composition) setLocalComposition(composition);
