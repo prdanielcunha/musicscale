@@ -254,7 +254,8 @@ export function ScalePreflight({
         liveSessionId: `music-scale:${scale.id}`,
         actorId,
         targetProviderIds: provider ? [provider.providerId] : [],
-        safetyLevel: 'guarded'
+        safetyLevel: 'guarded',
+        confirmed: true
       });
       const failed = result.find(item => !item.accepted);
 
