@@ -21,8 +21,12 @@ describe('ServeGuard server route contract', () => {
     expect(serverSource).toContain(
       '"/api/v1/organizations/:organizationId/serve-guard/evaluate"',
     );
+    expect(serverSource).toContain(
+      '"/api/v1/organizations/:organizationId/serve-guard/evaluate-batch"',
+    );
     expect(serverSource).toContain('serveGuardHttpHandlers.getPreference');
     expect(serverSource).toContain('serveGuardHttpHandlers.putPreference');
     expect(serverSource).toContain('serveGuardHttpHandlers.evaluate');
+    expect(serverSource).toContain('serveGuardHttpHandlers.evaluateBatch');
   });
 });

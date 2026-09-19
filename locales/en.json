@@ -1069,7 +1069,24 @@
     "otherMembers": "Other Members",
     "hideIncompatible": "Hide incompatible",
     "noMembersFound": "No members found",
-    "noSpecialtyDesc": "It seems no one has the {{instrument}} specialty."
+    "noSpecialtyDesc": "It seems no one has the {{instrument}} specialty.",
+    "serveGuard": {
+      "checking": "Checking team availability and scheduled load…",
+      "unavailable": "ServeGuard could not validate load right now. The schedule remains editable; confirm availability manually before publishing.",
+      "noLimit": "no limit",
+      "projectedLoad": "Projection: {{week}}/week (limit {{weekLimit}}) · {{month}}/month (limit {{monthLimit}}).",
+      "overridePrompt": "This new schedule conflicts with this member’s configured preference. Confirm consciously if you want to continue.",
+      "addAnyway": "Add anyway",
+      "status": {
+        "at_weekly_limit": "At weekly limit",
+        "at_monthly_limit": "At monthly limit",
+        "over_weekly_limit": "Above weekly limit",
+        "over_monthly_limit": "Above monthly limit",
+        "unavailable": "Unavailable date",
+        "paused": "Pause period"
+      },
+      "cancel": "Cancel"
+    }
   },
   "billing": {
     "currentPlan": "Current Plan",
@@ -1817,7 +1834,30 @@
     }
   },
   "profile": {
-    "invite_person": "Invite person"
+    "invite_person": "Invite person",
+    "serve_guard": {
+      "title": "My service availability",
+      "optional": "Optional",
+      "description": "Set preferences so MusicScale can warn leaders before creating a schedule that goes beyond what you consider compatible with your routine.",
+      "weekly_limit": "Maximum per week",
+      "weekly_help": "How many schedules you prefer to serve in during the same week. Leave blank for no limit.",
+      "monthly_limit": "Maximum per month",
+      "monthly_help": "How many schedules you prefer to serve in during the same month. Leave blank for no limit.",
+      "no_limit": "No limit",
+      "pause_until": "Pause schedules until",
+      "pause_help": "During the pause, new schedules for you will require an explicit leadership confirmation.",
+      "unavailable_dates": "Unavailable dates",
+      "add_date": "Add",
+      "remove_date": "Remove date",
+      "advisory_note": "ServeGuard does not diagnose fatigue and does not block you automatically. It compares new schedules with the preferences you set and shows leaders a warning when there is a conflict.",
+      "save": "Save availability",
+      "saved": "Service availability updated.",
+      "save_error": "We could not save your service availability.",
+      "load_error": "We could not load your availability right now.",
+      "retry": "Try again",
+      "validation_error": "Use a number between 1 and 14 per week and between 1 and 62 per month, or leave the field blank.",
+      "too_many_dates": "You reached the limit of configurable unavailable dates."
+    }
   },
   "refinement": {
     "fullAccess": "Full access",

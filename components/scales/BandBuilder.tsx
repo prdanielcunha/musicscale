@@ -1,4 +1,4 @@
-import React, { useMemo, useState, forwardRef, useImperativeHandle, useRef } from "react";
+import React, { useEffect, useMemo, useState, forwardRef, useImperativeHandle, useRef } from "react";
 import { UserProfile, Instrument, BandMember, PopulatedBandScale, PopulatedScale } from "../../types";
 import Button from "../common/Button";
 import { UserIcon } from "../icons/UserIcon";
@@ -7,6 +7,11 @@ import { PlusCircleIcon } from "../icons/PlusCircleIcon";
 import { AlertTriangleIcon } from "../icons/AlertTriangleIcon";
 import { UsersIcon } from "../icons/UsersIcon";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  evaluateServeGuardBatch,
+  type ServeGuardEvaluation,
+} from "../../services/serveGuardService";
 
 interface BandBuilderProps {
   formData: any;
@@ -30,9 +35,17 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
   musicScales,
 }, ref) => {
   const { t } = useTranslation();
+  const { user, organization } = useAuth();
   const [selectedInstruments, setSelectedInstruments] = useState<Instrument[]>([]);
   const [showAllMembers, setShowAllMembers] = useState(false);
   const [mobileTab, setMobileTab] = useState<"functions" | "formation">("functions");
+  const [serveGuardByUserId, setServeGuardByUserId] = useState<Record<string, ServeGuardEvaluation>>({});
+  const [isServeGuardLoading, setServeGuardLoading] = useState(false);
+  const [serveGuardUnavailable, setServeGuardUnavailable] = useState(false);
+  const [pendingServeGuardOverride, setPendingServeGuardOverride] = useState<{
+    userId: string;
+    instrumentId: string;
+  } | null>(null);
   const firstInstrumentRef = useRef<HTMLButtonElement>(null);
 
   useImperativeHandle(ref, () => ({
@@ -93,15 +106,29 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
     }
   }));
 
-  const addAssignment = (userId: string, instrumentId: string) => {
+  const commitAssignment = (userId: string, instrumentId: string) => {
     const currentAssignments = formData.assignments || [];
     if (currentAssignments.some((a: BandMember) => a.userId === userId)) {
-      return; // Already added, simple block
+      return;
     }
     setFormData((prev: any) => ({
       ...prev,
       assignments: [...(prev.assignments || []), { userId, instrumentId }],
     }));
+    setPendingServeGuardOverride(current =>
+      current?.userId === userId ? null : current,
+    );
+  };
+
+  const requestAssignment = (userId: string, instrumentId: string) => {
+    const evaluation = serveGuardByUserId[userId];
+
+    if (evaluation?.requiresExplicitOverride) {
+      setPendingServeGuardOverride({ userId, instrumentId });
+      return;
+    }
+
+    commitAssignment(userId, instrumentId);
   };
 
   const removeAssignment = (userId: string, instrumentId: string) => {
@@ -146,6 +173,106 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
     }
     return conflicts;
   }, [formData.date, formData.musicScaleId, formData.id, populatedBandScales, musicScales]);
+
+  const resolvedServeGuardDate = useMemo(() => {
+    if (typeof formData.date === "string" && formData.date) {
+      return formData.date;
+    }
+
+    if (formData.musicScaleId && musicScales) {
+      return musicScales.find(scale => scale.id === formData.musicScaleId)?.date || "";
+    }
+
+    return "";
+  }, [formData.date, formData.musicScaleId, musicScales]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (
+      !user ||
+      !organization?.id ||
+      !resolvedServeGuardDate ||
+      allUsers.length === 0
+    ) {
+      setServeGuardByUserId({});
+      setServeGuardUnavailable(false);
+      setServeGuardLoading(false);
+      return;
+    }
+
+    const userIds: string[] = Array.from(
+      new Set(
+        allUsers
+          .map(member =>
+            typeof member.uid === "string" ? member.uid.trim() : "",
+          )
+          .filter(userId => userId.length > 0),
+      ),
+    );
+
+    if (userIds.length === 0) {
+      setServeGuardByUserId({});
+      return;
+    }
+
+    const chunks: string[][] = [];
+    for (let index = 0; index < userIds.length; index += 100) {
+      chunks.push(userIds.slice(index, index + 100));
+    }
+
+    setPendingServeGuardOverride(null);
+    setServeGuardLoading(true);
+    setServeGuardUnavailable(false);
+
+    void Promise.allSettled(
+      chunks.map(chunk =>
+        evaluateServeGuardBatch(user, organization.id, {
+          userIds: chunk,
+          candidateDate: resolvedServeGuardDate,
+          excludeScaleId:
+            typeof formData.id === "string" &&
+            formData.id &&
+            formData.id !== "CLONE"
+              ? formData.id
+              : null,
+        }),
+      ),
+    )
+      .then(results => {
+        if (cancelled) return;
+
+        const next: Record<string, ServeGuardEvaluation> = {};
+        let rejectedCount = 0;
+
+        for (const result of results) {
+          if (result.status === "rejected") {
+            rejectedCount += 1;
+            continue;
+          }
+
+          result.value.evaluations.forEach(evaluation => {
+            next[evaluation.userId] = evaluation;
+          });
+        }
+
+        setServeGuardByUserId(next);
+        setServeGuardUnavailable(rejectedCount > 0);
+      })
+      .finally(() => {
+        if (!cancelled) setServeGuardLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    user,
+    organization?.id,
+    resolvedServeGuardDate,
+    formData.id,
+    allUsers,
+  ]);
 
   // Available users for selected instruments
   const { compatibleUsers, otherUsers } = useMemo(() => {
@@ -215,6 +342,9 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
   const renderUserCard = (u: UserProfile, isCompatible: boolean) => {
     const isAdded = assignedUserIds.has(u.uid);
     const conflicts = conflictsByUserId.get(u.uid);
+    const serveGuard = serveGuardByUserId[u.uid];
+    const isServeGuardOverridePending =
+      pendingServeGuardOverride?.userId === u.uid;
 
     const userSpecialties = u.specialtyIds
       ?.map(id => allInstrumentsMap.get(id))
@@ -257,7 +387,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
           )}
           {conflicts && conflicts.length > 0 && (
             <span className="text-[10px] bg-amber-500/10 text-amber-500 font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
-              <AlertTriangleIcon className="w-3 h-3" /> {t('bandScaleModal.conflictWarning')} {new Date(formData.date + "T00:00:00").toLocaleDateString()}
+              <AlertTriangleIcon className="w-3 h-3" /> {t('bandScaleModal.conflictWarning')} {new Date((formData.date || resolvedServeGuardDate) + "T00:00:00").toLocaleDateString()}
             </span>
           )}
           {!isCompatible && !isAdded && (
@@ -265,7 +395,73 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
               {t('bandScaleModal.noSpecialtyWarning')}
             </span>
           )}
+          {serveGuard &&
+            serveGuard.primarySignal !== "clear" &&
+            serveGuard.primarySignal !== "preference_not_configured" && (
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                  serveGuard.requiresExplicitOverride
+                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                    : "bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                }`}
+              >
+                <AlertTriangleIcon className="w-3 h-3" />
+                {t(`bandScaleModal.serveGuard.status.${serveGuard.primarySignal}`)}
+              </span>
+            )}
         </div>
+
+        {serveGuard &&
+          serveGuard.primarySignal !== "clear" &&
+          serveGuard.primarySignal !== "preference_not_configured" && (
+            <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/5 dark:bg-black/20">
+              <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
+                {t("bandScaleModal.serveGuard.projectedLoad", {
+                  week: serveGuard.scheduledLoad.week.projected,
+                  weekLimit:
+                    serveGuard.scheduledLoad.week.limit ??
+                    t("bandScaleModal.serveGuard.noLimit"),
+                  month: serveGuard.scheduledLoad.month.projected,
+                  monthLimit:
+                    serveGuard.scheduledLoad.month.limit ??
+                    t("bandScaleModal.serveGuard.noLimit"),
+                })}
+              </p>
+            </div>
+          )}
+
+        {isServeGuardOverridePending && !isAdded && (
+          <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/20 dark:bg-amber-500/10">
+            <p className="text-[11px] font-semibold leading-relaxed text-amber-800 dark:text-amber-300">
+              {t("bandScaleModal.serveGuard.overridePrompt")}
+            </p>
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => {
+                  if (!pendingServeGuardOverride) return;
+                  commitAssignment(
+                    pendingServeGuardOverride.userId,
+                    pendingServeGuardOverride.instrumentId,
+                  );
+                }}
+              >
+                {t("bandScaleModal.serveGuard.addAnyway")}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => setPendingServeGuardOverride(null)}
+              >
+                {t("bandScaleModal.serveGuard.cancel")}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Action Button */}
         <div className="mt-auto pt-2">
@@ -276,7 +472,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
                 variant="secondary"
                 size="sm"
                 className="w-full text-xs font-semibold py-1.5"
-                onClick={() => addAssignment(u.uid, selectedInstruments[0].id)}
+                onClick={() => requestAssignment(u.uid, selectedInstruments[0].id)}
                 data-testid={`add-assignment-${u.uid}-${selectedInstruments[0].id}`}
               >
                 {t('bandScaleModal.addAs')} {selectedInstruments[0].name}
@@ -323,7 +519,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
                              ? "bg-primary text-white hover:bg-primary/90 shadow-sm" 
                              : "bg-white dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20 border border-slate-200 dark:border-white/10"
                          }`}
-                         onClick={() => addAssignment(u.uid, inst.id)}
+                         onClick={() => requestAssignment(u.uid, inst.id)}
                          data-testid={`add-assignment-${u.uid}-${inst.id}`}
                        >
                          {inst.name}
@@ -435,6 +631,17 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
 
         {/* Right Column: People / Selected Formation */}
         <div className={`flex-col bg-slate-50 border border-slate-200 dark:border-white/5 dark:bg-[#151516] rounded-2xl p-5 w-full lg:w-[67%] ${mobileTab === 'formation' ? 'flex' : 'hidden lg:flex'}`}>
+          {serveGuardUnavailable && selectedInstruments.length > 0 && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] font-medium leading-relaxed text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
+              {t("bandScaleModal.serveGuard.unavailable")}
+            </div>
+          )}
+          {isServeGuardLoading && selectedInstruments.length > 0 && (
+            <div className="mb-4 flex items-center gap-2 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+              {t("bandScaleModal.serveGuard.checking")}
+            </div>
+          )}
           {selectedInstruments.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6">
               <div className="w-16 h-16 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-slate-100 dark:border-white/5 flex items-center justify-center mb-4">
