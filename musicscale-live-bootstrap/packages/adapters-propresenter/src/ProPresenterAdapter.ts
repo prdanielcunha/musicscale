@@ -155,6 +155,7 @@ export interface ProPresenterAdapterOptions {
 
 export class ProPresenterAdapter implements ProviderAdapter {
   readonly descriptor: ProviderDescriptor;
+  readonly observationIntervalMs = 500;
   private readonly api: ProPresenterApi;
   private readonly supported = new Set<Capability>();
   private lastState: ProviderState = {
