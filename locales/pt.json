@@ -1854,7 +1854,9 @@
       "saved": "Disponibilidade de serviço atualizada.",
       "save_error": "Não foi possível salvar sua disponibilidade de serviço.",
       "load_error": "Não foi possível carregar sua disponibilidade agora.",
-      "retry": "Tentar novamente"
+      "retry": "Tentar novamente",
+      "validation_error": "Use um número entre 1 e 14 por semana e entre 1 e 62 por mês, ou deixe o campo vazio.",
+      "too_many_dates": "Você atingiu o limite de datas indisponíveis configuráveis."
     }
   },
   "refinement": {
