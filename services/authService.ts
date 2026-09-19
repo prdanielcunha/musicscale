@@ -51,16 +51,45 @@ export const signInWithEmail = async (email: string, password: string, keepLogge
   return signInWithEmailAndPassword(auth, email, password);
 };
 
+const GOOGLE_PROFILE_SYNC_TIMEOUT_MS = 5000;
+
+const withAuthSideEffectTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
+  new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('AUTH_SIDE_EFFECT_TIMEOUT')), timeoutMs);
+    promise.then(
+      value => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      error => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+
 export const signInWithGoogle = async (): Promise<UserCredential> => {
     const provider = new GoogleAuthProvider();
     const userCredential = await signInWithPopup(auth, provider);
 
-    // Check if user profile exists in database
-    const profile = await getUserProfileData(userCredential.user.uid);
-    if (!profile) {
-        // Create basic profile if it acts as a standalone fallback
-        await createUserProfile(userCredential.user, '', 'visitor');
-    }
+    // Authentication is authoritative here. Firestore profile hydration is a
+    // follow-up side effect and must never keep a successful Google login spinning.
+    void (async () => {
+      try {
+        const profile = await withAuthSideEffectTimeout(
+          getUserProfileData(userCredential.user.uid),
+          GOOGLE_PROFILE_SYNC_TIMEOUT_MS
+        );
+        if (!profile) {
+          await withAuthSideEffectTimeout(
+            createUserProfile(userCredential.user, '', 'visitor'),
+            GOOGLE_PROFILE_SYNC_TIMEOUT_MS
+          );
+        }
+      } catch (error) {
+        console.warn('[MusicScale Auth] Google sign-in succeeded; deferred profile sync will retry during bootstrap.', error);
+      }
+    })();
 
     return userCredential;
 };
