@@ -237,7 +237,8 @@ export function LiveControlPanel({
     capability: Capability,
     payload: Record<string, unknown>,
     safetyLevel: 'normal' | 'guarded' = 'normal',
-    serviceItemId?: string
+    serviceItemId?: string,
+    targetProviderIds?: string[]
   ): Promise<CommandResult[]> {
     setBusy(key);
     setMessage(null);
@@ -248,6 +249,7 @@ export function LiveControlPanel({
         liveSessionId,
         serviceItemId,
         actorId,
+        targetProviderIds,
         safetyLevel
       });
       const rejected = results.find(result => !result.accepted);
@@ -501,7 +503,8 @@ export function LiveControlPanel({
       preparedCue.capability,
       preparedCue.payload,
       'normal',
-      preparedCue.serviceItemId
+      preparedCue.serviceItemId,
+      preparedCue.targetProviderIds
     );
     if (results.some(result => result.accepted)) {
       setPreparedCue(null);
