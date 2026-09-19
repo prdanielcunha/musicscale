@@ -447,7 +447,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
                 className="flex-1 text-xs"
                 onClick={() => setPendingServeGuardOverride(null)}
               >
-                {t("common.cancel")}
+                {t("bandScaleModal.serveGuard.cancel")}
               </Button>
             </div>
           </div>
