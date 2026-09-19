@@ -252,7 +252,16 @@ const resources = {
       showStage: 'Mostrar',
       hideStage: 'Ocultar',
       capabilityDriven: 'Os controles aparecem somente quando o provider conectado declara suporte à ação.',
-      commandFailed: 'A ação não foi concluída: {{code}}'
+      routeRequiredTitle: 'Escolha quem controla a apresentação',
+      routeRequiredDescription: 'Há mais de um provider de apresentação disponível. Defina o principal em “Quem controla o quê” no computador do Live Node; o Live não vai adivinhar durante o culto.',
+      presentationProviders: 'providers de apresentação',
+      commandFailed: 'A ação não foi concluída: {{code}}',
+      errors: {
+        ambiguous_provider_route: 'Há mais de um provider capaz de executar esta ação. Escolha o principal no painel local do Live Node.',
+        configured_provider_route_unavailable: 'O provider escolhido para esta função está indisponível. Verifique-o no computador do Live Node.',
+        no_provider_for_capability: 'Nenhum provider conectado consegue executar esta ação agora.',
+        provider_timeout: 'O provider demorou demais para responder. O estado não foi assumido como concluído.'
+      }
     },
     nodeErrors: nodeErrors.pt
   }},
@@ -431,7 +440,16 @@ const resources = {
       showStage: 'Show',
       hideStage: 'Hide',
       capabilityDriven: 'Controls appear only when the connected provider declares support for the action.',
-      commandFailed: 'The action could not be completed: {{code}}'
+      routeRequiredTitle: 'Choose which provider controls presentation',
+      routeRequiredDescription: 'More than one presentation provider is available. Choose the primary one under “Who controls what” on the Live Node computer; Live will not guess during a service.',
+      presentationProviders: 'presentation providers',
+      commandFailed: 'The action could not be completed: {{code}}',
+      errors: {
+        ambiguous_provider_route: 'More than one provider can execute this action. Choose the primary provider in the Live Node local console.',
+        configured_provider_route_unavailable: 'The provider selected for this function is unavailable. Check it on the Live Node computer.',
+        no_provider_for_capability: 'No connected provider can execute this action right now.',
+        provider_timeout: 'The provider took too long to respond. Live did not assume the action completed.'
+      }
     },
     nodeErrors: nodeErrors.en
   }},
@@ -610,7 +628,16 @@ const resources = {
       showStage: 'Mostrar',
       hideStage: 'Ocultar',
       capabilityDriven: 'Los controles aparecen solo cuando el provider conectado declara soporte para la acción.',
-      commandFailed: 'La acción no se pudo completar: {{code}}'
+      routeRequiredTitle: 'Elija quién controla la presentación',
+      routeRequiredDescription: 'Hay más de un provider de presentación disponible. Defina el principal en “Quién controla qué” en el computador del Live Node; Live no adivinará durante el culto.',
+      presentationProviders: 'providers de presentación',
+      commandFailed: 'La acción no se pudo completar: {{code}}',
+      errors: {
+        ambiguous_provider_route: 'Más de un provider puede ejecutar esta acción. Elija el principal en la consola local del Live Node.',
+        configured_provider_route_unavailable: 'El provider elegido para esta función no está disponible. Revíselo en el computador del Live Node.',
+        no_provider_for_capability: 'Ningún provider conectado puede ejecutar esta acción ahora.',
+        provider_timeout: 'El provider tardó demasiado en responder. Live no asumió que la acción se completó.'
+      }
     },
     nodeErrors: nodeErrors.es
   }}
