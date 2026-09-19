@@ -13,7 +13,9 @@ import {
   browserSessionPersistence,
   sendPasswordResetEmail,
   GoogleAuthProvider,
-  signInWithPopup
+  getRedirectResult,
+  signInWithPopup,
+  signInWithRedirect
 } from 'firebase/auth';
 import { auth } from './firebase';
 import { createUserProfile, getUserProfileData } from './firestoreService';
@@ -68,30 +70,55 @@ const withAuthSideEffectTimeout = <T,>(promise: Promise<T>, timeoutMs: number): 
     );
   });
 
-export const signInWithGoogle = async (): Promise<UserCredential> => {
-    const provider = new GoogleAuthProvider();
-    const userCredential = await signInWithPopup(auth, provider);
+const googleProvider = () => {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  return provider;
+};
 
-    // Authentication is authoritative here. Firestore profile hydration is a
-    // follow-up side effect and must never keep a successful Google login spinning.
-    void (async () => {
-      try {
-        const profile = await withAuthSideEffectTimeout(
-          getUserProfileData(userCredential.user.uid),
+const syncGoogleProfile = (userCredential: UserCredential) => {
+  // Authentication is authoritative here. Firestore profile hydration is a
+  // follow-up side effect and must never keep a successful Google login spinning.
+  void (async () => {
+    try {
+      const profile = await withAuthSideEffectTimeout(
+        getUserProfileData(userCredential.user.uid),
+        GOOGLE_PROFILE_SYNC_TIMEOUT_MS
+      );
+      if (!profile) {
+        await withAuthSideEffectTimeout(
+          createUserProfile(userCredential.user, '', 'visitor'),
           GOOGLE_PROFILE_SYNC_TIMEOUT_MS
         );
-        if (!profile) {
-          await withAuthSideEffectTimeout(
-            createUserProfile(userCredential.user, '', 'visitor'),
-            GOOGLE_PROFILE_SYNC_TIMEOUT_MS
-          );
-        }
-      } catch (error) {
-        console.warn('[MusicScale Auth] Google sign-in succeeded; deferred profile sync will retry during bootstrap.', error);
       }
-    })();
+    } catch (error) {
+      console.warn('[MusicScale Auth] Google sign-in succeeded; deferred profile sync will retry during bootstrap.', error);
+    }
+  })();
+};
 
+export const signInWithGoogle = async (): Promise<UserCredential | null> => {
+  try {
+    const userCredential = await signInWithPopup(auth, googleProvider());
+    syncGoogleProfile(userCredential);
     return userCredential;
+  } catch (error: any) {
+    if (
+      error?.code === 'auth/popup-blocked' ||
+      error?.code === 'auth/operation-not-supported-in-this-environment' ||
+      error?.code === 'auth/web-storage-unsupported'
+    ) {
+      await signInWithRedirect(auth, googleProvider());
+      return null;
+    }
+    throw error;
+  }
+};
+
+export const finishGoogleRedirectSignIn = async (): Promise<UserCredential | null> => {
+  const userCredential = await getRedirectResult(auth);
+  if (userCredential) syncGoogleProfile(userCredential);
+  return userCredential;
 };
 
 export const signOutUser = (): Promise<void> => {
