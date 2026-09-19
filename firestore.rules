@@ -159,6 +159,7 @@ service cloud.firestore {
       return isAuthenticated() && (
         isSystemAdmin() ||
         isOrgOwner(orgId) ||
+        hasCanonicalOrganizationRole(orgId, ['owner', 'admin']) ||
         hasPermission(orgId, 'canManageSettings') ||
         isMemberWithExplicitPermission(orgId, 'musicscale.live.configure')
       );
