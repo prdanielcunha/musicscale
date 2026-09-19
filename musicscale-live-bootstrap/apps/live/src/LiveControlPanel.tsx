@@ -661,15 +661,24 @@ export function LiveControlPanel({
                   <strong>{t('liveControls.nextSlide')}</strong>
                   <small>{t('liveControls.previewLabel')}</small>
                 </div>
-                {cueCoordinator?.armedVisualCue ? (
-                  <em className="linked-cue-badge">
-                    {t('liveControls.visualLinked')} · {cueCoordinator.armedVisualCue.clipName}
-                  </em>
-                ) : preparedCue?.subtitle ? (
-                  <em>{preparedCue.subtitle}</em>
-                ) : nextSlideDescription ? (
-                  <em>{nextSlideDescription}</em>
-                ) : null}
+                <div className="deck-next-meta">
+                  {preparedCue?.subtitle && <em>{preparedCue.subtitle}</em>}
+                  {!preparedCue?.subtitle && nextSlideDescription && <em>{nextSlideDescription}</em>}
+                  {cueCoordinator?.armedVisualCue && (
+                    <em className="linked-cue-badge">
+                      {t('liveControls.visualLinked')} · {cueCoordinator.armedVisualCue.clipName}
+                    </em>
+                  )}
+                  {preparedCue && (
+                    <button
+                      className="deck-cancel"
+                      type="button"
+                      onClick={() => setPreparedCue(null)}
+                    >
+                      {t('liveControls.cancelPrepared')}
+                    </button>
+                  )}
+                </div>
               </header>
               <div className="deck-frame">
                 {preparedCue ? (
@@ -757,10 +766,14 @@ export function LiveControlPanel({
               <span>{serviceHorizon.current?.type || '—'}</span>
             </div>
             <div className="service-horizon-arrow" aria-hidden="true">→</div>
-            <div className="service-horizon-item next">
+            <div className={`service-horizon-item next ${preparedCue?.serviceItemId === serviceHorizon.next?.id ? 'prepared' : ''}`}>
               <small>{t('liveControls.nextItem')}</small>
               <strong>{serviceHorizon.next?.title || t('liveControls.endOfService')}</strong>
-              <span>{serviceHorizon.next?.type || '—'}</span>
+              <span>
+                {preparedCue?.serviceItemId === serviceHorizon.next?.id
+                  ? t('liveControls.prepared')
+                  : serviceHorizon.next?.type || '—'}
+              </span>
             </div>
             <button
               className="service-horizon-take"
