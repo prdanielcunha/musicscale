@@ -1854,7 +1854,9 @@
       "saved": "Service availability updated.",
       "save_error": "We could not save your service availability.",
       "load_error": "We could not load your availability right now.",
-      "retry": "Try again"
+      "retry": "Try again",
+      "validation_error": "Use a number between 1 and 14 per week and between 1 and 62 per month, or leave the field blank.",
+      "too_many_dates": "You reached the limit of configurable unavailable dates."
     }
   },
   "refinement": {
