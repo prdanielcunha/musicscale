@@ -35,6 +35,7 @@ export interface ResolumeAdapterOptions {
 
 export class ResolumeAdapter implements ProviderAdapter {
   readonly descriptor: ProviderDescriptor;
+  readonly observationIntervalMs = 800;
   private readonly api: ResolumeRestApi;
   private readonly supported = new Set<Capability>();
   private lastState: ProviderState = {
