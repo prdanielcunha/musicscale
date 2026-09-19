@@ -2,7 +2,7 @@
 
 Implementação executável do **MusicScale Live**, derivada do Blueprint Mestre v0.1.
 
-> Este diretório continua temporariamente em uma branch isolada do repositório MusicScale para permitir desenvolvimento imediato. A estrutura é repo-ready e deve migrar 1:1 para `prdanielcunha/musicscale-live` quando o repositório dedicado existir.
+> **MIGRADO.** O desenvolvimento canônico agora acontece em `prdanielcunha/musicscale-live`. Este diretório permanece somente como histórico do bootstrap inicial e não deve receber novas features ou correções. Não sincronizar daqui de volta para o repositório dedicado.
 
 ## Princípios congelados
 
