@@ -201,10 +201,11 @@ export async function revokeNodePairing(
 export async function executeNodeCommand(
   baseUrl: string,
   token: string,
-  command: LiveCommand
+  command: LiveCommand,
+  confirmed = false
 ): Promise<{ correlationId: string; results: CommandResult[] }> {
   const guardedHeaders: Record<string, string> =
-    command.safetyLevel === 'guarded'
+    confirmed && (command.safetyLevel === 'guarded' || command.safetyLevel === 'critical')
       ? { 'x-live-confirmation': command.id }
       : {};
 
@@ -222,7 +223,8 @@ export async function executeNodeCommand(
 export async function executeNodeScene(
   baseUrl: string,
   token: string,
-  request: SceneExecutionRequest
+  request: SceneExecutionRequest,
+  confirmed = false
 ): Promise<SceneExecutionResult> {
   const guarded = request.scene.actions.some(
     action => action.safetyLevel === 'guarded' || action.safetyLevel === 'critical'
@@ -232,7 +234,7 @@ export async function executeNodeScene(
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
-      ...(guarded ? { 'x-live-confirmation': request.id } : {})
+      ...(guarded && confirmed ? { 'x-live-confirmation': request.id } : {})
     },
     body: JSON.stringify(request)
   }, 70_000);
