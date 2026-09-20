@@ -58,6 +58,13 @@ i18n
         "scaleModal.noBandScales": "Nenhuma escala da banda disponível",
         "scaleModal.noBandScalesDesc": "Criar nova escala da banda",
         "bandScaleModal.useSavedFormation": "Usar Formação Salva",
+        "bandScaleModal.reusableFormationTitle": "Banda fixa e reutilizável",
+        "bandScaleModal.reusableFormationDescription": "Use uma formação já salva ou salve a formação atual para reutilizar sem limite.",
+        "bandScaleModal.saveAsFixedFormation": "Salvar como banda fixa",
+        "bandScaleModal.fixedFormationName": "Nome da banda fixa",
+        "bandScaleModal.fixedFormationNamePlaceholder": "Ex.: Banda Principal, Equipe A...",
+        "bandScaleModal.fixedFormationSave": "Salvar banda fixa",
+        "bandScaleModal.fixedFormationSaved": "Banda fixa salva.",
         "bandScaleModal.chooseFunction": "Escolher Função",
         "bandScaleModal.addAs": "Adicionar como",
         "scaleModal.reviewSummary": "Resumo da Escala",
@@ -81,6 +88,7 @@ i18n
 
 const mockBandScaleCommandsCreate = vi.fn();
 const mockBandScalesCreate = vi.fn();
+const mockFixedBandScalesCreate = vi.fn();
 const mockRefreshData = vi.fn();
 
 let isCommandApiV1EnabledMock = true;
@@ -142,6 +150,9 @@ vi.mock('../../contexts/ApiContext', () => ({
       create: mockBandScalesCreate,
       orgId: 'org-abc'
     },
+    fixedBandScales: {
+      create: mockFixedBandScalesCreate,
+    },
     updateScaleSongSettings: vi.fn(),
   }),
 }));
@@ -178,6 +189,7 @@ describe('ModernScaleForm - Nested Band Scale Save', () => {
     vi.clearAllMocks();
     mockBandScaleCommandsCreate.mockResolvedValue({ scaleId: 'new-bs-1' });
     mockBandScalesCreate.mockResolvedValue('new-bs-1');
+    mockFixedBandScalesCreate.mockResolvedValue('fixed-bs-1');
   });
 
   const createNestedBandScale = async () => {
@@ -359,6 +371,54 @@ describe('ModernScaleForm - Nested Band Scale Save', () => {
     // Member assignment is still preserved in review
     const userOneElements = within(nestedForm).getAllByText(/User One/i);
     expect(userOneElements.length).toBeGreaterThan(0);
+  });
+
+  it('permite salvar a formação atual como banda fixa reutilizável dentro do fluxo aninhado', async () => {
+    const onSaveMusicScale = vi.fn();
+    render(
+      <ModernScaleForm
+        isOpen={true}
+        scaleType="music"
+        scaleToEdit={null}
+        preselectedSongIds={['song-1']}
+        onSave={onSaveMusicScale}
+        onClose={vi.fn()}
+        isSubmitting={false}
+      />
+    );
+
+    const parentDialog = screen.getByTestId('music-scale-modal');
+    fireEvent.change(within(parentDialog).getByLabelText(/Data/i), { target: { value: '2026-08-20' } });
+    fireEvent.change(within(parentDialog).getByLabelText(/Horário/i), { target: { value: '19:00' } });
+    fireEvent.change(within(parentDialog).getByLabelText(/Culto\/Evento/i), { target: { value: 'et-1' } });
+    fireEvent.change(within(parentDialog).getByLabelText(/Local/i), { target: { value: 'loc-1' } });
+    fireEvent.click(within(parentDialog).getByRole('button', { name: /Avançar/i }));
+
+    const createButtons = within(parentDialog).getAllByRole('button', { name: 'Nova Escala' });
+    fireEvent.click(createButtons[createButtons.length - 1]);
+
+    const nestedDialog = screen.getByTestId('band-scale-modal');
+    fireEvent.click(within(nestedDialog).getByRole('button', { name: /Avançar/i }));
+    fireEvent.click(within(nestedDialog).getByRole('button', { name: /Avançar/i }));
+
+    await waitFor(() => expect(within(nestedDialog).getByText(/Violão/i)).toBeInTheDocument());
+    fireEvent.click(within(nestedDialog).getByText(/Violão/i));
+    await waitFor(() => expect(within(nestedDialog).getByTestId('add-assignment-u1-inst1')).toBeInTheDocument());
+    fireEvent.click(within(nestedDialog).getByTestId('add-assignment-u1-inst1'));
+
+    fireEvent.click(within(nestedDialog).getByTestId('open-save-fixed-band-formation'));
+    fireEvent.change(within(nestedDialog).getByLabelText(/Nome da banda fixa/i), { target: { value: 'Banda Principal' } });
+    fireEvent.click(within(nestedDialog).getByTestId('save-fixed-band-formation'));
+
+    await waitFor(() => {
+      expect(mockFixedBandScalesCreate).toHaveBeenCalledTimes(1);
+    });
+    expect(mockFixedBandScalesCreate).toHaveBeenCalledWith({
+      name: 'Banda Principal',
+      assignments: [{ userId: 'u1', instrumentId: 'inst1' }],
+    });
+    expect(mockRefreshData).toHaveBeenCalled();
+    expect(within(nestedDialog).getByText(/Banda fixa e reutilizável/i)).toBeInTheDocument();
   });
 
   it('BandScale aninhada pode ser salva sem horário', async () => {
