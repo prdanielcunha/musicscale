@@ -122,3 +122,14 @@ Qualquer grande alteração de banco, fluxo de Auth, novas dependências crític
 Quando a solicitação não for clara, as regras do projeto forem conflitantes ou o teste indicar que você quebrou algo grave e não entender a origem:
 * **NÃO CHUTE E NÃO INVENTE.** 
 * Avalie os arquivos próximos e o histórico se possível, mas no limite informe ao usuário a divergência de forma explícita e pare para obter confirmações em vez de produzir arquitetura não funcional ou falsa.
+
+
+## Canonical app entry and authentication
+
+The ecosystem-wide source of truth is `prdanielcunha/millionsnest/docs/ECOSYSTEM_APP_ENTRY_AUTH_STANDARD.md`.
+
+Permanent rule: this standalone app must be usable from its own domain/PWA without requiring a manual Hub round-trip just to restore authentication. When unauthenticated it must offer a product-native Google entry (unless a documented security exception exists), while Hub handoff remains supported.
+
+Google/Firebase authenticates identity only. MillionsNest canonical organization, membership, entitlement and RBAC data authorizes access. Never use client-provided organization IDs, local/session storage, e-mail, UID aliases or UI roles as authorization. Direct entry and Hub handoff must converge on the same authorization truth, support wrong-account recovery, multi-organization handling, safe return paths and PT/EN/ES.
+
+Current conformance: MusicScale already provides native Google entry. Preserve it and ensure direct login and Hub handoff converge on canonical MillionsNest organization, entitlement and RBAC resolution.
