@@ -51,6 +51,7 @@ import { createConnectNextScheduleReadHandler } from "./services/server/connect/
 import { createConnectNextScheduleRepertoireReadHandler } from "./services/server/connect/nextScheduleRepertoireReadHandler.js";
 import { createConnectNextSchedulePresenceReadHandler } from "./services/server/connect/nextSchedulePresenceReadHandler.js";
 import { createConnectNextScheduleChartReadHandler } from "./services/server/connect/nextScheduleChartReadHandler.js";
+import { createServeGuardHttpHandlers } from "./services/server/serveGuard/serveGuardHttpHandler.js";
 import { createInvitationCompatibilityHandlers } from "./services/server/musicScaleInvitationCompatibility.js";
 import { createJoinRequestCompatibilityHandlers } from "./services/server/musicScaleJoinRequestCompatibility.js";
 import { createMemberRemovalCompatibilityHandler } from "./services/server/musicScaleMemberRemovalCompatibility.js";
@@ -228,6 +229,24 @@ const connectNextScheduleChartReadHandler = createConnectNextScheduleChartReadHa
   logger,
 });
 app.get("/api/v1/connect/next-schedule/chart", connectNextScheduleChartReadHandler);
+
+const serveGuardHttpHandlers = createServeGuardHttpHandlers({
+  db,
+  auth,
+  logger,
+});
+app.get(
+  "/api/v1/organizations/:organizationId/serve-guard/preferences/:userId",
+  serveGuardHttpHandlers.getPreference,
+);
+app.put(
+  "/api/v1/organizations/:organizationId/serve-guard/preferences/:userId",
+  serveGuardHttpHandlers.putPreference,
+);
+app.post(
+  "/api/v1/organizations/:organizationId/serve-guard/evaluate",
+  serveGuardHttpHandlers.evaluate,
+);
 
   app.post("/api/admin/backfill-global-titles", requireEcosystemRole, async (req: any, res: any) => {
     try {
