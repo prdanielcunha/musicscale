@@ -1,4 +1,5 @@
 name: One-time MusicScale Warm Pads Storage Upload
+# Temporary workflow: remove after verified upload
 
 on:
   push:
