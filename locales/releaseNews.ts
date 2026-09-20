@@ -119,6 +119,34 @@ export const releaseNewsTranslations = {
         ],
       },
     },
+    reusableBandBeta06: {
+      title: 'Sua banda fixa agora pode ser usada quantas vezes você quiser.',
+      description: 'O MusicScale agora permite salvar uma formação permanente durante a criação da escala e reutilizá-la em novos cultos sem perder o histórico de cada evento.',
+      stageTools: {
+        title: 'Banda fixa e reutilizável',
+        body: 'Monte a equipe uma vez, dê um nome e reutilize a mesma formação em quantas escalas forem necessárias.',
+        how: 'Na etapa Formação da escala de banda, escolha “Salvar como banda fixa”. Depois ela fica disponível no seletor de formações salvas.',
+      },
+      deviceAudio: {
+        title: 'Cada evento continua independente',
+        body: 'Ao usar uma banda fixa, o MusicScale cria uma cópia da formação para aquele evento. Mudanças futuras no modelo não alteram escalas antigas.',
+        how: 'Aplique a formação salva e ajuste apenas aquele culto quando necessário. Presença, notificações e histórico continuam ligados ao evento real.',
+      },
+      updates: {
+        title: 'Entrada direta mais confiável',
+        body: 'O acesso pelo domínio e PWA do MusicScale foi reforçado para entrar com Google sem exigir uma passagem manual pelo Hub.',
+        how: 'Abra o MusicScale diretamente e escolha sua conta Google. O aplicativo continua validando organização, acesso e permissões pela fonte canônica do MillionsNest.',
+      },
+      refinements: {
+        summary: 'Leia mais — correções e refinamentos',
+        title: 'Correções e refinamentos',
+        items: [
+          { date: '20/09', text: 'Banda fixa pode ser criada também dentro do fluxo de uma escala de músicas.' },
+          { date: '20/09', text: 'A formação permanente não expira e não transforma a agenda em um evento infinito.' },
+          { date: '19/09', text: 'A inicialização e a entrada direta receberam proteções adicionais contra carregamentos presos.' },
+        ],
+      },
+    },
   },
   en: {
     label: 'What’s new',
@@ -240,6 +268,34 @@ export const releaseNewsTranslations = {
         ],
       },
     },
+    reusableBandBeta06: {
+      title: 'Your fixed band can now be reused as many times as you need.',
+      description: 'MusicScale can now save a permanent formation while creating a schedule and reuse it in future services without changing each event’s history.',
+      stageTools: {
+        title: 'Reusable fixed band',
+        body: 'Build the team once, name it and reuse the same formation in as many schedules as needed.',
+        how: 'In the Formation step of a band schedule, choose “Save as fixed band”. It will then remain available in the saved formations selector.',
+      },
+      deviceAudio: {
+        title: 'Every event stays independent',
+        body: 'When a fixed band is used, MusicScale copies that formation into the event. Future template changes never rewrite older schedules.',
+        how: 'Apply the saved formation and adjust only that service when needed. Attendance, notifications and history remain tied to the real event.',
+      },
+      updates: {
+        title: 'More reliable direct entry',
+        body: 'Direct access from the MusicScale domain and PWA now handles Google sign-in without requiring a manual Hub round-trip.',
+        how: 'Open MusicScale directly and choose your Google account. Organization, access and permissions are still authorized by the canonical MillionsNest source.',
+      },
+      refinements: {
+        summary: 'Read more — fixes and refinements',
+        title: 'Fixes and refinements',
+        items: [
+          { date: 'Sep 20', text: 'A fixed band can also be saved from the nested band flow inside a music schedule.' },
+          { date: 'Sep 20', text: 'Permanent formations do not expire and do not create an infinite calendar event.' },
+          { date: 'Sep 19', text: 'Startup and direct sign-in gained additional protection against stuck loading states.' },
+        ],
+      },
+    },
   },
   es: {
     label: 'Novedades',
@@ -358,6 +414,34 @@ export const releaseNewsTranslations = {
           { date: '18/09', text: 'La creación manual y la importación con IA ahora comparten el mismo flujo de decisión para canciones similares.' },
           { date: '18/09', text: 'La sustitución conserva identidad, vínculos e historial operativo de la canción con una actualización auditable del contenido.' },
           { date: '18/09', text: 'La preparación personal reutiliza Partes Inteligentes y la función asignada en la escala sin inventar un foco técnico para roles no compatibles.' },
+        ],
+      },
+    },
+    reusableBandBeta06: {
+      title: 'Tu banda fija ahora puede reutilizarse todas las veces que necesites.',
+      description: 'MusicScale ahora permite guardar una formación permanente durante la creación de una escala y reutilizarla en futuros cultos sin alterar el historial de cada evento.',
+      stageTools: {
+        title: 'Banda fija y reutilizable',
+        body: 'Monta el equipo una vez, ponle un nombre y reutiliza la misma formación en todas las escalas que necesites.',
+        how: 'En el paso Formación de la escala de banda, elige “Guardar como banda fija”. Después quedará disponible en el selector de formaciones guardadas.',
+      },
+      deviceAudio: {
+        title: 'Cada evento sigue siendo independiente',
+        body: 'Al usar una banda fija, MusicScale copia esa formación al evento. Los cambios futuros del modelo no modifican escalas antiguas.',
+        how: 'Aplica la formación guardada y ajusta solo ese culto cuando sea necesario. Asistencia, notificaciones e historial siguen ligados al evento real.',
+      },
+      updates: {
+        title: 'Entrada directa más confiable',
+        body: 'El acceso desde el dominio y la PWA de MusicScale ahora gestiona mejor el inicio con Google sin exigir un paso manual por el Hub.',
+        how: 'Abre MusicScale directamente y elige tu cuenta Google. Organización, acceso y permisos siguen autorizándose desde la fuente canónica de MillionsNest.',
+      },
+      refinements: {
+        summary: 'Leer más — correcciones y refinamientos',
+        title: 'Correcciones y refinamientos',
+        items: [
+          { date: '20/09', text: 'La banda fija también puede guardarse desde el flujo anidado dentro de una escala de canciones.' },
+          { date: '20/09', text: 'Las formaciones permanentes no expiran ni crean un evento infinito en el calendario.' },
+          { date: '19/09', text: 'El inicio y la entrada directa recibieron protección adicional contra cargas bloqueadas.' },
         ],
       },
     },

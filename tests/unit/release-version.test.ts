@@ -20,13 +20,13 @@ const runBump = (version: string, kind: string) => {
 };
 
 describe('release metadata', () => {
-  it('uses the 0.5 auth/startup hotfix version while keeping the 0.5 feature announcement stable', () => {
+  it('uses the 0.6 reusable-band feature release metadata', () => {
     const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-    expect(APP_VERSION).toBe('0.5.0-beta.1');
+    expect(APP_VERSION).toBe('0.6.0-beta.0');
     expect(lock.version).toBe(APP_VERSION);
     expect(lock.packages[''].version).toBe(APP_VERSION);
-    expect(FEATURE_RELEASE.version).toBe('0.5.0-beta.0');
-    expect(FEATURE_RELEASE.id).toBe('personal-preparation-safe-duplicates-beta-0.5');
+    expect(FEATURE_RELEASE.version).toBe('0.6.0-beta.0');
+    expect(FEATURE_RELEASE.id).toBe('reusable-fixed-band-direct-entry-beta-0.6');
     expect(FEATURE_RELEASE.kind).toBe('feature');
     expect(Date.parse(FEATURE_RELEASE.publishedAt)).not.toBeNaN();
   });
@@ -51,9 +51,9 @@ describe('release metadata', () => {
     expect(revision.lock.packages[''].version).toBe(revision.pkg.version);
   });
 
-  it('provides the three 0.5 feature highlights and refinements in every language', () => {
+  it('provides the three 0.6 feature highlights and refinements in every language', () => {
     for (const language of ['pt', 'en', 'es'] as const) {
-      const copy = releaseNewsTranslations[language].personalPreparationBeta05;
+      const copy = releaseNewsTranslations[language].reusableBandBeta06;
       expect(copy.title.length).toBeGreaterThan(0);
       for (const feature of ['stageTools', 'deviceAudio', 'updates'] as const) {
         expect(copy[feature].title.length).toBeGreaterThan(0);
