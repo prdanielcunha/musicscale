@@ -126,6 +126,38 @@ function killProcessTree(child, signal = 'SIGTERM') {
   }
 }
 
+function printFailures(report) {
+  const failures = [];
+
+  for (const testResult of report?.testResults || []) {
+    for (const assertion of testResult?.assertionResults || []) {
+      if (assertion?.status !== 'failed') continue;
+      failures.push({
+        file: testResult?.name || 'unknown-file',
+        name: assertion?.fullName || assertion?.title || 'unknown-test',
+        messages: Array.isArray(assertion?.failureMessages)
+          ? assertion.failureMessages
+          : [],
+      });
+    }
+  }
+
+  for (const failure of failures.slice(0, 20)) {
+    console.error(
+      `[vitest-batches] FAIL ${failure.file} :: ${failure.name}`,
+    );
+    for (const message of failure.messages.slice(0, 3)) {
+      console.error(String(message));
+    }
+  }
+
+  if (failures.length > 20) {
+    console.error(
+      `[vitest-batches] ...and ${failures.length - 20} more failing tests.`,
+    );
+  }
+}
+
 async function runBatch(batch, batchNumber, batchCount) {
   const reportDir = fs.mkdtempSync(
     path.join(os.tmpdir(), 'musicscale-vitest-'),
@@ -197,6 +229,7 @@ async function runBatch(batch, batchNumber, batchCount) {
         console.error(
           `[vitest-batches] Batch ${batchNumber}/${batchCount} reported test failures.`,
         );
+        printFailures(report);
         killProcessTree(child, 'SIGTERM');
         await new Promise(resolve => setTimeout(resolve, 1000));
         if (!settled) killProcessTree(child, 'SIGKILL');
@@ -256,6 +289,7 @@ async function runBatch(batch, batchNumber, batchCount) {
     console.error(
       `[vitest-batches] Batch ${batchNumber}/${batchCount} exited without a successful final report (code=${result.code}, signal=${result.signal || 'none'}).`,
     );
+    if (reportAfterExit) printFailures(reportAfterExit);
   }
 
   fs.rmSync(reportDir, { recursive: true, force: true });
