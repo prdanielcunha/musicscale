@@ -47,9 +47,20 @@ function collect(dir) {
   return files;
 }
 
+const defaultRoots = [
+  'tests',
+  'components/tests',
+  'services/tests',
+];
+
 const files = requested.length > 0
   ? requested
-  : collect(root).sort();
+  : defaultRoots
+      .flatMap(relativeRoot => {
+        const absoluteRoot = path.join(root, relativeRoot);
+        return fs.existsSync(absoluteRoot) ? collect(absoluteRoot) : [];
+      })
+      .sort();
 
 if (files.length === 0) {
   console.error('[vitest-batches] No eligible Vitest files found.');
