@@ -2,7 +2,7 @@ name: One-time MusicScale Warm Pads Storage Upload
 
 on:
   push:
-    branches: [ chatgpt/pads-storage-upload-once ]
+    branches: [ production ]
     paths:
       - .github/workflows/pads-storage-upload-once.yml
 
