@@ -338,6 +338,9 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const [isSubmittingNested, setIsSubmittingNested] = useState(false);
   
   const [selectedFixedBandScaleId, setSelectedFixedBandScaleId] = useState<string>("");
+  const [showSaveFixedFormation, setShowSaveFixedFormation] = useState(false);
+  const [fixedFormationName, setFixedFormationName] = useState("");
+  const [isSavingFixedFormation, setIsSavingFixedFormation] = useState(false);
 
   const [isFormInitialized, setIsFormInitialized] = useState<boolean>(false);
   const idempotencyKeyRef = useRef<string>("");
@@ -349,6 +352,9 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       idempotencyKeyRef.current = crypto.randomUUID();
       lastPayloadFingerprintRef.current = "";
       setSelectedFixedBandScaleId("");
+      setShowSaveFixedFormation(false);
+      setFixedFormationName("");
+      setIsSavingFixedFormation(false);
     } else {
       setIsFormInitialized(false);
       hasAppliedInitialStepRef.current = false;
@@ -692,6 +698,44 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       // Deep copy to prevent mutating the original fixed scale's assignments
       assignments: JSON.parse(JSON.stringify(selectedScale.assignments || [])),
     }));
+  };
+
+  const handleSaveFixedFormation = async () => {
+    if (!api || isSavingFixedFormation) return;
+
+    const validAssignments = (formData.assignments || []).filter(
+      (assignment: BandMember) => assignment.userId && assignment.instrumentId,
+    );
+    if (validAssignments.length === 0) {
+      toast({ type: 'error', message: t('bandScaleModal.fixedFormationMembersRequired', 'Adicione pelo menos um integrante antes de salvar a banda fixa.') });
+      return;
+    }
+
+    const name = fixedFormationName.trim();
+    if (!name) {
+      toast({ type: 'error', message: t('bandScaleModal.fixedFormationNameRequired', 'Dê um nome para a banda fixa.') });
+      return;
+    }
+
+    setIsSavingFixedFormation(true);
+    try {
+      await api.fixedBandScales.create({
+        name,
+        assignments: validAssignments.map((assignment: BandMember) => ({ ...assignment })),
+      });
+      await refreshData();
+      setShowSaveFixedFormation(false);
+      setFixedFormationName("");
+      toast({ type: 'success', message: t('bandScaleModal.fixedFormationSaved', 'Banda fixa salva. Você pode reutilizá-la em quantas escalas quiser.') });
+    } catch (error) {
+      console.error('[ModernScaleForm] Failed to save fixed band formation:', error);
+      toast({
+        type: 'error',
+        message: t('bandScaleModal.fixedFormationSaveError', 'Não foi possível salvar a banda fixa agora.'),
+      });
+    } finally {
+      setIsSavingFixedFormation(false);
+    }
   };
 
   const goToStep = (stepId: string) => {
@@ -1268,13 +1312,19 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
           {scaleType === "band" && (
             <div className="flex flex-col space-y-6 pt-1">
               <div className="shrink-0 bg-slate-50 dark:bg-[#1C1C1E]/50 border border-slate-200 dark:border-white/5 rounded-2xl p-5 sm:p-6 mb-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                   <div>
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                   <div className="max-w-xl">
                       <h3 className="text-[15px] font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                         {t('bandScaleModal.useSavedFormation')}
+                         {t('bandScaleModal.reusableFormationTitle', 'Banda fixa e reutilizável')}
                       </h3>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                        {t('bandScaleModal.reusableFormationDescription', 'Use uma formação já salva ou salve a formação atual para reutilizar sem limite. Cada evento recebe sua própria cópia, preservando o histórico.')}
+                      </p>
                    </div>
                    <div className="w-full sm:w-auto">
+                      <label htmlFor="fixed-scale-select" className="sr-only">
+                        {t('bandScaleModal.useSavedFormation')}
+                      </label>
                       <select
                         id="fixed-scale-select"
                         value={selectedFixedBandScaleId}
@@ -1291,6 +1341,61 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                         ))}
                       </select>
                    </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-slate-200/80 dark:border-white/5">
+                  {!showSaveFixedFormation ? (
+                    <button
+                      type="button"
+                      data-testid="open-save-fixed-band-formation"
+                      onClick={() => setShowSaveFixedFormation(true)}
+                      disabled={!formData.assignments?.length || isSubmitting || isSubmittingNested}
+                      className="inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-primary/30 hover:text-primary-dark disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:text-primary-light"
+                    >
+                      {t('bandScaleModal.saveAsFixedFormation', 'Salvar como banda fixa')}
+                    </button>
+                  ) : (
+                    <div className="rounded-xl border border-primary/20 bg-white/80 p-3.5 dark:bg-black/20">
+                      <label htmlFor="fixed-formation-name" className={formLabelClass}>
+                        {t('bandScaleModal.fixedFormationName', 'Nome da banda fixa')}
+                      </label>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <input
+                          id="fixed-formation-name"
+                          type="text"
+                          value={fixedFormationName}
+                          onChange={(e) => setFixedFormationName(e.target.value)}
+                          maxLength={80}
+                          autoFocus
+                          placeholder={t('bandScaleModal.fixedFormationNamePlaceholder', 'Ex.: Banda Principal, Equipe A...')}
+                          className="input-base w-full flex-1"
+                        />
+                        <div className="flex gap-2 sm:shrink-0">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setShowSaveFixedFormation(false);
+                              setFixedFormationName("");
+                            }}
+                            disabled={isSavingFixedFormation}
+                          >
+                            {t('common.cancel', 'Cancelar')}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            data-testid="save-fixed-band-formation"
+                            onClick={handleSaveFixedFormation}
+                            disabled={isSavingFixedFormation || !fixedFormationName.trim()}
+                          >
+                            {isSavingFixedFormation ? <Spinner size="sm" /> : t('bandScaleModal.fixedFormationSave', 'Salvar banda fixa')}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               
