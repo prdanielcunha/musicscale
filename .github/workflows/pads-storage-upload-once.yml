@@ -1,4 +1,5 @@
 name: One-time MusicScale Warm Pads Storage Upload
+# Temporary workflow: remove after verified upload
 
 on:
   push:
@@ -91,11 +92,19 @@ jobs:
             id="${IDS[$i]}"
             expected="${SHAS[$i]}"
 
-            curl --fail --silent --show-error --location \
-              --retry 4 --retry-delay 2 --retry-all-errors \
+            drive_url="https://www.googleapis.com/drive/v3/files/$id?alt=media&supportsAllDrives=true"
+            if ! curl --fail --silent --show-error --location \
+              --retry 2 --retry-delay 2 --retry-all-errors \
               -H "Authorization: Bearer $ACCESS_TOKEN" \
-              "https://www.googleapis.com/drive/v3/files/$id?alt=media&supportsAllDrives=true" \
-              -o "$file"
+              "$drive_url" -o "$file"; then
+              echo "Drive API download was refused; enabling the API and retrying."
+              gcloud services enable drive.googleapis.com --project millionsnest --quiet
+              sleep 10
+              curl --fail --silent --show-error --location \
+                --retry 4 --retry-delay 3 --retry-all-errors \
+                -H "Authorization: Bearer $ACCESS_TOKEN" \
+                "$drive_url" -o "$file"
+            fi
 
             actual="$(sha256sum "$file" | cut -d' ' -f1)"
             test "$actual" = "$expected"
