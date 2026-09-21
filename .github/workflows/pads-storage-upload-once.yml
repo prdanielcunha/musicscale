@@ -112,14 +112,18 @@ jobs:
             object="$PREFIX/$file"
             encoded="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$object")"
 
-            curl --fail --silent --show-error --location \
-              --retry 4 --retry-delay 2 --retry-all-errors \
+            upload_status="$(curl --silent --show-error --location \
               -X POST \
               -H "Authorization: Bearer $ACCESS_TOKEN" \
               -H "Content-Type: audio/mpeg" \
               --data-binary "@$file" \
-              "https://storage.googleapis.com/upload/storage/v1/b/$BUCKET/o?uploadType=media&name=$encoded" \
-              >/tmp/upload-result.json
+              -o /tmp/upload-result.json -w '%{http_code}' \
+              "https://storage.googleapis.com/upload/storage/v1/b/$BUCKET/o?uploadType=media&name=$encoded")"
+            if [[ "$upload_status" != 200 ]]; then
+              echo "Storage upload returned HTTP $upload_status for $object"
+              cat /tmp/upload-result.json
+              exit 1
+            fi
 
             remote_sha="$(curl --fail --silent --show-error --location \
               --retry 4 --retry-delay 2 --retry-all-errors \
