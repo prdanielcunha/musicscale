@@ -1,0 +1,42 @@
+name: One-time MusicScale Warm Pads Storage IAM Repair
+# Temporary branch-only workflow. Do not merge.
+
+on:
+  push:
+    branches: [ chatgpt/pads-storage-iam-repair-once ]
+    paths:
+      - .github/workflows/pads-storage-iam-repair-once.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  grant:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate with MillionsNest production WIF
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
+
+      - name: Grant prefix-scoped Storage Object User
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUCKET='millionsnest.firebasestorage.app'
+          MEMBER='serviceAccount:mn-web-deployer@millionsnest.iam.gserviceaccount.com'
+          CONDITION="expression=resource.name.startsWith('projects/_/buckets/millionsnest.firebasestorage.app/objects/musicscale/pads/official/warm-v1/'),title=musicscale-warm-v1-object-access,description=One-time official MusicScale Warm pad publishing"
+          gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
+            --member="$MEMBER" \
+            --role="roles/storage.objectUser" \
+            --condition="$CONDITION" \
+            --quiet
+
+      - name: Confirm conditional binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud storage buckets get-iam-policy gs://millionsnest.firebasestorage.app --format=json \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); xs=[b for b in d.get('bindings',[]) if b.get('role')=='roles/storage.objectUser' and 'serviceAccount:mn-web-deployer@millionsnest.iam.gserviceaccount.com' in b.get('members',[])]; print(json.dumps(xs, indent=2)); assert xs"
