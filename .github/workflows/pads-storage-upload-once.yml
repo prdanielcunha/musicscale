@@ -31,6 +31,18 @@ jobs:
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/drive.readonly
 
+      - name: Ensure prefix-scoped Storage object access
+        shell: bash
+        run: |
+          set -euo pipefail
+          MEMBER='serviceAccount:mn-web-deployer@millionsnest.iam.gserviceaccount.com'
+          CONDITION="expression=resource.name.startsWith('projects/_/buckets/millionsnest.firebasestorage.app/objects/musicscale/pads/official/warm-v1/'),title=musicscale-warm-v1-object-access,description=Official MusicScale Warm v1 pad publishing"
+          gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
+            --member="$MEMBER" \
+            --role="roles/storage.objectUser" \
+            --condition="$CONDITION" \
+            --quiet
+
       - name: Download, verify, upload, and read back the 12 official pads
         shell: bash
         env:
