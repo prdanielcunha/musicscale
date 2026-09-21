@@ -15,19 +15,24 @@ on:
         required: false
         default: true
         type: boolean
+      publish_warm_pads:
+        description: 'One-time publish and verify the official MusicScale Warm pad library'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
   deploy-rules:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/production'
+    if: github.ref == 'refs/heads/production' && inputs.publish_warm_pads != true
     environment: firebase-production
     steps:
       - name: Checkout Repository
@@ -95,3 +100,125 @@ jobs:
             process.exit(1);
           });
           NODE
+
+  publish_warm_pads:
+    name: Publish official Warm pads
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/production' && github.event_name == 'workflow_dispatch' && inputs.publish_warm_pads == true
+    environment: firebase-production
+    concurrency:
+      group: musicscale-pads-storage-publisher
+      cancel-in-progress: false
+    env:
+      BUCKET: millionsnest.firebasestorage.app
+      PREFIX: musicscale/pads/official/warm-v1
+      STORAGE_IDENTITY: ms-rules-prod-wif-v1@millionsnest.iam.gserviceaccount.com
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Authenticate Storage candidate
+        id: storage_auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/ms-rules-prod-v1/providers/github
+          service_account: ms-rules-prod-wif-v1@millionsnest.iam.gserviceaccount.com
+          audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/ms-rules-prod-v1/providers/github
+
+      - name: Probe Storage create and read
+        id: storage_probe
+        shell: bash
+        run: |
+          set -u
+          probe="/tmp/musicscale-storage-probe.txt"
+          remote="gs://$BUCKET/$PREFIX/_probe-rules-$GITHUB_RUN_ID.txt"
+          printf 'musicscale-storage-probe' > "$probe"
+          if ! gcloud storage cp "$probe" "$remote" --quiet; then
+            echo "can_write=false" >> "$GITHUB_OUTPUT"
+            echo "Storage write unavailable for $STORAGE_IDENTITY" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if ! gcloud storage cp "$remote" /tmp/musicscale-storage-probe-read.txt --quiet; then
+            echo "can_write=false" >> "$GITHUB_OUTPUT"
+            echo "Storage read unavailable for $STORAGE_IDENTITY" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          cmp "$probe" /tmp/musicscale-storage-probe-read.txt
+          gcloud storage rm "$remote" --quiet || true
+          echo "can_write=true" >> "$GITHUB_OUTPUT"
+          echo "Storage create/read verified for **$STORAGE_IDENTITY**." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Authenticate Drive source
+        id: drive_auth
+        if: steps.storage_probe.outputs.can_write == 'true'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/drive.readonly
+
+      - name: Download and verify official Warm sources
+        if: steps.storage_probe.outputs.can_write == 'true'
+        shell: bash
+        env:
+          DRIVE_ACCESS_TOKEN: ${{ steps.drive_auth.outputs.access_token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/musicscale-warm-pads
+          cd /tmp/musicscale-warm-pads
+          IDS=(
+            1xCokteWYu9mfl7cSY_Opr6k2MykMYCHS
+            1lFc7qDQqUtc3AeZp2FdIgt9OafXHGQO9
+            1WG8KGU4KhH3rGpxRpztLLDRnNtOSdfKH
+            1GQjlv_Y2Xfk8FrbqGiMn6t7t6HlqLHCp
+            1PN9S6TCjw078CD2o8WaXuv_p0QR5k72Q
+            1KDBlcGCQmyx2C7cyM9XWKg0YDJQdzu37
+            1W4WloNlNVvbH0iE4qNebGGW2V5vkvzgT
+            1K94GPpk76YieTt8BKQcAvxOOblAEfXTp
+            1j8L-F9d7cJl7Tch0FI-5znWvqfbONWcl
+            1vtc8JmjyFZL3KM_NDUVUxxVrr5NItF5P
+            1IoTp6iMjjmTvJYH2-0DXmZxC3mOv7GEc
+            1vRnGcZXXM1BdFTZtcGopWcgIfgFrGZZk
+          )
+          FILES=(
+            'Pad_C_Warm.mp3' 'Pad_C#_Warm.mp3' 'Pad_D_Warm.mp3' 'Pad_D#_Warm.mp3'
+            'Pad_E_Warm.mp3' 'Pad_F_Warm.mp3' 'Pad_F#_Warm.mp3' 'Pad_G_Warm.mp3'
+            'Pad_G#_Warm.mp3' 'Pad_A_Warm.mp3' 'Pad_A#_Warm.mp3' 'Pad_B_Warm.mp3'
+          )
+          SHAS=(
+            0312b26b467cbfbcbd7bc5e8ebcf9a90f4e977b10688839e2a2a8ef4a224173c
+            f8f1b19873635a9a84a126d5ccb16841b0c97e17e784e18313d32e26ce2a8dfd
+            3f87621e4f70a05e40c5e56eb6b9d93fcd8ea6ce8ec1081ec58f883c9bf49673
+            1aec1c3dc0efc5a3c09851cac6495b753aba63080035a97daa43246791eee403
+            3ed6187d8e6f5fc0b8ca1f094d4afc4fc691ec03746ab7c0febecea8d5a5e1fe
+            b7b0ac5e6ee41f108113cdc0d424a0e1dff2919a7e5a79297fa2b0be0d1d01e0
+            97ef632ae1028b8a526cbe9f0cf80ff06325a597765d2745771239181c0b1278
+            6edbb967f9d7b949f43fe6a8bc62639833a27833e1cb64a5cb44ed9b5d6c741b
+            285a3a31e9c5cfa55598add7cfc460645722a3f16853d882ae88325e2c46cd3c
+            ebffdefb14fe5be840efc2237a96681cb79ba595de519531c00d8b0cda368255
+            8686296cdb38c7a139d60a3989779e80eb37bb6db282ab559cea60cd83ca5d97
+            bb64f1199fde3b9bcf224552fa0ba0938ce4be0c297e8eef7d2e05e650ef2de8
+          )
+          for i in "${!FILES[@]}"; do
+            url="https://www.googleapis.com/drive/v3/files/${IDS[$i]}?alt=media&supportsAllDrives=true"
+            curl --fail --silent --show-error --location --retry 4 --retry-delay 3 --retry-all-errors \
+              -H "Authorization: Bearer $DRIVE_ACCESS_TOKEN" "$url" -o "${FILES[$i]}"
+            actual="$(sha256sum "${FILES[$i]}" | cut -d' ' -f1)"
+            test "$actual" = "${SHAS[$i]}"
+            echo "Source verified: ${FILES[$i]}"
+          done
+
+      - name: Restore Storage candidate credentials
+        if: steps.storage_probe.outputs.can_write == 'true'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/ms-rules-prod-v1/providers/github
+          service_account: ms-rules-prod-wif-v1@millionsnest.iam.gserviceaccount.com
+          audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/ms-rules-prod-v1/providers/github
+
+      - name: Publish and verify canonical Warm pads
+        if: steps.storage_probe.outputs.can_write == 'true'
+        shell: bash
+        run: bash scripts/publish-warm-pads-gcloud.sh
+
