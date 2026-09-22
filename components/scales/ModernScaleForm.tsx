@@ -350,12 +350,18 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const [isFormInitialized, setIsFormInitialized] = useState<boolean>(false);
   const idempotencyKeyRef = useRef<string>("");
   const lastPayloadFingerprintRef = useRef<string>("");
+  const fixedBandSnapshotRef = useRef<{
+    fixedScaleId: string;
+    assignmentSignature: string;
+    bandScaleId: string;
+  } | null>(null);
   const hasAppliedInitialStepRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (isOpen) {
       idempotencyKeyRef.current = crypto.randomUUID();
       lastPayloadFingerprintRef.current = "";
+      fixedBandSnapshotRef.current = null;
       setSelectedFixedBandScaleId("");
       setShowSaveFixedFormation(false);
       setFixedFormationName("");
@@ -541,8 +547,22 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     }
 
     const selectedSignature = getFixedBandAssignmentSignature(assignments);
+    const cachedSnapshot = fixedBandSnapshotRef.current;
+    if (
+      cachedSnapshot &&
+      cachedSnapshot.fixedScaleId === selectedFixedBandScaleId &&
+      cachedSnapshot.assignmentSignature === selectedSignature
+    ) {
+      return cachedSnapshot.bandScaleId;
+    }
+
     const linkedSignature = getPopulatedBandAssignmentSignature(formData.bandScaleId);
     if (formData.bandScaleId && linkedSignature && linkedSignature === selectedSignature) {
+      fixedBandSnapshotRef.current = {
+        fixedScaleId: selectedFixedBandScaleId,
+        assignmentSignature: selectedSignature,
+        bandScaleId: formData.bandScaleId,
+      };
       return formData.bandScaleId;
     }
 
@@ -578,6 +598,11 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       );
     }
 
+    fixedBandSnapshotRef.current = {
+      fixedScaleId: selectedFixedBandScaleId,
+      assignmentSignature: selectedSignature,
+      bandScaleId,
+    };
     setFormData((prev) => ({ ...prev, bandScaleId }));
     return bandScaleId;
   };
@@ -767,18 +792,6 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     };
   }, [isOpen, isFormInitialized, currentStep, focusTarget, scaleType, hasAppliedFocusRef]);
 
-  const availableBandScales = useMemo(() => {
-    if (!populatedBandScales) return [];
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    return [...populatedBandScales]
-      .filter(bs => {
-          const dateObj = new Date(bs.date + "T00:00:00");
-          return dateObj >= today || bs.id === formData.bandScaleId;
-      })
-      .sort((a,b) => a.date.localeCompare(b.date));
-  }, [populatedBandScales, formData.bandScaleId]);
-
   const availableMusicScales = useMemo(() => {
     if (!populatedScales) return [];
     const today = new Date();
@@ -808,7 +821,12 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     const matchingFixedScale = fixedBandScales.find(
       (scale) => getFixedBandAssignmentSignature(scale.assignments || []) === linkedSignature,
     );
-    if (matchingFixedScale) {
+    if (matchingFixedScale && formData.bandScaleId) {
+      fixedBandSnapshotRef.current = {
+        fixedScaleId: matchingFixedScale.id,
+        assignmentSignature: linkedSignature,
+        bandScaleId: formData.bandScaleId,
+      };
       setSelectedFixedBandScaleId(matchingFixedScale.id);
     }
   }, [
@@ -1325,6 +1343,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                       const nextId = e.target.value;
                       setSelectedFixedBandScaleId(nextId);
                       if (!nextId) {
+                        fixedBandSnapshotRef.current = null;
                         setFormData((prev) => ({ ...prev, bandScaleId: null }));
                       }
                     }}
