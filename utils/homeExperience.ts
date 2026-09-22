@@ -309,22 +309,40 @@ export function buildHomeEventSummaries(
     if (scale.bandScaleId && bandScalesMap.has(scale.bandScaleId)) {
       const linkedBand = bandScalesMap.get(scale.bandScaleId)!;
       const linkedAssignments = (linkedBand.assignments || []).filter((a) => (a as any).active !== false);
-      const uniqueBandUsers = new Set(
-        linkedAssignments.map((a) => a.user?.uid).filter(Boolean)
-      );
-      teamCount = uniqueBandUsers.size;
 
-      const userAssignments = linkedAssignments.filter((a) => a.user?.uid === currentUserId);
-      isUserAssigned = userAssignments.length > 0;
-      userFunctionNames = Array.from(
-        new Set(userAssignments.map((a) => a.instrument?.name).filter(Boolean))
-      ) as string[];
-      userFunctionCategories = Array.from(
-        new Set(userAssignments.map((a) => a.instrument?.category).filter(Boolean))
-      ) as string[];
-      userFunctionCategories = Array.from(
-        new Set(userAssignments.map((a) => a.instrument?.category).filter(Boolean))
-      ) as string[];
+      if (linkedAssignments.length > 0) {
+        const uniqueBandUsers = new Set(
+          linkedAssignments.map((a) => a.user?.uid).filter(Boolean)
+        );
+        teamCount = uniqueBandUsers.size;
+
+        const userAssignments = linkedAssignments.filter((a) => a.user?.uid === currentUserId);
+        isUserAssigned = userAssignments.length > 0;
+        userFunctionNames = Array.from(
+          new Set(userAssignments.map((a) => a.instrument?.name).filter(Boolean))
+        ) as string[];
+        userFunctionCategories = Array.from(
+          new Set(userAssignments.map((a) => a.instrument?.category).filter(Boolean))
+        ) as string[];
+      } else {
+        // On the first operational paint, BandScale user/instrument enrichment is
+        // intentionally still loading. The published MusicScale already carries
+        // its canonical eventAssignments projection, so use it as the readiness
+        // fallback instead of briefly reporting an empty team.
+        const uniqueUserIds = new Set(
+          activeAssignments.map((a) => a.userId).filter(Boolean)
+        );
+        teamCount = uniqueUserIds.size;
+
+        const userAssignments = activeAssignments.filter((a) => a.userId === currentUserId);
+        isUserAssigned = userAssignments.length > 0;
+        userFunctionNames = Array.from(
+          new Set(userAssignments.map((a) => a.functionName).filter(Boolean))
+        ) as string[];
+        userFunctionCategories = Array.from(
+          new Set(userAssignments.map((a) => a.functionCategory).filter(Boolean))
+        ) as string[];
+      }
     } else {
       const uniqueUserIds = new Set(activeAssignments.map((a) => a.userId));
       teamCount = uniqueUserIds.size;
@@ -333,9 +351,6 @@ export function buildHomeEventSummaries(
       isUserAssigned = userAssignments.length > 0;
       userFunctionNames = Array.from(
         new Set(userAssignments.map((a) => a.functionName).filter(Boolean))
-      ) as string[];
-      userFunctionCategories = Array.from(
-        new Set(userAssignments.map((a) => a.functionCategory).filter(Boolean))
       ) as string[];
       userFunctionCategories = Array.from(
         new Set(userAssignments.map((a) => a.functionCategory).filter(Boolean))
