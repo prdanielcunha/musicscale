@@ -1043,7 +1043,8 @@
     "legacyBandLinked": "Esta escala possui uma formação antiga vinculada. Selecione uma escala fixa para substituí-la, ou mantenha como está.",
     "fixedBandScaleNotFound": "A escala fixa selecionada não foi encontrada.",
     "fixedBandScaleEmpty": "A escala fixa selecionada não possui integrantes válidos.",
-    "fixedBandScaleApplyError": "Não foi possível preparar a escala fixa para este evento."
+    "fixedBandScaleApplyError": "Não foi possível preparar a escala fixa para este evento.",
+    "noFixedBandScaleCardHint": "Continue sem uma formação fixa e monte a equipe especificamente para este evento."
   },
   "bandScaleModal": {
     "titleCreate": "Nova Escala da Banda",
