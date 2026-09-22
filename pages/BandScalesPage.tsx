@@ -1,15 +1,80 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Card from "../components/common/Card";
+import OperationalWorkspaceSkeleton from "../components/common/OperationalWorkspaceSkeleton";
 import FixedBandScaleManager from "../components/database/FixedBandScaleManager";
 import { useMusic } from "../contexts/MusicDataContext";
+import { useModals } from "../contexts/ModalContext";
+import { logger } from "../lib/logger";
 
 const BandScalesPage: React.FC = () => {
   const { t } = useTranslation();
-  const { fixedBandScales } = useMusic();
+  const { fixedBandScales, populatedBandScales, loading, error } = useMusic();
+  const { openBandScaleDetail } = useModals();
+  const { scaleId } = useParams<{ scaleId: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const initialCreateOpen = searchParams.get("intent") === "create";
+  const hasHandledDeepLink = useRef(false);
+
+  useEffect(() => {
+    hasHandledDeepLink.current = false;
+  }, [scaleId]);
+
+  // Backward compatibility for old event-specific BandScale links. New band
+  // creation is fixed/reusable; published event history still resolves safely.
+  useEffect(() => {
+    if (
+      !scaleId ||
+      loading ||
+      hasHandledDeepLink.current
+    ) {
+      return;
+    }
+
+    const expectedPath = `/band-scales/${scaleId}`;
+    if (location.pathname !== expectedPath) {
+      return;
+    }
+
+    const legacyBandScale = populatedBandScales.find((scale) => scale.id === scaleId);
+    hasHandledDeepLink.current = true;
+
+    if (!legacyBandScale) {
+      logger.warn(`Band Scale with ID ${scaleId} not found, redirecting.`);
+      navigate("/band-scales", { replace: true });
+      return;
+    }
+
+    if (legacyBandScale.musicScaleId) {
+      navigate(`/scales/${legacyBandScale.musicScaleId}`, { replace: true });
+      return;
+    }
+
+    // Old records without a Music Scale remain readable until migrated.
+    openBandScaleDetail(legacyBandScale);
+  }, [
+    scaleId,
+    loading,
+    populatedBandScales,
+    openBandScaleDetail,
+    navigate,
+    location.pathname,
+  ]);
+
+  if (loading) {
+    return <OperationalWorkspaceSkeleton variant="scales" />;
+  }
+
+  if (error) {
+    return (
+      <div className="ms-band-scales-page mx-auto max-w-3xl px-4 py-16 text-center text-red-500">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="ms-band-scales-page w-full max-w-5xl mx-auto py-8 lg:py-12 px-4 sm:px-6 lg:px-8 pb-32 space-y-8">
@@ -24,8 +89,8 @@ const BandScalesPage: React.FC = () => {
             </h1>
             <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-slate-500 dark:text-white/60">
               {t(
-                "bandScalesPage.description",
-                "Cadastre a formação padrão da banda uma vez e reutilize em qualquer Escala de Músicas. Aqui você define pessoas e funções, não presença por evento.",
+                "bandScalesPage.subtitle",
+                "Cadastre formações fixas e reutilizáveis. Os eventos, notificações e confirmações de presença ficam na Escala de Músicas.",
               )}
             </p>
           </div>
@@ -47,7 +112,7 @@ const BandScalesPage: React.FC = () => {
         <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
           {t(
             "bandScalesPage.howItWorksDescription",
-            "Ao criar ou publicar uma Escala de Músicas, escolha uma destas formações fixas. É nessa escala de músicas que a equipe recebe a notificação do evento e confirma se poderá participar.",
+            "Defina aqui quem normalmente ministra, canta e toca. Ao criar uma Escala de Músicas, selecione uma dessas formações. Cada integrante recebe o evento e confirma presença na própria Escala de Músicas.",
           )}
         </p>
       </div>
