@@ -63,9 +63,13 @@ const EditIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 
 interface FixedBandScaleManagerProps {
   initialCreateOpen?: boolean;
+  onInitialCreateHandled?: () => void;
 }
 
-const FixedBandScaleManager: React.FC<FixedBandScaleManagerProps> = ({ initialCreateOpen = false }) => {
+const FixedBandScaleManager: React.FC<FixedBandScaleManagerProps> = ({
+  initialCreateOpen = false,
+  onInitialCreateHandled,
+}) => {
   const { t } = useTranslation();
   const { user, userProfile } = useAuth();
   const { fixedBandScales, allUsers, instruments, refreshData } = useMusic();
@@ -81,8 +85,9 @@ const FixedBandScaleManager: React.FC<FixedBandScaleManagerProps> = ({ initialCr
     if (initialCreateOpen) {
       setScaleToEdit(null);
       setIsFormOpen(true);
+      onInitialCreateHandled?.();
     }
-  }, [initialCreateOpen]);
+  }, [initialCreateOpen, onInitialCreateHandled]);
 
   const userMap = useMemo(
     () => new Map(allUsers.map((u) => [u.uid, u])),
