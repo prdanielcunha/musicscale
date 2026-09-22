@@ -15,7 +15,7 @@ const BandScalesPage: React.FC = () => {
   const { scaleId } = useParams<{ scaleId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialCreateOpen = searchParams.get("intent") === "create";
   const hasHandledDeepLink = useRef(false);
 
@@ -102,7 +102,14 @@ const BandScalesPage: React.FC = () => {
       </header>
 
       <Card className="p-5 sm:p-6 lg:p-7 dark:bg-[#1A1A1C]/80 border-slate-200/50 dark:border-white/[0.08] shadow-sm">
-        <FixedBandScaleManager initialCreateOpen={initialCreateOpen} />
+        <FixedBandScaleManager
+          initialCreateOpen={initialCreateOpen}
+          onInitialCreateHandled={() => {
+            const next = new URLSearchParams(searchParams);
+            next.delete("intent");
+            setSearchParams(next, { replace: true });
+          }}
+        />
       </Card>
 
       <div className="rounded-2xl border border-primary/15 bg-primary/[0.04] px-5 py-4">
