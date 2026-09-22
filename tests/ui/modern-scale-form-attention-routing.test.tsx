@@ -148,12 +148,12 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
       />
     );
     await waitFor(() => {
-      const selector = screen.getByLabelText('Escala fixa da banda');
-      expect(document.activeElement).toBe(selector);
+      const noFixedBandCard = screen.getByRole('radio', { name: /Sem escala fixa/i });
+      expect(document.activeElement).toBe(noFixedBandCard);
     });
   });
 
-  it('3. seleção nativa escolhe a escala fixa', async () => {
+  it('3. card de seleção única escolhe a escala fixa', async () => {
     const user = userEvent.setup();
     render(
       <ModernScaleForm
@@ -165,13 +165,14 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
         isSubmitting={false}
       />
     );
-    const selector = screen.getByLabelText('Escala fixa da banda');
-    await user.selectOptions(selector, 'fixed-1');
-    expect(selector).toHaveValue('fixed-1');
-    expect(screen.getByText('Banda Principal')).toBeInTheDocument();
+    const bandCard = screen.getByRole('radio', { name: /Banda Principal/i });
+    await user.click(bandCard);
+    expect(bandCard).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText(/A formação será copiada para este evento/i)).toBeInTheDocument();
   });
 
-  it('4. a seleção pode ser removida sem criar escala de evento', () => {
+  it('4. a seleção pode ser removida pelo card Sem escala fixa', async () => {
+    const user = userEvent.setup();
     render(
       <ModernScaleForm
         isOpen={true}
@@ -182,11 +183,13 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
         isSubmitting={false}
       />
     );
-    const selector = screen.getByLabelText('Escala fixa da banda');
-    fireEvent.change(selector, { target: { value: 'fixed-1' } });
-    expect(selector).toHaveValue('fixed-1');
-    fireEvent.change(selector, { target: { value: '' } });
-    expect(selector).toHaveValue('');
+    const bandCard = screen.getByRole('radio', { name: /Banda Principal/i });
+    const noFixedBandCard = screen.getByRole('radio', { name: /Sem escala fixa/i });
+    await user.click(bandCard);
+    expect(bandCard).toHaveAttribute('aria-checked', 'true');
+    await user.click(noFixedBandCard);
+    expect(noFixedBandCard).toHaveAttribute('aria-checked', 'true');
+    expect(bandCard).toHaveAttribute('aria-checked', 'false');
   });
 
   it('5. ausência de escalas fixas foca Gerenciar escalas fixas', async () => {
@@ -503,9 +506,8 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
         isSubmitting={false}
       />
     );
-    const selector = screen.getByLabelText('Escala fixa da banda');
-    expect(selector).toHaveAttribute('aria-label', 'Escala fixa da banda');
-    expect(screen.getByRole('option', { name: /Banda Principal · 1 integrante/i })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Escala fixa da banda' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Banda Principal.*1 integrante/i })).toBeInTheDocument();
   });
 
   it('21. aria-label EN', async () => {
@@ -520,9 +522,8 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
         isSubmitting={false}
       />
     );
-    const selector = screen.getByLabelText('Fixed band formation');
-    expect(selector).toHaveAttribute('aria-label', 'Fixed band formation');
-    expect(screen.getByRole('option', { name: /Banda Principal · 1 member/i })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Fixed band formation' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Banda Principal.*1 member/i })).toBeInTheDocument();
   });
 
   it('22. aria-label ES', async () => {
@@ -537,9 +538,8 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
         isSubmitting={false}
       />
     );
-    const selector = screen.getByLabelText('Escala fija de la banda');
-    expect(selector).toHaveAttribute('aria-label', 'Escala fija de la banda');
-    expect(screen.getByRole('option', { name: /Banda Principal · 1 integrante/i })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Escala fija de la banda' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Banda Principal.*1 integrante/i })).toBeInTheDocument();
   });
 
   describe('State Guard and Defaults verification', () => {
