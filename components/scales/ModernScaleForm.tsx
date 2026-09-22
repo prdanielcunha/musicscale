@@ -339,10 +339,6 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const [isSubmittingNested, setIsSubmittingNested] = useState(false);
   
   const [selectedFixedBandScaleId, setSelectedFixedBandScaleId] = useState<string>("");
-  const selectedFixedBandScale = useMemo(
-    () => fixedBandScales.find((scale) => scale.id === selectedFixedBandScaleId) || null,
-    [fixedBandScales, selectedFixedBandScaleId],
-  );
   const [showSaveFixedFormation, setShowSaveFixedFormation] = useState(false);
   const [fixedFormationName, setFixedFormationName] = useState("");
   const [isSavingFixedFormation, setIsSavingFixedFormation] = useState(false);
