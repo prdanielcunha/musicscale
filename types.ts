@@ -498,6 +498,11 @@ export interface BandScale {
   lastModifiedAt?: string | null;
 }
 
+/**
+ * Reusable band formation template.
+ * Event context (date, time, event type and location) belongs exclusively to
+ * the Music Scale that consumes this formation.
+ */
 export interface FixedBandScale {
   id: string;
   name: string;

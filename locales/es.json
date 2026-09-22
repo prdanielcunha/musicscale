@@ -71,7 +71,7 @@
     "login": "Entrar",
     "backup": "Copia de Seguridad y Datos",
     "my_scales": "Escalas Musicales",
-    "band_scales": "Escalas de la Banda",
+    "band_scales": "Escalas Fijas",
     "songs": "Canciones",
     "chords": "Cifrados",
     "library": "Biblioteca Viva",
@@ -916,14 +916,14 @@
     "emptyScaleTip": "Toca el + en las canciones al lado",
     "scaleModalSubtitleMusic": "Construye el repertorio del culto con canciones, banda y observaciones en un solo lugar.",
     "scaleModalSubtitleBand": "Programa músicos, agrega detalles y conéctalos con el repertorio del culto.",
-    "linkBandScale": "Vincular Escala de Banda",
+    "linkBandScale": "Seleccionar Escala Fija de la Banda",
     "optional": "Opcional",
-    "linkBandDesc": "Puedes conectar esta escala musical a una escala de banda para mantener repertorio, músicos y evento alineados.",
+    "linkBandDesc": "Elige la formación fija que se usará en este evento. La agenda, las notificaciones y las confirmaciones de asistencia se gestionan en la Escala Musical.",
     "createNew": "Crear Nueva",
-    "noBandScales": "No se encontraron escalas de banda",
-    "noBandScalesDesc": "Crea una escala de banda ahora y se vinculará automáticamente a esta escala musical.",
-    "noBandScalesNoPerm": "No tienes escalas disponibles para vincular.",
-    "createBandScaleBtn": "Crear Escala de Banda",
+    "noBandScales": "No hay ninguna escala fija de banda creada",
+    "noBandScalesDesc": "Crea una escala fija con los músicos y funciones que sueles usar. Después, selecciónala aquí.",
+    "noBandScalesNoPerm": "No hay ninguna escala fija disponible para seleccionar.",
+    "createBandScaleBtn": "Crear Escala Fija",
     "selected": "Seleccionada",
     "alreadyLinked": "(Ya vinculada)",
     "linkMusicScale": "Vincular Escala Musical",
@@ -933,7 +933,7 @@
     "noMusicScalesNoPerm": "No tienes escalas disponibles para vincular.",
     "createMusicScaleBtn": "Crear Escala Musical",
     "applyFixedScale": "Aplicar Escala Fija",
-    "fixedScalePlaceholder": "Seleccione una formación guardada para aplicar...",
+    "fixedScalePlaceholder": "Selecciona una escala fija...",
     "confirmReplaceAssignments": "Esto reemplazará los integrantes ya programados. ¿Desea continuar?",
     "discardChangesTitle": "¿Descartar cambios?",
     "discardChangesDescription": "Tienes cambios sin guardar en esta escala.",
@@ -1035,7 +1035,15 @@
     "deleteDraftPermanent": "Esta acción no se puede deshacer.",
     "deletingDraft": "Eliminando...",
     "confirmDeleteDraft": "Eliminar borrador",
-    "saveContextUnavailable": "Tu sesión u organización todavía se está cargando. Espera unos segundos e intenta guardar nuevamente."
+    "saveContextUnavailable": "Tu sesión u organización todavía se está cargando. Espera unos segundos e intenta guardar nuevamente.",
+    "manageFixedBandScales": "Gestionar escalas fijas",
+    "fixedBandScaleSelectorLabel": "Escala fija de la banda",
+    "noFixedBandScale": "Sin escala fija",
+    "fixedBandScaleEventCopyHint": "La formación se copiará a este evento. La asistencia y las notificaciones continúan en la Escala Musical.",
+    "legacyBandLinked": "Esta escala tiene una formación antigua vinculada. Selecciona una escala fija para sustituirla o mantenla como está.",
+    "fixedBandScaleNotFound": "No se encontró la escala fija seleccionada.",
+    "fixedBandScaleEmpty": "La escala fija seleccionada no tiene integrantes válidos.",
+    "fixedBandScaleApplyError": "No se pudo preparar la escala fija para este evento."
   },
   "bandScaleModal": {
     "titleCreate": "Nueva Escala de Banda",
@@ -1737,8 +1745,8 @@
       "description": "Planifica repertorio, fecha y equipo."
     },
     "bandScale": {
-      "title": "Crear escala de banda",
-      "description": "Organiza músicos, funciones e instrumentos."
+      "title": "Crear escala fija de banda",
+      "description": "Crea una formación reutilizable de músicos y funciones."
     },
     "song": {
       "title": "Canción",
@@ -1889,5 +1897,31 @@
     "metronome_title": "Metrónomo",
     "metronome_description": "Define el BPM, marca el tiempo y controla el click con audio preparado para el escenario.",
     "audio_note": "El audio nunca comienza automáticamente. Cada dispositivo debe habilitarse localmente y Play sigue requiriendo una acción del usuario."
+  },
+  "bandScalesPage": {
+    "fixedBadge": "Formaciones reutilizables",
+    "title": "Escalas Fijas de la Banda",
+    "subtitle": "Crea formaciones fijas y reutilizables. Los eventos, las notificaciones y las confirmaciones de asistencia quedan en la Escala Musical.",
+    "howItWorksTitle": "Cómo funciona",
+    "howItWorksDescription": "Define aquí quién normalmente ministra, canta y toca. Al crear una Escala Musical, selecciona una de estas formaciones. Cada integrante recibe el evento y confirma su asistencia en la propia Escala Musical.",
+    "savedFixedScales": "Escalas Fijas",
+    "savedFixedScalesDescription": "Formaciones que puedes reutilizar en cualquier evento.",
+    "newFixedScale": "Nueva Escala Fija",
+    "emptyTitle": "Aún no hay escalas fijas",
+    "emptyDescription": "Crea tu primera formación con músicos, voces y funciones. Después estará disponible al preparar cada Escala Musical.",
+    "editFixedScale": "Editar escala fija",
+    "deleteFixedScale": "Eliminar escala fija",
+    "deleteTitle": "¿Eliminar la escala fija “{{name}}”?",
+    "deleteDescription": "¿Seguro que quieres eliminar esta escala fija? Esta acción no se puede deshacer.",
+    "editFixedScaleTitle": "Editar Escala Fija",
+    "newFixedScaleTitle": "Nueva Escala Fija",
+    "fixedScaleName": "Nombre de la Escala Fija",
+    "fixedScaleNamePlaceholder": "Ej.: Banda Principal, Equipo A...",
+    "fixedScaleMembersHint": "Define solo la formación: integrantes y funciones. La fecha, hora, tipo de evento y lugar se definen en la Escala Musical de cada evento; la asistencia también se confirma allí.",
+    "manageFixedScales": "Gestionar Escalas Fijas",
+    "manageFixedScalesDescription": "Crea y mantén las formaciones fijas de la banda. Al preparar una Escala Musical, selecciona una para el evento; las notificaciones y confirmaciones ocurren en la propia Escala Musical.",
+    "fixedCount_zero": "0 formaciones",
+    "fixedCount_one": "1 formación",
+    "fixedCount_other": "{{count}} formaciones"
   }
 }

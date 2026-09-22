@@ -14,7 +14,7 @@ test.describe('Global Create Action', () => {
     await expect(palette).toBeVisible();
 
     const musicScaleAction = palette.locator('button').filter({ hasText: 'Criar escala de músicas' }).first();
-    const bandScaleAction = palette.locator('button').filter({ hasText: 'Criar escala da banda' }).first();
+    const bandScaleAction = palette.locator('button').filter({ hasText: 'Criar escala fixa da banda' }).first();
     const manualSongAction = palette.locator('button').filter({ hasText: 'Adicionar manualmente' }).first();
     await expect(musicScaleAction).toBeVisible();
     await expect(bandScaleAction).toBeVisible();

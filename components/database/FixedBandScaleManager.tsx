@@ -1,5 +1,6 @@
 import { logger } from "../../lib/logger";
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useMusic } from "../../contexts/MusicDataContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useApi } from "../../contexts/ApiContext";
@@ -60,7 +61,16 @@ const EditIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-const FixedBandScaleManager: React.FC = () => {
+interface FixedBandScaleManagerProps {
+  initialCreateOpen?: boolean;
+  onInitialCreateHandled?: () => void;
+}
+
+const FixedBandScaleManager: React.FC<FixedBandScaleManagerProps> = ({
+  initialCreateOpen = false,
+  onInitialCreateHandled,
+}) => {
+  const { t } = useTranslation();
   const { user, userProfile } = useAuth();
   const { fixedBandScales, allUsers, instruments, refreshData } = useMusic();
   const api = useApi();
@@ -70,6 +80,14 @@ const FixedBandScaleManager: React.FC = () => {
     null,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (initialCreateOpen) {
+      setScaleToEdit(null);
+      setIsFormOpen(true);
+      onInitialCreateHandled?.();
+    }
+  }, [initialCreateOpen, onInitialCreateHandled]);
 
   const userMap = useMemo(
     () => new Map(allUsers.map((u) => [u.uid, u])),
@@ -120,59 +138,78 @@ const FixedBandScaleManager: React.FC = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold text-slate-800 dark:text-white">
-          Modelos Salvos
-        </h3>
+        <div>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+            {t("bandScalesPage.savedFixedScales", "Escalas Fixas")}
+          </h3>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {t("bandScalesPage.savedFixedScalesDescription", "Formações que você reutiliza em qualquer evento.")}
+          </p>
+        </div>
         <Button
           onClick={() => handleOpenForm()}
           size="sm"
           leftIcon={<PlusIcon />}
         >
-          Novo Modelo
+          {t("bandScalesPage.newFixedScale", "Nova Escala Fixa")}
         </Button>
       </div>
-      <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
-        {fixedBandScales.map((scale) => (
-          <div
-            key={scale.id}
-            className="p-3 bg-slate-100 dark:bg-gray-700/50 rounded-lg"
-          >
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="font-bold text-slate-800 dark:text-white">
-                {scale.name}
-              </h4>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => handleOpenForm(scale)}
-                  className="!p-2"
-                >
-                  <EditIcon />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={() => setScaleToDelete(scale)}
-                  className="!p-2"
-                >
-                  <TrashIcon />
-                </Button>
+      {fixedBandScales.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-5 py-8 text-center dark:border-white/10 dark:bg-white/[0.02]">
+          <UsersIcon className="mx-auto h-8 w-8 text-slate-300 dark:text-white/20" />
+          <h4 className="mt-3 text-sm font-bold text-slate-800 dark:text-white">
+            {t("bandScalesPage.emptyTitle", "Nenhuma escala fixa cadastrada")}
+          </h4>
+          <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+            {t("bandScalesPage.emptyDescription", "Crie sua primeira formação com músicos, vocais e funções. Depois ela ficará disponível ao montar cada Escala de Músicas.")}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-2">
+          {fixedBandScales.map((scale) => (
+            <div
+              key={scale.id}
+              className="p-4 bg-slate-100/80 dark:bg-white/[0.04] border border-transparent dark:border-white/[0.05] rounded-xl"
+            >
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-bold text-slate-800 dark:text-white">
+                  {scale.name}
+                </h4>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleOpenForm(scale)}
+                    className="!p-2"
+                    aria-label={t("bandScalesPage.editFixedScale", "Editar escala fixa")}
+                  >
+                    <EditIcon />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => setScaleToDelete(scale)}
+                    className="!p-2"
+                    aria-label={t("bandScalesPage.deleteFixedScale", "Excluir escala fixa")}
+                  >
+                    <TrashIcon />
+                  </Button>
+                </div>
               </div>
+              <div className="text-sm text-slate-600 dark:text-gray-300 flex items-center gap-1">
+                <UsersIcon className="w-4 h-4" />
+                <span>{t("scaleModal.memberCount", { count: scale.assignments.length })}</span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-gray-400 pl-5 truncate">
+                {scale.assignments
+                  .map((a) => userMap.get(a.userId)?.displayName)
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
             </div>
-            <div className="text-sm text-slate-600 dark:text-gray-300 flex items-center gap-1">
-              <UsersIcon className="w-4 h-4" />
-              <span>{scale.assignments.length} integrante(s): </span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-gray-400 pl-5 truncate">
-              {scale.assignments
-                .map((a) => userMap.get(a.userId)?.displayName)
-                .filter(Boolean)
-                .join(", ")}
-            </p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <FixedBandScaleFormModal
         isOpen={isFormOpen}
@@ -186,10 +223,10 @@ const FixedBandScaleManager: React.FC = () => {
         isOpen={!!scaleToDelete}
         onClose={() => setScaleToDelete(null)}
         onConfirm={handleDelete}
-        title={`Excluir Escala Fixa "${scaleToDelete?.name}"?`}
-        message="Tem certeza que deseja excluir esta escala fixa? Esta ação não pode ser desfeita."
+        title={t("bandScalesPage.deleteTitle", { name: scaleToDelete?.name || "" })}
+        message={t("bandScalesPage.deleteDescription", "Tem certeza que deseja excluir esta escala fixa? Esta ação não pode ser desfeita.")}
         isLoading={isSubmitting}
-        zIndexClass="z-[130]"
+        zIndexClass="z-[10040]"
       />
     </div>
   );

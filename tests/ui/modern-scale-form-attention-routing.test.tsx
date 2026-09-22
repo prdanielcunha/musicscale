@@ -54,6 +54,9 @@ i18n
 let mockPopulatedBandScales = [
   { id: 'bs1', date: '2099-08-15', eventType: { name: 'Culto' }, assignments: [ { userId: 'u1', instrumentId: 'inst1' } ] }
 ];
+let mockFixedBandScales = [
+  { id: 'fixed-1', name: 'Banda Principal', assignments: [{ userId: 'u1', instrumentId: 'inst1' }] }
+];
 
 vi.mock('../../contexts/MusicDataContext', () => ({
   useMusic: () => ({
@@ -65,8 +68,8 @@ vi.mock('../../contexts/MusicDataContext', () => ({
     eventNames: [],
     instruments: [{ id: 'inst1', name: 'Violão' }],
     tags: [],
-    fixedBandScales: [],
-    allUsers: [{ uid: 'u1', name: 'User One', assignments: [] }],
+    fixedBandScales: mockFixedBandScales,
+    allUsers: [{ uid: 'u1', name: 'User One', displayName: 'User One', assignments: [] }],
     populatedBandScales: mockPopulatedBandScales,
     populatedScales: [],
     refreshData: vi.fn(),
@@ -111,6 +114,9 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
     mockPopulatedBandScales = [
       { id: 'bs1', date: '2099-08-15', eventType: { name: 'Culto' }, assignments: [ { userId: 'u1', instrumentId: 'inst1' } ] }
     ];
+    mockFixedBandScales = [
+      { id: 'fixed-1', name: 'Banda Principal', assignments: [{ userId: 'u1', instrumentId: 'inst1' }] }
+    ];
     await i18n.changeLanguage('pt');
   });
 
@@ -129,7 +135,7 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
     expect(activeBtn).toHaveTextContent('Banda');
   });
 
-  it('2. primeira banda recebe foco', async () => {
+  it('2. seletor de escala fixa recebe foco', async () => {
     render(
       <ModernScaleForm
         isOpen={true}
@@ -142,12 +148,12 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
       />
     );
     await waitFor(() => {
-      const option = screen.getByTestId('link-band-scale-bs1');
-      expect(document.activeElement).toBe(option);
+      const selector = screen.getByLabelText('Escala fixa da banda');
+      expect(document.activeElement).toBe(selector);
     });
   });
 
-  it('3. Enter seleciona a banda', async () => {
+  it('3. seleção nativa escolhe a escala fixa', async () => {
     const user = userEvent.setup();
     render(
       <ModernScaleForm
@@ -159,14 +165,13 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
         isSubmitting={false}
       />
     );
-    const option = screen.getByTestId('link-band-scale-bs1');
-    option.focus();
-    await user.keyboard('{Enter}');
-    expect(option).toHaveAttribute('aria-checked', 'true');
+    const selector = screen.getByLabelText('Escala fixa da banda');
+    await user.selectOptions(selector, 'fixed-1');
+    expect(selector).toHaveValue('fixed-1');
+    expect(screen.getByText('Banda Principal')).toBeInTheDocument();
   });
 
-  it('4. Espaço seleciona a banda', async () => {
-    const user = userEvent.setup();
+  it('4. a seleção pode ser removida sem criar escala de evento', () => {
     render(
       <ModernScaleForm
         isOpen={true}
@@ -177,14 +182,15 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
         isSubmitting={false}
       />
     );
-    const option = screen.getByTestId('link-band-scale-bs1');
-    option.focus();
-    await user.keyboard(' ');
-    expect(option).toHaveAttribute('aria-checked', 'true');
+    const selector = screen.getByLabelText('Escala fixa da banda');
+    fireEvent.change(selector, { target: { value: 'fixed-1' } });
+    expect(selector).toHaveValue('fixed-1');
+    fireEvent.change(selector, { target: { value: '' } });
+    expect(selector).toHaveValue('');
   });
 
-  it('5. ausência de bandas foca Criar escala de banda', async () => {
-    mockPopulatedBandScales = [];
+  it('5. ausência de escalas fixas foca Gerenciar escalas fixas', async () => {
+    mockFixedBandScales = [];
     render(
       <ModernScaleForm
         isOpen={true}
@@ -197,7 +203,7 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
       />
     );
     await waitFor(() => {
-      const btn = screen.getByLabelText('Criar Escala da Banda');
+      const btn = screen.getByRole('button', { name: 'Gerenciar escalas fixas' });
       expect(document.activeElement).toBe(btn);
     });
   });
@@ -497,10 +503,9 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
         isSubmitting={false}
       />
     );
-    const option = screen.getByTestId('link-band-scale-bs1');
-    const label = option.getAttribute('aria-label') || '';
-    expect(label).toContain('Escala Culto');
-    expect(label).toContain('1 integrante');
+    const selector = screen.getByLabelText('Escala fixa da banda');
+    expect(selector).toHaveAttribute('aria-label', 'Escala fixa da banda');
+    expect(screen.getByRole('option', { name: /Banda Principal · 1 integrante/i })).toBeInTheDocument();
   });
 
   it('21. aria-label EN', async () => {
@@ -515,10 +520,9 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
         isSubmitting={false}
       />
     );
-    const option = screen.getByTestId('link-band-scale-bs1');
-    const label = option.getAttribute('aria-label') || '';
-    expect(label).toContain('Schedule Culto');
-    expect(label).toContain('1 member');
+    const selector = screen.getByLabelText('Fixed band formation');
+    expect(selector).toHaveAttribute('aria-label', 'Fixed band formation');
+    expect(screen.getByRole('option', { name: /Banda Principal · 1 member/i })).toBeInTheDocument();
   });
 
   it('22. aria-label ES', async () => {
@@ -533,10 +537,9 @@ describe('ModernScaleForm Attention Routing & Focus', () => {
         isSubmitting={false}
       />
     );
-    const option = screen.getByTestId('link-band-scale-bs1');
-    const label = option.getAttribute('aria-label') || '';
-    expect(label).toContain('Escala Culto');
-    expect(label).toContain('1 integrante');
+    const selector = screen.getByLabelText('Escala fija de la banda');
+    expect(selector).toHaveAttribute('aria-label', 'Escala fija de la banda');
+    expect(screen.getByRole('option', { name: /Banda Principal · 1 integrante/i })).toBeInTheDocument();
   });
 
   describe('State Guard and Defaults verification', () => {
