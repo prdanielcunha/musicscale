@@ -1043,7 +1043,8 @@
     "legacyBandLinked": "This schedule has a legacy formation linked. Select a fixed formation to replace it, or keep it as is.",
     "fixedBandScaleNotFound": "The selected fixed formation could not be found.",
     "fixedBandScaleEmpty": "The selected fixed formation has no valid members.",
-    "fixedBandScaleApplyError": "The fixed formation could not be prepared for this event."
+    "fixedBandScaleApplyError": "The fixed formation could not be prepared for this event.",
+    "noFixedBandScaleCardHint": "Continue without a fixed formation and build the team specifically for this event."
   },
   "bandScaleModal": {
     "titleCreate": "New Band Scale",
