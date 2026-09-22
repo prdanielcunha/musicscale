@@ -71,7 +71,7 @@
     "login": "Entrar",
     "backup": "Copia de Seguridad y Datos",
     "my_scales": "Escalas Musicales",
-    "band_scales": "Escalas de la Banda",
+    "band_scales": "Escalas Fijas",
     "songs": "Canciones",
     "chords": "Cifrados",
     "library": "Biblioteca Viva",
@@ -1745,8 +1745,8 @@
       "description": "Planifica repertorio, fecha y equipo."
     },
     "bandScale": {
-      "title": "Crear escala de banda",
-      "description": "Organiza músicos, funciones e instrumentos."
+      "title": "Crear escala fija de banda",
+      "description": "Crea una formación reutilizable de músicos y funciones."
     },
     "song": {
       "title": "Canción",
@@ -1900,7 +1900,7 @@
   },
   "bandScalesPage": {
     "fixedBadge": "Formaciones reutilizables",
-    "title": "Escalas de la Banda",
+    "title": "Escalas Fijas de la Banda",
     "subtitle": "Crea formaciones fijas y reutilizables. Los eventos, las notificaciones y las confirmaciones de asistencia quedan en la Escala Musical.",
     "howItWorksTitle": "Cómo funciona",
     "howItWorksDescription": "Define aquí quién normalmente ministra, canta y toca. Al crear una Escala Musical, selecciona una de estas formaciones. Cada integrante recibe el evento y confirma su asistencia en la propia Escala Musical.",
@@ -1919,6 +1919,9 @@
     "fixedScaleNamePlaceholder": "Ej.: Banda Principal, Equipo A...",
     "fixedScaleMembersHint": "Monta aquí la formación fija. Cada integrante confirmará su asistencia después, dentro de cada Escala Musical.",
     "manageFixedScales": "Gestionar Escalas Fijas",
-    "manageFixedScalesDescription": "Crea y mantén las formaciones fijas de la banda. Al preparar una Escala Musical, selecciona una para el evento; las notificaciones y confirmaciones ocurren en la propia Escala Musical."
+    "manageFixedScalesDescription": "Crea y mantén las formaciones fijas de la banda. Al preparar una Escala Musical, selecciona una para el evento; las notificaciones y confirmaciones ocurren en la propia Escala Musical.",
+    "fixedCount_zero": "0 formaciones",
+    "fixedCount_one": "1 formación",
+    "fixedCount_other": "{{count}} formaciones"
   }
 }
