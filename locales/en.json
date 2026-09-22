@@ -71,7 +71,7 @@
     "login": "Sign In",
     "backup": "Backup & Data",
     "my_scales": "Music Scales",
-    "band_scales": "Band Schedules",
+    "band_scales": "Fixed Band Formations",
     "songs": "Songs",
     "chords": "Chords",
     "library": "Living Library",
@@ -1745,8 +1745,8 @@
       "description": "Plan repertoire, date and team."
     },
     "bandScale": {
-      "title": "Create band scale",
-      "description": "Organize musicians, roles and instruments."
+      "title": "Create fixed band formation",
+      "description": "Create a reusable formation of musicians and roles."
     },
     "song": {
       "title": "Song",
@@ -1900,7 +1900,7 @@
   },
   "bandScalesPage": {
     "fixedBadge": "Reusable formations",
-    "title": "Band Scales",
+    "title": "Fixed Band Formations",
     "subtitle": "Create fixed, reusable formations. Events, notifications, and attendance confirmations live in the Music Scale.",
     "howItWorksTitle": "How it works",
     "howItWorksDescription": "Define who normally leads, sings, and plays here. When creating a Music Scale, select one of these formations. Each member receives the event and confirms attendance in the Music Scale itself.",
@@ -1919,6 +1919,9 @@
     "fixedScaleNamePlaceholder": "E.g. Main Band, Team A...",
     "fixedScaleMembersHint": "Build the fixed formation here. Each member confirms attendance later inside each Music Scale.",
     "manageFixedScales": "Manage Fixed Formations",
-    "manageFixedScalesDescription": "Create and maintain your band's fixed formations. When building a Music Scale, select one for the event; notifications and attendance confirmations happen in the Music Scale itself."
+    "manageFixedScalesDescription": "Create and maintain your band's fixed formations. When building a Music Scale, select one for the event; notifications and attendance confirmations happen in the Music Scale itself.",
+    "fixedCount_zero": "0 formations",
+    "fixedCount_one": "1 formation",
+    "fixedCount_other": "{{count}} formations"
   }
 }
