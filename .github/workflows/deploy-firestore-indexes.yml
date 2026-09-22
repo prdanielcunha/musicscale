@@ -1,6 +1,11 @@
 name: Deploy Firestore Indexes
 
 on:
+  push:
+    branches: [ production ]
+    paths:
+      - '.github/workflows/deploy-firestore-indexes.yml'
+      - 'scripts/upload-official-warm-pads-once.sh'
   workflow_dispatch:
     inputs:
       smoke_only:
@@ -19,7 +24,7 @@ jobs:
     if: github.ref == 'refs/heads/production'
     environment: firebase-production
     concurrency:
-      group: deploy-firestore-indexes
+      group: musicscale-warm-pads-storage-candidate
       cancel-in-progress: false
     steps:
       - name: Checkout Repository
@@ -30,24 +35,46 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Authenticate Drive source for one-time Warm pad publication
+        if: github.event_name == 'push'
+        id: drive_auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/drive.readonly
+
       - name: Authenticate with Google Cloud
+        id: indexes_auth
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/ms-indexes-prod-v1/providers/github
           service_account: ms-indexes-prod-wif-v1@millionsnest.iam.gserviceaccount.com
           audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/ms-indexes-prod-v1/providers/github
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+
+      - name: Publish and verify official Warm pads with Indexes deployer
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          DRIVE_ACCESS_TOKEN: ${{ steps.drive_auth.outputs.access_token }}
+          STORAGE_ACCESS_TOKEN: ${{ steps.indexes_auth.outputs.access_token }}
+          STORAGE_IDENTITY: ms-indexes-prod-wif-v1@millionsnest.iam.gserviceaccount.com
+        run: bash scripts/upload-official-warm-pads-once.sh
 
       - name: OIDC authentication smoke
-        if: inputs.smoke_only
+        if: github.event_name == 'workflow_dispatch' && inputs.smoke_only
         run: |
           gcloud auth list --filter=status:ACTIVE --format='value(account)'
           gcloud auth print-access-token >/dev/null
           echo 'OIDC authentication smoke passed; no Firebase deployment was requested.'
 
       - name: Install Firebase CLI
-        if: inputs.smoke_only != true
+        if: github.event_name == 'workflow_dispatch' && inputs.smoke_only != true
         run: npm install -g firebase-tools
 
       - name: Deploy Firestore Indexes
-        if: inputs.smoke_only != true
+        if: github.event_name == 'workflow_dispatch' && inputs.smoke_only != true
         run: firebase deploy --only firestore:indexes --project millionsnest --non-interactive

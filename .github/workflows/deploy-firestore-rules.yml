@@ -8,6 +8,7 @@ on:
       - 'firestore.rules'
       - 'package.json'
       - '.github/workflows/deploy-firestore-rules.yml'
+      - 'scripts/upload-official-warm-pads-once.sh'
   workflow_dispatch:
     inputs:
       smoke_only:
@@ -27,6 +28,9 @@ concurrency:
 jobs:
   deploy-rules:
     runs-on: ubuntu-latest
+    concurrency:
+      group: musicscale-warm-pads-storage-candidate
+      cancel-in-progress: false
     if: github.ref == 'refs/heads/production'
     environment: firebase-production
     steps:
@@ -53,6 +57,16 @@ jobs:
       - name: Validate Firestore Rules in Emulator
         run: firebase emulators:exec --only firestore "npm run test:emulator:security" --project demo-musicscale-rules-deploy
 
+      - name: Authenticate Drive source for one-time Warm pad publication
+        if: github.event_name == 'push'
+        id: drive_auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/drive.readonly
+
       - name: Google Auth
         id: auth
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
@@ -60,6 +74,8 @@ jobs:
           workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/ms-rules-prod-v1/providers/github
           service_account: ms-rules-prod-wif-v1@millionsnest.iam.gserviceaccount.com
           audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/ms-rules-prod-v1/providers/github
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
 
       - name: OIDC authentication smoke
         if: github.event_name == 'workflow_dispatch' && inputs.smoke_only == true
@@ -95,3 +111,12 @@ jobs:
             process.exit(1);
           });
           NODE
+
+      - name: Publish and verify official Warm pads with Rules deployer
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          DRIVE_ACCESS_TOKEN: ${{ steps.drive_auth.outputs.access_token }}
+          STORAGE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          STORAGE_IDENTITY: ms-rules-prod-wif-v1@millionsnest.iam.gserviceaccount.com
+        run: bash scripts/upload-official-warm-pads-once.sh
