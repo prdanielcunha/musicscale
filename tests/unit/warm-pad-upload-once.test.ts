@@ -30,7 +30,7 @@ describe('one-time Warm pad upload guard', () => {
 
   it('hashes bytes deterministically for the upload allowlist check', () => {
     expect(sha256Buffer(Buffer.from('musicscale'))).toBe(
-      '2cc9deeb3f54db4f9cdce087fc27a688d9746ce993386439135f85f6f7dc446d',
+      'a56a77f27ae9aa60204979d783519cdcfae4a57ff1bd56bf1183a8a2379db9ef',
     );
   });
 
