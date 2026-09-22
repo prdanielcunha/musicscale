@@ -649,6 +649,17 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   
   const openBandScaleForm = useCallback((scale?: BandScale, options?: { linkToMusicScaleId: string, prefillData?: Partial<BandScale> }, formOpenOptions?: ScaleFormOpenOptions) => {
       closeAllModals();
+
+      const isExistingLegacyEventScale = Boolean(scale?.id && scale.id !== 'CLONE');
+      if (!isExistingLegacyEventScale) {
+          // New band creation is formation-only. Date, time, event type and location
+          // belong to the Music Scale that consumes the fixed formation.
+          navigate('/band-scales?intent=create');
+          return;
+      }
+
+      // Existing event-specific BandScales remain editable only for backward
+      // compatibility with historical records and old deep links.
       setScaleType('band');
       const scaleForForm = { ...(scale || {}) };
       if (options?.prefillData) {
@@ -659,7 +670,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           setLinkingOptions({ linkToMusicScaleId: options.linkToMusicScaleId });
       }
       setScaleFormOptions(formOpenOptions || null);
-  }, [closeAllModals]);
+  }, [closeAllModals, navigate]);
 
   const openScaleDetail = useCallback((scale: PopulatedScale, action?: 'delete') => {
     closeAllModals();

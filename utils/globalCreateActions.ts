@@ -36,9 +36,9 @@ export const GLOBAL_CREATE_ACTIONS: GlobalCreateAction[] = [
     id: 'band-scale',
     group: 'scales',
     labelKey: 'globalCreate.bandScale.title',
-    defaultLabel: 'Criar escala da banda',
+    defaultLabel: 'Criar escala fixa da banda',
     descriptionKey: 'globalCreate.bandScale.description',
-    defaultDescription: 'Organize músicos, funções e instrumentos.',
+    defaultDescription: 'Cadastre uma formação reutilizável de músicos e funções.',
     iconType: 'band-scale',
     capability: 'musicscale.scales.manage',
     order: 2

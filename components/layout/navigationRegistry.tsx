@@ -119,7 +119,7 @@ export const navigationRegistry: NavigationItem[] = [
     type: "link",
     icon: <CalendarIcon />,
     labelKey: "nav.band_scales",
-    defaultLabel: "Escalas da Banda",
+    defaultLabel: "Escalas Fixas",
     path: "/band-scales",
     permissionRequired: "musicscale.performance.use",
     section: "primary",

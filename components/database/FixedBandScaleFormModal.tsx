@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type {
   FixedBandScale,
   BandMember,
@@ -34,6 +35,7 @@ const FixedBandScaleFormModal: React.FC<FixedBandScaleFormModalProps> = ({
   scaleToEdit,
   isSubmitting,
 }) => {
+  const { t } = useTranslation();
   const { allUsers, instruments } = useMusic();
   const [formData, setFormData] = useState<{
     name: string;
@@ -74,23 +76,36 @@ const FixedBandScaleFormModal: React.FC<FixedBandScaleFormModalProps> = ({
     }));
   }, [instruments]);
 
+  const validAssignments = formData.assignments.filter(
+    (assignment) => assignment.userId && assignment.instrumentId,
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const finalData = scaleToEdit ? { ...scaleToEdit, ...formData } : formData;
+    const name = formData.name.trim();
+    if (!name || validAssignments.length === 0) return;
+
+    const normalizedFormData = {
+      name,
+      assignments: validAssignments.map((assignment) => ({ ...assignment })),
+    };
+    const finalData = scaleToEdit
+      ? { ...scaleToEdit, ...normalizedFormData }
+      : normalizedFormData;
     onSave(finalData);
   };
 
   const footer = (
     <>
       <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
-        Cancelar
+        {t("common.cancel", "Cancelar")}
       </Button>
       <Button
         type="submit"
         form="fixed-scale-form"
-        disabled={isSubmitting || !formData.name}
+        disabled={isSubmitting || !formData.name.trim() || validAssignments.length === 0}
       >
-        {isSubmitting ? <Spinner size="sm" /> : "Salvar"}
+        {isSubmitting ? <Spinner size="sm" /> : t("common.save", "Salvar")}
       </Button>
     </>
   );
@@ -99,15 +114,17 @@ const FixedBandScaleFormModal: React.FC<FixedBandScaleFormModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={scaleToEdit ? "Editar Escala Fixa" : "Nova Escala Fixa"}
+      title={scaleToEdit
+        ? t("bandScalesPage.editFixedScaleTitle", "Editar Escala Fixa")
+        : t("bandScalesPage.newFixedScaleTitle", "Nova Escala Fixa")}
       footer={footer}
       maxWidth="max-w-4xl"
-      zIndexClass="z-[120]"
+      zIndexClass="z-[10040]"
     >
       <form id="fixed-scale-form" onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label htmlFor="name" className={formLabelClass}>
-            Nome da Escala
+            {t("bandScalesPage.fixedScaleName", "Nome da Escala")}
           </label>
           <input
             type="text"
@@ -118,11 +135,14 @@ const FixedBandScaleFormModal: React.FC<FixedBandScaleFormModalProps> = ({
             }
             className={formInputClass}
             required
-            placeholder="Ex: Escala 1, Banda Principal..."
+            placeholder={t("bandScalesPage.fixedScaleNamePlaceholder", "Ex.: Banda Principal, Equipe A...")}
           />
         </div>
 
         <div className="flex flex-col">
+          <div className="mb-4 rounded-xl border border-slate-200/70 bg-slate-50/70 px-4 py-3 text-xs leading-relaxed text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+            {t("bandScalesPage.fixedScaleMembersHint", "Monte a formação fixa. A presença de cada integrante será confirmada depois, dentro de cada Escala de Músicas.")}
+          </div>
           <BandBuilder
             formData={formData}
             setFormData={setFormData as any}

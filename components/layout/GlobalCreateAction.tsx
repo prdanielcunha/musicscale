@@ -29,7 +29,7 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant,
   const { limits } = useLimits();
   const { songs } = useMusic();
   const { toast } = useToast();
-  const { openScaleForm, openBandScaleForm, openSongForm, openAiSongImport } = useModals();
+  const { openScaleForm, openSongForm, openAiSongImport } = useModals();
   const isAiImportAllowed = useMusicScaleFeature('aiImport');
   
   const [isOpen, setIsOpen] = useState(false);
@@ -151,7 +151,7 @@ export const GlobalCreateAction: React.FC<GlobalCreateActionProps> = ({ variant,
       if (actionId === 'music-scale') {
         openScaleForm();
       } else if (actionId === 'band-scale') {
-        openBandScaleForm();
+        navigate('/band-scales?intent=create');
       } else if (actionId === 'song-manual') {
         openSongForm();
       } else if (actionId === 'ai-song-import') {

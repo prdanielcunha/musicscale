@@ -99,6 +99,24 @@ export async function getBandScaleSnapshot(bandScaleId: string): Promise<any> {
   return doc.exists ? doc.data() : null;
 }
 
+export async function upsertFixedBandScale(
+  fixedBandScaleId: string,
+  assignments: Array<{ userId: string; instrumentId: string }>,
+): Promise<void> {
+  const db = getDb();
+  await db.collection('fixedBandScales').doc(fixedBandScaleId).set(
+    {
+      organizationId: 'org_a',
+      name: 'Banda Principal',
+      assignments,
+      createdBy: { uid: 'user_leader_a', displayName: 'Líder A', photoURL: null },
+      createdAt: admin.firestore.Timestamp.now().toDate().toISOString(),
+      updatedAt: admin.firestore.Timestamp.now().toDate().toISOString(),
+    },
+    { merge: true },
+  );
+}
+
 export async function countNotificationsForScale(orgId: string, scaleId: string): Promise<number> {
   const notifications = await getOrganizationNotifications(orgId);
   return notifications.filter(n => n.metadata?.musicScaleId === scaleId || n.sourceEventId === scaleId).length;
