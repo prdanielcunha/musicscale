@@ -1079,7 +1079,24 @@
     "otherMembers": "Outros Integrantes",
     "hideIncompatible": "Ocultar incompatíveis",
     "noMembersFound": "Nenhum integrante encontrado",
-    "noSpecialtyDesc": "Parece que ninguém possui a especialidade de {{instrument}}."
+    "noSpecialtyDesc": "Parece que ninguém possui a especialidade de {{instrument}}.",
+    "serveGuard": {
+      "checking": "Verificando disponibilidade e carga da equipe…",
+      "unavailable": "O ServeGuard não conseguiu validar a carga agora. A escala continua editável; confirme a disponibilidade manualmente antes de publicar.",
+      "noLimit": "sem limite",
+      "projectedLoad": "Projeção: {{week}}/semana (limite {{weekLimit}}) · {{month}}/mês (limite {{monthLimit}}).",
+      "overridePrompt": "Esta nova escala conflita com a preferência configurada por este integrante. Confirme conscientemente se deseja continuar.",
+      "addAnyway": "Adicionar mesmo assim",
+      "status": {
+        "at_weekly_limit": "No limite semanal",
+        "at_monthly_limit": "No limite mensal",
+        "over_weekly_limit": "Acima do limite semanal",
+        "over_monthly_limit": "Acima do limite mensal",
+        "unavailable": "Data indisponível",
+        "paused": "Período de pausa"
+      },
+      "cancel": "Cancelar"
+    }
   },
   "billing": {
     "currentPlan": "Plano atual",
@@ -1827,7 +1844,30 @@
     }
   },
   "profile": {
-    "invite_person": "Convidar pessoa"
+    "invite_person": "Convidar pessoa",
+    "serve_guard": {
+      "title": "Minha disponibilidade de serviço",
+      "optional": "Opcional",
+      "description": "Defina preferências para que o MusicScale avise a liderança antes de montar uma escala que ultrapasse o que você considera compatível com sua rotina.",
+      "weekly_limit": "Máximo por semana",
+      "weekly_help": "Quantas escalas você prefere assumir em uma mesma semana. Deixe vazio para não definir limite.",
+      "monthly_limit": "Máximo por mês",
+      "monthly_help": "Quantas escalas você prefere assumir no mesmo mês. Deixe vazio para não definir limite.",
+      "no_limit": "Sem limite",
+      "pause_until": "Pausar escalas até",
+      "pause_help": "Durante a pausa, novas escalas para você exigirão uma confirmação explícita da liderança.",
+      "unavailable_dates": "Datas indisponíveis",
+      "add_date": "Adicionar",
+      "remove_date": "Remover data",
+      "advisory_note": "O ServeGuard não diagnostica cansaço e não bloqueia você automaticamente. Ele compara novas escalas com as preferências que você informou e mostra um alerta à liderança quando houver conflito.",
+      "save": "Salvar disponibilidade",
+      "saved": "Disponibilidade de serviço atualizada.",
+      "save_error": "Não foi possível salvar sua disponibilidade de serviço.",
+      "load_error": "Não foi possível carregar sua disponibilidade agora.",
+      "retry": "Tentar novamente",
+      "validation_error": "Use um número entre 1 e 14 por semana e entre 1 e 62 por mês, ou deixe o campo vazio.",
+      "too_many_dates": "Você atingiu o limite de datas indisponíveis configuráveis."
+    }
   },
   "refinement": {
     "fullAccess": "Acesso completo",

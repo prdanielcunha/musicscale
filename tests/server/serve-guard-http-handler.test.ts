@@ -195,6 +195,92 @@ describe('ServeGuard HTTP boundary', () => {
     });
   });
 
+  it('evaluates a leadership batch with one scale query and tenant membership checks', async () => {
+    const loadScales = vi.fn(async () => [
+      {
+        id: 'scale_1',
+        organizationId: ORG,
+        date: '2026-09-21',
+        status: 'published',
+        eventAssignments: [
+          { userId: USER, active: true },
+          { userId: OTHER, active: true },
+        ],
+      },
+    ]);
+    const loadPreference = vi.fn(async (_org: string, userId: string) =>
+      storedPreference(userId),
+    );
+    const deps = dependencies(authResult(USER, 'leader'), {
+      loadScales,
+      loadPreference,
+    });
+    const handlers = createServeGuardHttpHandlers(deps);
+    const res = response();
+
+    await handlers.evaluateBatch(
+      request({
+        params: { organizationId: ORG },
+        body: {
+          userIds: [USER, OTHER],
+          candidateDate: '2026-09-25',
+        },
+      }),
+      res,
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(res.payload.evaluations).toHaveLength(2);
+    expect(loadScales).toHaveBeenCalledTimes(1);
+    expect(loadPreference).toHaveBeenCalledTimes(2);
+    expect(deps.targetIsActiveMember).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips stale non-member targets in leadership batch evaluation', async () => {
+    const deps = dependencies(authResult(USER, 'leader'), {
+      targetIsActiveMember: vi.fn(async (_org, userId) => userId === USER),
+      loadScales: vi.fn(async () => []),
+    });
+    const handlers = createServeGuardHttpHandlers(deps);
+    const res = response();
+
+    await handlers.evaluateBatch(
+      request({
+        params: { organizationId: ORG },
+        body: {
+          userIds: [USER, OTHER],
+          candidateDate: '2026-09-25',
+        },
+      }),
+      res,
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(res.payload.evaluations).toHaveLength(1);
+    expect(res.payload.skippedUserIds).toEqual([OTHER]);
+  });
+
+  it('denies a normal member from batch-evaluating another person', async () => {
+    const deps = dependencies(authResult(USER, 'member'));
+    const handlers = createServeGuardHttpHandlers(deps);
+    const res = response();
+
+    await handlers.evaluateBatch(
+      request({
+        params: { organizationId: ORG },
+        body: {
+          userIds: [USER, OTHER],
+          candidateDate: '2026-09-25',
+        },
+      }),
+      res,
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(res.payload.code).toBe('SERVEGUARD_EVALUATION_AUTHORITY_REQUIRED');
+    expect(deps.loadScales).not.toHaveBeenCalled();
+  });
+
   it('denies a normal member from evaluating another person', async () => {
     const deps = dependencies(authResult(USER, 'member'));
     const handlers = createServeGuardHttpHandlers(deps);
