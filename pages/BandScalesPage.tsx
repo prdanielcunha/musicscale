@@ -1,10 +1,68 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useMusic } from "../contexts/MusicDataContext";
+import { useModals } from "../contexts/ModalContext";
+import { logger } from "../lib/logger";
 import Card from "../components/common/Card";
+import OperationalWorkspaceSkeleton from "../components/common/OperationalWorkspaceSkeleton";
 import FixedBandScaleManager from "../components/database/FixedBandScaleManager";
 
 const BandScalesPage: React.FC = () => {
   const { t } = useTranslation();
+  const { populatedBandScales, loading, error } = useMusic();
+  const { openBandScaleDetail } = useModals();
+  const { scaleId } = useParams<{ scaleId: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const hasHandledDeepLink = useRef(false);
+
+  useEffect(() => {
+    hasHandledDeepLink.current = false;
+  }, [scaleId]);
+
+  // Backward compatibility for old /band-scales/:id links. New events live in
+  // Music Scales, but old links must never redirect after the user navigates away.
+  useEffect(() => {
+    if (
+      scaleId &&
+      !loading &&
+      populatedBandScales.length > 0 &&
+      !hasHandledDeepLink.current
+    ) {
+      const expectedPath = `/band-scales/${scaleId}`;
+      if (location.pathname !== expectedPath) {
+        return;
+      }
+
+      const legacyBandScale = populatedBandScales.find((scale) => scale.id === scaleId);
+      if (legacyBandScale) {
+        hasHandledDeepLink.current = true;
+        if (legacyBandScale.musicScaleId) {
+          navigate(`/scales/${legacyBandScale.musicScaleId}`, { replace: true });
+          return;
+        }
+
+        // Legacy records without a Music Scale remain readable until migrated.
+        openBandScaleDetail(legacyBandScale);
+      } else {
+        logger.warn(`Band Scale with ID ${scaleId} not found, redirecting.`);
+        navigate("/band-scales", { replace: true });
+      }
+    }
+  }, [scaleId, loading, populatedBandScales, openBandScaleDetail, navigate, location.pathname]);
+
+  if (loading) {
+    return <OperationalWorkspaceSkeleton variant="scales" />;
+  }
+
+  if (error) {
+    return (
+      <div className="ms-band-scales-page mx-auto max-w-3xl px-4 py-16 text-center text-red-500">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="ms-band-scales-page w-full max-w-5xl mx-auto py-8 lg:py-12 px-4 sm:px-6 lg:px-8 pb-32 space-y-8">
