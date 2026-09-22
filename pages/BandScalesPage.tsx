@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import Card from "../components/common/Card";
 import OperationalWorkspaceSkeleton from "../components/common/OperationalWorkspaceSkeleton";
 import FixedBandScaleManager from "../components/database/FixedBandScaleManager";
@@ -55,14 +55,7 @@ const BandScalesPage: React.FC = () => {
 
     // Old records without a Music Scale remain readable until migrated.
     openBandScaleDetail(legacyBandScale);
-  }, [
-    scaleId,
-    loading,
-    populatedBandScales,
-    openBandScaleDetail,
-    navigate,
-    location.pathname,
-  ]);
+  }, [scaleId, loading, populatedBandScales, openBandScaleDetail, navigate, location.pathname]);
 
   if (loading) {
     return <OperationalWorkspaceSkeleton variant="scales" />;
