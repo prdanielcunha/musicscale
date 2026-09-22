@@ -8,6 +8,7 @@ import {
   countNotificationsForScale,
   countActiveResponses,
   getBandScaleSnapshot,
+  upsertFixedBandScale,
   findNotification
 } from './helpers/emulatorAssertions';
 
@@ -34,7 +35,12 @@ test.describe('MusicScale full cycle', () => {
   test('A. líder publica a escala', async ({ page }, testInfo) => {
     const project = testInfo.project.name;
     const scaleId = `scale_full_cycle_${project}`;
-    const bandScaleId = `bandscale_full_cycle_${project}`;
+    const fixedBandScaleId = `fixed_band_full_cycle_${project}`;
+
+    await upsertFixedBandScale(fixedBandScaleId, [
+      { userId: 'user_musician_a', instrumentId: 'instrument_vocal' },
+      { userId: 'user_musician_a2', instrumentId: 'instrument_guitar' },
+    ]);
 
     const initialScale = await getScaleSnapshot(scaleId);
     expect(initialScale).not.toBeNull();
@@ -42,10 +48,6 @@ test.describe('MusicScale full cycle', () => {
     expect(initialScale!.publishRevision || 0).toBe(0);
     expect(initialScale!.songIds).toHaveLength(2);
     expect(initialScale!.eventAssignments || []).toHaveLength(0);
-
-    const bandScaleSnapshot = await getBandScaleSnapshot(bandScaleId);
-    expect(bandScaleSnapshot).not.toBeNull();
-    expect(bandScaleSnapshot!.assignments).toHaveLength(2);
 
     expect(await countNotificationsForScale('org_a', scaleId)).toBe(0);
     expect(await countActiveResponses(scaleId)).toBe(0);
@@ -66,9 +68,11 @@ test.describe('MusicScale full cycle', () => {
     await expect(btnNext).toBeVisible();
     await btnNext.click();
 
-    const cardBandScale = scaleEditor.getByTestId(`link-band-scale-${bandScaleId}`);
-    await expect(cardBandScale).toBeVisible();
-    await cardBandScale.click();
+    const fixedBandSelector = scaleEditor.getByLabel(/Escala fixa da banda/i);
+    await expect(fixedBandSelector).toBeVisible();
+    await fixedBandSelector.selectOption(fixedBandScaleId);
+    await expect(fixedBandSelector).toHaveValue(fixedBandScaleId);
+    await expect(scaleEditor.getByText('Banda Principal').last()).toBeVisible();
 
     await btnNext.click();
     await btnNext.click();
@@ -93,7 +97,17 @@ test.describe('MusicScale full cycle', () => {
       return snapshot
         ? (snapshot as unknown as { bandScaleId?: string | null }).bandScaleId || null
         : null;
-    }, { timeout: 15_000 }).toBe(bandScaleId);
+    }, { timeout: 15_000 }).not.toBeNull();
+
+    const savedDraft = await getScaleSnapshot(scaleId);
+    const eventBandScaleId =
+      (savedDraft as unknown as { bandScaleId?: string | null } | null)?.bandScaleId || null;
+    expect(eventBandScaleId).toBeTruthy();
+    expect(eventBandScaleId).not.toBe(fixedBandScaleId);
+
+    const eventBandSnapshot = await getBandScaleSnapshot(eventBandScaleId!);
+    expect(eventBandSnapshot).not.toBeNull();
+    expect(eventBandSnapshot!.assignments).toHaveLength(2);
 
     // Then wait for the live React list to consume the refreshed snapshot before
     // reopening the scale through the same card a user would click.
@@ -281,82 +295,49 @@ test.describe('MusicScale full cycle', () => {
     await expect(page.getByText('Imprevisto médico', { exact: true }).first()).toBeVisible();
   });
 
-  test('D. líder republica e reconcilia', async ({ page }, testInfo) => {
+  test('D. líder reaplica a escala fixa e reconcilia', async ({ page }, testInfo) => {
     const project = testInfo.project.name;
     const scaleId = `scale_full_cycle_${project}`;
-    const bandScaleId = `bandscale_full_cycle_${project}`;
+    const fixedBandScaleId = `fixed_band_full_cycle_${project}`;
 
     const prevScale = await getScaleSnapshot(scaleId);
     expect(prevScale).not.toBeNull();
     const prevPublishRev = prevScale!.publishRevision || 1;
+    const previousEventBandScaleId =
+      (prevScale as unknown as { bandScaleId?: string | null }).bandScaleId || null;
+    expect(previousEventBandScaleId).toBeTruthy();
+
+    // Change the reusable formation. The already-published event keeps its old
+    // snapshot until the leader explicitly reapplies the fixed formation.
+    await upsertFixedBandScale(fixedBandScaleId, [
+      { userId: 'user_musician_a', instrumentId: 'instrument_vocal' },
+      { userId: 'user_musician_a3', instrumentId: 'instrument_keyboard' },
+    ]);
+
+    const oldEventBand = await getBandScaleSnapshot(previousEventBandScaleId!);
+    expect(oldEventBand).not.toBeNull();
+    expect(oldEventBand!.assignments.some(
+      (a: any) => a.userId === 'user_musician_a2' && a.instrumentId === 'instrument_guitar',
+    )).toBe(true);
 
     await loginAsLeaderA(page);
-    await page.goto(`/band-scales/${bandScaleId}`);
-    await page.waitForURL(`**/band-scales/${bandScaleId}`);
+    await page.goto(`/scales/${scaleId}`);
+    await page.waitForURL(`**/scales/${scaleId}`);
+    await expect(page.getByTestId('edit-scale-detail-button')).toBeVisible();
+    await page.getByTestId('edit-scale-detail-button').click();
 
-    const editBandBtn = page.getByTestId('edit-scale-detail-button');
-    await expect(editBandBtn).toBeVisible();
-    await editBandBtn.click();
-
-    const bandEditor = page.getByTestId('band-scale-modal');
-    await expect(bandEditor).toBeVisible();
-
-    const formationStep = bandEditor.getByRole('button', { name: 'Formação', exact: true }).first();
-    await expect(formationStep).toBeVisible();
-    await activateTab(formationStep);
-
-    const viewport = page.viewportSize();
-    const compactBandBuilder = !!viewport && viewport.width < 1024;
-    const bandBuilderTabs = bandEditor.locator('div.lg\\:hidden').filter({ hasText: /Formação/ }).first();
-    if (compactBandBuilder) {
-      await expect(bandBuilderTabs).toBeVisible();
-      await activateTab(bandBuilderTabs.locator('button').nth(1));
-    }
-
-    const removeBtn = bandEditor.getByTestId('remove-assignment-user_musician_a2-instrument_guitar');
-    await expect(removeBtn).toBeVisible();
-    await removeBtn.click();
-
-    if (compactBandBuilder) await activateTab(bandBuilderTabs.locator('button').nth(0));
-    const selectKeyInst = bandEditor.getByTestId('select-instrument-instrument_keyboard');
-    await expect(selectKeyInst).toBeVisible();
-    await selectKeyInst.click();
-    if (compactBandBuilder) await activateTab(bandBuilderTabs.locator('button').nth(1));
-
-    // BandBuilder renders the same "Mostrar todos" action in the section header
-    // and in the empty-state body. Select one deterministically instead of letting
-    // a strict locator be swallowed by the old isVisible().catch(false) branch.
-    const btnShowAll = bandEditor.getByRole('button', { name: /Mostrar todos/i }).first();
-    await expect(btnShowAll).toBeVisible();
-    await activateTab(btnShowAll);
-
-    const addBtn = bandEditor.getByTestId('add-assignment-user_musician_a3-instrument_keyboard');
-    await expect(addBtn).toBeVisible();
-    await addBtn.click();
-
-    const bandReviewStep = bandEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
-    await activateTab(bandReviewStep);
-    const saveBandBtn = bandEditor.getByRole('button', { name: /Salvar Escala/i }).first();
-    await expect(saveBandBtn).toBeVisible();
-    await saveBandBtn.click();
-    await expect(bandEditor).toBeHidden();
-
-    const updatedBand = await getBandScaleSnapshot(bandScaleId);
-    expect(updatedBand).not.toBeNull();
-    expect(updatedBand!.assignments.some((a: any) => a.userId === 'user_musician_a2' && a.instrumentId === 'instrument_guitar')).toBe(false);
-    expect(updatedBand!.assignments.some((a: any) => a.userId === 'user_musician_a3' && a.instrumentId === 'instrument_keyboard')).toBe(true);
-
-    // Cross back to the real list and open the current card instead of forcing a
-    // deep-link while the BandScale refresh is still settling.
-    await page.goto('/scales');
-    await expect(page.getByRole('heading', { name: 'Escalas Musicais' })).toBeVisible();
-    await openScaleFromList(page, scaleId);
-    await expect(page.getByTestId('detail-song-card-song_a_2')).toBeVisible();
-
-    const editMusicBtn = page.getByTestId('edit-scale-detail-button');
-    await editMusicBtn.click();
     const scaleEditor = page.getByTestId('music-scale-modal');
     await expect(scaleEditor).toBeVisible();
+
+    const bandStep = scaleEditor.getByRole('button', { name: 'Banda', exact: true }).first();
+    await activateTab(bandStep);
+
+    const fixedBandSelector = scaleEditor.getByLabel(/Escala fixa da banda/i);
+    await expect(fixedBandSelector).toBeVisible();
+    await fixedBandSelector.selectOption(fixedBandScaleId);
+    await expect(fixedBandSelector).toHaveValue(fixedBandScaleId);
+    await expect(scaleEditor.getByText(/User Three|Músico 3|Musician 3/i).last()).toBeVisible();
+
     const musicReviewStep = scaleEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
     await activateTab(musicReviewStep);
 
@@ -371,6 +352,20 @@ test.describe('MusicScale full cycle', () => {
     const scaleSnapshot = await getScaleSnapshot(scaleId);
     expect(scaleSnapshot).not.toBeNull();
     expect(scaleSnapshot!.publishRevision).toBe(prevPublishRev + 1);
+
+    const nextEventBandScaleId =
+      (scaleSnapshot as unknown as { bandScaleId?: string | null }).bandScaleId || null;
+    expect(nextEventBandScaleId).toBeTruthy();
+    expect(nextEventBandScaleId).not.toBe(previousEventBandScaleId);
+
+    const updatedBand = await getBandScaleSnapshot(nextEventBandScaleId!);
+    expect(updatedBand).not.toBeNull();
+    expect(updatedBand!.assignments.some(
+      (a: any) => a.userId === 'user_musician_a2' && a.instrumentId === 'instrument_guitar',
+    )).toBe(false);
+    expect(updatedBand!.assignments.some(
+      (a: any) => a.userId === 'user_musician_a3' && a.instrumentId === 'instrument_keyboard',
+    )).toBe(true);
 
     const responses = await getScaleResponses(scaleId);
     const activeResponses = responses.filter(r => r.active === true);
