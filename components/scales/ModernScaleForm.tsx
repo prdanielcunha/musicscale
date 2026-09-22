@@ -29,6 +29,7 @@ import { XCircleIcon } from "../icons/XCircleIcon";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { UsersIcon } from "../icons/UsersIcon";
 import BandBuilder, { BandBuilderHandle } from "./BandBuilder";
+import FixedBandScaleManagerModal from "./FixedBandScaleManagerModal";
 import MusicBuilder, { MusicBuilderHandle } from "./MusicBuilder";
 import { ScaleSongCard } from "./ScaleSongCard";
 import { ScaleReviewRepertoire } from "./ScaleReviewRepertoire";
@@ -338,6 +339,10 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const [isSubmittingNested, setIsSubmittingNested] = useState(false);
   
   const [selectedFixedBandScaleId, setSelectedFixedBandScaleId] = useState<string>("");
+  const selectedFixedBandScale = useMemo(
+    () => fixedBandScales.find((scale) => scale.id === selectedFixedBandScaleId) || null,
+    [fixedBandScales, selectedFixedBandScaleId],
+  );
   const [showSaveFixedFormation, setShowSaveFixedFormation] = useState(false);
   const [fixedFormationName, setFixedFormationName] = useState("");
   const [isSavingFixedFormation, setIsSavingFixedFormation] = useState(false);
@@ -495,6 +500,88 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     });
   };
 
+  const getFixedBandAssignmentSignature = (assignments: BandMember[] = []) =>
+    assignments
+      .filter((assignment) => assignment.userId && assignment.instrumentId)
+      .map((assignment) => `${assignment.userId}:${assignment.instrumentId}`)
+      .sort()
+      .join("|");
+
+  const getPopulatedBandAssignmentSignature = (bandScaleId?: string | null) => {
+    if (!bandScaleId) return "";
+    const linkedBand = populatedBandScales.find((scale) => scale.id === bandScaleId);
+    if (!linkedBand) return "";
+
+    return linkedBand.assignments
+      .map((assignment) => {
+        const userId = assignment.user?.uid || "";
+        const instrumentId = assignment.instrument?.id || "";
+        return userId && instrumentId ? `${userId}:${instrumentId}` : "";
+      })
+      .filter(Boolean)
+      .sort()
+      .join("|");
+  };
+
+  const ensureBandSnapshotFromFixedScale = async (): Promise<string | null> => {
+    if (scaleType !== "music" || !selectedFixedBandScaleId) {
+      return formData.bandScaleId || null;
+    }
+
+    const fixedScale = fixedBandScales.find((scale) => scale.id === selectedFixedBandScaleId);
+    if (!fixedScale) {
+      throw new Error(t("scaleModal.fixedBandScaleNotFound", "A escala fixa selecionada não foi encontrada."));
+    }
+
+    const assignments = (fixedScale.assignments || []).filter(
+      (assignment) => assignment.userId && assignment.instrumentId,
+    );
+    if (assignments.length === 0) {
+      throw new Error(t("scaleModal.fixedBandScaleEmpty", "A escala fixa selecionada não possui integrantes válidos."));
+    }
+
+    const selectedSignature = getFixedBandAssignmentSignature(assignments);
+    const linkedSignature = getPopulatedBandAssignmentSignature(formData.bandScaleId);
+    if (formData.bandScaleId && linkedSignature && linkedSignature === selectedSignature) {
+      return formData.bandScaleId;
+    }
+
+    if (!api) {
+      throw new Error(t("scaleModal.saveContextUnavailable", "Sua sessão ou organização ainda não terminou de carregar."));
+    }
+
+    // BandScale remains an internal event snapshot because the publish command
+    // already uses it as the canonical source for assignments, notifications
+    // and presence responses. The user-facing source is the fixed formation.
+    const snapshotData: BandScaleWritableData = {
+      date: formData.date || undefined,
+      time: formData.time || undefined,
+      timeZone: formData.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo",
+      observations: "",
+      eventTypeId: formData.eventTypeId || undefined,
+      locationId: formData.locationId || undefined,
+      eventNameId: formData.eventNameId || null,
+      musicScaleId: null,
+      assignments: assignments.map((assignment) => ({
+        userId: assignment.userId,
+        instrumentId: assignment.instrumentId,
+      })),
+    };
+
+    let bandScaleId: string;
+    if (isCommandApiV1Enabled) {
+      const result = await api.bandScaleCommands.create(snapshotData, crypto.randomUUID());
+      bandScaleId = result.scaleId;
+    } else {
+      bandScaleId = await api.bandScales.create(
+        snapshotData as Omit<BandScale, "id" | "createdBy" | "createdAt">,
+      );
+    }
+
+    setFormData((prev) => ({ ...prev, bandScaleId }));
+    return bandScaleId;
+  };
+
   const handleSubmit = async (e: React.FormEvent, forcedStatus?: 'draft' | 'published') => {
     e.preventDefault();
     const commonData = {
@@ -519,11 +606,27 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         toast({ type: 'error', message: t('scaleModal.invalidDuration', 'Informe uma duração válida para o evento.') });
         return;
       }
+
+      let resolvedBandScaleId = formData.bandScaleId || null;
+      if (selectedFixedBandScaleId) {
+        try {
+          resolvedBandScaleId = await ensureBandSnapshotFromFixedScale();
+        } catch (error) {
+          console.error("[ModernScaleForm] Failed to materialize fixed band formation:", error);
+          toast({
+            type: "error",
+            message: t("scaleModal.fixedBandScaleApplyError", "Não foi possível preparar a escala fixa para este evento."),
+            description: error instanceof Error ? error.message : undefined,
+          });
+          return;
+        }
+      }
+
       finalData = { 
         ...commonData, 
         songIds: selectedSongs,
         songSettings: normalizeScaleSongSettings(selectedSongs, formData.songSettings || {}),
-        bandScaleId: formData.bandScaleId || null,
+        bandScaleId: resolvedBandScaleId,
         durationMinutes: duration,
         status: (scaleToEdit as any)?.status || "draft",
       };
@@ -596,7 +699,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
   const timeInputRef = useRef<HTMLInputElement>(null);
   const locationInputRef = useRef<HTMLSelectElement>(null);
-  const firstBandOptionRef = useRef<HTMLButtonElement>(null);
+  const fixedBandSelectRef = useRef<HTMLSelectElement>(null);
   const createBandBtnRef = useRef<HTMLButtonElement>(null);
   const bandBuilderRef = useRef<BandBuilderHandle>(null);
   const musicBuilderRef = useRef<MusicBuilderHandle>(null);
@@ -639,7 +742,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
           setHasAppliedFocusRef(true);
         }
       } else if (focusTarget === 'band-selector') {
-        const element = firstBandOptionRef.current || createBandBtnRef.current;
+        const element = fixedBandSelectRef.current || createBandBtnRef.current;
         if (element) {
           element.focus();
           setHasAppliedFocusRef(true);
@@ -687,6 +790,35 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       })
       .sort((a,b) => a.date.localeCompare(b.date));
   }, [populatedScales, formData.musicScaleId]);
+
+  useEffect(() => {
+    if (
+      !isOpen ||
+      scaleType !== "music" ||
+      selectedFixedBandScaleId ||
+      !formData.bandScaleId ||
+      fixedBandScales.length === 0
+    ) {
+      return;
+    }
+
+    const linkedSignature = getPopulatedBandAssignmentSignature(formData.bandScaleId);
+    if (!linkedSignature) return;
+
+    const matchingFixedScale = fixedBandScales.find(
+      (scale) => getFixedBandAssignmentSignature(scale.assignments || []) === linkedSignature,
+    );
+    if (matchingFixedScale) {
+      setSelectedFixedBandScaleId(matchingFixedScale.id);
+    }
+  }, [
+    isOpen,
+    scaleType,
+    selectedFixedBandScaleId,
+    formData.bandScaleId,
+    fixedBandScales,
+    populatedBandScales,
+  ]);
 
   const handleApplyFixedScale = (scaleId: string) => {
     const selectedScale = fixedBandScales.find((s) => s.id === scaleId);
@@ -752,11 +884,6 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
            toast({ type: 'error', message: t('scaleModal.requiredFields', 'Preencha Data, Horário, Culto e Local antes de avançar.') });
            return;
          }
-       } else {
-         if (!formData.date || !formData.eventTypeId || !formData.locationId) {
-           toast({ type: 'error', message: t('scaleModal.requiredFields', 'Preencha Data, Culto e Local antes de avançar.') });
-           return;
-         }
        }
      }
      if (currentStep < steps.length - 1) setCurrentStep(s => s + 1);
@@ -770,7 +897,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-4 w-full sm:w-auto items-center">
         <div className="text-[12px] font-medium text-slate-500 w-full text-center sm:text-left mt-2 sm:mt-0">
           {scaleType === "music" ? (
-             `${t('scaleModal.musicCount', { count: formData.songIds?.length || 0 })} · ${formData.bandScaleId ? t('scaleModal.bandLinked') : t('scaleModal.bandNotLinked')}`
+             `${t('scaleModal.musicCount', { count: formData.songIds?.length || 0 })} · ${(selectedFixedBandScaleId || formData.bandScaleId) ? t('scaleModal.bandLinked') : t('scaleModal.bandNotLinked')}`
           ) : (
              `${t('scaleModal.memberCount', { count: formData.assignments?.length || 0 })} · ${formData.musicScaleId ? t('scaleModal.musicLinked') : t('scaleModal.musicNotLinked')}`
           )}
@@ -905,7 +1032,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     
     if (scaleType === "music") {
       parts.push(t('scaleModal.musicCount', { count: formData.songIds?.length || 0 }));
-      parts.push(formData.bandScaleId ? t('scaleModal.bandLinked') : t('scaleModal.bandNotLinked'));
+      parts.push((selectedFixedBandScaleId || formData.bandScaleId) ? t('scaleModal.bandLinked') : t('scaleModal.bandNotLinked'));
     } else {
       parts.push(t('scaleModal.memberCount', { count: formData.assignments?.length || 0 }));
       parts.push(formData.musicScaleId ? t('scaleModal.musicLinked') : t('scaleModal.musicNotLinked'));
@@ -1144,84 +1271,114 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
           {scaleType === "music" && (
           <div className="bg-slate-50 dark:bg-[#1C1C1E]/50 border border-slate-200 dark:border-white/5 rounded-2xl p-5 sm:p-6 pb-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-               <div>
-                  <h3 className="text-[15px] font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                     {t('scaleModal.linkBandScale')}
-                     <span className="bg-primary/10 text-primary text-[10px] uppercase tracking-widest font-black px-2 py-0.5 rounded-full">{t('scaleModal.optional')}</span>
-                  </h3>
-                  <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">{t('scaleModal.linkBandDesc')}</p>
-               </div>
-               {hasCapability('musicscale.scales.manage') && (
-                 <Button type="button" variant="secondary" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCreatingNestedBandScale(true); }} className="sm:w-auto w-full text-[13px] whitespace-nowrap">
-                    {t('scaleModal.createNew')}
-                 </Button>
-               )}
+              <div>
+                <h3 className="text-[15px] font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  {t('scaleModal.linkBandScale')}
+                  <span className="bg-primary/10 text-primary text-[10px] uppercase tracking-widest font-black px-2 py-0.5 rounded-full">
+                    {t('scaleModal.optional')}
+                  </span>
+                </h3>
+                <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
+                  {t('scaleModal.linkBandDesc')}
+                </p>
+              </div>
+              {hasCapability('musicscale.scales.manage') && (
+                <Button
+                  ref={createBandBtnRef}
+                  type="button"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsCreatingNestedBandScale(true);
+                  }}
+                  className="sm:w-auto w-full text-[13px] whitespace-nowrap"
+                >
+                  {t('scaleModal.manageFixedBandScales', 'Gerenciar escalas fixas')}
+                </Button>
+              )}
             </div>
-            
-            {availableBandScales.length === 0 ? (
-               <div className="flex flex-col items-center justify-center p-6 border border-dashed border-slate-200 dark:border-white/10 rounded-xl bg-white/50 dark:bg-black/20">
-                  <span className="text-[14px] font-medium text-slate-600 dark:text-slate-300">{t('scaleModal.noBandScales')}</span>
-                  <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1 text-center">
-                    {hasCapability('musicscale.scales.manage') 
-                        ? t('scaleModal.noBandScalesDesc')
-                        : t('scaleModal.noBandScalesNoPerm')}
-                  </p>
-                  {hasCapability('musicscale.scales.manage') && (
-                      <Button ref={createBandBtnRef} type="button" variant="secondary" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCreatingNestedBandScale(true); }} className="mt-4 text-[13px]" aria-label={t('scaleModal.createBandScaleBtn')}>
-                        {t('scaleModal.createBandScaleBtn')}
-                      </Button>
-                  )}
-               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
-                {availableBandScales.map((bs, i) => {
-                   const isSelected = formData.bandScaleId === bs.id;
-                   const dateObj = new Date(bs.date + "T00:00:00");
-                   const day = dateObj.getDate().toString().padStart(2, "0");
-                   const activeLang = i18n.resolvedLanguage || i18n.language || "pt-BR";
-                   const month = dateObj.toLocaleDateString(activeLang, { month: "short" }).replace(".", "").toUpperCase();
 
-                   
-                   return (
-                      <button
-                         type="button"
-                         ref={i === 0 ? firstBandOptionRef : undefined}
-                         key={bs.id} 
-                         onClick={() => setFormData(prev => ({...prev, bandScaleId: isSelected ? null : bs.id}))}
-                         onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                               e.preventDefault();
-                               setFormData(prev => ({...prev, bandScaleId: isSelected ? null : bs.id}));
-                            }
-                         }}
-                         data-testid={`link-band-scale-${bs.id}`}
-                         role="radio"
-                         aria-checked={isSelected}
-                         aria-label={t('scaleModal.bandOptionLabel', {
-                           name: bs.eventType.name,
-                           date: dateObj.toLocaleDateString(activeLang, { day: '2-digit', month: 'short' }),
-                           count: bs.assignments.length
-                         })}
-                         className={`text-left flex cursor-pointer border rounded-xl overflow-hidden transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-slate-200 dark:border-white/5 bg-white dark:bg-[#252528] hover:border-primary/50 hover:shadow-md"}`}
-                      >
-                         <div className={`w-12 flex-shrink-0 flex flex-col items-center justify-center p-2 border-r ${isSelected ? "border-primary/20 bg-primary/10" : "border-slate-200 dark:border-white/5 dark:bg-black/20"}`}>
-                            <span className={`text-[9px] font-black uppercase tracking-widest ${isSelected ? "text-primary": "text-slate-400"}`}>{month}</span>
-                            <span className={`text-lg font-black leading-none mt-1 ${isSelected ? "text-primary": "text-slate-700 dark:text-slate-300"}`}>{day}</span>
-                         </div>
-                         <div className="p-3 flex-1 min-w-0 flex flex-col justify-center">
-                             <div className="flex items-center gap-2 mb-1">
-                                <span className={`text-[13px] font-bold truncate ${isSelected ? "text-primary" : "text-slate-800 dark:text-gray-100"}`}>{bs.eventType.name}</span>
-                                {isSelected && <span className="text-[9px] uppercase tracking-widest font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded ml-auto">{t('scaleModal.selected')}</span>}
-                             </div>
-                             {bs.eventName && <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate mb-1">{bs.eventName.name}</span>}
-                             <div className="flex items-center gap-3 text-[10px] text-slate-500 font-medium">
-                                 <span className="flex items-center gap-1"><UsersIcon className="w-3 h-3" /> {t('scaleModal.memberCount', { count: bs.assignments.length })}</span>
-                                 {bs.musicScaleId && !isSelected && <span className="text-amber-500 opacity-80 truncate">{t('scaleModal.alreadyLinked')}</span>}
-                             </div>
-                         </div>
-                      </button>
-                   )
-                })}
+            {fixedBandScales.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-6 border border-dashed border-slate-200 dark:border-white/10 rounded-xl bg-white/50 dark:bg-black/20">
+                <span className="text-[14px] font-medium text-slate-600 dark:text-slate-300">
+                  {t('scaleModal.noBandScales')}
+                </span>
+                <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1 text-center max-w-lg">
+                  {hasCapability('musicscale.scales.manage')
+                    ? t('scaleModal.noBandScalesDesc')
+                    : t('scaleModal.noBandScalesNoPerm')}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="fixed-band-scale-for-music" className={formLabelClass}>
+                    {t('scaleModal.fixedBandScaleSelectorLabel', 'Escala fixa da banda')}
+                  </label>
+                  <select
+                    ref={fixedBandSelectRef}
+                    id="fixed-band-scale-for-music"
+                    aria-label={t('scaleModal.fixedBandScaleSelectorLabel', 'Escala fixa da banda')}
+                    value={selectedFixedBandScaleId}
+                    onChange={(e) => {
+                      const nextId = e.target.value;
+                      setSelectedFixedBandScaleId(nextId);
+                      if (!nextId) {
+                        setFormData((prev) => ({ ...prev, bandScaleId: null }));
+                      }
+                    }}
+                    className="input-base w-full"
+                  >
+                    <option value="" className={formOptionClass}>
+                      {t('scaleModal.noFixedBandScale', 'Sem escala fixa')}
+                    </option>
+                    {fixedBandScales.map((fixedScale) => (
+                      <option key={fixedScale.id} value={fixedScale.id} className={formOptionClass}>
+                        {fixedScale.name} · {t('scaleModal.memberCount', { count: fixedScale.assignments?.length || 0 })}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedFixedBandScale && (
+                  <div className="rounded-xl border border-primary/15 bg-primary/[0.04] p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-slate-900 dark:text-white truncate">
+                          {selectedFixedBandScale.name}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {t('scaleModal.fixedBandScaleEventCopyHint', 'A formação será copiada para este evento. Presença e notificações continuam na Escala de Músicas.')}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-[10px] uppercase tracking-widest font-black text-primary bg-primary/10 px-2 py-1 rounded-full">
+                        {t('scaleModal.selected')}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedFixedBandScale.assignments.map((assignment, index) => {
+                        const member = allUsers.find((candidate) => candidate.uid === assignment.userId);
+                        const instrument = instruments.find((candidate) => candidate.id === assignment.instrumentId);
+                        return (
+                          <span
+                            key={`${assignment.userId}-${assignment.instrumentId}-${index}`}
+                            className="inline-flex items-center rounded-full border border-slate-200/80 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
+                          >
+                            {member?.displayName || member?.email || t('common.member', 'Integrante')}
+                            {instrument?.name ? ` · ${instrument.name}` : ''}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {formData.bandScaleId && !selectedFixedBandScaleId && (
+                  <p className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
+                    {t('scaleModal.legacyBandLinked', 'Esta escala possui uma formação antiga vinculada. Selecione uma escala fixa para substituí-la, ou mantenha como está.')}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -1574,57 +1731,10 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       )}
 
 
-      {isCreatingNestedBandScale && (
-        <ModernScaleForm
-          isOpen={true}
-          scaleType="band"
-          preselectedSongIds={[]}
-          scaleToEdit={{
-            date: formData.date || new Date().toISOString().split("T")[0],
-            time: formData.time || "",
-            eventTypeId: formData.eventTypeId || "",
-            locationId: formData.locationId || "",
-            eventNameId: formData.eventNameId || "",
-            observations: ""
-          }}
-          onSave={async (nestedReq) => {
-            const { data: nestedData, idempotencyKey } = nestedReq as {
-              data: BandScaleWritableData;
-              idempotencyKey?: string;
-            };
-            if (!api) return;
-            setIsSubmittingNested(true);
-            try {
-              let bandScaleId: string;
-              
-              console.info('[BandScale Save Path] => ' + JSON.stringify({
-                organizationId: api.bandScales['orgId'] || 'unknown',
-                featureFlagEnabled: isCommandApiV1Enabled,
-                selectedWriter: isCommandApiV1Enabled ? 'command_api' : 'legacy_repository'
-              }));
-
-              if (isCommandApiV1Enabled) {
-                  const result = await api.bandScaleCommands.create(nestedData, idempotencyKey || crypto.randomUUID());
-                  bandScaleId = result.scaleId;
-              } else {
-                  bandScaleId = await api.bandScales.create(nestedData);
-              }
-              setFormData(prev => ({...prev, bandScaleId}));
-              setIsCreatingNestedBandScale(false);
-              await refreshData();
-              toast({ type: 'success', message: t('scaleModal.bandScaleCreated', 'Escala da banda criada e vinculada com sucesso.') });
-            } catch (e: any) {
-              console.error(e);
-              toast({ type: 'error', message: t('common.error', 'Erro'), description: `${e?.message || t('common.errorCreatingScale', 'Erro ao criar escala')} (${e?.code || ''})` });
-            } finally {
-              setIsSubmittingNested(false);
-            }
-          }}
-          onClose={() => setIsCreatingNestedBandScale(false)}
-          isSubmitting={isSubmittingNested}
-          zIndexClass="z-[9999]"
-        />
-      )}
+      <FixedBandScaleManagerModal
+        isOpen={isCreatingNestedBandScale}
+        onClose={() => setIsCreatingNestedBandScale(false)}
+      />
 
       {isCreatingNestedMusicScale && (
         <ModernScaleForm
