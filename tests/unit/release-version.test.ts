@@ -22,7 +22,7 @@ const runBump = (version: string, kind: string) => {
 describe('release metadata', () => {
   it('uses the 0.6 reusable-band feature release metadata', () => {
     const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-    expect(APP_VERSION).toBe('0.6.1-beta.7');
+    expect(APP_VERSION).toBe('0.6.2-beta.0');
     expect(lock.version).toBe(APP_VERSION);
     expect(lock.packages[''].version).toBe(APP_VERSION);
     expect(FEATURE_RELEASE.version).toBe('0.6.0-beta.0');
