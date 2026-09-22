@@ -138,8 +138,8 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
       );
 
       setResponses(current => {
-        const currentByAssignmentId = new Map(
-          current.map(response => [response.eventAssignmentId, response])
+        const currentByAssignmentId = new Map<string, EventAssignmentResponse>(
+          current.map(response => [response.eventAssignmentId, response] as const)
         );
 
         const acknowledgedResponses = assignments
