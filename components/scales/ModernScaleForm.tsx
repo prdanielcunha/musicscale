@@ -1343,14 +1343,14 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                     ref={!selectedFixedBandScaleId ? fixedBandCardRef : undefined}
                     type="button"
                     role="radio"
-                    aria-checked={!selectedFixedBandScaleId}
+                    aria-checked={!selectedFixedBandScaleId && !formData.bandScaleId}
                     onClick={() => {
                       setSelectedFixedBandScaleId("");
                       fixedBandSnapshotRef.current = null;
                       setFormData((prev) => ({ ...prev, bandScaleId: null }));
                     }}
                     className={`group w-full rounded-2xl border p-4 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
-                      !selectedFixedBandScaleId
+                      !selectedFixedBandScaleId && !formData.bandScaleId
                         ? 'border-primary/55 bg-primary/[0.08] shadow-[0_10px_30px_rgba(59,130,246,0.10)]'
                         : 'border-slate-200/90 bg-white/70 hover:border-primary/25 hover:bg-white dark:border-white/10 dark:bg-white/[0.025] dark:hover:border-primary/25 dark:hover:bg-white/[0.04]'
                     }`}
@@ -1359,19 +1359,19 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                       <span
                         aria-hidden="true"
                         className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
-                          !selectedFixedBandScaleId
+                          !selectedFixedBandScaleId && !formData.bandScaleId
                             ? 'border-primary bg-primary'
                             : 'border-slate-300 bg-transparent dark:border-white/25'
                         }`}
                       >
-                        {!selectedFixedBandScaleId && <span className="h-2 w-2 rounded-full bg-white" />}
+                        {!selectedFixedBandScaleId && !formData.bandScaleId && <span className="h-2 w-2 rounded-full bg-white" />}
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-[14px] font-bold text-slate-900 dark:text-white">
                             {t('scaleModal.noFixedBandScale', 'Sem escala fixa')}
                           </p>
-                          {!selectedFixedBandScaleId && (
+                          {!selectedFixedBandScaleId && !formData.bandScaleId && (
                             <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-primary">
                               {t('scaleModal.selected')}
                             </span>
