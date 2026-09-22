@@ -339,10 +339,6 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const [isSubmittingNested, setIsSubmittingNested] = useState(false);
   
   const [selectedFixedBandScaleId, setSelectedFixedBandScaleId] = useState<string>("");
-  const selectedFixedBandScale = useMemo(
-    () => fixedBandScales.find((scale) => scale.id === selectedFixedBandScaleId) || null,
-    [fixedBandScales, selectedFixedBandScaleId],
-  );
   const [showSaveFixedFormation, setShowSaveFixedFormation] = useState(false);
   const [fixedFormationName, setFixedFormationName] = useState("");
   const [isSavingFixedFormation, setIsSavingFixedFormation] = useState(false);
@@ -724,7 +720,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
   const timeInputRef = useRef<HTMLInputElement>(null);
   const locationInputRef = useRef<HTMLSelectElement>(null);
-  const fixedBandSelectRef = useRef<HTMLSelectElement>(null);
+  const fixedBandCardRef = useRef<HTMLButtonElement>(null);
   const createBandBtnRef = useRef<HTMLButtonElement>(null);
   const bandBuilderRef = useRef<BandBuilderHandle>(null);
   const musicBuilderRef = useRef<MusicBuilderHandle>(null);
@@ -767,7 +763,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
           setHasAppliedFocusRef(true);
         }
       } else if (focusTarget === 'band-selector') {
-        const element = fixedBandSelectRef.current || createBandBtnRef.current;
+        const element = fixedBandCardRef.current || createBandBtnRef.current;
         if (element) {
           element.focus();
           setHasAppliedFocusRef(true);
@@ -1310,7 +1306,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                     e.stopPropagation();
                     setIsCreatingNestedBandScale(true);
                   }}
-                  className="sm:w-auto w-full text-[13px] whitespace-nowrap"
+                  className="!w-auto self-start sm:self-auto px-3.5 py-2 text-[12px] whitespace-nowrap"
                 >
                   {t('scaleModal.manageFixedBandScales', 'Gerenciar escalas fixas')}
                 </Button>
@@ -1329,69 +1325,141 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="fixed-band-scale-for-music" className={formLabelClass}>
-                    {t('scaleModal.fixedBandScaleSelectorLabel', 'Escala fixa da banda')}
-                  </label>
-                  <select
-                    ref={fixedBandSelectRef}
-                    id="fixed-band-scale-for-music"
-                    aria-label={t('scaleModal.fixedBandScaleSelectorLabel', 'Escala fixa da banda')}
-                    value={selectedFixedBandScaleId}
-                    onChange={(e) => {
-                      const nextId = e.target.value;
-                      setSelectedFixedBandScaleId(nextId);
-                      if (!nextId) {
-                        fixedBandSnapshotRef.current = null;
-                        setFormData((prev) => ({ ...prev, bandScaleId: null }));
-                      }
-                    }}
-                    className="input-base w-full"
-                  >
-                    <option value="" className={formOptionClass}>
-                      {t('scaleModal.noFixedBandScale', 'Sem escala fixa')}
-                    </option>
-                    {fixedBandScales.map((fixedScale) => (
-                      <option key={fixedScale.id} value={fixedScale.id} className={formOptionClass}>
-                        {fixedScale.name} · {t('scaleModal.memberCount', { count: fixedScale.assignments?.length || 0 })}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="space-y-3">
+                <p className={formLabelClass}>
+                  {t('scaleModal.fixedBandScaleSelectorLabel', 'Escala fixa da banda')}
+                </p>
 
-                {selectedFixedBandScale && (
-                  <div className="rounded-xl border border-primary/15 bg-primary/[0.04] p-4">
-                    <div className="flex items-center justify-between gap-3 mb-3">
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-bold text-slate-900 dark:text-white truncate">
-                          {selectedFixedBandScale.name}
-                        </p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          {t('scaleModal.fixedBandScaleEventCopyHint', 'A formação será copiada para este evento. Presença e notificações continuam na Escala de Músicas.')}
+                <div
+                  role="radiogroup"
+                  aria-label={t('scaleModal.fixedBandScaleSelectorLabel', 'Escala fixa da banda')}
+                  className="grid grid-cols-1 gap-3"
+                >
+                  <button
+                    ref={!selectedFixedBandScaleId ? fixedBandCardRef : undefined}
+                    type="button"
+                    role="radio"
+                    aria-checked={!selectedFixedBandScaleId && !formData.bandScaleId}
+                    onClick={() => {
+                      setSelectedFixedBandScaleId("");
+                      fixedBandSnapshotRef.current = null;
+                      setFormData((prev) => ({ ...prev, bandScaleId: null }));
+                    }}
+                    className={`group w-full rounded-2xl border p-4 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                      !selectedFixedBandScaleId && !formData.bandScaleId
+                        ? 'border-primary/55 bg-primary/[0.08] shadow-[0_10px_30px_rgba(59,130,246,0.10)]'
+                        : 'border-slate-200/90 bg-white/70 hover:border-primary/25 hover:bg-white dark:border-white/10 dark:bg-white/[0.025] dark:hover:border-primary/25 dark:hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span
+                        aria-hidden="true"
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                          !selectedFixedBandScaleId && !formData.bandScaleId
+                            ? 'border-primary bg-primary'
+                            : 'border-slate-300 bg-transparent dark:border-white/25'
+                        }`}
+                      >
+                        {!selectedFixedBandScaleId && !formData.bandScaleId && <span className="h-2 w-2 rounded-full bg-white" />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-[14px] font-bold text-slate-900 dark:text-white">
+                            {t('scaleModal.noFixedBandScale', 'Sem escala fixa')}
+                          </p>
+                          {!selectedFixedBandScaleId && !formData.bandScaleId && (
+                            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-primary">
+                              {t('scaleModal.selected')}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-[12px] leading-relaxed text-slate-500 dark:text-slate-400">
+                          {t('scaleModal.noFixedBandScaleCardHint', 'Continue sem uma formação fixa e monte a equipe especificamente para este evento.')}
                         </p>
                       </div>
-                      <span className="shrink-0 text-[10px] uppercase tracking-widest font-black text-primary bg-primary/10 px-2 py-1 rounded-full">
-                        {t('scaleModal.selected')}
-                      </span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedFixedBandScale.assignments.map((assignment, index) => {
-                        const member = allUsers.find((candidate) => candidate.uid === assignment.userId);
-                        const instrument = instruments.find((candidate) => candidate.id === assignment.instrumentId);
-                        return (
+                  </button>
+
+                  {fixedBandScales.map((fixedScale) => {
+                    const isSelected = selectedFixedBandScaleId === fixedScale.id;
+                    const previewAssignments = (fixedScale.assignments || []).slice(0, 4);
+                    const remainingAssignments = Math.max((fixedScale.assignments?.length || 0) - previewAssignments.length, 0);
+
+                    return (
+                      <button
+                        key={fixedScale.id}
+                        ref={isSelected ? fixedBandCardRef : undefined}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        onClick={() => setSelectedFixedBandScaleId(fixedScale.id)}
+                        className={`group w-full rounded-2xl border p-4 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                          isSelected
+                            ? 'border-primary/55 bg-primary/[0.08] shadow-[0_10px_30px_rgba(59,130,246,0.10)]'
+                            : 'border-slate-200/90 bg-white/70 hover:border-primary/25 hover:bg-white dark:border-white/10 dark:bg-white/[0.025] dark:hover:border-primary/25 dark:hover:bg-white/[0.04]'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
                           <span
-                            key={`${assignment.userId}-${assignment.instrumentId}-${index}`}
-                            className="inline-flex items-center rounded-full border border-slate-200/80 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
+                            aria-hidden="true"
+                            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                              isSelected
+                                ? 'border-primary bg-primary'
+                                : 'border-slate-300 bg-transparent dark:border-white/25'
+                            }`}
                           >
-                            {member?.displayName || member?.email || t('common.member', 'Integrante')}
-                            {instrument?.name ? ` · ${instrument.name}` : ''}
+                            {isSelected && <span className="h-2 w-2 rounded-full bg-white" />}
                           </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-[14px] font-bold text-slate-900 dark:text-white">
+                                  {fixedScale.name}
+                                </p>
+                                <p className="mt-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                                  {t('scaleModal.memberCount', { count: fixedScale.assignments?.length || 0 })}
+                                </p>
+                              </div>
+                              {isSelected && (
+                                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-primary">
+                                  {t('scaleModal.selected')}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap gap-1.5">
+                              {previewAssignments.map((assignment, index) => {
+                                const member = allUsers.find((candidate) => candidate.uid === assignment.userId);
+                                const instrument = instruments.find((candidate) => candidate.id === assignment.instrumentId);
+                                return (
+                                  <span
+                                    key={`${assignment.userId}-${assignment.instrumentId}-${index}`}
+                                    className="inline-flex max-w-full items-center truncate rounded-full border border-slate-200/80 bg-white/80 px-2.5 py-1 text-[10px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
+                                  >
+                                    {member?.displayName || member?.email || t('common.member', 'Integrante')}
+                                    {instrument?.name ? ` · ${instrument.name}` : ''}
+                                  </span>
+                                );
+                              })}
+                              {remainingAssignments > 0 && (
+                                <span className="inline-flex items-center rounded-full border border-slate-200/80 bg-white/80 px-2.5 py-1 text-[10px] font-bold text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
+                                  +{remainingAssignments}
+                                </span>
+                              )}
+                            </div>
+
+                            {isSelected && (
+                              <p className="mt-3 text-[11px] leading-relaxed text-primary/90 dark:text-primary">
+                                {t('scaleModal.fixedBandScaleEventCopyHint', 'A formação será copiada para este evento. Presença e notificações continuam na Escala de Músicas.')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
 
                 {formData.bandScaleId && !selectedFixedBandScaleId && (
                   <p className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">

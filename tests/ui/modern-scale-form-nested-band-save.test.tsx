@@ -254,7 +254,7 @@ const reachFixedBandStep = async (onSave = vi.fn().mockResolvedValue(undefined))
   fireEvent.click(within(dialog).getByRole('button', { name: /Avançar/i }));
 
   await waitFor(() => {
-    expect(within(dialog).getByLabelText(/Escala fixa da banda/i)).toBeInTheDocument();
+    expect(within(dialog).getByRole('radiogroup', { name: /Escala fixa da banda/i })).toBeInTheDocument();
   });
 
   return { dialog, onSave };
@@ -264,11 +264,10 @@ const selectFixedBandAndSaveDraft = async (onSave = vi.fn().mockResolvedValue(un
   const result = await reachFixedBandStep(onSave);
   const { dialog } = result;
 
-  fireEvent.change(within(dialog).getByLabelText(/Escala fixa da banda/i), {
-    target: { value: 'fixed-1' },
-  });
+  const fixedBandCard = within(dialog).getByRole('radio', { name: /Banda Principal/i });
+  fireEvent.click(fixedBandCard);
 
-  expect(within(dialog).getByText('Banda Principal')).toBeInTheDocument();
+  expect(fixedBandCard).toHaveAttribute('aria-checked', 'true');
   expect(within(dialog).getByText(/User One/)).toBeInTheDocument();
 
   fireEvent.click(within(dialog).getByRole('button', { name: /Avançar/i }));
