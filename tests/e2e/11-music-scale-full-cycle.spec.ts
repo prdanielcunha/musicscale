@@ -68,11 +68,11 @@ test.describe('MusicScale full cycle', () => {
     await expect(btnNext).toBeVisible();
     await btnNext.click();
 
-    const fixedBandSelector = scaleEditor.getByLabel(/Escala fixa da banda/i);
+    const fixedBandSelector = scaleEditor.getByRole('radiogroup', { name: /Escala fixa da banda/i });
     await expect(fixedBandSelector).toBeVisible();
-    await fixedBandSelector.selectOption(fixedBandScaleId);
-    await expect(fixedBandSelector).toHaveValue(fixedBandScaleId);
-    await expect(scaleEditor.getByText('Banda Principal').last()).toBeVisible();
+    const fixedBandCard = fixedBandSelector.getByRole('radio', { name: /Banda Principal/i });
+    await fixedBandCard.click();
+    await expect(fixedBandCard).toHaveAttribute('aria-checked', 'true');
 
     await btnNext.click();
     await btnNext.click();
@@ -332,10 +332,11 @@ test.describe('MusicScale full cycle', () => {
     const bandStep = scaleEditor.getByRole('button', { name: 'Banda', exact: true }).first();
     await activateTab(bandStep);
 
-    const fixedBandSelector = scaleEditor.getByLabel(/Escala fixa da banda/i);
+    const fixedBandSelector = scaleEditor.getByRole('radiogroup', { name: /Escala fixa da banda/i });
     await expect(fixedBandSelector).toBeVisible();
-    await fixedBandSelector.selectOption(fixedBandScaleId);
-    await expect(fixedBandSelector).toHaveValue(fixedBandScaleId);
+    const fixedBandCard = fixedBandSelector.getByRole('radio', { name: /Banda Principal/i });
+    await fixedBandCard.click();
+    await expect(fixedBandCard).toHaveAttribute('aria-checked', 'true');
     await expect(scaleEditor.getByText(/Musico A3|Músico A3/i).last()).toBeVisible();
 
     const musicReviewStep = scaleEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
