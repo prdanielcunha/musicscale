@@ -70,7 +70,7 @@ test.describe('MusicScale full cycle', () => {
 
     const fixedBandSelector = scaleEditor.getByRole('radiogroup', { name: /Escala fixa da banda/i });
     await expect(fixedBandSelector).toBeVisible();
-    const fixedBandCard = fixedBandSelector.getByRole('radio', { name: /Banda Principal/i });
+    const fixedBandCard = scaleEditor.getByTestId(`fixed-band-card-${fixedBandScaleId}`);
     await fixedBandCard.click();
     await expect(fixedBandCard).toHaveAttribute('aria-checked', 'true');
 
@@ -334,7 +334,7 @@ test.describe('MusicScale full cycle', () => {
 
     const fixedBandSelector = scaleEditor.getByRole('radiogroup', { name: /Escala fixa da banda/i });
     await expect(fixedBandSelector).toBeVisible();
-    const fixedBandCard = fixedBandSelector.getByRole('radio', { name: /Banda Principal/i });
+    const fixedBandCard = scaleEditor.getByTestId(`fixed-band-card-${fixedBandScaleId}`);
     await fixedBandCard.click();
     await expect(fixedBandCard).toHaveAttribute('aria-checked', 'true');
     await expect(scaleEditor.getByText(/Musico A3|Músico A3/i).last()).toBeVisible();
