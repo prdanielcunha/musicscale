@@ -1,5 +1,5 @@
 import { logger } from "../../lib/logger";
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useMusic } from "../../contexts/MusicDataContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -61,7 +61,11 @@ const EditIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-const FixedBandScaleManager: React.FC = () => {
+interface FixedBandScaleManagerProps {
+  initialCreateOpen?: boolean;
+}
+
+const FixedBandScaleManager: React.FC<FixedBandScaleManagerProps> = ({ initialCreateOpen = false }) => {
   const { t } = useTranslation();
   const { user, userProfile } = useAuth();
   const { fixedBandScales, allUsers, instruments, refreshData } = useMusic();
@@ -72,6 +76,13 @@ const FixedBandScaleManager: React.FC = () => {
     null,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (initialCreateOpen) {
+      setScaleToEdit(null);
+      setIsFormOpen(true);
+    }
+  }, [initialCreateOpen]);
 
   const userMap = useMemo(
     () => new Map(allUsers.map((u) => [u.uid, u])),
