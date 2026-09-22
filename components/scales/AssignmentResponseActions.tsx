@@ -26,7 +26,7 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
   eventStart,
   compact = false
 }) => {
-  const { user } = useAuth();
+  const { user, effectiveOrganizationId } = useAuth();
   const api = useApi();
   const { toast } = useToast();
   const { t, i18n } = useTranslation();
@@ -66,7 +66,24 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
         .filter(response => response.active !== false)
         .sort((a, b) => (b.responseRevision || 0) - (a.responseRevision || 0));
 
-      setResponses(currentResponses);
+      const incomingHighestRevision = fetched.reduce(
+        (highest, response) => Math.max(highest, response.responseRevision || 0),
+        0
+      );
+
+      // A successful command response may reach the UI before a delayed/cached
+      // Firestore snapshot. Never let an older snapshot put the member back into
+      // "pending" after the server already acknowledged a newer revision.
+      setResponses(current => {
+        const localHighestRevision = current.reduce(
+          (highest, response) => Math.max(highest, response.responseRevision || 0),
+          0
+        );
+
+        return localHighestRevision > incomingHighestRevision
+          ? current
+          : currentResponses;
+      });
       setLoading(false);
     }, (error) => {
       console.error("Error listening to responses:", error);
@@ -99,11 +116,69 @@ const AssignmentResponseActions: React.FC<AssignmentResponseActionsProps> = ({
     const idempotencyKey = crypto.randomUUID();
 
     try {
-      await api.musicScaleResponses.respondOwn(
+      const result = await api.musicScaleResponses.respondOwn(
         musicScaleId,
         { status, reason },
         idempotencyKey
       );
+
+      // The command response is authoritative: the transaction has committed.
+      // Reflect that acknowledged revision immediately instead of forcing the
+      // member to wait for a Firestore listener round-trip (or reload the page).
+      const acknowledgedAt = new Date().toISOString();
+      const acknowledgedStatus = (result?.status || status) as EventAssignmentResponse['status'];
+      const acknowledgedReason = result?.reason ?? reason ?? null;
+      const acknowledgedRevision = typeof result?.responseRevision === 'number'
+        ? result.responseRevision
+        : null;
+      const updatedAssignmentIds = new Set<string>(
+        Array.isArray(result?.updatedAssignmentIds) && result.updatedAssignmentIds.length > 0
+          ? result.updatedAssignmentIds
+          : assignments.map(assignment => assignment.eventAssignmentId)
+      );
+
+      setResponses(current => {
+        const currentByAssignmentId = new Map<string, EventAssignmentResponse>(
+          current.map(response => [response.eventAssignmentId, response] as const)
+        );
+
+        const acknowledgedResponses = assignments
+          .filter(assignment => updatedAssignmentIds.has(assignment.eventAssignmentId))
+          .map((assignment): EventAssignmentResponse => {
+            const previous = currentByAssignmentId.get(assignment.eventAssignmentId);
+            const responseRevision = acknowledgedRevision
+              ?? ((previous?.responseRevision || 0) + 1);
+
+            return {
+              organizationId: previous?.organizationId || effectiveOrganizationId || '',
+              musicScaleId,
+              eventAssignmentId: assignment.eventAssignmentId,
+              userId: user?.uid || assignment.userId,
+              functionId: assignment.functionId,
+              functionName: assignment.functionName,
+              status: acknowledgedStatus,
+              reason: acknowledgedReason,
+              respondedAt: acknowledgedAt,
+              respondedBy: user?.uid || assignment.userId,
+              active: true,
+              assignmentRevision: assignment.assignmentRevision || previous?.assignmentRevision || 1,
+              respondedAgainstRevision: assignment.assignmentRevision || previous?.assignmentRevision || 1,
+              responseRevision,
+              createdAt: previous?.createdAt || acknowledgedAt,
+              updatedAt: acknowledgedAt,
+              override: previous?.override || null,
+            };
+          });
+
+        const acknowledgedIds = new Set(
+          acknowledgedResponses.map(response => response.eventAssignmentId)
+        );
+
+        return [
+          ...acknowledgedResponses,
+          ...current.filter(response => !acknowledgedIds.has(response.eventAssignmentId)),
+        ].sort((a, b) => (b.responseRevision || 0) - (a.responseRevision || 0));
+      });
 
       // Toast message
       if (status === 'accepted') {
