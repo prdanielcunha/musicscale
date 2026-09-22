@@ -60,6 +60,79 @@ jobs:
           workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/ms-rules-prod-v1/providers/github
           service_account: ms-rules-prod-wif-v1@millionsnest.iam.gserviceaccount.com
           audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/ms-rules-prod-v1/providers/github
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+
+      - name: Probe Rules deployer Storage access for Warm pads
+        id: pads_storage_probe
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          STORAGE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          BUCKET: millionsnest.firebasestorage.app
+          PREFIX: musicscale/pads/official/warm-v1
+        run: |
+          set -euo pipefail
+          printf 'musicscale-rules-storage-probe' >/tmp/pads-storage-probe
+          object="$PREFIX/_probe-rules-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.txt"
+          encoded="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$object")"
+          code="$(curl --silent --show-error --location -X POST \
+            -H "Authorization: Bearer $STORAGE_ACCESS_TOKEN" \
+            -H "Content-Type: text/plain" \
+            --data-binary @/tmp/pads-storage-probe \
+            -o /tmp/pads-storage-probe-result.json -w '%{http_code}' \
+            "https://storage.googleapis.com/upload/storage/v1/b/$BUCKET/o?uploadType=media&name=$encoded")"
+          if [[ "$code" != 200 ]]; then
+            echo "Rules deployer has no Storage create access (HTTP $code)."
+            cat /tmp/pads-storage-probe-result.json
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! curl --fail --silent --show-error --location \
+            -H "Authorization: Bearer $STORAGE_ACCESS_TOKEN" \
+            "https://storage.googleapis.com/storage/v1/b/$BUCKET/o/$encoded?alt=media" \
+            -o /tmp/pads-storage-probe-read; then
+            echo "Rules deployer can create but cannot read back the probe."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! cmp /tmp/pads-storage-probe /tmp/pads-storage-probe-read; then
+            echo "Rules deployer probe readback mismatch."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          curl --silent --show-error --location -X DELETE \
+            -H "Authorization: Bearer $STORAGE_ACCESS_TOKEN" \
+            "https://storage.googleapis.com/storage/v1/b/$BUCKET/o/$encoded" >/dev/null || true
+          echo "available=true" >> "$GITHUB_OUTPUT"
+          echo "Rules deployer has Storage create + get access for the Warm pad prefix."
+
+      - name: Authenticate Drive source for Warm pad publication
+        if: github.event_name == 'push' && steps.pads_storage_probe.outputs.available == 'true'
+        id: pads_drive_auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/drive.readonly
+          create_credentials_file: false
+
+      - name: Publish and verify 12 official Warm pads with Rules deployer
+        if: github.event_name == 'push' && steps.pads_storage_probe.outputs.available == 'true'
+        shell: bash
+        env:
+          DRIVE_ACCESS_TOKEN: ${{ steps.pads_drive_auth.outputs.access_token }}
+          STORAGE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          chmod +x scripts/publish-warm-pads-once.sh
+          scripts/publish-warm-pads-once.sh
+          {
+            echo '## MusicScale official Warm pads'
+            echo
+            echo '**Storage identity:** ms-rules-prod-wif-v1@millionsnest.iam.gserviceaccount.com'
+            echo '**Verified files:** 12/12'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: OIDC authentication smoke
         if: github.event_name == 'workflow_dispatch' && inputs.smoke_only == true
