@@ -336,7 +336,7 @@ test.describe('MusicScale full cycle', () => {
     await expect(fixedBandSelector).toBeVisible();
     await fixedBandSelector.selectOption(fixedBandScaleId);
     await expect(fixedBandSelector).toHaveValue(fixedBandScaleId);
-    await expect(scaleEditor.getByText(/User Three|Músico 3|Musician 3/i).last()).toBeVisible();
+    await expect(scaleEditor.getByText(/Musico A3|Músico A3/i).last()).toBeVisible();
 
     const musicReviewStep = scaleEditor.getByRole('button', { name: 'Revisão', exact: true }).first();
     await activateTab(musicReviewStep);
