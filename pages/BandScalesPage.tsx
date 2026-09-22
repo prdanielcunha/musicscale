@@ -17,7 +17,7 @@ const BandScalesPage: React.FC = () => {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-primary/80">
-              {t("bandScalesPage.eyebrow", "Formações reutilizáveis")}
+              {t("bandScalesPage.fixedBadge", "Formações reutilizáveis")}
             </p>
             <h1 className="mt-2 text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
               {t("bandScalesPage.title", "Escalas Fixas da Banda")}
@@ -42,11 +42,11 @@ const BandScalesPage: React.FC = () => {
 
       <div className="rounded-2xl border border-primary/15 bg-primary/[0.04] px-5 py-4">
         <p className="text-sm font-bold text-slate-900 dark:text-white">
-          {t("bandScalesPage.eventFlowTitle", "O evento acontece na Escala de Músicas")}
+          {t("bandScalesPage.howItWorksTitle", "Como funciona")}
         </p>
         <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
           {t(
-            "bandScalesPage.eventFlowDescription",
+            "bandScalesPage.howItWorksDescription",
             "Ao criar ou publicar uma Escala de Músicas, escolha uma destas formações fixas. É nessa escala de músicas que a equipe recebe a notificação do evento e confirma se poderá participar.",
           )}
         </p>
