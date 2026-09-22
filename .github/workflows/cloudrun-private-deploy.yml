@@ -81,7 +81,7 @@ jobs:
             --concurrency 40 \
             --timeout 60 \
             --no-allow-unauthenticated \
-            --set-env-vars "FIREBASE_PROJECT_ID=millionsnest,DEPLOY_ENV=production,NODE_ENV=production,GEMINI_MODEL=gemini-3.5-flash,MILLIONSNEST_HUB_ORIGIN=https://www.millionsnest.com,AI_IMPORT_FINOPS_WRITE_PATH_ENABLED=false,AI_IMPORT_FINOPS_READ_PATH_ENABLED=false,AI_FINOPS_DIAGNOSTICS_ENABLED=false" \
+            --set-env-vars "FIREBASE_PROJECT_ID=millionsnest,DEPLOY_ENV=production,NODE_ENV=production,GEMINI_MODEL=gemini-3.5-flash,MILLIONSNEST_HUB_ORIGIN=https://www.millionsnest.com,AI_IMPORT_FINOPS_WRITE_PATH_ENABLED=false,AI_IMPORT_FINOPS_READ_PATH_ENABLED=false,AI_FINOPS_DIAGNOSTICS_ENABLED=false,MUSICSCALE_WARM_PADS_UPLOAD_ONCE_ENABLED=true" \
             --set-secrets "GEMINI_API_KEY=musicscale-gemini-api-key:latest,STRIPE_SECRET_KEY=musicscale-stripe-secret-key:latest" \
             --quiet
 
@@ -98,6 +98,123 @@ jobs:
             --member="allUsers" \
             --role="roles/run.invoker" \
             --quiet
+
+      - name: Authenticate Drive source for one-time Warm pad publication
+        id: pads_drive_auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/drive.readonly
+          create_credentials_file: false
+
+      - name: Publish official Warm pads through MusicScale runtime identity
+        id: publish_warm_pads
+        continue-on-error: true
+        shell: bash
+        env:
+          DRIVE_ACCESS_TOKEN: ${{ steps.pads_drive_auth.outputs.access_token }}
+        run: |
+          set -euo pipefail
+          SERVICE_URL="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format='value(status.url)')"
+          test -n "$SERVICE_URL"
+          mkdir -p /tmp/musicscale-runtime-pads
+          cd /tmp/musicscale-runtime-pads
+
+          IDS=(
+            1xCokteWYu9mfl7cSY_Opr6k2MykMYCHS
+            1lFc7qDQqUtc3AeZp2FdIgt9OafXHGQO9
+            1WG8KGU4KhH3rGpxRpztLLDRnNtOSdfKH
+            1GQjlv_Y2Xfk8FrbqGiMn6t7t6HlqLHCp
+            1PN9S6TCjw078CD2o8WaXuv_p0QR5k72Q
+            1KDBlcGCQmyx2C7cyM9XWKg0YDJQdzu37
+            1W4WloNlNVvbH0iE4qNebGGW2V5vkvzgT
+            1K94GPpk76YieTt8BKQcAvxOOblAEfXTp
+            1j8L-F9d7cJl7Tch0FI-5znWvqfbONWcl
+            1vtc8JmjyFZL3KM_NDUVUxxVrr5NItF5P
+            1IoTp6iMjjmTvJYH2-0DXmZxC3mOv7GEc
+            1vRnGcZXXM1BdFTZtcGopWcgIfgFrGZZk
+          )
+          KEYS=(C Cs D Ds E F Fs G Gs A As B)
+          FILES=(
+            'Pad_C_Warm.mp3' 'Pad_C#_Warm.mp3' 'Pad_D_Warm.mp3' 'Pad_D#_Warm.mp3'
+            'Pad_E_Warm.mp3' 'Pad_F_Warm.mp3' 'Pad_F#_Warm.mp3' 'Pad_G_Warm.mp3'
+            'Pad_G#_Warm.mp3' 'Pad_A_Warm.mp3' 'Pad_A#_Warm.mp3' 'Pad_B_Warm.mp3'
+          )
+          SHAS=(
+            0312b26b467cbfbcbd7bc5e8ebcf9a90f4e977b10688839e2a2a8ef4a224173c
+            f8f1b19873635a9a84a126d5ccb16841b0c97e17e784e18313d32e26ce2a8dfd
+            3f87621e4f70a05e40c5e56eb6b9d93fcd8ea6ce8ec1081ec58f883c9bf49673
+            1aec1c3dc0efc5a3c09851cac6495b753aba63080035a97daa43246791eee403
+            3ed6187d8e6f5fc0b8ca1f094d4afc4fc691ec03746ab7c0febecea8d5a5e1fe
+            b7b0ac5e6ee41f108113cdc0d424a0e1dff2919a7e5a79297fa2b0be0d1d01e0
+            97ef632ae1028b8a526cbe9f0cf80ff06325a597765d2745771239181c0b1278
+            6edbb967f9d7b949f43fe6a8bc62639833a27833e1cb64a5cb44ed9b5d6c741b
+            285a3a31e9c5cfa55598add7cfc460645722a3f16853d882ae88325e2c46cd3c
+            ebffdefb14fe5be840efc2237a96681cb79ba595de519531c00d8b0cda368255
+            8686296cdb38c7a139d60a3989779e80eb37bb6db282ab559cea60cd83ca5d97
+            bb64f1199fde3b9bcf224552fa0ba0938ce4be0c297e8eef7d2e05e650ef2de8
+          )
+
+          for i in "${!FILES[@]}"; do
+            file="${FILES[$i]}"
+            id="${IDS[$i]}"
+            key="${KEYS[$i]}"
+            expected="${SHAS[$i]}"
+
+            curl --fail --silent --show-error --location --retry 4 --retry-delay 3 --retry-all-errors \
+              -H "Authorization: Bearer $DRIVE_ACCESS_TOKEN" \
+              "https://www.googleapis.com/drive/v3/files/$id?alt=media&supportsAllDrives=true" \
+              -o "$file"
+            test "$(sha256sum "$file" | cut -d' ' -f1)" = "$expected"
+
+            status="$(curl --silent --show-error --location --retry 3 --retry-delay 2 --retry-all-errors \
+              -X POST \
+              -H 'Content-Type: audio/mpeg' \
+              --data-binary "@$file" \
+              -o "/tmp/runtime-pad-$key.json" -w '%{http_code}' \
+              "$SERVICE_URL/api/internal/warm-pads-once/$key")"
+
+            if [[ "$status" != 200 && "$status" != 201 ]]; then
+              echo "Runtime pad publication returned HTTP $status for $file"
+              cat "/tmp/runtime-pad-$key.json"
+              exit 1
+            fi
+
+            python3 - "$expected" "/tmp/runtime-pad-$key.json" <<'PY'
+import json, sys
+expected, path = sys.argv[1], sys.argv[2]
+with open(path, 'r', encoding='utf-8') as handle:
+    payload = json.load(handle)
+assert payload.get('ok') is True, payload
+assert payload.get('sha256') == expected, payload
+print(f"Verified {payload.get('objectPath')} sha256={expected}")
+PY
+          done
+
+          {
+            echo '## MusicScale official Warm pads'
+            echo
+            echo '**Storage writer:** mn-musicscale-runtime@millionsnest.iam.gserviceaccount.com'
+            echo '**Verified files:** 12/12'
+            echo '**Verification:** each source and Storage readback matched the official SHA-256.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Disable one-time runtime Warm pad endpoint
+        if: always()
+        shell: bash
+        run: |
+          gcloud run services update "$SERVICE" \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --update-env-vars MUSICSCALE_WARM_PADS_UPLOAD_ONCE_ENABLED=false \
+            --quiet
+
+      - name: Record Warm pad publication outcome
+        if: always()
+        run: |
+          echo "Warm pad runtime publication outcome: ${{ steps.publish_warm_pads.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build MusicScale Hosting bundle
         run: |
