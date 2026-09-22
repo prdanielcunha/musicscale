@@ -72,6 +72,12 @@ import { extractSongIdentity } from "./utils/songDiscovery/identityGenerator.js"
 import { preVerifyCandidates, bulkImportCandidates } from './services/server/bulkImportService.js';
 import { BandScaleCommandService } from './services/server/bandScale/bandScaleCommandService.js';
 import { beginAiImportFinOpsWritePath, finalizeAiImportFinOpsWritePath } from "./services/server/aiImportFinOpsWritePath.js";
+import {
+  WARM_PAD_STORAGE_BUCKET,
+  isWarmPadUploadOnceEnabled,
+  resolveWarmPadUploadSpec,
+  sha256Buffer,
+} from "./services/server/warmPadUploadOnce.js";
 
 if (fs.existsSync(".env.local")) {
   dotenv.config({ path: ".env.local" });
@@ -166,6 +172,104 @@ app.use((req, res, next) => {
   }
   return defaultJsonParser(req, res, next);
 });
+
+const warmPadUploadRawParser = express.raw({
+  type: ['audio/mpeg', 'application/octet-stream'],
+  limit: '50mb',
+});
+
+app.post(
+  "/api/internal/warm-pads-once/:key",
+  warmPadUploadRawParser,
+  async (req, res) => {
+    if (!isWarmPadUploadOnceEnabled()) {
+      return res.status(404).json({ ok: false, code: "WARM_PAD_UPLOAD_DISABLED" });
+    }
+
+    const spec = resolveWarmPadUploadSpec(req.params.key);
+    if (!spec) {
+      return res.status(404).json({ ok: false, code: "UNKNOWN_WARM_PAD_KEY" });
+    }
+
+    if (!Buffer.isBuffer(req.body)) {
+      return res.status(415).json({ ok: false, code: "AUDIO_BODY_REQUIRED" });
+    }
+
+    const receivedSha = sha256Buffer(req.body);
+    if (receivedSha !== spec.sha256) {
+      return res.status(422).json({
+        ok: false,
+        code: "WARM_PAD_SHA256_MISMATCH",
+        key: spec.key,
+        expectedSha256: spec.sha256,
+        receivedSha256: receivedSha,
+      });
+    }
+
+    try {
+      const bucket = admin.storage().bucket(WARM_PAD_STORAGE_BUCKET);
+      const file = bucket.file(spec.objectPath);
+
+      try {
+        const [existingBytes] = await file.download();
+        const existingSha = sha256Buffer(existingBytes);
+        if (existingSha === spec.sha256) {
+          return res.status(200).json({
+            ok: true,
+            alreadyPresent: true,
+            key: spec.key,
+            objectPath: spec.objectPath,
+            sha256: existingSha,
+          });
+        }
+      } catch (existingError: any) {
+        const status = Number(existingError?.code || existingError?.response?.statusCode || 0);
+        if (status !== 404) {
+          throw existingError;
+        }
+      }
+
+      await file.save(req.body, {
+        resumable: false,
+        metadata: {
+          contentType: 'audio/mpeg',
+          cacheControl: 'public,max-age=31536000,immutable',
+          metadata: {
+            sha256: spec.sha256,
+            source: 'musicscale-warm-v1',
+          },
+        },
+      });
+
+      const [remoteBytes] = await file.download();
+      const remoteSha = sha256Buffer(remoteBytes);
+      if (remoteSha !== spec.sha256) {
+        throw new Error(`Warm pad readback hash mismatch for ${spec.objectPath}`);
+      }
+
+      return res.status(201).json({
+        ok: true,
+        alreadyPresent: false,
+        key: spec.key,
+        objectPath: spec.objectPath,
+        sha256: remoteSha,
+      });
+    } catch (error: any) {
+      logger.error("[WarmPadUploadOnce] Storage publication failed", {
+        key: spec.key,
+        objectPath: spec.objectPath,
+        code: error?.code,
+        message: error?.message,
+      });
+      return res.status(500).json({
+        ok: false,
+        code: "WARM_PAD_STORAGE_WRITE_FAILED",
+        storageCode: String(error?.code ?? 'UNKNOWN'),
+        message: String(error?.message ?? 'Storage publication failed'),
+      });
+    }
+  },
+);
 
 // Middleware to capture entity too large and syntax error on body parser cleanly
 app.use((err: any, req: any, res: any, next: any) => {
