@@ -1391,6 +1391,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                         ref={isSelected ? fixedBandCardRef : undefined}
                         type="button"
                         role="radio"
+                        data-testid={`fixed-band-card-${fixedScale.id}`}
                         aria-checked={isSelected}
                         onClick={() => setSelectedFixedBandScaleId(fixedScale.id)}
                         className={`group w-full rounded-2xl border p-4 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
