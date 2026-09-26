@@ -824,6 +824,9 @@ const ScalesPage: React.FC = () => {
             if (scaleToClone.bandScale && draft.assignments.length === 0) {
               throw new Error(t('scaleModal.cloneBandRequired'));
             }
+            if (scaleToClone.medleys?.some(medley => medley.steps.some(step => !cloneSongIds.includes(step.songId)))) {
+              throw new Error(t('medley.cloneMissingSong'));
+            }
 
             const scalePayload: Partial<Scale> = {
                 date: draft.date,
@@ -832,6 +835,10 @@ const ScalesPage: React.FC = () => {
                 observations: draft.observations || '',
                 songIds: cloneSongIds,
                 songSettings: normalizeScaleSongSettings(cloneSongIds, draft.songSettings || {}),
+                medleys: (scaleToClone.medleys || [])
+                  .filter(medley => medley.steps.every(step => cloneSongIds.includes(step.songId)))
+                  .map(medley => ({ ...medley, id: crypto.randomUUID(), revision: 1,
+                    steps: medley.steps.map(step => ({ ...step, id: crypto.randomUUID() })) })),
                 eventTypeId: draft.eventTypeId,
                 locationId: draft.locationId,
                 eventNameId: draft.eventNameId || null,

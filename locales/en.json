@@ -1924,5 +1924,13 @@
     "fixedCount_zero": "0 formations",
     "fixedCount_one": "1 formation",
     "fixedCount_other": "{{count}} formations"
+  },
+  "medley": {
+    "alreadyGrouped": "A song already belongs to another medley in this setlist.",
+    "externalOnly": "This song has only a link or attachment; external content requires internet.", "openSource": "Open external chart",
+    "sourceChanged": "The source chart changed since approval. Compare before updating.", "approved": "Rehearsed version", "current": "Current library version", "approveChange": "I reviewed and approve updating the medley", "reviewRequired": "Compare the old and current versions and confirm the update.",
+    "cloneMissingSong": "Include every medley song to clone this setlist.",
+    "openStage": "Open approved arrangement", "close": "Close", "key": "Key", "round": "Round", "next": "Next", "previous": "Previous",
+    "title": "Medley", "description": "Combine excerpts from this setlist, including charts without sections.", "create": "Make a medley", "edit": "Edit", "separate": "Separate", "selectHelp": "Choose entire songs or chart lines. The original remains unchanged.", "song": "Song", "excerpt": "Excerpt", "manual": "Select lines", "whole": "Entire song", "lines": "Lines", "from": "From", "to": "To", "repeat": "Times", "transition": "Transition", "direct": "Direct", "hold": "Hold", "pause": "Pause", "free": "Free", "cue": "Cue", "moveUp": "Move excerpt up", "moveDown": "Move excerpt down", "remove": "Remove excerpt", "cancel": "Cancel", "use": "Use in this setlist", "minimum": "Add at least two excerpts.", "missingSong": "A song was removed from the setlist.", "requiresText": "Selecting an excerpt requires chart or lyric text.", "invalid": "Check the excerpts.", "invalidRange": "Check the first and last line."
   }
 }

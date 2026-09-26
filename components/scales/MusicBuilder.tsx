@@ -8,6 +8,8 @@ import { ArrowUp, ArrowDown, GripVertical, Settings2 } from "lucide-react";
 import { ScaleSongCard } from "./ScaleSongCard";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { useTranslation } from "react-i18next";
+import { MedleyComposer } from './MedleyComposer';
+import { orderMedleySongIds } from '../../utils/medleyModel';
 
 const formLabelClass =
   "block text-[11px] font-black tracking-widest text-slate-400 uppercase dark:text-slate-500 mb-2 ml-1";
@@ -442,6 +444,7 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
           </div>
           
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-20 md:pb-4">
+             <MedleyComposer songs={selectedSongsList} medleys={formData.medleys || []} onChange={medleys => setFormData((prev: any) => ({ ...prev, medleys, songIds: orderMedleySongIds(prev.songIds || [], medleys) }))} />
              {selectedSongsList.length > 0 ? (
                 <div className="space-y-2">
                   <div className="mb-3 px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-lg flex items-center gap-2 text-slate-500 dark:text-slate-400">

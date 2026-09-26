@@ -33,6 +33,7 @@ import FixedBandScaleManagerModal from "./FixedBandScaleManagerModal";
 import MusicBuilder, { MusicBuilderHandle } from "./MusicBuilder";
 import { ScaleSongCard } from "./ScaleSongCard";
 import { ScaleReviewRepertoire } from "./ScaleReviewRepertoire";
+import { orderMedleySongIds } from '../../utils/medleyModel';
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { resolveScaleDurationMinutes } from "../../utils/calendar";
 import { normalizeScaleSongSettings, moveSongId, moveSongBeforeTarget, applyLocalScaleSongSettingsUpdate } from "../../utils/scaleSongSettings";
@@ -191,6 +192,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       durationMinutes: data.durationMinutes ? String(data.durationMinutes) : "",
       songIds: data.songIds || [],
       songSettings: activeSongSettings,
+      medleys: data.medleys || [],
       assignments: (data.assignments || []).map((a: any) => ({ userId: a.userId, instrumentId: a.instrumentId })),
       bandScaleId: data.bandScaleId || "",
       musicScaleId: data.musicScaleId || ""
@@ -425,6 +427,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         bandScaleId: musicScale?.bandScaleId || null,
         durationMinutes: resolveScaleDurationMinutes(musicScale?.durationMinutes),
         songSettings: normalizeScaleSongSettings(activeSongIds, musicScale?.songSettings || {}),
+        medleys: musicScale?.medleys || [],
       };
       setFormData(initialData);
     } else {
@@ -617,7 +620,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
 
     let finalData;
     if (scaleType === "music") {
-      const selectedSongs = formData.songIds || [];
+      const selectedSongs = orderMedleySongIds(formData.songIds || [], formData.medleys || []);
       if (selectedSongs.length === 0) {
         toast({ type: 'error', message: t('scaleModal.minimumOneSong', 'Selecione pelo menos uma música para a escala de músicas.') });
         return;
@@ -647,6 +650,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
         ...commonData, 
         songIds: selectedSongs,
         songSettings: normalizeScaleSongSettings(selectedSongs, formData.songSettings || {}),
+        medleys: formData.medleys || [],
         bandScaleId: resolvedBandScaleId,
         durationMinutes: duration,
         status: (scaleToEdit as any)?.status || "draft",

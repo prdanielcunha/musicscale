@@ -1924,5 +1924,13 @@
     "fixedCount_zero": "0 formações",
     "fixedCount_one": "1 formação",
     "fixedCount_other": "{{count}} formações"
+  },
+  "medley": {
+    "alreadyGrouped": "Uma música já faz parte de outro medley nesta escala.",
+    "externalOnly": "Esta música só tem link ou anexo; o conteúdo externo precisa de internet.", "openSource": "Abrir cifra externa",
+    "sourceChanged": "A cifra original mudou desde a aprovação. Compare antes de atualizar.", "approved": "Versão ensaiada", "current": "Versão atual da biblioteca", "approveChange": "Revisei e aprovo atualizar o medley", "reviewRequired": "Compare a versão antiga com a atual e confirme a atualização.",
+    "cloneMissingSong": "Inclua todas as músicas do medley para clonar esta escala.",
+    "openStage": "Abrir roteiro aprovado", "close": "Fechar", "key": "Tom", "round": "Volta", "next": "Próximo", "previous": "Anterior",
+    "title": "Medley", "description": "Junte trechos das músicas desta escala, inclusive cifras sem seções.", "create": "Juntar em medley", "edit": "Editar", "separate": "Separar", "selectHelp": "Escolha músicas inteiras ou linhas da cifra. A fonte permanece intacta.", "song": "Música", "excerpt": "Trecho", "manual": "Selecionar linhas", "whole": "Música inteira", "lines": "Linhas", "from": "De", "to": "Até", "repeat": "Vezes", "transition": "Passagem", "direct": "Direta", "hold": "Sustentar", "pause": "Pausa", "free": "Livre", "cue": "Orientação", "moveUp": "Subir trecho", "moveDown": "Descer trecho", "remove": "Remover trecho", "cancel": "Cancelar", "use": "Usar nesta escala", "minimum": "Adicione pelo menos dois trechos.", "missingSong": "Uma música foi removida da escala.", "requiresText": "Para selecionar trechos, a música precisa ter letra ou cifra em texto.", "invalid": "Confira os trechos.", "invalidRange": "Confira o início e o fim das linhas."
   }
 }

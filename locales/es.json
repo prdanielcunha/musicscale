@@ -1924,5 +1924,13 @@
     "fixedCount_zero": "0 formaciones",
     "fixedCount_one": "1 formación",
     "fixedCount_other": "{{count}} formaciones"
+  },
+  "medley": {
+    "alreadyGrouped": "Una canción ya pertenece a otro medley en este repertorio.",
+    "externalOnly": "Esta canción solo tiene enlace o adjunto; el contenido externo requiere internet.", "openSource": "Abrir cifra externa",
+    "sourceChanged": "La cifra original cambió desde la aprobación. Compara antes de actualizar.", "approved": "Versión ensayada", "current": "Versión actual", "approveChange": "Revisé y apruebo actualizar el medley", "reviewRequired": "Compara las versiones y confirma la actualización.",
+    "cloneMissingSong": "Incluye todas las canciones del medley para clonar este repertorio.",
+    "openStage": "Abrir arreglo aprobado", "close": "Cerrar", "key": "Tono", "round": "Vuelta", "next": "Siguiente", "previous": "Anterior",
+    "title": "Medley", "description": "Une fragmentos de este repertorio, incluso cifras sin secciones.", "create": "Crear medley", "edit": "Editar", "separate": "Separar", "selectHelp": "Elige canciones completas o líneas. El original permanece intacto.", "song": "Canción", "excerpt": "Fragmento", "manual": "Seleccionar líneas", "whole": "Canción completa", "lines": "Líneas", "from": "Desde", "to": "Hasta", "repeat": "Veces", "transition": "Transición", "direct": "Directa", "hold": "Sostener", "pause": "Pausa", "free": "Libre", "cue": "Indicación", "moveUp": "Subir fragmento", "moveDown": "Bajar fragmento", "remove": "Quitar fragmento", "cancel": "Cancelar", "use": "Usar en este repertorio", "minimum": "Añade al menos dos fragmentos.", "missingSong": "Se quitó una canción del repertorio.", "requiresText": "Para elegir un fragmento se necesita letra o cifra en texto.", "invalid": "Revisa los fragmentos.", "invalidRange": "Revisa el inicio y el fin de las líneas."
   }
 }

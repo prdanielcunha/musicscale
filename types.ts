@@ -429,6 +429,31 @@ export interface ScaleSongSettings {
   bpm?: number | null;
 }
 
+export interface MedleyExcerpt {
+  id: string;
+  songId: string;
+  sourceRevision: string;
+  startLine: number;
+  endLine: number;
+  title: string;
+  label?: string;
+  repetitions: number;
+  key?: string;
+  bpm?: number;
+  /** Approved source text; subsequent library edits never change this instance. */
+  snapshot: string;
+  sourceUrl?: string;
+  tabs?: { section: string; content: string }[];
+  transition?: { mode: 'direct' | 'hold' | 'pause' | 'free'; cue?: string };
+}
+
+export interface ScaleMedley {
+  id: string;
+  anchorSongId: string;
+  revision: number;
+  steps: MedleyExcerpt[];
+}
+
 export interface Scale {
   id: string;
   organizationId?: string;
@@ -446,6 +471,7 @@ export interface Scale {
   observations: string;
   songIds: string[];
   songSettings?: Record<string, ScaleSongSettings>;
+  medleys?: ScaleMedley[];
   eventTypeId: string;
   locationId: string;
   eventNameId?: string | null;
@@ -466,6 +492,7 @@ export interface MusicScalePublishPatch {
   observations?: string;
   songIds?: string[];
   songSettings?: Record<string, ScaleSongSettings>;
+  medleys?: ScaleMedley[];
   durationMinutes?: number;
   bandScaleId?: string | null;
 }
@@ -539,6 +566,7 @@ export interface PopulatedScale {
   observations: string;
   songs: PopulatedSong[];
   songSettings?: Record<string, ScaleSongSettings>;
+  medleys?: ScaleMedley[];
   eventType: EventType;
   location: Location;
   eventName?: EventName | null;
@@ -599,4 +627,3 @@ export type ScaleSongSettingsChangeHandler = (
   bpm: number | null,
   isGlobal: boolean
 ) => Promise<ScaleSongSettingsUpdateResult>;
-
