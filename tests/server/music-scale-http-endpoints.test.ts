@@ -449,7 +449,7 @@ describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
     expect(res.body.error).toContain('Sem permissão');
   });
 
-  it('7. feature flag desligada -> deve retornar 403', async () => {
+  it('7. publicação canônica funciona mesmo sem a antiga feature flag', async () => {
     mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
     seedStandardUserAndOrg({ flagPublish: false });
 
@@ -457,10 +457,10 @@ describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
       .post('/api/v1/music-scales/scale_123/publish')
       .set('authorization', 'Bearer valid-token')
       .set('x-organization-id', 'org_123')
-      .set('idempotency-key', 'idemp_1')
+      .set('idempotency-key', 'idemp_without_legacy_flag')
       .send({});
-    expect(res.status).toBe(403);
-    expect(res.body.error).toContain('Feature Flag');
+    expect(res.status).toBe(200);
+    expect(mockDbState.get('scales/scale_123').status).toBe('published');
   });
 
   it('8. payload inválido -> deve retornar 400 ou client error', async () => {
