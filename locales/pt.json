@@ -470,6 +470,9 @@
     "rehearsal_mode_active": "Modo Ensaio Ativo"
   },
   "scales": {
+    "dataUnavailableTitle": "Não foi possível carregar as escalas agora",
+    "dataUnavailableDescription": "A conexão com os dados da organização precisa ser restabelecida. A lista vazia não confirma exclusão; tente novamente antes de criar ou editar.",
+    "retryConnection": "Tentar novamente",
     "title": "Escalas",
     "subtitle": "Planeje escalas, escale músicos e organize os setlists para ensaios e cultos.",
     "new_scale": "Nova Escala",

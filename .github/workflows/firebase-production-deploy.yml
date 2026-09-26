@@ -2,6 +2,10 @@ name: MusicScale Firebase Production Deploy
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ production ]
+    paths:
+      - 'ops/hosting-release.txt'
 
 permissions:
   contents: read

@@ -470,6 +470,9 @@
     "rehearsal_mode_active": "Rehearsal Mode Active"
   },
   "scales": {
+    "dataUnavailableTitle": "Schedules could not be loaded right now",
+    "dataUnavailableDescription": "The organization data connection needs to be restored. An empty list does not mean the schedules were deleted; try again before creating or editing.",
+    "retryConnection": "Try again",
     "title": "Schedules",
     "subtitle": "Plan scales, schedule musicians, and coordinate the song lists for rehearsals and services.",
     "new_scale": "New Schedule",
