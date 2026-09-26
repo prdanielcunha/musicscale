@@ -103,6 +103,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const switchGeneration = useRef(0);
   const contextRef = useRef<EcosystemContextPayload | null>(null);
   const releasedCanonicalOrgIdRef = useRef<string | null>(null);
+  const releasedCanonicalContextRef = useRef<any>(null);
 
   useEffect(() => {
     contextRef.current = context;
@@ -129,6 +130,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
            unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
                ++switchGeneration.current;
                releasedCanonicalOrgIdRef.current = null;
+               releasedCanonicalContextRef.current = null;
                const currentGeneration = ++activeGeneration;
                if (user) {
                    if (mounted) setIsContextSyncing(true);
@@ -222,6 +224,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                ) return;
 
                                releasedCanonicalOrgIdRef.current = candidateOrgId;
+                               releasedCanonicalContextRef.current = canonicalContext;
                                const canonicalRole = canonicalContext.organizationRole || canonicalContext.effectiveContext?.organizationRole || 'visitor';
                                const initialOrganization = {
                                    id: candidateOrgId,
@@ -655,12 +658,17 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         }
 
                         if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid) {
-                             const permissions = getCanonicalPermissions(serverContext);
-                             if (!serverContext?.effectiveContext) {
-                                 if (orgId && orgId !== 'offline_default') {
-                                     setIsDegraded(true);
-                                 }
-                             }
+                             // The fast path may already have verified and released this
+                             // organization while discovery is still running. A later
+                             // timeout must not replace that verified context with a
+                             // degraded result (or leave the warning stuck on screen).
+                             const releasedContextIsValid = releasedCanonicalOrgIdRef.current === orgId &&
+                                 isValidCanonicalResponse(releasedCanonicalContextRef.current, user.uid, orgId) &&
+                                 releasedCanonicalContextRef.current?.effectiveContext?.resolutionStatus === 'resolved';
+                             const effectiveServerContext = serverContext?.effectiveContext?.resolutionStatus === 'resolved'
+                                 ? serverContext
+                                 : releasedContextIsValid ? releasedCanonicalContextRef.current : null;
+                             setIsDegraded(!effectiveServerContext?.effectiveContext);
                              setContext((prev: any) => ({
                                  ...payload,
                                  ...data,
@@ -668,10 +676,10 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                                      currentOrganizationId: releasedCanonicalOrgIdRef.current,
                                      currentOrganizationName: organizationsAvailable.find((organization) => organization.id === releasedCanonicalOrgIdRef.current)?.name || prev?.currentOrganizationName || releasedCanonicalOrgIdRef.current,
                                      roleInCurrentOrganization: prev?.roleInCurrentOrganization,
-                                     serverContext: prev?.serverContext,
+                                     serverContext: effectiveServerContext,
                                  } : {}),
                                  isStandalone: true,
-                                 permissions: releasedCanonicalOrgIdRef.current ? prev?.permissions : permissions
+                                 permissions: getCanonicalPermissions(effectiveServerContext)
                              }));
                          }
                     } catch (e) {
