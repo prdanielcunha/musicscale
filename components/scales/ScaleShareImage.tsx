@@ -1,5 +1,8 @@
 import React, { forwardRef } from "react";
 import type { PopulatedScale, PopulatedSong, PopulatedBandScale } from "../../types";
+import { scaleRepertoireItems } from '../../utils/scaleRepertoireItems';
+
+type DisplaySong = Pick<PopulatedSong, 'id' | 'title' | 'artist' | 'key' | 'bpm'>;
 import { getScaleTitle } from "../../utils/scaleHelper";
 import { RepertoireIcon } from "../icons/RepertoireIcon";
 import { CalendarIcon } from "../icons/CalendarIcon";
@@ -11,7 +14,7 @@ interface ScaleShareImageProps {
   scale: PopulatedScale | PopulatedBandScale;
 }
 
-const FullSongListItem: React.FC<{ song: PopulatedSong; index: number }> = ({
+const FullSongListItem: React.FC<{ song: DisplaySong; index: number }> = ({
   song,
   index,
 }) => (
@@ -69,7 +72,7 @@ const MemberListItem: React.FC<{ assignment: any; index: number }> = ({ assignme
   </div>
 );
 
-const CompactSongListItem: React.FC<{ song: PopulatedSong; index: number }> = ({
+const CompactSongListItem: React.FC<{ song: DisplaySong; index: number }> = ({
   song,
   index,
 }) => (
@@ -120,7 +123,11 @@ const ScaleShareImage = forwardRef<HTMLDivElement, ScaleShareImageProps>(
 
     
     const isBandScale = 'assignments' in scale;
-    const items = isBandScale ? (scale as PopulatedBandScale).assignments : (scale as PopulatedScale).songs;
+    const items = isBandScale ? (scale as PopulatedBandScale).assignments :
+      scaleRepertoireItems((scale as PopulatedScale).songs, (scale as PopulatedScale).medleys).map((item): DisplaySong =>
+        item.kind === 'song' ? item.song : {
+          id: item.id, title: item.title, artist: `${item.medley.steps.length} trechos`, key: '', bpm: null,
+        });
     const totalItems = items.length;
     const isCompact = totalItems >= 7;
     const isTruncated = totalItems > 10;

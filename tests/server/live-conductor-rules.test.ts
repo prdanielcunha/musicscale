@@ -177,4 +177,23 @@ describe.skipIf(!hasEmulatorHost)("Live Worship conductor Firestore rules", () =
       }),
     );
   });
+
+  it('pins medley direction to the published revision and a monotonic sequence', async () => {
+    await seedMember('conductor-medley', { 'musicscale.live.conduct': true });
+    await env!.withSecurityRulesDisabled(async context => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'scales/session-medley'), { organizationId: 'org-1', status: 'published', publishRevision: 3 });
+      await setDoc(doc(db, 'liveSessions/session-medley'), {
+        id: 'session-medley', scaleId: 'session-medley', organizationId: 'org-1', leaderId: 'host', activeMedley: null,
+      });
+    });
+    const db = env!.authenticatedContext('conductor-medley').firestore();
+    const target = { medleyId: 'm1', stepId: 'step-1', round: 1, publishRevision: 3,
+      sequence: 1, commandId: 'c1', timestamp: Date.now(), actorId: 'conductor-medley' };
+    await assertSucceeds(updateDoc(doc(db, 'liveSessions/session-medley'), { activeMedley: target }));
+    await assertFails(updateDoc(doc(db, 'liveSessions/session-medley'), { activeMedley: { ...target, commandId: 'stale' } }));
+    await assertFails(updateDoc(doc(db, 'liveSessions/session-medley'), { activeMedley: { ...target, sequence: 2, publishRevision: 2 } }));
+    await assertFails(updateDoc(doc(db, 'liveSessions/session-medley'), { activeMedley: { ...target, sequence: 2, actorId: 'someone-else' } }));
+    await assertSucceeds(updateDoc(doc(db, 'liveSessions/session-medley'), { activeMedley: { ...target, sequence: 2, commandId: 'c2' } }));
+  });
 });

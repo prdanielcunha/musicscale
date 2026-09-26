@@ -45,6 +45,7 @@ import { getScaleTitle } from "../../utils/scaleHelper";
 import AssignmentResponseActions from "./AssignmentResponseActions";
 import TeamStatusSummary from "./TeamStatusSummary";
 import { countFocusedSongParts } from "../songs/songParts";
+import { MedleyStage } from './MedleyStage';
 
 const EditIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg
@@ -406,6 +407,7 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
   const [isIosShareModalOpen, setIsIosShareModalOpen] = useState(false);
 
   const [localSongs, setLocalSongs] = useState<PopulatedSong[]>([]);
+  const medleySongIds = useMemo(() => new Set(isMusicScale(scale) ? (scale.medleys || []).flatMap(medley => medley.steps.map(step => step.songId)) : []), [scale]);
   const [aiInsights, setAiInsights] = useState<SetlistIntelligence | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
@@ -752,12 +754,12 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
                         <h3 className="text-[20px] font-bold text-white tracking-tight flex items-center gap-2">
                            Repertório
                            <span className="w-5 h-5 flex items-center justify-center rounded-full bg-white/10 text-white/50 font-bold text-[11px] ml-1.5 font-mono shadow-inner">
-                             {scale.songs.length}
+                             {scale.songs.filter(song => !medleySongIds.has(song.id)).length + (scale.medleys?.length || 0)}
                            </span>
                         </h3>
                      </div>
                      <div className="flex items-center gap-3">
-                        {scale.songs.length > 0 && (
+                        {scale.songs.length > 0 && !scale.medleys?.length && (
                           <button onClick={() => openSongDetail(scale.songs[0], true, buildSongScaleContext(scale.songs, 0), true)} className="h-9 md:h-10 px-5 md:px-6 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white text-[13px] md:text-[14px] font-bold transition-all hover:scale-105 active:scale-95 flex items-center gap-2 shadow-[0_4px_12px_rgba(99,102,241,0.3)] hover:shadow-[0_6px_20px_rgba(99,102,241,0.4)]">
                              <svg className="w-4 h-4 md:w-5 md:h-5 opacity-90" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                              Modo Performance
@@ -771,6 +773,9 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
                         <div className="space-y-2">
                           <div className="space-y-2">
                              {localSongs.map((song, index) => {
+                                const anchoredMedley = scale.medleys?.find(medley => medley.anchorSongId === song.id);
+                                if (anchoredMedley) return <MedleyStage key={anchoredMedley.id} medley={anchoredMedley} scaleId={scale.id} publishRevision={scale.publishRevision} />;
+                                if (medleySongIds.has(song.id)) return null;
                                 const hasLyrics = !!song.lyrics?.trim();
                                 const hasChords = !!song.chords?.trim();
                                 const focusedPartCount = countFocusedSongParts(

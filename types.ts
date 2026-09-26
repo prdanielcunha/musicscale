@@ -359,12 +359,24 @@ export interface LiveWorshipSectionTarget {
   actorId?: string | null;
 }
 
+export interface LiveWorshipMedleyTarget {
+  medleyId: string;
+  stepId: string;
+  round: number;
+  publishRevision: number;
+  sequence: number;
+  commandId: string;
+  timestamp: number;
+  actorId: string;
+}
+
 export interface LiveWorshipSession {
   id: string; // usually same as scaleId
   scaleId: string;
   activeSongId: string | null;
   activeCue: WorshipCue | null;
   activeSection?: LiveWorshipSectionTarget | null;
+  activeMedley?: LiveWorshipMedleyTarget | null;
   keyOverrides: Record<string, string>; // { songId: newKey }
   songsOrder: string[]; // array of songIds
   spontaneousSongs: { id: string; title: string; chords: string }[];
@@ -429,6 +441,44 @@ export interface ScaleSongSettings {
   bpm?: number | null;
 }
 
+export interface MedleyExcerpt {
+  id: string;
+  songId: string;
+  sourceRevision: string;
+  startLine: number;
+  endLine: number;
+  title: string;
+  label?: string;
+  repetitions: number;
+  key?: string;
+  /** Verified key of the stored source chart; the snapshot stays unchanged. */
+  sourceKey?: string;
+  bpm?: number;
+  /** Approved source text; subsequent library edits never change this instance. */
+  snapshot: string;
+  sourceUrl?: string;
+  tabs?: { section: string; content: string }[];
+  transition?: { mode: 'direct' | 'hold' | 'pause' | 'free'; cue?: string };
+}
+
+export interface ScaleMedley {
+  id: string;
+  anchorSongId: string;
+  revision: number;
+  steps: MedleyExcerpt[];
+}
+
+export interface MedleyTemplate {
+  id: string;
+  organizationId: string;
+  name: string;
+  arrangement: ScaleMedley;
+  createdBy: CreatedBy;
+  createdAt: string;
+  lastModifiedBy?: CreatedBy | null;
+  lastModifiedAt?: string | null;
+}
+
 export interface Scale {
   id: string;
   organizationId?: string;
@@ -446,6 +496,7 @@ export interface Scale {
   observations: string;
   songIds: string[];
   songSettings?: Record<string, ScaleSongSettings>;
+  medleys?: ScaleMedley[];
   eventTypeId: string;
   locationId: string;
   eventNameId?: string | null;
@@ -466,6 +517,7 @@ export interface MusicScalePublishPatch {
   observations?: string;
   songIds?: string[];
   songSettings?: Record<string, ScaleSongSettings>;
+  medleys?: ScaleMedley[];
   durationMinutes?: number;
   bandScaleId?: string | null;
 }
@@ -535,10 +587,12 @@ export interface PopulatedScale {
   time?: string;
   durationMinutes?: number;
   status?: 'draft' | 'published' | 'cancelled' | 'completed';
+  publishRevision?: number;
   eventAssignments?: EventAssignment[];
   observations: string;
   songs: PopulatedSong[];
   songSettings?: Record<string, ScaleSongSettings>;
+  medleys?: ScaleMedley[];
   eventType: EventType;
   location: Location;
   eventName?: EventName | null;
@@ -599,4 +653,3 @@ export type ScaleSongSettingsChangeHandler = (
   bpm: number | null,
   isGlobal: boolean
 ) => Promise<ScaleSongSettingsUpdateResult>;
-

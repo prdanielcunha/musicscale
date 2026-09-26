@@ -20,13 +20,13 @@ const runBump = (version: string, kind: string) => {
 };
 
 describe('release metadata', () => {
-  it('uses the 0.7 fixed-band workflow feature release metadata', () => {
+  it('uses the 0.8 medley feature release metadata', () => {
     const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-    expect(APP_VERSION).toBe('0.7.0-beta.1');
+    expect(APP_VERSION).toBe('0.8.0-beta.0');
     expect(lock.version).toBe(APP_VERSION);
     expect(lock.packages[''].version).toBe(APP_VERSION);
-    expect(FEATURE_RELEASE.version).toBe('0.7.0-beta.0');
-    expect(FEATURE_RELEASE.id).toBe('fixed-band-formation-workflow-beta-0.7');
+    expect(FEATURE_RELEASE.version).toBe('0.8.0-beta.0');
+    expect(FEATURE_RELEASE.id).toBe('intelligent-medleys-beta-0.8');
     expect(FEATURE_RELEASE.kind).toBe('feature');
     expect(Date.parse(FEATURE_RELEASE.publishedAt)).not.toBeNaN();
   });
@@ -51,9 +51,9 @@ describe('release metadata', () => {
     expect(revision.lock.packages[''].version).toBe(revision.pkg.version);
   });
 
-  it('provides the three 0.7 feature highlights and refinements in every language', () => {
+  it('provides the three medley feature highlights and refinements in every language', () => {
     for (const language of ['pt', 'en', 'es'] as const) {
-      const copy = releaseNewsTranslations[language].fixedBandWorkflowBeta07;
+      const copy = releaseNewsTranslations[language].intelligentMedleysBeta08;
       expect(copy.title.length).toBeGreaterThan(0);
       for (const feature of ['stageTools', 'deviceAudio', 'updates'] as const) {
         expect(copy[feature].title.length).toBeGreaterThan(0);
