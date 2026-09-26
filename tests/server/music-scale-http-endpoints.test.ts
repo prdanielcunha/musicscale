@@ -189,6 +189,7 @@ describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
     isOwner?: boolean;
     orgStatus?: string;
     flagPublish?: boolean;
+    omitPublishFlag?: boolean;
     flagResponse?: boolean;
     scaleId?: string;
     scaleOrgId?: string;
@@ -226,7 +227,7 @@ describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
       ownerUserId: isOwner ? userId : 'other_owner',
       archived: params.orgArchived === true,
       featureFlags: {
-        'musicscale.musicScalePublishCommandV1': flagPublish,
+        ...(params.omitPublishFlag ? {} : { 'musicscale.musicScalePublishCommandV1': flagPublish }),
         'musicscale.scaleResponsesV1': flagResponse,
       },
     };
@@ -461,6 +462,21 @@ describe('MusicScale Express HTTP Contract with Mocked Firebase Admin', () => {
       .send({});
     expect(res.status).toBe(403);
     expect(res.body.error).toContain('Feature Flag');
+  });
+
+  it('7b. organização legada sem a flag de publish usa o comando por padrão', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user_123' });
+    seedStandardUserAndOrg({ omitPublishFlag: true });
+
+    const res = await request(app)
+      .post('/api/v1/music-scales/scale_123/publish')
+      .set('authorization', 'Bearer valid-token')
+      .set('x-organization-id', 'org_123')
+      .set('idempotency-key', 'idemp_legacy_org_publish')
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(mockDbState.get('scales/scale_123')).toMatchObject({ status: 'published' });
   });
 
   it('8. payload inválido -> deve retornar 400 ou client error', async () => {

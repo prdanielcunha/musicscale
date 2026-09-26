@@ -53,6 +53,7 @@ import { createConnectNextSchedulePresenceReadHandler } from "./services/server/
 import { createConnectNextScheduleChartReadHandler } from "./services/server/connect/nextScheduleChartReadHandler.js";
 import { createServeGuardHttpHandlers } from "./services/server/serveGuard/serveGuardHttpHandler.js";
 import { createInvitationCompatibilityHandlers } from "./services/server/musicScaleInvitationCompatibility.js";
+import { isMusicScalePublishCommandEnabledForOrganization } from "./utils/musicScalePublishFeature.js";
 import { createJoinRequestCompatibilityHandlers } from "./services/server/musicScaleJoinRequestCompatibility.js";
 import { createMemberRemovalCompatibilityHandler } from "./services/server/musicScaleMemberRemovalCompatibility.js";
 import { runSongDiscoveryProcessor } from "./services/server/songDiscoveryProcessor.js";
@@ -1281,7 +1282,7 @@ app.post(
         throw { status: 404, message: "Organização não encontrada." };
       }
       const orgData = orgSnap.data() || {};
-      flag = orgData.featureFlags?.["musicscale.musicScalePublishCommandV1"] === true || orgData.features?.["musicscale.musicScalePublishCommandV1"] === true;
+      flag = isMusicScalePublishCommandEnabledForOrganization(orgData);
       if (!flag) {
         throw { status: 403, message: "Recurso desativado por Feature Flag para esta organização." };
       }

@@ -20,9 +20,9 @@ const runBump = (version: string, kind: string) => {
 };
 
 describe('release metadata', () => {
-  it('uses the 0.8 medley feature release metadata', () => {
+  it('keeps the 0.8 medley feature announcement while the installed hotfix advances', () => {
     const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-    expect(APP_VERSION).toBe('0.8.0-beta.0');
+    expect(APP_VERSION).toBe('0.8.1-beta.0');
     expect(lock.version).toBe(APP_VERSION);
     expect(lock.packages[''].version).toBe(APP_VERSION);
     expect(FEATURE_RELEASE.version).toBe('0.8.0-beta.0');

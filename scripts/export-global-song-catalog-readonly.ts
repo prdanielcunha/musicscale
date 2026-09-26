@@ -20,6 +20,37 @@ type CatalogSong = {
   lastModifiedAt: string | null;
 };
 
+type RecentScaleDiagnostic = {
+  id: string;
+  organizationId: string;
+  status: string;
+  date: string;
+  hasEventTypeId: boolean;
+  hasLocationId: boolean;
+  songCount: number;
+  medleyCount: number;
+  medleyStepCount: number;
+  hasBandScale: boolean;
+  bandScaleId: string | null;
+  publishRevision: number | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+type BandScaleDiagnostic = {
+  id: string;
+  exists: boolean;
+  organizationId: string;
+  assignmentCount: number;
+  invalidAssignmentCount: number;
+};
+
+type OrganizationPublishFlagDiagnostic = {
+  id: string;
+  publishCommandV1FeatureFlag: boolean | null;
+  publishCommandV1Feature: boolean | null;
+};
+
 const EXPECTED_PROJECT_ID = 'millionsnest';
 const OUTPUT_DIR = path.resolve('tmp/firestore-audit');
 const OUTPUT_FILE = path.join(OUTPUT_DIR, 'globalSongs.catalog.json');
@@ -79,6 +110,66 @@ async function main(): Promise<void> {
     return title !== 0 ? title : a.normalizedArtist.localeCompare(b.normalizedArtist, 'pt-BR');
   });
 
+  // Production incident diagnostics. Read-only and intentionally excludes names,
+  // observations, lyrics/chords, notification bodies and user profile fields.
+  const scaleSnapshot = await adminDb.collection('scales').get();
+  const recentScales: RecentScaleDiagnostic[] = scaleSnapshot.docs.map((doc) => {
+    const data = doc.data() || {};
+    const medleys = Array.isArray(data.medleys) ? data.medleys : [];
+    return {
+      id: doc.id,
+      organizationId: asString(data.organizationId),
+      status: asString(data.status),
+      date: asString(data.date),
+      hasEventTypeId: Boolean(asString(data.eventTypeId)),
+      hasLocationId: Boolean(asString(data.locationId)),
+      songCount: Array.isArray(data.songIds) ? data.songIds.length : 0,
+      medleyCount: medleys.length,
+      medleyStepCount: medleys.reduce((total: number, medley: any) =>
+        total + (Array.isArray(medley?.steps) ? medley.steps.length : 0), 0),
+      hasBandScale: Boolean(asString(data.bandScaleId)),
+      bandScaleId: asString(data.bandScaleId) || null,
+      publishRevision: asFiniteNumber(data.publishRevision),
+      createdAt: asIso(data.createdAt),
+      updatedAt: asIso(data.updatedAt),
+    };
+  }).sort((a, b) => {
+    const aTime = Date.parse(a.updatedAt || a.createdAt || '1970-01-01T00:00:00.000Z');
+    const bTime = Date.parse(b.updatedAt || b.createdAt || '1970-01-01T00:00:00.000Z');
+    return bTime - aTime;
+  }).slice(0, 60);
+
+  const bandIds = Array.from(new Set(recentScales.map((scale) => scale.bandScaleId).filter(Boolean))) as string[];
+  const bandScales: BandScaleDiagnostic[] = await Promise.all(bandIds.map(async (id) => {
+    const snap = await adminDb.collection('bandScales').doc(id).get();
+    if (!snap.exists) return { id, exists: false, organizationId: '', assignmentCount: 0, invalidAssignmentCount: 0 };
+    const data = snap.data() || {};
+    const assignments = Array.isArray(data.assignments) ? data.assignments : [];
+    return {
+      id,
+      exists: true,
+      organizationId: asString(data.organizationId),
+      assignmentCount: assignments.length,
+      invalidAssignmentCount: assignments.filter((assignment: any) =>
+        !asString(assignment?.userId) || !asString(assignment?.instrumentId)).length,
+    };
+  }));
+
+  const organizationIds = Array.from(new Set(recentScales.map((scale) => scale.organizationId).filter(Boolean)));
+  const organizationPublishFlags: OrganizationPublishFlagDiagnostic[] = await Promise.all(organizationIds.map(async (id) => {
+    const snap = await adminDb.collection('organizations').doc(id).get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const featureFlags = data.featureFlags && typeof data.featureFlags === 'object' ? data.featureFlags : {};
+    const features = data.features && typeof data.features === 'object' ? data.features : {};
+    const flagValue = (featureFlags as Record<string, unknown>)['musicscale.musicScalePublishCommandV1'];
+    const featureValue = (features as Record<string, unknown>)['musicscale.musicScalePublishCommandV1'];
+    return {
+      id,
+      publishCommandV1FeatureFlag: typeof flagValue === 'boolean' ? flagValue : null,
+      publishCommandV1Feature: typeof featureValue === 'boolean' ? featureValue : null,
+    };
+  }));
+
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   fs.writeFileSync(
     OUTPUT_FILE,
@@ -91,6 +182,12 @@ async function main(): Promise<void> {
       excludedSensitiveOrHeavyFields: ['lyrics', 'chords', 'createdBy', 'lastModifiedBy'],
       total: songs.length,
       songs,
+      productionScaleDiagnostics: {
+        generatedForIncident: 'music-scale-stuck-as-draft',
+        recentScales,
+        bandScales,
+        organizationPublishFlags,
+      },
     }, null, 2) + '\n',
     'utf8',
   );
