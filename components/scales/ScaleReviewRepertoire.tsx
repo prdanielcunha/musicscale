@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-import { PopulatedSong, Tag, ScaleSongSettingsUpdateResult, ScaleSongSettings } from "../../types";
+import { PopulatedSong, Tag, ScaleSongSettingsUpdateResult, ScaleSongSettings, ScaleMedley } from "../../types";
+import { scaleRepertoireItems } from '../../utils/scaleRepertoireItems';
 import { ScaleSongCard } from "./ScaleSongCard";
 import { moveSongId, moveSongBeforeTarget } from "../../utils/scaleSongSettings";
 import { useTranslation } from "react-i18next";
@@ -10,6 +11,7 @@ interface ScaleReviewRepertoireProps {
   songs: PopulatedSong[];
   tags: Tag[];
   songSettings: Record<string, ScaleSongSettings> | undefined;
+  medleys?: ScaleMedley[];
   onUpdateSongSettings: (
     songId: string,
     key: string | null,
@@ -25,6 +27,7 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
   songs,
   tags,
   songSettings,
+  medleys = [],
   onUpdateSongSettings,
   onSongIdsChange,
   goToStep,
@@ -32,6 +35,8 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
   const { t } = useTranslation();
   const [draggedSongId, setDraggedSongId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const reviewItems = scaleRepertoireItems(songIds.map(id => songs.find(song => song.id === id)).filter((song): song is PopulatedSong => !!song), medleys);
+  const groupedSongIds = new Set(medleys.flatMap(medley => medley.steps.map(step => step.songId)));
 
   const dragInfo = useRef<{
     startIndex: number | null;
@@ -135,16 +140,16 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
               <span className="ms-kicker">{t('scaleModal.repertoire', 'Repertório')}</span>
               {songIds && songIds.length > 0 && (
                 <div className="mt-1 flex items-center gap-2">
-                  <span className="text-[11px] font-semibold tabular-nums text-white/48">{songIds.length}</span>
+                  <span className="text-[11px] font-semibold tabular-nums text-white/48">{reviewItems.length}</span>
                   <span className="h-1 w-1 rounded-full bg-white/20" aria-hidden="true" />
                   <div className="flex items-center gap-1" aria-hidden="true">
-                    {songIds.slice(0, 8).map((id, index) => (
+                    {reviewItems.slice(0, 8).map((item, index) => (
                       <span
-                        key={`${id}-${index}`}
+                        key={`${item.id}-${index}`}
                         className={`h-1.5 rounded-full transition-[width,background-color] duration-200 ${index === 0 ? 'w-5 bg-primary/75' : 'w-2.5 bg-white/14'}`}
                       />
                     ))}
-                    {songIds.length > 8 && <span className="text-[9px] font-bold text-white/28">+{songIds.length - 8}</span>}
+                    {reviewItems.length > 8 && <span className="text-[9px] font-bold text-white/28">+{reviewItems.length - 8}</span>}
                   </div>
                 </div>
               )}
@@ -175,6 +180,14 @@ export const ScaleReviewRepertoire: React.FC<ScaleReviewRepertoireProps> = ({
             />
           )}
           {songIds.map((id, index) => {
+            const medley = medleys.find(item => item.anchorSongId === id);
+            if (medley) return <div key={medley.id} className="relative rounded-2xl border border-primary/25 bg-primary/[0.06] p-4 text-white">
+              <span className="text-xs font-bold uppercase tracking-widest text-primary-light">{index + 1}. {t('medley.title')}</span>
+              <p className="mt-1 font-semibold">{medley.steps.map(step => step.title).join(' → ')}</p>
+              <p className="mt-1 text-xs text-white/50">{medley.steps.length} {t('medley.excerpt')}</p>
+              <button type="button" className="mt-2 text-xs font-bold text-primary-light underline" onClick={() => goToStep('build')}>{t('medley.edit')}</button>
+            </div>;
+            if (groupedSongIds.has(id)) return null;
             const song = songs.find(s => s.id === id);
             if (!song) return null;
             return (

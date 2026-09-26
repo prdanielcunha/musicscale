@@ -6,6 +6,7 @@ export type PreparationPublishChangeCode =
   | 'song_reordered'
   | 'song_key_changed'
   | 'song_bpm_changed'
+  | 'medley_changed'
   | 'date_changed'
   | 'time_changed'
   | 'location_changed'
@@ -85,6 +86,7 @@ export function buildPreparationPublishChangeSummary(
   const previousSet = new Set(previousIds);
   const currentSet = new Set(currentIds);
   const codes: PreparationPublishChangeCode[] = [];
+  if (JSON.stringify(previous.medleys || []) !== JSON.stringify(current.medleys || [])) addCode(codes, 'medley_changed');
 
   const added = currentIds.filter(id => !previousSet.has(id));
   const removed = previousIds.filter(id => !currentSet.has(id));

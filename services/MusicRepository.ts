@@ -1,6 +1,6 @@
 import { BaseRepository, removeUndefinedValues } from '../lib/BaseRepository';
 import { 
-    Song, Scale, EventType, Location, EventName, Tag, Instrument, BandScale, FixedBandScale, UserProfile, Role, LiveWorshipSession, ChordSourceConfirmation
+    Song, Scale, EventType, Location, EventName, Tag, Instrument, BandScale, FixedBandScale, UserProfile, Role, LiveWorshipSession, ChordSourceConfirmation, MedleyTemplate
 } from '../types';
 import { doc, writeBatch, serverTimestamp, addDoc, collection, runTransaction } from 'firebase/firestore';
 import { db } from './firebase';
@@ -22,6 +22,7 @@ export class MusicRepository {
     public users: BaseRepository<UserProfile>;
     public roles: BaseRepository<Role>;
     public liveSessions: BaseRepository<LiveWorshipSession>;
+    public medleyTemplates: BaseRepository<MedleyTemplate>;
 
     constructor(orgId: string, userProfile?: UserProfile | null) {
         this.orgId = orgId;
@@ -112,6 +113,7 @@ export class MusicRepository {
         this.instruments = new BaseRepository<Instrument>('instruments', orgId, userProfile);
         this.roles = new BaseRepository<Role>('roles', orgId, userProfile);
         this.liveSessions = new BaseRepository<LiveWorshipSession>('liveSessions', orgId, userProfile);
+        this.medleyTemplates = new BaseRepository<MedleyTemplate>('medleyTemplates', orgId, userProfile);
         
         // Custom users repository to fetch from organization_members correctly handling multi-tenancy
         this.users = new class extends BaseRepository<UserProfile> {
@@ -320,6 +322,31 @@ export class MusicRepository {
             lastUpdated: Date.now()
         }), { merge: true });
         await batch.commit();
+    }
+
+    async directMedleyStep(scaleId: string, medleyId: string, stepId: string, round: number, publishRevision: number, actorId: string) {
+        if (!this.orgId || !actorId || !Number.isInteger(round) || round < 1) throw new Error('Invalid medley direction');
+        const scaleRef = doc(db, 'scales', scaleId);
+        const sessionRef = doc(db, 'liveSessions', scaleId);
+        return runTransaction(db, async transaction => {
+            const scale = (await transaction.get(scaleRef)).data() as Scale | undefined;
+            const session = (await transaction.get(sessionRef)).data() as LiveWorshipSession | undefined;
+            if (!scale || scale.organizationId !== this.orgId || scale.status !== 'published' ||
+                scale.publishRevision !== publishRevision || !session || session.leaderId == null ||
+                (session as LiveWorshipSession & { organizationId?: string }).organizationId !== this.orgId) {
+                throw new Error('Published medley session is unavailable or changed');
+            }
+            const medley = scale.medleys?.find(item => item.id === medleyId);
+            const step = medley?.steps.find(item => item.id === stepId);
+            if (!step || round > step.repetitions) throw new Error('Invalid medley step');
+            const sequence = (session.activeMedley?.sequence || 0) + 1;
+            transaction.update(sessionRef, {
+                activeMedley: { medleyId, stepId, round, publishRevision, sequence,
+                    commandId: crypto.randomUUID(), timestamp: Date.now(), actorId },
+                lastUpdated: Date.now(),
+            });
+            return sequence;
+        });
     }
 
     async updateSongChords(songId: string, chords: string) {

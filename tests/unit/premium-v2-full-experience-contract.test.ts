@@ -122,8 +122,9 @@ describe('Premium V2 full experience contract', () => {
     expect(css).toContain('counter-reset: ms-scale-song');
     expect(css).toContain('counter(ms-scale-song, decimal-leading-zero)');
     expect(css).toContain('[data-testid^="scale-card-"]');
-    expect(scales).toContain('handleQuickRemove(song.id)');
-    expect(scales).toContain('songsExpanded ? scale.songs : scale.songs.slice(0, 3)');
+    expect(scales).toContain('handleQuickRemove(item.song.id)');
+    expect(scales).toContain('songsExpanded ? repertoireItems : repertoireItems.slice(0, 3)');
+    expect(scales).toContain("item.kind === 'song' && <button");
   });
 
   it('loads the dedicated completion layer and preserves reduced-motion rules', () => {

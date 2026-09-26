@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MusicScaleCommandService, ValidationError, PublishCommandError } from '../../services/server/scale/musicScaleCommandService.js';
+import { medleySourceRevision } from '../../utils/medleyModel.js';
 
 interface DocumentState {
   data: Record<string, unknown>;
@@ -377,6 +378,31 @@ describe('MusicScaleCommandService (Backend)', () => {
     const scale = dbState.get('scales/scale-1')?.data;
     expect(scale?.status).toBe('published');
     expect(scale?.publishRevision).toBe(2);
+  });
+
+  it('publishes an A → B → A medley atomically and rejects a foreign source', async () => {
+    setupBasicScale();
+    const a = { organizationId: 'org-1', chords: 'Am     F\nLetra', lyrics: '', tabs: [] };
+    const b = { organizationId: 'org-1', chords: 'G      C\nOutra', lyrics: '', tabs: [] };
+    dbState.set('songs/song-1', { data: a, version: 1 });
+    dbState.set('songs/song-2', { data: b, version: 1 });
+    const excerpt = (songId: string, source: typeof a, id: string) => ({
+      id, songId, sourceRevision: medleySourceRevision(source), startLine: 0, endLine: 1,
+      title: songId, repetitions: 1, snapshot: source.chords,
+    });
+    const medleys = [{ id: 'medley-1', anchorSongId: 'song-1', revision: 1,
+      steps: [excerpt('song-1', a, 'step-1'), excerpt('song-2', b, 'step-2'), excerpt('song-1', a, 'step-3')] }];
+    const payload = { scalePatch: { ...validScalePatch, songIds: ['song-1', 'song-2'], medleys } };
+    await MusicScaleCommandService.publishMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload,
+      idempotencyKey: 'medley-publish', authUid: 'u1', correlationId: 'medley' });
+    expect(dbState.get('scales/scale-1')?.data.medleys).toEqual(medleys);
+    expect(dbState.get('scales/scale-1')?.data.status).toBe('published');
+
+    setupBasicScale();
+    dbState.set('songs/song-2', { data: { ...b, organizationId: 'org-2' }, version: 2 });
+    await expect(MusicScaleCommandService.publishMusicScale({ musicScaleId: 'scale-1', orgId: 'org-1', payload,
+      idempotencyKey: 'foreign-medley', authUid: 'u1', correlationId: 'foreign' })).rejects.toThrow(ValidationError);
+    expect(dbState.get('scales/scale-1')?.data.status).toBe('draft');
   });
 
   it('3. Três cliques simultâneos', async () => {

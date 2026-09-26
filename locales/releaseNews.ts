@@ -7,6 +7,33 @@ export const releaseNewsTranslations = {
     close: 'Fechar',
     how: 'Como funciona',
     badge: 'Novidade relevante',
+    intelligentMedleysBeta08: {
+      title: 'Seu repertório agora pode virar um medley.',
+      description: 'Junte trechos de músicas em uma única escala, ensaie uma versão aprovada e conduza a banda pelo mesmo roteiro.',
+      stageTools: {
+        title: 'Monte do seu jeito',
+        body: 'Escolha músicas inteiras, seções ou linhas da cifra, mesmo quando a música não tem marcações. Repita e ordene os trechos sem alterar a biblioteca.',
+        how: 'Adicione as músicas à escala e toque em “Juntar em medley”. Confira os trechos antes de publicar.',
+      },
+      deviceAudio: {
+        title: 'Palco em sintonia',
+        body: 'O condutor envia o trecho e a volta atual. Cada músico pode seguir ou navegar livremente; pad e clique só tocam quando iniciados no próprio aparelho.',
+        how: 'Abra o roteiro na escala publicada. Use “Enviar trecho atual” para iniciar a condução e abra o áudio local somente no dispositivo desejado.',
+      },
+      updates: {
+        title: 'Versão ensaiada protegida',
+        body: 'A cifra e as tabs aprovadas ficam registradas na escala. Mudanças posteriores na biblioteca exigem comparação antes de atualizar o medley.',
+        how: 'Revise as diferenças ao editar. Salve um modelo para reutilizar e exporte uma apresentação offline quando precisar.',
+      },
+      refinements: {
+        summary: 'Leia mais — detalhes e proteção', title: 'Detalhes e proteção',
+        items: [
+          { date: '26/09', text: 'Músicas sem seções aceitam seleção manual de linhas e música inteira.' },
+          { date: '26/09', text: 'Tom por trecho só transpõe acordes quando a origem é verificável; tabs e mudança maior/menor não são adivinhadas.' },
+          { date: '26/09', text: 'O roteiro exportado funciona sem scripts ou recursos remotos.' },
+        ],
+      },
+    },
     stageToolsBeta02: {
       title: 'O palco ganhou seu próprio espaço.',
       description: 'Pad e metrônomo agora ficam disponíveis sem abrir uma cifra, com áudio decidido localmente em cada aparelho.',
@@ -156,6 +183,33 @@ export const releaseNewsTranslations = {
     close: 'Close',
     how: 'How it works',
     badge: 'Meaningful update',
+    intelligentMedleysBeta08: {
+      title: 'Your setlist can now become a medley.',
+      description: 'Combine excerpts in one schedule, rehearse an approved version, and guide the band through the same arrangement.',
+      stageTools: {
+        title: 'Build your arrangement',
+        body: 'Choose whole songs, sections or chart lines even without section markers. Repeat and reorder excerpts without changing the library.',
+        how: 'Add the songs to a schedule and select “Join as medley”. Review the excerpts before publishing.',
+      },
+      deviceAudio: {
+        title: 'A shared stage',
+        body: 'The conductor sends the current excerpt and round. Musicians can follow or navigate freely; pad and click play only after starting them on their own device.',
+        how: 'Open the arrangement in a published schedule. Send the current excerpt to begin direction; open local audio only on the intended device.',
+      },
+      updates: {
+        title: 'Protect the rehearsed version',
+        body: 'Approved charts and tabs stay with the schedule. Later library changes require comparison before refreshing a medley.',
+        how: 'Review differences when editing. Save a reusable template and export an offline presentation when needed.',
+      },
+      refinements: {
+        summary: 'Read more — details and safeguards', title: 'Details and safeguards',
+        items: [
+          { date: '09/26', text: 'Unmarked songs support manual line selection and whole-song excerpts.' },
+          { date: '09/26', text: 'Per-excerpt key transposes chords only from a verified source; tabs and major/minor changes are never guessed.' },
+          { date: '09/26', text: 'The exported presentation works without scripts or remote assets.' },
+        ],
+      },
+    },
     stageToolsBeta02: {
       title: 'The stage now has its own workspace.',
       description: 'Pad and metronome are available without opening a chord chart, with audio controlled locally on each device.',
@@ -305,6 +359,33 @@ export const releaseNewsTranslations = {
     close: 'Cerrar',
     how: 'Cómo funciona',
     badge: 'Novedad relevante',
+    intelligentMedleysBeta08: {
+      title: 'Tu repertorio ahora puede convertirse en un medley.',
+      description: 'Une fragmentos en una escala, ensaya una versión aprobada y dirige a la banda con el mismo arreglo.',
+      stageTools: {
+        title: 'Crea tu arreglo',
+        body: 'Elige canciones completas, secciones o líneas incluso sin marcadores. Repite y ordena fragmentos sin cambiar la biblioteca.',
+        how: 'Agrega las canciones a la escala y pulsa “Unir en medley”. Revisa los fragmentos antes de publicar.',
+      },
+      deviceAudio: {
+        title: 'Escenario compartido',
+        body: 'El director envía el fragmento y la vuelta actual. Cada músico puede seguir o navegar libremente; pad y clic solo suenan tras iniciarlos en su dispositivo.',
+        how: 'Abre el arreglo en una escala publicada. Envía el fragmento actual para dirigir y abre el audio local solo en el dispositivo deseado.',
+      },
+      updates: {
+        title: 'Versión ensayada protegida',
+        body: 'Los acordes y tabs aprobados quedan en la escala. Los cambios posteriores de la biblioteca exigen comparar antes de actualizar el medley.',
+        how: 'Revisa las diferencias al editar. Guarda un modelo reutilizable y exporta una presentación sin conexión cuando lo necesites.',
+      },
+      refinements: {
+        summary: 'Leer más — detalles y protección', title: 'Detalles y protección',
+        items: [
+          { date: '26/09', text: 'Las canciones sin secciones admiten selección manual de líneas y canción completa.' },
+          { date: '26/09', text: 'El tono por fragmento transpone acordes solo desde una fuente verificada; no se adivinan tabs ni cambios mayor/menor.' },
+          { date: '26/09', text: 'La presentación exportada funciona sin scripts ni recursos remotos.' },
+        ],
+      },
+    },
     stageToolsBeta02: {
       title: 'El escenario ahora tiene su propio espacio.',
       description: 'Pad y metrónomo están disponibles sin abrir una cifra, con el audio controlado localmente en cada dispositivo.',

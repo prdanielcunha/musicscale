@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
-import { PopulatedSong, Tag, ScaleSongSettingsUpdateResult } from "../../types";
+import { PopulatedSong, Tag, ScaleSongSettingsUpdateResult, MedleyTemplate, ScaleMedley } from "../../types";
 import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm, moveSongId, moveSongBeforeTarget } from "../../utils/scaleSongSettings";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
 import { XCircleIcon } from "../icons/XCircleIcon";
@@ -8,6 +8,9 @@ import { ArrowUp, ArrowDown, GripVertical, Settings2 } from "lucide-react";
 import { ScaleSongCard } from "./ScaleSongCard";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { useTranslation } from "react-i18next";
+import { MedleyComposer } from './MedleyComposer';
+import { orderMedleySongIds, medleySourceRevision } from '../../utils/medleyModel';
+import { useApi } from '../../contexts/ApiContext';
 
 const formLabelClass =
   "block text-[11px] font-black tracking-widest text-slate-400 uppercase dark:text-slate-500 mb-2 ml-1";
@@ -33,6 +36,32 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
   onUpdateSongSettings,
 }, ref) => {
   const { t } = useTranslation();
+  const api = useApi();
+  const [templates, setTemplates] = useState<MedleyTemplate[]>([]);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [templateError, setTemplateError] = useState('');
+  const loadTemplates = async () => {
+    if (!api) return;
+    setTemplatesOpen(true);
+    try { setTemplates(await api.medleyTemplates.list()); setTemplateError(''); }
+    catch { setTemplateError(t('medley.templateLoadFailed')); }
+  };
+  const applyTemplate = (template: MedleyTemplate) => {
+    const ids = [...new Set(template.arrangement.steps.map(step => step.songId))];
+    if (ids.some(id => !songs.some(song => song.id === id))) { setTemplateError(t('medley.templateMissingSong')); return; }
+    if ((formData.medleys || []).some((item: ScaleMedley) => item.steps.some(step => ids.includes(step.songId)))) { setTemplateError(t('medley.alreadyGrouped')); return; }
+    const medley: ScaleMedley = { ...template.arrangement, id: crypto.randomUUID(), revision: 1,
+      steps: template.arrangement.steps.map(step => ({ ...step, id: crypto.randomUUID() })) };
+    setFormData((prev: any) => {
+      const nextIds = [...(prev.songIds || []), ...ids.filter(id => !(prev.songIds || []).includes(id))];
+      return { ...prev, songIds: orderMedleySongIds(nextIds, [...(prev.medleys || []), medley]), medleys: [...(prev.medleys || []), medley] };
+    });
+    setTemplateError(template.arrangement.steps.some(step => {
+      const song = songs.find(item => item.id === step.songId);
+      return song && medleySourceRevision(song) !== step.sourceRevision;
+    }) ? t('medley.templateReviewHint') : '');
+    setMobileTab('setlist');
+  };
   const [songSearch, setSongSearch] = useState("");
   const [songStatusFilter, setSongStatusFilter] = useState<"all" | "active" | "new">("all");
   const [songTagFilterIds, setSongTagFilterIds] = useState<string[]>([]);
@@ -442,6 +471,16 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
           </div>
           
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-20 md:pb-4">
+             <button type="button" className="mb-2 text-xs font-semibold text-primary underline" onClick={() => void loadTemplates()}>{t('medley.useTemplate')}</button>
+             {templatesOpen && <div className="mb-3 space-y-2 rounded-xl border border-primary/15 p-3">
+               {templateError && <p role="alert" className="text-xs text-rose-500">{templateError}</p>}
+               {templates.length ? templates.map(template => <button type="button" key={template.id} className="block w-full rounded-lg border border-white/10 p-2 text-left text-xs" onClick={() => applyTemplate(template)}>{template.name}</button>) : <p className="text-xs text-slate-500">{t('medley.noTemplates')}</p>}
+             </div>}
+             <MedleyComposer songs={selectedSongsList} medleys={formData.medleys || []} onChange={medleys => setFormData((prev: any) => ({ ...prev, medleys, songIds: orderMedleySongIds(prev.songIds || [], medleys) }))} onSaveTemplate={async (medley, name) => {
+               if (!api) throw new Error('API unavailable');
+               await api.medleyTemplates.create({ name, arrangement: medley });
+               if (templatesOpen) setTemplates(await api.medleyTemplates.list());
+             }} />
              {selectedSongsList.length > 0 ? (
                 <div className="space-y-2">
                   <div className="mb-3 px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-lg flex items-center gap-2 text-slate-500 dark:text-slate-400">

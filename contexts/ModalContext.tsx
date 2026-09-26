@@ -230,6 +230,9 @@ export function buildMusicScalePublishPayload(
     if (scaleData.songSettings !== undefined) {
         scalePatch.songSettings = scaleData.songSettings;
     }
+    if (scaleData.medleys !== undefined) {
+        scalePatch.medleys = scaleData.medleys;
+    }
     
     if (scaleData.durationMinutes !== undefined && scaleData.durationMinutes !== null) {
         if (typeof scaleData.durationMinutes !== 'number' || !Number.isInteger(scaleData.durationMinutes) || scaleData.durationMinutes <= 0 || !Number.isFinite(scaleData.durationMinutes)) {
