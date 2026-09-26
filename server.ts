@@ -1281,10 +1281,10 @@ app.post(
         throw { status: 404, message: "Organização não encontrada." };
       }
       const orgData = orgSnap.data() || {};
+      // musicScale.publish is now a canonical production capability. Keep the
+      // former rollout flag only as telemetry; authorization is enforced below
+      // by tenant state + RBAC and must not strand valid scales as drafts.
       flag = orgData.featureFlags?.["musicscale.musicScalePublishCommandV1"] === true || orgData.features?.["musicscale.musicScalePublishCommandV1"] === true;
-      if (!flag) {
-        throw { status: 403, message: "Recurso desativado por Feature Flag para esta organização." };
-      }
 
       stage = "authorization";
       const { resolveOrganizationAuthorization } = await import("./services/server/organizationAuthorization.js");
