@@ -396,6 +396,23 @@ export function createConnectNextScheduleChartReadHandler(
 
       const song = resolution.song;
       const title = safeText(song.title, 180) || 'Sem título';
+      // A current library chart is not the approved arrangement snapshot. Keep
+      // external chart reads from silently presenting the wrong performed item.
+      const containingMedley = selection.scale.medleys?.find(medley =>
+        Array.isArray(medley.steps) && medley.steps.some(step => step.songId === song.id));
+      if (containingMedley) {
+        return res.status(200).json({
+          success: true, protocolVersion: '1.0.0', auditId, organizationId,
+          schedule: { id: selection.scale.id, organizationId,
+            deepLink: `/scales/${encodeURIComponent(selection.scale.id)}` },
+          chart: { status: 'medley', songId: song.id, title, medleyId: containingMedley.id },
+          humanSummary: locale === 'en'
+            ? `${title} is part of an approved medley. Open the schedule to view the rehearsed excerpts.`
+            : locale === 'es'
+              ? `${title} forma parte de un medley aprobado. Abre el repertorio para ver los fragmentos ensayados.`
+              : `${title} faz parte de um medley aprovado. Abra a escala para ver os trechos ensaiados.`,
+        });
+      }
       const chords = typeof song.chords === 'string' ? song.chords.trim() : '';
       const scheduleSettings = selection.scale.songSettings?.[song.id];
       const requestedTargetKey =

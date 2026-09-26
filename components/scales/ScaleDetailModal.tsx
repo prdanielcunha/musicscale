@@ -774,7 +774,7 @@ const ScaleDetailModal: React.FC<ScaleDetailModalProps> = ({
                           <div className="space-y-2">
                              {localSongs.map((song, index) => {
                                 const anchoredMedley = scale.medleys?.find(medley => medley.anchorSongId === song.id);
-                                if (anchoredMedley) return <MedleyStage key={anchoredMedley.id} medley={anchoredMedley} />;
+                                if (anchoredMedley) return <MedleyStage key={anchoredMedley.id} medley={anchoredMedley} scaleId={scale.id} publishRevision={scale.publishRevision} />;
                                 if (medleySongIds.has(song.id)) return null;
                                 const hasLyrics = !!song.lyrics?.trim();
                                 const hasChords = !!song.chords?.trim();

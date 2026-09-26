@@ -30,6 +30,7 @@ import { normalizeScaleSongSettings } from "../utils/scaleSongSettings";
 import MusicBuilder from "../components/scales/MusicBuilder";
 import BandBuilder from "../components/scales/BandBuilder";
 import { buildScaleCloneDraft, type ScaleCloneDraft } from "../utils/scaleClone";
+import { scaleRepertoireItems } from '../utils/scaleRepertoireItems';
 
 const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" {...props}>
@@ -310,6 +311,7 @@ const ScaleCard: React.FC<{
   const [songSearchQuery, setSongSearchQuery] = useState("");
 
   const canManage = hasCapability("musicscale.scales.manage");
+  const repertoireItems = scaleRepertoireItems(scale.songs, scale.medleys);
 
   const filteredLibrarySongs = useMemo(() => {
     if (!librarySongs) return [];
@@ -321,6 +323,10 @@ const ScaleCard: React.FC<{
 
   const handleQuickRemove = async (songId: string) => {
     if (!api) return;
+    if (scale.medleys?.some(medley => medley.steps.some(step => step.songId === songId))) {
+      toast({ type: 'warning', message: t('medley.editBeforeRemoving') });
+      return;
+    }
     
     const currentSongIds = scale.songIds || [];
     if (currentSongIds.length <= 1) {
@@ -479,28 +485,28 @@ const ScaleCard: React.FC<{
              {getScaleTitle(scale)}
            </h3>
            <div className={canManage ? "mb-4" : `text-[13px] font-medium leading-relaxed max-w-full line-clamp-2 md:line-clamp-1 mb-4 ${isPast ? 'text-slate-400 dark:text-white/40' : 'text-slate-500 dark:text-white/60'}`}>
-              {scale.songs.length > 0 
+              {repertoireItems.length > 0
                 ? (canManage ? (
                   <span className="flex flex-wrap items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                    {(songsExpanded ? scale.songs : scale.songs.slice(0, 3)).map((song) => (
+                    {(songsExpanded ? repertoireItems : repertoireItems.slice(0, 3)).map((item) => (
                       <span 
-                        key={song.id} 
+                        key={item.id}
                         className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-white/80 border border-slate-200/55 dark:border-white/5 hover:bg-slate-200/60 dark:hover:bg-white/10 transition-all"
                       >
-                        <span className="truncate max-w-[120px]">{song.title}</span>
-                        <button
+                        <span className="truncate max-w-[200px]">{item.kind === 'medley' ? item.title : item.song.title}</span>
+                        {item.kind === 'song' && <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); handleQuickRemove(song.id); }}
+                          onClick={(e) => { e.stopPropagation(); handleQuickRemove(item.song.id); }}
                           className="min-h-11 min-w-11 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors rounded-full"
-                          title={t('scaleModal.removeSong', { song: song.title })}
+                          title={t('scaleModal.removeSong', { song: item.song.title })}
                         >
                           <X className="w-3 h-3" />
-                        </button>
+                        </button>}
                       </span>
                     ))}
-                    {scale.songs.length > 3 && (
+                    {repertoireItems.length > 3 && (
                       <button type="button" aria-expanded={songsExpanded} onClick={() => setSongsExpanded(value => !value)} className="min-h-11 rounded-xl px-3 text-xs font-semibold text-primary focus-visible:ring-2 focus-visible:ring-primary">
-                        {songsExpanded ? t('refinement.showLess') : t('refinement.moreSongs', { count: scale.songs.length - 3 })}
+                        {songsExpanded ? t('refinement.showLess') : t('refinement.moreSongs', { count: repertoireItems.length - 3 })}
                       </button>
                     )}
                     <button
@@ -514,10 +520,10 @@ const ScaleCard: React.FC<{
                   </span>
                 ) : (
                   <span className="flex flex-wrap items-center gap-1.5">
-                    <span>{(songsExpanded ? scale.songs : scale.songs.slice(0, 3)).map(s => s.title).join(' • ')}</span>
-                    {scale.songs.length > 3 && (
+                    <span>{(songsExpanded ? repertoireItems : repertoireItems.slice(0, 3)).map(item => item.kind === 'medley' ? item.title : item.song.title).join(' • ')}</span>
+                    {repertoireItems.length > 3 && (
                       <button type="button" aria-expanded={songsExpanded} onClick={(e) => { e.stopPropagation(); setSongsExpanded(value => !value); }} className="min-h-11 rounded-xl px-2 text-xs font-semibold text-primary focus-visible:ring-2 focus-visible:ring-primary">
-                        {songsExpanded ? t('refinement.showLess') : t('refinement.moreSongs', { count: scale.songs.length - 3 })}
+                        {songsExpanded ? t('refinement.showLess') : t('refinement.moreSongs', { count: repertoireItems.length - 3 })}
                       </button>
                     )}
                   </span>

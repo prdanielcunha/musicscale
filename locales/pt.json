@@ -1926,6 +1926,10 @@
     "fixedCount_other": "{{count}} formações"
   },
   "medley": {
+    "suggestion": "Sugestão (não altera a passagem)", "semitones": "semitons", "invalidKey": "Confira o tom deste trecho.", "invalidBpm": "O BPM precisa estar entre 20 e 320.", "showClick": "Abrir clique neste dispositivo", "hideClick": "Fechar clique", "clickHelp": "O clique só toca após você iniciá-lo neste dispositivo; avançar de trecho o desliga.", "exportPresentation": "Exportar apresentação",
+    "saveTemplate": "Salvar no repertório", "templateName": "Nome do medley", "save": "Salvar", "templateSaveFailed": "Não foi possível salvar o modelo.", "templateLoadFailed": "Não foi possível carregar os medleys salvos.", "templateMissingSong": "Uma música do modelo não está disponível nesta organização.", "templateReviewHint": "A cifra mudou desde que o modelo foi salvo. Edite o medley e compare antes de publicar.", "useTemplate": "Usar medley salvo", "noTemplates": "Nenhum medley salvo nesta organização.",
+    "following": "Seguindo direção", "freeNavigation": "Navegação livre", "conducting": "Este dispositivo pode conduzir", "followingLeader": "Acompanhando o condutor", "broadcastCurrent": "Enviar trecho atual", "startLive": "Iniciar condução", "revisionChanged": "A escala foi republicada. Feche e abra a versão atual antes de seguir a direção.", "directionFailed": "Não foi possível enviar a direção. Sua posição local foi mantida.",
+    "editBeforeRemoving": "Abra a escala e separe ou edite o medley antes de remover essa música.",
     "alreadyGrouped": "Uma música já faz parte de outro medley nesta escala.",
     "externalOnly": "Esta música só tem link ou anexo; o conteúdo externo precisa de internet.", "openSource": "Abrir cifra externa",
     "sourceChanged": "A cifra original mudou desde a aprovação. Compare antes de atualizar.", "approved": "Versão ensaiada", "current": "Versão atual da biblioteca", "approveChange": "Revisei e aprovo atualizar o medley", "reviewRequired": "Compare a versão antiga com a atual e confirme a atualização.",

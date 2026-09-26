@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import type { PopulatedSong, MedleyExcerpt, ScaleMedley } from '../../types';
 import { medleyChart, medleySourceRevision, medleyTabsForSelection } from '../../utils/medleyModel';
 import { selectMedleyLines, splitMedleySource, suggestMedleySegments } from '../../utils/medleySegments';
+import { isValidKey } from '../../utils/chordEngine';
+import { suggestMedleyTransition } from '../../utils/medleyTransitions';
 
 interface DraftStep {
   id: string;
@@ -13,33 +15,39 @@ interface DraftStep {
   repetitions: number;
   transition: 'direct' | 'hold' | 'pause' | 'free';
   cue: string;
+  key: string;
+  bpm: string;
 }
 
 interface Props {
   songs: PopulatedSong[];
   medleys: ScaleMedley[];
   onChange: (medleys: ScaleMedley[]) => void;
+  onSaveTemplate?: (medley: ScaleMedley, name: string) => Promise<void>;
 }
 
-export function MedleyComposer({ songs, medleys, onChange }: Props) {
+export function MedleyComposer({ songs, medleys, onChange, onSaveTemplate }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [steps, setSteps] = useState<DraftStep[]>([]);
   const [error, setError] = useState('');
   const [approveChangedSources, setApproveChangedSources] = useState(false);
+  const [templateId, setTemplateId] = useState<string | null>(null);
+  const [templateName, setTemplateName] = useState('');
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const songFor = (id: string) => songs.find(song => song.id === id);
   const whole = (song: PopulatedSong): DraftStep => ({
     id: crypto.randomUUID(), songId: song.id, startLine: 0,
     endLine: splitMedleySource(medleyChart(song)).length - 1,
-    label: '', repetitions: 1, transition: 'direct', cue: '',
+    label: '', repetitions: 1, transition: 'direct', cue: '', key: song.key || '', bpm: song.bpm ? String(song.bpm) : '',
   });
   const start = (medley?: ScaleMedley) => {
     setEditingId(medley?.id || null);
     setSteps(medley ? medley.steps.map(step => ({
       id: step.id, songId: step.songId, startLine: step.startLine, endLine: step.endLine,
       label: step.label || '', repetitions: step.repetitions,
-      transition: step.transition?.mode || 'direct', cue: step.transition?.cue || '',
+      transition: step.transition?.mode || 'direct', cue: step.transition?.cue || '', key: step.key || '', bpm: step.bpm ? String(step.bpm) : '',
     })) : songs.slice(0, 2).map(whole));
     setError('');
     setApproveChangedSources(false);
@@ -64,15 +72,17 @@ export function MedleyComposer({ songs, medleys, onChange }: Props) {
         const source = medleyChart(song);
         if (!source.trim() && !song.chordsUrl && !song.tabs?.length) throw new Error(t('medley.requiresText'));
         if (!source.trim() && (step.startLine !== 0 || step.endLine !== 0)) throw new Error(t('medley.invalidRange'));
+        if (step.key.trim() && !isValidKey(step.key.trim())) throw new Error(t('medley.invalidKey'));
+        if (step.bpm.trim() && (!Number.isInteger(Number(step.bpm)) || Number(step.bpm) < 20 || Number(step.bpm) > 320)) throw new Error(t('medley.invalidBpm'));
         const snapshot = selectMedleyLines(source, step.startLine, step.endLine);
         const tabs = medleyTabsForSelection(song, step.startLine, step.endLine, step.label);
         return {
           id: step.id, songId: song.id, sourceRevision: medleySourceRevision(song),
           startLine: step.startLine, endLine: step.endLine, title: song.title,
           ...(step.label.trim() ? { label: step.label.trim() } : {}),
-          repetitions: step.repetitions, key: song.key,
+          repetitions: step.repetitions, ...(step.key.trim() ? { key: step.key.trim() } : {}),
           ...(song.chordsUrl ? { sourceUrl: song.chordsUrl } : {}),
-          ...(song.bpm ? { bpm: song.bpm } : {}), snapshot,
+          ...(step.bpm.trim() ? { bpm: Number(step.bpm) } : {}), snapshot,
           ...(tabs.length ? { tabs } : {}),
           transition: { mode: step.transition, ...(step.cue.trim() ? { cue: step.cue.trim() } : {}) },
         };
@@ -97,8 +107,10 @@ export function MedleyComposer({ songs, medleys, onChange }: Props) {
       </div>
       {medleys.map(medley => <div key={medley.id} className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/70 p-3 text-sm dark:bg-black/20">
         <span>{t('medley.title')} · {medley.steps.map(step => step.title).join(' → ')}</span>
-        <div className="flex gap-3"><button type="button" className="text-primary underline" onClick={() => start(medley)}>{t('medley.edit')}</button><button type="button" className="text-rose-500 underline" onClick={() => onChange(medleys.filter(item => item.id !== medley.id))}>{t('medley.separate')}</button></div>
+        <div className="flex gap-3"><button type="button" className="text-primary underline" onClick={() => start(medley)}>{t('medley.edit')}</button>{onSaveTemplate && <button type="button" className="text-primary underline" onClick={() => { setTemplateId(medley.id); setTemplateName(medley.steps.map(step => step.title).join(' → ')); }}>{t('medley.saveTemplate')}</button>}<button type="button" className="text-rose-500 underline" onClick={() => onChange(medleys.filter(item => item.id !== medley.id))}>{t('medley.separate')}</button></div>
+        {templateId === medley.id && <div className="flex w-full gap-2"><input className="input-base flex-1" maxLength={120} aria-label={t('medley.templateName')} value={templateName} onChange={event => setTemplateName(event.target.value)} /><button type="button" disabled={savingTemplate || !templateName.trim()} onClick={async () => { setSavingTemplate(true); try { await onSaveTemplate?.(medley, templateName.trim()); setTemplateId(null); setError(''); } catch { setError(t('medley.templateSaveFailed')); } finally { setSavingTemplate(false); } }} className="rounded-lg bg-primary px-3 text-white disabled:opacity-40">{t('medley.save')}</button><button type="button" onClick={() => setTemplateId(null)}>{t('medley.cancel')}</button></div>}
       </div>)}
+      {error && !open && <p role="alert" className="mt-2 text-xs text-rose-500">{error}</p>}
       {open && <div role="dialog" aria-modal="true" aria-label={t('medley.title')} className="fixed inset-0 z-[100] overflow-y-auto bg-black/70 p-3 sm:p-8">
         <div className="mx-auto max-w-3xl rounded-2xl bg-white p-4 shadow-2xl dark:bg-[#1C1C1E] sm:p-6">
           <h3 className="text-lg font-bold">{t('medley.title')}</h3>
@@ -124,9 +136,11 @@ export function MedleyComposer({ songs, medleys, onChange }: Props) {
               <label className="mt-2 block text-xs">{t('medley.excerpt')}<select className="input-base w-full" value={step.startLine === 0 && step.endLine === lines.length - 1 ? 'all' : segments.find(segment => segment.startLine === step.startLine && segment.endLine === step.endLine)?.id || 'manual'} onChange={event => { if (event.target.value === 'all') update(index, { startLine: 0, endLine: lines.length - 1, label: '' }); const selected = segments.find(segment => segment.id === event.target.value); if (selected) update(index, { startLine: selected.startLine, endLine: selected.endLine, label: selected.label || '' }); }}>
                 <option value="manual">{t('medley.manual')}</option><option value="all">{t('medley.whole')}</option>{segments.filter(segment => segment.startLine !== 0 || segment.endLine !== lines.length - 1).map(segment => <option key={segment.id} value={segment.id}>{segment.label || `${t('medley.lines')} ${segment.startLine + 1}–${segment.endLine + 1}`}</option>)}
               </select></label>
-              <div className="mt-2 flex gap-2"><label className="text-xs">{t('medley.from')}<input disabled={!source.trim()} className="input-base w-20" type="number" min="1" max={lines.length} value={step.startLine + 1} onChange={event => update(index, { startLine: Number(event.target.value) - 1 })} /></label><label className="text-xs">{t('medley.to')}<input disabled={!source.trim()} className="input-base w-20" type="number" min="1" max={lines.length} value={step.endLine + 1} onChange={event => update(index, { endLine: Number(event.target.value) - 1 })} /></label>
+              <div className="mt-2 flex flex-wrap gap-2"><label className="text-xs">{t('medley.from')}<input disabled={!source.trim()} className="input-base w-20" type="number" min="1" max={lines.length} value={step.startLine + 1} onChange={event => update(index, { startLine: Number(event.target.value) - 1 })} /></label><label className="text-xs">{t('medley.to')}<input disabled={!source.trim()} className="input-base w-20" type="number" min="1" max={lines.length} value={step.endLine + 1} onChange={event => update(index, { endLine: Number(event.target.value) - 1 })} /></label>
                 <label className="text-xs">{t('medley.repeat')}<input className="input-base w-16" type="number" min="1" max="8" value={step.repetitions} onChange={event => update(index, { repetitions: Number(event.target.value) })} /></label></div>
+              <div className="mt-2 flex gap-2"><label className="text-xs">{t('medley.key')}<input className="input-base w-24" maxLength={24} value={step.key} onChange={event => update(index, { key: event.target.value })} /></label><label className="text-xs">BPM<input className="input-base w-24" type="number" min="20" max="320" value={step.bpm} onChange={event => update(index, { bpm: event.target.value })} /></label></div>
               {index < steps.length - 1 && <div className="mt-2 flex gap-2"><label className="text-xs">{t('medley.transition')}<select className="input-base" value={step.transition} onChange={event => update(index, { transition: event.target.value as DraftStep['transition'] })}>{(['direct', 'hold', 'pause', 'free'] as const).map(mode => <option key={mode} value={mode}>{t(`medley.${mode}`)}</option>)}</select></label><label className="flex-1 text-xs">{t('medley.cue')}<input className="input-base w-full" maxLength={300} value={step.cue} onChange={event => update(index, { cue: event.target.value })} /></label></div>}
+              {index < steps.length - 1 && (() => { const hint = suggestMedleyTransition({ key: step.key, bpm: Number(step.bpm) || undefined }, { key: steps[index + 1].key, bpm: Number(steps[index + 1].bpm) || undefined }); return <p className="mt-2 text-xs text-slate-500">{t('medley.suggestion')}: {t(`medley.${hint.mode}`)}{hint.semitones !== undefined ? ` · ${hint.semitones > 0 ? '+' : ''}${hint.semitones} ${t('medley.semitones')}` : ''}{hint.bpmDelta !== undefined ? ` · ${hint.bpmDelta > 0 ? '+' : ''}${hint.bpmDelta} BPM` : ''}</p>; })()}
               <pre className="mt-3 max-h-48 overflow-auto whitespace-pre rounded-lg bg-slate-100 p-3 text-xs dark:bg-black/30">{source && step.startLine >= 0 && step.endLine >= step.startLine && step.endLine < lines.length ? selectMedleyLines(source, step.startLine, step.endLine) : t('medley.invalidRange')}</pre>
               {!source.trim() && song?.chordsUrl && <p className="text-xs text-amber-600">{t('medley.externalOnly')}</p>}
             </div>;

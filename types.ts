@@ -359,12 +359,24 @@ export interface LiveWorshipSectionTarget {
   actorId?: string | null;
 }
 
+export interface LiveWorshipMedleyTarget {
+  medleyId: string;
+  stepId: string;
+  round: number;
+  publishRevision: number;
+  sequence: number;
+  commandId: string;
+  timestamp: number;
+  actorId: string;
+}
+
 export interface LiveWorshipSession {
   id: string; // usually same as scaleId
   scaleId: string;
   activeSongId: string | null;
   activeCue: WorshipCue | null;
   activeSection?: LiveWorshipSectionTarget | null;
+  activeMedley?: LiveWorshipMedleyTarget | null;
   keyOverrides: Record<string, string>; // { songId: newKey }
   songsOrder: string[]; // array of songIds
   spontaneousSongs: { id: string; title: string; chords: string }[];
@@ -452,6 +464,17 @@ export interface ScaleMedley {
   anchorSongId: string;
   revision: number;
   steps: MedleyExcerpt[];
+}
+
+export interface MedleyTemplate {
+  id: string;
+  organizationId: string;
+  name: string;
+  arrangement: ScaleMedley;
+  createdBy: CreatedBy;
+  createdAt: string;
+  lastModifiedBy?: CreatedBy | null;
+  lastModifiedAt?: string | null;
 }
 
 export interface Scale {
@@ -562,6 +585,7 @@ export interface PopulatedScale {
   time?: string;
   durationMinutes?: number;
   status?: 'draft' | 'published' | 'cancelled' | 'completed';
+  publishRevision?: number;
   eventAssignments?: EventAssignment[];
   observations: string;
   songs: PopulatedSong[];

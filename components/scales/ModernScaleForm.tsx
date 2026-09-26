@@ -1710,6 +1710,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                     songs={songs}
                     tags={tags}
                     songSettings={formData.songSettings}
+                    medleys={formData.medleys || []}
                     onUpdateSongSettings={handleUpdateSongSettings}
                     onSongIdsChange={(newSongIds) => setFormData((prev: any) => ({ ...prev, songIds: newSongIds }))}
                     goToStep={goToStep}

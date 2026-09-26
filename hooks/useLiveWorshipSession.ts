@@ -79,6 +79,7 @@ export function useLiveWorshipSession(scaleId?: string) {
                 activeCue: null,
                 activeSongId: null,
                 activeSection: null,
+                activeMedley: null,
                 lastUpdated: Date.now(),
             });
             return true;
@@ -95,6 +96,7 @@ export function useLiveWorshipSession(scaleId?: string) {
                 leaderId: null,
                 activeCue: null,
                 activeSection: null,
+                activeMedley: null,
             });
             return true;
         } catch (error) {
@@ -179,6 +181,17 @@ export function useLiveWorshipSession(scaleId?: string) {
         }
     };
 
+    const directMedleyStep = async (medleyId: string, stepId: string, round: number, publishRevision: number) => {
+        if (!api || !scaleId || !user || !authority.canControlLiveSession) return false;
+        try {
+            await api.directMedleyStep(scaleId, medleyId, stepId, round, publishRevision, user.uid);
+            return true;
+        } catch (error) {
+            console.error('Error directing medley step:', error);
+            return false;
+        }
+    };
+
     const updateSongsOrder = async (newOrder: string[]) => {
         if (!api || !scaleId || !authority.canControlLiveSession) return false;
         try {
@@ -207,6 +220,7 @@ export function useLiveWorshipSession(scaleId?: string) {
         changeSong,
         changeSection,
         changeKeyOverride,
+        directMedleyStep,
         updateSongsOrder,
     };
 }
