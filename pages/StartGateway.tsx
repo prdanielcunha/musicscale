@@ -4,7 +4,6 @@ import { useAuth } from "../contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import Spinner from "../components/common/Spinner";
 import { useEcosystem } from "../contexts/EcosystemContext";
-import { redirectToHubLaunch } from "../services/ecosystem/handoffHelper";
 const TenantOnboarding = lazy(() => import("./TenantOnboarding"));
 import { MissingSubscriptionScreen } from "../components/premium/MissingSubscriptionScreen";
 import { resolveSubscriptionAccess } from "../utils/subscriptionAccessResolver";
@@ -48,13 +47,6 @@ export default function StartGateway() {
     window.dispatchEvent(new CustomEvent(START_GATEWAY_READY_EVENT));
   }, [isStartupInteractiveReady]);
 
-  useEffect(() => {
-    if (loading || user) return;
-    // Direct official-domain entry should reuse the Hub identity instead of
-    // presenting a second MusicScale login screen.
-    redirectToHubLaunch('/start');
-  }, [loading, user]);
-
   console.log("[MusicScale Gate Debug]", {
     firebaseUserUid: user?.uid,
     firebaseUserEmail: user?.email,
@@ -73,7 +65,7 @@ export default function StartGateway() {
     isGlobalAdmin
   });
 
-  if (isPrimaryLoading || (!loading && !user)) {
+  if (isPrimaryLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-900">
         <Spinner />
