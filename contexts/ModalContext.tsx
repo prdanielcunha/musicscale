@@ -28,6 +28,7 @@ import { useSuggestionsContext } from './SuggestionContext';
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import type { HomeAttentionFocusTarget } from '../utils/homeExperience';
+import { isMusicScalePublishCommandEnabledForOrganization } from '../utils/musicScalePublishFeature';
 
 export interface ScaleFormOpenOptions {
   initialStep?: 'event' | 'link' | 'build' | 'review';
@@ -697,7 +698,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   
   const { organization } = useAuth();
   const isCommandApiV1Enabled = organization?.featureFlags?.['musicscale.bandScaleCommandApiV1'] === true || organization?.features?.['musicscale.bandScaleCommandApiV1'] === true;
-  const isMusicScalePublishCommandEnabled = organization?.featureFlags?.['musicscale.musicScalePublishCommandV1'] === true || organization?.features?.['musicscale.musicScalePublishCommandV1'] === true;
+  const isMusicScalePublishCommandEnabled = Boolean(organization) && isMusicScalePublishCommandEnabledForOrganization(organization);
 
   const scaleSaveInFlightRef = React.useRef(false);
 
