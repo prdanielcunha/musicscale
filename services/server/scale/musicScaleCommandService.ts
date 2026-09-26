@@ -7,6 +7,28 @@ import type { EventAssignment, Scale, BandScale, MusicScalePublishPatch, MusicSc
 import { AssignmentNotificationFormatter } from '../../../lib/AssignmentNotificationFormatter.js';
 import type { FirebaseFirestore } from '@firebase/firestore-types';
 import { buildPreparationPublishChangeSummary } from './preparationChangeSummary.js';
+import { validateMedleys } from '../../../utils/medleyModel.js';
+import type { Song } from '../../../types.js';
+
+async function verifyMedleys(db: ReturnType<typeof getFirestore>, transaction: FirebaseFirestore.Transaction,
+  orgId: string, current: Scale, next: Scale): Promise<void> {
+  if (next.medleys === undefined) return;
+  if (!Array.isArray(next.medleys)) throw new ValidationError('Invalid medley list');
+  if (!next.medleys.length) return;
+  if (next.medleys.some(item => !item || !Array.isArray(item.steps))) throw new ValidationError('Invalid medley steps');
+  const referenced = new Set(next.medleys.flatMap(medley => medley.steps.map(step => step.songId)));
+  const songs = new Map<string, Song>();
+  for (const id of referenced) {
+    if (typeof id !== 'string' || !id || id.includes('/')) throw new ValidationError('Invalid medley song reference');
+    const snap = await transaction.get(db.collection('songs').doc(id));
+    if (snap.exists) songs.set(id, snap.data() as Song);
+  }
+  try {
+    validateMedleys(next.medleys, next.songIds, songs, orgId, current.status === 'published' ? current.medleys : []);
+  } catch (error) {
+    throw new ValidationError(error instanceof Error ? error.message : 'Invalid medley');
+  }
+}
 
 export class PublishCommandError extends Error {
   code: string;
@@ -125,7 +147,7 @@ export class MusicScaleCommandService {
       const allowedKeys = [
         'date', 'time', 'timeZone', 'eventTypeId', 'locationId',
         'eventNameId', 'observations', 'songIds',
-        'songSettings', 'durationMinutes', 'bandScaleId'
+        'songSettings', 'medleys', 'durationMinutes', 'bandScaleId'
       ];
 
       const patchKeys = Object.keys(patchObj);
@@ -305,6 +327,7 @@ export class MusicScaleCommandService {
       if (current.organizationId !== orgId) throw new PublishCommandError('Escala pertence a outra organização.', 'TENANT_SCOPE_MISMATCH');
 
       const patch = { ...(payload.scalePatch || {}) } as Record<string, unknown>;
+      await verifyMedleys(db, transaction, orgId, current, { ...current, ...patch } as Scale);
       const hasBandScalePatch = Object.prototype.hasOwnProperty.call(payload, 'bandScaleId') || Object.prototype.hasOwnProperty.call(patch, 'bandScaleId');
       const nextBandScaleId = hasBandScalePatch ? (payload.bandScaleId ?? patch.bandScaleId ?? null) as string | null : (current.bandScaleId || null);
       delete patch.bandScaleId;
@@ -482,7 +505,7 @@ params: {
         const allowedKeys: (keyof MusicScalePublishPatch)[] = [
           'date', 'time', 'timeZone', 'eventTypeId', 'locationId', 
           'eventNameId', 'observations', 'songIds', 
-          'songSettings', 'durationMinutes', 'bandScaleId'
+          'songSettings', 'medleys', 'durationMinutes', 'bandScaleId'
         ];
         for (const key of allowedKeys) {
           if (scalePatch[key] !== undefined) {
@@ -519,6 +542,7 @@ params: {
           }
         }
       }
+      await verifyMedleys(db, transaction, orgId, currentScale, patchedScaleData);
       if (patchedScaleData.durationMinutes !== undefined && patchedScaleData.durationMinutes !== null) {
         if (typeof patchedScaleData.durationMinutes !== 'number' || !Number.isFinite(patchedScaleData.durationMinutes) || !Number.isInteger(patchedScaleData.durationMinutes) || patchedScaleData.durationMinutes < 1) {
           throw new ValidationError("Estado final inválido: durationMinutes inválido.");

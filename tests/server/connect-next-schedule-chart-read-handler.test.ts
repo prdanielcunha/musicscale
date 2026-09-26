@@ -112,6 +112,16 @@ describe('Connect next-schedule chart read', () => {
     expect(captured.headers['Cache-Control']).toBe('no-store');
   });
 
+  it('does not substitute a changed library chart for an approved medley excerpt', async () => {
+    const d = deps({ loadTenantSnapshot: vi.fn(async () => ({ scales: [scale({ medleys: [{ id: 'medley-1', steps: [{ songId: 'song-1' }, { songId: 'song-2' }] }] })], bandScales: [] })) });
+    const { captured, res } = responseRecorder();
+    await createConnectNextScheduleChartReadHandler(d)({ headers, query: { songId: 'song-1' } }, res);
+    expect(captured.statusCode).toBe(200);
+    expect(captured.payload.chart).toMatchObject({ status: 'medley', medleyId: 'medley-1' });
+    expect(captured.payload.chart.chords).toBeUndefined();
+    expect(captured.payload.schedule.deepLink).toBe('/scales/scale-next');
+  });
+
   it('does not invent a source key when chordContentKey is not verified', async () => {
     const d = deps({
       loadSongs: vi.fn(async () => [song({ metadata: {}, key: 'G' })]),

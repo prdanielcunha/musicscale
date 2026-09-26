@@ -1924,5 +1924,18 @@
     "fixedCount_zero": "0 formations",
     "fixedCount_one": "1 formation",
     "fixedCount_other": "{{count}} formations"
+  },
+  "medley": {
+    "unsafeKeyChange": "This key cannot be changed safely: check major/minor mode and tablature. Use the chart key or correct the source before publishing.", "unverifiedSourceKey": "Confirm the chart's actual source key in the song before changing this excerpt's key. The approved chart will not be transposed by guesswork.",
+    "suggestion": "Suggestion (does not change the transition)", "semitones": "semitones", "invalidKey": "Check this excerpt's key.", "invalidBpm": "BPM must be between 20 and 320.", "showClick": "Open click on this device", "hideClick": "Close click", "showPad": "Open pad on this device", "hidePad": "Close pad", "audioHelp": "Audio plays only after you start it on this device. Advancing stops it; choose the output in the pad controls.", "clickHelp": "The click plays only after you start it on this device; advancing stops it.", "exportPresentation": "Export presentation",
+    "saveTemplate": "Save to repertoire", "templateName": "Medley name", "save": "Save", "templateSaveFailed": "Could not save the template.", "templateLoadFailed": "Could not load saved medleys.", "templateMissingSong": "A template song is unavailable in this organization.", "templateReviewHint": "The chart changed since this template was saved. Edit and compare before publishing.", "useTemplate": "Use saved medley", "noTemplates": "No saved medleys in this organization.",
+    "following": "Following direction", "freeNavigation": "Free navigation", "conducting": "This device may conduct", "followingLeader": "Following conductor", "broadcastCurrent": "Send current excerpt", "startLive": "Start live direction", "revisionChanged": "The setlist was republished. Reopen the current version before following direction.", "directionFailed": "Could not send direction. Your local position was kept.",
+    "editBeforeRemoving": "Open the setlist and separate or edit the medley before removing this song.",
+    "alreadyGrouped": "A song already belongs to another medley in this setlist.",
+    "externalOnly": "This song has only a link or attachment; external content requires internet.", "openSource": "Open external chart",
+    "sourceChanged": "The source chart changed since approval. Compare before updating.", "approved": "Rehearsed version", "current": "Current library version", "approveChange": "I reviewed and approve updating the medley", "reviewRequired": "Compare the old and current versions and confirm the update.",
+    "cloneMissingSong": "Include every medley song to clone this setlist.",
+    "openStage": "Open approved arrangement", "close": "Close", "key": "Key", "round": "Round", "next": "Next", "previous": "Previous", "jumpTo": "Jump to an excerpt",
+    "title": "Medley", "description": "Combine excerpts from this setlist, including charts without sections.", "create": "Make a medley", "edit": "Edit", "separate": "Separate", "selectHelp": "Choose entire songs or chart lines. The original remains unchanged.", "song": "Song", "excerpt": "Excerpt", "manual": "Select lines", "whole": "Entire song", "lines": "Lines", "from": "From", "to": "To", "repeat": "Times", "transition": "Transition", "direct": "Direct", "hold": "Hold", "pause": "Pause", "free": "Free", "cue": "Cue", "moveUp": "Move excerpt up", "moveDown": "Move excerpt down", "remove": "Remove excerpt", "cancel": "Cancel", "use": "Use in this setlist", "minimum": "Add at least two excerpts.", "missingSong": "A song was removed from the setlist.", "requiresText": "Selecting an excerpt requires chart or lyric text.", "invalid": "Check the excerpts.", "invalidRange": "Check the first and last line."
   }
 }

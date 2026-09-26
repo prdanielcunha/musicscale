@@ -149,6 +149,17 @@ service cloud.firestore {
         );
     }
 
+    function canManageMedleyTemplates(orgId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('status', '') in ['active', 'ativo'] &&
+        (
+          get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('organizationRole', '') in
+            ['owner', 'admin', 'leader', 'worship_leader', 'pastor', 'minister', 'ministro', 'Ministro'] ||
+          get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('permissions', {}).get('canManageScales', false) == true
+        );
+    }
+
     function hasLiveSessionAuthority(orgId) {
       return hasCanonicalLiveSessionAuthority(orgId) ||
         hasPermission(orgId, 'canManageScales') ||
@@ -460,6 +471,17 @@ service cloud.firestore {
     // 3. MÚSICAS E REPERTÓRIO
     // ==========================================
 
+    match /medleyTemplates/{templateId} {
+      allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if canManageMedleyTemplates(incoming().get('organizationId', '')) && isOrgActive(incoming().get('organizationId', '')) &&
+        incoming().get('name', '') is string && incoming().get('name', '').size() > 0 && incoming().get('name', '').size() <= 120 &&
+        incoming().get('arrangement', null) is map;
+      allow update: if canManageMedleyTemplates(resource.data.get('organizationId', '')) &&
+        request.resource.data.get('organizationId', '') == resource.data.get('organizationId', '') &&
+        request.resource.data.get('name', '') is string && request.resource.data.get('name', '').size() > 0 && request.resource.data.get('name', '').size() <= 120;
+      allow delete: if canManageMedleyTemplates(resource.data.get('organizationId', ''));
+    }
+
     match /songs/{songId} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
       allow create: if isAuthenticated() && (hasCanonicalPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasLegacyUsersOnlyPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasLegacyCommonChordContribution(incoming().get('organizationId', '')) || hasPermission(incoming().get('organizationId', ''), 'canManageRepertoire') || hasPermission(incoming().get('organizationId', ''), 'canManageChords')) && isOrgActive(incoming().get('organizationId', ''));
@@ -519,11 +541,33 @@ service cloud.firestore {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
       allow create: if isAuthenticated() &&
         hasLiveSessionAuthority(incoming().get('organizationId', '')) &&
+        incoming().get('activeMedley', null) == null &&
         isOrgActive(incoming().get('organizationId', ''));
       allow update: if isAuthenticated() &&
         hasLiveSessionAuthority(resource.data.get('organizationId', '')) &&
         checkOrgAccess(resource.data.get('organizationId', '')) &&
         isOrgActive(resource.data.get('organizationId', '')) &&
+        (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['activeMedley']) ||
+          (
+            request.resource.data.get('activeMedley', null) == null && request.resource.data.get('leaderId', '') == null
+          ) ||
+          (
+            request.resource.data.get('activeMedley', null) is map &&
+            request.resource.data.activeMedley.get('actorId', '') == request.auth.uid &&
+            request.resource.data.activeMedley.get('medleyId', '') is string &&
+            request.resource.data.activeMedley.get('stepId', '') is string &&
+            request.resource.data.activeMedley.get('round', 0) is int &&
+            request.resource.data.activeMedley.get('round', 0) >= 1 &&
+            request.resource.data.activeMedley.get('sequence', 0) is int &&
+            (resource.data.get('activeMedley', null) == null ||
+              request.resource.data.activeMedley.get('sequence', 0) > resource.data.activeMedley.get('sequence', 0)) &&
+            exists(/databases/$(database)/documents/scales/$(id)) &&
+            get(/databases/$(database)/documents/scales/$(id)).data.get('organizationId', '') == resource.data.get('organizationId', '') &&
+            get(/databases/$(database)/documents/scales/$(id)).data.get('status', '') == 'published' &&
+            request.resource.data.activeMedley.get('publishRevision', -1) == get(/databases/$(database)/documents/scales/$(id)).data.get('publishRevision', -2)
+          )
+        ) &&
         (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
       allow delete: if isAuthenticated() &&
         hasLiveSessionAuthority(resource.data.get('organizationId', '')) &&
