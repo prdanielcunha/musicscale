@@ -697,7 +697,6 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   
   const { organization } = useAuth();
   const isCommandApiV1Enabled = organization?.featureFlags?.['musicscale.bandScaleCommandApiV1'] === true || organization?.features?.['musicscale.bandScaleCommandApiV1'] === true;
-  const isMusicScalePublishCommandEnabled = organization?.featureFlags?.['musicscale.musicScalePublishCommandV1'] === true || organization?.features?.['musicscale.musicScalePublishCommandV1'] === true;
 
   const scaleSaveInFlightRef = React.useRef(false);
 
@@ -726,15 +725,6 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             const isPublishIntent = musicReq.intent === 'publish';
             const scaleData = musicReq.data as MusicScaleWritableData;
             let idempotencyKey = musicReq.idempotencyKey;
-
-            if (isPublishIntent && !isMusicScalePublishCommandEnabled) {
-                toast({
-                    title: t("scaleModal.publishUnavailable"),
-                    description: t("scaleModal.publishUnavailableDescription"),
-                    variant: "destructive"
-                });
-                return { status: "publish-unavailable" };
-            }
 
             // Check if we need to bootstrap taxonomy implicitly
             if (eventTypes.length === 0 || locations.length === 0) {
@@ -786,7 +776,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 console.log('[MusicScale Publish Path] => ' + JSON.stringify({
                     organizationId: orgId,
                     musicScaleId,
-                    musicScalePublishCommandEnabled: isMusicScalePublishCommandEnabled,
+                    musicScalePublishCommandEnabled: true,
                     selectedAction: "publish_command_api"
                 }));
 
@@ -958,7 +948,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setIsSubmitting(false);
         scaleSaveInFlightRef.current = false;
     }
-  }, [user, userProfile, scaleType, linkingOptions, refreshData, closeAllModals, api, bandScales, instruments, isCommandApiV1Enabled, isMusicScalePublishCommandEnabled, organization?.id, eventTypes, locations, t, toast]);
+  }, [user, userProfile, scaleType, linkingOptions, refreshData, closeAllModals, api, bandScales, instruments, isCommandApiV1Enabled, organization?.id, eventTypes, locations, t, toast]);
 
   const handleDeleteScale = useCallback(async () => {
       if (!scaleToDelete || !api || !user || !userProfile) {
