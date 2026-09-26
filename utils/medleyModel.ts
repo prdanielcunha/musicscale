@@ -1,5 +1,7 @@
 import type { ScaleMedley, Song } from '../types';
 import { selectMedleyLines, splitMedleySource } from './medleySource';
+import { isValidKey, normalizeKey, resolveChordContentSourceKey } from './chordEngine';
+import { medleyPerformanceText } from './medleyPerformanceText';
 
 /** A source identifier used to detect edits, not an authentication primitive. */
 export function medleySourceRevision(song: Pick<Song, 'chords' | 'lyrics' | 'tabs'> & { chordsUrl?: string }): string {
@@ -36,7 +38,7 @@ export function orderMedleySongIds(songIds: string[], medleys: ScaleMedley[]): s
   return result;
 }
 
-export function validateMedleys(medleys: ScaleMedley[], songIds: string[], songs: Map<string, Pick<Song, 'organizationId' | 'chords' | 'lyrics' | 'tabs'> & { chordsUrl?: string }>, organizationId: string, previous: ScaleMedley[] = []): void {
+export function validateMedleys(medleys: ScaleMedley[], songIds: string[], songs: Map<string, Pick<Song, 'organizationId' | 'chords' | 'lyrics' | 'tabs' | 'key' | 'metadata'> & { chordsUrl?: string }>, organizationId: string, previous: ScaleMedley[] = []): void {
   if (!Array.isArray(medleys) || medleys.length > 20) throw new Error('Invalid medley count');
   const anchors = new Set<string>();
   const ids = new Set<string>();
@@ -67,7 +69,8 @@ export function validateMedleys(medleys: ScaleMedley[], songIds: string[], songs
           typeof step.snapshot !== 'string' || typeof step.sourceRevision !== 'string' ||
           (step.sourceUrl !== undefined && (typeof step.sourceUrl !== 'string' || step.sourceUrl.length > 2000)) ||
           (step.sourceUrl !== undefined && !/^https?:\/\//i.test(step.sourceUrl)) ||
-          (step.key !== undefined && (typeof step.key !== 'string' || step.key.length > 24)) ||
+          (step.key !== undefined && (typeof step.key !== 'string' || !isValidKey(step.key))) ||
+          (step.sourceKey !== undefined && (typeof step.sourceKey !== 'string' || !isValidKey(step.sourceKey))) ||
           (step.bpm !== undefined && (!Number.isInteger(step.bpm) || step.bpm < 20 || step.bpm > 320)) ||
           (step.label !== undefined && (typeof step.label !== 'string' || step.label.length > 100)) ||
           (step.transition !== undefined && (!['direct', 'hold', 'pause', 'free'].includes(step.transition.mode) ||
@@ -84,6 +87,15 @@ export function validateMedleys(medleys: ScaleMedley[], songIds: string[], songs
         JSON.stringify(step.tabs || []) === JSON.stringify(medleyTabsForSelection(song, step.startLine, step.endLine, step.label));
       const prior = previous.find(item => item.id === medley.id)?.steps.find(item => item.id === step.id);
       const previouslyApproved = prior && JSON.stringify(prior) === JSON.stringify(step);
+      const verifiedSourceKey = resolveChordContentSourceKey(song.metadata)?.canAutoConfirm
+        ? resolveChordContentSourceKey(song.metadata)!.key : undefined;
+      if (!previouslyApproved && (
+        (step.sourceKey && (!verifiedSourceKey || normalizeKey(step.sourceKey) !== normalizeKey(verifiedSourceKey))) ||
+        (step.key && song.chords?.trim() && !step.sourceKey && normalizeKey(step.key) !== normalizeKey(song.key || ''))
+      )) throw new Error('Medley key requires a verified source');
+      if (step.sourceKey && step.key && normalizeKey(step.sourceKey) !== normalizeKey(step.key)) {
+        try { medleyPerformanceText(step); } catch { throw new Error('Unsafe medley transposition'); }
+      }
       if (!currentMatches && !previouslyApproved) throw new Error('Medley source changed; review the excerpt again');
       totalBytes += new TextEncoder().encode(step.snapshot).length + new TextEncoder().encode(JSON.stringify(step.tabs || [])).length;
       if (totalBytes > 400_000) throw new Error('Medley exceeds the scale document limit');

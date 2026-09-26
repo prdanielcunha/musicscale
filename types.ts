@@ -451,6 +451,8 @@ export interface MedleyExcerpt {
   label?: string;
   repetitions: number;
   key?: string;
+  /** Verified key of the stored source chart; the snapshot stays unchanged. */
+  sourceKey?: string;
   bpm?: number;
   /** Approved source text; subsequent library edits never change this instance. */
   snapshot: string;

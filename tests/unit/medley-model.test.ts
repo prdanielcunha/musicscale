@@ -29,4 +29,16 @@ describe('medley approval', () => {
     replaced.steps[0].snapshot = edited.chords;
     expect(() => validateMedleys([replaced], ['a', 'b'], map, 'org-a', [medley])).toThrow();
   });
+
+  it('rejects a forged source key and an unsafe major/minor or tablature transposition', () => {
+    const verified = { ...a, metadata: { chordContentKey: 'Am' }, key: 'Am' };
+    const map = new Map([['a', verified], ['b', b]]);
+    const draft = structuredClone(medley);
+    draft.steps[0] = { ...draft.steps[0], sourceKey: 'Gm', key: 'Bm' };
+    expect(() => validateMedleys([draft], ['a', 'b'], map, 'org-a')).toThrow('verified source');
+    draft.steps[0] = { ...draft.steps[0], sourceKey: 'Am', key: 'A' };
+    expect(() => validateMedleys([draft], ['a', 'b'], map, 'org-a')).toThrow('Unsafe medley transposition');
+    draft.steps[0] = { ...draft.steps[0], sourceKey: 'Am', key: 'Bm' };
+    expect(() => validateMedleys([draft], ['a', 'b'], map, 'org-a')).toThrow('Unsafe medley transposition');
+  });
 });

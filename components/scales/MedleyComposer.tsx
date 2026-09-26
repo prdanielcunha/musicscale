@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next';
 import type { PopulatedSong, MedleyExcerpt, ScaleMedley } from '../../types';
 import { medleyChart, medleySourceRevision, medleyTabsForSelection } from '../../utils/medleyModel';
 import { selectMedleyLines, splitMedleySource, suggestMedleySegments } from '../../utils/medleySegments';
-import { isValidKey } from '../../utils/chordEngine';
+import { isValidKey, normalizeKey, resolveChordContentSourceKey } from '../../utils/chordEngine';
 import { suggestMedleyTransition } from '../../utils/medleyTransitions';
+import { medleyPerformanceText } from '../../utils/medleyPerformanceText';
 
 interface DraftStep {
   id: string;
@@ -76,11 +77,18 @@ export function MedleyComposer({ songs, medleys, onChange, onSaveTemplate }: Pro
         if (step.bpm.trim() && (!Number.isInteger(Number(step.bpm)) || Number(step.bpm) < 20 || Number(step.bpm) > 320)) throw new Error(t('medley.invalidBpm'));
         const snapshot = selectMedleyLines(source, step.startLine, step.endLine);
         const tabs = medleyTabsForSelection(song, step.startLine, step.endLine, step.label);
+        const sourceKey = resolveChordContentSourceKey(song.metadata)?.canAutoConfirm
+          ? resolveChordContentSourceKey(song.metadata)!.key : undefined;
+        if (step.key.trim() && sourceKey && normalizeKey(step.key.trim()) !== normalizeKey(sourceKey) &&
+            (sourceKey.endsWith('m') !== step.key.trim().endsWith('m') || tabs.length)) throw new Error(t('medley.unsafeKeyChange'));
+        if (step.key.trim() && song.chords?.trim() && !sourceKey && normalizeKey(step.key.trim()) !== normalizeKey(song.key || '')) throw new Error(t('medley.unverifiedSourceKey'));
+        if (step.key.trim() && sourceKey && normalizeKey(step.key.trim()) !== normalizeKey(sourceKey) && !song.chords?.trim()) throw new Error(t('medley.unverifiedSourceKey'));
         return {
           id: step.id, songId: song.id, sourceRevision: medleySourceRevision(song),
           startLine: step.startLine, endLine: step.endLine, title: song.title,
           ...(step.label.trim() ? { label: step.label.trim() } : {}),
           repetitions: step.repetitions, ...(step.key.trim() ? { key: step.key.trim() } : {}),
+          ...(sourceKey && song.chords?.trim() ? { sourceKey } : {}),
           ...(song.chordsUrl ? { sourceUrl: song.chordsUrl } : {}),
           ...(step.bpm.trim() ? { bpm: Number(step.bpm) } : {}), snapshot,
           ...(tabs.length ? { tabs } : {}),
@@ -141,7 +149,7 @@ export function MedleyComposer({ songs, medleys, onChange, onSaveTemplate }: Pro
               <div className="mt-2 flex gap-2"><label className="text-xs">{t('medley.key')}<input className="input-base w-24" maxLength={24} value={step.key} onChange={event => update(index, { key: event.target.value })} /></label><label className="text-xs">BPM<input className="input-base w-24" type="number" min="20" max="320" value={step.bpm} onChange={event => update(index, { bpm: event.target.value })} /></label></div>
               {index < steps.length - 1 && <div className="mt-2 flex gap-2"><label className="text-xs">{t('medley.transition')}<select className="input-base" value={step.transition} onChange={event => update(index, { transition: event.target.value as DraftStep['transition'] })}>{(['direct', 'hold', 'pause', 'free'] as const).map(mode => <option key={mode} value={mode}>{t(`medley.${mode}`)}</option>)}</select></label><label className="flex-1 text-xs">{t('medley.cue')}<input className="input-base w-full" maxLength={300} value={step.cue} onChange={event => update(index, { cue: event.target.value })} /></label></div>}
               {index < steps.length - 1 && (() => { const hint = suggestMedleyTransition({ key: step.key, bpm: Number(step.bpm) || undefined }, { key: steps[index + 1].key, bpm: Number(steps[index + 1].bpm) || undefined }); return <p className="mt-2 text-xs text-slate-500">{t('medley.suggestion')}: {t(`medley.${hint.mode}`)}{hint.semitones !== undefined ? ` · ${hint.semitones > 0 ? '+' : ''}${hint.semitones} ${t('medley.semitones')}` : ''}{hint.bpmDelta !== undefined ? ` · ${hint.bpmDelta > 0 ? '+' : ''}${hint.bpmDelta} BPM` : ''}</p>; })()}
-              <pre className="mt-3 max-h-48 overflow-auto whitespace-pre rounded-lg bg-slate-100 p-3 text-xs dark:bg-black/30">{source && step.startLine >= 0 && step.endLine >= step.startLine && step.endLine < lines.length ? selectMedleyLines(source, step.startLine, step.endLine) : t('medley.invalidRange')}</pre>
+              <pre className="mt-3 max-h-48 overflow-auto whitespace-pre rounded-lg bg-slate-100 p-3 text-xs dark:bg-black/30">{source && step.startLine >= 0 && step.endLine >= step.startLine && step.endLine < lines.length ? (() => { try { return medleyPerformanceText({ snapshot: selectMedleyLines(source, step.startLine, step.endLine), sourceKey: resolveChordContentSourceKey(song?.metadata)?.canAutoConfirm ? resolveChordContentSourceKey(song?.metadata)!.key : undefined, key: step.key, tabs: song ? medleyTabsForSelection(song, step.startLine, step.endLine, step.label) : [] } as MedleyExcerpt); } catch { return t('medley.unsafeKeyChange'); } })() : t('medley.invalidRange')}</pre>
               {!source.trim() && song?.chordsUrl && <p className="text-xs text-amber-600">{t('medley.externalOnly')}</p>}
             </div>;
           })}</div>

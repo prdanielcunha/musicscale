@@ -23,4 +23,25 @@ describe('medley composer', () => {
     expect(medley.steps.map(step => step.songId)).toEqual(['A', 'B', 'A']);
     expect(medley.steps.map(step => step.snapshot)).toEqual(['Am   F\nTexto A', 'C    G\nTexto B', 'Am   F\nTexto A']);
   });
+
+  it('stores the source chart and its verified key separately from the performance key', () => {
+    const onChange = vi.fn<(value: ScaleMedley[]) => void>();
+    const verified = { ...song('A', 'G   D/F#\nPromessa'), key: 'A', metadata: { chordContentKey: 'G' } };
+    render(<MedleyComposer songs={[verified, song('B', 'Am\nTexto B')]} medleys={[]} onChange={onChange} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    fireEvent.click(screen.getByText('medley.use'));
+    const step = onChange.mock.calls[0][0][0].steps[0];
+    expect(step).toMatchObject({ key: 'A', sourceKey: 'G', snapshot: 'G   D/F#\nPromessa' });
+  });
+
+  it('does not guess a source key for a manually changed chart', () => {
+    const onChange = vi.fn();
+    render(<MedleyComposer songs={[song('A', 'Am   F\nTexto A'), song('B', 'C    G\nTexto B')]} medleys={[]} onChange={onChange} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const keyInputs = screen.getAllByLabelText('medley.key');
+    fireEvent.change(keyInputs[0], { target: { value: 'Gm' } });
+    fireEvent.click(screen.getByText('medley.use'));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('medley.unverifiedSourceKey');
+  });
 });
