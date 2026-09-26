@@ -156,7 +156,6 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     error: showErrorToast,
   } = useToast();
   const isCommandApiV1Enabled = useFeatureFlag('musicscale.bandScaleCommandApiV1');
-  const isMusicScalePublishCommandEnabled = useFeatureFlag('musicscale.musicScalePublishCommandV1');
 
   const [formData, setFormData] = useState<Partial<Scale & BandScale>>({});
 
@@ -999,17 +998,11 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                         e.preventDefault();
                         handleSubmit(e as any, 'published');
                       }}
-                      disabled={isSubmitting || !isMusicScalePublishCommandEnabled} 
+                      disabled={isSubmitting} 
                       className="w-full lg:w-auto h-12 rounded-xl text-[12px] sm:text-[14px] bg-indigo-600 text-white hover:bg-indigo-500 shadow-[0_0_25px_rgba(99,102,241,0.45)] border-none font-bold min-w-0"
-                      aria-describedby={!isMusicScalePublishCommandEnabled ? "publish-blocked-desc" : undefined}
                     >
                       {isSubmitting ? <Spinner size="sm" /> : t('scaleModal.publishScale', 'Publicar Escala')}
                     </Button>
-                    {!isMusicScalePublishCommandEnabled && (
-                      <p id="publish-blocked-desc" className="text-xs text-red-500 font-medium mt-1 text-center">
-                        {t('scaleModal.publishUnavailable', 'A publicação ainda não está habilitada para esta organização.')}
-                      </p>
-                    )}
                   </div>
                 </>
               ) : (
