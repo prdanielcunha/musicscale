@@ -63,7 +63,7 @@ jobs:
             STATUS="$(curl --silent --max-time 15 --output /tmp/ms-domains --write-out '%{http_code}' -H "Authorization: Bearer $TOKEN" 'https://firebasehosting.googleapis.com/v1beta1/projects/millionsnest/sites/mn-musicscale-555464791734/customDomains')"
             echo "Firebase custom domains API status: $STATUS"
             if [[ "$STATUS" == 200 ]]; then
-              node -e "const d=require('/tmp/ms-domains'); console.log(JSON.stringify((d.customDomains||[]).map(x=>({name:x.name,hostState:x.hostState,ownershipState:x.ownershipState,issues:x.issues?.map(y=>y.message)}))))"
+              node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync('/tmp/ms-domains','utf8')); console.log(JSON.stringify((d.customDomains||[]).map(x=>({name:x.name,hostState:x.hostState,ownershipState:x.ownershipState,issues:x.issues?.map(y=>y.message)}))))"
             fi
           else
             echo 'Google access token unavailable to this workflow'

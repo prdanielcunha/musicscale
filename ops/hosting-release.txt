@@ -1,2 +1,2 @@
-MusicScale 0.8.0-beta.2 — 2026-09-26
-Restore canonical session continuity and distinguish unavailable schedule data from an empty organization.
+MusicScale 0.8.0-beta.3 — 2026-09-26
+Preserve verified organization access after discovery errors and organization switches; diagnose live Hosting and API routing.
