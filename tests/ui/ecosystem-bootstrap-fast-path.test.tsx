@@ -215,6 +215,22 @@ describe('EcosystemProvider canonical bootstrap fast path', () => {
     await waitFor(() => expect(screen.getByTestId('context').textContent).toContain('"isDegraded":true'));
     expect(screen.getByTestId('context').textContent).toContain('"canManageOrganization":false');
   });
+
+  it('keeps early canonical access when later discovery throws', async () => {
+    mocks.profiles.set('user-1', { activeOrganizationId: 'org-1', organizationRole: 'owner' });
+    mocks.organizations.set('org-1', { name: 'Organization One' });
+    vi.mocked(fetch).mockImplementation(() => response(canonical('user-1', 'org-1', ['scales.create'])));
+    const storageSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key) => {
+      if (key === 'activeOrganizationId') throw new DOMException('quota', 'QuotaExceededError');
+    });
+
+    await startUser('user-1');
+    await waitFor(() => expect(latestEcosystem.isContextSyncing).toBe(false));
+    expect(latestEcosystem.isDegraded).toBe(false);
+    expect(latestEcosystem.context?.currentOrganizationId).toBe('org-1');
+    expect(latestEcosystem.context?.permissions.canManageScales).toBe(true);
+    storageSpy.mockRestore();
+  });
 });
 
 describe('EcosystemProvider canonical organization switching', () => {
@@ -255,6 +271,25 @@ describe('EcosystemProvider canonical organization switching', () => {
     });
     expect(localStorage.getItem('activeOrganizationId')).toBe('org-b');
     expect(latestEcosystem.context?.isStandalone).toBe(true);
+  });
+
+  it('keeps the switched tenant canonical when initial discovery finishes later', async () => {
+    const discovery = deferred<any>();
+    mocks.profiles.set('user-1', { activeOrganizationId: 'org-a', organizationRole: 'admin' });
+    mocks.organizations.set('org-a', { name: 'Organization A' });
+    mocks.organizations.set('org-b', { name: 'Organization B' });
+    mocks.discoveryPromise = discovery.promise;
+    vi.mocked(fetch).mockImplementation(url => response(canonical('user-1',
+      String(url).includes('org-b') ? 'org-b' : 'org-a', ['scales.create'])));
+
+    await startUser('user-1');
+    await waitFor(() => expect(latestEcosystem.context?.currentOrganizationId).toBe('org-a'));
+    await act(async () => { expect(await latestEcosystem.switchOrganization('org-b')).toBe(true); });
+    await act(async () => { discovery.resolve({ docs: [] }); });
+
+    expect(latestEcosystem.context?.currentOrganizationId).toBe('org-b');
+    expect(latestEcosystem.context?.serverContext?.organizationId).toBe('org-b');
+    expect(latestEcosystem.isDegraded).toBe(false);
   });
 
   it('writes only the established sanitized cache contract', async () => {

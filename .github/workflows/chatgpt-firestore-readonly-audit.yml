@@ -43,6 +43,32 @@ jobs:
           workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production
           audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production
 
+      - name: Diagnose Hosting, API, and custom domain (read-only)
+        shell: bash
+        run: |
+          set -u
+          for HOST in mn-musicscale-555464791734.web.app musicscale.millionsnest.com; do
+            echo "DNS ${HOST}:"
+            getent ahostsv4 "$HOST" | awk '{ print $1 }' | sort -u || true
+            for ROUTE in / /api/v1/ecosystem/access-context?organizationId=release-diagnostic; do
+              CODE="$(curl --silent --show-error --max-time 15 --output /tmp/ms-response --write-out '%{http_code}' "https://${HOST}${ROUTE}")" || CODE="transport-error"
+              echo "HTTP ${HOST}${ROUTE}: ${CODE}"
+              if [[ "$ROUTE" == /api/* ]] && [[ "$CODE" != transport-error ]]; then
+                node -e "const fs=require('fs');let s=fs.readFileSync('/tmp/ms-response','utf8');try {let x=JSON.parse(s); console.log('API error code:', x.code||x.error||'(none)')} catch {console.log('API response is not JSON')}"
+              fi
+            done
+          done
+          TOKEN="$(gcloud auth print-access-token 2>/dev/null)" || TOKEN=''
+          if [[ -n "$TOKEN" ]]; then
+            STATUS="$(curl --silent --max-time 15 --output /tmp/ms-domains --write-out '%{http_code}' -H "Authorization: Bearer $TOKEN" 'https://firebasehosting.googleapis.com/v1beta1/projects/millionsnest/sites/mn-musicscale-555464791734/customDomains')"
+            echo "Firebase custom domains API status: $STATUS"
+            if [[ "$STATUS" == 200 ]]; then
+              node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync('/tmp/ms-domains','utf8')); console.log(JSON.stringify((d.customDomains||[]).map(x=>({name:x.name,hostState:x.hostState,ownershipState:x.ownershipState,issues:x.issues?.map(y=>y.message)}))))"
+            fi
+          else
+            echo 'Google access token unavailable to this workflow'
+          fi
+
       - name: Export sanitized globalSongs catalog (read-only)
         env:
           FIREBASE_PROJECT_ID: millionsnest
