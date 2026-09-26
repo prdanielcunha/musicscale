@@ -697,7 +697,6 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   
   const { organization } = useAuth();
   const isCommandApiV1Enabled = organization?.featureFlags?.['musicscale.bandScaleCommandApiV1'] === true || organization?.features?.['musicscale.bandScaleCommandApiV1'] === true;
-  const isMusicScalePublishCommandEnabled = organization?.featureFlags?.['musicscale.musicScalePublishCommandV1'] === true || organization?.features?.['musicscale.musicScalePublishCommandV1'] === true;
 
   const scaleSaveInFlightRef = React.useRef(false);
 
@@ -726,15 +725,6 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             const isPublishIntent = musicReq.intent === 'publish';
             const scaleData = musicReq.data as MusicScaleWritableData;
             let idempotencyKey = musicReq.idempotencyKey;
-
-            if (isPublishIntent && !isMusicScalePublishCommandEnabled) {
-                toast({
-                    title: t("scaleModal.publishUnavailable"),
-                    description: t("scaleModal.publishUnavailableDescription"),
-                    variant: "destructive"
-                });
-                return { status: "publish-unavailable" };
-            }
 
             // Check if we need to bootstrap taxonomy implicitly
             if (eventTypes.length === 0 || locations.length === 0) {
