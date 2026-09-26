@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { Link, useLocation, useNavigate, useSearchParams, useParams } from "react-router-dom";
 import type { PopulatedScale, Scale, BandScale, Instrument, InstrumentCategory } from "../types";
 import { useMusic } from "../contexts/MusicDataContext";
+import { useEcosystem } from "../contexts/EcosystemContext";
 import { useModals } from "../contexts/ModalContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useApi } from "../contexts/ApiContext";
@@ -690,7 +691,8 @@ const ScaleCard: React.FC<{
 import { useFeatureFlag } from "../hooks/useFeatureFlag";
 
 const ScalesPage: React.FC = () => {
-    const { populatedScales, refreshData } = useMusic();
+    const { scales, populatedScales, refreshData, loading: musicLoading, error: musicError } = useMusic();
+    const { isDegraded, isContextSyncing } = useEcosystem();
     const { openScaleForm, openScaleDetail } = useModals();
     const { t } = useTranslation();
     const { toast } = useToast();
@@ -959,6 +961,7 @@ const ScalesPage: React.FC = () => {
     };
 
     const currentScales = activeTab === "upcoming" ? upcomingScales : pastScales;
+    const dataUnavailable = isDegraded || !!musicError || (!musicLoading && scales.length > 0 && populatedScales.length === 0);
 
     return (
         <div className="w-full max-w-5xl mx-auto py-8 lg:py-12 px-4 sm:px-6 lg:px-8 pb-32">
@@ -970,7 +973,8 @@ const ScalesPage: React.FC = () => {
                 
                 <Can I="musicscale.scales.manage">
                     <Button 
-                        onClick={() => openScaleForm()} 
+                        onClick={() => openScaleForm()}
+                        disabled={dataUnavailable || musicLoading || isContextSyncing}
                         className="bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all duration-300 rounded-2xl h-12 lg:h-14 px-6 lg:px-8 font-bold tracking-wide text-[14px] w-full sm:w-auto"
                     >
                         Nova Escala
@@ -978,6 +982,14 @@ const ScalesPage: React.FC = () => {
                     </Button>
                 </Can>
             </div>
+
+            {dataUnavailable && (
+                <div role="alert" className="mb-8 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-slate-800 dark:text-white">
+                    <p className="font-semibold">{t('scales.dataUnavailableTitle')}</p>
+                    <p className="mt-1 text-sm text-slate-600 dark:text-white/70">{t('scales.dataUnavailableDescription')}</p>
+                    <Button className="mt-4" onClick={() => window.location.reload()}>{t('scales.retryConnection')}</Button>
+                </div>
+            )}
 
             {/* Segmented Control Tabs */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -1048,7 +1060,9 @@ const ScalesPage: React.FC = () => {
                 </Can>
             </div>
 
-            {currentScales.length === 0 ? (
+            {dataUnavailable ? null : musicLoading || isContextSyncing ? (
+                <div role="status" className="py-20 flex justify-center"><Spinner size="md" /></div>
+            ) : currentScales.length === 0 ? (
                 <div className="text-center py-20 bg-slate-50 dark:bg-[#1A1A1C]/50 border border-slate-200/50 dark:border-white/[0.05] rounded-[32px] mt-6 shadow-sm">
                     <CalendarIcon className="mx-auto h-12 w-12 text-slate-300 dark:text-white/20 mb-4" />
                     <h3 className="text-[18px] font-bold text-slate-800 dark:text-white mb-2">

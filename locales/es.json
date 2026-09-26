@@ -470,6 +470,9 @@
     "table": "Tabla"
   },
   "scales": {
+    "dataUnavailableTitle": "No se pudieron cargar las escalas ahora",
+    "dataUnavailableDescription": "Es necesario restablecer la conexión con los datos de la organización. La lista vacía no confirma que se hayan borrado; vuelva a intentar antes de crear o editar.",
+    "retryConnection": "Intentar de nuevo",
     "title": "Escalas",
     "subtitle": "Planifique escalas, agende músicos y organice las canciones de ensayos y cultos.",
     "new_scale": "Nueva Escala",
