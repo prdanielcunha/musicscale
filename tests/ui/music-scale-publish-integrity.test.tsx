@@ -91,7 +91,7 @@ describe('Music Scale Publish Integrity', () => {
     vi.clearAllMocks();  
   });
 
-  it('CENÁRIO A: FLAG DESABILITADA', async () => {
+  it('CENÁRIO A: FLAG LEGADA AUSENTE NÃO BLOQUEIA PUBLICAÇÃO', async () => {
     mockUseAuth.mockReturnValue({
       user: { uid: 'u1', getIdToken: async () => 'mock-token' },
       userProfile: {},
@@ -100,6 +100,11 @@ describe('Music Scale Publish Integrity', () => {
         featureFlags: { 'musicscale.musicScalePublishCommandV1': false },
         features: { 'musicscale.musicScalePublishCommandV1': false }
       }
+    });
+
+    mockApi.scales.create.mockResolvedValueOnce('new-draft-id-no-flag');
+    mockApi.musicScaleCommands.publish.mockResolvedValueOnce({
+      scaleId: 'new-draft-id-no-flag', version: 1, createdNotificationCount: 0, fromCache: false, status: 'published'
     });
 
     render(
@@ -112,27 +117,14 @@ describe('Music Scale Publish Integrity', () => {
       </BrowserRouter>
     );
 
-    const btnOpen = screen.getByTestId('btn-open');
-    fireEvent.click(btnOpen); // Open form to set scaleType
-    const btnPublish = screen.getByTestId('btn-publish');
-    const resultDiv = screen.getByTestId('result');
+    fireEvent.click(screen.getByTestId('btn-open'));
+    fireEvent.click(screen.getByTestId('btn-publish'));
 
-    for (let i = 0; i < 3; i++) {
-      fireEvent.click(btnPublish);
-      await waitFor(() => {
-        expect(resultDiv.textContent).toContain('publish-unavailable');
-      });
-      // The result is written before the finally block clears loading. Wait for
-      // the completed interaction, rather than observing an intermediate render.
-      await waitFor(() => {
-        expect(btnPublish).not.toBeDisabled();
-      });
-    }
-
-    expect(mockApi.scales.create).toHaveBeenCalledTimes(0);
-    expect(mockApi.scales.update).toHaveBeenCalledTimes(0);
-    expect(mockApi.musicScaleCommands.publish).toHaveBeenCalledTimes(0);
-    expect(mockApi.linkScales).toHaveBeenCalledTimes(0);
+    await waitFor(() => {
+      expect(screen.getByTestId('result').textContent).toContain('"status":"published"');
+    });
+    expect(mockApi.scales.create).toHaveBeenCalledTimes(1);
+    expect(mockApi.musicScaleCommands.publish).toHaveBeenCalledTimes(1);
   });
 
   it('CENÁRIO B: FLAG HABILITADA E SUCESSO', async () => {
