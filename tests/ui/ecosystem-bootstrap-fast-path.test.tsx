@@ -196,9 +196,13 @@ describe('EcosystemProvider canonical bootstrap fast path', () => {
     expect(screen.getByTestId('context').textContent).toContain('"canManageRepertoire":true');
     expect(screen.getByTestId('context').textContent).toContain('"canManageChords":true');
 
+    act(() => { window.dispatchEvent(new Event('ecosystem:degraded_mode')); });
+    expect(latestEcosystem.isDegraded).toBe(true);
+
     await act(async () => { discovery.resolve({ docs: [] }); });
     await waitFor(() => expect(screen.getByTestId('context').textContent).toContain('Organization One'));
     expect(screen.getByTestId('context').textContent).toContain('"currentOrganizationId":"org-1"');
+    expect(latestEcosystem.isDegraded).toBe(false);
   });
 
   it('keeps the secure degraded fallback when canonical access fails', async () => {
