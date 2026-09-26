@@ -776,7 +776,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 console.log('[MusicScale Publish Path] => ' + JSON.stringify({
                     organizationId: orgId,
                     musicScaleId,
-                    musicScalePublishCommandEnabled: isMusicScalePublishCommandEnabled,
+                    musicScalePublishCommandEnabled: true,
                     selectedAction: "publish_command_api"
                 }));
 
@@ -948,7 +948,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setIsSubmitting(false);
         scaleSaveInFlightRef.current = false;
     }
-  }, [user, userProfile, scaleType, linkingOptions, refreshData, closeAllModals, api, bandScales, instruments, isCommandApiV1Enabled, isMusicScalePublishCommandEnabled, organization?.id, eventTypes, locations, t, toast]);
+  }, [user, userProfile, scaleType, linkingOptions, refreshData, closeAllModals, api, bandScales, instruments, isCommandApiV1Enabled, organization?.id, eventTypes, locations, t, toast]);
 
   const handleDeleteScale = useCallback(async () => {
       if (!scaleToDelete || !api || !user || !userProfile) {
