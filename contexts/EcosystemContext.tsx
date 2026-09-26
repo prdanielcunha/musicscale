@@ -662,12 +662,14 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                              // organization while discovery is still running. A later
                              // timeout must not replace that verified context with a
                              // degraded result (or leave the warning stuck on screen).
-                             const releasedContextIsValid = releasedCanonicalOrgIdRef.current === orgId &&
-                                 isValidCanonicalResponse(releasedCanonicalContextRef.current, user.uid, orgId) &&
+                             const currentOrgId = releasedCanonicalOrgIdRef.current || orgId;
+                             const releasedContextIsValid = !!releasedCanonicalOrgIdRef.current &&
+                                 isValidCanonicalResponse(releasedCanonicalContextRef.current, user.uid, currentOrgId) &&
                                  releasedCanonicalContextRef.current?.effectiveContext?.resolutionStatus === 'resolved';
-                             const effectiveServerContext = serverContext?.effectiveContext?.resolutionStatus === 'resolved'
-                                 ? serverContext
-                                 : releasedContextIsValid ? releasedCanonicalContextRef.current : null;
+                             const effectiveServerContext = releasedContextIsValid
+                                 ? releasedCanonicalContextRef.current
+                                 : isValidCanonicalResponse(serverContext, user.uid, currentOrgId) && serverContext?.effectiveContext?.resolutionStatus === 'resolved'
+                                     ? serverContext : null;
                              setIsDegraded(!effectiveServerContext?.effectiveContext);
                              setContext((prev: any) => ({
                                  ...payload,
@@ -684,6 +686,20 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                          }
                     } catch (e) {
                         console.warn("[MusicScale Ecosystem] Firestore fetch failed (offline/unavailable), checking local storage cache:", e);
+                        const releasedOrgId = releasedCanonicalOrgIdRef.current;
+                        const releasedContext = releasedCanonicalContextRef.current;
+                        if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid &&
+                            releasedOrgId && isValidCanonicalResponse(releasedContext, user.uid, releasedOrgId) &&
+                            releasedContext.effectiveContext?.resolutionStatus === 'resolved') {
+                            setContext((previous: any) => ({
+                                ...previous,
+                                currentOrganizationId: releasedOrgId,
+                                serverContext: releasedContext,
+                                permissions: getCanonicalPermissions(releasedContext),
+                            }));
+                            setIsDegraded(false);
+                            return;
+                        }
                          const cached = localStorage.getItem('musicscale_cached_context_' + user.uid);
                          if (cached) {
                              try {
@@ -820,6 +836,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Publish the tenant and its canonical permissions together, then persist preference/cache.
       contextRef.current = nextContext;
       releasedCanonicalOrgIdRef.current = orgId;
+      releasedCanonicalContextRef.current = canonicalContext;
       setContext(nextContext);
       setIsDegraded(false);
       try {
