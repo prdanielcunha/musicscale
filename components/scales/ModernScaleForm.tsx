@@ -38,6 +38,7 @@ import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { resolveScaleDurationMinutes } from "../../utils/calendar";
 import { normalizeScaleSongSettings, moveSongId, moveSongBeforeTarget, applyLocalScaleSongSettingsUpdate } from "../../utils/scaleSongSettings";
 import { executeGlobalSongUpdate } from "../../utils/globalSongUpdateController";
+import { isMusicScalePublishCommandEnabledForOrganization } from "../../utils/musicScalePublishFeature";
 
 const GripVerticalIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg
@@ -156,7 +157,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     error: showErrorToast,
   } = useToast();
   const isCommandApiV1Enabled = useFeatureFlag('musicscale.bandScaleCommandApiV1');
-  const isMusicScalePublishCommandEnabled = useFeatureFlag('musicscale.musicScalePublishCommandV1');
+  const isMusicScalePublishCommandEnabled = Boolean(organization) && isMusicScalePublishCommandEnabledForOrganization(organization);
 
   const [formData, setFormData] = useState<Partial<Scale & BandScale>>({});
 
