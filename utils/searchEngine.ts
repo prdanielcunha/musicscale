@@ -338,9 +338,6 @@ export function scoreSongSearch<T>(
   } else if (titleTokensMatchAll) {
     score = 700;
     matchOrigin = 'title';
-  } else if (metadataPartialTokensMatchAll) {
-    score = 650;
-    matchOrigin = document.titleTokens.some(token => queryTokens.some(qt => token.includes(qt))) ? 'title' : 'artist';
   } else if (artistExact || artistStartsWith) {
     score = 600;
     matchOrigin = 'artist';
@@ -359,6 +356,9 @@ export function scoreSongSearch<T>(
   } else if (versionContains || versionPartialTokensMatchAll) {
     score = 400;
     matchOrigin = 'version';
+  } else if (metadataPartialTokensMatchAll) {
+    score = 350;
+    matchOrigin = document.titleTokens.some(token => queryTokens.some(qt => token.includes(qt))) ? 'title' : 'artist';
   } else if (lyricsContains) {
     score = 300;
     matchOrigin = 'lyrics';
@@ -423,7 +423,7 @@ export function scoreSongSearch<T>(
 
 export function searchSongs<T extends { id?: string; title?: string; artist?: string; }>(documents: SongSearchDocument<T>[], query: string): SearchMatch<T>[] {
   const normalizedQuery = normalizeSearchText(query);
-  const normalizedKeyQuery = normalizeMusicalKey(query);
+  const normalizedKeyQuery = isValidMusicalKeyQuery(query) ? normalizeMusicalKey(query) : "";
   
   if (!normalizedQuery && !normalizedKeyQuery) return documents.map(doc => ({ document: doc, score: 0 }));
   
