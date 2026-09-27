@@ -9,7 +9,7 @@ const modernScaleForm = fs.readFileSync("components/scales/ModernScaleForm.tsx",
 describe("intelligent search surface contract", () => {
   it("uses the shared search engine in Chords", () => {
     expect(chordsPage).toContain('buildSearchIndex');
-    expect(chordsPage).toContain('searchSongs(songSearchIndex, deferredSearchTerm)');
+    expect(chordsPage).toContain('searchSongs<PopulatedSong>(songSearchIndex, deferredSearchTerm)');
   });
 
   it("keeps Chords typing responsive with a deferred filter value", () => {
@@ -18,7 +18,7 @@ describe("intelligent search surface contract", () => {
 
   it("uses the shared search engine in Lyrics", () => {
     expect(lyricsPage).toContain('buildSearchIndex');
-    expect(lyricsPage).toContain('searchSongs(songSearchIndex, deferredSearchTerm)');
+    expect(lyricsPage).toContain('searchSongs<PopulatedSong>(songSearchIndex, deferredSearchTerm)');
   });
 
   it("keeps Lyrics typing responsive with a deferred filter value", () => {
@@ -27,7 +27,7 @@ describe("intelligent search surface contract", () => {
 
   it("uses the shared search engine in MusicBuilder", () => {
     expect(musicBuilder).toContain('buildSearchIndex');
-    expect(musicBuilder).toContain('searchSongs(songSearchIndex, deferredSongSearch)');
+    expect(musicBuilder).toContain('searchSongs<PopulatedSong>(songSearchIndex, deferredSongSearch)');
   });
 
   it("keeps the scale repertoire typing responsive", () => {
