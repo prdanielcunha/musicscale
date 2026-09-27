@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import React, { useState, useMemo, useRef, useEffect, forwardRef, useImperativeHandle, useDeferredValue } from "react";
 import { PopulatedSong, Tag, ScaleSongSettingsUpdateResult, MedleyTemplate, ScaleMedley } from "../../types";
 import { hasChords, hasLyrics, getEffectiveKey, getEffectiveBpm, moveSongId, moveSongBeforeTarget } from "../../utils/scaleSongSettings";
 import { MusicNoteIcon } from "../icons/MusicNoteIcon";
@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { MedleyComposer } from './MedleyComposer';
 import { orderMedleySongIds, medleySourceRevision } from '../../utils/medleyModel';
 import { useApi } from '../../contexts/ApiContext';
+import { buildSearchIndex, searchSongs } from '../../utils/searchEngine';
 
 const formLabelClass =
   "block text-[11px] font-black tracking-widest text-slate-400 uppercase dark:text-slate-500 mb-2 ml-1";
@@ -67,6 +68,8 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
   const [songTagFilterIds, setSongTagFilterIds] = useState<string[]>([]);
   const [mobileTab, setMobileTab] = useState<"library" | "setlist">("library");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const deferredSongSearch = useDeferredValue(songSearch);
+  const songSearchIndex = useMemo(() => buildSearchIndex(songs), [songs]);
 
   useImperativeHandle(ref, () => ({
     focusSearchInput: async (signal?: AbortSignal): Promise<boolean> => {
@@ -126,34 +129,35 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
     }
   }));
 
-  // Filtering songs
+  // Shared intelligent search is used here as well, so New/Edit Music Scale
+  // behaves exactly like Chords and Lyrics. The input stays immediate while the
+  // potentially heavier filtering follows React's deferred value.
   const filteredSongs = useMemo(() => {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const isSearching = deferredSongSearch.trim().length > 0;
+    const candidates = isSearching
+      ? searchSongs(songSearchIndex, deferredSongSearch).map((match) => match.document.song)
+      : songs;
 
-    return songs
-      .filter((song) => {
-        const searchMatch =
-          songSearch === "" ||
-          song.title.toLowerCase().includes(songSearch.toLowerCase()) ||
-          song.artist.toLowerCase().includes(songSearch.toLowerCase());
+    const filtered = candidates.filter((song) => {
+      let statusMatch = true;
+      if (songStatusFilter === "active") {
+        statusMatch = song.isActive;
+      } else if (songStatusFilter === "new") {
+        const createdAt = song.createdAt ? new Date(song.createdAt) : new Date(0);
+        statusMatch = createdAt > sevenDaysAgo;
+      }
 
-        let statusMatch = true;
-        if (songStatusFilter === "active") {
-          statusMatch = song.isActive;
-        } else if (songStatusFilter === "new") {
-          const createdAt = song.createdAt ? new Date(song.createdAt) : new Date(0);
-          statusMatch = createdAt > sevenDaysAgo;
-        }
+      const tagMatch =
+        songTagFilterIds.length === 0 ||
+        songTagFilterIds.every((tagId) => song.tagIds?.includes(tagId));
 
-        const tagMatch =
-          songTagFilterIds.length === 0 ||
-          songTagFilterIds.every((tagId) => song.tagIds?.includes(tagId));
+      return statusMatch && tagMatch;
+    });
 
-        return searchMatch && statusMatch && tagMatch;
-      })
-      .sort((a, b) => a.title.localeCompare(b.title));
-  }, [songs, songSearch, songStatusFilter, songTagFilterIds]);
+    return isSearching ? filtered : filtered.sort((a, b) => a.title.localeCompare(b.title));
+  }, [songs, songSearchIndex, deferredSongSearch, songStatusFilter, songTagFilterIds]);
 
   const selectedFilterTags = tags.filter((t) => songTagFilterIds.includes(t.id));
   const availableFilterTags = tags
