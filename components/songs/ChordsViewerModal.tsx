@@ -264,8 +264,8 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
 
   const [transpose, setTranspose] = useState(0);
   const basePerformanceKey = useMemo(
-    () => song?.key || song?.selectedKey || song?.originalKey || "C",
-    [song?.key, song?.selectedKey, song?.originalKey],
+    () => song?.selectedKey || song?.key || song?.originalKey || "C",
+    [song?.selectedKey, song?.key, song?.originalKey],
   );
   const { liveSession, isLeader, changeKeyOverride } = useLiveWorshipSession(
     scaleContext?.scaleId,

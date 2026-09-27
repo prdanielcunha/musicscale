@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useDeferredValue } from "react";
 import { useTranslation } from "react-i18next";
 import { useMusic } from "../contexts/MusicDataContext";
 import { useModals } from "../contexts/ModalContext";
@@ -12,6 +12,7 @@ import { XCircleIcon } from "../components/icons/XCircleIcon";
 import { RepertoireMetricsView } from "../components/songs/RepertoireMetricsView";
 import MusicWorkspaceSkeleton from "../components/common/MusicWorkspaceSkeleton";
 import { Search, SlidersHorizontal } from "lucide-react";
+import { buildSearchIndex, searchSongs } from "../utils/searchEngine";
 
 const formSelectClass = "input-base";
 const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -40,6 +41,8 @@ const ChordsPage: React.FC = () => {
   const [keyFilter, setKeyFilter] = useState("all");
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("title");
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const songSearchIndex = useMemo(() => buildSearchIndex(songs), [songs]);
 
   useEffect(() => {
     if (songInModal) {
@@ -74,19 +77,21 @@ const ChordsPage: React.FC = () => {
   }, [tagFilterIds, tags]);
 
   const filteredAndSortedSongs = useMemo(() => {
-    let processedSongs = songs
+    const isSearching = deferredSearchTerm.trim().length > 0;
+    let processedSongs = (isSearching
+      ? searchSongs<PopulatedSong>(songSearchIndex, deferredSearchTerm).map((match) => match.document.song)
+      : songs
+    )
       .filter((song) => !!song.chords || !!song.chordsUrl)
-      .filter(
-        (song) =>
-          searchTerm === "" ||
-          song.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          song.artist.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
       .filter((song) => keyFilter === "all" || song.key === keyFilter)
       .filter((song) => {
         if (tagFilterIds.length === 0) return true;
         return tagFilterIds.some((tagId) => song.tagIds.includes(tagId));
       });
+
+    // During the default search experience, keep the relevance order from the
+    // shared engine. Explicit alternate sorts still take precedence.
+    if (isSearching && sortBy === "title") return processedSongs;
 
     switch (sortBy) {
       case "artist":
@@ -105,7 +110,7 @@ const ChordsPage: React.FC = () => {
     }
 
     return processedSongs;
-  }, [songs, searchTerm, keyFilter, tagFilterIds, sortBy]);
+  }, [songs, songSearchIndex, deferredSearchTerm, keyFilter, tagFilterIds, sortBy]);
 
   if (loading) return <MusicWorkspaceSkeleton />;
   if (error) {
