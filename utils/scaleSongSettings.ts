@@ -3,11 +3,11 @@ import { getKeyDifference, parseChordsAndLyrics, transposeChord } from '../compo
 
 export const getEffectiveKey = (song: Song, settings?: ScaleSongSettings): string => {
   if (settings && settings.key) return settings.key;
-  // "key" is the canonical persisted field. "selectedKey" is retained as
-  // a compatibility fallback for older imports, but must never override a
-  // newer manual edit saved to key.
-  if (song.key) return song.key;
+  // selectedKey represents the musician-facing/current key and may carry a
+  // confirmed correction while legacy imports still retain an older key value.
+  // Scale-local settings remain the strongest override.
   if (song.selectedKey) return song.selectedKey;
+  if (song.key) return song.key;
   if (song.originalKey) return song.originalKey;
   return "";
 };
@@ -75,7 +75,7 @@ export const applyScaleSongSettings = <T extends Song>(song: T, settings?: Scale
   delete (newSong as any)._untransposedKey;
   delete (newSong as any)._untransposedChords;
 
-  const baseKey = song.key || song.selectedKey || song.originalKey || "";
+  const baseKey = song.selectedKey || song.key || song.originalKey || "";
   const baseChords = song.chords || "";
 
   if (settings.key !== undefined && settings.key !== null) {
