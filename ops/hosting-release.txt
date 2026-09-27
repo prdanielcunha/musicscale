@@ -1,2 +1,2 @@
-MusicScale 0.8.0-beta.3 — 2026-09-26
-Preserve verified organization access after discovery errors and organization switches; restore native login when the Hub is unavailable and diagnose live Hosting/API routing.
+MusicScale 0.8.0-beta.4 — 2026-09-27
+Scale creation/editing recovery is fail-closed for missing reference data, selected musical key is honored consistently, and intelligent real-time search is unified across Chords, Lyrics, and Music Scale repertoire selection.
