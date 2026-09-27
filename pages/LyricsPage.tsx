@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useDeferredValue } from "react";
 import { useTranslation } from "react-i18next";
 import { useMusic } from "../contexts/MusicDataContext";
 import type { PopulatedSong, Tag } from "../types";
@@ -8,6 +8,7 @@ import { XCircleIcon } from "../components/icons/XCircleIcon";
 import { FileText, Search, SlidersHorizontal } from "lucide-react";
 import { RepertoireMetricsView } from "../components/songs/RepertoireMetricsView";
 import MusicWorkspaceSkeleton from "../components/common/MusicWorkspaceSkeleton";
+import { buildSearchIndex, searchSongs } from "../utils/searchEngine";
 
 const formSelectClass = "input-base";
 
@@ -19,6 +20,8 @@ const LyricsPage: React.FC = () => {
   const [keyFilter, setKeyFilter] = useState("all");
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("title");
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const songSearchIndex = useMemo(() => buildSearchIndex(songs), [songs]);
 
   useEffect(() => {
     if (songInModal) {
@@ -53,20 +56,19 @@ const LyricsPage: React.FC = () => {
   }, [tagFilterIds, tags]);
 
   const filteredAndSortedSongs = useMemo(() => {
-    let processedSongs = songs
+    const isSearching = deferredSearchTerm.trim().length > 0;
+    let processedSongs = (isSearching
+      ? searchSongs<PopulatedSong>(songSearchIndex, deferredSearchTerm).map((match) => match.document.song)
+      : songs
+    )
       .filter((song) => !!song.lyrics)
-      .filter(
-        (song) =>
-          searchTerm === "" ||
-          song.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          song.artist.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (song.lyrics && song.lyrics.toLowerCase().includes(searchTerm.toLowerCase())),
-      )
       .filter((song) => keyFilter === "all" || song.key === keyFilter)
       .filter((song) => {
         if (tagFilterIds.length === 0) return true;
         return tagFilterIds.some((tagId) => song.tagIds.includes(tagId));
       });
+
+    if (isSearching && sortBy === "title") return processedSongs;
 
     switch (sortBy) {
       case "artist":
@@ -85,7 +87,7 @@ const LyricsPage: React.FC = () => {
     }
 
     return processedSongs;
-  }, [songs, searchTerm, keyFilter, tagFilterIds, sortBy]);
+  }, [songs, songSearchIndex, deferredSearchTerm, keyFilter, tagFilterIds, sortBy]);
 
   if (loading) return <MusicWorkspaceSkeleton />;
   if (error) {

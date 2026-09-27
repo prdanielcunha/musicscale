@@ -155,6 +155,103 @@ describe("searchEngine", () => {
     });
   });
 
+  describe("Unified intelligent partial search", () => {
+    const songs = [
+      {
+        id: "promessas",
+        title: "Promessas",
+        artist: "Sarah Beatriz",
+        lyrics: "Deus de Abraão\nSei que nunca quebrará\nA aliança que me fez",
+        chords: "[Intro] G#m7 E9 B F#4\nG#m7 Deus de Abraão",
+        aliases: "Promises",
+        version: "Ao Vivo",
+        key: "G#m",
+      },
+      {
+        id: "coracao",
+        title: "Coração d'Ele",
+        artist: "Ministério Teste",
+        lyrics: "Meu coração pertence a Ele",
+        chords: "C G Am F",
+        key: "C",
+      },
+      {
+        id: "other",
+        title: "Outra Canção",
+        artist: "Banda",
+        lyrics: "Aqui também cantamos promessas",
+        chords: "D A Bm G",
+        key: "D",
+      },
+    ];
+
+    it("matches title and artist with partial tokens across fields", () => {
+      const result = searchSongs(buildSearchIndex(songs), "prom sar");
+      expect(result[0]?.document.song.id).toBe("promessas");
+      expect(result[0]?.matchOrigin).toBe("title");
+    });
+
+    it("matches partial lyric words while the user is still typing", () => {
+      const result = searchSongs(buildSearchIndex(songs), "nunc quebr");
+      expect(result.map(item => item.document.song.id)).toContain("promessas");
+      expect(result.find(item => item.document.song.id === "promessas")?.matchOrigin).toBe("lyrics");
+    });
+
+    it("matches multiple partial lyric tokens", () => {
+      const result = searchSongs(buildSearchIndex(songs), "deus abra");
+      expect(result[0]?.document.song.id).toBe("promessas");
+    });
+
+    it("ignores accents and apostrophes", () => {
+      const result = searchSongs(buildSearchIndex(songs), "coracao dele");
+      expect(result[0]?.document.song.id).toBe("coracao");
+    });
+
+    it("ignores punctuation, dashes and repeated whitespace", () => {
+      const result = searchSongs(buildSearchIndex(songs), "  coracao---d ele ");
+      expect(result[0]?.document.song.id).toBe("coracao");
+    });
+
+    it("searches aliases", () => {
+      const result = searchSongs(buildSearchIndex(songs), "promis");
+      expect(result[0]?.document.song.id).toBe("promessas");
+      expect(result[0]?.matchOrigin).toBe("aliases");
+    });
+
+    it("searches versions", () => {
+      const result = searchSongs(buildSearchIndex(songs), "vivo");
+      expect(result[0]?.document.song.id).toBe("promessas");
+      expect(result[0]?.matchOrigin).toBe("version");
+    });
+
+    it("searches chord content", () => {
+      const result = searchSongs(buildSearchIndex(songs), "g#m7");
+      expect(result.map(item => item.document.song.id)).toContain("promessas");
+    });
+
+    it("keeps title matches ahead of lyric-only matches", () => {
+      const result = searchSongs(buildSearchIndex(songs), "promessas");
+      expect(result[0]?.document.song.id).toBe("promessas");
+      expect(result[0]?.score).toBeGreaterThan(result[1]?.score ?? 0);
+    });
+
+    it("is case-insensitive", () => {
+      const result = searchSongs(buildSearchIndex(songs), "SARAH");
+      expect(result[0]?.document.song.id).toBe("promessas");
+    });
+
+    it("keeps a deterministic result order", () => {
+      const index = buildSearchIndex(songs);
+      expect(searchSongs(index, "prom").map(item => item.document.song.id))
+        .toEqual(searchSongs(index, "prom").map(item => item.document.song.id));
+    });
+
+    it("returns the complete index when the normalized query is empty", () => {
+      expect(searchSongs(buildSearchIndex(songs), " -- ' ").map(item => item.document.song.id))
+        .toEqual(["promessas", "coracao", "other"]);
+    });
+  });
+
   describe("Global persisted search fields v3", () => {
     it("bumps the canonical version and preserves all legacy field families", () => {
       const fields = buildGlobalSongSearchFields({

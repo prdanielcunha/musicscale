@@ -43,9 +43,13 @@ export interface SongSearchDocument<T = any> {
   chordsNormalized: string;
   aliasesNormalized: string;
   combinedNormalized: string;
+  combinedTokens: string[];
   titleTokens: string[];
   artistTokens: string[];
+  versionTokens: string[];
+  aliasesTokens: string[];
   lyricsTokens: string[];
+  chordsTokens: string[];
   selectedKeyNormalized?: string;
   keyNormalized?: string;
   originalKeyNormalized?: string;
@@ -189,11 +193,15 @@ export function buildSearchIndex<T extends { title?: string; artist?: string; ve
     const keyNormalized = normalizeMusicalKey(anySong.key);
     const originalKeyNormalized = normalizeMusicalKey(anySong.originalKey);
 
-    const combinedNormalized = `${titleNormalized} ${artistNormalized} ${versionNormalized} ${lyricsNormalized} ${aliasesNormalized}`.trim();
+    const combinedNormalized = `${titleNormalized} ${artistNormalized} ${versionNormalized} ${aliasesNormalized} ${lyricsNormalized} ${chordsNormalized}`.trim();
     
     const titleTokens = titleNormalized ? titleNormalized.split(" ") : [];
     const artistTokens = artistNormalized ? artistNormalized.split(" ") : [];
+    const versionTokens = versionNormalized ? versionNormalized.split(" ") : [];
+    const aliasesTokens = aliasesNormalized ? aliasesNormalized.split(" ") : [];
     const lyricsTokens = lyricsNormalized ? lyricsNormalized.split(" ") : [];
+    const chordsTokens = chordsNormalized ? chordsNormalized.split(" ") : [];
+    const combinedTokens = combinedNormalized ? combinedNormalized.split(" ") : [];
 
     return {
       song,
@@ -204,9 +212,13 @@ export function buildSearchIndex<T extends { title?: string; artist?: string; ve
       chordsNormalized,
       aliasesNormalized,
       combinedNormalized,
+      combinedTokens,
       titleTokens,
       artistTokens,
+      versionTokens,
+      aliasesTokens,
       lyricsTokens,
+      chordsTokens,
       selectedKeyNormalized,
       keyNormalized,
       originalKeyNormalized
@@ -252,6 +264,13 @@ export interface SearchMatch<T = any> {
   matchOrigin?: 'title' | 'artist' | 'lyrics' | 'version' | 'chords' | 'aliases' | 'key';
 }
 
+function tokensContainAllParts(documentTokens: string[], queryTokens: string[]): boolean {
+  if (queryTokens.length === 0 || documentTokens.length === 0) return false;
+  return queryTokens.every((queryToken) =>
+    documentTokens.some((documentToken) => documentToken.includes(queryToken)),
+  );
+}
+
 export function scoreSongSearch<T>(
   document: SongSearchDocument<T>, 
   normalizedQuery: string, 
@@ -276,19 +295,30 @@ export function scoreSongSearch<T>(
   const titleStartsWith = document.titleNormalized.startsWith(normalizedQuery);
   const titleContains = document.titleNormalized.includes(normalizedQuery);
   const titleTokensMatchAll = queryTokens.length > 0 && queryTokens.every(qt => document.titleTokens.includes(qt));
+  const titlePartialTokensMatchAll = tokensContainAllParts(document.titleTokens, queryTokens);
 
   const artistExact = document.artistNormalized === normalizedQuery;
   const artistStartsWith = document.artistNormalized.startsWith(normalizedQuery);
   const artistContains = document.artistNormalized.includes(normalizedQuery);
   const artistTokensMatchAll = queryTokens.length > 0 && queryTokens.every(qt => document.artistTokens.includes(qt));
+  const artistPartialTokensMatchAll = tokensContainAllParts(document.artistTokens, queryTokens);
 
   const versionContains = document.versionNormalized && document.versionNormalized.includes(normalizedQuery);
+  const versionPartialTokensMatchAll = tokensContainAllParts(document.versionTokens, queryTokens);
   const aliasesContains = document.aliasesNormalized && document.aliasesNormalized.includes(normalizedQuery);
+  const aliasesPartialTokensMatchAll = tokensContainAllParts(document.aliasesTokens, queryTokens);
   
   const lyricsContains = document.lyricsNormalized && document.lyricsNormalized.includes(normalizedQuery);
   const lyricsTokensMatchAll = queryTokens.length > 0 && document.lyricsTokens.length > 0 && queryTokens.every(qt => document.lyricsTokens.includes(qt));
+  const lyricsPartialTokensMatchAll = tokensContainAllParts(document.lyricsTokens, queryTokens);
 
   const chordsContains = document.chordsNormalized && document.chordsNormalized.includes(normalizedQuery);
+  const chordsPartialTokensMatchAll = tokensContainAllParts(document.chordsTokens, queryTokens);
+  const metadataPartialTokensMatchAll = tokensContainAllParts(
+    [...document.titleTokens, ...document.artistTokens, ...document.versionTokens, ...document.aliasesTokens],
+    queryTokens,
+  );
+  const combinedPartialTokensMatchAll = tokensContainAllParts(document.combinedTokens, queryTokens);
 
   if (titleExact) {
     score = 1000;
@@ -302,6 +332,9 @@ export function scoreSongSearch<T>(
   } else if (titleContains) {
     score = 800;
     matchOrigin = 'title';
+  } else if (titlePartialTokensMatchAll) {
+    score = 750;
+    matchOrigin = 'title';
   } else if (titleTokensMatchAll) {
     score = 700;
     matchOrigin = 'title';
@@ -311,24 +344,36 @@ export function scoreSongSearch<T>(
   } else if (artistContains) {
     score = 500;
     matchOrigin = 'artist';
+  } else if (artistPartialTokensMatchAll) {
+    score = 475;
+    matchOrigin = 'artist';
   } else if (artistTokensMatchAll) {
     score = 450;
     matchOrigin = 'artist';
-  } else if (aliasesContains) {
+  } else if (aliasesContains || aliasesPartialTokensMatchAll) {
     score = 425;
     matchOrigin = 'aliases';
-  } else if (versionContains) {
+  } else if (versionContains || versionPartialTokensMatchAll) {
     score = 400;
     matchOrigin = 'version';
+  } else if (metadataPartialTokensMatchAll) {
+    score = 350;
+    matchOrigin = document.titleTokens.some(token => queryTokens.some(qt => token.includes(qt))) ? 'title' : 'artist';
   } else if (lyricsContains) {
     score = 300;
     matchOrigin = 'lyrics';
-  } else if (lyricsTokensMatchAll) {
-    score = 200;
+  } else if (lyricsPartialTokensMatchAll || lyricsTokensMatchAll) {
+    score = 250;
     matchOrigin = 'lyrics';
   } else if (chordsContains) {
     score = 100;
     matchOrigin = 'chords';
+  } else if (chordsPartialTokensMatchAll) {
+    score = 90;
+    matchOrigin = 'chords';
+  } else if (combinedPartialTokensMatchAll) {
+    score = 80;
+    matchOrigin = document.lyricsTokens.some(token => queryTokens.some(qt => token.includes(qt))) ? 'lyrics' : 'chords';
   }
 
   if (score > 0) {
@@ -378,7 +423,7 @@ export function scoreSongSearch<T>(
 
 export function searchSongs<T extends { id?: string; title?: string; artist?: string; }>(documents: SongSearchDocument<T>[], query: string): SearchMatch<T>[] {
   const normalizedQuery = normalizeSearchText(query);
-  const normalizedKeyQuery = normalizeMusicalKey(query);
+  const normalizedKeyQuery = isValidMusicalKeyQuery(query) ? normalizeMusicalKey(query) : "";
   
   if (!normalizedQuery && !normalizedKeyQuery) return documents.map(doc => ({ document: doc, score: 0 }));
   

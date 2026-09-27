@@ -143,6 +143,8 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     allUsers,
     populatedBandScales,
     populatedScales,
+    loading: musicDataLoading,
+    error: musicDataError,
     refreshData,
   } = useMusic();
 
@@ -314,6 +316,22 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const [isCreatingNestedMusicScale, setIsCreatingNestedMusicScale] = useState(false);
 
   const [isBootstrapping, setIsBootstrapping] = useState(false);
+  const isReferenceDataMissing = eventTypes.length === 0 || locations.length === 0;
+  const hasReferenceDataLoadFailure =
+    isReferenceDataMissing && !musicDataLoading && Boolean(musicDataError);
+  const canOfferReferenceBootstrap =
+    isReferenceDataMissing && !musicDataLoading && !musicDataError;
+
+  const handleRetryReferenceData = async () => {
+    if (isBootstrapping) return;
+    setIsBootstrapping(true);
+    try {
+      await refreshData();
+    } finally {
+      setIsBootstrapping(false);
+    }
+  };
+
   const handleExplicitBootstrap = async () => {
     if (!organization?.id) return;
     setIsBootstrapping(true);
@@ -327,11 +345,16 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
             'x-organization-id': organization.id
          }
       });
-      if (res.ok) {
-        await refreshData(); // reload eventTypes and locations
+      if (!res.ok) {
+        throw new Error(`Bootstrap failed with status ${res.status}`);
       }
+      await refreshData(); // reload eventTypes and locations
     } catch (e) {
       console.error("Failed to explicitly bootstrap taxonomy", e);
+      toast({
+        type: 'error',
+        message: t('scaleModal.referenceDataBootstrapFailed', 'Não foi possível preparar os dados agora. Tente novamente.'),
+      });
     } finally {
       setIsBootstrapping(false);
     }
@@ -1140,6 +1163,8 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                 id="eventTypeId"
                 value={formData.eventTypeId || ""}
                 onChange={handleChange}
+                disabled={musicDataLoading || hasReferenceDataLoadFailure}
+                aria-describedby={hasReferenceDataLoadFailure ? "scale-reference-data-alert" : undefined}
                 className={formInputClass}
               >
                 <option value="" disabled={scaleType === "music"} className={formOptionClass}>
@@ -1162,6 +1187,8 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                 id="locationId"
                 value={formData.locationId || ""}
                 onChange={handleChange}
+                disabled={musicDataLoading || hasReferenceDataLoadFailure}
+                aria-describedby={hasReferenceDataLoadFailure ? "scale-reference-data-alert" : undefined}
                 className={formInputClass}
               >
                 <option value="" disabled={scaleType === "music"} className={formOptionClass}>
@@ -1176,14 +1203,42 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
             </div>
           </div>
 
-          {(eventTypes.length === 0 || locations.length === 0) && userProfile?.organizationId && (
+          {hasReferenceDataLoadFailure && userProfile?.organizationId && (
+            <div
+              id="scale-reference-data-alert"
+              role="alert"
+              className="p-4 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] flex flex-col sm:flex-row items-center justify-between gap-4"
+            >
+              <div className="space-y-1 text-center sm:text-left">
+                <h4 className="text-sm font-semibold text-amber-100">
+                  {t('scaleModal.referenceDataLoadFailedTitle', 'Não foi possível carregar os dados da escala')}
+                </h4>
+                <p className="text-xs leading-relaxed text-amber-100/70">
+                  {t('scaleModal.referenceDataLoadFailedDescription', 'Tipos de evento ou locais não ficaram disponíveis. Para evitar salvar uma escala incompleta, esses campos foram bloqueados até a recuperação dos dados.')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleRetryReferenceData()}
+                disabled={isBootstrapping}
+                className="px-4 py-2 text-xs font-bold bg-amber-100 text-amber-950 rounded-lg hover:bg-white transition-colors disabled:opacity-50 shrink-0 flex items-center gap-2 cursor-pointer"
+              >
+                {isBootstrapping && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {isBootstrapping
+                  ? t('scaleModal.referenceDataRetrying', 'Tentando novamente...')
+                  : t('scaleModal.referenceDataRetry', 'Tentar novamente')}
+              </button>
+            </div>
+          )}
+
+          {canOfferReferenceBootstrap && userProfile?.organizationId && (
             <div className="p-4 rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="space-y-1 text-center sm:text-left">
                 <h4 className="text-sm font-semibold text-zinc-200">
-                  Configuração inicial recomendada
+                  {t('scaleModal.referenceDataSetupTitle', 'Configuração inicial recomendada')}
                 </h4>
                 <p className="text-xs text-zinc-400">
-                  Seu ministério ainda não possui tipos de evento ou locais cadastrados. Podemos criar o padrão para você de forma instantânea.
+                  {t('scaleModal.referenceDataSetupDescription', 'Seu ministério ainda não possui tipos de evento ou locais cadastrados. Podemos criar o padrão para você de forma instantânea.')}
                 </p>
               </div>
               <button
@@ -1193,7 +1248,9 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
                 className="px-4 py-2 text-xs font-bold bg-white text-zinc-900 rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-50 shrink-0 flex items-center gap-2 cursor-pointer"
               >
                 {isBootstrapping && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                {isBootstrapping ? "Configurando..." : "Preparar automaticamente"}
+                {isBootstrapping
+                  ? t('scaleModal.referenceDataPreparing', 'Configurando...')
+                  : t('scaleModal.referenceDataPrepare', 'Preparar automaticamente')}
               </button>
             </div>
           )}
