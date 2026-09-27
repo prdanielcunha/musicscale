@@ -137,7 +137,7 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const isSearching = deferredSongSearch.trim().length > 0;
     const candidates = isSearching
-      ? searchSongs(songSearchIndex, deferredSongSearch).map((match) => match.document.song)
+      ? searchSongs<PopulatedSong>(songSearchIndex, deferredSongSearch).map((match) => match.document.song)
       : songs;
 
     const filtered = candidates.filter((song) => {
