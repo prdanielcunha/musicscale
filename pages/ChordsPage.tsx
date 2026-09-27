@@ -79,7 +79,7 @@ const ChordsPage: React.FC = () => {
   const filteredAndSortedSongs = useMemo(() => {
     const isSearching = deferredSearchTerm.trim().length > 0;
     let processedSongs = (isSearching
-      ? searchSongs(songSearchIndex, deferredSearchTerm).map((match) => match.document.song)
+      ? searchSongs<PopulatedSong>(songSearchIndex, deferredSearchTerm).map((match) => match.document.song)
       : songs
     )
       .filter((song) => !!song.chords || !!song.chordsUrl)
