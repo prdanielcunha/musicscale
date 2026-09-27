@@ -17,7 +17,7 @@ describe('scaleSongSettings logic', () => {
     expect(getEffectiveKey(song, undefined)).toBe('E');
   });
 
-  it('3a. key persistido prevalece sobre selectedKey legado divergente', () => {
+  it('3a. selectedKey confirmado prevalece sobre key divergente', () => {
     const song = {
       id: 's1',
       title: 'Galileu',
@@ -27,24 +27,24 @@ describe('scaleSongSettings logic', () => {
       chords: '[Intro] C Am F7M',
     } as any;
 
-    expect(getEffectiveKey(song, undefined)).toBe('C');
+    expect(getEffectiveKey(song, undefined)).toBe('Am');
   });
 
-  it('3b. ajuste local transpõe a partir do key canônico quando selectedKey legado está divergente', () => {
+  it('3b. ajuste local transpõe a partir do selectedKey confirmado quando key está divergente', () => {
     const song = {
       id: 's1',
       title: 'Galileu',
       key: 'C',
-      selectedKey: 'Am',
+      selectedKey: 'G',
       originalKey: 'C',
-      chords: '[Intro] C G Am F',
+      chords: '[Intro] G D Em C',
     } as any;
 
-    const adjusted = applyScaleSongSettings(song, { key: 'D' });
-    expect(adjusted.key).toBe('D');
-    expect(adjusted.selectedKey).toBe('D');
+    const adjusted = applyScaleSongSettings(song, { key: 'A' });
+    expect(adjusted.key).toBe('A');
+    expect(adjusted.selectedKey).toBe('A');
     expect(adjusted.chords).toContain('[Intro]');
-    expect(adjusted.chords).toContain('D A Bm G');
+    expect(adjusted.chords).toContain('A E F#m D');
   });
 
   it('4. null permanece null (no setting)', () => {
