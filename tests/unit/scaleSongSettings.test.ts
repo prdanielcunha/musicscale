@@ -35,16 +35,16 @@ describe('scaleSongSettings logic', () => {
       id: 's1',
       title: 'Galileu',
       key: 'C',
-      selectedKey: 'Am',
+      selectedKey: 'G',
       originalKey: 'C',
-      chords: '[Intro] C G Am F',
+      chords: '[Intro] G D Em C',
     } as any;
 
-    const adjusted = applyScaleSongSettings(song, { key: 'D' });
-    expect(adjusted.key).toBe('D');
-    expect(adjusted.selectedKey).toBe('D');
+    const adjusted = applyScaleSongSettings(song, { key: 'A' });
+    expect(adjusted.key).toBe('A');
+    expect(adjusted.selectedKey).toBe('A');
     expect(adjusted.chords).toContain('[Intro]');
-    expect(adjusted.chords).toContain('B E F#m D');
+    expect(adjusted.chords).toContain('A E F#m D');
   });
 
   it('4. null permanece null (no setting)', () => {
