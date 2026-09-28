@@ -1433,6 +1433,8 @@
     "noNewNotifications": "No new notifications",
     "markAllAsRead": "Mark all as read",
     "markAsRead": "Mark as read",
+    "bulkDeleteSuccess": "Notifications deleted.",
+    "bulkActionError": "The action could not be completed. Please try again.",
     "scaleDetail": {
       "header": "Your schedule",
       "assignedInstrument": "You’re scheduled to play {{functions}}",

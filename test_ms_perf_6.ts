@@ -42,15 +42,19 @@ function runTests() {
     assert(ecosystemContext.includes('if (targetOrgId === candidateOrgId && earlyOrgDocPromise)'), "9. Must check earlyOrgDocPromise");
     assert(ecosystemContext.includes("getDoc(doc(db, 'organizations', targetOrgId))"), "6/7/8. Must fallback to getDoc");
     assert(ecosystemContext.includes("'ECOSYSTEM_ORG_LOOKUP'"), "6/7/8. Fallback getDoc must be timeout-bounded");
-    // 11 (was 5). A Promise do catálogo global é criada antes do array das consultas de descoberta.
-    const globalPromiseIndex = ecosystemContext.indexOf('earlyGlobalCatalogPromise = withEcosystemTimeout(');
+    // 11 (was 5). A Promise do catálogo global é iniciada antes do array
+    // das consultas de descoberta e agora passa pelo endpoint server-authoritative.
+    const globalPromiseIndex = ecosystemContext.indexOf('earlyGlobalCatalogPromise = user.getIdToken(false).then');
     const queriesArrayIndex = ecosystemContext.indexOf('const queries = [');
     assert(globalPromiseIndex > -1 && queriesArrayIndex > -1 && globalPromiseIndex < queriesArrayIndex, "11. earlyGlobalCatalogPromise must be created before queries array");
     // A Promise iniciada antecipadamente é reutilizada no bloco global.
-    assert(ecosystemContext.includes('const allOrgsSnap = await earlyGlobalCatalogPromise'), "Must reuse earlyGlobalCatalogPromise");
-    // 10 (was 7). Não existe uma segunda consulta global de organizations no bootstrap.
+    assert(ecosystemContext.includes('const catalogOrganizations = await earlyGlobalCatalogPromise'), "Must reuse earlyGlobalCatalogPromise");
+    // 10 (was 7). O cliente não deve listar organizations diretamente: catálogo
+    // cross-tenant é governança e deve passar pelo backend autenticado.
     const countAllOrgsFetch = (ecosystemContext.match(/getDocs\(collection\(db, 'organizations'\)\)/g) || []).length;
-    assert(countAllOrgsFetch === 1, "10. Must have exactly one getDocs(collection(db, 'organizations'))");
+    assert(countAllOrgsFetch === 0, "10. Client must not list the global organizations collection directly");
+    const countCatalogEndpoint = (ecosystemContext.match(/\/api\/v1\/ecosystem\/organization-catalog/g) || []).length;
+    assert(countCatalogEndpoint === 1, "10. Must use exactly one server-authoritative organization catalog request");
     // Leituras de plano utilizam o helper reutilizável.
     const getPlMatches = (ecosystemContext.match(/const getPl = await getReusableOrganizationSnapshot\(orgId\);/g) || []).length;
     assert(getPlMatches >= 4, "Plan reads must use getReusableOrganizationSnapshot");

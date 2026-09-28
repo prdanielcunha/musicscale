@@ -7,7 +7,7 @@ import Spinner from '../components/common/Spinner';
 import { useAuth } from './AuthContext'; // Optionally use AuthContext to sign out on local side, but AuthContext also has access to ecosystem
 import { auth } from '../services/firebase'; // Actually, since we'll just invalidate session locally
 import { onAuthStateChanged } from 'firebase/auth';
-import { getCandidateOrganizationIds, isValidCanonicalResponse, isGlobalOrganizationCatalogRole } from '../services/ecosystem/startupFastPath';
+import { getCandidateOrganizationIds, isValidCanonicalResponse, isGlobalOrganizationCatalogRole, resolveEcosystemSystemRole } from '../services/ecosystem/startupFastPath';
 import { canManageMusicScales, canManageBandScales, canManageSongs, hasMusicScaleCapability } from '../utils/rbac';
 
 interface EcosystemContextValue {
@@ -161,7 +161,7 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                            userHasActive = userData.activeOrganizationId;
                            userHasPrimary = userData.primaryOrganizationId;
                            userHasLegacy = userData.organizationId;
-                           systemRole = userData.systemRole || 'user';
+                           systemRole = resolveEcosystemSystemRole(userData);
                            displayName = userData.displayName || displayName;
                            roleInOrg = userData.organizationRole || userData.role || roleInOrg;
                        }
@@ -169,10 +169,21 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
                        let earlyGlobalCatalogPromise: Promise<any> | null = null;
                        if (isGlobalOrganizationCatalogRole(systemRole)) {
-                           earlyGlobalCatalogPromise = withEcosystemTimeout(
-                             getDocs(collection(db, 'organizations')),
-                             'ECOSYSTEM_GLOBAL_CATALOG'
-                           ).catch((e) => {
+                           // Global organization discovery is a governance operation. Keep it
+                           // server-authoritative so a shared Firestore Rules drift cannot hide
+                           // tenants from CEO/global admins while tenant data remains isolated.
+                           earlyGlobalCatalogPromise = user.getIdToken(false).then(async (token) => {
+                               if (!token) return null;
+                               const response = await withEcosystemTimeout(
+                                   fetch('/api/v1/ecosystem/organization-catalog', {
+                                       headers: { 'Authorization': `Bearer ${token}` },
+                                   }),
+                                   'ECOSYSTEM_GLOBAL_CATALOG'
+                               );
+                               if (!response.ok) return null;
+                               const body = await response.json().catch(() => null);
+                               return Array.isArray(body?.organizations) ? body.organizations : null;
+                           }).catch((e) => {
                                console.warn("Global admin early catalog fetch failed:", e);
                                return null;
                            });
@@ -437,23 +448,19 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         // catalog visibility must never promote Support/Admin to CEO.
                         if (isGlobalOrganizationCatalogRole(systemRole)) {
                             try {
-                                const allOrgsSnap = await earlyGlobalCatalogPromise;
-                                
-                                if (allOrgsSnap && allOrgsSnap.docs) {
-                                    for (const orgDoc of allOrgsSnap.docs) {
-                                        const orgData = orgDoc.data();
-                                        if (orgData.status !== 'archived' && orgData.archived !== true) {
-                                            if (!organizationsMap.has(orgDoc.id)) {
-                                                organizationsMap.set(orgDoc.id, true);
-                                                const isExplicitOwner =
-                                                    orgData.ownerUid === user.uid ||
-                                                    orgData.ownerUserId === user.uid ||
-                                                    orgData.ownerId === user.uid ||
-                                                    orgData.owner_user_id === user.uid;
-                                                const catalogRole = isExplicitOwner ? 'owner' : 'global_access';
-                                                organizationsAvailable.push({ id: orgDoc.id, name: orgData.name || 'Organização', role: catalogRole });
-                                            }
-                                        }
+                                const catalogOrganizations = await earlyGlobalCatalogPromise;
+
+                                if (Array.isArray(catalogOrganizations)) {
+                                    for (const catalogOrganization of catalogOrganizations) {
+                                        const catalogOrgId = String(catalogOrganization?.id || '');
+                                        if (!catalogOrgId || organizationsMap.has(catalogOrgId)) continue;
+
+                                        organizationsMap.set(catalogOrgId, true);
+                                        organizationsAvailable.push({
+                                            id: catalogOrgId,
+                                            name: catalogOrganization?.name || 'Organização',
+                                            role: catalogOrganization?.role === 'owner' ? 'owner' : 'global_access',
+                                        });
                                     }
                                 }
                             } catch (err) {

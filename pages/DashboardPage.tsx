@@ -259,7 +259,26 @@ export const DashboardPage: React.FC = () => {
     );
   }
 
-  if (musicError) return <div>{t('updates.error', 'Ocorreu um erro')}</div>;
+  if (musicError) {
+    return (
+      <div className="relative isolate max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div role="alert" className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-6 sm:p-8 text-slate-900 dark:text-white">
+          <h2 className="text-xl font-bold">{t('scales.dataUnavailableTitle', 'Não foi possível carregar o painel agora')}</h2>
+          <p className="mt-2 text-sm text-slate-600 dark:text-white/70">
+            {t('scales.dataUnavailableDescription', 'A conexão com os dados da organização precisa ser restabelecida. Tente novamente.')}
+          </p>
+          <button
+            type="button"
+            onClick={() => void refreshData()}
+            className="premium-interactive mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 font-semibold text-white hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+          >
+            <RefreshCcw className="h-4 w-4" aria-hidden="true" />
+            {t('scales.retryConnection', 'Tentar novamente')}
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (!organization) {
     return (
       <div className="relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex flex-col items-center justify-center text-center space-y-4">
