@@ -45,4 +45,16 @@ assert.match(deployWorkflow, /--only hosting:musicscale/, "Canonical production 
 assert.doesNotMatch(deployWorkflow, /--only[^\n]*firestore/, "MusicScale release must not overwrite the shared Firestore Rules authority");
 assert.match(deployWorkflow, /musicscale\.millionsnest\.com/, "Canonical release must smoke the public MusicScale production domain");
 
+const rulesWorkflow = fs.readFileSync(".github/workflows/deploy-firestore-rules.yml", "utf8");
+assert.match(
+  rulesWorkflow,
+  /MUSICSCALE_SHARED_FIRESTORE_DEPLOY_BLOCKED_OK/,
+  "MusicScale must explicitly guard the shared Firestore Rules authority",
+);
+assert.doesNotMatch(
+  rulesWorkflow,
+  /releaseFirestoreRulesetFromSource|firebase(?:-tools)?[^\n]*deploy[^\n]*firestore|--only[^\n]*firestore:rules/,
+  "MusicScale must never deploy shared Firestore Rules; MillionsNest is the canonical authority",
+);
+
 console.log("Firebase Hosting + Cloud Run migration contract: OK");
