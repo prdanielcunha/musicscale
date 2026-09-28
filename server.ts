@@ -875,9 +875,7 @@ app.post(
   const resolveCanonicalEcosystemSystemRole = (userData: any, rbacModule: any): string | null => {
       const candidates = [
           userData?.systemRole,
-          userData?.globalRole,
-          userData?.ecosystemRole,
-          userData?.appRole
+          userData?.globalRole
       ]
           .map((value: unknown) => String(value || '').trim())
           .filter(Boolean);
