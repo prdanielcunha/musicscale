@@ -11,6 +11,18 @@ export function isGlobalOrganizationCatalogRole(role: unknown): boolean {
     return globalRoles.includes(normalizedRole);
 }
 
+export function resolveEcosystemSystemRole(profile: Record<string, unknown> | null | undefined): string {
+    const candidates = [
+        profile?.systemRole,
+        profile?.globalRole,
+    ]
+        .map(value => String(value || '').toLowerCase().trim())
+        .filter(Boolean);
+
+    const globalRole = candidates.find(isGlobalOrganizationCatalogRole);
+    return globalRole || candidates[0] || 'user';
+}
+
 export function getCandidateOrganizationIds(
     localOrgId: string | null | undefined,
     activeOrgId: string | null | undefined,

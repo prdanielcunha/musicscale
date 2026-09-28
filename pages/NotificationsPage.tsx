@@ -19,6 +19,7 @@ const NotificationsPage: React.FC = () => {
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkActionPending, setIsBulkActionPending] = useState(false);
 
   const getLocale = () => {
     switch (i18n.language) {
@@ -87,13 +88,32 @@ const NotificationsPage: React.FC = () => {
   const selectNone = () => setSelectedIds([]);
 
   const handleBulkAction = async (action: 'read' | 'unread' | 'delete') => {
-    for (const id of selectedIds) {
-      if (action === 'read') await markAsRead(id);
-      if (action === 'unread') await markAsUnread(id);
-      if (action === 'delete') await deleteNotification(id);
-    }
-    if (action === 'delete') {
-      setSelectedIds([]);
+    if (isBulkActionPending || selectedIds.length === 0) return;
+
+    setIsBulkActionPending(true);
+    try {
+      const ids = [...selectedIds];
+      await Promise.all(ids.map(async (id) => {
+        if (action === 'read') return markAsRead(id);
+        if (action === 'unread') return markAsUnread(id);
+        return deleteNotification(id);
+      }));
+
+      if (action === 'delete') {
+        setSelectedIds([]);
+        toast({
+          title: t('notifications.bulkDeleteSuccess', 'Notificações excluídas.'),
+          type: 'success',
+        });
+      }
+    } catch (error) {
+      console.error("Bulk notification action failed", error);
+      toast({
+        title: t('notifications.bulkActionError', 'Não foi possível concluir a ação. Tente novamente.'),
+        type: 'error',
+      });
+    } finally {
+      setIsBulkActionPending(false);
     }
   };
 
@@ -216,7 +236,8 @@ const NotificationsPage: React.FC = () => {
             <button
               type="button"
               onClick={selectedIds.length === notifications.length ? selectNone : selectAll}
-              className="premium-interactive mr-auto flex min-h-11 items-center gap-2 rounded-xl bg-slate-800 px-3 text-sm font-medium text-slate-300 hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+              disabled={isBulkActionPending}
+              className="premium-interactive mr-auto disabled:cursor-wait disabled:opacity-60 flex min-h-11 items-center gap-2 rounded-xl bg-slate-800 px-3 text-sm font-medium text-slate-300 hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
             >
               {selectedIds.length === notifications.length ? (
                 <CheckSquare className="w-4 h-4 text-indigo-400" />
@@ -231,7 +252,9 @@ const NotificationsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleBulkAction('read')}
-                  className="premium-interactive flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+                  disabled={isBulkActionPending}
+                  aria-busy={isBulkActionPending}
+                  className="premium-interactive disabled:cursor-wait disabled:opacity-60 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
                   title={t('notifications.markAsRead', 'Marcar como lida')}
                   aria-label={t('notifications.markAsRead', 'Marcar como lida')}
                 >
@@ -240,7 +263,9 @@ const NotificationsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleBulkAction('unread')}
-                  className="premium-interactive flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+                  disabled={isBulkActionPending}
+                  aria-busy={isBulkActionPending}
+                  className="premium-interactive disabled:cursor-wait disabled:opacity-60 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
                   title={t('notifications.scaleDetail.markUnread', 'Marcar como não lida')}
                   aria-label={t('notifications.scaleDetail.markUnread', 'Marcar como não lida')}
                 >
@@ -249,7 +274,9 @@ const NotificationsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleBulkAction('delete')}
-                  className="premium-interactive flex h-11 w-11 items-center justify-center rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/70"
+                  disabled={isBulkActionPending}
+                  aria-busy={isBulkActionPending}
+                  className="premium-interactive disabled:cursor-wait disabled:opacity-60 flex h-11 w-11 items-center justify-center rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/70"
                   title={t('notifications.scaleDetail.delete', 'Excluir')}
                   aria-label={t('notifications.scaleDetail.delete', 'Excluir')}
                 >

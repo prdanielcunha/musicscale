@@ -234,30 +234,25 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   const archiveNotification = async (id: string) => {
-    if (!organization?.id) return;
+    if (!organization?.id) {
+      throw new Error("NOTIFICATION_ORGANIZATION_CONTEXT_MISSING");
+    }
+
+    const ref = doc(db, `organizations/${organization.id}/notifications`, id);
     try {
-      const ref = doc(db, `organizations/${organization.id}/notifications`, id);
-      await updateDoc(ref, {
-        isArchived: true,
-      });
+      // "Delete" is intentionally a soft archive. Write only the canonical
+      // field required by the query so this remains compatible with the shared
+      // ecosystem Rules boundary and never depends on hard-delete permission.
+      await updateDoc(ref, { isArchived: true });
       setNotifications((prev) => prev.filter((n) => n.id !== id));
     } catch (e) {
       console.error("Error archiving notification", e);
+      throw e;
     }
   };
 
   const deleteNotification = async (id: string) => {
-    if (!organization?.id) return;
-    try {
-      const ref = doc(db, `organizations/${organization.id}/notifications`, id);
-      await updateDoc(ref, {
-        isArchived: true,
-        archivedAt: new Date().toISOString(),
-      });
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-    } catch (e) {
-      console.error("Error deleting notification", e);
-    }
+    await archiveNotification(id);
   };
 
   return (
