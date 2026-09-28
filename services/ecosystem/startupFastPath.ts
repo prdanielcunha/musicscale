@@ -15,8 +15,6 @@ export function resolveEcosystemSystemRole(profile: Record<string, unknown> | nu
     const candidates = [
         profile?.systemRole,
         profile?.globalRole,
-        profile?.ecosystemRole,
-        profile?.appRole,
     ]
         .map(value => String(value || '').toLowerCase().trim())
         .filter(Boolean);
