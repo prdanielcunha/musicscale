@@ -1,2 +1,2 @@
-MusicScale 0.8.0-beta.4 — 2026-09-27
-Scale creation/editing recovery is fail-closed for missing reference data, selected musical key is honored consistently, and intelligent real-time search is unified across Chords, Lyrics, and Music Scale repertoire selection.
+MusicScale 0.8.0-beta.5 — 2026-09-28
+Restore canonical CEO/global-admin organization traversal, recover the Dashboard from access/data failures, and make bulk notification deletion reliable with explicit success/error feedback.
