@@ -255,7 +255,7 @@ describe('EcosystemProvider canonical bootstrap fast path', () => {
         });
       }
 
-      const payload = canonical('user-1', 'org-a', ['organization.settings.manage']);
+      const payload: any = canonical('user-1', 'org-a', ['organization.settings.manage']);
       payload.systemRole = 'ceo';
       payload.isGlobalAccess = true;
       payload.effectiveContext.isGlobalAccess = true;
