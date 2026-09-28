@@ -233,6 +233,46 @@ describe('EcosystemProvider canonical bootstrap fast path', () => {
   });
 });
 
+  it('loads the complete organization catalog for a CEO stored in globalRole', async () => {
+    mocks.profiles.set('user-1', {
+      systemRole: 'user',
+      globalRole: 'CEO',
+      activeOrganizationId: 'org-a',
+      organizationRole: 'owner',
+    });
+    mocks.organizations.set('org-a', { name: 'Organization A' });
+    mocks.organizations.set('org-b', { name: 'Organization B' });
+
+    vi.mocked(fetch).mockImplementation((url) => {
+      if (String(url).includes('/api/v1/ecosystem/organization-catalog')) {
+        return response({
+          success: true,
+          systemRole: 'ceo',
+          organizations: [
+            { id: 'org-a', name: 'Organization A', role: 'owner' },
+            { id: 'org-b', name: 'Organization B', role: 'global_access' },
+          ],
+        });
+      }
+
+      const payload = canonical('user-1', 'org-a', ['organization.settings.manage']);
+      payload.systemRole = 'ceo';
+      payload.isGlobalAccess = true;
+      payload.effectiveContext.isGlobalAccess = true;
+      payload.effectiveContext.isGlobalFullAccess = true;
+      return response(payload);
+    });
+
+    await startUser('user-1');
+
+    await waitFor(() => {
+      expect(latestEcosystem.context?.organizationsAvailable?.some((org: any) => org.id === 'org-b')).toBe(true);
+    });
+    const orgB = latestEcosystem.context?.organizationsAvailable?.find((org: any) => org.id === 'org-b');
+    expect(orgB?.role).toBe('global_access');
+    expect(latestEcosystem.context?.ecosystemRole).toBe('ceo');
+  });
+
 describe('EcosystemProvider canonical organization switching', () => {
   async function bootstrap(capabilities: string[] = []) {
     mocks.profiles.set('user-1', { activeOrganizationId: 'org-a', organizationRole: 'admin' });
