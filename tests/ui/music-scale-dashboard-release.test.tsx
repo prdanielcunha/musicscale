@@ -289,7 +289,8 @@ describe('Dashboard & Upcoming Event Logic', () => {
     it('renderiza erro', () => {
       mockUseMusic.mockReturnValue({ populatedScales: [], populatedBandScales: [], songs: [], loading: false, error: new Error('Network fail') });
       renderWithRouter(<DashboardPage />);
-      expect(screen.getByText(i18n.t('updates.error'))).toBeInTheDocument();
+      expect(screen.getByText(i18n.t('scales.dataUnavailableTitle'))).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: i18n.t('scales.retryConnection') })).toBeInTheDocument();
     });
 
     it('renderiza vazio (nenhuma organização)', () => {
