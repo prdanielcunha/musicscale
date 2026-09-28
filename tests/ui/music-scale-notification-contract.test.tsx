@@ -542,4 +542,50 @@ describe('NotificationContext & NotificationsPage UI Contract Integration', () =
       }
     }
   });
+
+  it('bulk delete archives every selected notification and removes them from the inbox', async () => {
+    renderContextAndPage();
+
+    const mockSnapshot: MockSnapshot = {
+      docChanges: () => [],
+      forEach: (cb) => {
+        for (const id of ['bulk-1', 'bulk-2']) {
+          cb({
+            id,
+            data: () => ({
+              recipientId: 'u1',
+              type: 'system',
+              title: `Notification ${id}`,
+              message: 'Bulk delete regression',
+              isRead: false,
+              isArchived: false,
+              createdAt: { toMillis: () => 1774883200000, toDate: () => new Date(1774883200000) }
+            })
+          });
+        }
+      }
+    };
+
+    currentSnapshotCallback?.(mockSnapshot);
+    expect(await screen.findByTestId('notification-card-bulk-1')).toBeInTheDocument();
+    expect(screen.getByTestId('notification-card-bulk-2')).toBeInTheDocument();
+
+    const toolbar = screen.getByRole('toolbar', { name: 'Ações de notificações' });
+    const selectAllButton = toolbar.querySelector('button');
+    expect(selectAllButton).not.toBeNull();
+    fireEvent.click(selectAllButton as HTMLButtonElement);
+
+    const deleteButton = toolbar.querySelector('button[aria-label="Excluir"]');
+    expect(deleteButton).not.toBeNull();
+    fireEvent.click(deleteButton as HTMLButtonElement);
+
+    await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalledTimes(2));
+    for (const [, payload] of mockUpdateDoc.mock.calls) {
+      expect(payload).toEqual({ isArchived: true });
+    }
+    await waitFor(() => expect(screen.queryByTestId('notification-card-bulk-1')).not.toBeInTheDocument());
+    expect(screen.queryByTestId('notification-card-bulk-2')).not.toBeInTheDocument();
+    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
+  });
+
 });
