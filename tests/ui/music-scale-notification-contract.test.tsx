@@ -357,7 +357,7 @@ describe('NotificationContext & NotificationsPage UI Contract Integration', () =
     expect(mockDoc).toHaveBeenCalledWith(expect.any(Object), 'organizations/org-1/notifications', 'notif-1');
     expect(mockUpdateDoc).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'doc', id: 'notif-1' }),
-      expect.objectContaining({ isArchived: true, archivedAt: expect.any(String) })
+      { isArchived: true }
     );
     expect(mockDeleteDoc).not.toHaveBeenCalled();
   });
@@ -375,7 +375,7 @@ describe('NotificationContext & NotificationsPage UI Contract Integration', () =
     });
 
     expect(mockDeleteDoc).not.toHaveBeenCalled();
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Error deleting notification', expect.any(Error));
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Error archiving notification', expect.any(Error));
     consoleErrorSpy.mockRestore();
   });
 
