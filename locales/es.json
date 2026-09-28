@@ -1433,6 +1433,8 @@
     "noNewNotifications": "No hay notificaciones nuevas",
     "markAllAsRead": "Marcar todas como leídas",
     "markAsRead": "Marcar como leída",
+    "bulkDeleteSuccess": "Notificaciones eliminadas.",
+    "bulkActionError": "No se pudo completar la acción. Inténtalo de nuevo.",
     "scaleDetail": {
       "header": "Tu asignación",
       "assignedInstrument": "Fuiste asignado para tocar {{functions}}",
