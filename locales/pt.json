@@ -1433,6 +1433,8 @@
     "noNewNotifications": "Nenhuma notificação nova",
     "markAllAsRead": "Marcar todas como lidas",
     "markAsRead": "Marcar como lida",
+    "bulkDeleteSuccess": "Notificações excluídas.",
+    "bulkActionError": "Não foi possível concluir a ação. Tente novamente.",
     "scaleDetail": {
       "header": "Sua escala",
       "assignedInstrument": "Você foi escalado para tocar {{functions}}",
