@@ -872,6 +872,95 @@ app.post(
       }
   });
 
+  const resolveCanonicalEcosystemSystemRole = (userData: any, rbacModule: any): string | null => {
+      const candidates = [
+          userData?.systemRole,
+          userData?.globalRole,
+          userData?.ecosystemRole,
+          userData?.appRole
+      ]
+          .map((value: unknown) => String(value || '').trim())
+          .filter(Boolean);
+
+      const normalized = candidates.map((role: string) => rbacModule.normalizeSystemRole(role));
+      const globalRole = normalized.find((role: string) =>
+          rbacModule.isGlobalMusicScaleAdministrator(role) ||
+          rbacModule.isEcosystemSupportRole(role)
+      );
+
+      return globalRole || normalized[0] || null;
+  };
+
+  app.get("/api/v1/ecosystem/organization-catalog", async (req, res) => {
+      const correlationId = "orgcat_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
+      try {
+          if (!db) throw new Error("Database not initialized");
+
+          const authHeader = req.headers.authorization || "";
+          if (!authHeader.startsWith("Bearer ")) {
+              return res.status(401).json({ error: "Unauthorized: Missing Bearer Token", correlationId });
+          }
+
+          const token = authHeader.slice("Bearer ".length);
+          const decodedToken = await admin.auth().verifyIdToken(token);
+          const authUid = decodedToken.uid;
+          if (!authUid) {
+              return res.status(401).json({ error: "Unauthorized: Invalid Token", correlationId });
+          }
+
+          const [userSnap, rbacModule] = await Promise.all([
+              db.collection("users").doc(authUid).get(),
+              import("./utils/rbac.js")
+          ]);
+          if (!userSnap.exists) {
+              return res.status(404).json({ error: "User profile not found in MillionsNest canonical repository", correlationId });
+          }
+
+          const systemRole = resolveCanonicalEcosystemSystemRole(userSnap.data() || {}, rbacModule);
+          const normalizedSystemRole = rbacModule.normalizeSystemRole(systemRole);
+          const mayTraverseOrganizations =
+              rbacModule.isGlobalMusicScaleAdministrator(normalizedSystemRole) ||
+              rbacModule.isEcosystemSupportRole(normalizedSystemRole);
+
+          if (!mayTraverseOrganizations) {
+              return res.status(403).json({ error: "FORBIDDEN", correlationId });
+          }
+
+          const snapshot = await db.collection("organizations").get();
+          const organizations = snapshot.docs
+              .map((orgDoc: any) => {
+                  const data = orgDoc.data() || {};
+                  const isExplicitOwner =
+                      data.ownerUid === authUid ||
+                      data.ownerUserId === authUid ||
+                      data.ownerId === authUid ||
+                      data.owner_user_id === authUid;
+
+                  return {
+                      id: orgDoc.id,
+                      name: data.name || "Organização",
+                      role: isExplicitOwner ? "owner" : "global_access",
+                      status: data.status || "active",
+                      archived: data.archived === true || data.status === "archived",
+                  };
+              })
+              .filter((organization: any) => !organization.archived)
+              .sort((left: any, right: any) =>
+                  String(left.name).localeCompare(String(right.name), "pt-BR", { sensitivity: "base" })
+              );
+
+          return res.status(200).json({
+              success: true,
+              correlationId,
+              systemRole: normalizedSystemRole,
+              organizations,
+          });
+      } catch (e: any) {
+          console.error(`[Correlation: ${correlationId}] Error loading organization catalog:`, e);
+          return res.status(500).json({ error: "ORGANIZATION_CATALOG_FAILED", correlationId });
+      }
+  });
+
   app.get("/api/v1/ecosystem/access-context", async (req, res) => {
       const startTime = performance.now();
       const correlationId = "ctx_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
@@ -914,7 +1003,7 @@ app.post(
 
           const userData = userSnap.data() || {};
           const orgData = orgSnap.data() || {};
-          const systemRole = userData.systemRole || userData.role || userData.appRole || userData.globalRole || userData.ecosystemRole || null;
+          const systemRole = resolveCanonicalEcosystemSystemRole(userData, rbacModule);
           
           const directMemberData = orgMemberSnap.exists ? orgMemberSnap.data() : null;
           let crossMemberData1 = null;
