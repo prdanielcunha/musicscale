@@ -1,2 +1,2 @@
-MusicScale 0.8.0-beta.5 — 2026-09-28
-Restore canonical CEO/global-admin organization traversal, recover the Dashboard from access/data failures, and make bulk notification deletion reliable with explicit success/error feedback.
+MusicScale 0.8.0-beta.6 — 2026-09-28
+Stop MusicScale from overwriting the shared MillionsNest Firestore Rules authority; keep production rules deployment centralized in the ecosystem repository.
