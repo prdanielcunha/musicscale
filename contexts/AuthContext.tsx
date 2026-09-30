@@ -405,9 +405,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     scopedSubscription?.plan,
     scopedSubscription?.stripeSubscriptionId,
     (scopedOrganization as any)?.apps?.musicscale?.status,
-    (scopedOrganization as any)?.apps?.musicscale?.plan,
-    scopedEntitlements?.status,
-    scopedEntitlements?.plan
+    (scopedOrganization as any)?.apps?.musicscale?.plan
   ]);
 
   const effectiveEntitlements = useMemo(() => {
