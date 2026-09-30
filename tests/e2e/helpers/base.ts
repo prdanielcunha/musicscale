@@ -166,8 +166,15 @@ export const test = base.extend<TestFixtures>({
         const isExpectedFinOpsPreflightDenial =
           locationUrl.includes('/api/admin/finops-diagnostics/preflight') &&
           /401|Unauthorized/i.test(text);
+        const isExpectedFirestoreEmulatorTerminateResponse =
+          /^http:\/\/127\.0\.0\.1:8080\/google\.firestore\.v1\.Firestore\/(?:Listen|Write)\/channel/i.test(locationUrl) &&
+          /[?&]TYPE=terminate(?:&|$)/i.test(locationUrl) &&
+          /400|Bad Request/i.test(text);
         const ignoredPatterns = (page as any)._ignoredPatterns as RegExp[];
-        const ignored = isExpectedFinOpsPreflightDenial || (ignoredPatterns && ignoredPatterns.some(p => p.test(text)));
+        const ignored =
+          isExpectedFinOpsPreflightDenial ||
+          isExpectedFirestoreEmulatorTerminateResponse ||
+          (ignoredPatterns && ignoredPatterns.some(p => p.test(text)));
         if (!ignored) {
           errors.push(`ConsoleError: ${text}`);
         }
