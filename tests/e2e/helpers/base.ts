@@ -10,7 +10,7 @@ export const test = base.extend<TestFixtures>({
     await use((pattern: RegExp) => patterns.push(pattern));
     (page as any)._ignoredPatterns = patterns;
   },
-  page: async ({ page }, use) => {
+  page: async ({ page, browserName }, use) => {
     const errors: string[] = [];
     (page as any)._ignoredPatterns = [];
     (page as any)._musicscaleClientNavigationReady = false;
@@ -166,8 +166,15 @@ export const test = base.extend<TestFixtures>({
         const isExpectedFinOpsPreflightDenial =
           locationUrl.includes('/api/admin/finops-diagnostics/preflight') &&
           /401|Unauthorized/i.test(text);
+        const isExpectedFirestoreEmulatorTerminateResponse =
+          /^http:\/\/127\.0\.0\.1:8080\/google\.firestore\.v1\.Firestore\/(?:Listen|Write)\/channel/i.test(locationUrl) &&
+          /[?&]TYPE=terminate(?:&|$)/i.test(locationUrl) &&
+          /400|Bad Request/i.test(text);
         const ignoredPatterns = (page as any)._ignoredPatterns as RegExp[];
-        const ignored = isExpectedFinOpsPreflightDenial || (ignoredPatterns && ignoredPatterns.some(p => p.test(text)));
+        const ignored =
+          isExpectedFinOpsPreflightDenial ||
+          isExpectedFirestoreEmulatorTerminateResponse ||
+          (ignoredPatterns && ignoredPatterns.some(p => p.test(text)));
         if (!ignored) {
           errors.push(`ConsoleError: ${text}`);
         }
@@ -177,8 +184,21 @@ export const test = base.extend<TestFixtures>({
     page.on('requestfailed', request => {
       const url = request.url();
       const failure = request.failure();
-      // "blockedbyclient" comes from our network mock rejecting external
-      if (failure && failure.errorText !== 'net::ERR_BLOCKED_BY_CLIENT' && failure.errorText !== 'net::ERR_ABORTED') {
+      if (!failure) return;
+
+      const isExpectedFirestoreEmulatorTransportCancel =
+        browserName === 'webkit' &&
+        /^http:\/\/127\.0\.0\.1:8080\/google\.firestore\.v1\.Firestore\/(?:Listen|Write)\/channel/i.test(url) &&
+        /Load request cancelled|cancelled|aborted/i.test(failure.errorText);
+
+      // WebKit cancels Firestore emulator long-poll Listen/Write requests while
+      // tearing down/recycling a hydrated page. That is transport cleanup, not a
+      // product failure. Keep every other request failure strict.
+      if (
+        failure.errorText !== 'net::ERR_BLOCKED_BY_CLIENT' &&
+        failure.errorText !== 'net::ERR_ABORTED' &&
+        !isExpectedFirestoreEmulatorTransportCancel
+      ) {
         errors.push(`RequestFailed: ${url} - ${failure.errorText}`);
       }
     });

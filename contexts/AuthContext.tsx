@@ -15,6 +15,8 @@ interface SubscriptionData {
   status: string;
   plan: string;
   features?: any;
+  stripeSubscriptionId?: string | null;
+  updatedAt?: any;
 }
 
 export interface AppPermissions {
@@ -135,6 +137,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   
   const [entitlements, setEntitlements] = useState<MusicScaleEntitlements | null>(null);
   const [isEntitlementsLoaded, setIsEntitlementsLoaded] = useState(false);
+  const entitlementReconciliationFingerprintRef = useRef<string | null>(null);
   const ecosystemRoleRef = useRef<string>(ecoContext?.ecosystemRole || 'user');
 
   useEffect(() => {
@@ -304,6 +307,106 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
     return () => { mounted = false; };
   }, [effectiveOrganizationId]);
+
+  // Billing is written by MillionsNest and arrives through Firestore in real
+  // time. If that authoritative subscription becomes active/trialing while the
+  // local entitlement snapshot is still stale, reconcile immediately instead
+  // of making a paying customer wait for cache expiry or a manual refresh.
+  useEffect(() => {
+    if (!user || !effectiveOrganizationId) return;
+
+    const subscriptionStatus = String(scopedSubscription?.status || '').trim().toLowerCase();
+    const organizationMusicScale = (scopedOrganization as any)?.apps?.musicscale || null;
+    const organizationStatus = String(organizationMusicScale?.status || '').trim().toLowerCase();
+    const activeStatuses = new Set(['active', 'trialing']);
+
+    if (!activeStatuses.has(subscriptionStatus) && !activeStatuses.has(organizationStatus)) {
+      return;
+    }
+
+    const expectedPlan = String(
+      scopedSubscription?.plan ||
+      organizationMusicScale?.plan ||
+      ''
+    ).trim().toLowerCase();
+    const currentStatus = String(scopedEntitlements?.status || '').trim().toLowerCase();
+    const currentPlan = String(scopedEntitlements?.plan || '').trim().toLowerCase();
+    const entitlementAlreadyCurrent =
+      activeStatuses.has(currentStatus) &&
+      (!expectedPlan || currentPlan === expectedPlan);
+
+    if (entitlementAlreadyCurrent) {
+      return;
+    }
+
+    const fingerprint = [
+      effectiveOrganizationId,
+      subscriptionStatus,
+      scopedSubscription?.stripeSubscriptionId || '',
+      expectedPlan,
+      organizationStatus,
+      organizationMusicScale?.plan || ''
+    ].join(':');
+
+    if (entitlementReconciliationFingerprintRef.current === fingerprint) {
+      return;
+    }
+    entitlementReconciliationFingerprintRef.current = fingerprint;
+
+    let cancelled = false;
+    const retryDelaysMs = [0, 350, 900, 1800];
+
+    const reconcile = async () => {
+      setIsEntitlementsLoaded(false);
+
+      try {
+        for (const delayMs of retryDelaysMs) {
+          if (delayMs > 0) {
+            await new Promise(resolve => window.setTimeout(resolve, delayMs));
+          }
+          if (cancelled) return;
+
+          entitlementsService.invalidateOrganizationCache(effectiveOrganizationId);
+          const refreshed = await entitlementsService.fetchEntitlements(
+            effectiveOrganizationId,
+            true
+          );
+          if (cancelled) return;
+
+          setEntitlements(refreshed);
+
+          const refreshedStatus = String(refreshed.status || '').trim().toLowerCase();
+          const refreshedPlan = String(refreshed.plan || '').trim().toLowerCase();
+          if (
+            activeStatuses.has(refreshedStatus) &&
+            (!expectedPlan || refreshedPlan === expectedPlan)
+          ) {
+            return;
+          }
+        }
+      } catch (error) {
+        logger.warn('[AuthContext] Real-time post-purchase entitlement reconciliation failed.', error);
+      } finally {
+        if (!cancelled) {
+          setIsEntitlementsLoaded(true);
+        }
+      }
+    };
+
+    void reconcile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    user,
+    effectiveOrganizationId,
+    scopedSubscription?.status,
+    scopedSubscription?.plan,
+    scopedSubscription?.stripeSubscriptionId,
+    (scopedOrganization as any)?.apps?.musicscale?.status,
+    (scopedOrganization as any)?.apps?.musicscale?.plan
+  ]);
 
   const effectiveEntitlements = useMemo(() => {
      if (!scopedEntitlements) return null;
