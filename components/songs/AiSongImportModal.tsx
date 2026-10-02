@@ -557,6 +557,16 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
 
   const handleSave = async (forceSave = false) => {
     if (!api || !userProfile || !previewData) return;
+
+    if (!options.saveToOrganization && !options.saveToGlobalLibrary) {
+      toastError(
+        t(
+          "aiImport.selectSaveDestination",
+          "Selecione pelo menos um destino para salvar a música.",
+        ),
+      );
+      return;
+    }
     
     if (targetKey && isValidKey(targetKey) && previewData.selectedKey && !areKeysEnharmonicallyEquivalent(targetKey, previewData.selectedKey)) {
       toastError(t("aiImport.preview.applyBeforeSave", "Você escolheu outro tom. Toque em \"Aplicar tom\" para atualizar a cifra antes de salvar."));
@@ -667,7 +677,58 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
             {t("aiImport.modalTitle", "Criar música com IA")}
          </span>
       </div>
-    } maxWidth="max-w-4xl">
+    }
+    maxWidth="max-w-4xl"
+    footer={
+      canManageSongs && isAiImportAllowed && step === "preview" && previewData ? (
+        <div
+          className="flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between"
+          data-testid="ai-import-preview-footer"
+        >
+          <button
+            type="button"
+            onClick={() => setStep("input")}
+            disabled={isSaving}
+            className="min-h-[44px] rounded-xl px-3 text-sm font-semibold text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white sm:text-left"
+          >
+            {t("aiImport.backToEdit", "Voltar e editar")}
+          </button>
+
+          <div className="flex w-full gap-3 sm:w-auto">
+            <Button
+              variant="secondary"
+              onClick={onClose}
+              type="button"
+              disabled={isSaving}
+              className="min-h-[48px] flex-1 sm:flex-none"
+            >
+              {t("common.cancel", "Cancelar")}
+            </Button>
+            <button
+              type="button"
+              onClick={() => void handleSave(false)}
+              disabled={
+                isSaving ||
+                (!options.saveToOrganization && !options.saveToGlobalLibrary)
+              }
+              aria-busy={isSaving}
+              className="flex min-h-[48px] flex-[2] items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 font-bold tracking-wide text-white shadow-lg shadow-indigo-500/10 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 dark:bg-white dark:text-slate-900 sm:flex-none sm:min-w-[180px]"
+              data-testid="ai-import-save-button"
+            >
+              {isSaving ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5" />
+              )}
+              {isSaving
+                ? t("common.saving", "Salvando...")
+                : t("aiImport.saveSong", "Salvar música")}
+            </button>
+          </div>
+        </div>
+      ) : undefined
+    }
+  >
       
       {!canManageSongs ? (
         <div className="py-20 flex flex-col items-center justify-center">
@@ -863,7 +924,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-6 pb-24 sm:pb-0"
+          className="space-y-6"
         >
            {/* Save Options */}
            <div className="p-4 bg-slate-50 dark:bg-slate-800/20 rounded-2xl border border-slate-200 dark:border-white/5 space-y-4">
@@ -1121,28 +1182,6 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
             </div>
            )}
 
-           <div className="hidden sm:flex flex-row justify-between items-center pt-6 mt-4 border-t border-slate-200 dark:border-white/10 gap-4">
-              <button type="button" onClick={() => setStep("input")} className="text-slate-500 hover:text-slate-800 dark:hover:text-white text-sm font-medium transition-colors p-2 text-center">
-                 Voltar e Editar Info
-              </button>
-              
-              <div className="flex flex-row items-center gap-3">
-                 <Button variant="secondary" onClick={onClose} type="button">{t("common.cancel", "Cancelar")}</Button>
-                 <button onClick={() => handleSave(false)} className="px-8 py-3 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold tracking-wide shadow-lg shadow-slate-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                    <CheckCircle2 className="w-5 h-5" />
-                    Salvar na Biblioteca
-                 </button>
-              </div>
-           </div>
-
-           {/* Mobile Sticky Footer */}
-           <div className="sm:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-[#111] backdrop-blur-xl border-t border-slate-200 dark:border-white/10 z-50 flex gap-3 shadow-[0_-4px_24px_rgba(0,0,0,0.1)] pb-[calc(1rem+env(safe-area-inset-bottom))]">
-              <Button variant="secondary" onClick={onClose} type="button" className="flex-1 min-h-[48px]">{t("common.cancel", "Cancelar")}</Button>
-              <button onClick={() => handleSave(false)} className="flex-[2] min-h-[48px] rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold tracking-wide shadow-lg shadow-indigo-500/10 flex items-center justify-center gap-2">
-                 <CheckCircle2 className="w-5 h-5" />
-                 Salvar música
-              </button>
-           </div>
         </motion.div>
       )}
        </AnimatePresence>
