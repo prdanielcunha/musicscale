@@ -35,7 +35,7 @@ export interface InvitationCompatibilityDependencies {
   auth: any;
   admin: any;
   logger?: { error?: (...args: any[]) => void };
-  hubFactory?: () => { create: HubInvitationAdapter['create']; accept: HubInvitationAdapter['accept'] };
+  hubFactory?: () => { create: HubInvitationAdapter['create']; sendEmail: HubInvitationAdapter['sendEmail']; accept: HubInvitationAdapter['accept'] };
   resolveAuthorization?: typeof resolveOrganizationAuthorization;
   now?: () => Date;
   randomUUID?: () => string;
