@@ -746,6 +746,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [bulkAction, setBulkAction] = useState<"delete" | "changeRole" | null>(
     null,
   );
@@ -1119,9 +1120,20 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
                   : () => setIsAddModalOpen(true)
               }
               leftIcon={isOverLimit ? <Lock className="w-4 h-4 text-amber-500" /> : <UserPlusIcon className="w-4 h-4" />}
+              variant="secondary"
+            >
+              {t("users.add_existing_user", "Adicionar existente")}
+            </Button>
+            <Button
+              onClick={
+                isOverLimit
+                  ? () => setShowLimitModal(true)
+                  : () => setIsInviteModalOpen(true)
+              }
+              leftIcon={isOverLimit ? <Lock className="w-4 h-4 text-amber-500" /> : <UserPlusIcon className="w-4 h-4" />}
               variant={isOverLimit ? "secondary" : "primary"}
             >
-              {t("users.add_user", "Adicionar Usuário")}
+              {t("users.invite_user", "Convidar pessoa")}
             </Button>
           </div>
         )}
@@ -1337,6 +1349,11 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
         allUsers={allUsers}
         onAdd={handleAddUsers}
       />
+      <CanonicalHubInviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        musicScaleRole={role}
+      />
       <UpgradePlanModal 
         isOpen={showLimitModal} 
         onClose={() => setShowLimitModal(false)}
@@ -1365,6 +1382,7 @@ const UsersPage: React.FC = () => {
   const isGlobal = isGlobalPrivilegedUser(currentUser, userProfile);
 
   const [isExistingMemberSetupOpen, setIsExistingMemberSetupOpen] = useState(false);
+  const [isHubInviteOpen, setIsHubInviteOpen] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -1713,10 +1731,18 @@ const UsersPage: React.FC = () => {
     <div className="ms-users-page space-y-8">
 
       <div>
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
             {t("users.management_title", "Equipe e Permissões")}
           </h1>
+          {canManageTeamSetup && (
+            <Button
+              onClick={() => setIsHubInviteOpen(true)}
+              leftIcon={<UserPlusIcon className="w-4 h-4" />}
+            >
+              {t("users.invite_user", "Convidar pessoa")}
+            </Button>
+          )}
         </div>
         <UserUsageBanner />
       </div>
@@ -1781,6 +1807,11 @@ const UsersPage: React.FC = () => {
           onSave={handleSaveTeamSetup}
         />
       )}
+
+      <CanonicalHubInviteModal
+        isOpen={isHubInviteOpen}
+        onClose={() => setIsHubInviteOpen(false)}
+      />
 
 
       <div
