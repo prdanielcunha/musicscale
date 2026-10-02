@@ -17,6 +17,7 @@ import { evaluateTeamSetup } from "../utils/teamSetup";
 
 import { TeamMemberAccessPolicy, TeamMemberSetupDraft, normalizeSpecialtyIds, TeamMemberSetupPayload } from '../utils/teamMemberSetup';
 import { ExistingMemberSetupGuide } from '../components/team/ExistingMemberSetupGuide';
+import CanonicalHubInviteModal from '../components/team/CanonicalHubInviteModal';
 
 import { TeamSetupProgressCard } from "../components/team/TeamSetupProgressCard";
 import Spinner from "../components/common/Spinner";
@@ -608,103 +609,13 @@ export const InviteMemberModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   role: Role;
-}> = ({ isOpen, onClose, role }) => {
-  const { t } = useTranslation();
-  const { userProfile, user: currentUser } = useAuth();
-  const [email, setEmail] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [inviteLink, setInviteLink] = useState("");
-  const [error, setError] = useState("");
-
-  const handleInvite = async () => {
-    if (!email) return setError(t("users.type_email_error", "Por favor, digite um e-mail."));
-    if (role.name === 'Dono' || role.name === 'Owner') {
-      return setError(t("users.cannot_invite_owner", "Não é permitido convidar alguém diretamente como Dono."));
-    }
-    if (!currentUser) {
-      return setError(t("users.auth_error", "Usuário não autenticado."));
-    }
-    
-    setError("");
-    setIsSubmitting(true);
-    try {
-      const idToken = await currentUser.getIdToken();
-      // Use activeOrganizationId explicitly
-      const activeOrgId = userProfile?.activeOrganizationId || userProfile?.primaryOrganizationId || userProfile?.organizationId;
-      
-      if (!activeOrgId) {
-        throw new Error(t("users.no_org_error", "Nenhuma organização ativa encontrada."));
-      }
-
-      const response = await fetch("/api/orgs/invite", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${idToken}`
-        },
-        body: JSON.stringify({
-          organizationId: activeOrgId,
-          email: email,
-          roleId: role.id
-        })
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || t("users.invite_error", "Erro ao convidar."));
-      
-      const fullUrl = `${window.location.origin}${data.link}`;
-      setInviteLink(fullUrl);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!isOpen) { setInviteLink(""); setEmail(""); setError(""); }
-  }, [isOpen]);
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t("users.invite_for", "Convidar para: {{name}}", { name: role.name })}>
-      <div className="space-y-4">
-        {error && <div className="text-red-500 text-sm font-medium">{error}</div>}
-        
-        {!inviteLink ? (
-          <>
-            <p className="text-sm text-slate-500">{t("users.invite_desc", "Digite o e-mail para convidar alguém para sua equipe ministerial.")}</p>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">{t("users.email_label", "E-mail")}</label>
-              <input
-                type="email"
-                placeholder="exemplo@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input-base"
-              />
-            </div>
-            <div className="mt-5 sm:flex sm:flex-row-reverse">
-              <Button onClick={handleInvite} disabled={isSubmitting || !email}>
-                {isSubmitting ? <Spinner size="sm" /> : t("users.generate_invite", "Gerar Convite & Enviar E-mail")}
-              </Button>
-              <Button variant="secondary" onClick={onClose} className="mt-3 w-full sm:mt-0 sm:w-auto">{t("common.cancel_btn", "Cancelar")}</Button>
-            </div>
-          </>
-        ) : (
-          <div className="p-4 bg-green-50 dark:bg-green-500/10 rounded-xl border border-green-200 dark:border-green-500/20 text-center">
-            <h4 className="text-green-700 dark:text-green-400 font-bold mb-2">{t("users.email_sent", "E-mail Enviado!")}</h4>
-            <p className="text-sm text-green-600 dark:text-green-400/80 mb-4">{t("users.manual_invite_desc", "Caso prefira enviar manualmente, o link é:")}</p>
-            <div className="flex items-center gap-2">
-               <input type="text" readOnly value={inviteLink} className="input-base text-xs bg-white/50" />
-               <Button onClick={() => navigator.clipboard.writeText(inviteLink)} variant="secondary" size="sm">{t("users.copiar", "Copiar")}</Button>
-            </div>
-            <Button onClick={onClose} className="w-full mt-4">{t("users.concluido", "Concluído")}</Button>
-          </div>
-        )}
-      </div>
-    </Modal>
-  );
-};
+}> = ({ isOpen, onClose, role }) => (
+  <CanonicalHubInviteModal
+    isOpen={isOpen}
+    onClose={onClose}
+    musicScaleRole={role}
+  />
+);
 
 const AddUsersToRoleModal: React.FC<{
   isOpen: boolean;
@@ -778,7 +689,7 @@ const AddUsersToRoleModal: React.FC<{
           </div>
           <div className="flex justify-between items-center mt-4 border-t border-slate-200 dark:border-white/10 pt-4">
              <button onClick={() => setShowInvite(true)} className="text-sm font-bold text-primary hover:text-primary-dark transition-colors">
-                + Convidar novo por E-mail
+                + Convidar nova pessoa
              </button>
              <div className="flex items-center gap-2">
                 <Button variant="secondary" onClick={onClose} size="sm">Cancelar</Button>
@@ -835,6 +746,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [bulkAction, setBulkAction] = useState<"delete" | "changeRole" | null>(
     null,
   );
@@ -1173,7 +1085,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
           {t("users.back", "Voltar")}
         </Button>
         {isSelectionMode ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
             <Button variant="secondary" onClick={handleToggleSelectionMode}>
               {t("common.cancel_btn", "Cancelar")}
             </Button>
@@ -1192,7 +1104,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
             </Button>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
             {hasChanges && (
               <Button onClick={handleSaveChanges} disabled={isSaving}>
                 {isSaving ? <Spinner size="sm" /> : t("common.save_changes", "Salvar Alterações")}
@@ -1208,9 +1120,20 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
                   : () => setIsAddModalOpen(true)
               }
               leftIcon={isOverLimit ? <Lock className="w-4 h-4 text-amber-500" /> : <UserPlusIcon className="w-4 h-4" />}
+              variant="secondary"
+            >
+              {t("users.add_existing_user", "Adicionar existente")}
+            </Button>
+            <Button
+              onClick={
+                isOverLimit
+                  ? () => setShowLimitModal(true)
+                  : () => setIsInviteModalOpen(true)
+              }
+              leftIcon={isOverLimit ? <Lock className="w-4 h-4 text-amber-500" /> : <UserPlusIcon className="w-4 h-4" />}
               variant={isOverLimit ? "secondary" : "primary"}
             >
-              {t("users.add_user", "Adicionar Usuário")}
+              {t("users.invite_user", "Convidar pessoa")}
             </Button>
           </div>
         )}
@@ -1426,6 +1349,11 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
         allUsers={allUsers}
         onAdd={handleAddUsers}
       />
+      <CanonicalHubInviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        musicScaleRole={role}
+      />
       <UpgradePlanModal 
         isOpen={showLimitModal} 
         onClose={() => setShowLimitModal(false)}
@@ -1454,6 +1382,7 @@ const UsersPage: React.FC = () => {
   const isGlobal = isGlobalPrivilegedUser(currentUser, userProfile);
 
   const [isExistingMemberSetupOpen, setIsExistingMemberSetupOpen] = useState(false);
+  const [isHubInviteOpen, setIsHubInviteOpen] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -1802,10 +1731,18 @@ const UsersPage: React.FC = () => {
     <div className="ms-users-page space-y-8">
 
       <div>
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
             {t("users.management_title", "Equipe e Permissões")}
           </h1>
+          {canManageTeamSetup && (
+            <Button
+              onClick={() => setIsHubInviteOpen(true)}
+              leftIcon={<UserPlusIcon className="w-4 h-4" />}
+            >
+              {t("users.invite_user", "Convidar pessoa")}
+            </Button>
+          )}
         </div>
         <UserUsageBanner />
       </div>
@@ -1870,6 +1807,11 @@ const UsersPage: React.FC = () => {
           onSave={handleSaveTeamSetup}
         />
       )}
+
+      <CanonicalHubInviteModal
+        isOpen={isHubInviteOpen}
+        onClose={() => setIsHubInviteOpen(false)}
+      />
 
 
       <div
