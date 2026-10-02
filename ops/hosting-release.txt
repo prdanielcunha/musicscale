@@ -1,2 +1,2 @@
-MusicScale 0.8.0-beta.9 — 2026-10-02
-Keep long-lived browser/PWA sessions fresh: check the service worker every 2 minutes, surface a visible update action when a new worker takes control, and clean obsolete Workbox caches. Includes the AI-import persistent save footer from beta.8.
+MusicScale 0.9.0-beta.0 — 2026-10-02
+Canonical MillionsNest invitations in Users: invite by email or single-use link, choose organization access level, keep membership authority in MillionsNest, preserve MusicScale role intent for identified email invitations, and maintain mobile-safe PT/EN/ES UX.
