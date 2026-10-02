@@ -1085,7 +1085,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
           {t("users.back", "Voltar")}
         </Button>
         {isSelectionMode ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
             <Button variant="secondary" onClick={handleToggleSelectionMode}>
               {t("common.cancel_btn", "Cancelar")}
             </Button>
@@ -1104,7 +1104,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
             </Button>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
             {hasChanges && (
               <Button onClick={handleSaveChanges} disabled={isSaving}>
                 {isSaving ? <Spinner size="sm" /> : t("common.save_changes", "Salvar Alterações")}
