@@ -39,7 +39,7 @@ describe('UsersPage invitation compatibility UI (A-D)', () => {
     expect(modalSource).not.toMatch(/(?:setDoc|addDoc|updateDoc)\s*\(/);
     expect(modalSource).toContain('roleId: musicScaleRole.id');
     expect(modalSource).toContain('organizationRole');
-    expect(modalSource).not.toContain('role: musicScaleRole.name');
+    expect(modalSource).not.toContain('organizationRole: musicScaleRole.name');
   });
 });
 
