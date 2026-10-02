@@ -29,7 +29,15 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
   musicScaleRole = null,
 }) => {
   const { t } = useTranslation();
-  const { user: currentUser, userProfile, organization } = useAuth();
+  const {
+    user: currentUser,
+    userProfile,
+    organization,
+    isOwner: canonicalIsOwner,
+    isAdmin: canonicalIsAdmin,
+    isGlobalAdmin,
+    permissions,
+  } = useAuth();
   const [inviteMode, setInviteMode] = useState<InviteMode>("email");
   const [email, setEmail] = useState("");
   const [organizationRole, setOrganizationRole] = useState<OrganizationInviteRole>("member");
@@ -45,19 +53,30 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
     userProfile?.organizationId;
 
   const inviteableRoles = useMemo<OrganizationInviteRole[]>(() => {
-    const isGlobal = isGlobalPrivilegedUser(currentUser, userProfile);
+    const isGlobal = isGlobalAdmin || isGlobalPrivilegedUser(currentUser, userProfile);
     const ownerUserId =
       (organization as any)?.ownerUserId ||
       (organization as any)?.ownerUid ||
       (organization as any)?.ownerId;
-    const isOwner = !!currentUser?.uid && ownerUserId === currentUser.uid;
+    const isOwner = canonicalIsOwner || (!!currentUser?.uid && ownerUserId === currentUser.uid);
     const actorRole = String((userProfile as any)?.organizationRole || "").trim().toLowerCase();
 
     if (isGlobal || isOwner || actorRole === "owner") return [...roleOrder];
-    if (actorRole === "admin") return ["manager", "member", "viewer"];
+    if (canonicalIsAdmin || actorRole === "admin") return ["manager", "member", "viewer"];
     if (actorRole === "manager" || actorRole === "secretary") return ["member", "viewer"];
+    // If the canonical context grants member management but an older profile does
+    // not expose its organization role yet, fail to the least-privileged invite set.
+    if (permissions?.manageMembers) return ["member", "viewer"];
     return [];
-  }, [currentUser, userProfile, organization]);
+  }, [
+    canonicalIsAdmin,
+    canonicalIsOwner,
+    currentUser,
+    isGlobalAdmin,
+    organization,
+    permissions?.manageMembers,
+    userProfile,
+  ]);
 
   useEffect(() => {
     if (!isOpen) {
