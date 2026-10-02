@@ -4,6 +4,15 @@ import { writeMusicScaleMemberProjection, validateMusicScaleRole } from './music
 const FORBIDDEN_ROLES = new Set(['owner', 'dono', 'ceo', 'global_admin', 'ecosystem_owner', 'founder', 'support', 'suporte']);
 const VALID_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const VALID_ACCEPT_REASON_CODES = new Set(['INVITATION_CAN_BE_ACCEPTED', 'ALREADY_MEMBER']);
+const HUB_ORGANIZATION_ROLES = new Set(['admin', 'manager', 'member', 'viewer']);
+
+export type HubOrganizationRole = 'admin' | 'manager' | 'member' | 'viewer';
+export type HubInvitationMode = 'email' | 'link';
+export type HubInvitationCreateOptions = {
+  email?: string;
+  role?: HubOrganizationRole;
+  mode?: HubInvitationMode;
+};
 
 export class HubInvitationError extends Error {
   constructor(public status: number, public reasonCode: string, public ambiguous = false) {
@@ -67,11 +76,56 @@ export class HubInvitationAdapter {
     } finally { clearTimeout(timer); }
   }
 
-  async create(bearer: string, organizationId: string, email: string) {
-    const result = await this.post('/api/v1/invitations', bearer, { organizationId, email: normalizeEmail(email), role: 'member' });
-    if (!result.invitePath?.startsWith(`/join/${organizationId}?token=`) || result.invitation?.organizationId !== organizationId || result.invitation?.role !== 'member')
+  async create(bearer: string, organizationId: string, emailOrOptions: string | HubInvitationCreateOptions) {
+    const options: HubInvitationCreateOptions = typeof emailOrOptions === 'string'
+      ? { email: emailOrOptions, role: 'member', mode: 'email' }
+      : emailOrOptions || {};
+    const role = options.role || 'member';
+    const mode = options.mode || 'email';
+
+    if (!VALID_ID.test(organizationId)) throw new HubInvitationError(400, 'INVALID_ORGANIZATION_ID');
+    if (!HUB_ORGANIZATION_ROLES.has(role)) throw new HubInvitationError(400, 'INVALID_INVITE_ROLE');
+
+    const normalizedEmail = normalizeEmail(options.email);
+    if (mode === 'email' && !normalizedEmail) throw new HubInvitationError(400, 'INVALID_EMAIL');
+
+    const result = await this.post('/api/v1/invitations', bearer, {
+      organizationId,
+      ...(mode === 'email' ? { email: normalizedEmail } : {}),
+      role,
+      mode
+    });
+
+    const returnedMode = result.invitation?.inviteMode || (result.invitation?.identityBound === false ? 'link' : 'email');
+    if (
+      !result.invitePath?.startsWith(`/join/${organizationId}?token=`) ||
+      result.invitation?.organizationId !== organizationId ||
+      result.invitation?.role !== role ||
+      returnedMode !== mode
+    ) {
       throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
-    return result;
+    }
+
+    return {
+      ...result,
+      inviteUrl: `${resolveHubOrigin(this.options.origin)}${result.invitePath}`
+    };
+  }
+
+  async sendEmail(bearer: string, organizationId: string, invitationId: string, inviteUrl: string) {
+    if (!VALID_ID.test(organizationId) || !VALID_ID.test(invitationId)) {
+      throw new HubInvitationError(400, 'INVALID_INVITATION_ID');
+    }
+    let url: URL;
+    try {
+      url = new URL(inviteUrl);
+    } catch {
+      throw new HubInvitationError(400, 'INVALID_INVITE_URL');
+    }
+    if (url.origin !== resolveHubOrigin(this.options.origin) || !url.pathname.startsWith(`/join/${organizationId}`)) {
+      throw new HubInvitationError(400, 'INVALID_INVITE_URL');
+    }
+    return this.post('/api/v1/invitations/email', bearer, { organizationId, invitationId, inviteUrl: url.toString() });
   }
 
   async accept(bearer: string, token: string) {
