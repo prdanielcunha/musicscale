@@ -467,7 +467,16 @@
     "view_mode": "Visualização",
     "cards": "Cards",
     "table": "Tabela",
-    "rehearsal_mode_active": "Modo Ensaio Ativo"
+    "rehearsal_mode_active": "Modo Ensaio Ativo",
+    "date_unavailable": "Data não disponível",
+    "global_origin": "Origem global",
+    "global_origin_loading": "Carregando origem da música...",
+    "global_origin_creator": "Criada por",
+    "global_origin_organization": "Organização",
+    "global_origin_created_at": "Criada globalmente em",
+    "global_origin_unknown_creator": "Criador não identificado",
+    "global_origin_unknown_organization": "Organização não identificada",
+    "global_origin_unavailable": "Origem global indisponível no momento."
   },
   "scales": {
     "dataUnavailableTitle": "Não foi possível carregar as escalas agora",
