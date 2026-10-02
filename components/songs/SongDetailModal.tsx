@@ -577,15 +577,11 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
 
   if (!song) return null;
 
+  const dateLocale = resolveDateLocale(i18n.resolvedLanguage || i18n.language);
   const lastPlayedDate = song.lastPlayed
-    ? new Date(song.lastPlayed).toLocaleDateString("pt-BR", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
+    ? formatDateInBrazil(song.lastPlayed, dateLocale) || "Nunca foi tocada"
     : "Nunca foi tocada";
 
-  const dateLocale = resolveDateLocale(i18n.resolvedLanguage || i18n.language);
   const createdAtDate = coerceDate(song.createdAt);
   const createdDate =
     formatDateInBrazil(song.createdAt, dateLocale) ||
