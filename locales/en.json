@@ -467,7 +467,16 @@
     "view_mode": "View Mode",
     "cards": "Cards",
     "table": "Table",
-    "rehearsal_mode_active": "Rehearsal Mode Active"
+    "rehearsal_mode_active": "Rehearsal Mode Active",
+    "date_unavailable": "Date unavailable",
+    "global_origin": "Global origin",
+    "global_origin_loading": "Loading song origin...",
+    "global_origin_creator": "Created by",
+    "global_origin_organization": "Organization",
+    "global_origin_created_at": "Created globally on",
+    "global_origin_unknown_creator": "Unknown creator",
+    "global_origin_unknown_organization": "Unknown organization",
+    "global_origin_unavailable": "Global origin is temporarily unavailable."
   },
   "scales": {
     "dataUnavailableTitle": "Schedules could not be loaded right now",
