@@ -1,2 +1,2 @@
-MusicScale 0.9.0-beta.0 — 2026-10-02
+MusicScale 0.9.0-beta.1 — 2026-10-02
 Canonical MillionsNest invitations in Users: invite by email or single-use link, choose organization access level, keep membership authority in MillionsNest, preserve MusicScale role intent for identified email invitations, and maintain mobile-safe PT/EN/ES UX.
