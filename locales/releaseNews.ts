@@ -7,6 +7,34 @@ export const releaseNewsTranslations = {
     close: 'Fechar',
     how: 'Como funciona',
     badge: 'Novidade relevante',
+    canonicalInvitesBeta09: {
+      title: 'Convidar pessoas ficou muito mais simples.',
+      description: 'Agora o MusicScale usa o fluxo canônico do MillionsNest para convidar por e-mail ou link, com o nível de acesso certo para a organização.',
+      stageTools: {
+        title: 'E-mail ou link, no mesmo lugar',
+        body: 'Na área de Usuários você escolhe o canal do convite sem precisar sair do MusicScale.',
+        how: 'Abra Usuários, toque em “Convidar pessoa” e escolha Por e-mail ou Por link.',
+      },
+      deviceAudio: {
+        title: 'Acesso com função definida',
+        body: 'Administrador, Gestor, Membro e Visualizador seguem a hierarquia oficial do MillionsNest e as permissões de quem está convidando.',
+        how: 'Escolha o nível de acesso antes de gerar ou enviar o convite.',
+      },
+      updates: {
+        title: 'Uma única fonte de verdade',
+        body: 'O MillionsNest continua responsável pela organização e pelos convites; o MusicScale apenas usa esse fluxo de forma integrada.',
+        how: 'Convites por e-mail podem manter a função musical escolhida. Links compartilháveis aplicam o acesso da organização e a função musical pode ser ajustada depois.',
+      },
+      refinements: {
+        summary: 'Leia mais — segurança e compatibilidade',
+        title: 'Segurança e compatibilidade',
+        items: [
+          { date: '02/10', text: 'Convites por link são de uso único e expiram conforme a política do MillionsNest.' },
+          { date: '02/10', text: 'A experiência de Usuários foi ajustada para celular e mantém “Adicionar existente” separado de “Convidar pessoa”.' },
+          { date: '02/10', text: 'PT, EN e ES usam o mesmo fluxo canônico de convite.' },
+        ],
+      },
+    },
     intelligentMedleysBeta08: {
       title: 'Seu repertório agora pode virar um medley.',
       description: 'Junte trechos de músicas em uma única escala, ensaie uma versão aprovada e conduza a banda pelo mesmo roteiro.',
@@ -183,6 +211,34 @@ export const releaseNewsTranslations = {
     close: 'Close',
     how: 'How it works',
     badge: 'Meaningful update',
+    canonicalInvitesBeta09: {
+      title: 'Inviting people is now much easier.',
+      description: 'MusicScale now uses the canonical MillionsNest flow for email or link invitations with the correct organization access level.',
+      stageTools: {
+        title: 'Email or link in one place',
+        body: 'From Users, choose the invitation channel without leaving MusicScale.',
+        how: 'Open Users, select “Invite person”, then choose By email or By link.',
+      },
+      deviceAudio: {
+        title: 'Access with the right role',
+        body: 'Administrator, Manager, Member and Viewer follow the official MillionsNest hierarchy and the inviter’s permissions.',
+        how: 'Choose the access level before generating or sending the invitation.',
+      },
+      updates: {
+        title: 'One source of truth',
+        body: 'MillionsNest remains responsible for organization membership and invitations; MusicScale uses that flow directly.',
+        how: 'Email invitations can preserve the selected music role. Shareable links apply organization access and the music role can be adjusted afterward.',
+      },
+      refinements: {
+        summary: 'Read more — security and compatibility',
+        title: 'Security and compatibility',
+        items: [
+          { date: 'Oct 2', text: 'Shareable links are single-use and expire according to MillionsNest policy.' },
+          { date: 'Oct 2', text: 'Users is mobile-friendly and keeps “Add existing” separate from “Invite person”.' },
+          { date: 'Oct 2', text: 'PT, EN and ES use the same canonical invitation flow.' },
+        ],
+      },
+    },
     intelligentMedleysBeta08: {
       title: 'Your setlist can now become a medley.',
       description: 'Combine excerpts in one schedule, rehearse an approved version, and guide the band through the same arrangement.',
@@ -359,6 +415,34 @@ export const releaseNewsTranslations = {
     close: 'Cerrar',
     how: 'Cómo funciona',
     badge: 'Novedad relevante',
+    canonicalInvitesBeta09: {
+      title: 'Invitar personas ahora es mucho más sencillo.',
+      description: 'MusicScale ahora usa el flujo canónico de MillionsNest para invitar por e-mail o enlace con el nivel de acceso correcto.',
+      stageTools: {
+        title: 'E-mail o enlace en un solo lugar',
+        body: 'Desde Usuarios puedes elegir el canal de invitación sin salir de MusicScale.',
+        how: 'Abre Usuarios, toca “Invitar persona” y elige Por e-mail o Por enlace.',
+      },
+      deviceAudio: {
+        title: 'Acceso con la función correcta',
+        body: 'Administrador, Gestor, Miembro y Visualizador siguen la jerarquía oficial de MillionsNest y los permisos de quien invita.',
+        how: 'Elige el nivel de acceso antes de generar o enviar la invitación.',
+      },
+      updates: {
+        title: 'Una sola fuente de verdad',
+        body: 'MillionsNest sigue siendo responsable de la organización y las invitaciones; MusicScale usa ese flujo de forma integrada.',
+        how: 'Las invitaciones por e-mail pueden conservar la función musical elegida. Los enlaces compartibles aplican el acceso de la organización y la función musical puede ajustarse después.',
+      },
+      refinements: {
+        summary: 'Leer más — seguridad y compatibilidad',
+        title: 'Seguridad y compatibilidad',
+        items: [
+          { date: '02/10', text: 'Los enlaces compartibles son de un solo uso y vencen según la política de MillionsNest.' },
+          { date: '02/10', text: 'Usuarios fue ajustado para móvil y mantiene “Agregar existente” separado de “Invitar persona”.' },
+          { date: '02/10', text: 'PT, EN y ES usan el mismo flujo canónico de invitación.' },
+        ],
+      },
+    },
     intelligentMedleysBeta08: {
       title: 'Tu repertorio ahora puede convertirse en un medley.',
       description: 'Une fragmentos en una escala, ensaya una versión aprobada y dirige a la banda con el mismo arreglo.',

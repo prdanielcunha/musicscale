@@ -191,11 +191,121 @@ describe('02B2 executable create handler', () => {
     const res = fakeRes();
     await handlers.create({ headers: { authorization: 'Bearer actor-token' }, body: { organizationId: 'org-1', email: ' Person@Example.COM ', roleId: 'role-admin' } }, res);
     expect(res.statusCode).toBe(200);
-    expect(hub.create).toHaveBeenCalledWith('Bearer actor-token', 'org-1', 'person@example.com');
+    expect(hub.create).toHaveBeenCalledWith('Bearer actor-token', 'org-1', {
+      email: 'person@example.com',
+      role: 'member',
+      mode: 'email'
+    });
     expect(res.body.link).toBe('/join/org-1?token=raw-secret');
     const intentPath = `organizations/org-1/musicscale_invite_role_intents/${recipientEmailHash('person@example.com')}`;
     expect(db.docs.get(intentPath)).toMatchObject({ roleId: 'role-admin', createdByUid: 'actor-1', status: 'pending', hubInvitationId: 'hub-i1' });
     expect(JSON.stringify(db.docs.get(intentPath))).not.toContain('raw-secret');
+  });
+
+  it('creates a shareable Hub link without inventing an email-bound MusicScale role intent', async () => {
+    const db = new FakeDb();
+    db.seed('roles/role-musician', { organizationId: 'org-1', name: 'Músico / Vocal' });
+    const hub = {
+      create: vi.fn(async (_bearer: string, organizationId: string, options: any) => ({
+        success: true,
+        reasonCode: 'CREATED',
+        invitePath: `/join/${organizationId}?token=shareable-secret`,
+        inviteUrl: `https://www.millionsnest.com/join/${organizationId}?token=shareable-secret`,
+        invitation: {
+          id: 'hub-link-1',
+          organizationId,
+          role: options.role,
+          inviteMode: 'link',
+          identityBound: false,
+          expiresAtMs: 123
+        }
+      })),
+      sendEmail: vi.fn(),
+      accept: vi.fn()
+    };
+    const resolveAuthorization = vi.fn(async () => ({
+      context: {
+        uid: 'actor-1',
+        systemRole: null,
+        organizationRole: 'owner',
+        isActive: true,
+        isOwner: true,
+        capabilities: ['organization.members.manage']
+      }
+    }));
+    const handlers = createInvitationCompatibilityHandlers({
+      db,
+      auth: {},
+      admin,
+      hubFactory: () => hub as any,
+      resolveAuthorization: resolveAuthorization as any
+    });
+    const res = fakeRes();
+
+    await handlers.create({
+      headers: { authorization: 'Bearer actor-token' },
+      body: {
+        organizationId: 'org-1',
+        mode: 'link',
+        organizationRole: 'manager',
+        roleId: 'role-musician'
+      }
+    }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(hub.create).toHaveBeenCalledWith('Bearer actor-token', 'org-1', {
+      role: 'manager',
+      mode: 'link'
+    });
+    expect(res.body).toMatchObject({
+      inviteUrl: 'https://www.millionsnest.com/join/org-1?token=shareable-secret',
+      musicScaleRoleDeferred: true
+    });
+    expect([...db.docs.keys()].some(path => path.includes('musicscale_invite_role_intents'))).toBe(false);
+  });
+
+  it('proxies invitation email delivery only after canonical authorization', async () => {
+    const db = new FakeDb();
+    const hub = {
+      create: vi.fn(),
+      sendEmail: vi.fn(async () => ({ success: true, reasonCode: 'EMAIL_SENT' })),
+      accept: vi.fn()
+    };
+    const resolveAuthorization = vi.fn(async () => ({
+      context: {
+        uid: 'actor-1',
+        systemRole: null,
+        organizationRole: 'admin',
+        isActive: true,
+        isOwner: false,
+        capabilities: ['organization.members.manage']
+      }
+    }));
+    const handlers = createInvitationCompatibilityHandlers({
+      db,
+      auth: {},
+      admin,
+      hubFactory: () => hub as any,
+      resolveAuthorization: resolveAuthorization as any
+    });
+    const res = fakeRes();
+
+    await handlers.sendEmail({
+      headers: { authorization: 'Bearer actor-token' },
+      body: {
+        organizationId: 'org-1',
+        invitationId: 'invite-1',
+        inviteUrl: 'https://www.millionsnest.com/join/org-1?token=secret'
+      }
+    }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(hub.sendEmail).toHaveBeenCalledWith(
+      'Bearer actor-token',
+      'org-1',
+      'invite-1',
+      'https://www.millionsnest.com/join/org-1?token=secret'
+    );
   });
 
   it('requires authorization before creating intent', async () => {
