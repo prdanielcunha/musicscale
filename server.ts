@@ -1979,6 +1979,7 @@ app.post(
 
   const invitationCompatibilityHandlers = createInvitationCompatibilityHandlers({ db, auth, admin, logger });
   app.post("/api/orgs/invite", invitationCompatibilityHandlers.create);
+  app.post("/api/orgs/invite/send-email", invitationCompatibilityHandlers.sendEmail);
   app.post("/api/orgs/accept-invite", invitationCompatibilityHandlers.accept);
 
   app.post("/api/orgs/check-access", async (req, res) => {
