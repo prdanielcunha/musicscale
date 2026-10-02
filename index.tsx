@@ -69,6 +69,67 @@ const handleChunkError = (event: Event | PromiseRejectionEvent, message?: string
 window.addEventListener('unhandledrejection', handleChunkError);
 window.addEventListener('vite:preloadError', handleChunkError);
 
+const SW_UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 1000;
+const UPDATE_BANNER_ID = 'musicscale-update-available';
+
+function showUpdateAvailableBanner() {
+  if (document.getElementById(UPDATE_BANNER_ID)) return;
+
+  const button = document.createElement('button');
+  button.id = UPDATE_BANNER_ID;
+  button.type = 'button';
+  button.setAttribute('aria-label', 'Atualizar MusicScale para a versão mais recente');
+  button.textContent = 'Nova versão do MusicScale disponível — Atualizar agora';
+  button.style.position = 'fixed';
+  button.style.left = '50%';
+  button.style.bottom = 'max(18px, env(safe-area-inset-bottom))';
+  button.style.transform = 'translateX(-50%)';
+  button.style.zIndex = '2147483647';
+  button.style.maxWidth = 'calc(100vw - 32px)';
+  button.style.padding = '12px 18px';
+  button.style.border = '1px solid rgba(255,255,255,0.14)';
+  button.style.borderRadius = '14px';
+  button.style.background = 'rgba(15, 23, 42, 0.96)';
+  button.style.color = '#fff';
+  button.style.font = '600 14px/1.25 Inter, system-ui, sans-serif';
+  button.style.boxShadow = '0 16px 48px rgba(0,0,0,0.38)';
+  button.style.backdropFilter = 'blur(16px)';
+  button.style.cursor = 'pointer';
+
+  button.addEventListener('click', () => {
+    button.disabled = true;
+    button.textContent = 'Atualizando...';
+    window.location.reload();
+  });
+
+  document.body.appendChild(button);
+}
+
+function installServiceWorkerFreshnessGuard() {
+  if (!('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    showUpdateAvailableBanner();
+  });
+
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.getRegistration().then((registration) => {
+      if (!registration) return;
+
+      const checkForUpdate = () => {
+        void registration.update().catch((error) => {
+          console.warn('[MusicScale] Service worker update check failed', error);
+        });
+      };
+
+      checkForUpdate();
+      window.setInterval(checkForUpdate, SW_UPDATE_CHECK_INTERVAL_MS);
+    });
+  });
+}
+
+installServiceWorkerFreshnessGuard();
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");
