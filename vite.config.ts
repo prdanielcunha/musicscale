@@ -25,6 +25,9 @@ export default defineConfig(({ mode }) => {
           includeManifestIcons: false,
           workbox: {
             maximumFileSizeToCacheInBytes: 6000000,
+            cleanupOutdatedCaches: true,
+            clientsClaim: true,
+            skipWaiting: true,
             globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
             runtimeCaching: [
               {
