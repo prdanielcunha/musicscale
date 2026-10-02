@@ -77,8 +77,9 @@ export class HubInvitationAdapter {
   }
 
   async create(bearer: string, organizationId: string, emailOrOptions: string | HubInvitationCreateOptions) {
-    const options: HubInvitationCreateOptions = typeof emailOrOptions === 'string'
-      ? { email: emailOrOptions, role: 'member', mode: 'email' }
+    const legacyEmailCall = typeof emailOrOptions === 'string';
+    const options: HubInvitationCreateOptions = legacyEmailCall
+      ? { email: emailOrOptions as string, role: 'member', mode: 'email' }
       : emailOrOptions || {};
     const role = options.role || 'member';
     const mode = options.mode || 'email';
@@ -93,7 +94,7 @@ export class HubInvitationAdapter {
       organizationId,
       ...(mode === 'email' ? { email: normalizedEmail } : {}),
       role,
-      mode
+      ...(!legacyEmailCall ? { mode } : {})
     });
 
     const returnedMode = result.invitation?.inviteMode || (result.invitation?.identityBound === false ? 'link' : 'email');
