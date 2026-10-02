@@ -3748,6 +3748,190 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
     }
   });
 
+  app.post("/api/admin/global-song-provenance", async (req, res) => {
+    try {
+      if (!db || !admin) {
+        return res.status(503).json({ error: "SERVICE_UNAVAILABLE" });
+      }
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "UNAUTHORIZED" });
+      }
+
+      const token = authHeader.slice("Bearer ".length);
+      const decodedToken = await admin.auth().verifyIdToken(token, true);
+      const actorSnap = await db.collection("users").doc(decodedToken.uid).get();
+      if (!actorSnap.exists) {
+        return res.status(403).json({ error: "FORBIDDEN" });
+      }
+
+      const actorData = actorSnap.data() || {};
+      const allowedRoles = new Set([
+        "ceo",
+        "admin",
+        "global_admin",
+        "ecosystem_owner",
+        "founder",
+      ]);
+      const actorRole = [
+        actorData.systemRole,
+        actorData.ecosystemRole,
+        actorData.globalRole,
+      ]
+        .map((value) => String(value || "").trim().toLowerCase())
+        .find((value) => allowedRoles.has(value));
+
+      if (!actorRole) {
+        return res.status(403).json({ error: "FORBIDDEN" });
+      }
+
+      const globalSongId =
+        typeof req.body?.globalSongId === "string"
+          ? req.body.globalSongId.trim()
+          : "";
+      if (!globalSongId || globalSongId.length > 256) {
+        return res.status(400).json({ error: "INVALID_GLOBAL_SONG_ID" });
+      }
+
+      const globalSongSnap = await db.collection("globalSongs").doc(globalSongId).get();
+      if (!globalSongSnap.exists) {
+        return res.status(404).json({ error: "GLOBAL_SONG_NOT_FOUND" });
+      }
+
+      const globalSong = globalSongSnap.data() || {};
+      const rawCreatedBy = globalSong.createdBy;
+      const creatorUid =
+        typeof rawCreatedBy === "string"
+          ? rawCreatedBy
+          : typeof rawCreatedBy?.uid === "string"
+            ? rawCreatedBy.uid
+            : null;
+
+      let creatorDisplayName =
+        typeof rawCreatedBy === "object" && rawCreatedBy
+          ? rawCreatedBy.displayName || rawCreatedBy.name || null
+          : null;
+      let creatorEmail =
+        typeof rawCreatedBy === "object" && rawCreatedBy
+          ? rawCreatedBy.email || null
+          : null;
+
+      if (creatorUid && (!creatorDisplayName || !creatorEmail)) {
+        try {
+          const creatorSnap = await db.collection("users").doc(creatorUid).get();
+          if (creatorSnap.exists) {
+            const creatorData = creatorSnap.data() || {};
+            creatorDisplayName =
+              creatorDisplayName ||
+              creatorData.displayName ||
+              creatorData.name ||
+              null;
+            creatorEmail = creatorEmail || creatorData.email || null;
+          }
+        } catch (creatorError) {
+          logger.warn(
+            `[GlobalSongProvenance] Could not resolve creator ${creatorUid}`,
+            creatorError,
+          );
+        }
+      }
+
+      const sourceOrganizationId =
+        typeof globalSong.sourceOrganizationId === "string" &&
+        globalSong.sourceOrganizationId.trim()
+          ? globalSong.sourceOrganizationId.trim()
+          : null;
+      let sourceOrganizationName: string | null = null;
+
+      if (sourceOrganizationId) {
+        try {
+          const sourceOrganizationSnap = await db
+            .collection("organizations")
+            .doc(sourceOrganizationId)
+            .get();
+          if (sourceOrganizationSnap.exists) {
+            const sourceOrganization = sourceOrganizationSnap.data() || {};
+            sourceOrganizationName =
+              sourceOrganization.name ||
+              sourceOrganization.displayName ||
+              null;
+          }
+        } catch (organizationError) {
+          logger.warn(
+            `[GlobalSongProvenance] Could not resolve organization ${sourceOrganizationId}`,
+            organizationError,
+          );
+        }
+      }
+
+      const toIsoString = (value: any): string | null => {
+        if (value === null || value === undefined || value === "") return null;
+        try {
+          if (typeof value?.toDate === "function") {
+            const date = value.toDate();
+            return date instanceof Date && !Number.isNaN(date.getTime())
+              ? date.toISOString()
+              : null;
+          }
+
+          if (typeof value === "string" || typeof value === "number") {
+            const raw =
+              typeof value === "number" && Math.abs(value) < 1e12
+                ? value * 1000
+                : value;
+            const date = new Date(raw);
+            return Number.isNaN(date.getTime()) ? null : date.toISOString();
+          }
+
+          const seconds =
+            typeof value?.seconds === "number"
+              ? value.seconds
+              : typeof value?._seconds === "number"
+                ? value._seconds
+                : null;
+          if (seconds !== null) {
+            const nanoseconds =
+              typeof value?.nanoseconds === "number"
+                ? value.nanoseconds
+                : typeof value?._nanoseconds === "number"
+                  ? value._nanoseconds
+                  : 0;
+            const date = new Date(seconds * 1000 + nanoseconds / 1_000_000);
+            return Number.isNaN(date.getTime()) ? null : date.toISOString();
+          }
+        } catch {
+          return null;
+        }
+        return null;
+      };
+
+      return res.json({
+        globalSongId,
+        creator: {
+          uid: creatorUid,
+          displayName: creatorDisplayName,
+          email: creatorEmail,
+        },
+        sourceOrganization: {
+          id: sourceOrganizationId,
+          name: sourceOrganizationName,
+        },
+        createdAt: toIsoString(globalSong.createdAt),
+      });
+    } catch (error: any) {
+      if (
+        error?.code === "auth/id-token-expired" ||
+        error?.code === "auth/id-token-revoked" ||
+        error?.code === "auth/argument-error"
+      ) {
+        return res.status(401).json({ error: "UNAUTHORIZED" });
+      }
+      logger.error("[GlobalSongProvenance] Failed to resolve provenance", error);
+      return res.status(500).json({ error: "GLOBAL_SONG_PROVENANCE_FAILED" });
+    }
+  });
+
   app.post("/api/library/import", async (req, res) => {
     try {
       if (!db || !admin) throw new Error("Database not initialized");
