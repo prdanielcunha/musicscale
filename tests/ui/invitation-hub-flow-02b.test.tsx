@@ -20,16 +20,26 @@ const renderJoin = (path: string, route = '*') => render(<MemoryRouter initialEn
 </Routes></MemoryRouter>);
 
 describe('UsersPage invitation compatibility UI (A-D)', () => {
-  const source = readFileSync('pages/UsersPage.tsx', 'utf8');
-  it('A-B sends organizationId/email/roleId and consumes data.link', () => {
-    expect(source).toContain('fetch("/api/orgs/invite"');
-    expect(source).toContain('organizationId: activeOrgId'); expect(source).toContain('email: email'); expect(source).toContain('roleId: role.id');
-    expect(source).toContain('`${window.location.origin}${data.link}`');
+  const usersSource = readFileSync('pages/UsersPage.tsx', 'utf8');
+  const modalSource = readFileSync('components/team/CanonicalHubInviteModal.tsx', 'utf8');
+
+  it('A-B delegates canonical email/link invitation creation to the Hub proxy', () => {
+    expect(usersSource).toContain('CanonicalHubInviteModal');
+    expect(modalSource).toContain('fetch("/api/orgs/invite"');
+    expect(modalSource).toContain('organizationId: activeOrganizationId');
+    expect(modalSource).toContain('mode: inviteMode');
+    expect(modalSource).toContain('organizationRole');
+    expect(modalSource).toContain('email: email.trim()');
+    expect(modalSource).toContain('roleId: musicScaleRole.id');
+    expect(modalSource).toContain('data.inviteUrl');
+    expect(modalSource).toContain('https://www.millionsnest.com');
   });
-  it('C-D has no invitation Firestore write and preserves Administrador as MusicScale roleId', () => {
-    const handler = source.slice(source.indexOf('const handleInvite = async'), source.indexOf('useEffect(() =>', source.indexOf('const handleInvite = async')));
-    expect(handler).not.toMatch(/(?:setDoc|addDoc|updateDoc)\s*\(/); expect(handler).not.toContain('role: role.name');
-    expect(handler).toContain('roleId: role.id');
+
+  it('C-D performs no invitation Firestore write and keeps MusicScale role intent separate from organization access', () => {
+    expect(modalSource).not.toMatch(/(?:setDoc|addDoc|updateDoc)\s*\(/);
+    expect(modalSource).toContain('roleId: musicScaleRole.id');
+    expect(modalSource).toContain('organizationRole');
+    expect(modalSource).not.toContain('role: musicScaleRole.name');
   });
 });
 
