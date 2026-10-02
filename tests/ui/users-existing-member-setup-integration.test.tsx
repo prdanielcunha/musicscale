@@ -734,11 +734,12 @@ describe('UsersPage Integration ExistingMemberSetup', () => {
     });
   });
 
-  it('39. fluxo não abre convite', async () => {
+  it('39. fluxo de configurar existente não abre o modal de convite', async () => {
     mockUsers = [createProfile({ uid: 'current-user-123', displayName: 'Current', roleId: 'r_member', specialtyIds: [] }), createProfile({ uid: 'u_target', displayName: 'Target', roleId: '', specialtyIds: [] })];
     await renderPage();
     fireEvent.click(screen.getByText(pt.teamSetup.progress.configureAction));
-    expect(screen.queryByText(/Convidar pessoa/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(pt.users.invite.method_label)).not.toBeInTheDocument();
+    expect(screen.getByText(pt.users.invite_user)).toBeInTheDocument();
   });
 
   it('40. cartão atualiza após a resposta recarregada de users.list', async () => {

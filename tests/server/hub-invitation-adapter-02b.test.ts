@@ -56,6 +56,44 @@ describe('02B create adapter matrix', () => {
     expect(result.invitePath).toBe('/join/org-1?token=raw-secret');
   });
 
+  it('creates canonical shareable link invites with Hub role and no recipient email', async () => {
+    const fetcher = vi.fn(async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      expect(body).toEqual({ organizationId: 'org-1', role: 'manager', mode: 'link' });
+      return response(200, {
+        success: true,
+        reasonCode: 'CREATED',
+        invitePath: '/join/org-1?token=link-secret',
+        invitation: {
+          id: 'i-link',
+          organizationId: 'org-1',
+          role: 'manager',
+          inviteMode: 'link',
+          identityBound: false,
+          expiresAtMs: 1
+        }
+      });
+    });
+    const result = await new HubInvitationAdapter({ origin: 'https://configured.example', fetch: fetcher as any })
+      .create('Bearer exact-token', 'org-1', { role: 'manager', mode: 'link' });
+    expect(result.inviteUrl).toBe('https://configured.example/join/org-1?token=link-secret');
+  });
+
+  it('delivers email through the canonical Hub command with the canonical Hub URL', async () => {
+    const fetcher = vi.fn(async (url, init) => {
+      expect(url).toBe('https://configured.example/api/v1/invitations/email');
+      expect(JSON.parse(String(init?.body))).toEqual({
+        organizationId: 'org-1',
+        invitationId: 'invite-1',
+        inviteUrl: 'https://configured.example/join/org-1?token=secret'
+      });
+      return response(200, { success: true, reasonCode: 'EMAIL_SENT' });
+    });
+    await expect(new HubInvitationAdapter({ origin: 'https://configured.example', fetch: fetcher as any })
+      .sendEmail('Bearer exact-token', 'org-1', 'invite-1', 'https://configured.example/join/org-1?token=secret'))
+      .resolves.toMatchObject({ success: true });
+  });
+
   it.each(['owner', 'dono', 'ceo', 'global_admin', 'ecosystem_owner', 'founder', 'support', 'suporte'])('rejects forbidden domain role %s', async name => {
     await expect(prepareRoleIntent(fakeDb(role('org-1', name)).db, 'org-1', 'a@b.com', 'role-1', 'actor')).rejects.toMatchObject({ status: 403 });
   });
