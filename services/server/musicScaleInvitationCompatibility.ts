@@ -310,7 +310,7 @@ export function createInvitationCompatibilityHandlers(deps: InvitationCompatibil
     let preparedIntent: { ref: any; generationId: string } | undefined;
     try {
       if (!deps.db || !deps.auth) return res.status(503).json({ error: 'SERVICE_UNAVAILABLE' });
-      const { organizationId, inviterUserId, email, roleId } = req.body || {};
+      const { organizationId, inviterUserId, email, roleId, organizationRole, mode } = req.body || {};
       if (!isValidId(organizationId)) return res.status(400).json({ error: 'INVALID_ORGANIZATION_ID' });
 
       const authorization = await resolveAuthorization(req.headers?.authorization, organizationId, deps.db, deps.auth);
@@ -322,16 +322,42 @@ export function createInvitationCompatibilityHandlers(deps: InvitationCompatibil
         return res.status(403).json({ error: 'FORBIDDEN' });
       }
 
-      const safeEmail = normalizeEmail(email);
-      if (!isValidEmail(safeEmail)) return res.status(400).json({ error: 'INVALID_EMAIL' });
-      const safeRoleId = typeof roleId === 'string' ? roleId.trim() : '';
-      if (!safeRoleId) return res.status(400).json({ error: 'ROLE_ID_REQUIRED' });
+      const inviteMode = mode === 'link' ? 'link' : mode === undefined || mode === 'email' ? 'email' : null;
+      if (!inviteMode) return res.status(400).json({ error: 'INVALID_INVITE_MODE' });
+      const safeOrganizationRole = typeof organizationRole === 'string' && organizationRole.trim()
+        ? organizationRole.trim().toLowerCase()
+        : 'member';
+      if (!['admin', 'manager', 'member', 'viewer'].includes(safeOrganizationRole)) {
+        return res.status(400).json({ error: 'INVALID_INVITE_ROLE' });
+      }
 
-      const intent = await prepareRoleIntent(deps.db, organizationId, safeEmail, safeRoleId, context.uid);
-      preparedIntent = intent;
-      const hub = await hubFactory().create(req.headers.authorization, organizationId, safeEmail);
-      await finishRoleIntent(intent.ref, intent.generationId, hub);
-      return res.json({ success: true, link: hub.invitePath, reasonCode: hub.reasonCode, invitation: hub.invitation });
+      const safeEmail = normalizeEmail(email);
+      if (inviteMode === 'email' && !isValidEmail(safeEmail)) {
+        return res.status(400).json({ error: 'INVALID_EMAIL' });
+      }
+
+      const safeRoleId = typeof roleId === 'string' ? roleId.trim() : '';
+      if (inviteMode === 'email' && safeRoleId) {
+        const intent = await prepareRoleIntent(deps.db, organizationId, safeEmail, safeRoleId, context.uid);
+        preparedIntent = intent;
+      }
+
+      const hub = await hubFactory().create(req.headers.authorization, organizationId, {
+        ...(inviteMode === 'email' ? { email: safeEmail } : {}),
+        role: safeOrganizationRole as 'admin' | 'manager' | 'member' | 'viewer',
+        mode: inviteMode
+      });
+      if (preparedIntent) {
+        await finishRoleIntent(preparedIntent.ref, preparedIntent.generationId, hub);
+      }
+      return res.json({
+        success: true,
+        link: hub.invitePath,
+        inviteUrl: hub.inviteUrl,
+        reasonCode: hub.reasonCode,
+        invitation: hub.invitation,
+        musicScaleRoleDeferred: inviteMode === 'link' && !!safeRoleId
+      });
     } catch (error: any) {
       if (error instanceof HubInvitationError) {
         if (preparedIntent && !error.ambiguous) await abandonRoleIntent(preparedIntent.ref, preparedIntent.generationId);
@@ -340,6 +366,31 @@ export function createInvitationCompatibilityHandlers(deps: InvitationCompatibil
       const mapped = mapKnownError(error);
       if (mapped) return res.status(mapped.status).json({ error: mapped.reasonCode, reasonCode: mapped.reasonCode });
       deps.logger?.error?.('[API] Invitation create failed');
+      return res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+  };
+
+  const sendEmail = async (req: any, res: any) => {
+    try {
+      if (!deps.db || !deps.auth) return res.status(503).json({ error: 'SERVICE_UNAVAILABLE' });
+      const { organizationId, invitationId, inviteUrl } = req.body || {};
+      if (!isValidId(organizationId) || !isValidId(invitationId) || typeof inviteUrl !== 'string') {
+        return res.status(400).json({ error: 'INVALID_INVITATION_DELIVERY_REQUEST' });
+      }
+
+      const authorization = await resolveAuthorization(req.headers?.authorization, organizationId, deps.db, deps.auth);
+      if (authorization.statusCode) return res.status(authorization.statusCode).json({ error: authorization.error });
+      const context = authorization.context!;
+      if (!context.systemRole && !context.isOwner && context.organizationRole !== 'admin' && !context.capabilities.includes('organization.members.manage')) {
+        return res.status(403).json({ error: 'FORBIDDEN' });
+      }
+
+      const result = await hubFactory().sendEmail(req.headers.authorization, organizationId, invitationId, inviteUrl);
+      return res.json({ success: true, reasonCode: result?.reasonCode || 'EMAIL_SENT' });
+    } catch (error: any) {
+      const mapped = mapKnownError(error);
+      if (mapped) return res.status(mapped.status).json({ error: mapped.reasonCode, reasonCode: mapped.reasonCode });
+      deps.logger?.error?.('[API] Invitation email delivery failed');
       return res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
     }
   };
@@ -376,5 +427,5 @@ export function createInvitationCompatibilityHandlers(deps: InvitationCompatibil
     }
   };
 
-  return { create, accept };
+  return { create, sendEmail, accept };
 }
