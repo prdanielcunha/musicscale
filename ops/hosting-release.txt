@@ -1,2 +1,2 @@
-MusicScale 0.8.0-beta.8 — 2026-10-01
-Keep the AI song-import save action visible in the modal footer across desktop, tablet and mobile; prevent no-destination saves and duplicate save clicks.
+MusicScale 0.8.0-beta.9 — 2026-10-02
+Keep long-lived browser/PWA sessions fresh: check the service worker every 2 minutes, surface a visible update action when a new worker takes control, and clean obsolete Workbox caches. Includes the AI-import persistent save footer from beta.8.
