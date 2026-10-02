@@ -14,6 +14,7 @@ import { useApi } from "../../contexts/ApiContext";
 import { useMusic } from "../../contexts/MusicDataContext";
 import { useModals } from "../../contexts/ModalContext";
 import { getScaleTitle } from "../../utils/scaleHelper";
+import { coerceDate, formatDateInBrazil, resolveDateLocale } from "../../utils/dateTime";
 import { useCapability } from "../../hooks/useCapability";
 import Modal from "../common/Modal";
 import Button from "../common/Button";
@@ -246,6 +247,20 @@ const Popover: React.FC<{
   );
 };
 
+interface GlobalSongProvenance {
+  globalSongId: string;
+  creator: {
+    uid: string | null;
+    displayName: string | null;
+    email: string | null;
+  };
+  sourceOrganization: {
+    id: string | null;
+    name: string | null;
+  };
+  createdAt: string | null;
+}
+
 interface SongDetailModalProps {
   song: PopulatedSong | null;
   onClose: () => void;
@@ -297,18 +312,20 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
   startInPerformanceMode,
   openMode,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const api = useApi();
   const { songs, populatedScales: scales } = useMusic();
   const { openScaleDetail, saveChord, isSubmitting, openFeedback, openPersistedChordKeyRepair } = useModals();
   const { feedbackToast } = useToast();
-  const { userProfile } = useAuth();
+  const { user, userProfile, isGlobalAdmin } = useAuth();
   const { hasCapability } = useCapability();
   
   const canManageSongs = hasCapability('musicscale.songs.edit');
   const canManageScales = hasCapability('musicscale.scales.manage');
 
   const [song, setSong] = useState<PopulatedSong | null>(null);
+  const [globalProvenance, setGlobalProvenance] = useState<GlobalSongProvenance | null>(null);
+  const [isGlobalProvenanceLoading, setIsGlobalProvenanceLoading] = useState(false);
   
   // Performance mode state tracking
   const [performanceStartTime, setPerformanceStartTime] = useState<number | null>(null);
@@ -369,6 +386,56 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
       setIsTechnicalPartsOpen(false);
     }
   }, [initialSong, songs, startInPerformanceMode, openMode, scaleContext]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setGlobalProvenance(null);
+    setIsGlobalProvenanceLoading(false);
+
+    if (!song?.originGlobalSongId || !isGlobalAdmin || !user) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setIsGlobalProvenanceLoading(true);
+
+    void (async () => {
+      try {
+        const token = await user.getIdToken();
+        const response = await fetch("/api/admin/global-song-provenance", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ globalSongId: song.originGlobalSongId }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Global provenance request failed: ${response.status}`);
+        }
+
+        const payload = (await response.json()) as GlobalSongProvenance;
+        if (!cancelled) {
+          setGlobalProvenance(payload);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          logger.warn("Unable to load global song provenance", error);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsGlobalProvenanceLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [song?.originGlobalSongId, isGlobalAdmin, user]);
 
   const handleClosePerformance = () => {
     setIsChordsViewerOpen(false);
@@ -518,16 +585,29 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
       })
     : "Nunca foi tocada";
 
-  const createdDate = new Date(song.createdAt).toLocaleDateString("pt-BR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const dateLocale = resolveDateLocale(i18n.resolvedLanguage || i18n.language);
+  const createdAtDate = coerceDate(song.createdAt);
+  const createdDate =
+    formatDateInBrazil(song.createdAt, dateLocale) ||
+    t("songs.date_unavailable", "Data não disponível");
 
   const fourMonthsAgo = new Date();
   fourMonthsAgo.setMonth(fourMonthsAgo.getMonth() - 4);
   const isConsideredNew =
-    !!song.isNew && song.createdAt && new Date(song.createdAt) > fourMonthsAgo;
+    !!song.isNew && !!createdAtDate && createdAtDate > fourMonthsAgo;
+
+  const globalCreatorLabel =
+    globalProvenance?.creator.displayName ||
+    globalProvenance?.creator.email ||
+    globalProvenance?.creator.uid ||
+    t("songs.global_origin_unknown_creator", "Criador não identificado");
+  const globalOrganizationLabel =
+    globalProvenance?.sourceOrganization.name ||
+    globalProvenance?.sourceOrganization.id ||
+    t("songs.global_origin_unknown_organization", "Organização não identificada");
+  const globalCreatedDate = globalProvenance?.createdAt
+    ? formatDateInBrazil(globalProvenance.createdAt, dateLocale)
+    : null;
 
   const songStatus = song.status as string;
   const statusConfig = (statusMap as any)[songStatus] || {
@@ -619,6 +699,42 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
                     <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Última Vez</span>
                  </div>
               </div>
+
+              {isGlobalAdmin && song.originGlobalSongId && (
+                <div className="rounded-2xl border border-indigo-400/15 bg-indigo-500/[0.045] px-4 py-3.5">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-300/80">
+                      {t("songs.global_origin", "Origem global")}
+                    </span>
+                    {isGlobalProvenanceLoading ? (
+                      <span className="text-[12px] font-medium text-white/45">
+                        {t("songs.global_origin_loading", "Carregando origem da música...")}
+                      </span>
+                    ) : globalProvenance ? (
+                      <div className="space-y-1 text-[12px] leading-relaxed text-white/65">
+                        <p>
+                          <span className="text-white/38">{t("songs.global_origin_creator", "Criada por")}: </span>
+                          <span className="font-semibold text-white/78">{globalCreatorLabel}</span>
+                        </p>
+                        <p>
+                          <span className="text-white/38">{t("songs.global_origin_organization", "Organização")}: </span>
+                          <span className="font-semibold text-white/78">{globalOrganizationLabel}</span>
+                        </p>
+                        {globalCreatedDate && (
+                          <p>
+                            <span className="text-white/38">{t("songs.global_origin_created_at", "Criada globalmente em")}: </span>
+                            <span className="font-semibold text-white/78">{globalCreatedDate}</span>
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[12px] font-medium text-white/45">
+                        {t("songs.global_origin_unavailable", "Origem global indisponível no momento.")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Ações Principais (Performance / Cifra / Letra) */}
               <div className="flex flex-col gap-3">
