@@ -202,6 +202,18 @@ const getRoleKeyFromId = (roleId: string, availableRoles: Role[]): string => {
   return getRoleKeyFromName(roleName);
 };
 
+const getActorOrganizationRoleKey = (profile: UserProfile | null | undefined, isGlobal: boolean): string => {
+  if (isGlobal) return "owner";
+  const organizationRole = String(profile?.organizationRole || "").trim().toLowerCase();
+  if (organizationRole === "owner") return "owner";
+  if (organizationRole === "admin") return "admin";
+  // Managers can organize/invite, but role hierarchy changes remain restricted
+  // to owner/admin. Keep them below admin instead of accidentally promoting
+  // them because of a MusicScale ministry role.
+  if (organizationRole === "manager") return "leader";
+  return getRoleKeyFromName(profile?.role || "");
+};
+
 interface UserDetailsModalProps {
   isOpen: boolean;
   user: UserProfile | null;
@@ -284,10 +296,19 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
 
   const sortedRoles = sortRolesByHierarchy(roles);
   const currentRole = roles.find((r) => r.id === user.roleId);
+  const selectedEditRole = roles.find((r) => r.id === editRoleId);
+  const rolePermissionKeys = [
+    "canManageUsers",
+    "canManageRoles",
+    "canManageRepertoire",
+    "canManageScales",
+    "canManageChords",
+    "canViewContent",
+  ] as const;
 
   // Compute hierarchy checks
   const targetRoleKey = getRoleKeyFromId(user.roleId, roles);
-  const actorRoleKey = isGlobal ? "owner" : getRoleKeyFromName(userProfile?.role || "");
+  const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal);
   const otherOwnersActiveCount = allUsers.filter(u => u.organizationId === userProfile?.organizationId && u.uid !== user.uid && (u.role === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
 
   const roleCtx = {
@@ -410,6 +431,34 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
               <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5 font-semibold flex items-center gap-1 leading-normal bg-amber-500/5 p-2 rounded-lg border border-amber-500/10">
                 ⚠️ {checkChange.error || t("users.role_change_error", "Você não pode alterar o cargo de alguém com nível hierárquico igual ou superior ao seu.")}
               </p>
+            )}
+
+            {selectedEditRole && (
+              <div className="mt-3 rounded-2xl border border-slate-200/70 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {t("users.role_permissions", "Permissões deste cargo")}
+                </p>
+                <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {rolePermissionKeys.map((permissionKey) => {
+                    const enabled = !!selectedEditRole.permissions?.[permissionKey];
+                    return (
+                      <div
+                        key={permissionKey}
+                        className={`flex items-center gap-2 text-xs ${enabled ? "text-slate-700 dark:text-slate-200" : "text-slate-400 dark:text-slate-600"}`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`h-1.5 w-1.5 rounded-full ${enabled ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"}`}
+                        />
+                        <span>{t(`teamSetup.existingMember.access.permissionsMap.${permissionKey}`)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[11px] leading-5 text-slate-400">
+                  {t("users.role_permissions_hint", "As permissões são definidas pelo cargo para manter a segurança e o padrão da equipe.")}
+                </p>
+              </div>
             )}
           </div>
         </div>
@@ -759,7 +808,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
     try {
       const targetUser = allUsers.find(u => u.uid === memberId);
       const targetRoleKey = getRoleKeyFromId(targetUser?.roleId || "", allRoles);
-      const actorRoleKey = isGlobal ? "owner" : getRoleKeyFromName(userProfile?.role || "");
+      const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal);
       const otherOwnersActiveCount = allUsers.filter(u => u.organizationId === userProfile?.organizationId && u.uid !== memberId && (u.role === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
 
       const roleCtx = {
@@ -909,7 +958,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
           const currentTargetRoleKey = getRoleKeyFromId(targetUser.roleId || "", allRoles);
           const newTargetRoleKey = getRoleKeyFromId(data.roleId, allRoles);
 
-          const actorRoleKey = isGlobal ? "owner" : getRoleKeyFromName(userProfile?.role || "");
+          const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal);
           const otherOwnersActiveCount = allUsers.filter(u => u.organizationId === userProfile?.organizationId && u.uid !== uid && (u.role === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
 
           const roleCtx = {
@@ -1216,7 +1265,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
                     {/* Ações / Options */}
                     {user.uid !== currentUser?.uid && canEditRoles && (() => {
                       const targetRoleKey = getRoleKeyFromId(user.roleId || "", allRoles);
-                      const actorRoleKey = isGlobal ? "owner" : getRoleKeyFromName(userProfile?.role || "");
+                      const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal);
                       const otherOwnersActiveCount = (allUsers || users).filter(u => u.organizationId === userProfile?.organizationId && u.uid !== user.uid && (u.role === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
 
                       const roleCtx = {
@@ -1383,6 +1432,9 @@ const UsersPage: React.FC = () => {
 
   const [isExistingMemberSetupOpen, setIsExistingMemberSetupOpen] = useState(false);
   const [isHubInviteOpen, setIsHubInviteOpen] = useState(false);
+  const [membersSearch, setMembersSearch] = useState("");
+  const [selectedMemberForDetail, setSelectedMemberForDetail] = useState<UserProfile | null>(null);
+  const [isMemberSubmitting, setIsMemberSubmitting] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -1393,7 +1445,7 @@ const UsersPage: React.FC = () => {
     const isCurrentUser = member.uid === currentUser?.uid;
     const isMemberOwner = member.uid === organization?.ownerUserId || getRoleKeyFromId(member.roleId || "", roles) === "owner" || member.role === "Dono";
     
-    const actorRoleKey = isGlobal ? "owner" : getRoleKeyFromName(userProfile?.role || "");
+    const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal);
     const currentTargetRoleKey = getRoleKeyFromId(member.roleId || "", roles);
     
     const otherOwnersActiveCount = allUsers.filter(u => u.organizationId === userProfile?.organizationId && u.uid !== member.uid && (getRoleKeyFromId(u.roleId || "", roles) === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
@@ -1588,6 +1640,15 @@ const UsersPage: React.FC = () => {
 
   const sortedRoles = useMemo(() => sortRolesByHierarchy(roles), [roles]);
 
+  const filteredMembers = useMemo(() => {
+    const needle = membersSearch.trim().toLocaleLowerCase();
+    if (!needle) return allUsers;
+    return allUsers.filter((member) => {
+      const haystack = `${member.displayName || ""} ${member.email || ""}`.toLocaleLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [allUsers, membersSearch]);
+
   const teamSetupSummary = useMemo(
     () => evaluateTeamSetup(allUsers, currentUser?.uid),
     [allUsers, currentUser?.uid]
@@ -1692,6 +1753,78 @@ const UsersPage: React.FC = () => {
     toastError,
     consumeTeamSetupIntent
   ]);
+
+  const handleDirectoryMemberSave = async (uid: string, data: Partial<UserProfile>) => {
+    if (!api) throw new Error("API_UNAVAILABLE");
+    const member = allUsers.find((candidate) => candidate.uid === uid);
+    if (!member) throw new Error("MEMBER_NOT_FOUND");
+
+    setIsMemberSubmitting(true);
+    try {
+      const payload: Partial<UserProfile> = { ...data };
+      if (data.roleId && data.roleId !== member.roleId) {
+        const policy = resolveAccessPolicy(member);
+        if (!policy.canEditAccess || !policy.allowedRoleIds.includes(data.roleId)) {
+          throw new Error("TEAM_ACCESS_POLICY_CHANGED");
+        }
+        payload.musicscaleRole = getRoleKeyFromId(data.roleId, roles);
+      }
+
+      await api.users.update(uid, payload);
+      await fetchUsers();
+      toastSuccess(t("users.member_updated", "Integrante atualizado com sucesso."));
+    } catch (error: any) {
+      logger.error("Failed to update directory member", error);
+      toastError(
+        error?.message === "TEAM_ACCESS_POLICY_CHANGED"
+          ? t("users.member_permission_changed", "Sua permissão para alterar este integrante mudou. Atualize a página e tente novamente.")
+          : t("users.member_update_error", "Não foi possível atualizar este integrante.")
+      );
+      throw error;
+    } finally {
+      setIsMemberSubmitting(false);
+    }
+  };
+
+  const handleDirectoryMemberDelete = async (uid: string) => {
+    if (!currentUser) throw new Error("UNAUTHENTICATED");
+    if (uid === currentUser.uid) throw new Error("SELF_REMOVAL_REQUIRES_LEAVE_COMMAND");
+
+    const organizationId =
+      userProfile?.activeOrganizationId ||
+      userProfile?.primaryOrganizationId ||
+      userProfile?.organizationId;
+    if (!organizationId) throw new Error("ORGANIZATION_CONTEXT_REQUIRED");
+
+    setIsMemberSubmitting(true);
+    try {
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch(
+        `/api/orgs/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(uid)}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${idToken}` },
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (
+        !response.ok ||
+        data?.success !== true ||
+        !["MEMBER_REMOVED", "ALREADY_REMOVED"].includes(data?.reasonCode)
+      ) {
+        throw new Error(data?.reasonCode || data?.error || "MEMBER_REMOVAL_FAILED");
+      }
+      setSelectedMemberForDetail(null);
+      await fetchUsers();
+      toastSuccess(t("users.member_removed", "Integrante removido da organização."));
+    } catch (error: any) {
+      logger.error("Failed to remove directory member", error);
+      toastError(error?.message || t("users.member_remove_error", "Não foi possível remover este integrante."));
+      throw error;
+    } finally {
+      setIsMemberSubmitting(false);
+    }
+  };
 
   const handleReviewTeamSetup = () => {
     const section = managementSectionRef.current;
@@ -1813,6 +1946,115 @@ const UsersPage: React.FC = () => {
         onClose={() => setIsHubInviteOpen(false)}
       />
 
+
+      {!isExistingMemberSetupOpen && (
+      <Card className="p-0 overflow-hidden">
+        <div className="flex flex-col gap-4 p-5 sm:p-6 border-b border-slate-200/70 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                {t("users.members_title", "Integrantes")}
+              </h2>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 dark:bg-white/5 dark:text-slate-300">
+                {allUsers.length}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              {t("users.members_subtitle", "Abra um integrante para ver os dados, função, especialidades e ações permitidas pelo seu nível de acesso.")}
+            </p>
+          </div>
+          {canManageTeamSetup && (
+            <Button
+              onClick={() => setIsHubInviteOpen(true)}
+              leftIcon={<UserPlusIcon className="w-4 h-4" />}
+              className="w-full sm:w-auto"
+            >
+              {t("users.invite_user", "Convidar pessoa")}
+            </Button>
+          )}
+        </div>
+
+        <div className="p-4 sm:p-6">
+          <input
+            type="search"
+            value={membersSearch}
+            onChange={(event) => setMembersSearch(event.target.value)}
+            placeholder={t("users.members_search", "Buscar integrante por nome ou e-mail...")}
+            className="input-base mb-4"
+          />
+
+          <div className="space-y-2">
+            {filteredMembers.length > 0 ? (
+              filteredMembers.map((member) => {
+                const displayRole = getPrimaryDisplayRole(member, organization);
+                const tagStyleClass = getRoleBadgeStyles(displayRole.badgeVariant);
+                const musicRole = roles.find((candidate) => candidate.id === member.roleId)?.name;
+                return (
+                  <button
+                    key={member.uid}
+                    type="button"
+                    onClick={() => setSelectedMemberForDetail(member)}
+                    className="group flex w-full items-center gap-3 rounded-2xl border border-slate-200/70 bg-white p-3 text-left transition-all hover:border-primary/30 hover:shadow-sm dark:border-white/5 dark:bg-white/[0.02] sm:p-4"
+                  >
+                    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+                      {member.photoURL ? (
+                        <img src={member.photoURL} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <UserIcon className="h-5 w-5 text-slate-400" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate font-semibold text-slate-900 dark:text-white">
+                          {member.displayName || member.email || t("profile.user", "Usuário")}
+                        </span>
+                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${tagStyleClass}`}>
+                          {displayRole.label}
+                        </span>
+                      </div>
+                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">{member.email}</p>
+                      {musicRole && (
+                        <p className="mt-1 text-[11px] font-medium text-slate-400">
+                          {t("users.music_role_short", "MusicScale: {{role}}", { role: musicRole })}
+                        </p>
+                      )}
+                    </div>
+                    <span className="hidden text-xs font-semibold text-primary sm:block">
+                      {canManageTeamSetup
+                        ? t("users.view_edit_member", "Ver e editar")
+                        : t("users.view_member", "Ver detalhes")}
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center dark:border-white/10">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {t("users.members_empty_search", "Nenhum integrante encontrado para esta busca.")}
+                </p>
+                {canManageTeamSetup && (
+                  <Button onClick={() => setIsHubInviteOpen(true)} className="mt-4">
+                    {t("users.invite_user", "Convidar pessoa")}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+      )}
+
+      <UserDetailsModal
+        isOpen={!!selectedMemberForDetail}
+        user={selectedMemberForDetail}
+        roles={roles}
+        instruments={instruments}
+        onClose={() => setSelectedMemberForDetail(null)}
+        onSave={handleDirectoryMemberSave}
+        onDelete={handleDirectoryMemberDelete}
+        isSubmitting={isMemberSubmitting}
+        allUsers={allUsers}
+      />
 
       <div
         ref={managementSectionRef}
