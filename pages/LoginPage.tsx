@@ -56,6 +56,19 @@ export default function LoginPage() {
     return candidate && candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : null;
   };
 
+  const isInvitationRedirect = (candidate: string | null) =>
+    Boolean(
+      candidate &&
+      candidate.startsWith('/') &&
+      !candidate.startsWith('//') &&
+      (
+        candidate.startsWith('/join/') ||
+        candidate.startsWith('/join?') ||
+        candidate.startsWith('/invite?')
+      ) &&
+      (candidate.includes('token=') || candidate.includes('invite='))
+    );
+
 
   useEffect(() => {
     let active = true;
@@ -103,7 +116,7 @@ export default function LoginPage() {
      }
      
      const redirectStr = params.get('redirect');
-     if (redirectStr && redirectStr.includes('invite=')) {
+     if (isInvitationRedirect(redirectStr)) {
          setShowEmailForm(true);
          setIsRegister(true);
      }

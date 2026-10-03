@@ -32,10 +32,10 @@ export const decodeToken = (token: string): { orgId: string, inviteId: string } 
   }
 };
 
-export async function acceptInvite(idToken: string, token: string) {
+export async function acceptInvite(idToken: string, token: string, organizationId?: string) {
   const response = await fetch('/api/orgs/accept-invite', {
     method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${idToken}` },
-    body: JSON.stringify({ token })
+    body: JSON.stringify({ token, ...(organizationId ? { organizationId } : {}) })
   });
   const data = await response.json();
   if (!response.ok) return { success: false, message: data.reasonCode || data.error || 'error' };

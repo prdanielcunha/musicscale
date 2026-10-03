@@ -405,15 +405,24 @@ export function createInvitationCompatibilityHandlers(deps: InvitationCompatibil
       }
       if (req.body?.userId && req.body.userId !== principal.uid) return res.status(403).json({ error: 'ACTOR_ID_MISMATCH' });
 
-      try {
-        const hub = await hubFactory().accept(principal.bearer, token);
-        const roleProjectionApplied = await applyRoleIntent(deps.db, hub.organizationId, principal.uid, principal.email);
-        return res.json({ ...hub, roleProjectionApplied });
-      } catch (hubError) {
-        if (!permitsLegacyInvitationFallback(hubError)) {
-          const mapped = mapKnownError(hubError);
-          if (mapped) return res.status(mapped.status).json({ error: mapped.reasonCode, reasonCode: mapped.reasonCode });
-          return res.status(503).json({ error: 'HUB_UNAVAILABLE', reasonCode: 'HUB_UNAVAILABLE' });
+      const requestedOrganizationId =
+        typeof req.body?.organizationId === 'string' ? req.body.organizationId.trim() : '';
+
+      if (requestedOrganizationId) {
+        if (!isValidId(requestedOrganizationId)) {
+          return res.status(400).json({ error: 'INVALID_ORGANIZATION_ID', reasonCode: 'INVALID_ORGANIZATION_ID' });
+        }
+
+        try {
+          const hub = await hubFactory().accept(principal.bearer, token, requestedOrganizationId);
+          const roleProjectionApplied = await applyRoleIntent(deps.db, hub.organizationId, principal.uid, principal.email);
+          return res.json({ ...hub, roleProjectionApplied });
+        } catch (hubError) {
+          if (!permitsLegacyInvitationFallback(hubError)) {
+            const mapped = mapKnownError(hubError);
+            if (mapped) return res.status(mapped.status).json({ error: mapped.reasonCode, reasonCode: mapped.reasonCode });
+            return res.status(503).json({ error: 'HUB_UNAVAILABLE', reasonCode: 'HUB_UNAVAILABLE' });
+          }
         }
       }
 

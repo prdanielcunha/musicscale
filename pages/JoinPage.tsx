@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { acceptInvite } from '../services/inviteService';
 import Spinner from '../components/common/Spinner';
@@ -8,6 +8,7 @@ import { useToast } from '../contexts/ToastContext';
 
 export default function JoinPage() {
   const [params] = useSearchParams();
+  const { organizationId } = useParams<{ organizationId?: string }>();
   const location = useLocation();
   const token = params.get('token') || params.get('invite');
   const { user, loading } = useAuth();
@@ -24,11 +25,11 @@ export default function JoinPage() {
   const handleAccept = async () => {
     setProcessing(true); setError(null);
     try {
-      const result = await acceptInvite(await user.getIdToken(), token);
+      const result = await acceptInvite(await user.getIdToken(), token, organizationId);
       if (!result.success) throw new Error(result.message);
       sessionStorage.removeItem('pendingInviteToken');
       showToast(t('join.accepted', 'Convite aceito com sucesso!'), 'success');
-      window.location.href = '/';
+      window.location.replace('/');
     } catch (e: any) { setError(e.message || 'error'); setProcessing(false); }
   };
 
