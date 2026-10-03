@@ -130,7 +130,9 @@
     "member_permission_changed": "Sua permissão para alterar este integrante mudou. Atualize a página e tente novamente.",
     "member_update_error": "Não foi possível atualizar este integrante.",
     "member_removed": "Integrante removido da organização.",
-    "member_remove_error": "Não foi possível remover este integrante."
+    "member_remove_error": "Não foi possível remover este integrante.",
+    "role_permissions": "Permissões deste cargo",
+    "role_permissions_hint": "As permissões são definidas pelo cargo para manter a segurança e o padrão da equipe."
   },
   "nav": {
     "dashboard": "Painel",
