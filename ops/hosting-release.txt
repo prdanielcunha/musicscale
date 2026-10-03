@@ -1,2 +1,2 @@
-MusicScale 0.9.0-beta.2 — 2026-10-02
-Fix canonical invitations for legacy/owner membership states and add the interactive Members directory with role-safe editing and invite actions.
+MusicScale 0.9.0-beta.3 — 2026-10-03
+Fix invited member identity and role projection, keep organization members out of the legacy Visitante fallback, and route new organization invitations directly into MusicScale.
