@@ -1910,6 +1910,7 @@ const UsersPage: React.FC = () => {
       />
 
 
+      {!isExistingMemberSetupOpen && (
       <Card className="p-0 overflow-hidden">
         <div className="flex flex-col gap-4 p-5 sm:p-6 border-b border-slate-200/70 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -2004,6 +2005,7 @@ const UsersPage: React.FC = () => {
           </div>
         </div>
       </Card>
+      )}
 
       <UserDetailsModal
         isOpen={!!selectedMemberForDetail}
