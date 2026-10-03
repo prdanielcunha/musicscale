@@ -79,6 +79,42 @@ describe('02B create adapter matrix', () => {
     expect(result.inviteUrl).toBe('https://configured.example/join/org-1?token=link-secret');
   });
 
+  it('forwards and validates a MusicScale app target', async () => {
+    const fetcher = vi.fn(async (_url, init) => {
+      expect(JSON.parse(String(init?.body))).toEqual({
+        organizationId: 'org-1',
+        role: 'member',
+        mode: 'link',
+        targetAppId: 'musicscale',
+        targetPath: '/start'
+      });
+      return response(200, {
+        success: true,
+        reasonCode: 'CREATED',
+        invitePath: '/join/org-1?token=target-secret',
+        invitation: {
+          id: 'i-target',
+          organizationId: 'org-1',
+          role: 'member',
+          inviteMode: 'link',
+          identityBound: false,
+          targetAppId: 'musicscale',
+          targetPath: '/start',
+          expiresAtMs: 1
+        }
+      });
+    });
+    const result = await new HubInvitationAdapter({ origin: 'https://configured.example', fetch: fetcher as any })
+      .create('Bearer exact-token', 'org-1', {
+        role: 'member',
+        mode: 'link',
+        targetAppId: 'musicscale',
+        targetPath: '/start'
+      });
+    expect(result.invitation.targetAppId).toBe('musicscale');
+    expect(result.invitation.targetPath).toBe('/start');
+  });
+
   it('delivers email through the canonical Hub command with the canonical Hub URL', async () => {
     const fetcher = vi.fn(async (url, init) => {
       expect(url).toBe('https://configured.example/api/v1/invitations/email');
