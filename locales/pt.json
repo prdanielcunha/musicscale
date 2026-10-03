@@ -117,7 +117,9 @@
       "create_error": "Não foi possível criar o convite. Tente novamente.",
       "no_org": "Nenhuma organização ativa encontrada.",
       "member_limit_unavailable": "Não foi possível confirmar o limite de usuários da organização. Tente novamente em instantes.",
-      "organization_unavailable": "A organização não está disponível para novos convites agora."
+      "organization_unavailable": "A organização não está disponível para novos convites agora.",
+      "membership_sync_error": "Seu acesso à organização ainda não está sincronizado. Atualize a página e tente novamente.",
+      "organization_state_error": "A organização está com o acesso inconsistente. Atualize a página e tente novamente."
     },
     "members_title": "Integrantes",
     "members_subtitle": "Abra um integrante para ver os dados, função, especialidades e ações permitidas pelo seu nível de acesso.",

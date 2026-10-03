@@ -47,7 +47,10 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Prefer the tenant that is actually selected/rendered in MusicScale.
+  // Profile pointers are retained only as compatibility fallbacks for legacy accounts.
   const activeOrganizationId =
+    (organization as any)?.id ||
     userProfile?.activeOrganizationId ||
     userProfile?.primaryOrganizationId ||
     userProfile?.organizationId;
@@ -141,17 +144,18 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
       return t("users.invite.member_limit_unavailable", "Não foi possível confirmar o limite de usuários da organização. Tente novamente em instantes.");
     }
     if (code === "INVITE_ALREADY_PENDING") return t("users.invite.already_pending", "Já existe um convite pendente para este e-mail.");
+    if (code === "PERMISSION_DENIED" || code === "FORBIDDEN") {
+      return t("users.invite.permission_denied", "Você não tem permissão para criar este convite.");
+    }
     if (
-      code === "PERMISSION_DENIED" ||
-      code === "FORBIDDEN" ||
       code === "ACTOR_MEMBERSHIP_REQUIRED" ||
       code === "ACTOR_MEMBERSHIP_INACTIVE" ||
       code === "ACTOR_MEMBERSHIP_STATE_INCONSISTENT"
     ) {
-      return t("users.invite.permission_denied", "Você não tem permissão para criar este convite.");
+      return t("users.invite.membership_sync_error", "Seu acesso à organização ainda não está sincronizado. Atualize a página e tente novamente.");
     }
     if (code === "ORGANIZATION_INACTIVE" || code === "ORGANIZATION_STATE_INCONSISTENT") {
-      return t("users.invite.organization_unavailable", "A organização não está disponível para novos convites agora.");
+      return t("users.invite.organization_state_error", "A organização está com o acesso inconsistente. Atualize a página e tente novamente.");
     }
     if (code === "INVALID_EMAIL" || code === "INVALID_INVITE_EMAIL") return t("users.invite.invalid_email", "Informe um e-mail válido.");
     if (code === "INVALID_INVITE_ROLE") return t("users.invite.invalid_role", "Esse nível de acesso não pode ser usado neste convite.");

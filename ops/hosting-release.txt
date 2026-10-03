@@ -1,2 +1,2 @@
-MusicScale 0.9.0-beta.1 — 2026-10-02
-Publish the canonical MillionsNest invitation experience to Firebase Hosting: invite by email or single-use link, choose organization access, and keep MusicScale role assignment safe and tenant-scoped.
+MusicScale 0.9.0-beta.2 — 2026-10-03
+Fix canonical invitation context for multi-organization users: bind email/link invitations to the organization currently selected in MusicScale, improve Hub error feedback, and retain the MillionsNest authority flow.

@@ -117,7 +117,9 @@
       "create_error": "Could not create the invitation. Try again.",
       "no_org": "No active organization was found.",
       "member_limit_unavailable": "Could not confirm the organization's user limit. Try again in a moment.",
-      "organization_unavailable": "The organization is not available for new invitations right now."
+      "organization_unavailable": "The organization is not available for new invitations right now.",
+      "membership_sync_error": "Your organization access is not synchronized yet. Refresh the page and try again.",
+      "organization_state_error": "The organization access state is inconsistent. Refresh the page and try again."
     },
     "members_title": "Members",
     "members_subtitle": "Open a member to view their details, role, specialties, and actions allowed by your access level.",
