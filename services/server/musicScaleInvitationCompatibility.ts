@@ -345,7 +345,11 @@ export function createInvitationCompatibilityHandlers(deps: InvitationCompatibil
       const hub = await hubFactory().create(req.headers.authorization, organizationId, {
         ...(inviteMode === 'email' ? { email: safeEmail } : {}),
         role: safeOrganizationRole as 'admin' | 'manager' | 'member' | 'viewer',
-        mode: inviteMode
+        mode: inviteMode,
+        // MusicScale is the caller, so the server—not the browser—binds the
+        // invitation to the app and its safe first-use destination.
+        targetAppId: 'musicscale',
+        targetPath: '/start'
       });
       if (preparedIntent) {
         await finishRoleIntent(preparedIntent.ref, preparedIntent.generationId, hub);
