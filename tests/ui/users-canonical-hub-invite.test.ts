@@ -18,7 +18,7 @@ describe('Users canonical MillionsNest invitation experience', () => {
     expect(modal).toContain('users.invite.role_viewer');
     expect(modal).toContain('/api/orgs/invite');
     expect(modal).toContain('/api/orgs/invite/send-email');
-    expect(modal).toContain('https://www.millionsnest.com');
+    expect(modal).toContain('https://musicscale.millionsnest.com');
   });
 
   it('exposes direct invite entry points globally and inside a MusicScale role', () => {
