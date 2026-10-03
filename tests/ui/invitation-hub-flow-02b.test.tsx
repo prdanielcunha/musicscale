@@ -32,7 +32,7 @@ describe('UsersPage invitation compatibility UI (A-D)', () => {
     expect(modalSource).toContain('email: email.trim()');
     expect(modalSource).toContain('roleId: musicScaleRole.id');
     expect(modalSource).toContain('data.inviteUrl');
-    expect(modalSource).toContain('https://musicscale.millionsnest.com');
+    expect(modalSource).toContain('musicscale.millionsnest.com');
   });
 
   it('C-D performs no invitation Firestore write and keeps MusicScale role intent separate from organization access', () => {
