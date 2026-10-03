@@ -19,6 +19,18 @@ describe('Users canonical MillionsNest invitation experience', () => {
     expect(modal).toContain('/api/orgs/invite');
     expect(modal).toContain('/api/orgs/invite/send-email');
     expect(modal).toContain('https://www.millionsnest.com');
+    expect(modal).toContain('users.invite.target_app_title');
+    expect(modal).toContain('direto no MusicScale');
+  });
+
+  it('binds MusicScale invitations to the app on the server instead of trusting browser input', () => {
+    const compatibility = read('services/server/musicScaleInvitationCompatibility.ts');
+    const adapter = read('services/server/hubInvitationAdapter.ts');
+
+    expect(compatibility).toContain("targetAppId: 'musicscale'");
+    expect(compatibility).toContain("targetPath: '/start'");
+    expect(adapter).toContain('targetAppId?: \'musicscale\'');
+    expect(adapter).toContain('result.invitation?.targetAppId !== options.targetAppId');
   });
 
   it('exposes direct invite entry points globally and inside a MusicScale role', () => {

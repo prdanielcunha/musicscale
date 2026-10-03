@@ -220,9 +220,12 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
           data.musicScaleRoleDeferred
             ? t(
                 "users.invite.link_created_role_deferred",
-                "Link criado. O acesso à organização será aplicado ao entrar; a função musical será definida depois no MusicScale.",
+                "Link criado. Depois do cadastro, a pessoa entrará direto no MusicScale; a função musical poderá ser definida depois.",
               )
-            : t("users.invite.link_created", "Link de uso único criado. Ele expira em 7 dias."),
+            : t(
+                "users.invite.link_created",
+                "Link de uso único criado. Depois do cadastro, a pessoa entrará direto no MusicScale. Ele expira em 7 dias.",
+              ),
         );
       }
 
@@ -274,7 +277,7 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
               "Convite enviado. Ao aceitar com este e-mail, a pessoa também será adicionada à função {{role}} no MusicScale.",
               { role: musicScaleRole.name },
             )
-          : t("users.invite.email_sent", "Convite enviado por e-mail."),
+          : t("users.invite.email_sent", "Convite enviado. Depois de aceitar, a pessoa entrará direto no MusicScale."),
       );
     } catch {
       setSuccess(
@@ -312,7 +315,7 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
     const message = encodeURIComponent(
       t(
         "users.invite.whatsapp_message",
-        "Você foi convidado para entrar na organização {{organization}} na MillionsNest.\n\nAcesse: {{url}}",
+        "Você foi convidado para usar o MusicScale como integrante da organização {{organization}}. Você não precisa comprar um plano: o acesso vem da organização. Depois do cadastro, você entrará direto no MusicScale.\n\nAcesse: {{url}}",
         { organization: organizationName, url: invite.url },
       ),
     );
@@ -326,8 +329,11 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
     if (!invite) return;
     try {
       await navigator.share({
-        title: t("users.invite.share_title", "Convite MillionsNest"),
-        text: t("users.invite.share_text", "Você recebeu um convite para entrar na organização no MillionsNest."),
+        title: t("users.invite.share_title", "Convite para o MusicScale"),
+        text: t(
+          "users.invite.share_text",
+          "Você recebeu um convite para usar o MusicScale como integrante de uma organização. Depois do cadastro, você será levado direto ao app.",
+        ),
         url: invite.url,
       });
     } catch (err: any) {
@@ -350,6 +356,18 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
             "Informe quem vai entrar, escolha o acesso e envie o convite pelo canal que preferir.",
           )}
         </p>
+
+        <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+            {t("users.invite.target_app_title", "Este convite é para o MusicScale")}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            {t(
+              "users.invite.target_app_desc",
+              "A pessoa entra como integrante da organização, não como comprador. Depois do cadastro e aceite, ela será levada direto ao MusicScale usando o acesso da organização.",
+            )}
+          </p>
+        </div>
 
         {error && (
           <div aria-live="polite" className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">

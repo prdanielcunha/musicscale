@@ -194,7 +194,9 @@ describe('02B2 executable create handler', () => {
     expect(hub.create).toHaveBeenCalledWith('Bearer actor-token', 'org-1', {
       email: 'person@example.com',
       role: 'member',
-      mode: 'email'
+      mode: 'email',
+      targetAppId: 'musicscale',
+      targetPath: '/start'
     });
     expect(res.body.link).toBe('/join/org-1?token=raw-secret');
     const intentPath = `organizations/org-1/musicscale_invite_role_intents/${recipientEmailHash('person@example.com')}`;
@@ -255,7 +257,9 @@ describe('02B2 executable create handler', () => {
     expect(res.statusCode).toBe(200);
     expect(hub.create).toHaveBeenCalledWith('Bearer actor-token', 'org-1', {
       role: 'manager',
-      mode: 'link'
+      mode: 'link',
+      targetAppId: 'musicscale',
+      targetPath: '/start'
     });
     expect(res.body).toMatchObject({
       inviteUrl: 'https://www.millionsnest.com/join/org-1?token=shareable-secret',

@@ -12,6 +12,8 @@ export type HubInvitationCreateOptions = {
   email?: string;
   role?: HubOrganizationRole;
   mode?: HubInvitationMode;
+  targetAppId?: 'musicscale';
+  targetPath?: string;
 };
 
 export class HubInvitationError extends Error {
@@ -94,7 +96,9 @@ export class HubInvitationAdapter {
       organizationId,
       ...(mode === 'email' ? { email: normalizedEmail } : {}),
       role,
-      ...(!legacyEmailCall ? { mode } : {})
+      ...(!legacyEmailCall ? { mode } : {}),
+      ...(options.targetAppId ? { targetAppId: options.targetAppId } : {}),
+      ...(options.targetPath ? { targetPath: options.targetPath } : {})
     });
 
     const returnedMode = result.invitation?.inviteMode || (result.invitation?.identityBound === false ? 'link' : 'email');
@@ -102,7 +106,9 @@ export class HubInvitationAdapter {
       !result.invitePath?.startsWith(`/join/${organizationId}?token=`) ||
       result.invitation?.organizationId !== organizationId ||
       result.invitation?.role !== role ||
-      returnedMode !== mode
+      returnedMode !== mode ||
+      (options.targetAppId && result.invitation?.targetAppId !== options.targetAppId) ||
+      (options.targetPath && result.invitation?.targetPath !== options.targetPath)
     ) {
       throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
     }
