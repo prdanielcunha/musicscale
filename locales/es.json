@@ -117,7 +117,9 @@
       "create_error": "No fue posible crear la invitación. Inténtalo de nuevo.",
       "no_org": "No se encontró una organización activa.",
       "member_limit_unavailable": "No fue posible confirmar el límite de usuarios de la organización. Inténtalo de nuevo en unos instantes.",
-      "organization_unavailable": "La organización no está disponible para nuevas invitaciones en este momento."
+      "organization_unavailable": "La organización no está disponible para nuevas invitaciones en este momento.",
+      "membership_sync_error": "Tu acceso a la organización aún no está sincronizado. Actualiza la página e inténtalo de nuevo.",
+      "organization_state_error": "El estado de acceso de la organización es inconsistente. Actualiza la página e inténtalo de nuevo."
     },
     "members_title": "Integrantes",
     "members_subtitle": "Abre un integrante para ver sus datos, función, especialidades y acciones permitidas por tu nivel de acceso.",
