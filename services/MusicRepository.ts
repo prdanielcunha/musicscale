@@ -118,11 +118,40 @@ export class MusicRepository {
         // Custom users repository to fetch from organization_members correctly handling multi-tenancy
         this.users = new class extends BaseRepository<UserProfile> {
             async list() {
-                // Fetch strictly from organizations/{orgId}/members to enforce active organization isolation
+                // Prefer the server-side canonical directory: it can enrich legacy memberships
+                // with Firebase Auth identity without trusting legacy global role fields.
                 const { collection, getDocs, doc, getDoc } = await import('firebase/firestore');
-                const { db } = await import('./firebase');
+                const { db, auth } = await import('./firebase');
                 
                 if (!orgId) return [];
+
+                try {
+                    const token = await auth.currentUser?.getIdToken();
+                    if (token) {
+                        const response = await fetch(`/api/orgs/${encodeURIComponent(orgId)}/member-directory`, {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                Accept: 'application/json',
+                                'Cache-Control': 'no-store'
+                            }
+                        });
+                        const payload = await response.json().catch(() => ({}));
+                        if (response.ok && payload?.success === true && Array.isArray(payload.members)) {
+                            return payload.members.map((member: any) => ({
+                                ...member,
+                                id: member.id || member.uid,
+                                uid: member.uid || member.id,
+                                email: member.email || '',
+                                displayName: member.displayName || member.email || '',
+                                photoURL: member.photoURL || '',
+                                roleId: member.roleId || '',
+                                organizationId: orgId,
+                            })) as UserProfile[];
+                        }
+                    }
+                } catch (error) {
+                    // Keep a Firestore-only fallback for offline/dev compatibility.
+                }
 
                 const profilesMap = new Map<string, UserProfile>();
 
