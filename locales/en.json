@@ -130,7 +130,9 @@
     "member_permission_changed": "Your permission to change this member has changed. Refresh the page and try again.",
     "member_update_error": "Could not update this member.",
     "member_removed": "Member removed from the organization.",
-    "member_remove_error": "Could not remove this member."
+    "member_remove_error": "Could not remove this member.",
+    "role_permissions": "Role permissions",
+    "role_permissions_hint": "Permissions are defined by role to keep team access secure and consistent."
   },
   "nav": {
     "dashboard": "Dashboard",
