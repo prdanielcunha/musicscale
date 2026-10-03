@@ -13,7 +13,9 @@ vi.mock('../../contexts/MusicDataContext', () => ({
 
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: vi.fn(() => ({
+    user: null,
     userProfile: { uid: 'user123', organizationId: 'org123' },
+    isGlobalAdmin: false,
   })),
 }));
 
@@ -84,6 +86,7 @@ const mockSong = {
   lyrics: 'Minha letra de teste',
   chords: 'C G Am F',
   chordsUrl: 'https://cifras.com/minha-musica',
+  createdAt: '2026-10-02T12:00:00.000Z',
   tags: [],
 };
 
@@ -175,5 +178,29 @@ describe('SongDetailModal Open Modes', () => {
 
     expect(screen.getByTestId('mock-web-viewer')).toBeInTheDocument();
     expect(screen.queryByTestId('mock-chords-viewer')).not.toBeInTheDocument();
+  });
+
+  it('renderiza createdAt do Firestore como data brasileira válida', () => {
+    const songWithFirestoreTimestamp = {
+      ...mockSong,
+      createdAt: {
+        toDate: () => new Date('2026-10-02T12:00:00.000Z'),
+      },
+    };
+
+    render(
+      <SongDetailModal
+        song={songWithFirestoreTimestamp as any}
+        onClose={mockOnClose}
+        onEdit={mockOnEdit}
+        onDelete={mockOnDelete}
+        onCreateScale={mockOnCreateScale}
+        scaleContext={null}
+        onNavigate={mockOnNavigate}
+      />
+    );
+
+    expect(screen.getByText('2 de outubro de 2026')).toBeInTheDocument();
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument();
   });
 });
