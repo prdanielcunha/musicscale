@@ -47,7 +47,11 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // The rendered organization context is the canonical tenant currently selected
+  // in MusicScale. Prefer it over legacy/profile pointers so multi-organization
+  // users never create an invite in a stale tenant by accident.
   const activeOrganizationId =
+    (organization as any)?.id ||
     userProfile?.activeOrganizationId ||
     userProfile?.primaryOrganizationId ||
     userProfile?.organizationId;
@@ -139,9 +143,15 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
     if (code === "MEMBER_LIMIT_REACHED") return t("users.invite.member_limit", "O limite de usuários do plano foi atingido.");
     if (code === "INVITE_ALREADY_PENDING") return t("users.invite.already_pending", "Já existe um convite pendente para este e-mail.");
     if (code === "PERMISSION_DENIED" || code === "FORBIDDEN") return t("users.invite.permission_denied", "Você não tem permissão para criar este convite.");
-    if (code === "INVALID_EMAIL") return t("users.invite.invalid_email", "Informe um e-mail válido.");
+    if (code === "ACTOR_MEMBERSHIP_REQUIRED" || code === "ACTOR_MEMBERSHIP_INACTIVE" || code === "ACTOR_MEMBERSHIP_STATE_INCONSISTENT") {
+      return t("users.invite.membership_sync_error", "Seu acesso à organização ainda não está sincronizado. Atualize a página e tente novamente.");
+    }
+    if (code === "ORGANIZATION_INACTIVE" || code === "ORGANIZATION_STATE_INCONSISTENT") {
+      return t("users.invite.organization_state_error", "A organização está com o acesso inconsistente. Atualize a página e tente novamente.");
+    }
+    if (code === "INVALID_EMAIL" || code === "INVALID_INVITE_EMAIL") return t("users.invite.invalid_email", "Informe um e-mail válido.");
     if (code === "INVALID_INVITE_ROLE") return t("users.invite.invalid_role", "Esse nível de acesso não pode ser usado neste convite.");
-    if (code === "HUB_UNAVAILABLE" || code === "HUB_NOT_CONFIGURED") return t("users.invite.hub_unavailable", "O MillionsNest está temporariamente indisponível. Tente novamente.");
+    if (code === "MEMBER_LIMIT_UNAVAILABLE" || code === "HUB_UNAVAILABLE" || code === "HUB_NOT_CONFIGURED") return t("users.invite.hub_unavailable", "O MillionsNest está temporariamente indisponível. Tente novamente.");
     return t("users.invite.create_error", "Não foi possível criar o convite. Tente novamente.");
   };
 
