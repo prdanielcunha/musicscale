@@ -296,6 +296,15 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
 
   const sortedRoles = sortRolesByHierarchy(roles);
   const currentRole = roles.find((r) => r.id === user.roleId);
+  const selectedEditRole = roles.find((r) => r.id === editRoleId);
+  const rolePermissionKeys = [
+    "canManageUsers",
+    "canManageRoles",
+    "canManageRepertoire",
+    "canManageScales",
+    "canManageChords",
+    "canViewContent",
+  ] as const;
 
   // Compute hierarchy checks
   const targetRoleKey = getRoleKeyFromId(user.roleId, roles);
@@ -422,6 +431,34 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
               <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5 font-semibold flex items-center gap-1 leading-normal bg-amber-500/5 p-2 rounded-lg border border-amber-500/10">
                 ⚠️ {checkChange.error || t("users.role_change_error", "Você não pode alterar o cargo de alguém com nível hierárquico igual ou superior ao seu.")}
               </p>
+            )}
+
+            {selectedEditRole && (
+              <div className="mt-3 rounded-2xl border border-slate-200/70 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {t("users.role_permissions", "Permissões deste cargo")}
+                </p>
+                <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {rolePermissionKeys.map((permissionKey) => {
+                    const enabled = !!selectedEditRole.permissions?.[permissionKey];
+                    return (
+                      <div
+                        key={permissionKey}
+                        className={`flex items-center gap-2 text-xs ${enabled ? "text-slate-700 dark:text-slate-200" : "text-slate-400 dark:text-slate-600"}`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`h-1.5 w-1.5 rounded-full ${enabled ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"}`}
+                        />
+                        <span>{t(`teamSetup.existingMember.access.permissionsMap.${permissionKey}`)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[11px] leading-5 text-slate-400">
+                  {t("users.role_permissions_hint", "As permissões são definidas pelo cargo para manter a segurança e o padrão da equipe.")}
+                </p>
+              </div>
             )}
           </div>
         </div>
