@@ -32,7 +32,7 @@ describe('UsersPage invitation compatibility UI (A-D)', () => {
     expect(modalSource).toContain('email: email.trim()');
     expect(modalSource).toContain('roleId: musicScaleRole.id');
     expect(modalSource).toContain('data.inviteUrl');
-    expect(modalSource).toContain('https://www.millionsnest.com');
+    expect(modalSource).toContain('musicscale.millionsnest.com');
   });
 
   it('C-D performs no invitation Firestore write and keeps MusicScale role intent separate from organization access', () => {
@@ -60,7 +60,7 @@ describe('JoinPage invitation routes (H-R)', () => {
   it('M-O accepts only through API wrapper with ID token and performs no storage/Firestore writes', async () => {
     authState.user = { getIdToken: vi.fn(async () => 'id-token') }; acceptInvite.mockResolvedValue({ success: false, message: 'safe-error' });
     renderJoin('/join/org-1?token=raw', '/join/:organizationId'); fireEvent.click(screen.getByText('Aceitar convite'));
-    await waitFor(() => expect(acceptInvite).toHaveBeenCalledWith('id-token', 'raw'));
+    await waitFor(() => expect(acceptInvite).toHaveBeenCalledWith('id-token', 'raw', 'org-1'));
     expect(localStorage.length).toBe(0);
     const source = readFileSync('pages/JoinPage.tsx', 'utf8'); expect(source).not.toMatch(/(?:setDoc|updateDoc|addDoc|getDoc)\s*\(/);
   });
@@ -92,4 +92,10 @@ describe('Login redirect security contract (S-AA)', () => {
     expect(path.startsWith('/') && !path.startsWith('//')).toBe(false);
   });
   it('source uses the exact local-only predicate', () => expect(source).toContain("candidate.startsWith('/') && !candidate.startsWith('//')"));
+  it('opens registration mode for canonical app-native invitations', () => {
+    expect(source).toContain('isInvitationRedirect');
+    expect(source).toContain("candidate.startsWith('/join/')");
+    expect(source).toContain("candidate.includes('token=')");
+    expect(source).toContain('setIsRegister(true)');
+  });
 });
