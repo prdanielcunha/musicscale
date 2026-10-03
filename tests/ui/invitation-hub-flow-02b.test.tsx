@@ -92,4 +92,10 @@ describe('Login redirect security contract (S-AA)', () => {
     expect(path.startsWith('/') && !path.startsWith('//')).toBe(false);
   });
   it('source uses the exact local-only predicate', () => expect(source).toContain("candidate.startsWith('/') && !candidate.startsWith('//')"));
+  it('opens registration mode for canonical app-native invitations', () => {
+    expect(source).toContain('isInvitationRedirect');
+    expect(source).toContain("candidate.startsWith('/join/')");
+    expect(source).toContain("candidate.includes('token=')");
+    expect(source).toContain('setIsRegister(true)');
+  });
 });
