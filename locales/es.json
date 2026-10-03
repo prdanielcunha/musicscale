@@ -130,7 +130,9 @@
     "member_permission_changed": "Tu permiso para cambiar este integrante cambió. Actualiza la página e inténtalo de nuevo.",
     "member_update_error": "No fue posible actualizar este integrante.",
     "member_removed": "Integrante eliminado de la organización.",
-    "member_remove_error": "No fue posible eliminar este integrante."
+    "member_remove_error": "No fue posible eliminar este integrante.",
+    "role_permissions": "Permisos de este cargo",
+    "role_permissions_hint": "Los permisos se definen por cargo para mantener el acceso del equipo seguro y consistente."
   },
   "nav": {
     "dashboard": "Tablero",
