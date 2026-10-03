@@ -247,6 +247,10 @@ app.post(
   "/api/v1/organizations/:organizationId/serve-guard/evaluate",
   serveGuardHttpHandlers.evaluate,
 );
+app.post(
+  "/api/v1/organizations/:organizationId/serve-guard/evaluate-batch",
+  serveGuardHttpHandlers.evaluateBatch,
+);
 
   app.post("/api/admin/backfill-global-titles", requireEcosystemRole, async (req: any, res: any) => {
     try {
