@@ -1586,20 +1586,32 @@ const UsersPage: React.FC = () => {
     try {
       const userProfiles = await api.users.list();
       const normalizedProfiles = userProfiles.map(u => {
-          const roleSourceStr = u.musicscaleRole || u.ministryFunction || u.organizationRole || u.roleId || u.role || 'viewer';
-          
+          const ministryRole = Array.isArray(u.ministryFunction)
+            ? u.ministryFunction.find((value) => typeof value === "string" && value.trim())
+            : u.ministryFunction;
+          // Organization access is not a MusicScale ministry function.
+          const roleSourceStr = String(u.roleId || u.musicscaleRole || ministryRole || "").trim();
+
+          if (!roleSourceStr) {
+             return { ...u, roleId: "" };
+          }
+
           let match = roles.find(r => r.id === roleSourceStr);
           if (!match) {
-             const mappedKey = getRoleKeyFromName(roleSourceStr || "");
+             const mappedKey = getRoleKeyFromName(roleSourceStr);
              if (mappedKey === 'owner') match = roles.find(r => r.name === 'Dono');
              else if (mappedKey === 'admin') match = roles.find(r => r.name === 'Administrador');
              else if (mappedKey === 'leader') match = roles.find(r => r.name === 'Líder' || r.name === 'Ministro' || r.name === 'Líder / Ministro');
              else if (mappedKey === 'musician') match = roles.find(r => r.name === 'Músico' || r.name === 'Vocal' || r.name === 'Músico / Vocal');
-             else match = roles.find(r => r.name === 'Visitante');
+             else {
+               const normalizedSource = roleSourceStr.toLocaleLowerCase();
+               if (normalizedSource === 'viewer' || normalizedSource.includes('visitante')) {
+                 match = roles.find(r => r.name === 'Visitante');
+               }
+             }
           }
-          
-          let resolvedRoleId = match ? match.id : u.roleId;
-          return { ...u, roleId: resolvedRoleId };
+
+          return { ...u, roleId: match?.id || "" };
       });
       setAllUsers(normalizedProfiles);
     } catch (err) {
