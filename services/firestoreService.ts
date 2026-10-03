@@ -433,14 +433,13 @@ export const createUserProfile = async (user: User, orgId: string, roleName: str
             email: user.email,
             displayName: user.displayName,
             photoURL: user.photoURL,
-            roleId: defaultRole?.id || 'visitor',
-            role: defaultRole?.name || 'Visitante', // Added for shared rules compatibility
             createdAt: serverTimestamp(),
             organizationId: orgId || null
         };
 
-        if (orgId) {
-           profileData.organizationId = orgId;
+        if (orgId && defaultRole) {
+           profileData.roleId = defaultRole.id;
+           profileData.role = defaultRole.name;
         }
 
         await setDoc(doc(db, 'users', user.uid), profileData);
