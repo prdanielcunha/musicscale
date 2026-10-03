@@ -19,6 +19,9 @@ describe('Users canonical MillionsNest invitation experience', () => {
     expect(modal).toContain('/api/orgs/invite');
     expect(modal).toContain('/api/orgs/invite/send-email');
     expect(modal).toContain('https://www.millionsnest.com');
+    expect(modal).toContain('(organization as any)?.id');
+    expect(modal).toContain('ACTOR_MEMBERSHIP_REQUIRED');
+    expect(modal).toContain('ORGANIZATION_STATE_INCONSISTENT');
   });
 
   it('exposes direct invite entry points globally and inside a MusicScale role', () => {
@@ -37,6 +40,8 @@ describe('Users canonical MillionsNest invitation experience', () => {
     expect(parsed.users.invite.method_link).toBeTruthy();
     expect(parsed.users.invite.role_member).toBeTruthy();
     expect(parsed.users.invite.musicscale_role_title).toBeTruthy();
+    expect(parsed.users.invite.membership_sync_error).toBeTruthy();
+    expect(parsed.users.invite.organization_state_error).toBeTruthy();
   });
 
   it('exposes a members directory that opens member details and offers invitation entry points', () => {
