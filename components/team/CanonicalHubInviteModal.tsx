@@ -137,11 +137,27 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
 
   const mapError = (code: string) => {
     if (code === "MEMBER_LIMIT_REACHED") return t("users.invite.member_limit", "O limite de usuários do plano foi atingido.");
+    if (code === "MEMBER_LIMIT_UNAVAILABLE" || code === "MEMBER_LIMIT_INVALID") {
+      return t("users.invite.member_limit_unavailable", "Não foi possível confirmar o limite de usuários da organização. Tente novamente em instantes.");
+    }
     if (code === "INVITE_ALREADY_PENDING") return t("users.invite.already_pending", "Já existe um convite pendente para este e-mail.");
-    if (code === "PERMISSION_DENIED" || code === "FORBIDDEN") return t("users.invite.permission_denied", "Você não tem permissão para criar este convite.");
-    if (code === "INVALID_EMAIL") return t("users.invite.invalid_email", "Informe um e-mail válido.");
+    if (
+      code === "PERMISSION_DENIED" ||
+      code === "FORBIDDEN" ||
+      code === "ACTOR_MEMBERSHIP_REQUIRED" ||
+      code === "ACTOR_MEMBERSHIP_INACTIVE" ||
+      code === "ACTOR_MEMBERSHIP_STATE_INCONSISTENT"
+    ) {
+      return t("users.invite.permission_denied", "Você não tem permissão para criar este convite.");
+    }
+    if (code === "ORGANIZATION_INACTIVE" || code === "ORGANIZATION_STATE_INCONSISTENT") {
+      return t("users.invite.organization_unavailable", "A organização não está disponível para novos convites agora.");
+    }
+    if (code === "INVALID_EMAIL" || code === "INVALID_INVITE_EMAIL") return t("users.invite.invalid_email", "Informe um e-mail válido.");
     if (code === "INVALID_INVITE_ROLE") return t("users.invite.invalid_role", "Esse nível de acesso não pode ser usado neste convite.");
-    if (code === "HUB_UNAVAILABLE" || code === "HUB_NOT_CONFIGURED") return t("users.invite.hub_unavailable", "O MillionsNest está temporariamente indisponível. Tente novamente.");
+    if (code === "HUB_UNAVAILABLE" || code === "HUB_NOT_CONFIGURED" || code === "INTERNAL_ERROR") {
+      return t("users.invite.hub_unavailable", "O MillionsNest está temporariamente indisponível. Tente novamente.");
+    }
     return t("users.invite.create_error", "Não foi possível criar o convite. Tente novamente.");
   };
 
@@ -212,7 +228,9 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
 
       return invite;
     } catch (err: any) {
-      setError(mapError(String(err?.message || "")));
+      const reasonCode = String(err?.message || "");
+      console.error("[CanonicalHubInviteModal] invitation creation failed", { reasonCode, inviteMode, organizationRole });
+      setError(mapError(reasonCode));
       return null;
     } finally {
       setIsLoading(false);

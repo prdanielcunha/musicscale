@@ -39,6 +39,27 @@ describe('Users canonical MillionsNest invitation experience', () => {
     expect(parsed.users.invite.musicscale_role_title).toBeTruthy();
   });
 
+  it('exposes a members directory that opens member details and offers invitation entry points', () => {
+    const users = read('pages/UsersPage.tsx');
+
+    expect(users).toContain('users.members_title');
+    expect(users).toContain('users.members_search');
+    expect(users).toContain('setSelectedMemberForDetail(member)');
+    expect(users).toContain('handleDirectoryMemberSave');
+    expect(users).toContain('handleDirectoryMemberDelete');
+    expect(users).toContain('setIsHubInviteOpen(true)');
+    expect(users).toContain('getActorOrganizationRoleKey');
+    expect(users).toContain('profile?.organizationRole');
+  });
+
+  it.each(['pt', 'en', 'es'])('ships members directory copy in %s', locale => {
+    const parsed = JSON.parse(read(`locales/${locale}.json`));
+    expect(parsed.users.members_title).toBeTruthy();
+    expect(parsed.users.members_search).toBeTruthy();
+    expect(parsed.users.view_edit_member).toBeTruthy();
+    expect(parsed.users.member_update_error).toBeTruthy();
+  });
+
   it('keeps MillionsNest as the server-side authority for invitation creation and delivery', () => {
     const server = read('server.ts');
     const adapter = read('services/server/hubInvitationAdapter.ts');
