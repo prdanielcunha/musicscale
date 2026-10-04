@@ -139,7 +139,8 @@ export const useMusicData = () => {
     // Clear previous watchdog
     if (watchdogRef.current) clearTimeout(watchdogRef.current);
 
-    // Watchdog of 8 seconds
+    // Give transient Firebase transport recovery a short bounded window before
+    // showing the fail-closed recovery screen. Permission/auth failures are never retried.
     watchdogRef.current = setTimeout(() => {
       if (generationRef.current === currentGeneration && !hasUsableCache && !isOperationalRef.current) {
         setLoading(false);
@@ -147,17 +148,48 @@ export const useMusicData = () => {
         logger.warn('[useMusicData] Data fetch timeout reached.');
         markStartupFailure('critical_data_timeout');
       }
-    }, 8000);
+    }, 12000);
 
-    const wrap = async (name: string, p: Promise<any>) => {
+    const transientCodes = new Set([
+      'unavailable',
+      'deadline-exceeded',
+      'aborted',
+      'resource-exhausted',
+      'internal',
+      'cancelled',
+    ]);
+
+    const errorCode = (error: any) =>
+      String(error?.code || '').toLowerCase().replace(/^firestore\//, '');
+
+    const wrap = async (name: string, operation: () => Promise<any>) => {
+      let lastError: any = null;
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
-            const res = await p;
-            if (!Array.isArray(res)) throw new Error(`Result is not an array`);
-            return { name, data: res };
-        } catch (e: any) {
-            const err = new Error(name); // preserve queryName securely in the Error message itself
-            throw err;
+          const res = await operation();
+          if (!Array.isArray(res)) throw new Error('Result is not an array');
+          return { name, data: res };
+        } catch (error: any) {
+          lastError = error;
+          const code = errorCode(error);
+          const shouldRetry = transientCodes.has(code) && attempt < 2;
+
+          if (!shouldRetry) break;
+
+          const delay = attempt === 0 ? 250 : 700;
+          logger.warn(`[useMusicData] Transient ${name} read failed (${code}); retrying in ${delay}ms.`);
+          await new Promise(resolve => window.setTimeout(resolve, delay));
+
+          if (generationRef.current !== currentGeneration) {
+            throw new Error(name);
+          }
         }
+      }
+
+      const err = new Error(name);
+      (err as any).cause = lastError;
+      throw err;
     };
 
     markStartupMetric('initial_data_started_ms');
@@ -168,8 +200,8 @@ export const useMusicData = () => {
     // Taxonomy enrichments start with the critical wave, but never gate the
     // first operational screen. Each request is created exactly once per
     // generation and only patches the already-derived objects it owns.
-    const eventNamesPromise = wrap('eventNames', api.eventNames.list());
-    const tagsPromise = wrap('tags', api.tags.list());
+    const eventNamesPromise = wrap('eventNames', () => api.eventNames.list());
+    const tagsPromise = wrap('tags', () => api.tags.list());
 
     void eventNamesPromise
       .then((result) => {
@@ -219,16 +251,16 @@ export const useMusicData = () => {
       });
 
     const criticalPromises = [
-      wrap('songs', api.songs.list()),
-      wrap('scales', api.scales.list()),
-      wrap('bandScales', api.bandScales.list()),
-      wrap('eventTypes', api.eventTypes.list()),
-      wrap('locations', api.locations.list())
+      wrap('songs', () => api.songs.list()),
+      wrap('scales', () => api.scales.list()),
+      wrap('bandScales', () => api.bandScales.list()),
+      wrap('eventTypes', () => api.eventTypes.list()),
+      wrap('locations', () => api.locations.list())
     ];
 
     // Exactly one users request per generation. It remains secondary but its
     // readiness is independent from unrelated secondary resources.
-    const usersPromise = wrap('users', api.users.list());
+    const usersPromise = wrap('users', () => api.users.list());
     void usersPromise
       .then((result) => {
         if (generationRef.current !== currentGeneration) return;
@@ -243,10 +275,10 @@ export const useMusicData = () => {
       });
     
     const secondaryPromises = [
-      wrap('roles', api.roles.list()),
-      wrap('instruments', api.instruments.list()),
+      wrap('roles', () => api.roles.list()),
+      wrap('instruments', () => api.instruments.list()),
       usersPromise,
-      wrap('fixedBandScales', api.fixedBandScales.list())
+      wrap('fixedBandScales', () => api.fixedBandScales.list())
     ];
 
     const criticalBatch = Promise.allSettled(criticalPromises);
