@@ -1985,7 +1985,16 @@
     "pad_description": "Escolha o tom manualmente e decida se este aparelho será a saída de áudio.",
     "metronome_title": "Metrônomo",
     "metronome_description": "Defina o BPM, marque o tempo e controle o click com áudio preparado para o palco.",
-    "audio_note": "O áudio nunca inicia sozinho. Cada aparelho precisa ser habilitado localmente e o Play continua exigindo uma ação do usuário."
+    "audio_note": "O áudio nunca inicia sozinho. Cada aparelho precisa ser habilitado localmente e o Play continua exigindo uma ação do usuário.",
+    "tuner_title": "NestTuner",
+    "tuner_badge": "Afinador profissional",
+    "tuner_description": "Afinação cromática e por corda com modo fino, referência A4 e modo palco. O áudio é processado localmente neste aparelho.",
+    "tuner_action": "Abrir afinador",
+    "tuner_loading": "Carregando NestTuner…",
+    "tuner_error_title": "Não foi possível abrir o NestTuner",
+    "tuner_error_description": "A ferramenta não carregou dentro do MusicScale. Você pode tentar novamente ou abrir a versão oficial em outra aba.",
+    "tuner_retry": "Tentar novamente",
+    "tuner_open_external": "Abrir NestTuner"
   },
   "bandScalesPage": {
     "fixedBadge": "Formações reutilizáveis",

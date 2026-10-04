@@ -34,6 +34,7 @@ const PlansPage = lazy(() => import('./pages/PlansPage'));
 const PlanUsagePage = lazy(() => import('./pages/PlanUsagePage'));
 const ChordsPage = lazy(() => import('./pages/ChordsPage'));
 const StageToolsPage = lazy(() => import('./pages/StageToolsPage'));
+const NestTunerPage = lazy(() => import('./pages/NestTunerPage'));
 const LyricsPage = lazy(() => import('./pages/LyricsPage'));
 const UsersPage = lazy(() => import('./pages/UsersPage'));
 const CurationPage = lazy(() => import('./pages/CurationPage'));
@@ -159,6 +160,7 @@ const AppLayout: React.FC = () => {
     }
 
     const deviceLayout = isMobileViewport ? 'mobile' : isTabletViewport ? 'tablet' : 'desktop';
+    const isNestTunerRoute = location.pathname === '/stage-tools/tuner';
 
     return (
         <div
@@ -210,7 +212,7 @@ const AppLayout: React.FC = () => {
                     </div>
                 )}
 
-                <Header onMenuClick={openMobileSidebar} />
+                {!isNestTunerRoute && <Header onMenuClick={openMobileSidebar} />}
 
                 <main className="ms-route-scroll flex-1 overflow-y-auto overflow-x-hidden relative isolate p-4 pb-[calc(140px+env(safe-area-inset-bottom))] md:pb-8 md:p-8 scroll-smooth touch-manipulation">
                     <div className="ms-route-workspace max-w-7xl mx-auto space-y-8">
@@ -265,6 +267,11 @@ const AppLayout: React.FC = () => {
                                 <Route path="/stage-tools" element={
                                     <ProtectedRoute requiredPermission="musicscale.performance.use">
                                         <StageToolsPage />
+                                    </ProtectedRoute>
+                                } />
+                                <Route path="/stage-tools/tuner" element={
+                                    <ProtectedRoute requiredPermission="musicscale.performance.use">
+                                        <NestTunerPage />
                                     </ProtectedRoute>
                                 } />
                                 <Route path="/database" element={
