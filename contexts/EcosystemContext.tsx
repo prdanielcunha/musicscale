@@ -141,6 +141,115 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     contextRef.current = context;
   }, [context]);
 
+  // A transient API/cold-start failure must not leave the app stuck in the
+  // fail-closed degraded state after connectivity has recovered. Revalidate the
+  // exact UID+tenant pair in the background; permissions remain denied until a
+  // canonical response is verified.
+  useEffect(() => {
+    const orgId = context?.currentOrganizationId;
+    if (
+      !isDegraded ||
+      !context?.isStandalone ||
+      !orgId ||
+      orgId === 'offline_default' ||
+      typeof window === 'undefined' ||
+      !navigator.onLine
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const controllers = new Set<AbortController>();
+    const timers = new Set<number>();
+    const delays = [1200, 3500, 8000];
+
+    const verify = async (attempt: number) => {
+      if (cancelled) return;
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      try {
+        const token = await currentUser.getIdToken(attempt > 0);
+        if (cancelled || auth.currentUser?.uid !== currentUser.uid) return;
+
+        const controller = new AbortController();
+        controllers.add(controller);
+        const timeout = window.setTimeout(() => controller.abort(), 5000);
+        timers.add(timeout);
+
+        let response: Response;
+        try {
+          response = await fetch(
+            `/api/v1/ecosystem/access-context?organizationId=${encodeURIComponent(orgId)}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              signal: controller.signal,
+            }
+          );
+        } finally {
+          window.clearTimeout(timeout);
+          timers.delete(timeout);
+          controllers.delete(controller);
+        }
+
+        if (!response.ok) {
+          const retryable = response.status === 401 || response.status === 429 || response.status >= 500;
+          if (retryable && attempt + 1 < delays.length) {
+            const retryTimer = window.setTimeout(() => void verify(attempt + 1), delays[attempt + 1]);
+            timers.add(retryTimer);
+          }
+          return;
+        }
+
+        const canonicalContext = await response.json().catch(() => null);
+        const effectiveContext = canonicalContext?.effectiveContext;
+        const membershipStatus = String(
+          effectiveContext?.membershipStatus || canonicalContext?.membershipStatus || ''
+        ).toLowerCase();
+        const isAuthorized =
+          isValidCanonicalResponse(canonicalContext, currentUser.uid, orgId) &&
+          effectiveContext?.resolutionStatus === 'resolved' &&
+          (effectiveContext?.isGlobalAccess === true || ['active', 'ativo'].includes(membershipStatus));
+
+        if (!isAuthorized || cancelled || auth.currentUser?.uid !== currentUser.uid) return;
+
+        releasedCanonicalOrgIdRef.current = orgId;
+        releasedCanonicalContextRef.current = canonicalContext;
+        setContext((previous: any) => ({
+          ...previous,
+          ecosystemRole: canonicalContext.systemRole || previous?.ecosystemRole,
+          roleInCurrentOrganization:
+            canonicalContext.organizationRole ||
+            effectiveContext?.organizationRole ||
+            previous?.roleInCurrentOrganization,
+          serverContext: canonicalContext,
+          permissions: getCanonicalPermissions(canonicalContext),
+        }));
+        setIsDegraded(false);
+        markStartupMetric('ecosystem_degraded_recovered_ms');
+      } catch (error) {
+        if (cancelled) return;
+        if (attempt + 1 < delays.length) {
+          const retryTimer = window.setTimeout(() => void verify(attempt + 1), delays[attempt + 1]);
+          timers.add(retryTimer);
+        } else {
+          console.warn('[EcosystemContext] Background canonical recovery did not succeed.', error);
+        }
+      }
+    };
+
+    const initialTimer = window.setTimeout(() => void verify(0), delays[0]);
+    timers.add(initialTimer);
+
+    return () => {
+      cancelled = true;
+      timers.forEach(timer => window.clearTimeout(timer));
+      controllers.forEach(controller => controller.abort());
+      timers.clear();
+      controllers.clear();
+    };
+  }, [isDegraded, context?.currentOrganizationId, context?.isStandalone]);
+
   useEffect(() => {
     let mounted = true;
     let unsubscribeAuth: any = null;
