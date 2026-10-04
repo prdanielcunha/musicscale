@@ -3,11 +3,17 @@ name: Cloud Run Private Deploy
 on:
   push:
     branches: [ production ]
-    paths-ignore:
-      - '.github/workflows/chatgpt-firestore-readonly-audit.yml'
-      - '.github/workflows/cloudrun-private-deploy.yml'
-      - 'scripts/export-global-song-catalog-readonly.ts'
-      - 'ops/firestore-audit-trigger.txt'
+    paths:
+      - 'server.ts'
+      - 'Dockerfile'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'services/server/**'
+      - 'services/ecosystem/**'
+      - 'services/effectiveEntitlements.ts'
+      - 'utils/rbac.ts'
+      - 'lib/logger.ts'
+      - 'types.ts'
   workflow_dispatch:
 
 permissions:
