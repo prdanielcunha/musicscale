@@ -1,2 +1,2 @@
-MusicScale 0.10.1-beta.0 — 2026-10-04
-Hotfix: recuperação automática de falhas transitórias no contexto da organização e nas leituras críticas do Firestore, sem relaxar permissões. Releases somente de frontend não redeployam mais o Cloud Run.
+MusicScale 0.10.2-beta.0 — 2026-10-04
+Hotfix: detecção de novas versões em sessão ativa ficou praticamente em tempo real, com checagem imediata ao voltar ao app/ficar online e links diretos nos cards de Novidades para abrir o recurso relacionado.
