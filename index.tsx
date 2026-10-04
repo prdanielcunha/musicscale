@@ -108,8 +108,13 @@ function showUpdateAvailableBanner() {
 function installServiceWorkerFreshnessGuard() {
   if (!('serviceWorker' in navigator)) return;
 
+  let hasActiveController = Boolean(navigator.serviceWorker.controller);
+
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    showUpdateAvailableBanner();
+    if (hasActiveController) {
+      showUpdateAvailableBanner();
+    }
+    hasActiveController = true;
   });
 
   window.addEventListener('load', () => {
