@@ -38,7 +38,7 @@ describe('release news contract', () => {
     expect(news).not.toContain('isWelcomeDismissed');
     expect(presenter).toContain('useReleaseNews');
     expect(presenter).toContain('hasUnseenRelease');
-    expect(presenter).toContain("pathname === '/stage-tools'");
+    expect(presenter).toContain("pathname.startsWith('/stage-tools')");
     expect(modal).not.toContain('WelcomePresentation');
     expect(modal).not.toContain('isFirstAccess');
     expect(modal).not.toContain('Começar a usar');
