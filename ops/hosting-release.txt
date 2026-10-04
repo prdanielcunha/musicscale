@@ -1,2 +1,2 @@
-MusicScale 0.9.1-beta.0 — 2026-10-04
-Hotfix crítico: donos e administradores voltam a editar funções e dados de membros conforme a autoridade canônica da organização ativa.
+MusicScale 0.10.1-beta.0 — 2026-10-04
+Hotfix: recuperação automática de falhas transitórias no contexto da organização e nas leituras críticas do Firestore, sem relaxar permissões. Releases somente de frontend não redeployam mais o Cloud Run.
