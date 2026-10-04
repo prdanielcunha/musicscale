@@ -55,6 +55,8 @@ jobs:
           set -euo pipefail
           npm run build
           test -f dist/index.html
+          test -f dist/version.json
+          node -e "const fs=require('fs'); const pkg=require('./package.json'); const manifest=JSON.parse(fs.readFileSync('dist/version.json','utf8')); if (manifest.version !== pkg.version) process.exit(1)"
 
       - name: Authenticate with MillionsNest production WIF
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
@@ -87,6 +89,23 @@ jobs:
             grep -Eiq '<!doctype html|<html' "$BODY"
           done
 
+          EXPECTED_VERSION="$(node -p "require('./package.json').version")"
+          LIVE_VERSION=''
+          for ATTEMPT in 1 2 3 4 5 6 7 8; do
+            VERSION_BODY="$(mktemp)"
+            VERSION_STATUS="$(curl --silent --show-error \
+              --output "$VERSION_BODY" --write-out '%{http_code}' \
+              "$OFFICIAL_FIREBASE_URL/version.json?check=$ATTEMPT")"
+            if [ "$VERSION_STATUS" = '200' ]; then
+              LIVE_VERSION="$(node -e "const fs=require('fs'); try { const value=JSON.parse(fs.readFileSync(process.argv[1],'utf8')).version; if (typeof value === 'string') process.stdout.write(value); } catch {}" "$VERSION_BODY")"
+            fi
+            if [ "$LIVE_VERSION" = "$EXPECTED_VERSION" ]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$LIVE_VERSION" = "$EXPECTED_VERSION"
+
       - name: Publish deployment evidence
         env:
           PRODUCTION_SHA: ${{ steps.source.outputs.sha }}
@@ -98,5 +117,5 @@ jobs:
             echo "**Firebase Hosting:** $OFFICIAL_FIREBASE_URL"
             echo
             echo 'Live Hosting deployment completed from the protected `production` branch.'
-            echo 'The root and `/start` were smoke-checked after deployment.'
+            echo 'The root, `/start`, and the uncached `/version.json` release manifest were smoke-checked after deployment.'
           } >> "$GITHUB_STEP_SUMMARY"
