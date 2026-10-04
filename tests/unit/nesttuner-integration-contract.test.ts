@@ -14,6 +14,14 @@ describe('NestTuner integration contract', () => {
     expect(embed.toLowerCase()).not.toContain('<iframe');
   });
 
+  it('caches the pinned NestTuner runtime for offline reuse after first load', () => {
+    const vite = read('vite.config.ts');
+    expect(vite).toContain('nesttuner\\.millionsnest\\.com');
+    expect(vite).toContain("cacheName: 'nesttuner-0-4-runtime'");
+    expect(vite).toContain("handler: 'CacheFirst'");
+    expect(vite).toContain('pitch-capture');
+  });
+
   it('exposes a protected MusicScale route and Stage Tools entry', () => {
     const app = read('PrivateApp.tsx');
     const tools = read('pages/StageToolsPage.tsx');
