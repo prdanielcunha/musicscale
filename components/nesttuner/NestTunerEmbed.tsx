@@ -3,7 +3,7 @@ import { ExternalLink, LoaderCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-const NESTTUNER_RELEASE = '0.6.2-beta.0';
+const NESTTUNER_RELEASE = '0.6.3-beta.0';
 const NESTTUNER_CONSUMER = 'musicscale-0.10.3-beta.0';
 const NESTTUNER_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app';
 
