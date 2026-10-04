@@ -192,6 +192,77 @@ export const useMusicData = () => {
       throw err;
     };
 
+    const fetchServerCriticalBootstrap = async () => {
+      let lastError: unknown = null;
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        if (generationRef.current !== currentGeneration) {
+          throw new Error('STALE_MUSIC_DATA_GENERATION');
+        }
+
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 6500);
+
+        try {
+          const token = await user.getIdToken(attempt > 0);
+          const response = await fetch(
+            `/api/v1/music-data/bootstrap?organizationId=${encodeURIComponent(orgId)}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'X-Organization-Id': orgId,
+                Accept: 'application/json',
+                'Cache-Control': 'no-store',
+              },
+              signal: controller.signal,
+            }
+          );
+
+          if (response.ok) {
+            const payload = await response.json();
+            const data = payload?.data;
+            const isValidPayload =
+              payload?.success === true &&
+              payload?.organizationId === orgId &&
+              data &&
+              ['songs', 'scales', 'bandScales', 'eventTypes', 'locations']
+                .every((key) => Array.isArray(data[key]));
+
+            if (!isValidPayload) {
+              throw new Error('INVALID_MUSIC_DATA_BOOTSTRAP');
+            }
+
+            markStartupMetric('critical_data_server_fallback_ms');
+            return data as {
+              songs: Song[];
+              scales: Scale[];
+              bandScales: BandScale[];
+              eventTypes: EventType[];
+              locations: Location[];
+            };
+          }
+
+          lastError = new Error(`MUSIC_DATA_BOOTSTRAP_HTTP_${response.status}`);
+          const retryable =
+            response.status === 401 ||
+            response.status === 429 ||
+            response.status >= 500;
+          if (!retryable || attempt === 1) break;
+        } catch (error) {
+          lastError = error;
+          if (attempt === 1) break;
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
+
+        await new Promise(resolve => window.setTimeout(resolve, 400));
+      }
+
+      throw lastError instanceof Error
+        ? lastError
+        : new Error('MUSIC_DATA_BOOTSTRAP_FAILED');
+    };
+
     markStartupMetric('initial_data_started_ms');
     // Start all requests in parallel
     let latestEventNamesData: EventName[] = cacheResult.data?.eventNames || [];
@@ -291,19 +362,36 @@ export const useMusicData = () => {
       if (generationRef.current !== currentGeneration) return;
 
       const failedCritical = criticalResults.filter(r => r.status === 'rejected');
+      let serverCriticalData: {
+        songs: Song[];
+        scales: Scale[];
+        bandScales: BandScale[];
+        eventTypes: EventType[];
+        locations: Location[];
+      } | null = null;
+
       if (failedCritical.length > 0) {
           if (watchdogRef.current) clearTimeout(watchdogRef.current);
           const failedNames = failedCritical.map((r: any) => r.reason?.message || 'unknown');
-          logger.warn(`[useMusicData] Critical batch failed for: ${failedNames.join(', ')}`);
-          markStartupFailure('critical_data_failed');
-          if (!hasUsableCache) {
-             setLoading(false);
-             setError('Falha ao carregar dados críticos.');
+          logger.warn(`[useMusicData] Direct Firestore critical batch failed for: ${failedNames.join(', ')}. Trying authenticated server recovery.`);
+
+          try {
+            serverCriticalData = await fetchServerCriticalBootstrap();
+            if (generationRef.current !== currentGeneration) return;
+            logger.warn('[useMusicData] Critical data recovered through authenticated server fallback.');
+          } catch (fallbackError) {
+            logger.warn('[useMusicData] Authenticated server recovery failed.', fallbackError);
+            markStartupFailure('critical_data_failed');
+            if (!hasUsableCache) {
+              setLoading(false);
+              setError('Falha ao carregar dados críticos.');
+            }
+            return; // fail closed: never replace an authorization failure with an empty dataset
           }
-          return; // stop here, don't overwrite cache, don't proceed to secondary
       }
 
-      const getCriticalData = (name: string) => {
+      const getCriticalData = (name: 'songs' | 'scales' | 'bandScales' | 'eventTypes' | 'locations') => {
+         if (serverCriticalData) return serverCriticalData[name];
          const res = criticalResults.find((r: any) => r.status === 'fulfilled' && r.value.name === name) as PromiseFulfilledResult<any>;
          return res.value.data;
       };
