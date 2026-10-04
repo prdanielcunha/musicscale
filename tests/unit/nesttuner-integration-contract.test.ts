@@ -7,22 +7,29 @@ const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 describe('NestTuner integration contract', () => {
-  it('loads the current immutable NestTuner module with a Firebase Hosting fallback', () => {
+  it('loads the immutable NestTuner 0.6.3 module without iframe duplication', () => {
     const embed = read('components/nesttuner/NestTunerEmbed.tsx');
-    expect(embed).toContain("const NESTTUNER_RELEASE = '0.6.2-beta.0'");
-    expect(embed).toContain('https://nesttuner.millionsnest.com/embed/nesttuner-element.v');
-    expect(embed).toContain('https://mn-nesttuner-555464791734.web.app');
-    expect(embed).toContain('consumer=');
-    expect(embed).toContain('attempt=');
+    expect(embed).toContain("const NESTTUNER_RELEASE = '0.6.3-beta.0'");
+    expect(embed).toContain('nesttuner.millionsnest.com/embed/nesttuner-element.v');
+    expect(embed).toContain('mn-nesttuner-555464791734.web.app');
     expect(embed).toContain("customElements.get('nest-tuner')");
-    expect(embed).toContain('document.createElement(\'nest-tuner\')');
+    expect(embed).toContain('attempt=');
+    expect(embed).toContain("document.createElement('nest-tuner')");
     expect(embed.toLowerCase()).not.toContain('<iframe');
   });
 
-  it('does not CacheFirst the remote NestTuner module inside the MusicScale service worker', () => {
+  it('does not let the MusicScale service worker pin a bad cross-origin module response', () => {
     const vite = read('vite.config.ts');
     expect(vite).not.toContain("cacheName: 'nesttuner-0-4-runtime'");
-    expect(vite).not.toContain('Keep the pinned NestTuner runtime available after first use.');
+    expect(vite).not.toContain('Keep the pinned NestTuner runtime available after first use');
+  });
+
+  it('keeps retry and direct Firebase Hosting fallback independent from MusicScale backend hotfixes', () => {
+    const embed = read('components/nesttuner/NestTunerEmbed.tsx');
+    expect(embed).toContain('NESTTUNER_MODULE_CANDIDATES');
+    expect(embed).toContain('embedModulePromise = null');
+    expect(embed).toContain('setAttempt((value) => value + 1)');
+    expect(embed).not.toContain('/api/');
   });
 
   it('exposes a protected MusicScale route and Stage Tools entry', () => {
