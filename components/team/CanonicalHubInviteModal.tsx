@@ -200,17 +200,27 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
         throw new Error(data?.reasonCode || data?.error || "INVITE_CREATE_FAILED");
       }
 
-      const url =
-        typeof data.inviteUrl === "string" && data.inviteUrl
-          ? data.inviteUrl
-          : `https://www.millionsnest.com${String(data.link || "")}`;
-      if (!data?.invitation?.id || !url.startsWith("https://")) {
+      const url = typeof data.inviteUrl === "string" ? data.inviteUrl : "";
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(url);
+      } catch {
+        throw new Error("INVALID_HUB_RESPONSE");
+      }
+      if (
+        !data?.invitation?.id ||
+        data?.invitation?.targetAppId !== "musicscale" ||
+        parsedUrl.protocol !== "https:" ||
+        parsedUrl.hostname !== "musicscale.millionsnest.com" ||
+        !parsedUrl.pathname.startsWith("/join/") ||
+        !parsedUrl.searchParams.get("token")
+      ) {
         throw new Error("INVALID_HUB_RESPONSE");
       }
 
       const invite: CreatedInvite = {
         id: data.invitation.id,
-        url,
+        url: parsedUrl.toString(),
         mode: inviteMode,
       };
       setCreatedInvite(invite);
@@ -312,7 +322,7 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
     const message = encodeURIComponent(
       t(
         "users.invite.whatsapp_message",
-        "Você foi convidado para entrar na organização {{organization}} na MillionsNest.\n\nAcesse: {{url}}",
+        "Você foi convidado para participar da equipe {{organization}} no MusicScale.\n\nEntre e aceite o convite: {{url}}",
         { organization: organizationName, url: invite.url },
       ),
     );
@@ -326,8 +336,8 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
     if (!invite) return;
     try {
       await navigator.share({
-        title: t("users.invite.share_title", "Convite MillionsNest"),
-        text: t("users.invite.share_text", "Você recebeu um convite para entrar na organização no MillionsNest."),
+        title: t("users.invite.share_title", "Convite MusicScale"),
+        text: t("users.invite.share_text", "Você recebeu um convite para participar de uma organização no MusicScale."),
         url: invite.url,
       });
     } catch (err: any) {

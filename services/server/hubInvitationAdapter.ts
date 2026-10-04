@@ -94,7 +94,8 @@ export class HubInvitationAdapter {
       organizationId,
       ...(mode === 'email' ? { email: normalizedEmail } : {}),
       role,
-      ...(!legacyEmailCall ? { mode } : {})
+      ...(!legacyEmailCall ? { mode } : {}),
+      targetAppId: 'musicscale'
     });
 
     const returnedMode = result.invitation?.inviteMode || (result.invitation?.identityBound === false ? 'link' : 'email');
@@ -102,14 +103,32 @@ export class HubInvitationAdapter {
       !result.invitePath?.startsWith(`/join/${organizationId}?token=`) ||
       result.invitation?.organizationId !== organizationId ||
       result.invitation?.role !== role ||
-      returnedMode !== mode
+      returnedMode !== mode ||
+      result.invitation?.targetAppId !== 'musicscale'
+    ) {
+      throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
+    }
+
+    const inviteUrl = typeof result.inviteUrl === 'string' ? result.inviteUrl : '';
+    let parsedInviteUrl: URL;
+    try {
+      parsedInviteUrl = new URL(inviteUrl);
+    } catch {
+      throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
+    }
+    if (
+      parsedInviteUrl.protocol !== 'https:' ||
+      parsedInviteUrl.hostname !== 'musicscale.millionsnest.com' ||
+      parsedInviteUrl.pathname !== `/join/${organizationId}` ||
+      parsedInviteUrl.searchParams.get('token') === null ||
+      Array.from(parsedInviteUrl.searchParams.keys()).length !== 1
     ) {
       throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
     }
 
     return {
       ...result,
-      inviteUrl: `${resolveHubOrigin(this.options.origin)}${result.invitePath}`
+      inviteUrl: parsedInviteUrl.toString()
     };
   }
 
@@ -123,14 +142,21 @@ export class HubInvitationAdapter {
     } catch {
       throw new HubInvitationError(400, 'INVALID_INVITE_URL');
     }
-    if (url.origin !== resolveHubOrigin(this.options.origin) || !url.pathname.startsWith(`/join/${organizationId}`)) {
+    if (
+      url.protocol !== 'https:' ||
+      url.hostname !== 'musicscale.millionsnest.com' ||
+      url.pathname !== `/join/${organizationId}` ||
+      !url.searchParams.get('token') ||
+      Array.from(url.searchParams.keys()).length !== 1
+    ) {
       throw new HubInvitationError(400, 'INVALID_INVITE_URL');
     }
     return this.post('/api/v1/invitations/email', bearer, { organizationId, invitationId, inviteUrl: url.toString() });
   }
 
-  async accept(bearer: string, token: string) {
-    const result = await this.post('/api/v1/invitations/accept', bearer, { token });
+  async accept(bearer: string, token: string, organizationId: string) {
+    if (!VALID_ID.test(organizationId)) throw new HubInvitationError(400, 'INVALID_ORGANIZATION_ID');
+    const result = await this.post('/api/v1/invitations/accept', bearer, { token, organizationId });
     return validateAcceptSuccess(result);
   }
 }
