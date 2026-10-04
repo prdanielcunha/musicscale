@@ -29,6 +29,9 @@ describe('transient data recovery hotfix', () => {
     expect(workflow).toContain("- 'server.ts'");
     expect(workflow).toContain("- 'services/server/**'");
     expect(workflow).not.toContain('paths-ignore:');
+    expect(workflow).toContain("- 'ops/cloudrun-release.txt'");
+    expect(workflow).not.toContain("- 'package.json'");
+    expect(workflow).not.toContain("- 'package-lock.json'");
     expect(workflow).not.toContain("- 'contexts/**'");
     expect(workflow).not.toContain("- 'pages/**'");
     expect(workflow).not.toContain("- 'components/**'");
