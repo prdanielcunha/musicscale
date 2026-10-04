@@ -337,7 +337,8 @@ describe('02B2 executable Hub-success acceptance', () => {
     const hub = { create: vi.fn(), accept: vi.fn(async () => validHubAccept()) };
     const handlers = createInvitationCompatibilityHandlers({ db, auth: authFor('user-1', 'current@example.com', 'old@example.com'), admin, hubFactory: () => hub as any });
     const res = fakeRes();
-    await handlers.accept({ headers: { authorization: 'Bearer user-token' }, body: { token: 'hub-token' } }, res);
+    await handlers.accept({ headers: { authorization: 'Bearer user-token' }, body: { token: 'hub-token', organizationId: 'org-1' } }, res);
+    expect(hub.accept).toHaveBeenCalledWith('Bearer user-token', 'hub-token', 'org-1');
     expect(res.statusCode).toBe(200);
     expect(res.body.roleProjectionApplied).toBe(true);
     expect(db.docs.get('organizations/org-1/musicscale_members/user-1')).toMatchObject({
@@ -360,7 +361,8 @@ describe('02B2 executable Hub-success acceptance', () => {
     const hub = { create: vi.fn(), accept: vi.fn(async () => validHubAccept('org-1', { alreadyMember: true, reasonCode: 'ALREADY_MEMBER' })) };
     const handlers = createInvitationCompatibilityHandlers({ db, auth: authFor('user-1', 'current@example.com'), admin, hubFactory: () => hub as any });
     const res = fakeRes();
-    await handlers.accept({ headers: { authorization: 'Bearer token' }, body: { token: 'hub-token' } }, res);
+    await handlers.accept({ headers: { authorization: 'Bearer token' }, body: { token: 'hub-token', organizationId: 'org-1' } }, res);
+    expect(hub.accept).toHaveBeenCalledWith('Bearer token', 'hub-token', 'org-1');
     expect(res.body).toMatchObject({ success: true, alreadyMember: true, roleProjectionApplied: true });
   });
 
