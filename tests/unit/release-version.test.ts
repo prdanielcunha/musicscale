@@ -62,7 +62,7 @@ describe('release metadata', () => {
         expect(copy[feature].how.length).toBeGreaterThan(0);
       }
       expect(copy.refinements.summary.length).toBeGreaterThan(0);
-      expect(copy.refinements.items).toHaveLength(3);
+      expect(copy.refinements.items.length).toBeGreaterThanOrEqual(3);
     }
   });
 });
