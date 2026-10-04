@@ -3,51 +3,9 @@ import { ExternalLink, LoaderCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-const NESTTUNER_RELEASE = '0.6.3-beta.0';
-const NESTTUNER_CONSUMER = 'musicscale-0.10.3-beta.0';
 const NESTTUNER_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app';
-
-const NESTTUNER_MODULE_CANDIDATES = [
-  `https://nesttuner.millionsnest.com/embed/nesttuner-element.v${NESTTUNER_RELEASE}.js`,
-  `${NESTTUNER_HOSTING_ORIGIN}/embed/nesttuner-element.v${NESTTUNER_RELEASE}.js`,
-  'https://nesttuner.millionsnest.com/embed/nesttuner-element.js',
-  `${NESTTUNER_HOSTING_ORIGIN}/embed/nesttuner-element.js`,
-] as const;
-
-let embedModulePromise: Promise<void> | null = null;
-
-const loadNestTunerModule = (attempt = 0) => {
-  if (customElements.get('nest-tuner')) return Promise.resolve();
-
-  if (!embedModulePromise || attempt > 0) {
-    embedModulePromise = (async () => {
-      let lastError: unknown = null;
-
-      for (let index = 0; index < NESTTUNER_MODULE_CANDIDATES.length; index += 1) {
-        const baseUrl = NESTTUNER_MODULE_CANDIDATES[index];
-        const separator = baseUrl.includes('?') ? '&' : '?';
-        const moduleUrl =
-          `${baseUrl}${separator}consumer=${encodeURIComponent(NESTTUNER_CONSUMER)}&attempt=${attempt}&candidate=${index}`;
-
-        try {
-          await import(/* @vite-ignore */ moduleUrl);
-          if (!customElements.get('nest-tuner')) {
-            throw new Error('NESTTUNER_CUSTOM_ELEMENT_NOT_REGISTERED');
-          }
-          return;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-
-      throw lastError instanceof Error
-        ? lastError
-        : new Error('NESTTUNER_MODULE_LOAD_FAILED');
-    })();
-  }
-
-  return embedModulePromise;
-};
+const NESTTUNER_PUBLIC_ORIGIN = 'https://nesttuner.millionsnest.com';
+const NESTTUNER_CONSUMER = 'musicscale-0.10.4-beta.0';
 
 const resolveLocale = (language?: string) => {
   const normalized = (language || 'pt-BR').toLowerCase();
@@ -66,56 +24,42 @@ const NestTunerEmbed: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const locale = resolveLocale(i18n.resolvedLanguage || i18n.language);
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const elementRef = React.useRef<HTMLElement | null>(null);
+  const frameRef = React.useRef<HTMLIFrameElement | null>(null);
   const [status, setStatus] = React.useState<'loading' | 'ready' | 'error'>('loading');
   const [attempt, setAttempt] = React.useState(0);
 
+  const localePath = publicPathFor(locale);
+  const frameUrl = React.useMemo(() => {
+    const url = new URL(`/${localePath}/`, NESTTUNER_HOSTING_ORIGIN);
+    url.searchParams.set('embed', 'musicscale');
+    url.searchParams.set('consumer', NESTTUNER_CONSUMER);
+    url.searchParams.set('attempt', String(attempt));
+    return url.toString();
+  }, [localePath, attempt]);
+
   React.useEffect(() => {
-    let cancelled = false;
     setStatus('loading');
 
-    loadNestTunerModule(attempt)
-      .then(() => {
-        if (!cancelled) setStatus('ready');
-      })
-      .catch(() => {
-        embedModulePromise = null;
-        if (!cancelled) setStatus('error');
-      });
+    const timer = window.setTimeout(() => {
+      setStatus((current) => current === 'loading' ? 'error' : current);
+    }, 15000);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [attempt]);
+    return () => window.clearTimeout(timer);
+  }, [frameUrl]);
 
   React.useEffect(() => {
-    if (status !== 'ready' || !containerRef.current) return;
-
-    const element = document.createElement('nest-tuner');
-    element.setAttribute('locale', locale);
-    element.style.display = 'block';
-    element.style.width = '100%';
-    element.style.minWidth = '0';
-
-    const handleBack = () => navigate('/stage-tools');
-    element.addEventListener('nesttuner-back', handleBack);
-    containerRef.current.replaceChildren(element);
-    elementRef.current = element;
-
-    return () => {
-      element.removeEventListener('nesttuner-back', handleBack);
-      element.remove();
-      if (elementRef.current === element) elementRef.current = null;
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== NESTTUNER_HOSTING_ORIGIN) return;
+      if (event.source !== frameRef.current?.contentWindow) return;
+      if (event.data?.type === 'nesttuner:navigate-back') navigate('/stage-tools');
     };
-  }, [status, navigate]);
 
-  React.useEffect(() => {
-    elementRef.current?.setAttribute('locale', locale);
-  }, [locale]);
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [navigate]);
 
   if (status === 'error') {
-    const externalUrl = `https://nesttuner.millionsnest.com/${publicPathFor(locale)}/`;
+    const externalUrl = `${NESTTUNER_PUBLIC_ORIGIN}/${localePath}/`;
     return (
       <div className="mx-auto flex min-h-[62dvh] w-full max-w-2xl items-center justify-center px-4 py-12">
         <div className="w-full rounded-[28px] border border-white/[0.08] bg-[#0d0d11]/95 p-6 text-center shadow-[0_24px_80px_rgba(0,0,0,0.35)] sm:p-8">
@@ -148,16 +92,28 @@ const NestTunerEmbed: React.FC = () => {
   }
 
   return (
-    <div className="relative min-h-[70dvh] w-full min-w-0">
+    <div className="relative w-full min-w-0 overflow-hidden rounded-[22px] bg-[#090c12] sm:rounded-[26px]">
       {status === 'loading' && (
-        <div className="absolute inset-0 z-10 flex min-h-[60dvh] items-center justify-center">
+        <div className="pointer-events-none absolute inset-0 z-10 flex min-h-[60dvh] items-center justify-center bg-[#090c12]">
           <div className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-[#101014]/92 px-4 py-3 text-sm text-white/52 shadow-xl">
             <LoaderCircle className="h-4 w-4 animate-spin text-violet-300" aria-hidden="true" />
             {t('stage_tools.tuner_loading')}
           </div>
         </div>
       )}
-      <div ref={containerRef} className="w-full min-w-0" aria-busy={status === 'loading'} />
+
+      <iframe
+        key={frameUrl}
+        ref={frameRef}
+        src={frameUrl}
+        title="NestTuner"
+        className="block h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))] min-h-[640px] w-full border-0 bg-[#090c12] sm:h-[calc(100dvh-2rem)]"
+        allow="microphone; autoplay; fullscreen"
+        allowFullScreen
+        referrerPolicy="strict-origin-when-cross-origin"
+        onLoad={() => setStatus('ready')}
+        onError={() => setStatus('error')}
+      />
     </div>
   );
 };
