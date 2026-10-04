@@ -31,6 +31,21 @@ export default defineConfig(({ mode }) => {
             globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
             runtimeCaching: [
               {
+                // Keep the pinned NestTuner runtime available after first use.
+                urlPattern: /^https:\/\/nesttuner\.millionsnest\.com\/(?:embed\/.*|assets\/.*|pitch-capture\.worklet\.js)$/i,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'nesttuner-0-4-runtime',
+                  expiration: {
+                    maxEntries: 32,
+                    maxAgeSeconds: 60 * 60 * 24 * 365
+                  },
+                  cacheableResponse: {
+                    statuses: [0, 200]
+                  }
+                }
+              },
+              {
                 urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
                 handler: 'CacheFirst',
                 options: {
