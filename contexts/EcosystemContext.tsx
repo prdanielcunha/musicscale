@@ -591,22 +591,44 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                             if (!earlySuccess) {
                                 try {
                                     markStartupMetric('ecosystem_access_context_started_ms');
-                                    const token = await user.getIdToken(false);
                                     if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid) {
-                                        const controller = new AbortController();
-                                        activeControllers.push(controller);
-                                        const timeoutId = setTimeout(() => controller.abort(), 5000);
-                                        let apiRes;
-                                        try {
-                                            apiRes = await fetch(`/api/v1/ecosystem/access-context?organizationId=${orgId}`, {
-                                                headers: {
-                                                    'Authorization': `Bearer ${token}`
-                                                },
-                                                signal: controller.signal
-                                            });
-                                        } finally {
-                                            clearTimeout(timeoutId);
+                                        let apiRes: Response | null = null;
+
+                                        for (let attempt = 0; attempt < 2; attempt += 1) {
+                                            const token = await user.getIdToken(attempt > 0);
+                                            const controller = new AbortController();
+                                            activeControllers.push(controller);
+                                            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                                            try {
+                                                apiRes = await fetch(`/api/v1/ecosystem/access-context?organizationId=${orgId}`, {
+                                                    headers: {
+                                                        'Authorization': `Bearer ${token}`
+                                                    },
+                                                    signal: controller.signal
+                                                });
+                                            } catch (error) {
+                                                apiRes = null;
+                                                if (attempt === 0) {
+                                                    await new Promise(resolve => window.setTimeout(resolve, 350));
+                                                    continue;
+                                                }
+                                                throw error;
+                                            } finally {
+                                                clearTimeout(timeoutId);
+                                            }
+
+                                            if (apiRes.ok) break;
+
+                                            const transientHttp = apiRes.status === 429 || apiRes.status >= 500;
+                                            const staleToken = apiRes.status === 401;
+                                            if (attempt === 0 && (transientHttp || staleToken)) {
+                                                await new Promise(resolve => window.setTimeout(resolve, 350));
+                                                continue;
+                                            }
+                                            break;
                                         }
+
                                         if (apiRes && apiRes.ok) {
                                             const resJson = await apiRes.json();
                                             if (isValidCanonicalResponse(resJson, user.uid, orgId)) {
