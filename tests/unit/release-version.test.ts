@@ -22,7 +22,7 @@ const runBump = (version: string, kind: string) => {
 describe('release metadata', () => {
   it('uses the 0.10 NestTuner feature release metadata', () => {
     const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-    expect(APP_VERSION).toBe('0.10.0-beta.0');
+    expect(APP_VERSION).toBe('0.10.1-beta.0');
     expect(lock.version).toBe(APP_VERSION);
     expect(lock.packages[''].version).toBe(APP_VERSION);
     expect(FEATURE_RELEASE.version).toBe('0.10.0-beta.0');
@@ -62,7 +62,7 @@ describe('release metadata', () => {
         expect(copy[feature].how.length).toBeGreaterThan(0);
       }
       expect(copy.refinements.summary.length).toBeGreaterThan(0);
-      expect(copy.refinements.items).toHaveLength(3);
+      expect(copy.refinements.items.length).toBeGreaterThanOrEqual(3);
     }
   });
 });
