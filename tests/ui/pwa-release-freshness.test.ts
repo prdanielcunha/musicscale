@@ -9,6 +9,11 @@ describe("PWA release freshness guard", () => {
     expect(indexSource).toContain("navigator.serviceWorker.getRegistration()");
     expect(indexSource).toContain("registration.update()");
     expect(indexSource).toContain("SW_UPDATE_CHECK_INTERVAL_MS");
+    expect(indexSource).toContain("30 * 1000");
+    expect(indexSource).toContain("visibilitychange");
+    expect(indexSource).toContain("window.addEventListener('focus'");
+    expect(indexSource).toContain("window.addEventListener('online'");
+    expect(indexSource).toContain("document.visibilityState !== 'visible'");
   });
 
   it("surfaces a visible update action when the active worker changes", () => {
