@@ -32,7 +32,7 @@ describe('mobile interaction P2 contract', () => {
     expect(presenter).toContain('const [isOpen, setIsOpen] = useState(false)');
     expect(presenter).toContain('setIsOpen(true)');
     expect(presenter).toContain('onClose={() => setIsOpen(false)}');
-    expect(presenter).toContain("pathname === '/stage-tools'");
+    expect(presenter).toContain("pathname.startsWith('/stage-tools')");
   });
 
   it('removes persistent WebKit backdrop/filter pressure from the mobile shell', () => {
