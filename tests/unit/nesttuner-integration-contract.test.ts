@@ -27,7 +27,7 @@ describe('NestTuner integration contract', () => {
     const embed = read('components/nesttuner/NestTunerEmbed.tsx');
     expect(embed).toContain('setAttempt((value) => value + 1)');
     expect(embed).toContain('NESTTUNER_PUBLIC_ORIGIN');
-    expect(embed).toContain("target="_blank"");
+    expect(embed).toContain('target="_blank"');
   });
 
   it('exposes a protected MusicScale route and Stage Tools entry', () => {
