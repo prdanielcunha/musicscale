@@ -3,14 +3,49 @@ import { ExternalLink, LoaderCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-const NESTTUNER_MODULE_URL = 'https://nesttuner.millionsnest.com/embed/nesttuner-element.v0.4.0-beta.0.js';
+const NESTTUNER_RELEASE = '0.6.2-beta.0';
+const NESTTUNER_CONSUMER = 'musicscale-0.10.3-beta.0';
+const NESTTUNER_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app';
 
-let embedModulePromise: Promise<unknown> | null = null;
+const NESTTUNER_MODULE_CANDIDATES = [
+  `https://nesttuner.millionsnest.com/embed/nesttuner-element.v${NESTTUNER_RELEASE}.js`,
+  `${NESTTUNER_HOSTING_ORIGIN}/embed/nesttuner-element.v${NESTTUNER_RELEASE}.js`,
+  'https://nesttuner.millionsnest.com/embed/nesttuner-element.js',
+  `${NESTTUNER_HOSTING_ORIGIN}/embed/nesttuner-element.js`,
+] as const;
 
-const loadNestTunerModule = () => {
-  if (!embedModulePromise) {
-    embedModulePromise = import(/* @vite-ignore */ NESTTUNER_MODULE_URL);
+let embedModulePromise: Promise<void> | null = null;
+
+const loadNestTunerModule = (attempt = 0) => {
+  if (customElements.get('nest-tuner')) return Promise.resolve();
+
+  if (!embedModulePromise || attempt > 0) {
+    embedModulePromise = (async () => {
+      let lastError: unknown = null;
+
+      for (let index = 0; index < NESTTUNER_MODULE_CANDIDATES.length; index += 1) {
+        const baseUrl = NESTTUNER_MODULE_CANDIDATES[index];
+        const separator = baseUrl.includes('?') ? '&' : '?';
+        const moduleUrl =
+          `${baseUrl}${separator}consumer=${encodeURIComponent(NESTTUNER_CONSUMER)}&attempt=${attempt}&candidate=${index}`;
+
+        try {
+          await import(/* @vite-ignore */ moduleUrl);
+          if (!customElements.get('nest-tuner')) {
+            throw new Error('NESTTUNER_CUSTOM_ELEMENT_NOT_REGISTERED');
+          }
+          return;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      throw lastError instanceof Error
+        ? lastError
+        : new Error('NESTTUNER_MODULE_LOAD_FAILED');
+    })();
   }
+
   return embedModulePromise;
 };
 
@@ -40,7 +75,7 @@ const NestTunerEmbed: React.FC = () => {
     let cancelled = false;
     setStatus('loading');
 
-    loadNestTunerModule()
+    loadNestTunerModule(attempt)
       .then(() => {
         if (!cancelled) setStatus('ready');
       })
