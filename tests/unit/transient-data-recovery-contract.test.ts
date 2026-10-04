@@ -25,6 +25,9 @@ describe('transient data recovery hotfix', () => {
     expect(source).toContain('apiRes.status === 429 || apiRes.status >= 500');
     expect(source).toContain('apiRes.status === 401');
     expect(source).toContain('attempt < 2');
+    expect(source).toContain('ecosystem_degraded_recovered_ms');
+    expect(source).toContain('const delays = [1200, 3500, 8000]');
+    expect(source).toContain('setIsDegraded(false)');
   });
 
   it('does not redeploy Cloud Run for frontend-only production changes', () => {
