@@ -3,7 +3,7 @@ import { ExternalLink, LoaderCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-const NESTTUNER_MODULE_URL = 'https://nesttuner.millionsnest.com/embed/nesttuner-element.js';
+const NESTTUNER_MODULE_URL = 'https://nesttuner.millionsnest.com/embed/nesttuner-element.v0.4.0-beta.0.js';
 
 let embedModulePromise: Promise<unknown> | null = null;
 
