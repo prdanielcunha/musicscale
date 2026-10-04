@@ -1,12 +1,28 @@
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const packageMetadata = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')
+) as { version: string };
+
+const versionManifestPlugin: Plugin = {
+  name: 'musicscale-version-manifest',
+  generateBundle() {
+    this.emitFile({
+      type: 'asset',
+      fileName: 'version.json',
+      source: JSON.stringify({ version: packageMetadata.version }) + '\n',
+    });
+  },
+};
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
@@ -19,6 +35,7 @@ export default defineConfig(({ mode }) => {
       plugins: [
         react(),
         tailwindcss(),
+        versionManifestPlugin,
         VitePWA({
           registerType: 'autoUpdate',
           // PNG icons are already covered by globPatterns; avoid adding the same URLs twice.
@@ -29,6 +46,7 @@ export default defineConfig(({ mode }) => {
             clientsClaim: true,
             skipWaiting: true,
             globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
+            globIgnores: ['version.json'],
             runtimeCaching: [
               {
                 urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
