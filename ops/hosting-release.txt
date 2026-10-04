@@ -1,2 +1,1 @@
-MusicScale 0.10.3-beta.0 — 2026-10-04
-Hotfix NestTuner: recupera o carregamento do afinador no Safari/iPhone com módulo 0.6.3 versionado, fallback direto para o Firebase Hosting e sem CacheFirst cross-origin que possa reter resposta HTML inválida. Inclui a correção do som de referência no iOS, inclusive com o aparelho em modo silencioso quando a API de sessão de áudio estiver disponível.
+MusicScale 0.10.4-beta.0 — 2026-10-04\nHotfix NestTuner: integração in-app passa a usar o shell embutido do próprio domínio do NestTuner, com microfone/autoplay/fullscreen delegados ao frame. Remove a dependência de importação cross-origin de Web Component no Safari/iPhone.\n
