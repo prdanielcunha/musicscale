@@ -7,9 +7,9 @@ const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 describe('NestTuner integration contract', () => {
-  it('loads the canonical NestTuner module without iframe duplication', () => {
+  it('loads the pinned canonical NestTuner module without iframe duplication', () => {
     const embed = read('components/nesttuner/NestTunerEmbed.tsx');
-    expect(embed).toContain('https://nesttuner.millionsnest.com/embed/nesttuner-element.js');
+    expect(embed).toContain('https://nesttuner.millionsnest.com/embed/nesttuner-element.v0.4.0-beta.0.js');
     expect(embed).toContain('document.createElement(\'nest-tuner\')');
     expect(embed.toLowerCase()).not.toContain('<iframe');
   });
