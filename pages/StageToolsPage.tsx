@@ -33,6 +33,39 @@ const StageToolsPage: React.FC = () => {
       </header>
 
       <div className="relative grid min-w-0 gap-4 lg:grid-cols-2">
+        <section className="group relative min-w-0 overflow-hidden rounded-[24px] border border-violet-300/[0.10] bg-[linear-gradient(135deg,rgba(124,58,237,0.09),rgba(13,13,17,0.94)_46%,rgba(59,130,246,0.055))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.26)] sm:rounded-[28px] sm:p-6 lg:col-span-2">
+          <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-violet-500/10 blur-[80px]" aria-hidden="true" />
+          <div className="relative flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-violet-300/15 bg-violet-300/[0.075] text-violet-200">
+                <Gauge className="h-[18px] w-[18px]" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="break-words text-lg font-semibold tracking-[-0.025em] text-white">
+                    {t('stage_tools.tuner_title')}
+                  </h2>
+                  <span className="rounded-full border border-emerald-300/15 bg-emerald-300/[0.06] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-emerald-200/80">
+                    {t('stage_tools.tuner_badge')}
+                  </span>
+                </div>
+                <p className="mt-1 max-w-2xl break-words text-xs leading-relaxed text-white/42 sm:text-sm">
+                  {t('stage_tools.tuner_description')}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate('/stage-tools/tuner')}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-violet-300/15 bg-violet-300/[0.09] px-4 text-sm font-semibold text-violet-100 transition hover:bg-violet-300/[0.14] active:scale-[0.99]"
+            >
+              {t('stage_tools.tuner_action')}
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            </button>
+          </div>
+        </section>
+
         <section className="min-w-0 overflow-hidden rounded-[24px] border border-white/[0.07] bg-[#0d0d11]/92 p-4 shadow-[0_22px_70px_rgba(0,0,0,0.26)] sm:rounded-[28px] sm:p-6">
           <div className="mb-5 flex min-w-0 items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-violet-300/12 bg-violet-300/[0.06] text-violet-200">
@@ -69,38 +102,6 @@ const StageToolsPage: React.FC = () => {
           </div>
         </section>
 
-        <section className="group relative min-w-0 overflow-hidden rounded-[24px] border border-violet-300/[0.10] bg-[linear-gradient(135deg,rgba(124,58,237,0.09),rgba(13,13,17,0.94)_46%,rgba(59,130,246,0.055))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.26)] sm:rounded-[28px] sm:p-6 lg:col-span-2">
-          <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-violet-500/10 blur-[80px]" aria-hidden="true" />
-          <div className="relative flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-violet-300/15 bg-violet-300/[0.075] text-violet-200">
-                <Gauge className="h-[18px] w-[18px]" aria-hidden="true" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="break-words text-lg font-semibold tracking-[-0.025em] text-white">
-                    {t('stage_tools.tuner_title')}
-                  </h2>
-                  <span className="rounded-full border border-emerald-300/15 bg-emerald-300/[0.06] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-emerald-200/80">
-                    {t('stage_tools.tuner_badge')}
-                  </span>
-                </div>
-                <p className="mt-1 max-w-2xl break-words text-xs leading-relaxed text-white/42 sm:text-sm">
-                  {t('stage_tools.tuner_description')}
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate('/stage-tools/tuner')}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-violet-300/15 bg-violet-300/[0.09] px-4 text-sm font-semibold text-violet-100 transition hover:bg-violet-300/[0.14] active:scale-[0.99]"
-            >
-              {t('stage_tools.tuner_action')}
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-            </button>
-          </div>
-        </section>
 
         <OfflineResourcesPanel />
       </div>
