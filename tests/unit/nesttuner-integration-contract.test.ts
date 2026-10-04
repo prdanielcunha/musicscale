@@ -3,33 +3,31 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
-
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 describe('NestTuner integration contract', () => {
-  it('loads the immutable NestTuner 0.6.3 module without iframe duplication', () => {
+  it('keeps NestTuner inside MusicScale without cross-origin module imports', () => {
     const embed = read('components/nesttuner/NestTunerEmbed.tsx');
-    expect(embed).toContain("const NESTTUNER_RELEASE = '0.6.3-beta.0'");
-    expect(embed).toContain('nesttuner.millionsnest.com/embed/nesttuner-element.v');
-    expect(embed).toContain('mn-nesttuner-555464791734.web.app');
-    expect(embed).toContain("customElements.get('nest-tuner')");
-    expect(embed).toContain('attempt=');
-    expect(embed).toContain("document.createElement('nest-tuner')");
-    expect(embed.toLowerCase()).not.toContain('<iframe');
+    expect(embed).toContain('<iframe');
+    expect(embed).toContain("NESTTUNER_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app'");
+    expect(embed).toContain("url.searchParams.set('embed', 'musicscale')");
+    expect(embed).toContain('allow="microphone; autoplay; fullscreen"');
+    expect(embed).not.toContain('import(/* @vite-ignore */');
+    expect(embed).not.toContain("document.createElement('nest-tuner')");
   });
 
-  it('does not let the MusicScale service worker pin a bad cross-origin module response', () => {
-    const vite = read('vite.config.ts');
-    expect(vite).not.toContain("cacheName: 'nesttuner-0-4-runtime'");
-    expect(vite).not.toContain('Keep the pinned NestTuner runtime available after first use');
+  it('validates navigation messages from the exact NestTuner frame origin', () => {
+    const embed = read('components/nesttuner/NestTunerEmbed.tsx');
+    expect(embed).toContain("event.origin !== NESTTUNER_HOSTING_ORIGIN");
+    expect(embed).toContain("event.source !== frameRef.current?.contentWindow");
+    expect(embed).toContain("event.data?.type === 'nesttuner:navigate-back'");
   });
 
-  it('keeps retry and direct Firebase Hosting fallback independent from MusicScale backend hotfixes', () => {
+  it('keeps retry and public fallback available', () => {
     const embed = read('components/nesttuner/NestTunerEmbed.tsx');
-    expect(embed).toContain('NESTTUNER_MODULE_CANDIDATES');
-    expect(embed).toContain('embedModulePromise = null');
     expect(embed).toContain('setAttempt((value) => value + 1)');
-    expect(embed).not.toContain('/api/');
+    expect(embed).toContain('NESTTUNER_PUBLIC_ORIGIN');
+    expect(embed).toContain("target="_blank"");
   });
 
   it('exposes a protected MusicScale route and Stage Tools entry', () => {
