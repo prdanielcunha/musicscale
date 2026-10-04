@@ -15,8 +15,12 @@ describe('transient data recovery hotfix', () => {
     expect(source).toContain('12000');
   });
 
-  it('refreshes the Firebase token only after a retryable canonical-context failure', () => {
+  it('recovers bootstrap and canonical context only from transient failures', () => {
     const source = read('contexts/EcosystemContext.tsx');
+    expect(source).toContain('withTransientEcosystemRetry');
+    expect(source).toContain("'unavailable'");
+    expect(source).toContain("'deadline-exceeded'");
+    expect(source).not.toContain("ECOSYSTEM_TRANSIENT_FIRESTORE_CODES.add('permission-denied')");
     expect(source).toContain('user.getIdToken(attempt > 0)');
     expect(source).toContain('apiRes.status === 429 || apiRes.status >= 500');
     expect(source).toContain('apiRes.status === 401');
