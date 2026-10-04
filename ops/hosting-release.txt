@@ -1,2 +1,2 @@
-MusicScale 0.9.0-beta.3 — 2026-10-03
-Hotfix urgent: invited organization members keep their real identity, open directly in MusicScale, and are no longer misclassified as Visitante.
+MusicScale 0.9.1-beta.0 — 2026-10-04
+Hotfix crítico: donos e administradores voltam a editar funções e dados de membros conforme a autoridade canônica da organização ativa.

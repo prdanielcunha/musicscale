@@ -202,8 +202,18 @@ const getRoleKeyFromId = (roleId: string, availableRoles: Role[]): string => {
   return getRoleKeyFromName(roleName);
 };
 
-const getActorOrganizationRoleKey = (profile: UserProfile | null | undefined, isGlobal: boolean): string => {
-  if (isGlobal) return "owner";
+const getActorOrganizationRoleKey = (
+  profile: UserProfile | null | undefined,
+  isGlobal: boolean,
+  isCurrentOrganizationOwner: boolean,
+  isCurrentOrganizationAdmin: boolean,
+): string => {
+  // AuthContext derives these flags from the canonical MillionsNest access
+  // context for the active organization. Prefer them over the legacy global
+  // user profile, which can legitimately have no organizationRole at all.
+  if (isGlobal || isCurrentOrganizationOwner) return "owner";
+  if (isCurrentOrganizationAdmin) return "admin";
+
   const organizationRole = String(profile?.organizationRole || "").trim().toLowerCase();
   if (organizationRole === "owner") return "owner";
   if (organizationRole === "admin") return "admin";
@@ -238,7 +248,13 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
   allUsers,
 }) => {
   const { t, i18n } = useTranslation();
-  const { user: currentUser, userProfile, organization } = useAuth();
+  const {
+    user: currentUser,
+    userProfile,
+    organization,
+    isOwner: isCurrentOrganizationOwner,
+    isAdmin: isCurrentOrganizationAdmin,
+  } = useAuth();
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editRoleId, setEditRoleId] = useState("");
@@ -308,7 +324,7 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
 
   // Compute hierarchy checks
   const targetRoleKey = getRoleKeyFromId(user.roleId, roles);
-  const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal);
+  const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal, isCurrentOrganizationOwner, isCurrentOrganizationAdmin);
   const otherOwnersActiveCount = allUsers.filter(u => u.organizationId === userProfile?.organizationId && u.uid !== user.uid && (u.role === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
 
   const roleCtx = {
@@ -772,7 +788,14 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
   refreshUsers,
 }) => {
   const { t } = useTranslation();
-  const { user: currentUser, userProfile, permissions, organization } = useAuth();
+  const {
+    user: currentUser,
+    userProfile,
+    permissions,
+    organization,
+    isOwner: isCurrentOrganizationOwner,
+    isAdmin: isCurrentOrganizationAdmin,
+  } = useAuth();
   const { error: toastError, success: toastSuccess } = useToast();
   const isGlobal = isGlobalPrivilegedUser(currentUser, userProfile);
   const { usage, limits: musicScaleLimits } = useMusicScaleUsage();
@@ -802,13 +825,17 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [newRoleId, setNewRoleId] = useState("");
   const [showLimitModal, setShowLimitModal] = useState(false);
 
-  const canEditRoles = !!permissions?.manageMembers;
+  const canEditRoles =
+    isGlobal ||
+    isCurrentOrganizationOwner ||
+    isCurrentOrganizationAdmin ||
+    !!permissions?.manageMembers;
 
   const handleUpdateMemberRole = async (memberId: string, newRole: string) => {
     try {
       const targetUser = allUsers.find(u => u.uid === memberId);
       const targetRoleKey = getRoleKeyFromId(targetUser?.roleId || "", allRoles);
-      const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal);
+      const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal, isCurrentOrganizationOwner, isCurrentOrganizationAdmin);
       const otherOwnersActiveCount = allUsers.filter(u => u.organizationId === userProfile?.organizationId && u.uid !== memberId && (u.role === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
 
       const roleCtx = {
@@ -958,7 +985,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
           const currentTargetRoleKey = getRoleKeyFromId(targetUser.roleId || "", allRoles);
           const newTargetRoleKey = getRoleKeyFromId(data.roleId, allRoles);
 
-          const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal);
+          const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal, isCurrentOrganizationOwner, isCurrentOrganizationAdmin);
           const otherOwnersActiveCount = allUsers.filter(u => u.organizationId === userProfile?.organizationId && u.uid !== uid && (u.role === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
 
           const roleCtx = {
@@ -1265,7 +1292,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
                     {/* Ações / Options */}
                     {user.uid !== currentUser?.uid && canEditRoles && (() => {
                       const targetRoleKey = getRoleKeyFromId(user.roleId || "", allRoles);
-                      const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal);
+                      const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal, isCurrentOrganizationOwner, isCurrentOrganizationAdmin);
                       const otherOwnersActiveCount = (allUsers || users).filter(u => u.organizationId === userProfile?.organizationId && u.uid !== user.uid && (u.role === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
 
                       const roleCtx = {
@@ -1414,7 +1441,13 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
 
 const UsersPage: React.FC = () => {
   const { t } = useTranslation();
-  const { user: currentUser, userProfile, organization } = useAuth();
+  const {
+    user: currentUser,
+    userProfile,
+    organization,
+    isOwner: isCurrentOrganizationOwner,
+    isAdmin: isCurrentOrganizationAdmin,
+  } = useAuth();
   const { roles, instruments, loading: musicDataLoading } = useMusic();
   const api = useApi();
   const { hasCapability } = useCapability();
@@ -1445,7 +1478,7 @@ const UsersPage: React.FC = () => {
     const isCurrentUser = member.uid === currentUser?.uid;
     const isMemberOwner = member.uid === organization?.ownerUserId || getRoleKeyFromId(member.roleId || "", roles) === "owner" || member.role === "Dono";
     
-    const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal);
+    const actorRoleKey = getActorOrganizationRoleKey(userProfile, isGlobal, isCurrentOrganizationOwner, isCurrentOrganizationAdmin);
     const currentTargetRoleKey = getRoleKeyFromId(member.roleId || "", roles);
     
     const otherOwnersActiveCount = allUsers.filter(u => u.organizationId === userProfile?.organizationId && u.uid !== member.uid && (getRoleKeyFromId(u.roleId || "", roles) === 'owner' || u.role === 'Dono' || u.uid === organization?.ownerUserId)).length;
@@ -1669,7 +1702,11 @@ const UsersPage: React.FC = () => {
     [allUsers, currentUser?.uid]
   );
   
-  const canManageTeamSetup = hasCapability("musicscale.members.manage");
+  const canManageTeamSetup =
+    isGlobal ||
+    isCurrentOrganizationOwner ||
+    isCurrentOrganizationAdmin ||
+    hasCapability("musicscale.members.manage");
 
   const consumeTeamSetupIntent = useCallback(() => {
     consumedIntentLocationKeyRef.current = location.key || "default";
