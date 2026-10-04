@@ -7,6 +7,34 @@ export const releaseNewsTranslations = {
     close: 'Fechar',
     how: 'Como funciona',
     badge: 'Novidade relevante',
+    nestTunerBeta010: {
+      title: 'Seu palco agora tem um afinador profissional.',
+      description: 'O NestTuner chegou ao MusicScale com leitura em tempo real, afinações por instrumento e um modo Fino preparado para ajustes precisos.',
+      stageTools: {
+        title: 'NestTuner dentro do MusicScale',
+        body: 'Abra o afinador direto pelas Ferramentas de Palco sem sair do app. A mesma tecnologia também vive em nesttuner.millionsnest.com.',
+        how: 'Abra Ferramentas de Palco e toque em NestTuner. Escolha o instrumento, a afinação e permita o microfone apenas quando for começar a afinar.',
+      },
+      deviceAudio: {
+        title: 'Leitura musical em tempo real',
+        body: 'Nota, frequência, cents, clareza, estabilidade e histórico do pitch reagem ao que o microfone realmente capta, sem inventar leitura quando não há sinal.',
+        how: 'Toque uma corda isolada e deixe a nota sustentar. Use Cromático para rapidez, Fino para leitura ampliada e Palco para máxima visibilidade.',
+      },
+      updates: {
+        title: 'Do violão ao baixo de 6 cordas',
+        body: 'Guitarra, violão, baixo, ukulele, violino, viola, violoncelo e cavaquinho têm presets próprios, além de afinações personalizadas e microajuste por corda.',
+        how: 'Escolha um preset pronto ou crie sua própria afinação com até 12 cordas e offsets em cents. As preferências ficam salvas neste aparelho.',
+      },
+      refinements: {
+        summary: 'Leia mais — precisão, privacidade e compatibilidade',
+        title: 'Precisão, privacidade e compatibilidade',
+        items: [
+          { date: '04/10', text: 'O áudio do microfone é processado localmente no dispositivo e não é enviado ao servidor.' },
+          { date: '04/10', text: 'O motor usa janelas adaptativas para graves, proteção contra erros de oitava e testes sintéticos em 44,1 kHz e 48 kHz.' },
+          { date: '04/10', text: 'O modo Fino mostra maior resolução visual, mas a certificação física de ±0,5 cent continua bloqueada até validação em aparelhos reais.' },
+        ],
+      },
+    },
     canonicalInvitesBeta09: {
       title: 'Convidar pessoas ficou muito mais simples.',
       description: 'Agora o MusicScale usa o fluxo canônico do MillionsNest para convidar por e-mail ou link, com o nível de acesso certo para a organização.',
@@ -211,6 +239,34 @@ export const releaseNewsTranslations = {
     close: 'Close',
     how: 'How it works',
     badge: 'Meaningful update',
+    nestTunerBeta010: {
+      title: 'Your stage now has a professional tuner.',
+      description: 'NestTuner is now part of MusicScale with real-time pitch tracking, instrument-specific tunings and a Fine mode built for precise adjustments.',
+      stageTools: {
+        title: 'NestTuner inside MusicScale',
+        body: 'Open the tuner directly from Stage Tools without leaving the app. The same technology also lives at nesttuner.millionsnest.com.',
+        how: 'Open Stage Tools and select NestTuner. Choose the instrument and tuning, then allow microphone access only when you are ready to tune.',
+      },
+      deviceAudio: {
+        title: 'Real-time musical feedback',
+        body: 'Note, frequency, cents, clarity, stability and pitch history respond to what the microphone actually captures, with no fake reading when there is no signal.',
+        how: 'Play one isolated string and let it sustain. Use Chromatic for speed, Fine for expanded resolution and Stage for maximum visibility.',
+      },
+      updates: {
+        title: 'From acoustic guitar to 6-string bass',
+        body: 'Guitar, acoustic guitar, bass, ukulele, violin, viola, cello and cavaquinho include dedicated presets, plus custom tunings and per-string micro offsets.',
+        how: 'Pick a preset or build your own tuning with up to 12 strings and cent offsets. Preferences stay on this device.',
+      },
+      refinements: {
+        summary: 'Read more — precision, privacy and compatibility',
+        title: 'Precision, privacy and compatibility',
+        items: [
+          { date: 'Oct 4', text: 'Microphone audio is processed locally on the device and is not uploaded to the server.' },
+          { date: 'Oct 4', text: 'The engine uses adaptive low-note windows, octave-error protection and synthetic tests at 44.1 kHz and 48 kHz.' },
+          { date: 'Oct 4', text: 'Fine mode exposes greater visual resolution, while ±0.5 cent physical certification remains disabled until real-device validation is complete.' },
+        ],
+      },
+    },
     canonicalInvitesBeta09: {
       title: 'Inviting people is now much easier.',
       description: 'MusicScale now uses the canonical MillionsNest flow for email or link invitations with the correct organization access level.',
@@ -415,6 +471,34 @@ export const releaseNewsTranslations = {
     close: 'Cerrar',
     how: 'Cómo funciona',
     badge: 'Novedad relevante',
+    nestTunerBeta010: {
+      title: 'Tu escenario ahora tiene un afinador profesional.',
+      description: 'NestTuner llega a MusicScale con lectura de tono en tiempo real, afinaciones por instrumento y un modo Fino preparado para ajustes precisos.',
+      stageTools: {
+        title: 'NestTuner dentro de MusicScale',
+        body: 'Abre el afinador desde Herramientas de Escenario sin salir de la aplicación. La misma tecnología también está en nesttuner.millionsnest.com.',
+        how: 'Abre Herramientas de Escenario y selecciona NestTuner. Elige el instrumento y la afinación y permite el micrófono solo cuando vayas a afinar.',
+      },
+      deviceAudio: {
+        title: 'Respuesta musical en tiempo real',
+        body: 'Nota, frecuencia, cents, claridad, estabilidad e historial del tono reaccionan a lo que realmente capta el micrófono, sin inventar lectura cuando no hay señal.',
+        how: 'Toca una cuerda aislada y deja sostener la nota. Usa Cromático para rapidez, Fino para mayor resolución y Escenario para máxima visibilidad.',
+      },
+      updates: {
+        title: 'De la guitarra acústica al bajo de 6 cuerdas',
+        body: 'Guitarra, guitarra acústica, bajo, ukulele, violín, viola, violonchelo y cavaquinho tienen presets dedicados, además de afinaciones personalizadas y microajuste por cuerda.',
+        how: 'Elige un preset o crea tu propia afinación con hasta 12 cuerdas y offsets en cents. Las preferencias quedan guardadas en este dispositivo.',
+      },
+      refinements: {
+        summary: 'Leer más — precisión, privacidad y compatibilidad',
+        title: 'Precisión, privacidad y compatibilidad',
+        items: [
+          { date: '04/10', text: 'El audio del micrófono se procesa localmente en el dispositivo y no se envía al servidor.' },
+          { date: '04/10', text: 'El motor usa ventanas adaptativas para graves, protección contra errores de octava y pruebas sintéticas a 44,1 kHz y 48 kHz.' },
+          { date: '04/10', text: 'El modo Fino ofrece mayor resolución visual, pero la certificación física de ±0,5 cent sigue desactivada hasta completar la validación en dispositivos reales.' },
+        ],
+      },
+    },
     canonicalInvitesBeta09: {
       title: 'Invitar personas ahora es mucho más sencillo.',
       description: 'MusicScale ahora usa el flujo canónico de MillionsNest para invitar por e-mail o enlace con el nivel de acceso correcto.',
