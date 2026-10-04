@@ -1,2 +1,2 @@
-MusicScale 0.9.1-beta.0 — 2026-10-04
-Hotfix crítico: donos e administradores voltam a editar funções e dados de membros conforme a autoridade canônica da organização ativa.
+MusicScale 0.10.0-beta.0 — 2026-10-04
+Feature release: NestTuner integrado às Ferramentas de Palco com módulo 0.4.0-beta.0 fixado, PT/EN/ES, cache offline do runtime e release news.
