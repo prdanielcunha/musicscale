@@ -51,6 +51,38 @@ const withEcosystemTimeout = <T,>(promise: Promise<T>, label: string): Promise<T
     );
   });
 
+const ECOSYSTEM_TRANSIENT_FIRESTORE_CODES = new Set([
+  'unavailable',
+  'deadline-exceeded',
+  'aborted',
+  'resource-exhausted',
+  'internal',
+  'cancelled',
+]);
+
+const withTransientEcosystemRetry = async <T,>(
+  operation: () => Promise<T>,
+  label: string,
+): Promise<T> => {
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await withEcosystemTimeout(operation(), label);
+    } catch (error: any) {
+      lastError = error;
+      const code = String(error?.code || '').toLowerCase().replace(/^firestore\//, '');
+      const timedOut = String(error?.message || '').endsWith('_TIMEOUT');
+      const retryable = timedOut || ECOSYSTEM_TRANSIENT_FIRESTORE_CODES.has(code);
+
+      if (!retryable || attempt === 1) throw error;
+      await new Promise(resolve => window.setTimeout(resolve, 300));
+    }
+  }
+
+  throw lastError;
+};
+
 const DENIED_PERMISSIONS = {
   canManageOrganization: false,
   canManageMembers: false,
