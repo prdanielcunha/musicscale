@@ -33,6 +33,14 @@ Acknowledgement is stored per Firebase user on the current browser through local
 
 The automatic presenter is eligible only when the current `FEATURE_RELEASE` is a published feature release that has not been acknowledged by that user on the current browser. It does not open merely because an account is new, and it does not auto-open on stage/performance surfaces.
 
+## Live update detection
+
+Every production build emits `/version.json` from the package version. Firebase Hosting serves this manifest with `no-cache,no-store,must-revalidate`, and Workbox must exclude it from precache.
+
+A running app checks the published manifest every 30 seconds while visible and immediately on load, focus, return from background and restored connectivity. A version mismatch shows the update action independently of service-worker lifecycle events. Service-worker `controllerchange` remains a second signal.
+
+When the user chooses to update, MusicScale asks the registration to refresh. If iOS/WebKit keeps the stale controller after the short activation window, the app unregisters that stale worker before navigating so the next load is forced back to Hosting and can register the current worker.
+
 ## Promotion checklist
 
 Before any future production promotion: review the complete diff, run focused release/news/stage tests, run `npm run lint`, `npm run test:ui`, `npm run build`, run `git diff --check`, confirm package/lock version consistency and verify the release is newer than the current production version. Production promotion remains a separate, explicitly approved operation.
