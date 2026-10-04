@@ -18,6 +18,7 @@ describe("PWA release freshness guard", () => {
 
   it("surfaces a visible update action when the active worker changes", () => {
     expect(indexSource).toContain("controllerchange");
+    expect(indexSource).toContain("hasActiveController");
     expect(indexSource).toContain("musicscale-update-available");
     expect(indexSource).toContain("Nova versão do MusicScale disponível");
     expect(indexSource).toContain("window.location.reload()");
