@@ -1,2 +1,2 @@
-MusicScale 0.10.2-beta.0 — 2026-10-04
-Hotfix crítico: quando as leituras diretas do Firestore falham, o app recupera os dados essenciais por uma rota autenticada e tenant-scoped no servidor, sem transformar falha em lista vazia nem relaxar autorização.
+MusicScale 0.10.3-beta.0 — 2026-10-04
+Hotfix NestTuner: recupera o carregamento do afinador no Safari/iPhone com módulo 0.6.2 versionado, fallback direto para o Firebase Hosting e sem CacheFirst cross-origin que possa reter resposta HTML inválida.
