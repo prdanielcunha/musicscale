@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowUpRight, AudioLines, Sparkles, Wrench } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { FEATURE_RELEASE } from '../lib/appRelease';
+import { FEATURE_RELEASE, type ReleaseAction } from '../lib/appRelease';
 
 const featureCards = [
   { id: 'stageTools', icon: Wrench },
@@ -38,7 +38,7 @@ export function ReleaseHighlights({ onAction }: ReleaseHighlightsProps) {
 
       <div className="mt-8 grid gap-3 sm:grid-cols-3 sm:gap-4">
         {featureCards.map(({ id, icon: Icon }, index) => {
-          const action = FEATURE_RELEASE.actions[id];
+          const action = FEATURE_RELEASE.actions[id] as ReleaseAction;
 
           return (
             <article
