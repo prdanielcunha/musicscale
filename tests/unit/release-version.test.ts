@@ -20,13 +20,14 @@ const runBump = (version: string, kind: string) => {
 };
 
 describe('release metadata', () => {
-  it('uses the 0.9 canonical invitation feature release metadata', () => {
+  it('uses the 0.10 NestTuner feature release metadata', () => {
     const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-    expect(APP_VERSION).toBe('0.9.1-beta.0');
+    expect(APP_VERSION).toBe('0.10.0-beta.0');
     expect(lock.version).toBe(APP_VERSION);
     expect(lock.packages[''].version).toBe(APP_VERSION);
-    expect(FEATURE_RELEASE.version).toBe('0.9.0-beta.0');
-    expect(FEATURE_RELEASE.id).toBe('canonical-invites-beta-0.9');
+    expect(FEATURE_RELEASE.version).toBe('0.10.0-beta.0');
+    expect(FEATURE_RELEASE.id).toBe('nesttuner-beta-0.10');
+    expect(FEATURE_RELEASE.translationKey).toBe('releaseNews.nestTunerBeta010');
     expect(FEATURE_RELEASE.kind).toBe('feature');
     expect(Date.parse(FEATURE_RELEASE.publishedAt)).not.toBeNaN();
   });
@@ -51,9 +52,9 @@ describe('release metadata', () => {
     expect(revision.lock.packages[''].version).toBe(revision.pkg.version);
   });
 
-  it('provides the three canonical invitation highlights and refinements in every language', () => {
+  it('provides the three NestTuner highlights and refinements in every language', () => {
     for (const language of ['pt', 'en', 'es'] as const) {
-      const copy = releaseNewsTranslations[language].canonicalInvitesBeta09;
+      const copy = releaseNewsTranslations[language].nestTunerBeta010;
       expect(copy.title.length).toBeGreaterThan(0);
       for (const feature of ['stageTools', 'deviceAudio', 'updates'] as const) {
         expect(copy[feature].title.length).toBeGreaterThan(0);
