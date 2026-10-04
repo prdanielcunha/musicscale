@@ -1946,6 +1946,124 @@ app.post(
   const memberRemovalCompatibilityHandler = createMemberRemovalCompatibilityHandler({ db, auth, logger });
   app.delete("/api/orgs/:organizationId/members/:memberId", memberRemovalCompatibilityHandler);
 
+  app.get("/api/orgs/:organizationId/member-directory", async (req, res) => {
+      try {
+          if (!db || !auth) return res.status(503).json({ success: false, error: "SERVICE_UNAVAILABLE" });
+          const { organizationId } = req.params;
+          if (!/^[A-Za-z0-9_-]{1,128}$/.test(organizationId)) {
+              return res.status(400).json({ success: false, error: "INVALID_ORGANIZATION_ID" });
+          }
+
+          const authorization = await resolveOrganizationAuthorization(req.headers.authorization, organizationId, db, auth);
+          if (authorization.statusCode) {
+              return res.status(authorization.statusCode).json({ success: false, error: authorization.error });
+          }
+          const actor = authorization.context!;
+          if (!actor.isActive) {
+              return res.status(403).json({ success: false, error: "INACTIVE_MEMBERSHIP" });
+          }
+
+          const organizationRef = db.collection("organizations").doc(organizationId);
+          const [membersSnapshot, projectionsSnapshot] = await Promise.all([
+              organizationRef.collection("members").get(),
+              organizationRef.collection("musicscale_members").get(),
+          ]);
+
+          const activeMemberDocs = membersSnapshot.docs.filter((memberDoc: any) => {
+              const status = String(memberDoc.data()?.status || "active").trim().toLowerCase();
+              return status === "active" || status === "ativo";
+          });
+          const uids = activeMemberDocs.map((memberDoc: any) => memberDoc.id).filter(Boolean);
+          const projectionByUid = new Map(
+              projectionsSnapshot.docs.map((projectionDoc: any) => [projectionDoc.id, projectionDoc.data() || {}]),
+          );
+
+          const userByUid = new Map<string, any>();
+          if (uids.length > 0) {
+              const userSnapshots = await db.getAll(...uids.map((uid: string) => db.collection("users").doc(uid)));
+              userSnapshots.forEach((userSnapshot: any) => {
+                  if (userSnapshot.exists) userByUid.set(userSnapshot.id, userSnapshot.data() || {});
+              });
+          }
+
+          const authByUid = new Map<string, any>();
+          for (let index = 0; index < uids.length; index += 100) {
+              const chunk = uids.slice(index, index + 100);
+              try {
+                  const result = await auth.getUsers(chunk.map((uid: string) => ({ uid })));
+                  result.users.forEach((record: any) => authByUid.set(record.uid, record));
+              } catch (error) {
+                  logger.warn("[API] Member directory Firebase Auth enrichment failed for a chunk", {
+                      organizationId,
+                      chunkSize: chunk.length,
+                  });
+              }
+          }
+
+          const textValue = (...values: any[]) => {
+              for (const value of values) {
+                  if (typeof value === "string" && value.trim()) return value.trim();
+              }
+              return "";
+          };
+
+          const members = activeMemberDocs.map((memberDoc: any) => {
+              const uid = memberDoc.id;
+              const memberData = memberDoc.data() || {};
+              const userData = userByUid.get(uid) || {};
+              const authData = authByUid.get(uid) || {};
+              const projectionData = projectionByUid.get(uid) || {};
+              const organizationRole = textValue(memberData.organizationRole, memberData.role, "member").toLowerCase();
+
+              return {
+                  id: uid,
+                  uid,
+                  organizationId,
+                  organizationRole,
+                  status: "active",
+                  email: textValue(
+                      memberData.email,
+                      memberData.emailNormalized,
+                      userData.email,
+                      userData.emailNormalized,
+                      authData.email,
+                  ),
+                  displayName: textValue(
+                      memberData.displayName,
+                      memberData.name,
+                      userData.displayName,
+                      userData.name,
+                      authData.displayName,
+                  ),
+                  photoURL: textValue(memberData.photoURL, userData.photoURL, authData.photoURL),
+                  roleId: textValue(
+                      projectionData.roleId,
+                      projectionData.internalRoleId,
+                      memberData.roleId,
+                      memberData.internalRoleId,
+                  ),
+                  musicscaleRole: textValue(projectionData.musicscaleRole, memberData.musicscaleRole),
+                  ministryFunction: projectionData.ministryFunction ?? memberData.ministryFunction ?? null,
+                  specialtyIds: Array.isArray(projectionData.specialtyIds)
+                      ? projectionData.specialtyIds
+                      : Array.isArray(memberData.specialtyIds)
+                        ? memberData.specialtyIds
+                        : [],
+                  systemRole: textValue(userData.systemRole, memberData.systemRole),
+              };
+          });
+
+          res.setHeader("Cache-Control", "private, no-store");
+          return res.json({ success: true, organizationId, members });
+      } catch (error: any) {
+          logger.error("[API] Member directory failed", {
+              organizationId: req.params?.organizationId,
+              message: error?.message || "UNKNOWN",
+          });
+          return res.status(500).json({ success: false, error: "INTERNAL_SERVER_ERROR" });
+      }
+  });
+
   app.patch("/api/orgs/:organizationId/musicscale-members/:uid", async (req, res) => {
       try {
           if (!db || !auth) return res.status(503).json({ error: "SERVICE_UNAVAILABLE" });

@@ -48,9 +48,9 @@ describe('02B create adapter matrix', () => {
       expect(url).toBe('https://configured.example/api/v1/invitations');
       expect(init?.headers).toEqual({ 'content-type': 'application/json', authorization: 'Bearer exact-token' });
       const body = JSON.parse(String(init?.body));
-      expect(body).toEqual({ organizationId: 'org-1', email: 'person@example.com', role: 'member' });
+      expect(body).toEqual({ organizationId: 'org-1', email: 'person@example.com', role: 'member', targetAppId: 'musicscale' });
       expect(body).not.toHaveProperty('roleId'); expect(body).not.toHaveProperty('musicscaleRole');
-      return response(200, { success: true, reasonCode: 'CREATED', invitePath: '/join/org-1?token=raw-secret', invitation: { id: 'i1', organizationId: 'org-1', role: 'member', expiresAtMs: 1 } });
+      return response(200, { success: true, reasonCode: 'CREATED', invitePath: '/join/org-1?token=raw-secret', inviteUrl: 'https://musicscale.millionsnest.com/join/org-1?token=raw-secret', invitation: { id: 'i1', organizationId: 'org-1', role: 'member', targetAppId: 'musicscale', expiresAtMs: 1 } });
     });
     const result = await new HubInvitationAdapter({ origin: 'https://configured.example', fetch: fetcher as any }).create('Bearer exact-token', 'org-1', ' Person@Example.COM ');
     expect(result.invitePath).toBe('/join/org-1?token=raw-secret');
@@ -59,15 +59,17 @@ describe('02B create adapter matrix', () => {
   it('creates canonical shareable link invites with Hub role and no recipient email', async () => {
     const fetcher = vi.fn(async (_url, init) => {
       const body = JSON.parse(String(init?.body));
-      expect(body).toEqual({ organizationId: 'org-1', role: 'manager', mode: 'link' });
+      expect(body).toEqual({ organizationId: 'org-1', role: 'manager', mode: 'link', targetAppId: 'musicscale' });
       return response(200, {
         success: true,
         reasonCode: 'CREATED',
         invitePath: '/join/org-1?token=link-secret',
+        inviteUrl: 'https://musicscale.millionsnest.com/join/org-1?token=link-secret',
         invitation: {
           id: 'i-link',
           organizationId: 'org-1',
           role: 'manager',
+          targetAppId: 'musicscale',
           inviteMode: 'link',
           identityBound: false,
           expiresAtMs: 1
@@ -76,7 +78,7 @@ describe('02B create adapter matrix', () => {
     });
     const result = await new HubInvitationAdapter({ origin: 'https://configured.example', fetch: fetcher as any })
       .create('Bearer exact-token', 'org-1', { role: 'manager', mode: 'link' });
-    expect(result.inviteUrl).toBe('https://configured.example/join/org-1?token=link-secret');
+    expect(result.inviteUrl).toBe('https://musicscale.millionsnest.com/join/org-1?token=link-secret');
   });
 
   it('delivers email through the canonical Hub command with the canonical Hub URL', async () => {
@@ -85,12 +87,12 @@ describe('02B create adapter matrix', () => {
       expect(JSON.parse(String(init?.body))).toEqual({
         organizationId: 'org-1',
         invitationId: 'invite-1',
-        inviteUrl: 'https://configured.example/join/org-1?token=secret'
+        inviteUrl: 'https://musicscale.millionsnest.com/join/org-1?token=secret'
       });
       return response(200, { success: true, reasonCode: 'EMAIL_SENT' });
     });
     await expect(new HubInvitationAdapter({ origin: 'https://configured.example', fetch: fetcher as any })
-      .sendEmail('Bearer exact-token', 'org-1', 'invite-1', 'https://configured.example/join/org-1?token=secret'))
+      .sendEmail('Bearer exact-token', 'org-1', 'invite-1', 'https://musicscale.millionsnest.com/join/org-1?token=secret'))
       .resolves.toMatchObject({ success: true });
   });
 
@@ -123,13 +125,13 @@ describe('02B create adapter matrix', () => {
   });
 
   it.each([[500, 'HUB_500'], [502, 'HUB_502'], [503, 'HUB_503'], [504, 'HUB_504']])('preserves ambiguous %s fail-closed', async (status, reasonCode) => {
-    await expect(new HubInvitationAdapter({ origin: 'https://hub.example', fetch: vi.fn(async () => response(status as number, { reasonCode })) as any }).accept('Bearer x', 'token'))
+    await expect(new HubInvitationAdapter({ origin: 'https://hub.example', fetch: vi.fn(async () => response(status as number, { reasonCode })) as any }).accept('Bearer x', 'token', 'org-1'))
       .rejects.toMatchObject({ status, reasonCode, ambiguous: true });
   });
 
   it('network failure is fail-closed and ambiguous', async () => {
     const adapter = new HubInvitationAdapter({ origin: 'https://hub.example', fetch: vi.fn(async () => { throw new Error('DNS'); }) as any });
-    await expect(adapter.accept('Bearer x', 'token')).rejects.toMatchObject({ status: 503, reasonCode: 'HUB_UNAVAILABLE', ambiguous: true });
+    await expect(adapter.accept('Bearer x', 'token', 'org-1')).rejects.toMatchObject({ status: 503, reasonCode: 'HUB_UNAVAILABLE', ambiguous: true });
   });
 });
 
@@ -146,17 +148,17 @@ describe('02B Hub acceptance response validation', () => {
     ['unexpected reasonCode', { reasonCode: 'OTHER' }]
   ])('rejects malformed success: %s', async (_label, overrides) => {
     const adapter = new HubInvitationAdapter({ origin: 'https://hub.example', fetch: vi.fn(async () => response(200, validAccept(overrides))) as any });
-    await expect(adapter.accept('Bearer x', 'token')).rejects.toMatchObject({ status: 502, reasonCode: 'INVALID_HUB_RESPONSE', ambiguous: true });
+    await expect(adapter.accept('Bearer x', 'token', 'org-1')).rejects.toMatchObject({ status: 502, reasonCode: 'INVALID_HUB_RESPONSE', ambiguous: true });
   });
 
   it('rejects HTTP 2xx success:false', async () => {
     const adapter = new HubInvitationAdapter({ origin: 'https://hub.example', fetch: vi.fn(async () => response(200, { success: false })) as any });
-    await expect(adapter.accept('Bearer x', 'token')).rejects.toMatchObject({ status: 502, reasonCode: 'INVALID_HUB_RESPONSE', ambiguous: true });
+    await expect(adapter.accept('Bearer x', 'token', 'org-1')).rejects.toMatchObject({ status: 502, reasonCode: 'INVALID_HUB_RESPONSE', ambiguous: true });
   });
 
   it('rejects invalid JSON', async () => {
     const adapter = new HubInvitationAdapter({ origin: 'https://hub.example', fetch: vi.fn(async () => response(200, {}, true)) as any });
-    await expect(adapter.accept('Bearer x', 'token')).rejects.toMatchObject({ status: 502, reasonCode: 'INVALID_HUB_RESPONSE', ambiguous: true });
+    await expect(adapter.accept('Bearer x', 'token', 'org-1')).rejects.toMatchObject({ status: 502, reasonCode: 'INVALID_HUB_RESPONSE', ambiguous: true });
   });
 
   it.each([
@@ -164,12 +166,12 @@ describe('02B Hub acceptance response validation', () => {
     validAccept({ alreadyMember: true, reasonCode: 'ALREADY_MEMBER' })
   ])('accepts certified success contract %#', async payload => {
     const adapter = new HubInvitationAdapter({ origin: 'https://hub.example', fetch: vi.fn(async () => response(200, payload)) as any });
-    await expect(adapter.accept('Bearer x', 'token')).resolves.toMatchObject(payload);
+    await expect(adapter.accept('Bearer x', 'token', 'org-1')).resolves.toMatchObject(payload);
   });
 
   it('malformed success never enables legacy fallback', async () => {
     const error = await new HubInvitationAdapter({ origin: 'https://hub.example', fetch: vi.fn(async () => response(200, validAccept({ reasonCode: 'OTHER' }))) as any })
-      .accept('Bearer x', 'token').catch(value => value);
+      .accept('Bearer x', 'token', 'org-1').catch(value => value);
     expect(permitsLegacyInvitationFallback(error)).toBe(false);
   });
 });
