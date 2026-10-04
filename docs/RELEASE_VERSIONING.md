@@ -4,7 +4,7 @@ MusicScale follows Semantic Versioning 2.0.0 using the release shape:
 
 `MAJOR.MINOR.PATCH-prerelease.iteration`
 
-The version for this feature release is **0.3.0-beta.0**.
+The current meaningful feature release is **0.10.0-beta.0** (NestTuner integration).
 
 ## Beta rules
 

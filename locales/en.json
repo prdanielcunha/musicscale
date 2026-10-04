@@ -1985,7 +1985,16 @@
     "pad_description": "Choose a key manually and decide whether this device will output audio.",
     "metronome_title": "Metronome",
     "metronome_description": "Set the BPM, keep time and control the click with stage-ready audio.",
-    "audio_note": "Audio never starts automatically. Each device must be enabled locally and Play still requires a user action."
+    "audio_note": "Audio never starts automatically. Each device must be enabled locally and Play still requires a user action.",
+    "tuner_title": "NestTuner",
+    "tuner_badge": "Professional tuner",
+    "tuner_description": "Chromatic and string tuning with Fine mode, A4 reference and Stage mode. Audio is processed locally on this device.",
+    "tuner_action": "Open tuner",
+    "tuner_loading": "Loading NestTuner…",
+    "tuner_error_title": "NestTuner could not be opened",
+    "tuner_error_description": "The tool did not load inside MusicScale. Try again or open the official version in another tab.",
+    "tuner_retry": "Try again",
+    "tuner_open_external": "Open NestTuner"
   },
   "bandScalesPage": {
     "fixedBadge": "Reusable formations",

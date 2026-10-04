@@ -7,7 +7,7 @@ const WhatsNewModal = lazy(() =>
 );
 
 const isStageSurface = (pathname: string) =>
-  pathname === '/stage-tools' || pathname.includes('/performance');
+  pathname.startsWith('/stage-tools') || pathname.includes('/performance');
 
 /**
  * Owns relevant feature-release auto-presentation outside ModalContext so the
