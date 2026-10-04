@@ -1,6 +1,7 @@
 
 import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
+import { version as APP_BUILD_VERSION } from './package.json';
 
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { markStartupMetric, incrementStartupCounter, markStartupFailure } from './lib/startupTelemetry';
@@ -69,10 +70,78 @@ const handleChunkError = (event: Event | PromiseRejectionEvent, message?: string
 window.addEventListener('unhandledrejection', handleChunkError);
 window.addEventListener('vite:preloadError', handleChunkError);
 
-const SW_UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 1000;
+const VERSION_CHECK_INTERVAL_MS = 30 * 1000;
+const VERSION_MANIFEST_PATH = '/version.json';
 const UPDATE_BANNER_ID = 'musicscale-update-available';
 
-function showUpdateAvailableBanner() {
+let latestPublishedVersion: string | null = null;
+
+function isVersionManifest(payload: unknown): payload is { version: string } {
+  if (!payload || typeof payload !== 'object') return false;
+  const version = (payload as { version?: unknown }).version;
+  return typeof version === 'string' && version.length > 0;
+}
+
+async function refreshServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (!('serviceWorker' in navigator)) return null;
+
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) return null;
+    await registration.update();
+    return registration;
+  } catch (error) {
+    console.warn('[MusicScale] Service worker update check failed', error);
+    return null;
+  }
+}
+
+async function reloadIntoLatestVersion(button: HTMLButtonElement) {
+  button.disabled = true;
+  button.textContent = 'Atualizando...';
+
+  const currentController = 'serviceWorker' in navigator ? navigator.serviceWorker.controller : null;
+  let controllerChanged = false;
+  let removeControllerListener = () => {};
+
+  const controllerChangePromise = new Promise<void>((resolve) => {
+    if (!('serviceWorker' in navigator) || !currentController) {
+      resolve();
+      return;
+    }
+
+    const onControllerChange = () => {
+      controllerChanged = true;
+      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+      resolve();
+    };
+
+    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+    removeControllerListener = () => navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+    window.setTimeout(resolve, 2500);
+  });
+
+  const registration = await refreshServiceWorker();
+  await controllerChangePromise;
+  removeControllerListener();
+
+  // If iOS/WebKit refuses to activate the fresh worker in time, unregister the
+  // stale controller before navigation so the next load must come from Hosting.
+  if (registration && currentController && !controllerChanged && navigator.serviceWorker.controller === currentController) {
+    try {
+      await registration.unregister();
+    } catch (error) {
+      console.warn('[MusicScale] Could not unregister stale service worker before refresh', error);
+    }
+  }
+
+  const refreshUrl = new URL(window.location.href);
+  refreshUrl.searchParams.set('v', latestPublishedVersion ?? Date.now().toString());
+  window.location.replace(refreshUrl.toString());
+}
+
+function showUpdateAvailableBanner(publishedVersion?: string) {
+  if (publishedVersion) latestPublishedVersion = publishedVersion;
   if (document.getElementById(UPDATE_BANNER_ID)) return;
 
   const button = document.createElement('button');
@@ -97,38 +166,95 @@ function showUpdateAvailableBanner() {
   button.style.cursor = 'pointer';
 
   button.addEventListener('click', () => {
-    button.disabled = true;
-    button.textContent = 'Atualizando...';
-    window.location.reload();
+    void reloadIntoLatestVersion(button);
   });
 
   document.body.appendChild(button);
 }
 
-function installServiceWorkerFreshnessGuard() {
-  if (!('serviceWorker' in navigator)) return;
+async function checkPublishedVersion() {
+  if (document.visibilityState !== 'visible' || !navigator.onLine) return;
 
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    showUpdateAvailableBanner();
-  });
+  try {
+    const manifestUrl = new URL(VERSION_MANIFEST_PATH, window.location.origin);
+    manifestUrl.searchParams.set('t', Date.now().toString());
+
+    const response = await fetch(manifestUrl.toString(), {
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+
+    if (!response.ok) return;
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!contentType.includes('application/json')) return;
+
+    const manifest: unknown = await response.json();
+    if (!isVersionManifest(manifest)) return;
+
+    if (manifest.version !== APP_BUILD_VERSION) {
+      showUpdateAvailableBanner(manifest.version);
+      void refreshServiceWorker();
+    }
+  } catch (error) {
+    console.warn('[MusicScale] Published version check failed', error);
+  }
+}
+
+function installReleaseFreshnessGuard() {
+  let hasActiveController = 'serviceWorker' in navigator && Boolean(navigator.serviceWorker.controller);
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hasActiveController) {
+        showUpdateAvailableBanner();
+      }
+      hasActiveController = true;
+    });
+  }
 
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.getRegistration().then((registration) => {
-      if (!registration) return;
+    let intervalId: number | null = null;
 
-      const checkForUpdate = () => {
-        void registration.update().catch((error) => {
-          console.warn('[MusicScale] Service worker update check failed', error);
-        });
-      };
+    const stopPeriodicChecks = () => {
+      if (intervalId === null) return;
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
 
+    const checkForUpdate = () => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine) return;
+      void checkPublishedVersion();
+      void refreshServiceWorker();
+    };
+
+    const startPeriodicChecks = () => {
+      stopPeriodicChecks();
+      if (document.visibilityState !== 'visible') return;
+      intervalId = window.setInterval(checkForUpdate, VERSION_CHECK_INTERVAL_MS);
+    };
+
+    const checkImmediately = () => {
       checkForUpdate();
-      window.setInterval(checkForUpdate, SW_UPDATE_CHECK_INTERVAL_MS);
-    });
+      startPeriodicChecks();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkImmediately();
+      } else {
+        stopPeriodicChecks();
+      }
+    };
+
+    checkImmediately();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', checkImmediately);
+    window.addEventListener('online', checkImmediately);
   });
 }
 
-installServiceWorkerFreshnessGuard();
+installReleaseFreshnessGuard();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
