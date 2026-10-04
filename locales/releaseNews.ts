@@ -7,6 +7,7 @@ export const releaseNewsTranslations = {
     close: 'Fechar',
     how: 'Como funciona',
     badge: 'Novidade relevante',
+    viewFeature: 'Ver novidade',
     nestTunerBeta010: {
       title: 'Seu palco agora tem um afinador profissional.',
       description: 'O NestTuner chegou ao MusicScale com leitura em tempo real, afinações por instrumento e um modo Fino preparado para ajustes precisos.',
@@ -240,6 +241,7 @@ export const releaseNewsTranslations = {
     close: 'Close',
     how: 'How it works',
     badge: 'Meaningful update',
+    viewFeature: 'Open feature',
     nestTunerBeta010: {
       title: 'Your stage now has a professional tuner.',
       description: 'NestTuner is now part of MusicScale with real-time pitch tracking, instrument-specific tunings and a Fine mode built for precise adjustments.',
@@ -473,6 +475,7 @@ export const releaseNewsTranslations = {
     close: 'Cerrar',
     how: 'Cómo funciona',
     badge: 'Novedad relevante',
+    viewFeature: 'Ver novedad',
     nestTunerBeta010: {
       title: 'Tu escenario ahora tiene un afinador profesional.',
       description: 'NestTuner llega a MusicScale con lectura de tono en tiempo real, afinaciones por instrumento y un modo Fino preparado para ajustes precisos.',

@@ -68,7 +68,11 @@ describe('release news contract', () => {
     expect(highlights).toContain('<details');
     expect(highlights).toContain('refinements.summary');
     expect(highlights).toContain('refinements.items');
+    expect(highlights).toContain('FEATURE_RELEASE.actions');
+    expect(highlights).toContain("releaseNews.viewFeature");
+    expect(highlights).toContain("to={action.to}");
     expect(modal).toContain('markReleaseSeen();');
+    expect(modal).toContain('<ReleaseHighlights onAction={handleClose} />');
     expect(modal).not.toContain('markAsSeen');
     expect(modal).not.toContain('dismissWelcome');
   });

@@ -69,7 +69,7 @@ const handleChunkError = (event: Event | PromiseRejectionEvent, message?: string
 window.addEventListener('unhandledrejection', handleChunkError);
 window.addEventListener('vite:preloadError', handleChunkError);
 
-const SW_UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 1000;
+const SW_UPDATE_CHECK_INTERVAL_MS = 30 * 1000;
 const UPDATE_BANNER_ID = 'musicscale-update-available';
 
 function showUpdateAvailableBanner() {
@@ -108,26 +108,60 @@ function showUpdateAvailableBanner() {
 function installServiceWorkerFreshnessGuard() {
   if (!('serviceWorker' in navigator)) return;
 
+  let hasActiveController = Boolean(navigator.serviceWorker.controller);
+
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    showUpdateAvailableBanner();
+    if (hasActiveController) {
+      showUpdateAvailableBanner();
+    }
+    hasActiveController = true;
   });
 
   window.addEventListener('load', () => {
     void navigator.serviceWorker.getRegistration().then((registration) => {
       if (!registration) return;
 
+      let intervalId: number | null = null;
+
       const checkForUpdate = () => {
+        if (document.visibilityState !== 'visible' || !navigator.onLine) return;
         void registration.update().catch((error) => {
           console.warn('[MusicScale] Service worker update check failed', error);
         });
       };
 
-      checkForUpdate();
-      window.setInterval(checkForUpdate, SW_UPDATE_CHECK_INTERVAL_MS);
+      const stopPeriodicChecks = () => {
+        if (intervalId === null) return;
+        window.clearInterval(intervalId);
+        intervalId = null;
+      };
+
+      const startPeriodicChecks = () => {
+        stopPeriodicChecks();
+        if (document.visibilityState !== 'visible') return;
+        intervalId = window.setInterval(checkForUpdate, SW_UPDATE_CHECK_INTERVAL_MS);
+      };
+
+      const checkImmediately = () => {
+        checkForUpdate();
+        startPeriodicChecks();
+      };
+
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          checkImmediately();
+        } else {
+          stopPeriodicChecks();
+        }
+      };
+
+      checkImmediately();
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', checkImmediately);
+      window.addEventListener('online', checkImmediately);
     });
   });
 }
-
 installServiceWorkerFreshnessGuard();
 
 const rootElement = document.getElementById('root');
