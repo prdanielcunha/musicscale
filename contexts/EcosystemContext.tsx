@@ -51,6 +51,38 @@ const withEcosystemTimeout = <T,>(promise: Promise<T>, label: string): Promise<T
     );
   });
 
+const ECOSYSTEM_TRANSIENT_FIRESTORE_CODES = new Set([
+  'unavailable',
+  'deadline-exceeded',
+  'aborted',
+  'resource-exhausted',
+  'internal',
+  'cancelled',
+]);
+
+const withTransientEcosystemRetry = async <T,>(
+  operation: () => Promise<T>,
+  label: string,
+): Promise<T> => {
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await withEcosystemTimeout(operation(), label);
+    } catch (error: any) {
+      lastError = error;
+      const code = String(error?.code || '').toLowerCase().replace(/^firestore\//, '');
+      const timedOut = String(error?.message || '').endsWith('_TIMEOUT');
+      const retryable = timedOut || ECOSYSTEM_TRANSIENT_FIRESTORE_CODES.has(code);
+
+      if (!retryable || attempt === 1) throw error;
+      await new Promise(resolve => window.setTimeout(resolve, 300));
+    }
+  }
+
+  throw lastError;
+};
+
 const DENIED_PERMISSIONS = {
   canManageOrganization: false,
   canManageMembers: false,
@@ -108,6 +140,115 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     contextRef.current = context;
   }, [context]);
+
+  // A transient API/cold-start failure must not leave the app stuck in the
+  // fail-closed degraded state after connectivity has recovered. Revalidate the
+  // exact UID+tenant pair in the background; permissions remain denied until a
+  // canonical response is verified.
+  useEffect(() => {
+    const orgId = context?.currentOrganizationId;
+    if (
+      !isDegraded ||
+      !context?.isStandalone ||
+      !orgId ||
+      orgId === 'offline_default' ||
+      typeof window === 'undefined' ||
+      !navigator.onLine
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const controllers = new Set<AbortController>();
+    const timers = new Set<number>();
+    const delays = [1200, 3500, 8000];
+
+    const verify = async (attempt: number) => {
+      if (cancelled) return;
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      try {
+        const token = await currentUser.getIdToken(attempt > 0);
+        if (cancelled || auth.currentUser?.uid !== currentUser.uid) return;
+
+        const controller = new AbortController();
+        controllers.add(controller);
+        const timeout = window.setTimeout(() => controller.abort(), 5000);
+        timers.add(timeout);
+
+        let response: Response;
+        try {
+          response = await fetch(
+            `/api/v1/ecosystem/access-context?organizationId=${encodeURIComponent(orgId)}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              signal: controller.signal,
+            }
+          );
+        } finally {
+          window.clearTimeout(timeout);
+          timers.delete(timeout);
+          controllers.delete(controller);
+        }
+
+        if (!response.ok) {
+          const retryable = response.status === 401 || response.status === 429 || response.status >= 500;
+          if (retryable && attempt + 1 < delays.length) {
+            const retryTimer = window.setTimeout(() => void verify(attempt + 1), delays[attempt + 1]);
+            timers.add(retryTimer);
+          }
+          return;
+        }
+
+        const canonicalContext = await response.json().catch(() => null);
+        const effectiveContext = canonicalContext?.effectiveContext;
+        const membershipStatus = String(
+          effectiveContext?.membershipStatus || canonicalContext?.membershipStatus || ''
+        ).toLowerCase();
+        const isAuthorized =
+          isValidCanonicalResponse(canonicalContext, currentUser.uid, orgId) &&
+          effectiveContext?.resolutionStatus === 'resolved' &&
+          (effectiveContext?.isGlobalAccess === true || ['active', 'ativo'].includes(membershipStatus));
+
+        if (!isAuthorized || cancelled || auth.currentUser?.uid !== currentUser.uid) return;
+
+        releasedCanonicalOrgIdRef.current = orgId;
+        releasedCanonicalContextRef.current = canonicalContext;
+        setContext((previous: any) => ({
+          ...previous,
+          ecosystemRole: canonicalContext.systemRole || previous?.ecosystemRole,
+          roleInCurrentOrganization:
+            canonicalContext.organizationRole ||
+            effectiveContext?.organizationRole ||
+            previous?.roleInCurrentOrganization,
+          serverContext: canonicalContext,
+          permissions: getCanonicalPermissions(canonicalContext),
+        }));
+        setIsDegraded(false);
+        markStartupMetric('ecosystem_degraded_recovered_ms');
+      } catch (error) {
+        if (cancelled) return;
+        if (attempt + 1 < delays.length) {
+          const retryTimer = window.setTimeout(() => void verify(attempt + 1), delays[attempt + 1]);
+          timers.add(retryTimer);
+        } else {
+          console.warn('[EcosystemContext] Background canonical recovery did not succeed.', error);
+        }
+      }
+    };
+
+    const initialTimer = window.setTimeout(() => void verify(0), delays[0]);
+    timers.add(initialTimer);
+
+    return () => {
+      cancelled = true;
+      timers.forEach(timer => window.clearTimeout(timer));
+      controllers.forEach(controller => controller.abort());
+      timers.clear();
+      controllers.clear();
+    };
+  }, [isDegraded, context?.currentOrganizationId, context?.isStandalone]);
 
   useEffect(() => {
     let mounted = true;
@@ -591,22 +732,44 @@ export const EcosystemProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                             if (!earlySuccess) {
                                 try {
                                     markStartupMetric('ecosystem_access_context_started_ms');
-                                    const token = await user.getIdToken(false);
                                     if (mounted && currentGeneration === activeGeneration && auth.currentUser?.uid === user.uid) {
-                                        const controller = new AbortController();
-                                        activeControllers.push(controller);
-                                        const timeoutId = setTimeout(() => controller.abort(), 5000);
-                                        let apiRes;
-                                        try {
-                                            apiRes = await fetch(`/api/v1/ecosystem/access-context?organizationId=${orgId}`, {
-                                                headers: {
-                                                    'Authorization': `Bearer ${token}`
-                                                },
-                                                signal: controller.signal
-                                            });
-                                        } finally {
-                                            clearTimeout(timeoutId);
+                                        let apiRes: Response | null = null;
+
+                                        for (let attempt = 0; attempt < 2; attempt += 1) {
+                                            const token = await user.getIdToken(attempt > 0);
+                                            const controller = new AbortController();
+                                            activeControllers.push(controller);
+                                            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                                            try {
+                                                apiRes = await fetch(`/api/v1/ecosystem/access-context?organizationId=${orgId}`, {
+                                                    headers: {
+                                                        'Authorization': `Bearer ${token}`
+                                                    },
+                                                    signal: controller.signal
+                                                });
+                                            } catch (error) {
+                                                apiRes = null;
+                                                if (attempt === 0) {
+                                                    await new Promise(resolve => window.setTimeout(resolve, 350));
+                                                    continue;
+                                                }
+                                                throw error;
+                                            } finally {
+                                                clearTimeout(timeoutId);
+                                            }
+
+                                            if (apiRes.ok) break;
+
+                                            const transientHttp = apiRes.status === 429 || apiRes.status >= 500;
+                                            const staleToken = apiRes.status === 401;
+                                            if (attempt === 0 && (transientHttp || staleToken)) {
+                                                await new Promise(resolve => window.setTimeout(resolve, 350));
+                                                continue;
+                                            }
+                                            break;
                                         }
+
                                         if (apiRes && apiRes.ok) {
                                             const resJson = await apiRes.json();
                                             if (isValidCanonicalResponse(resJson, user.uid, orgId)) {
