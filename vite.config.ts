@@ -45,8 +45,10 @@ export default defineConfig(({ mode }) => {
             cleanupOutdatedCaches: true,
             clientsClaim: true,
             skipWaiting: true,
-            globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
-            globIgnores: ['version.json'],
+            globPatterns: ['**/*.{js,css,ico,png,svg,json}'],
+            globIgnores: ['version.json', 'sw-migration-rescue.js'],
+            navigateFallback: null,
+            importScripts: ['/sw-migration-rescue.js'],
             runtimeCaching: [
               {
                 urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

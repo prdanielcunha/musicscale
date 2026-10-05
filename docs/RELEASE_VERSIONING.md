@@ -35,11 +35,15 @@ The automatic presenter is eligible only when the current `FEATURE_RELEASE` is a
 
 ## Live update detection
 
-Every production build emits `/version.json` from the package version. Firebase Hosting serves this manifest with `no-cache,no-store,must-revalidate`, and Workbox must exclude it from precache.
+Every production build emits `/version.json` from the package version. Firebase Hosting serves this manifest with `no-cache,no-store,must-revalidate`, and Workbox excludes it from precache.
 
-A running app checks the published manifest every 30 seconds while visible and immediately on load, focus, return from background and restored connectivity. A version mismatch shows the update action independently of service-worker lifecycle events. Service-worker `controllerchange` remains a second signal.
+A running app checks the published manifest every 30 seconds while visible and immediately on load, focus, return from background and restored connectivity. A version mismatch shows the update action.
 
-When the user chooses to update, MusicScale asks the registration to refresh. If iOS/WebKit keeps the stale controller after the short activation window, the app unregisters that stale worker before navigating so the next load is forced back to Hosting and can register the current worker.
+The release manifest is the **only** in-app authority for deciding whether a new version exists. The update action does not wait for `registration.update()`, `controllerchange`, `unregister()` or any other Service Worker API. It immediately performs a cache-busted navigation to the same app URL.
+
+The PWA worker may precache versioned static assets, but it must **not precache `index.html` and must not install a navigation fallback**. Browser navigations therefore go back to Firebase Hosting and receive the current app shell. This prevents Safari/iOS from repeatedly reopening an obsolete HTML shell after a release.
+
+The generated worker imports `/sw-migration-rescue.js`. That script performs the `network-shell-v1` migration once per browser: when a new worker first activates after this policy change, it claims legacy clients and navigates open MusicScale windows once so they leave workers that previously cached `index.html`. The migration marker is stored in its own Cache Storage entry; it does not clear authentication, IndexedDB, local storage or application data.
 
 ## Promotion checklist
 
