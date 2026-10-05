@@ -5,6 +5,7 @@ describe("PWA release freshness guard", () => {
   const indexSource = readFileSync("index.tsx", "utf8");
   const viteSource = readFileSync("vite.config.ts", "utf8");
   const firebaseSource = readFileSync("firebase.json", "utf8");
+  const migrationSource = readFileSync("public/sw-migration-rescue.js", "utf8");
 
   it("checks a published version manifest during long-lived sessions", () => {
     expect(indexSource).toContain("VERSION_MANIFEST_PATH = '/version.json'");
@@ -16,33 +17,42 @@ describe("PWA release freshness guard", () => {
     expect(indexSource).toContain("window.addEventListener('online'");
   });
 
-  it("keeps service worker refresh as a second independent update signal", () => {
-    expect(indexSource).toContain("navigator.serviceWorker.getRegistration()");
-    expect(indexSource).toContain("registration.update()");
-    expect(indexSource).toContain("controllerchange");
-    expect(indexSource).toContain("hasActiveController");
+  it("uses the version manifest as the only app update authority", () => {
+    expect(indexSource).not.toContain("registration.update()");
+    expect(indexSource).not.toContain("registration.unregister()");
+    expect(indexSource).not.toContain("controllerchange");
+    expect(indexSource).not.toContain("navigator.serviceWorker.getRegistration()");
   });
 
-  it("surfaces a visible action and never lets the update click hang on WebKit", () => {
-    expect(indexSource).toContain("musicscale-update-available");
+  it("updates with direct network navigation instead of waiting on WebKit service worker APIs", () => {
     expect(indexSource).toContain("Nova versão do MusicScale disponível");
-    expect(indexSource).toContain("SERVICE_WORKER_OPERATION_TIMEOUT_MS = 1200");
-    expect(indexSource).toContain("UPDATE_CLICK_FALLBACK_MS = 3200");
-    expect(indexSource).toContain("withOperationTimeout(registration.unregister())");
-    expect(indexSource).toContain("window.setTimeout(navigateToLatestVersion, UPDATE_CLICK_FALLBACK_MS)");
-    expect(indexSource).toContain("finally {");
+    expect(indexSource).toContain("window.requestAnimationFrame");
     expect(indexSource).toContain("navigateToLatestVersion()");
     expect(indexSource).toContain("window.location.replace");
+    expect(indexSource).not.toContain("UPDATE_CLICK_FALLBACK_MS");
+    expect(indexSource).not.toContain("SERVICE_WORKER_OPERATION_TIMEOUT_MS");
   });
 
-  it("emits version.json outside the service-worker precache", () => {
-    expect(viteSource).toContain("musicscale-version-manifest");
-    expect(viteSource).toContain("fileName: 'version.json'");
-    expect(viteSource).toContain("globIgnores: ['version.json']");
+  it("keeps the app shell out of Workbox precache and navigation fallback", () => {
+    expect(viteSource).toContain("globPatterns: ['**/*.{js,css,ico,png,svg,json}']");
+    expect(viteSource).toContain("navigateFallback: null");
+    expect(viteSource).toContain("globIgnores: ['version.json', 'sw-migration-rescue.js']");
+    expect(viteSource).toContain("importScripts: ['/sw-migration-rescue.js']");
+    expect(viteSource).not.toContain("js,css,html,ico");
   });
 
-  it("serves the published version manifest without cache", () => {
+  it("performs a one-time migration for legacy workers that cached index.html", () => {
+    expect(migrationSource).toContain("network-shell-v1");
+    expect(migrationSource).toContain("musicscale-sw-migrations");
+    expect(migrationSource).toContain("self.clients.claim()");
+    expect(migrationSource).toContain("includeUncontrolled: true");
+    expect(migrationSource).toContain("client.navigate(url.href)");
+  });
+
+  it("serves freshness control files without cache", () => {
     expect(firebaseSource).toContain('"source": "/version.json"');
+    expect(firebaseSource).toContain('"source": "/sw.js"');
+    expect(firebaseSource).toContain('"source": "/sw-migration-rescue.js"');
     expect(firebaseSource).toContain('"value": "no-cache,no-store,must-revalidate"');
   });
 
