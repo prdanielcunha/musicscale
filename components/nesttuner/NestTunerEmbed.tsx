@@ -3,17 +3,11 @@ import { ExternalLink, LoaderCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
+const NESTTUNER_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app';
 const NESTTUNER_PUBLIC_ORIGIN = 'https://nesttuner.millionsnest.com';
-const NESTTUNER_CANONICAL_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app';
-const NESTTUNER_EMBED_VERSION = '0.6.6-beta.0';
-const NESTTUNER_ELEMENT = 'nest-tuner';
-const NESTTUNER_MODULE_LOAD_TIMEOUT_MS = 6500;
-const NESTTUNER_EMBED_ORIGINS = [
-  NESTTUNER_CANONICAL_HOSTING_ORIGIN,
-  NESTTUNER_PUBLIC_ORIGIN,
-] as const;
-
-let nestTunerModulePromise: Promise<void> | null = null;
+const NESTTUNER_EMBED_VERSION = '0.6.7-beta.0';
+const NESTTUNER_CONSUMER = 'musicscale-0.10.8-beta.3';
+const NESTTUNER_READY_TIMEOUT_MS = 15000;
 
 const resolveLocale = (language?: string) => {
   const normalized = (language || 'pt-BR').toLowerCase();
@@ -28,159 +22,75 @@ const publicPathFor = (locale: string) => {
   return 'pt';
 };
 
-const removeStaleNestTunerScripts = () => {
-  document
-    .querySelectorAll<HTMLScriptElement>(
-      `script[data-nesttuner-version="${NESTTUNER_EMBED_VERSION}"]`,
-    )
-    .forEach((script) => script.remove());
-};
-
-const loadNestTunerModuleFrom = (origin: string) =>
-  new Promise<void>((resolve, reject) => {
-    if (customElements.get(NESTTUNER_ELEMENT)) {
-      resolve();
-      return;
-    }
-
-    const script = document.createElement('script');
-    const moduleUrl =
-      `${origin}/embed/nesttuner-element.v${NESTTUNER_EMBED_VERSION}.js`;
-    let settled = false;
-
-    const finish = (error?: Error) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timeoutId);
-      script.removeEventListener('load', handleLoad);
-      script.removeEventListener('error', handleError);
-
-      if (error) {
-        script.remove();
-        reject(error);
-        return;
-      }
-
-      resolve();
-    };
-
-    const handleLoad = () => {
-      if (customElements.get(NESTTUNER_ELEMENT)) {
-        finish();
-        return;
-      }
-
-      finish(new Error(`NestTuner loaded from ${origin} without defining its element.`));
-    };
-
-    const handleError = () => {
-      finish(new Error(`NestTuner module failed to load from ${origin}.`));
-    };
-
-    const timeoutId = window.setTimeout(() => {
-      finish(new Error(`NestTuner module timed out from ${origin}.`));
-    }, NESTTUNER_MODULE_LOAD_TIMEOUT_MS);
-
-    script.type = 'module';
-    script.src = moduleUrl;
-    script.dataset.nesttunerVersion = NESTTUNER_EMBED_VERSION;
-    script.dataset.nesttunerOrigin = origin;
-    script.addEventListener('load', handleLoad, { once: true });
-    script.addEventListener('error', handleError, { once: true });
-    document.head.appendChild(script);
-  });
-
-const ensureNestTunerElement = () => {
-  if (customElements.get(NESTTUNER_ELEMENT)) return Promise.resolve();
-  if (nestTunerModulePromise) return nestTunerModulePromise;
-
-  nestTunerModulePromise = (async () => {
-    removeStaleNestTunerScripts();
-
-    let lastError: unknown = new Error('NestTuner module failed to load.');
-
-    for (const origin of NESTTUNER_EMBED_ORIGINS) {
-      try {
-        await loadNestTunerModuleFrom(origin);
-        await customElements.whenDefined(NESTTUNER_ELEMENT);
-        return;
-      } catch (error) {
-        lastError = error;
-      }
-    }
-
-    throw lastError;
-  })().catch((error) => {
-    nestTunerModulePromise = null;
-    removeStaleNestTunerScripts();
-    throw error;
-  });
-
-  return nestTunerModulePromise;
-};
+const minimumFrameHeight = () =>
+  Math.max(560, Math.ceil(window.innerHeight - 104));
 
 const NestTunerEmbed: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const locale = resolveLocale(i18n.resolvedLanguage || i18n.language);
-  const mountRef = React.useRef<HTMLDivElement | null>(null);
-  const tunerRef = React.useRef<HTMLElement | null>(null);
+  const frameRef = React.useRef<HTMLIFrameElement | null>(null);
   const [status, setStatus] = React.useState<'loading' | 'ready' | 'error'>('loading');
   const [attempt, setAttempt] = React.useState(0);
+  const [frameHeight, setFrameHeight] = React.useState(() => minimumFrameHeight());
+
+  const localePath = publicPathFor(locale);
+  const frameUrl = React.useMemo(() => {
+    const url = new URL(`/${localePath}/`, NESTTUNER_HOSTING_ORIGIN);
+    url.searchParams.set('embed', 'musicscale');
+    url.searchParams.set('consumer', NESTTUNER_CONSUMER);
+    url.searchParams.set('version', NESTTUNER_EMBED_VERSION);
+    url.searchParams.set('attempt', String(attempt));
+    return url.toString();
+  }, [localePath, attempt]);
 
   React.useEffect(() => {
-    const mount = mountRef.current;
-    if (!mount) return;
+    setStatus('loading');
+    setFrameHeight(minimumFrameHeight());
 
-    const tuner = document.createElement(NESTTUNER_ELEMENT);
-    tuner.setAttribute('locale', locale);
-    tuner.style.display = 'block';
-    tuner.style.width = '100%';
-    tuner.style.minWidth = '0';
+    const timer = window.setTimeout(() => {
+      setStatus((current) => current === 'loading' ? 'error' : current);
+    }, NESTTUNER_READY_TIMEOUT_MS);
 
-    const handleBack = () => navigate('/stage-tools');
-    tuner.addEventListener('nesttuner-back', handleBack);
-    mount.replaceChildren(tuner);
-    tunerRef.current = tuner;
+    return () => window.clearTimeout(timer);
+  }, [frameUrl]);
 
-    return () => {
-      tuner.removeEventListener('nesttuner-back', handleBack);
-      tuner.remove();
-      if (tunerRef.current === tuner) tunerRef.current = null;
+  React.useEffect(() => {
+    const handleResize = () => {
+      setFrameHeight((current) => Math.max(current, minimumFrameHeight()));
     };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  React.useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== NESTTUNER_HOSTING_ORIGIN) return;
+      if (event.source !== frameRef.current?.contentWindow) return;
+
+      if (event.data?.type === 'nesttuner:navigate-back') {
+        navigate('/stage-tools');
+        return;
+      }
+
+      if (event.data?.type === 'nesttuner:ready') {
+        setStatus('ready');
+        return;
+      }
+
+      if (event.data?.type === 'nesttuner:resize') {
+        const nextHeight = Number(event.data.height);
+        if (!Number.isFinite(nextHeight) || nextHeight < 1) return;
+        setFrameHeight(Math.max(minimumFrameHeight(), Math.min(Math.ceil(nextHeight), 5000)));
+      }
+    };
+
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
   }, [navigate]);
 
-  React.useEffect(() => {
-    tunerRef.current?.setAttribute('locale', locale);
-  }, [locale]);
-
-  React.useEffect(() => {
-    let active = true;
-    setStatus('loading');
-
-    const timeout = window.setTimeout(() => {
-      if (active) setStatus('error');
-    }, NESTTUNER_MODULE_LOAD_TIMEOUT_MS * NESTTUNER_EMBED_ORIGINS.length + 1500);
-
-    void ensureNestTunerElement()
-      .then(() => {
-        if (!active) return;
-        window.clearTimeout(timeout);
-        setStatus('ready');
-      })
-      .catch(() => {
-        if (!active) return;
-        window.clearTimeout(timeout);
-        setStatus('error');
-      });
-
-    return () => {
-      active = false;
-      window.clearTimeout(timeout);
-    };
-  }, [attempt]);
-
-  const externalUrl = `${NESTTUNER_PUBLIC_ORIGIN}/${publicPathFor(locale)}/`;
+  const externalUrl = `${NESTTUNER_PUBLIC_ORIGIN}/${localePath}/`;
 
   if (status === 'error') {
     return (
@@ -215,11 +125,22 @@ const NestTunerEmbed: React.FC = () => {
   }
 
   return (
-    <div className="relative w-full min-w-0">
-      <div ref={mountRef} className="w-full min-w-0" />
+    <div className="relative w-full min-w-0 bg-[var(--color-background)]">
+      <iframe
+        key={frameUrl}
+        ref={frameRef}
+        src={frameUrl}
+        title="NestTuner"
+        className="block w-full border-0 bg-transparent"
+        style={{ height: `${frameHeight}px` }}
+        allow="microphone; autoplay; fullscreen"
+        allowFullScreen
+        scrolling="no"
+        referrerPolicy="strict-origin-when-cross-origin"
+      />
 
       {status === 'loading' && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex min-h-[56dvh] items-center justify-center bg-[var(--color-background)]/92 backdrop-blur-sm">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex min-h-[56dvh] items-center justify-center bg-[var(--color-background)]/96 backdrop-blur-sm">
           <div className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] px-4 py-3 text-sm text-white/52">
             <LoaderCircle className="h-4 w-4 animate-spin text-violet-300" aria-hidden="true" />
             {t('stage_tools.tuner_loading')}
