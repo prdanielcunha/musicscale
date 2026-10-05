@@ -38,7 +38,17 @@ class EntitlementsService {
   private static instance: EntitlementsService;
   private memoryCache: Record<string, { entitlements: MusicScaleEntitlements; fetchedAt: number }> = {};
   private activeRequests: Map<string, Promise<MusicScaleEntitlements>> = new Map();
-  private cacheExpiryMs = 60000; // 1 minute reactive expiry
+  private readonly activeCacheExpiryMs = 60000;
+  private readonly transitionalCacheExpiryMs = 2500;
+
+  private getCacheExpiryMs(entitlements: MusicScaleEntitlements): number {
+    // Active/trialing access is also invalidated by the real-time subscription
+    // listener in AuthContext. A denied/transitional snapshot must never pin a
+    // newly paying customer behind a one-minute cache after Stripe/Hub repairs.
+    return entitlements.status === 'active' || entitlements.status === 'trialing'
+      ? this.activeCacheExpiryMs
+      : this.transitionalCacheExpiryMs;
+  }
 
   public static getInstance(): EntitlementsService {
     if (!EntitlementsService.instance) {
@@ -161,7 +171,8 @@ class EntitlementsService {
 
     const cacheKey = `${auth.currentUser?.uid || ecosystemBridge.getContext()?.uid || "anonymous"}:${orgId}`;
     const cached = this.memoryCache[cacheKey];
-    if (cached && !forceRefresh && Date.now() - cached.fetchedAt < this.cacheExpiryMs) {
+    const cacheExpiryMs = cached ? this.getCacheExpiryMs(cached.entitlements) : 0;
+    if (cached && !forceRefresh && Date.now() - cached.fetchedAt < cacheExpiryMs) {
       // Local session Cache check
       const localPlanUpdate = localStorage.getItem(`musicscale.entitlements.updatedAt.${cacheKey}`);
       const localVersion = localStorage.getItem(`musicscale.entitlements.version.${cacheKey}`);

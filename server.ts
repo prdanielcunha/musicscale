@@ -47,6 +47,7 @@ import { compareSongs } from "./utils/songDiscovery/matcher.js";
 import { requireEcosystemRole } from "./services/server/ecosystemAuth.js";
 import { writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
+import { createMusicDataBootstrapHandler } from "./services/server/musicDataBootstrap.js";
 import { createConnectNextScheduleReadHandler } from "./services/server/connect/nextScheduleReadHandler.js";
 import { createConnectNextScheduleRepertoireReadHandler } from "./services/server/connect/nextScheduleRepertoireReadHandler.js";
 import { createConnectNextSchedulePresenceReadHandler } from "./services/server/connect/nextSchedulePresenceReadHandler.js";
@@ -199,6 +200,10 @@ app.use((err: any, req: any, res: any, next: any) => {
 });
 
 
+
+// Critical first-screen read fallback. The browser prefers direct Firestore reads;
+// this route is only used after those reads fail and re-authorizes the exact tenant.
+app.get("/api/v1/music-data/bootstrap", createMusicDataBootstrapHandler({ db, auth }));
 
 // Connect read-only Tool Gateway boundary. Authentication, tenant and scales.read
 // are independently revalidated inside MusicScale before any tenant data is read.

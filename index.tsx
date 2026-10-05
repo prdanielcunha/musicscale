@@ -1,6 +1,7 @@
 
 import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
+import { version as APP_BUILD_VERSION } from './package.json';
 
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { markStartupMetric, incrementStartupCounter, markStartupFailure } from './lib/startupTelemetry';
@@ -69,10 +70,84 @@ const handleChunkError = (event: Event | PromiseRejectionEvent, message?: string
 window.addEventListener('unhandledrejection', handleChunkError);
 window.addEventListener('vite:preloadError', handleChunkError);
 
-const SW_UPDATE_CHECK_INTERVAL_MS = 30 * 1000;
+const VERSION_CHECK_INTERVAL_MS = 30 * 1000;
+const VERSION_MANIFEST_PATH = '/version.json';
 const UPDATE_BANNER_ID = 'musicscale-update-available';
+const UPDATE_RECOVERY_TIMEOUT_MS = 1800;
 
-function showUpdateAvailableBanner() {
+let latestPublishedVersion: string | null = null;
+let updateNavigationStarted = false;
+
+function isVersionManifest(payload: unknown): payload is { version: string } {
+  if (!payload || typeof payload !== 'object') return false;
+  const version = (payload as { version?: unknown }).version;
+  return typeof version === 'string' && version.length > 0;
+}
+
+function settleWithin(promise: Promise<unknown>, timeoutMs: number): Promise<void> {
+  return Promise.race([
+    promise.then(() => undefined).catch(() => undefined),
+    new Promise<void>((resolve) => window.setTimeout(resolve, timeoutMs)),
+  ]);
+}
+
+async function releaseLegacyNavigationShell(): Promise<void> {
+  const recoveryTasks: Promise<unknown>[] = [];
+
+  if ('serviceWorker' in navigator) {
+    recoveryTasks.push((async () => {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.allSettled(registrations.map((registration) => registration.unregister()));
+    })());
+  }
+
+  if ('caches' in window) {
+    recoveryTasks.push((async () => {
+      const cacheNames = await window.caches.keys();
+      const shellUrls = [
+        new URL('/', window.location.origin).href,
+        new URL('/index.html', window.location.origin).href,
+      ];
+
+      await Promise.all(cacheNames.map(async (cacheName) => {
+        const cache = await window.caches.open(cacheName);
+        await Promise.allSettled(
+          shellUrls.map((url) => cache.delete(new Request(url), { ignoreSearch: true })),
+        );
+      }));
+    })());
+  }
+
+  await settleWithin(Promise.allSettled(recoveryTasks), UPDATE_RECOVERY_TIMEOUT_MS);
+}
+
+async function navigateToLatestVersion() {
+  if (updateNavigationStarted) return;
+  updateNavigationStarted = true;
+
+  // A legacy Workbox worker may still control an iPhone tab even after Hosting
+  // has the new release. Remove only navigation-shell control/cache entries,
+  // bound the recovery so WebKit can never leave the button hanging, then force
+  // a unique network navigation. The new build re-registers the current worker.
+  await releaseLegacyNavigationShell();
+
+  const refreshUrl = new URL(window.location.href);
+  refreshUrl.searchParams.set('v', latestPublishedVersion ?? Date.now().toString());
+  refreshUrl.searchParams.set('_ms_update', Date.now().toString());
+  window.location.replace(refreshUrl.toString());
+}
+
+function reloadIntoLatestVersion(button: HTMLButtonElement) {
+  button.disabled = true;
+  button.textContent = 'Atualizando...';
+
+  window.requestAnimationFrame(() => {
+    void navigateToLatestVersion();
+  });
+}
+
+function showUpdateAvailableBanner(publishedVersion?: string) {
+  if (publishedVersion) latestPublishedVersion = publishedVersion;
   if (document.getElementById(UPDATE_BANNER_ID)) return;
 
   const button = document.createElement('button');
@@ -97,72 +172,82 @@ function showUpdateAvailableBanner() {
   button.style.cursor = 'pointer';
 
   button.addEventListener('click', () => {
-    button.disabled = true;
-    button.textContent = 'Atualizando...';
-    window.location.reload();
+    reloadIntoLatestVersion(button);
   });
 
   document.body.appendChild(button);
 }
 
-function installServiceWorkerFreshnessGuard() {
-  if (!('serviceWorker' in navigator)) return;
+async function checkPublishedVersion() {
+  if (document.visibilityState !== 'visible' || !navigator.onLine) return;
 
-  let hasActiveController = Boolean(navigator.serviceWorker.controller);
+  try {
+    const manifestUrl = new URL(VERSION_MANIFEST_PATH, window.location.origin);
+    manifestUrl.searchParams.set('t', Date.now().toString());
 
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (hasActiveController) {
-      showUpdateAvailableBanner();
-    }
-    hasActiveController = true;
-  });
-
-  window.addEventListener('load', () => {
-    void navigator.serviceWorker.getRegistration().then((registration) => {
-      if (!registration) return;
-
-      let intervalId: number | null = null;
-
-      const checkForUpdate = () => {
-        if (document.visibilityState !== 'visible' || !navigator.onLine) return;
-        void registration.update().catch((error) => {
-          console.warn('[MusicScale] Service worker update check failed', error);
-        });
-      };
-
-      const stopPeriodicChecks = () => {
-        if (intervalId === null) return;
-        window.clearInterval(intervalId);
-        intervalId = null;
-      };
-
-      const startPeriodicChecks = () => {
-        stopPeriodicChecks();
-        if (document.visibilityState !== 'visible') return;
-        intervalId = window.setInterval(checkForUpdate, SW_UPDATE_CHECK_INTERVAL_MS);
-      };
-
-      const checkImmediately = () => {
-        checkForUpdate();
-        startPeriodicChecks();
-      };
-
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible') {
-          checkImmediately();
-        } else {
-          stopPeriodicChecks();
-        }
-      };
-
-      checkImmediately();
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      window.addEventListener('focus', checkImmediately);
-      window.addEventListener('online', checkImmediately);
+    const response = await fetch(manifestUrl.toString(), {
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers: { 'Cache-Control': 'no-cache' },
     });
+
+    if (!response.ok) return;
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!contentType.includes('application/json')) return;
+
+    const manifest: unknown = await response.json();
+    if (!isVersionManifest(manifest)) return;
+
+    if (manifest.version !== APP_BUILD_VERSION) {
+      showUpdateAvailableBanner(manifest.version);
+    }
+  } catch (error) {
+    console.warn('[MusicScale] Published version check failed', error);
+  }
+}
+
+function installReleaseFreshnessGuard() {
+  window.addEventListener('load', () => {
+    let intervalId: number | null = null;
+
+    const stopPeriodicChecks = () => {
+      if (intervalId === null) return;
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+
+    const checkForUpdate = () => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine) return;
+      void checkPublishedVersion();
+    };
+
+    const startPeriodicChecks = () => {
+      stopPeriodicChecks();
+      if (document.visibilityState !== 'visible') return;
+      intervalId = window.setInterval(checkForUpdate, VERSION_CHECK_INTERVAL_MS);
+    };
+
+    const checkImmediately = () => {
+      checkForUpdate();
+      startPeriodicChecks();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkImmediately();
+      } else {
+        stopPeriodicChecks();
+      }
+    };
+
+    checkImmediately();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', checkImmediately);
+    window.addEventListener('online', checkImmediately);
   });
 }
-installServiceWorkerFreshnessGuard();
+
+installReleaseFreshnessGuard();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

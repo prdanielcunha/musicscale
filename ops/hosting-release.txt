@@ -1,2 +1,2 @@
-MusicScale 0.10.2-beta.1 — 2026-10-04
-Ajuste visual: NestTuner agora aparece antes do Pad em Ferramentas de Palco, priorizando a ferramenta de afinação sem alterar o funcionamento das demais ferramentas.
+MusicScale 0.10.8-beta.1 — 2026-10-05
+Hotfix de atualização no iPhone: o botão de nova versão remove controle/cache de app shells legados com timeout seguro antes da navegação, rotas SPA passam a ser no-store no Firebase Hosting e o service worker migra novamente removendo entradas antigas de index. Também preserva os links diretos de Novidades e o NestTuner nativo 0.6.5-beta.0.

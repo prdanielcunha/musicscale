@@ -55,6 +55,11 @@ jobs:
           set -euo pipefail
           npm run build
           test -f dist/index.html
+          test -f dist/version.json
+          test -f dist/sw.js
+          test -f dist/sw-migration-rescue.js
+          node -e "const fs=require('fs'); const pkg=require('./package.json'); const manifest=JSON.parse(fs.readFileSync('dist/version.json','utf8')); if (manifest.version !== pkg.version) process.exit(1)"
+          node -e "const fs=require('fs'); const sw=fs.readFileSync('dist/sw.js','utf8'); if (sw.includes('index.html')) { console.error('Generated service worker must not precache or navigate-fallback to index.html'); process.exit(1); } if (!sw.includes('sw-migration-rescue.js')) { console.error('Generated service worker is missing migration rescue import'); process.exit(1); }"
 
       - name: Authenticate with MillionsNest production WIF
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
@@ -78,14 +83,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for PATH_TO_CHECK in / /start; do
+          for PATH_TO_CHECK in / /start /stage-tools/tuner; do
             BODY="$(mktemp)"
+            HEADERS="$(mktemp)"
             STATUS="$(curl --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors \
+              --dump-header "$HEADERS" \
               --output "$BODY" --write-out '%{http_code}' \
-              "$OFFICIAL_FIREBASE_URL$PATH_TO_CHECK")"
+              "$OFFICIAL_FIREBASE_URL$PATH_TO_CHECK?smoke=$(date +%s)")"
             test "$STATUS" = '200'
             grep -Eiq '<!doctype html|<html' "$BODY"
+            grep -Eiq '^cache-control:.*no-store' "$HEADERS"
           done
+
+          EXPECTED_VERSION="$(node -p "require('./package.json').version")"
+          LIVE_VERSION=''
+          for ATTEMPT in 1 2 3 4 5 6 7 8; do
+            VERSION_BODY="$(mktemp)"
+            VERSION_STATUS="$(curl --silent --show-error \
+              --output "$VERSION_BODY" --write-out '%{http_code}' \
+              "$OFFICIAL_FIREBASE_URL/version.json?check=$ATTEMPT")"
+            if [ "$VERSION_STATUS" = '200' ]; then
+              LIVE_VERSION="$(node -e "const fs=require('fs'); try { const value=JSON.parse(fs.readFileSync(process.argv[1],'utf8')).version; if (typeof value === 'string') process.stdout.write(value); } catch {}" "$VERSION_BODY")"
+            fi
+            if [ "$LIVE_VERSION" = "$EXPECTED_VERSION" ]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$LIVE_VERSION" = "$EXPECTED_VERSION"
 
       - name: Publish deployment evidence
         env:
@@ -98,5 +123,5 @@ jobs:
             echo "**Firebase Hosting:** $OFFICIAL_FIREBASE_URL"
             echo
             echo 'Live Hosting deployment completed from the protected `production` branch.'
-            echo 'The root and `/start` were smoke-checked after deployment.'
+            echo 'The root, `/start`, `/stage-tools/tuner`, and the uncached `/version.json` release manifest were smoke-checked after deployment; SPA document responses were verified as no-store.'
           } >> "$GITHUB_STEP_SUMMARY"
