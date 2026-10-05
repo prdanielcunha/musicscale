@@ -1,2 +1,2 @@
-MusicScale 0.10.7-beta.0 — 2026-10-04
-Hotfix estrutural PWA: index.html deixa de ser precacheado e o service worker deixa de interceptar navegações. Atualização passa a navegar direto ao Firebase; migração única network-shell-v1 resgata clientes presos em workers antigos no Safari/iPhone sem apagar login ou dados locais.
+MusicScale 0.10.8-beta.0 — 2026-10-04
+NestTuner nativo: o afinador agora roda como Web Component dentro do documento do MusicScale, sem iframe ou rolagem interna. A rota ocupa a superfície do app de forma responsiva, mantém o modo externo independente e usa o NestTuner 0.6.5-beta.0 com seletor de entrada de áudio para microfone ou interface compatível.
