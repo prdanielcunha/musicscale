@@ -56,7 +56,10 @@ jobs:
           npm run build
           test -f dist/index.html
           test -f dist/version.json
+          test -f dist/sw.js
+          test -f dist/sw-migration-rescue.js
           node -e "const fs=require('fs'); const pkg=require('./package.json'); const manifest=JSON.parse(fs.readFileSync('dist/version.json','utf8')); if (manifest.version !== pkg.version) process.exit(1)"
+          node -e "const fs=require('fs'); const sw=fs.readFileSync('dist/sw.js','utf8'); if (sw.includes('index.html')) { console.error('Generated service worker must not precache or navigate-fallback to index.html'); process.exit(1); } if (!sw.includes('sw-migration-rescue.js')) { console.error('Generated service worker is missing migration rescue import'); process.exit(1); }"
 
       - name: Authenticate with MillionsNest production WIF
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
