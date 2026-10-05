@@ -1,2 +1,2 @@
-MusicScale 0.10.8-beta.1 — 2026-10-05
-Hotfix de atualização no iPhone: o botão de nova versão remove controle/cache de app shells legados com timeout seguro antes da navegação, rotas SPA passam a ser no-store no Firebase Hosting e o service worker migra novamente removendo entradas antigas de index. Também preserva os links diretos de Novidades e o NestTuner nativo 0.6.5-beta.0.
+MusicScale 0.10.8-beta.3 — 2026-10-05
+Hotfix definitivo do NestTuner no iPhone: a integração deixa de depender da execução de um Web Component remoto no Safari e passa a usar a aplicação NestTuner certificada em uma superfície iframe full-bleed sem moldura. O NestTuner 0.6.7-beta.0 informa pronto/altura por postMessage, permitindo altura dinâmica e rolagem do MusicScale em vez de uma janela interna. Microfone continua delegado explicitamente ao afinador.

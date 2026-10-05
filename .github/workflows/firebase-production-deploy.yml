@@ -95,6 +95,21 @@ jobs:
             grep -Eiq '^cache-control:.*no-store' "$HEADERS"
           done
 
+          NESTTUNER_VERSION="$(sed -n "s/.*NESTTUNER_EMBED_VERSION = '\([^']*\)'.*/\1/p" components/nesttuner/NestTunerEmbed.tsx | head -n1)"
+          test -n "$NESTTUNER_VERSION"
+
+          NESTTUNER_PAGE="$(mktemp)"
+          NESTTUNER_PAGE_STATUS="$(curl --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors \
+            --output "$NESTTUNER_PAGE" --write-out '%{http_code}' \
+            "https://mn-nesttuner-555464791734.web.app/pt/?embed=musicscale&version=$NESTTUNER_VERSION")"
+          test "$NESTTUNER_PAGE_STATUS" = '200'
+          grep -Fq 'NestTuner' "$NESTTUNER_PAGE"
+
+          NESTTUNER_MODULE_STATUS="$(curl --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors \
+            --output /tmp/nesttuner-module.js --write-out '%{http_code}' \
+            "https://mn-nesttuner-555464791734.web.app/embed/nesttuner-element.v$NESTTUNER_VERSION.js")"
+          test "$NESTTUNER_MODULE_STATUS" = '200'
+
           EXPECTED_VERSION="$(node -p "require('./package.json').version")"
           LIVE_VERSION=''
           for ATTEMPT in 1 2 3 4 5 6 7 8; do
