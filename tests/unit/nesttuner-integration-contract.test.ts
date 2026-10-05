@@ -9,6 +9,10 @@ describe('NestTuner integration contract', () => {
   it('runs the pinned NestTuner web component inside the MusicScale document', () => {
     const embed = read('components/nesttuner/NestTunerEmbed.tsx');
     expect(embed).toContain("NESTTUNER_EMBED_VERSION = '0.6.5-beta.0'");
+    expect(embed).toContain("NESTTUNER_CANONICAL_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app'");
+    expect(embed).toContain('NESTTUNER_EMBED_ORIGINS');
+    expect(embed).toContain('loadNestTunerModuleFrom(origin)');
+    expect(embed).toContain('removeStaleNestTunerScripts()');
     expect(embed).toContain('nesttuner-element.v');
     expect(embed).toContain("document.createElement(NESTTUNER_ELEMENT)");
     expect(embed).toContain("script.type = 'module'");
@@ -27,6 +31,8 @@ describe('NestTuner integration contract', () => {
   it('keeps retry and public fallback available', () => {
     const embed = read('components/nesttuner/NestTunerEmbed.tsx');
     expect(embed).toContain('setAttempt((value) => value + 1)');
+    expect(embed).toContain('NESTTUNER_MODULE_LOAD_TIMEOUT_MS');
+    expect(embed).toContain('script.remove()');
     expect(embed).toContain('NESTTUNER_PUBLIC_ORIGIN');
     expect(embed).toContain('target="_blank"');
   });
