@@ -54,7 +54,6 @@ const StageToolsPage: React.FC = () => {
                 </p>
               </div>
             </div>
-
             <button
               type="button"
               onClick={() => navigate('/stage-tools/tuner')}

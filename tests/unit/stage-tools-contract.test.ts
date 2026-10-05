@@ -19,7 +19,7 @@ describe('Stage Tools contract', () => {
     expect(bottomNav).not.toContain('/stage-tools');
   });
 
-  it('places NestTuner before Pad in the Stage Tools hierarchy', () => {
+  it('locks NestTuner before Pad in the Stage Tools hierarchy', () => {
     const page = read('pages/StageToolsPage.tsx');
     const tuner = page.indexOf("stage_tools.tuner_title");
     const pad = page.indexOf("stage_tools.pad_title");

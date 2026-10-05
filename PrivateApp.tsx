@@ -214,8 +214,14 @@ const AppLayout: React.FC = () => {
 
                 {!isNestTunerRoute && <Header onMenuClick={openMobileSidebar} />}
 
-                <main className="ms-route-scroll flex-1 overflow-y-auto overflow-x-hidden relative isolate p-4 pb-[calc(140px+env(safe-area-inset-bottom))] md:pb-8 md:p-8 scroll-smooth touch-manipulation">
-                    <div className="ms-route-workspace max-w-7xl mx-auto space-y-8">
+                <main
+                    className={`ms-route-scroll flex-1 overflow-y-auto overflow-x-hidden relative isolate scroll-smooth touch-manipulation ${
+                        isNestTunerRoute
+                            ? 'p-0 pb-[calc(104px+env(safe-area-inset-bottom))] md:p-0 md:pb-4'
+                            : 'p-4 pb-[calc(140px+env(safe-area-inset-bottom))] md:pb-8 md:p-8'
+                    }`}
+                >
+                    <div className={isNestTunerRoute ? 'ms-route-workspace w-full min-w-0' : 'ms-route-workspace max-w-7xl mx-auto space-y-8'}>
                        <Suspense fallback={<RouteWorkspaceSkeleton pathname={location.pathname} />}>
                            <Routes>
                                 <Route path="/" element={

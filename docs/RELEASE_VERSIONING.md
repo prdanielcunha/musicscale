@@ -31,11 +31,21 @@ Hotfixes and visual revisions keep the same meaningful feature-release ID and ne
 
 Feature highlight cards may expose an optional deep link through `FEATURE_RELEASE.actions`. Use an internal route when the user can open the feature directly inside MusicScale; external links are reserved for a canonical companion surface. The CTA is localized and closes/acknowledges the announcement before navigation.
 
-Long-lived PWA sessions actively check for a newer service worker every 30 seconds while the app is visible, and immediately when the browser regains focus, visibility or connectivity. Hidden tabs stop the periodic checks. This keeps update recognition near-real-time without adding Firestore listeners, paid services or background polling while the app is not being used.
-
 Acknowledgement is stored per Firebase user on the current browser through local storage, with an in-memory fallback if storage is unavailable. No Firestore document, notification or paid service is created for release acknowledgement.
 
 The automatic presenter is eligible only when the current `FEATURE_RELEASE` is a published feature release that has not been acknowledged by that user on the current browser. It does not open merely because an account is new, and it does not auto-open on stage/performance surfaces.
+
+## Live update detection
+
+Every production build emits `/version.json` from the package version. Firebase Hosting serves this manifest with `no-cache,no-store,must-revalidate`, and Workbox excludes it from precache.
+
+A running app checks the published manifest every 30 seconds while visible and immediately on load, focus, return from background and restored connectivity. A version mismatch shows the update action.
+
+The release manifest is the **only** in-app authority for deciding whether a new version exists. The update action does not wait for `registration.update()`, `controllerchange`, `unregister()` or any other Service Worker API. It immediately performs a cache-busted navigation to the same app URL.
+
+The PWA worker may precache versioned static assets, but it must **not precache `index.html` and must not install a navigation fallback**. Browser navigations therefore go back to Firebase Hosting and receive the current app shell. This prevents Safari/iOS from repeatedly reopening an obsolete HTML shell after a release.
+
+The generated worker imports `/sw-migration-rescue.js`. That script performs the `network-shell-v1` migration once per browser: when a new worker first activates after this policy change, it claims legacy clients and navigates open MusicScale windows once so they leave workers that previously cached `index.html`. The migration marker is stored in its own Cache Storage entry; it does not clear authentication, IndexedDB, local storage or application data.
 
 ## Promotion checklist
 
