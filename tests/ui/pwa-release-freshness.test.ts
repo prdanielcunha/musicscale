@@ -23,10 +23,15 @@ describe("PWA release freshness guard", () => {
     expect(indexSource).toContain("hasActiveController");
   });
 
-  it("surfaces a visible action and can escape a stale iOS worker before reload", () => {
+  it("surfaces a visible action and never lets the update click hang on WebKit", () => {
     expect(indexSource).toContain("musicscale-update-available");
     expect(indexSource).toContain("Nova versão do MusicScale disponível");
-    expect(indexSource).toContain("registration.unregister()");
+    expect(indexSource).toContain("SERVICE_WORKER_OPERATION_TIMEOUT_MS = 1200");
+    expect(indexSource).toContain("UPDATE_CLICK_FALLBACK_MS = 3200");
+    expect(indexSource).toContain("withOperationTimeout(registration.unregister())");
+    expect(indexSource).toContain("window.setTimeout(navigateToLatestVersion, UPDATE_CLICK_FALLBACK_MS)");
+    expect(indexSource).toContain("finally {");
+    expect(indexSource).toContain("navigateToLatestVersion()");
     expect(indexSource).toContain("window.location.replace");
   });
 
