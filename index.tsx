@@ -73,6 +73,7 @@ window.addEventListener('vite:preloadError', handleChunkError);
 const VERSION_CHECK_INTERVAL_MS = 30 * 1000;
 const VERSION_MANIFEST_PATH = '/version.json';
 const UPDATE_BANNER_ID = 'musicscale-update-available';
+const UPDATE_RECOVERY_TIMEOUT_MS = 1800;
 
 let latestPublishedVersion: string | null = null;
 let updateNavigationStarted = false;
@@ -83,12 +84,56 @@ function isVersionManifest(payload: unknown): payload is { version: string } {
   return typeof version === 'string' && version.length > 0;
 }
 
-function navigateToLatestVersion() {
+function settleWithin(promise: Promise<unknown>, timeoutMs: number): Promise<void> {
+  return Promise.race([
+    promise.then(() => undefined).catch(() => undefined),
+    new Promise<void>((resolve) => window.setTimeout(resolve, timeoutMs)),
+  ]);
+}
+
+async function releaseLegacyNavigationShell(): Promise<void> {
+  const recoveryTasks: Promise<unknown>[] = [];
+
+  if ('serviceWorker' in navigator) {
+    recoveryTasks.push((async () => {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.allSettled(registrations.map((registration) => registration.unregister()));
+    })());
+  }
+
+  if ('caches' in window) {
+    recoveryTasks.push((async () => {
+      const cacheNames = await window.caches.keys();
+      const shellUrls = [
+        new URL('/', window.location.origin).href,
+        new URL('/index.html', window.location.origin).href,
+      ];
+
+      await Promise.all(cacheNames.map(async (cacheName) => {
+        const cache = await window.caches.open(cacheName);
+        await Promise.allSettled(
+          shellUrls.map((url) => cache.delete(new Request(url), { ignoreSearch: true })),
+        );
+      }));
+    })());
+  }
+
+  await settleWithin(Promise.allSettled(recoveryTasks), UPDATE_RECOVERY_TIMEOUT_MS);
+}
+
+async function navigateToLatestVersion() {
   if (updateNavigationStarted) return;
   updateNavigationStarted = true;
 
+  // A legacy Workbox worker may still control an iPhone tab even after Hosting
+  // has the new release. Remove only navigation-shell control/cache entries,
+  // bound the recovery so WebKit can never leave the button hanging, then force
+  // a unique network navigation. The new build re-registers the current worker.
+  await releaseLegacyNavigationShell();
+
   const refreshUrl = new URL(window.location.href);
   refreshUrl.searchParams.set('v', latestPublishedVersion ?? Date.now().toString());
+  refreshUrl.searchParams.set('_ms_update', Date.now().toString());
   window.location.replace(refreshUrl.toString());
 }
 
@@ -96,11 +141,8 @@ function reloadIntoLatestVersion(button: HTMLButtonElement) {
   button.disabled = true;
   button.textContent = 'Atualizando...';
 
-  // The app shell is network-first at the browser level: the service worker no
-  // longer precaches index.html or owns navigation requests. Do not wait for
-  // any Service Worker API here; the next navigation must go straight to Hosting.
   window.requestAnimationFrame(() => {
-    navigateToLatestVersion();
+    void navigateToLatestVersion();
   });
 }
 

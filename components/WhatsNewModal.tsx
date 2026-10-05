@@ -120,7 +120,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose })
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-7 sm:px-9 sm:pt-9">
-          <ReleaseHighlights />
+          <ReleaseHighlights onAction={handleClose} />
         </div>
       </motion.div>
     </div>,

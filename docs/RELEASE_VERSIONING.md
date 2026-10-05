@@ -29,6 +29,8 @@ A meaningful compatible feature release updates `FEATURE_RELEASE` in `lib/appRel
 
 Hotfixes and visual revisions keep the same meaningful feature-release ID and never auto-open the What’s New presentation. Small fixes belong in the collapsed “fixes and refinements” section.
 
+Feature highlight cards may expose an optional deep link through `FEATURE_RELEASE.actions`. Use an internal route when the user can open the feature directly inside MusicScale; external links are reserved for a canonical companion surface. The CTA is localized and closes/acknowledges the announcement before navigation.
+
 Acknowledgement is stored per Firebase user on the current browser through local storage, with an in-memory fallback if storage is unavailable. No Firestore document, notification or paid service is created for release acknowledgement.
 
 The automatic presenter is eligible only when the current `FEATURE_RELEASE` is a published feature release that has not been acknowledged by that user on the current browser. It does not open merely because an account is new, and it does not auto-open on stage/performance surfaces.

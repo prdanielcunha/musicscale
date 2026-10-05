@@ -83,13 +83,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for PATH_TO_CHECK in / /start; do
+          for PATH_TO_CHECK in / /start /stage-tools/tuner; do
             BODY="$(mktemp)"
+            HEADERS="$(mktemp)"
             STATUS="$(curl --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors \
+              --dump-header "$HEADERS" \
               --output "$BODY" --write-out '%{http_code}' \
-              "$OFFICIAL_FIREBASE_URL$PATH_TO_CHECK")"
+              "$OFFICIAL_FIREBASE_URL$PATH_TO_CHECK?smoke=$(date +%s)")"
             test "$STATUS" = '200'
             grep -Eiq '<!doctype html|<html' "$BODY"
+            grep -Eiq '^cache-control:.*no-store' "$HEADERS"
           done
 
           EXPECTED_VERSION="$(node -p "require('./package.json').version")"
@@ -120,5 +123,5 @@ jobs:
             echo "**Firebase Hosting:** $OFFICIAL_FIREBASE_URL"
             echo
             echo 'Live Hosting deployment completed from the protected `production` branch.'
-            echo 'The root, `/start`, and the uncached `/version.json` release manifest were smoke-checked after deployment.'
+            echo 'The root, `/start`, `/stage-tools/tuner`, and the uncached `/version.json` release manifest were smoke-checked after deployment; SPA document responses were verified as no-store.'
           } >> "$GITHUB_STEP_SUMMARY"

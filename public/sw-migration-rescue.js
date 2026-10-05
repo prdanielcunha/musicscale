@@ -2,8 +2,24 @@
  * Imported by the generated service worker to migrate legacy clients whose
  * previous worker precached index.html and kept serving a stale app shell.
  */
-const MUSICSCALE_SW_MIGRATION_ID = 'network-shell-v1';
+const MUSICSCALE_SW_MIGRATION_ID = 'network-shell-v2';
 const MUSICSCALE_SW_MIGRATION_CACHE = 'musicscale-sw-migrations';
+
+async function purgeLegacyNavigationShells() {
+  const cacheNames = await caches.keys();
+  const shellUrls = [
+    new URL('/', self.location.origin).href,
+    new URL('/index.html', self.location.origin).href,
+  ];
+
+  await Promise.all(cacheNames.map(async (cacheName) => {
+    if (cacheName === MUSICSCALE_SW_MIGRATION_CACHE) return;
+    const cache = await caches.open(cacheName);
+    await Promise.allSettled(
+      shellUrls.map((url) => cache.delete(new Request(url), { ignoreSearch: true })),
+    );
+  }));
+}
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
@@ -19,6 +35,8 @@ self.addEventListener('activate', (event) => {
     if (await markerCache.match(markerRequest)) {
       return;
     }
+
+    await purgeLegacyNavigationShells();
 
     await markerCache.put(
       markerRequest,
