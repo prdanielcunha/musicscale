@@ -97,14 +97,18 @@ jobs:
 
           NESTTUNER_VERSION="$(sed -n "s/.*NESTTUNER_EMBED_VERSION = '\([^']*\)'.*/\1/p" components/nesttuner/NestTunerEmbed.tsx | head -n1)"
           test -n "$NESTTUNER_VERSION"
-          NESTTUNER_HEADERS="$(mktemp)"
-          NESTTUNER_STATUS="$(curl --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors \
-            --dump-header "$NESTTUNER_HEADERS" --output /tmp/nesttuner-embed.js --write-out '%{http_code}' \
+
+          NESTTUNER_PAGE="$(mktemp)"
+          NESTTUNER_PAGE_STATUS="$(curl --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors \
+            --output "$NESTTUNER_PAGE" --write-out '%{http_code}' \
+            "https://mn-nesttuner-555464791734.web.app/pt/?embed=musicscale&version=$NESTTUNER_VERSION")"
+          test "$NESTTUNER_PAGE_STATUS" = '200'
+          grep -Fq 'NestTuner' "$NESTTUNER_PAGE"
+
+          NESTTUNER_MODULE_STATUS="$(curl --silent --show-error --retry 8 --retry-delay 2 --retry-all-errors \
+            --output /tmp/nesttuner-module.js --write-out '%{http_code}' \
             "https://mn-nesttuner-555464791734.web.app/embed/nesttuner-element.v$NESTTUNER_VERSION.js")"
-          test "$NESTTUNER_STATUS" = '200'
-          grep -Fq 'nest-tuner' /tmp/nesttuner-embed.js
-          grep -Eiq '^content-type:.*(javascript|ecmascript)' "$NESTTUNER_HEADERS"
-          grep -Eiq '^access-control-allow-origin:.*\*' "$NESTTUNER_HEADERS"
+          test "$NESTTUNER_MODULE_STATUS" = '200'
 
           EXPECTED_VERSION="$(node -p "require('./package.json').version")"
           LIVE_VERSION=''
