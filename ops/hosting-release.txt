@@ -1,2 +1,2 @@
-MusicScale 0.10.5-beta.1 — 2026-10-04
-Ajuste visual protegido: NestTuner permanece permanentemente antes do Ambient Pad em Ferramentas de Palco; teste de regressão bloqueia futuras inversões dessa hierarquia.
+MusicScale 0.10.6-beta.0 — 2026-10-04
+Hotfix PWA: o botão de atualização não pode mais ficar preso em “Atualizando…” no Safari/iPhone. Operações de service worker agora têm timeout e existe navegação forçada com cache-busting em até 3,2s.
