@@ -1,2 +1,2 @@
-MusicScale 0.10.8-beta.0 — 2026-10-04
-NestTuner nativo: o afinador agora roda como Web Component dentro do documento do MusicScale, sem iframe ou rolagem interna. A rota ocupa a superfície do app de forma responsiva, mantém o modo externo independente e usa o NestTuner 0.6.5-beta.0 com seletor de entrada de áudio para microfone ou interface compatível.
+MusicScale 0.10.8-beta.1 — 2026-10-04
+Compatibilidade de branches: preserva os links diretos dos cards de Novidades sem reintroduzir a lógica antiga de service worker. Mantém o app shell network-first da 0.10.7 e o NestTuner nativo da 0.10.8.
