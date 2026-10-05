@@ -1,2 +1,2 @@
-MusicScale 0.10.6-beta.0 — 2026-10-04
-Hotfix PWA: o botão de atualização não pode mais ficar preso em “Atualizando…” no Safari/iPhone. Operações de service worker agora têm timeout e existe navegação forçada com cache-busting em até 3,2s.
+MusicScale 0.10.7-beta.0 — 2026-10-04
+NestTuner nativo: o afinador agora roda como Web Component dentro do documento do MusicScale, sem iframe ou rolagem interna. A rota ocupa a superfície do app de forma responsiva, mantém o modo externo independente e usa o NestTuner 0.6.5-beta.0 com seletor de entrada para microfone ou interface de áudio compatível.
