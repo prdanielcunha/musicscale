@@ -8,7 +8,7 @@ const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'u
 describe('NestTuner integration contract', () => {
   it('runs the pinned NestTuner web component inside the MusicScale document', () => {
     const embed = read('components/nesttuner/NestTunerEmbed.tsx');
-    expect(embed).toContain("NESTTUNER_EMBED_VERSION = '0.6.5-beta.0'");
+    expect(embed).toContain("NESTTUNER_EMBED_VERSION = '0.6.6-beta.0'");
     expect(embed).toContain("NESTTUNER_CANONICAL_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app'");
     expect(embed).toContain('NESTTUNER_EMBED_ORIGINS');
     expect(embed).toContain('loadNestTunerModuleFrom(origin)');
