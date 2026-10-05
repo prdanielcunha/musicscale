@@ -6,21 +6,22 @@ const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 describe('NestTuner integration contract', () => {
-  it('keeps NestTuner inside MusicScale without cross-origin module imports', () => {
+  it('runs the pinned NestTuner web component inside the MusicScale document', () => {
     const embed = read('components/nesttuner/NestTunerEmbed.tsx');
-    expect(embed).toContain('<iframe');
-    expect(embed).toContain("NESTTUNER_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app'");
-    expect(embed).toContain("url.searchParams.set('embed', 'musicscale')");
-    expect(embed).toContain('allow="microphone; autoplay; fullscreen"');
-    expect(embed).not.toContain('import(/* @vite-ignore */');
-    expect(embed).not.toContain("document.createElement('nest-tuner')");
+    expect(embed).toContain("NESTTUNER_EMBED_VERSION = '0.6.5-beta.0'");
+    expect(embed).toContain('nesttuner-element.v');
+    expect(embed).toContain("document.createElement(NESTTUNER_ELEMENT)");
+    expect(embed).toContain("script.type = 'module'");
+    expect(embed).toContain("customElements.whenDefined(NESTTUNER_ELEMENT)");
+    expect(embed).not.toContain('<iframe');
+    expect(embed).not.toContain('allow="microphone');
   });
 
-  it('validates navigation messages from the exact NestTuner frame origin', () => {
+  it('keeps navigation native and attached to the component event', () => {
     const embed = read('components/nesttuner/NestTunerEmbed.tsx');
-    expect(embed).toContain("event.origin !== NESTTUNER_HOSTING_ORIGIN");
-    expect(embed).toContain("event.source !== frameRef.current?.contentWindow");
-    expect(embed).toContain("event.data?.type === 'nesttuner:navigate-back'");
+    expect(embed).toContain("tuner.addEventListener('nesttuner-back'");
+    expect(embed).toContain("navigate('/stage-tools')");
+    expect(embed).not.toContain('postMessage');
   });
 
   it('keeps retry and public fallback available', () => {
@@ -28,6 +29,16 @@ describe('NestTuner integration contract', () => {
     expect(embed).toContain('setAttempt((value) => value + 1)');
     expect(embed).toContain('NESTTUNER_PUBLIC_ORIGIN');
     expect(embed).toContain('target="_blank"');
+  });
+
+  it('gives the tuner a native edge-to-edge route instead of a nested viewport', () => {
+    const app = read('PrivateApp.tsx');
+    const page = read('pages/NestTunerPage.tsx');
+    expect(app).toContain('isNestTunerRoute');
+    expect(app).toContain("'p-0 pb-[calc(104px+env(safe-area-inset-bottom))]");
+    expect(app).toContain("'ms-route-workspace w-full min-w-0'");
+    expect(page).toContain('className="w-full min-w-0"');
+    expect(page).not.toContain('overflow-hidden');
   });
 
   it('exposes a protected MusicScale route and Stage Tools entry', () => {
