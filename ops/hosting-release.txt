@@ -1,2 +1,2 @@
-MusicScale 0.10.8-beta.1 — 2026-10-05
-Hotfix de atualização no iPhone: o botão de nova versão remove controle/cache de app shells legados com timeout seguro antes da navegação, rotas SPA passam a ser no-store no Firebase Hosting e o service worker migra novamente removendo entradas antigas de index. Também preserva os links diretos de Novidades e o NestTuner nativo 0.6.5-beta.0.
+MusicScale 0.10.8-beta.2 — 2026-10-05
+Hotfix NestTuner no iPhone: o módulo embutido carrega primeiro do Firebase Hosting canônico certificado, com fallback para o domínio público, timeout por origem e limpeza de scripts falhos. O MusicScale agora fixa o NestTuner 0.6.6-beta.0, cujo Worker e AudioWorklet são autocontidos para funcionar corretamente dentro do domínio do MusicScale. O deploy também valida o JS e os headers CORS antes de certificar produção.

@@ -4,10 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 const NESTTUNER_PUBLIC_ORIGIN = 'https://nesttuner.millionsnest.com';
-const NESTTUNER_EMBED_VERSION = '0.6.5-beta.0';
+const NESTTUNER_CANONICAL_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app';
+const NESTTUNER_EMBED_VERSION = '0.6.6-beta.0';
 const NESTTUNER_ELEMENT = 'nest-tuner';
-const NESTTUNER_MODULE_URL =
-  `${NESTTUNER_PUBLIC_ORIGIN}/embed/nesttuner-element.v${NESTTUNER_EMBED_VERSION}.js`;
+const NESTTUNER_MODULE_LOAD_TIMEOUT_MS = 6500;
+const NESTTUNER_EMBED_ORIGINS = [
+  NESTTUNER_CANONICAL_HOSTING_ORIGIN,
+  NESTTUNER_PUBLIC_ORIGIN,
+] as const;
 
 let nestTunerModulePromise: Promise<void> | null = null;
 
@@ -24,41 +28,91 @@ const publicPathFor = (locale: string) => {
   return 'pt';
 };
 
-const ensureNestTunerElement = () => {
-  if (customElements.get(NESTTUNER_ELEMENT)) return Promise.resolve();
-  if (nestTunerModulePromise) return nestTunerModulePromise;
+const removeStaleNestTunerScripts = () => {
+  document
+    .querySelectorAll<HTMLScriptElement>(
+      `script[data-nesttuner-version="${NESTTUNER_EMBED_VERSION}"]`,
+    )
+    .forEach((script) => script.remove());
+};
 
-  nestTunerModulePromise = new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(
-      `script[data-nesttuner-version="${NESTTUNER_EMBED_VERSION}"]`
-    );
-
-    const waitForDefinition = () => {
-      customElements.whenDefined(NESTTUNER_ELEMENT).then(() => resolve()).catch(reject);
-    };
-
-    if (existing) {
-      if (customElements.get(NESTTUNER_ELEMENT)) {
-        resolve();
-        return;
-      }
-      existing.addEventListener('load', waitForDefinition, { once: true });
-      existing.addEventListener('error', () => reject(new Error('NestTuner module failed to load.')), { once: true });
+const loadNestTunerModuleFrom = (origin: string) =>
+  new Promise<void>((resolve, reject) => {
+    if (customElements.get(NESTTUNER_ELEMENT)) {
+      resolve();
       return;
     }
 
     const script = document.createElement('script');
+    const moduleUrl =
+      `${origin}/embed/nesttuner-element.v${NESTTUNER_EMBED_VERSION}.js`;
+    let settled = false;
+
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      script.removeEventListener('load', handleLoad);
+      script.removeEventListener('error', handleError);
+
+      if (error) {
+        script.remove();
+        reject(error);
+        return;
+      }
+
+      resolve();
+    };
+
+    const handleLoad = () => {
+      if (customElements.get(NESTTUNER_ELEMENT)) {
+        finish();
+        return;
+      }
+
+      finish(new Error(`NestTuner loaded from ${origin} without defining its element.`));
+    };
+
+    const handleError = () => {
+      finish(new Error(`NestTuner module failed to load from ${origin}.`));
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      finish(new Error(`NestTuner module timed out from ${origin}.`));
+    }, NESTTUNER_MODULE_LOAD_TIMEOUT_MS);
+
     script.type = 'module';
-    script.src = NESTTUNER_MODULE_URL;
+    script.src = moduleUrl;
     script.dataset.nesttunerVersion = NESTTUNER_EMBED_VERSION;
-    script.addEventListener('load', waitForDefinition, { once: true });
-    script.addEventListener('error', () => {
-      script.remove();
-      reject(new Error('NestTuner module failed to load.'));
-    }, { once: true });
+    script.dataset.nesttunerOrigin = origin;
+    script.addEventListener('load', handleLoad, { once: true });
+    script.addEventListener('error', handleError, { once: true });
     document.head.appendChild(script);
-  }).catch((error) => {
+  });
+
+const ensureNestTunerElement = () => {
+  if (customElements.get(NESTTUNER_ELEMENT)) return Promise.resolve();
+  if (nestTunerModulePromise) return nestTunerModulePromise;
+
+  nestTunerModulePromise = (async () => {
+    removeStaleNestTunerScripts();
+
+    let lastError: unknown = new Error('NestTuner module failed to load.');
+
+    for (const origin of NESTTUNER_EMBED_ORIGINS) {
+      try {
+        await loadNestTunerModuleFrom(origin);
+        await customElements.whenDefined(NESTTUNER_ELEMENT);
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError;
+  })().catch((error) => {
     nestTunerModulePromise = null;
+    removeStaleNestTunerScripts();
     throw error;
   });
 
@@ -106,7 +160,7 @@ const NestTunerEmbed: React.FC = () => {
 
     const timeout = window.setTimeout(() => {
       if (active) setStatus('error');
-    }, 15000);
+    }, NESTTUNER_MODULE_LOAD_TIMEOUT_MS * NESTTUNER_EMBED_ORIGINS.length + 1500);
 
     void ensureNestTunerElement()
       .then(() => {
