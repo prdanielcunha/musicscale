@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 const NESTTUNER_PUBLIC_ORIGIN = 'https://nesttuner.millionsnest.com';
 const NESTTUNER_CANONICAL_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app';
-const NESTTUNER_EMBED_VERSION = '0.6.5-beta.0';
+const NESTTUNER_EMBED_VERSION = '0.6.6-beta.0';
 const NESTTUNER_ELEMENT = 'nest-tuner';
 const NESTTUNER_MODULE_LOAD_TIMEOUT_MS = 6500;
 const NESTTUNER_EMBED_ORIGINS = [
