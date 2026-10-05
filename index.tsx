@@ -73,8 +73,11 @@ window.addEventListener('vite:preloadError', handleChunkError);
 const VERSION_CHECK_INTERVAL_MS = 30 * 1000;
 const VERSION_MANIFEST_PATH = '/version.json';
 const UPDATE_BANNER_ID = 'musicscale-update-available';
+const SERVICE_WORKER_OPERATION_TIMEOUT_MS = 1200;
+const UPDATE_CLICK_FALLBACK_MS = 3200;
 
 let latestPublishedVersion: string | null = null;
+let updateNavigationStarted = false;
 
 function isVersionManifest(payload: unknown): payload is { version: string } {
   if (!payload || typeof payload !== 'object') return false;
@@ -82,62 +85,85 @@ function isVersionManifest(payload: unknown): payload is { version: string } {
   return typeof version === 'string' && version.length > 0;
 }
 
-async function refreshServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  if (!('serviceWorker' in navigator)) return null;
+function withOperationTimeout<T>(promise: Promise<T>, timeoutMs = SERVICE_WORKER_OPERATION_TIMEOUT_MS): Promise<T | null> {
+  return new Promise((resolve) => {
+    let settled = false;
 
-  try {
-    const registration = await navigator.serviceWorker.getRegistration();
-    if (!registration) return null;
-    await registration.update();
-    return registration;
-  } catch (error) {
-    console.warn('[MusicScale] Service worker update check failed', error);
-    return null;
+    const timeoutId = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(null);
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeoutId);
+        resolve(null);
+      }
+    );
+  });
+}
+
+async function getServiceWorkerRegistrationWithTimeout(): Promise<ServiceWorkerRegistration | null> {
+  if (!('serviceWorker' in navigator)) return null;
+  return withOperationTimeout(navigator.serviceWorker.getRegistration());
+}
+
+async function refreshServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  const registration = await getServiceWorkerRegistrationWithTimeout();
+  if (!registration) return null;
+
+  const updated = await withOperationTimeout(registration.update());
+  if (updated === null) {
+    console.warn('[MusicScale] Service worker update check timed out or failed');
   }
+
+  return registration;
+}
+
+function navigateToLatestVersion() {
+  if (updateNavigationStarted) return;
+  updateNavigationStarted = true;
+
+  const refreshUrl = new URL(window.location.href);
+  refreshUrl.searchParams.set('v', latestPublishedVersion ?? Date.now().toString());
+  window.location.replace(refreshUrl.toString());
 }
 
 async function reloadIntoLatestVersion(button: HTMLButtonElement) {
   button.disabled = true;
   button.textContent = 'Atualizando...';
 
-  const currentController = 'serviceWorker' in navigator ? navigator.serviceWorker.controller : null;
-  let controllerChanged = false;
-  let removeControllerListener = () => {};
+  // Never let WebKit keep the UI trapped in "Atualizando...". Even if every
+  // Service Worker promise stalls, force a cache-busted navigation.
+  const fallbackTimer = window.setTimeout(navigateToLatestVersion, UPDATE_CLICK_FALLBACK_MS);
 
-  const controllerChangePromise = new Promise<void>((resolve) => {
-    if (!('serviceWorker' in navigator) || !currentController) {
-      resolve();
-      return;
+  try {
+    const registration = await getServiceWorkerRegistrationWithTimeout();
+
+    if (registration) {
+      // The new build is already confirmed by /version.json. Unregistering the
+      // current worker before navigation is more deterministic on iOS than
+      // waiting indefinitely for registration.update()/controllerchange.
+      const unregistered = await withOperationTimeout(registration.unregister());
+      if (unregistered === null) {
+        console.warn('[MusicScale] Service worker unregister timed out; forcing navigation fallback');
+      }
     }
-
-    const onControllerChange = () => {
-      controllerChanged = true;
-      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
-      resolve();
-    };
-
-    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
-    removeControllerListener = () => navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
-    window.setTimeout(resolve, 2500);
-  });
-
-  const registration = await refreshServiceWorker();
-  await controllerChangePromise;
-  removeControllerListener();
-
-  // If iOS/WebKit refuses to activate the fresh worker in time, unregister the
-  // stale controller before navigation so the next load must come from Hosting.
-  if (registration && currentController && !controllerChanged && navigator.serviceWorker.controller === currentController) {
-    try {
-      await registration.unregister();
-    } catch (error) {
-      console.warn('[MusicScale] Could not unregister stale service worker before refresh', error);
-    }
+  } catch (error) {
+    console.warn('[MusicScale] Update handoff failed; forcing navigation fallback', error);
+  } finally {
+    window.clearTimeout(fallbackTimer);
+    navigateToLatestVersion();
   }
-
-  const refreshUrl = new URL(window.location.href);
-  refreshUrl.searchParams.set('v', latestPublishedVersion ?? Date.now().toString());
-  window.location.replace(refreshUrl.toString());
 }
 
 function showUpdateAvailableBanner(publishedVersion?: string) {
