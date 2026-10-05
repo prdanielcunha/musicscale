@@ -34,7 +34,8 @@ describe('NestTuner integration contract', () => {
   it('gives the tuner a native edge-to-edge route instead of a nested viewport', () => {
     const app = read('PrivateApp.tsx');
     const page = read('pages/NestTunerPage.tsx');
-    expect(app).toContain("isNestTunerRoute ? 'p-0");
+    expect(app).toContain('isNestTunerRoute');
+    expect(app).toContain("'p-0 pb-[calc(104px+env(safe-area-inset-bottom))]");
     expect(app).toContain("'ms-route-workspace w-full min-w-0'");
     expect(page).toContain('className="w-full min-w-0"');
     expect(page).not.toContain('overflow-hidden');
