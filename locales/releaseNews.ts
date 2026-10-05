@@ -12,13 +12,13 @@ export const releaseNewsTranslations = {
       description: 'O NestTuner chegou ao MusicScale com leitura em tempo real, afinações por instrumento e um modo Fino preparado para ajustes precisos.',
       stageTools: {
         title: 'NestTuner dentro do MusicScale',
-        body: 'Abra o afinador direto pelas Ferramentas de Palco sem sair do app. A mesma tecnologia também vive em nesttuner.millionsnest.com.',
+        body: 'Abra o afinador direto pelas Ferramentas de Palco como uma tela nativa do MusicScale, sem quadro ou rolagem interna. A mesma tecnologia também vive em nesttuner.millionsnest.com.',
         how: 'Abra Ferramentas de Palco e toque em NestTuner. Escolha o instrumento, a afinação e permita o microfone apenas quando for começar a afinar.',
       },
       deviceAudio: {
         title: 'Leitura musical em tempo real',
-        body: 'Nota, frequência, cents, clareza, estabilidade e histórico do pitch reagem ao que o microfone realmente capta, sem inventar leitura quando não há sinal.',
-        how: 'Toque uma corda isolada e deixe a nota sustentar. Use Cromático para rapidez, Fino para leitura ampliada e Palco para máxima visibilidade.',
+        body: 'Nota, frequência, cents, clareza, estabilidade e histórico do pitch reagem ao áudio real do aparelho — pelo microfone ou por uma interface de áudio compatível conectada ao celular.',
+        how: 'Toque uma corda isolada e deixe a nota sustentar. Em Entrada, use o microfone ou selecione uma interface compatível quando o sistema a disponibilizar. Use Cromático, Fino ou Palco conforme a necessidade.',
       },
       updates: {
         title: 'Do violão ao baixo de 6 cordas',
@@ -29,7 +29,8 @@ export const releaseNewsTranslations = {
         summary: 'Leia mais — precisão, privacidade e compatibilidade',
         title: 'Precisão, privacidade e compatibilidade',
         items: [
-          { date: '04/10', text: 'O áudio do microfone é processado localmente no dispositivo e não é enviado ao servidor.' },
+          { date: '04/10', text: 'O áudio do microfone ou de uma interface compatível é processado localmente no dispositivo e não é enviado ao servidor.' },
+          { date: '04/10', text: 'A integração no MusicScale agora usa o componente nativo versionado do NestTuner, sem iframe e sem uma segunda rolagem dentro da página.' },
           { date: '04/10', text: 'O motor usa janelas adaptativas para graves, proteção contra erros de oitava e testes sintéticos em 44,1 kHz e 48 kHz.' },
           { date: '04/10', text: 'O modo Fino mostra maior resolução visual, mas a certificação física de ±0,5 cent continua bloqueada até validação em aparelhos reais.' },
           { date: '04/10', text: 'Hotfix: leituras críticas e contexto da organização agora recuperam automaticamente falhas transitórias de conexão, sem relaxar permissões.' },
@@ -245,13 +246,13 @@ export const releaseNewsTranslations = {
       description: 'NestTuner is now part of MusicScale with real-time pitch tracking, instrument-specific tunings and a Fine mode built for precise adjustments.',
       stageTools: {
         title: 'NestTuner inside MusicScale',
-        body: 'Open the tuner directly from Stage Tools without leaving the app. The same technology also lives at nesttuner.millionsnest.com.',
+        body: 'Open the tuner from Stage Tools as a native MusicScale surface, without a framed mini-site or nested scrolling. The same technology also lives at nesttuner.millionsnest.com.',
         how: 'Open Stage Tools and select NestTuner. Choose the instrument and tuning, then allow microphone access only when you are ready to tune.',
       },
       deviceAudio: {
         title: 'Real-time musical feedback',
-        body: 'Note, frequency, cents, clarity, stability and pitch history respond to what the microphone actually captures, with no fake reading when there is no signal.',
-        how: 'Play one isolated string and let it sustain. Use Chromatic for speed, Fine for expanded resolution and Stage for maximum visibility.',
+        body: 'Note, frequency, cents, clarity, stability and pitch history respond to the device’s real audio input — from the microphone or a compatible audio interface connected to the phone.',
+        how: 'Play one isolated string and let it sustain. Under Input, use the microphone or select a compatible interface when the system exposes it. Use Chromatic, Fine or Stage as needed.',
       },
       updates: {
         title: 'From acoustic guitar to 6-string bass',
@@ -262,7 +263,8 @@ export const releaseNewsTranslations = {
         summary: 'Read more — precision, privacy and compatibility',
         title: 'Precision, privacy and compatibility',
         items: [
-          { date: 'Oct 4', text: 'Microphone audio is processed locally on the device and is not uploaded to the server.' },
+          { date: 'Oct 4', text: 'Microphone or compatible-interface audio is processed locally on the device and is not uploaded to the server.' },
+          { date: 'Oct 4', text: 'MusicScale now uses the versioned native NestTuner component, with no iframe and no second scroll area inside the page.' },
           { date: 'Oct 4', text: 'The engine uses adaptive low-note windows, octave-error protection and synthetic tests at 44.1 kHz and 48 kHz.' },
           { date: 'Oct 4', text: 'Fine mode exposes greater visual resolution, while ±0.5 cent physical certification remains disabled until real-device validation is complete.' },
           { date: 'Oct 4', text: 'Hotfix: critical reads and organization context now recover automatically from transient connection failures without relaxing permissions.' },
@@ -478,13 +480,13 @@ export const releaseNewsTranslations = {
       description: 'NestTuner llega a MusicScale con lectura de tono en tiempo real, afinaciones por instrumento y un modo Fino preparado para ajustes precisos.',
       stageTools: {
         title: 'NestTuner dentro de MusicScale',
-        body: 'Abre el afinador desde Herramientas de Escenario sin salir de la aplicación. La misma tecnología también está en nesttuner.millionsnest.com.',
+        body: 'Abre el afinador desde Herramientas de Escenario como una superficie nativa de MusicScale, sin una web enmarcada ni desplazamiento interno. La misma tecnología también está en nesttuner.millionsnest.com.',
         how: 'Abre Herramientas de Escenario y selecciona NestTuner. Elige el instrumento y la afinación y permite el micrófono solo cuando vayas a afinar.',
       },
       deviceAudio: {
         title: 'Respuesta musical en tiempo real',
-        body: 'Nota, frecuencia, cents, claridad, estabilidad e historial del tono reaccionan a lo que realmente capta el micrófono, sin inventar lectura cuando no hay señal.',
-        how: 'Toca una cuerda aislada y deja sostener la nota. Usa Cromático para rapidez, Fino para mayor resolución y Escenario para máxima visibilidad.',
+        body: 'Nota, frecuencia, cents, claridad, estabilidad e historial del tono reaccionan a la entrada de audio real del dispositivo — desde el micrófono o una interfaz compatible conectada al teléfono.',
+        how: 'Toca una cuerda aislada y deja sostener la nota. En Entrada, usa el micrófono o selecciona una interfaz compatible cuando el sistema la ofrezca. Usa Cromático, Fino o Escenario según necesites.',
       },
       updates: {
         title: 'De la guitarra acústica al bajo de 6 cuerdas',
@@ -495,7 +497,8 @@ export const releaseNewsTranslations = {
         summary: 'Leer más — precisión, privacidad y compatibilidad',
         title: 'Precisión, privacidad y compatibilidad',
         items: [
-          { date: '04/10', text: 'El audio del micrófono se procesa localmente en el dispositivo y no se envía al servidor.' },
+          { date: '04/10', text: 'El audio del micrófono o de una interfaz compatible se procesa localmente en el dispositivo y no se envía al servidor.' },
+          { date: '04/10', text: 'MusicScale ahora usa el componente nativo versionado de NestTuner, sin iframe ni una segunda área de desplazamiento dentro de la página.' },
           { date: '04/10', text: 'El motor usa ventanas adaptativas para graves, protección contra errores de octava y pruebas sintéticas a 44,1 kHz y 48 kHz.' },
           { date: '04/10', text: 'El modo Fino ofrece mayor resolución visual, pero la certificación física de ±0,5 cent sigue desactivada hasta completar la validación en dispositivos reales.' },
           { date: '04/10', text: 'Hotfix: las lecturas críticas y el contexto de la organización ahora se recuperan automáticamente de fallos transitorios sin relajar permisos.' },
