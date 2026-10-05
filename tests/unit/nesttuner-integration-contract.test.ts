@@ -6,38 +6,34 @@ const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 describe('NestTuner integration contract', () => {
-  it('runs the pinned NestTuner web component inside the MusicScale document', () => {
+  it('uses the certified standalone host as a seamless embedded surface', () => {
     const embed = read('components/nesttuner/NestTunerEmbed.tsx');
-    expect(embed).toContain("NESTTUNER_EMBED_VERSION = '0.6.6-beta.0'");
-    expect(embed).toContain("NESTTUNER_CANONICAL_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app'");
-    expect(embed).toContain('NESTTUNER_EMBED_ORIGINS');
-    expect(embed).toContain('loadNestTunerModuleFrom(origin)');
-    expect(embed).toContain('removeStaleNestTunerScripts()');
-    expect(embed).toContain('nesttuner-element.v');
-    expect(embed).toContain("document.createElement(NESTTUNER_ELEMENT)");
-    expect(embed).toContain("script.type = 'module'");
-    expect(embed).toContain("customElements.whenDefined(NESTTUNER_ELEMENT)");
-    expect(embed).not.toContain('<iframe');
-    expect(embed).not.toContain('allow="microphone');
+    expect(embed).toContain("NESTTUNER_EMBED_VERSION = '0.6.7-beta.0'");
+    expect(embed).toContain("NESTTUNER_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app'");
+    expect(embed).toContain("url.searchParams.set('embed', 'musicscale')");
+    expect(embed).toContain('<iframe');
+    expect(embed).toContain('allow="microphone; autoplay; fullscreen"');
+    expect(embed).toContain('scrolling="no"');
+    expect(embed).not.toContain('document.createElement(NESTTUNER_ELEMENT)');
   });
 
-  it('keeps navigation native and attached to the component event', () => {
+  it('waits for the real NestTuner handshake instead of iframe load alone', () => {
     const embed = read('components/nesttuner/NestTunerEmbed.tsx');
-    expect(embed).toContain("tuner.addEventListener('nesttuner-back'");
-    expect(embed).toContain("navigate('/stage-tools')");
-    expect(embed).not.toContain('postMessage');
+    expect(embed).toContain("event.data?.type === 'nesttuner:ready'");
+    expect(embed).toContain("event.data?.type === 'nesttuner:resize'");
+    expect(embed).toContain("event.data?.type === 'nesttuner:navigate-back'");
+    expect(embed).toContain('setFrameHeight');
+    expect(embed).toContain('NESTTUNER_READY_TIMEOUT_MS');
   });
 
   it('keeps retry and public fallback available', () => {
     const embed = read('components/nesttuner/NestTunerEmbed.tsx');
     expect(embed).toContain('setAttempt((value) => value + 1)');
-    expect(embed).toContain('NESTTUNER_MODULE_LOAD_TIMEOUT_MS');
-    expect(embed).toContain('script.remove()');
     expect(embed).toContain('NESTTUNER_PUBLIC_ORIGIN');
     expect(embed).toContain('target="_blank"');
   });
 
-  it('gives the tuner a native edge-to-edge route instead of a nested viewport', () => {
+  it('gives the tuner a native edge-to-edge route instead of a framed card', () => {
     const app = read('PrivateApp.tsx');
     const page = read('pages/NestTunerPage.tsx');
     expect(app).toContain('isNestTunerRoute');
