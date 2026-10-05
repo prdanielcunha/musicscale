@@ -122,7 +122,7 @@ async function refreshServiceWorker(): Promise<ServiceWorkerRegistration | null>
   if (!registration) return null;
 
   const updated = await withOperationTimeout(registration.update());
-  if (!updated) {
+  if (updated === null) {
     console.warn('[MusicScale] Service worker update check timed out or failed');
   }
 
