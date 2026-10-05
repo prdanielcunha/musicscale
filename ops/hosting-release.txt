@@ -1,2 +1,2 @@
-MusicScale 0.10.5-beta.0 — 2026-10-04
-Hotfix PWA: detecção determinística de nova versão por manifesto sem cache a cada 30s e ao retornar ao app, com service worker como segunda camada e recuperação de worker obsoleto no iOS/WebKit.
+MusicScale 0.10.5-beta.1 — 2026-10-04
+Ajuste visual protegido: NestTuner permanece permanentemente antes do Ambient Pad em Ferramentas de Palco; teste de regressão bloqueia futuras inversões dessa hierarquia.

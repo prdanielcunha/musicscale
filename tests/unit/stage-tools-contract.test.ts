@@ -19,6 +19,15 @@ describe('Stage Tools contract', () => {
     expect(bottomNav).not.toContain('/stage-tools');
   });
 
+  it('locks NestTuner before Pad in the Stage Tools hierarchy', () => {
+    const page = read('pages/StageToolsPage.tsx');
+    const tuner = page.indexOf("stage_tools.tuner_title");
+    const pad = page.indexOf("stage_tools.pad_title");
+    expect(tuner).toBeGreaterThan(-1);
+    expect(pad).toBeGreaterThan(-1);
+    expect(tuner).toBeLessThan(pad);
+  });
+
   it('reuses the existing Pad and metronome without creating a live session', () => {
     const page = read('pages/StageToolsPage.tsx');
     expect(page).toContain("import Metronome from '../components/common/Metronome'");
