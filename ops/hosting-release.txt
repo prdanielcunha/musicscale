@@ -1,2 +1,2 @@
-MusicScale 0.10.6-beta.0 — 2026-10-04
-Hotfix PWA: o botão de atualização não pode mais ficar preso em “Atualizando…” no Safari/iPhone. Operações de service worker agora têm timeout e existe navegação forçada com cache-busting em até 3,2s.
+MusicScale 0.10.7-beta.0 — 2026-10-04
+Hotfix estrutural PWA: index.html deixa de ser precacheado e o service worker deixa de interceptar navegações. Atualização passa a navegar direto ao Firebase; migração única network-shell-v1 resgata clientes presos em workers antigos no Safari/iPhone sem apagar login ou dados locais.
