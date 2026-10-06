@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/member-role-recovery-audit.yml'
       - 'scripts/audit-member-role-recovery.ts'
+  workflow_dispatch: {}
 permissions:
   contents: read
   id-token: write
