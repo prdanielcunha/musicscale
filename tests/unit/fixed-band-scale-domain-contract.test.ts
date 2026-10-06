@@ -30,6 +30,17 @@ describe('fixed band scale domain contract', () => {
     expect(form).not.toContain('locationId');
   });
 
+  it('keeps fixed formations in the authenticated core recovery path', () => {
+    const client = read('hooks/useMusicData.ts');
+    const server = read('services/server/musicDataBootstrap.ts');
+
+    expect(client).toContain("wrap('fixedBandScales', () => api.fixedBandScales.list())");
+    expect(client).toContain("'fixedBandScales' | 'eventTypes'");
+    expect(client).toContain("const fixedBandScalesData = getCriticalData('fixedBandScales')");
+    expect(client).toContain('setFixedBandScales(fixedBandScalesData)');
+    expect(server).toContain("'fixedBandScales'");
+  });
+
   it('routes every new band creation to the fixed formation workspace', () => {
     const modalContext = read('contexts/ModalContext.tsx');
 
