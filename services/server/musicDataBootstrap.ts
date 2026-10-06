@@ -1,7 +1,7 @@
 import { resolveOrganizationAuthorization } from './organizationAuthorization.js';
 
 const VALID_ID = /^[A-Za-z0-9_-]{1,128}$/;
-const CRITICAL_COLLECTIONS = ['songs', 'scales', 'bandScales', 'eventTypes', 'locations'] as const;
+const CRITICAL_COLLECTIONS = ['songs', 'scales', 'bandScales', 'fixedBandScales', 'eventTypes', 'locations'] as const;
 
 type CriticalCollectionName = typeof CRITICAL_COLLECTIONS[number];
 
@@ -47,7 +47,7 @@ async function readTenantCollection(db: any, collectionName: CriticalCollectionN
 }
 
 /**
- * Authenticated, tenant-scoped server fallback for the five collections required
+ * Authenticated, tenant-scoped server fallback for the six collections required
  * to render the first operational MusicScale screen.
  *
  * The browser still prefers Firestore directly. This endpoint is only the
@@ -87,7 +87,7 @@ export function createMusicDataBootstrapHandler(deps: MusicDataBootstrapDependen
     }
 
     try {
-      const [songs, scales, bandScales, eventTypes, locations] = await Promise.all(
+      const [songs, scales, bandScales, fixedBandScales, eventTypes, locations] = await Promise.all(
         CRITICAL_COLLECTIONS.map((collectionName) =>
           readTenantCollection(deps.db, collectionName, organizationId)
         )
@@ -101,6 +101,7 @@ export function createMusicDataBootstrapHandler(deps: MusicDataBootstrapDependen
           songs,
           scales,
           bandScales,
+          fixedBandScales,
           eventTypes,
           locations,
         },
