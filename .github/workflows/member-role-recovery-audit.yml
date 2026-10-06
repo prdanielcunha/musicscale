@@ -1,0 +1,38 @@
+name: MusicScale Member Role Recovery Audit
+on:
+  push:
+    branches: [ production ]
+    paths:
+      - '.github/workflows/member-role-recovery-audit.yml'
+      - 'scripts/audit-member-role-recovery.ts'
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: firebase-production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production
+          audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production
+      - name: Audit member role recovery candidates
+        env:
+          FIREBASE_PROJECT_ID: millionsnest
+          GCLOUD_PROJECT: millionsnest
+          GOOGLE_CLOUD_PROJECT: millionsnest
+        run: npx tsx scripts/audit-member-role-recovery.ts
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: member-role-recovery-audit-${{ github.run_id }}
+          path: tmp/firestore-audit/member-role-recovery.*.json
+          if-no-files-found: error
+          retention-days: 7
