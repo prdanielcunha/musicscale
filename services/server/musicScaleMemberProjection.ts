@@ -98,6 +98,9 @@ export function resolveMemberDirectoryMusicProfile(
     cleanString(memberData?.internalRoleId) ||
     '';
 
+  // memberData.role is the canonical organization-access role and must never
+  // become a MusicScale ministry role. The generic legacy `role` fallback is
+  // accepted only from the historically tenant-bound users/{uid} profile.
   const musicscaleRole =
     cleanString(projectionData?.musicscaleRole) ||
     cleanString(memberData?.musicscaleRole) ||
