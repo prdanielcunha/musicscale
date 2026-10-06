@@ -18,7 +18,7 @@ const descendants = <T extends ts.Node>(predicate: (node: ts.Node) => node is T)
 };
 
 describe('MusicData first-operational structural contract', () => {
-  it('gates on exactly the five operational resources', () => {
+  it('gates on exactly the six operational resources, including reusable fixed band formations', () => {
     const declaration = descendants((node): node is ts.VariableDeclaration =>
       ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === 'criticalPromises',
     )[0];
@@ -29,7 +29,7 @@ describe('MusicData first-operational structural contract', () => {
       expect(ts.isCallExpression(element)).toBe(true);
       return (element as ts.CallExpression).arguments[0].getText(sourceFile).replaceAll("'", '');
     });
-    expect(names).toEqual(['songs', 'scales', 'bandScales', 'eventTypes', 'locations']);
+    expect(names).toEqual(['songs', 'scales', 'bandScales', 'fixedBandScales', 'eventTypes', 'locations']);
   });
 
   it.each([
