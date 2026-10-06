@@ -22,8 +22,10 @@ describe('invited member identity and role contract', () => {
   it('never converts an ordinary organization member into the MusicScale Visitante role', () => {
     const usersPage = read('pages/UsersPage.tsx');
 
-    expect(usersPage).toContain('Only an explicit MusicScale projection');
-    expect(usersPage).toContain('u.roleId || u.musicscaleRole || ministryRole');
+    expect(usersPage).toContain('resolveMemberMusicRoleId(u, roles)');
+    const resolver = read('utils/memberMusicRole.ts');
+    expect(resolver).not.toContain('member.organizationRole');
+    expect(resolver).not.toContain('member.role ||');
     expect(usersPage).not.toContain('u.musicscaleRole || u.ministryFunction || u.organizationRole || u.roleId');
     expect(usersPage).not.toContain("else match = roles.find(r => r.name === 'Visitante');");
   });
