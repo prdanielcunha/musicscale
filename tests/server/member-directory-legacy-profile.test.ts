@@ -92,4 +92,39 @@ describe('member directory legacy MusicScale profile recovery', () => {
     expect(result.specialtyIds).toEqual(['minister']);
     expect(result.musicscaleRole).not.toBe('admin');
   });
+  it('resolves a missing legacy roleId from the matching role name inside the same tenant', () => {
+    const result = resolveMemberDirectoryMusicProfile(
+      {},
+      { organizationRole: 'member', role: 'member' },
+      {
+        organizationId: 'org-1',
+        role: 'Musico',
+        specialtyIds: ['guitar'],
+      },
+      'org-1',
+      [
+        { id: 'role-musician-org-1', name: 'Músico', organizationId: 'org-1' },
+        { id: 'role-musician-org-2', name: 'Músico', organizationId: 'org-2' },
+      ],
+    );
+
+    expect(result.roleId).toBe('role-musician-org-1');
+    expect(result.musicscaleRole).toBe('Musico');
+  });
+
+  it('does not resolve a legacy role name to a role owned by another tenant', () => {
+    const result = resolveMemberDirectoryMusicProfile(
+      {},
+      { organizationRole: 'member', role: 'member' },
+      {
+        organizationId: 'org-1',
+        role: 'Músico',
+      },
+      'org-1',
+      [{ id: 'foreign-role', name: 'Músico', organizationId: 'org-2' }],
+    );
+
+    expect(result.roleId).toBe('');
+  });
+
 });
