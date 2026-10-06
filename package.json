@@ -46,7 +46,8 @@
     "release:patch": "node scripts/bump-release.mjs patch",
     "release:minor": "node scripts/bump-release.mjs minor",
     "release:revision": "node scripts/bump-release.mjs revision",
-    "release:visual": "node scripts/bump-release.mjs visual"
+    "release:visual": "node scripts/bump-release.mjs visual",
+    "test:ui:ci": "node scripts/run-vitest-batches.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",

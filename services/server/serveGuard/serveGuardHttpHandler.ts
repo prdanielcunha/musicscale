@@ -60,6 +60,12 @@ function safeId(value: unknown): string {
   return value.trim();
 }
 
+function maskIdentifier(value: string): string {
+  const normalized = value.trim();
+  if (normalized.length <= 6) return '***';
+  return normalized.slice(0, 3) + '***' + normalized.slice(-3);
+}
+
 function safeDate(value: unknown): string {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
     ? value.trim()
@@ -319,7 +325,7 @@ export function createServeGuardHttpHandlers(deps: ServeGuardHttpDependencies) {
     } catch (error) {
       logger.error?.('[ServeGuard] preference read failed', {
         organizationId,
-        targetUserId,
+        targetUserId: maskIdentifier(targetUserId),
         error: error instanceof Error ? error.message : 'unknown_error',
       });
       return res.status(503).json({
@@ -397,7 +403,7 @@ export function createServeGuardHttpHandlers(deps: ServeGuardHttpDependencies) {
     } catch (error) {
       logger.error?.('[ServeGuard] preference write failed', {
         organizationId,
-        targetUserId,
+        targetUserId: maskIdentifier(targetUserId),
         error: error instanceof Error ? error.message : 'unknown_error',
       });
       return res.status(503).json({
@@ -477,8 +483,8 @@ export function createServeGuardHttpHandlers(deps: ServeGuardHttpDependencies) {
 
       logger.info?.('[ServeGuard] advisory evaluation', {
         organizationId,
-        actorUid: actor.uid,
-        targetUserId,
+        actorUid: maskIdentifier(actor.uid),
+        targetUserId: maskIdentifier(targetUserId),
         candidateDate,
         primarySignal: evaluation.primarySignal,
         requiresExplicitOverride: evaluation.requiresExplicitOverride,
@@ -492,7 +498,134 @@ export function createServeGuardHttpHandlers(deps: ServeGuardHttpDependencies) {
     } catch (error) {
       logger.error?.('[ServeGuard] evaluation failed', {
         organizationId,
-        targetUserId,
+        targetUserId: maskIdentifier(targetUserId),
+        error: error instanceof Error ? error.message : 'unknown_error',
+      });
+      return res.status(503).json({
+        success: false,
+        code: 'SERVICE_UNAVAILABLE',
+      });
+    }
+  };
+
+  const evaluateBatch = async (req: Request, res: Response) => {
+    privateNoStore(res);
+    const organizationId = safeId(req.params.organizationId);
+    const candidateDate = safeDate(req.body?.candidateDate);
+    const excludeScaleId = req.body?.excludeScaleId == null
+      ? null
+      : safeId(req.body.excludeScaleId);
+    const rawUserIds: unknown[] = Array.isArray(req.body?.userIds)
+      ? req.body.userIds
+      : [];
+
+    const normalizedUserIds: string[] = rawUserIds.map(value =>
+      safeId(value),
+    );
+    const targetUserIds: string[] = Array.from(
+      new Set(
+        normalizedUserIds.filter(userId => userId.length > 0),
+      ),
+    );
+
+    if (
+      !organizationId ||
+      !candidateDate ||
+      rawUserIds.length === 0 ||
+      rawUserIds.length > 100 ||
+      normalizedUserIds.some(userId => !userId) ||
+      targetUserIds.length === 0 ||
+      (req.body?.excludeScaleId != null && !excludeScaleId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_REQUEST',
+      });
+    }
+
+    try {
+      const authorization = await resolveActor(req, organizationId, deps);
+      if (authorization.ok === false) {
+        return res.status(authorization.status).json({
+          success: false,
+          code: authorization.code,
+        });
+      }
+
+      const { actor } = authorization;
+      const onlySelf =
+        targetUserIds.length === 1 &&
+        targetUserIds[0] === actor.uid;
+
+      if (!onlySelf && !actor.canManageSchedules) {
+        return res.status(403).json({
+          success: false,
+          code: 'SERVEGUARD_EVALUATION_AUTHORITY_REQUIRED',
+        });
+      }
+
+      const membershipResults = await Promise.all(
+        targetUserIds.map(async userId => ({
+          userId,
+          active: await confirmTargetMembership(
+            organizationId,
+            userId,
+            deps,
+          ),
+        })),
+      );
+
+      const activeUserIds = membershipResults
+        .filter(item => item.active)
+        .map(item => item.userId);
+      const skippedUserIds = membershipResults
+        .filter(item => !item.active)
+        .map(item => item.userId);
+
+      const scales = await loadScales(organizationId, deps.db);
+      const preferences = await Promise.all(
+        activeUserIds.map(async userId => ({
+          userId,
+          preference: await loadPreference(
+            organizationId,
+            userId,
+            deps.db,
+          ),
+        })),
+      );
+
+      const evaluations = preferences
+        .map(({ userId, preference }) =>
+          evaluateServeGuard({
+            organizationId,
+            userId,
+            candidateDate,
+            preference,
+            scales,
+            excludeScaleId,
+          }),
+        )
+        .filter(Boolean);
+
+      logger.info?.('[ServeGuard] advisory batch evaluation', {
+        organizationId,
+        actorUid: maskIdentifier(actor.uid),
+        candidateDate,
+        requestedCount: targetUserIds.length,
+        evaluatedCount: evaluations.length,
+        skippedCount: skippedUserIds.length,
+      });
+
+      return res.status(200).json({
+        success: true,
+        organizationId,
+        evaluations,
+        skippedUserIds,
+      });
+    } catch (error) {
+      logger.error?.('[ServeGuard] batch evaluation failed', {
+        organizationId,
+        requestedCount: targetUserIds.length,
         error: error instanceof Error ? error.message : 'unknown_error',
       });
       return res.status(503).json({
@@ -506,5 +639,6 @@ export function createServeGuardHttpHandlers(deps: ServeGuardHttpDependencies) {
     getPreference,
     putPreference,
     evaluate,
+    evaluateBatch,
   };
 }
