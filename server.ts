@@ -1969,9 +1969,10 @@ app.post(
           }
 
           const organizationRef = db.collection("organizations").doc(organizationId);
-          const [membersSnapshot, projectionsSnapshot] = await Promise.all([
+          const [membersSnapshot, projectionsSnapshot, rolesSnapshot] = await Promise.all([
               organizationRef.collection("members").get(),
               organizationRef.collection("musicscale_members").get(),
+              db.collection("roles").where("organizationId", "==", organizationId).get(),
           ]);
 
           const activeMemberDocs = membersSnapshot.docs.filter((memberDoc: any) => {
@@ -1982,6 +1983,10 @@ app.post(
           const projectionByUid = new Map(
               projectionsSnapshot.docs.map((projectionDoc: any) => [projectionDoc.id, projectionDoc.data() || {}]),
           );
+          const directoryRoles = rolesSnapshot.docs.map((roleDoc: any) => ({
+              id: roleDoc.id,
+              ...(roleDoc.data() || {}),
+          }));
 
           const userByUid = new Map<string, any>();
           if (uids.length > 0) {
@@ -2024,6 +2029,7 @@ app.post(
                   memberData,
                   userData,
                   organizationId,
+                  directoryRoles,
               );
 
               return {
@@ -6002,7 +6008,17 @@ async function runOneTimeMemberRoleRecovery() {
   const orgs=await db.collection('organizations').get();
   for (const org of orgs.docs) {
     const organizationId=org.id;
-    const members=await org.ref.collection('members').get();
+    const [members,orgRolesSnapshot]=await Promise.all([
+      org.ref.collection('members').get(),
+      db.collection('roles').where('organizationId','==',organizationId).get()
+    ]);
+    const normalizeRoleName=(value:any)=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+    const orgRoleById=new Map(orgRolesSnapshot.docs.map((roleDoc:any)=>[roleDoc.id,roleDoc.data()||{}]));
+    const orgRoleIdByName=new Map(
+      orgRolesSnapshot.docs
+        .map((roleDoc:any)=>[normalizeRoleName(roleDoc.data()?.name),roleDoc.id] as const)
+        .filter(([name]:readonly [string,string])=>Boolean(name))
+    );
     for (const member of members.docs) {
       scanned++;
       const uid=member.id;
@@ -6043,12 +6059,20 @@ async function runOneTimeMemberRoleRecovery() {
         if(uniqueRoleCandidates.length>1){
           conflicts++;
         } else {
-          const candidate=uniqueRoleCandidates[0]||null;
+          const recoverableRoleName=
+            clean(canonical?.musicscaleRole) ||
+            clean(legacyData?.musicscaleRole) ||
+            clean(legacyUserData?.musicscaleRole) ||
+            clean(legacyUserData?.role);
+          const candidate=uniqueRoleCandidates[0] ||
+            (recoverableRoleName ? orgRoleIdByName.get(normalizeRoleName(recoverableRoleName)) : null) ||
+            null;
+
           if(!candidate){
             missingRole++;
           } else {
-            const role=await db.collection('roles').doc(candidate).get();
-            if(!role.exists||clean(role.data()?.organizationId)!==organizationId){
+            const roleData=orgRoleById.get(candidate);
+            if(!roleData||clean(roleData.organizationId)!==organizationId){
               invalidRole++;
             } else {
               patch.roleId=candidate;
