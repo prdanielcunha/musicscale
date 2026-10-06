@@ -28,6 +28,7 @@ const makeDb = (organizationId = 'org-1') => {
     songs: [{ id: 'song-1', organizationId, title: 'Song' }],
     scales: [{ id: 'scale-1', organizationId, songIds: ['song-1'] }],
     bandScales: [{ id: 'band-1', organizationId, assignments: [] }],
+    fixedBandScales: [{ id: 'fixed-1', organizationId, name: 'Banda Principal', assignments: [] }],
     eventTypes: [{ id: 'type-1', organizationId, name: 'Culto' }],
     locations: [{ id: 'location-1', organizationId, name: 'Templo' }],
   };
@@ -82,9 +83,9 @@ describe('MusicData server bootstrap fallback', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.organizationId).toBe('org-1');
     expect(Object.keys(res.body.data).sort()).toEqual(
-      ['bandScales', 'eventTypes', 'locations', 'scales', 'songs'].sort()
+      ['bandScales', 'eventTypes', 'fixedBandScales', 'locations', 'scales', 'songs'].sort()
     );
-    expect(db.calls).toHaveLength(5);
+    expect(db.calls).toHaveLength(6);
     for (const call of db.calls) {
       expect(call).toEqual(expect.objectContaining({
         field: 'organizationId',
@@ -168,6 +169,6 @@ describe('MusicData server bootstrap fallback', () => {
     }, res);
 
     expect(res.statusCode).toBe(200);
-    expect(db.calls).toHaveLength(5);
+    expect(db.calls).toHaveLength(6);
   });
 });
