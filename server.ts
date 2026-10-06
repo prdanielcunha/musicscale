@@ -6060,10 +6060,12 @@ async function runOneTimeMemberRoleRecovery() {
 
       const profileSources=[canonical,legacyData,legacyUserData].filter(Boolean);
       if(!clean(projectionData.musicscaleRole)){
-        for(const source of profileSources){
-          const value=clean(source?.musicscaleRole)||clean(source?.role);
-          if(value){patch.musicscaleRole=value;break;}
-        }
+        const recoveredMusicScaleRole=
+          clean(canonical?.musicscaleRole) ||
+          clean(legacyData?.musicscaleRole) ||
+          clean(legacyUserData?.musicscaleRole) ||
+          clean(legacyUserData?.role);
+        if(recoveredMusicScaleRole) patch.musicscaleRole=recoveredMusicScaleRole;
       }
       if(!hasOwn(projectionData,'ministryFunction')){
         for(const source of profileSources){
