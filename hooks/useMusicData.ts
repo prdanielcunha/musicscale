@@ -225,7 +225,7 @@ export const useMusicData = () => {
               payload?.success === true &&
               payload?.organizationId === orgId &&
               data &&
-              ['songs', 'scales', 'bandScales', 'eventTypes', 'locations']
+              ['songs', 'scales', 'bandScales', 'fixedBandScales', 'eventTypes', 'locations']
                 .every((key) => Array.isArray(data[key]));
 
             if (!isValidPayload) {
@@ -237,6 +237,7 @@ export const useMusicData = () => {
               songs: Song[];
               scales: Scale[];
               bandScales: BandScale[];
+              fixedBandScales: FixedBandScale[];
               eventTypes: EventType[];
               locations: Location[];
             };
@@ -325,6 +326,7 @@ export const useMusicData = () => {
       wrap('songs', () => api.songs.list()),
       wrap('scales', () => api.scales.list()),
       wrap('bandScales', () => api.bandScales.list()),
+      wrap('fixedBandScales', () => api.fixedBandScales.list()),
       wrap('eventTypes', () => api.eventTypes.list()),
       wrap('locations', () => api.locations.list())
     ];
@@ -348,8 +350,7 @@ export const useMusicData = () => {
     const secondaryPromises = [
       wrap('roles', () => api.roles.list()),
       wrap('instruments', () => api.instruments.list()),
-      usersPromise,
-      wrap('fixedBandScales', () => api.fixedBandScales.list())
+      usersPromise
     ];
 
     const criticalBatch = Promise.allSettled(criticalPromises);
@@ -366,6 +367,7 @@ export const useMusicData = () => {
         songs: Song[];
         scales: Scale[];
         bandScales: BandScale[];
+        fixedBandScales: FixedBandScale[];
         eventTypes: EventType[];
         locations: Location[];
       } | null = null;
@@ -390,7 +392,7 @@ export const useMusicData = () => {
           }
       }
 
-      const getCriticalData = (name: 'songs' | 'scales' | 'bandScales' | 'eventTypes' | 'locations') => {
+      const getCriticalData = (name: 'songs' | 'scales' | 'bandScales' | 'fixedBandScales' | 'eventTypes' | 'locations') => {
          if (serverCriticalData) return serverCriticalData[name];
          const res = criticalResults.find((r: any) => r.status === 'fulfilled' && r.value.name === name) as PromiseFulfilledResult<any>;
          return res.value.data;
@@ -399,6 +401,7 @@ export const useMusicData = () => {
       const songsData = getCriticalData('songs');
       const scalesData = getCriticalData('scales');
       const bandScalesData = getCriticalData('bandScales');
+      const fixedBandScalesData = getCriticalData('fixedBandScales');
       const eventTypesData = getCriticalData('eventTypes');
       const locationsData = getCriticalData('locations');
 
@@ -454,6 +457,7 @@ export const useMusicData = () => {
       setSongs(populatedSongs);
       setScales(scalesData);
       setBandScales(bandScalesData);
+      setFixedBandScales(fixedBandScalesData);
       setEventTypes(eventTypesData);
       setLocations(locationsData);
       
@@ -496,7 +500,6 @@ export const useMusicData = () => {
       const rolesData = getSecondaryData('roles');
       const instrumentsData = getSecondaryData('instruments');
       const allUsersData = getSecondaryData('users');
-      const fixedBandScalesData = getSecondaryData('fixedBandScales');
 
       const roleUserCounts = new Map<string, number>();
       allUsersData.forEach((u: any) => {
@@ -586,7 +589,6 @@ export const useMusicData = () => {
       setAllUsers(normalizedUsers);
       setUsersStatus('ready');
       setInstruments(instrumentsData);
-      setFixedBandScales(fixedBandScalesData);
 
       // Rebuild arrays with full data
       const secondaryPopulatedSongs = songsData.map((song: any): PopulatedSong => ({
