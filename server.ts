@@ -72,7 +72,7 @@ import { reanalyzeCandidates } from "./services/server/curationReanalyzer.js";
 import { extractSongIdentity } from "./utils/songDiscovery/identityGenerator.js";
 import { preVerifyCandidates, bulkImportCandidates } from './services/server/bulkImportService.js';
 import { BandScaleCommandService } from './services/server/bandScale/bandScaleCommandService.js';
-import { beginAiImportFinOpsWritePath, finalizeAiImportFinOpsWritePath } from "./services/server/aiImportFinOpsWritePath.js";
+import { beginAiImportFinOpsWritePath, finalizeAiImportFinOpsWritePath } from "./services/server/aiImportFinOpsWritePath.js";\nimport { runGlobalMemberRoleRecovery } from "./services/server/globalMemberRoleRecovery.js";
 
 if (fs.existsSync(".env.local")) {
   dotenv.config({ path: ".env.local" });
@@ -5994,7 +5994,7 @@ app.post("/api/curation/reprocess-song", requireEcosystemRole, async (req: any, 
   });
 
   // Vite middleware for development
-async function startLocalServer() {
+async function startLocalServer() {\n  if (process.env.RUN_GLOBAL_MEMBER_ROLE_RECOVERY === "true") {\n    logger.info("[GLOBAL_MEMBER_ROLE_RECOVERY] Starting one-shot production recovery before readiness.");\n    await runGlobalMemberRoleRecovery();\n  }
   if (process.env.NODE_ENV !== "production") {
     logger.info("Initializing Vite middleware...");
     const { createServer: createViteServer } = await import("vite");
