@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 const NESTTUNER_HOSTING_ORIGIN = 'https://mn-nesttuner-555464791734.web.app';
 const NESTTUNER_PUBLIC_ORIGIN = 'https://nesttuner.millionsnest.com';
 const NESTTUNER_EMBED_VERSION = '0.6.7-beta.1';
-const NESTTUNER_CONSUMER = 'musicscale-0.10.8-beta.3';
+const NESTTUNER_CONSUMER = 'musicscale-0.10.8-beta.4';
 const NESTTUNER_READY_TIMEOUT_MS = 15000;
 
 const resolveLocale = (language?: string) => {
