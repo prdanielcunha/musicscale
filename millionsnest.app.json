@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "appId": "musicscale",
+  "name": "MusicScale",
+  "ai": {
+    "enabled": true,
+    "tasks": [
+      "musicscale.song.structure",
+      "musicscale.team.message.compose"
+    ],
+    "defaultSensitivity": "P1_INTERNAL"
+  },
+  "locales": [
+    "pt-BR",
+    "en",
+    "es"
+  ],
+  "owner": {
+    "repository": "prdanielcunha/musicscale"
+  }
+}
