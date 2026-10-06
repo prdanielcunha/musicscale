@@ -1,2 +1,2 @@
-MusicScale 0.10.8-beta.3 — 2026-10-05
-Hotfix definitivo do NestTuner no iPhone: a integração deixa de depender da execução de um Web Component remoto no Safari e passa a usar a aplicação NestTuner certificada em uma superfície iframe full-bleed sem moldura. O NestTuner 0.6.7-beta.0 informa pronto/altura por postMessage, permitindo altura dinâmica e rolagem do MusicScale em vez de uma janela interna. Microfone continua delegado explicitamente ao afinador.
+MusicScale 0.10.8-beta.3 — 2026-10-06
+Sincronização do NestTuner embutido com 0.6.7-beta.1: mantém o host certificado no Firebase, passa a validar a revisão que corrige o encolhimento do iframe após fechar Configurações avançadas e inclui o Som de referência interativo que acompanha a corda/nota selecionada. O runtime continua hospedado no NestTuner e o MusicScale mantém microfone/autoplay/fullscreen delegados explicitamente.
