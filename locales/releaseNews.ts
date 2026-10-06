@@ -35,6 +35,7 @@ export const releaseNewsTranslations = {
           { date: '04/10', text: 'O motor usa janelas adaptativas para graves, proteção contra erros de oitava e testes sintéticos em 44,1 kHz e 48 kHz.' },
           { date: '04/10', text: 'O modo Fino mostra maior resolução visual, mas a certificação física de ±0,5 cent continua bloqueada até validação em aparelhos reais.' },
           { date: '04/10', text: 'Hotfix: leituras críticas e contexto da organização agora recuperam automaticamente falhas transitórias de conexão, sem relaxar permissões.' },
+          { date: '06/10', text: 'Hotfix: escalas fixas agora participam da recuperação autenticada; uma falha nessa leitura não faz mais funções e instrumentos dos integrantes desaparecerem da interface.' },
         ],
       },
     },
