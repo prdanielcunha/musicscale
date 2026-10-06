@@ -5994,46 +5994,7 @@ app.post("/api/curation/reprocess-song", requireEcosystemRole, async (req: any, 
   });
 
   // Vite middleware for development
-async function runOneTimeMemberRoleRecovery() {
-  if (process.env.MEMBER_ROLE_RECOVERY_20261006 !== 'true' || !db) return;
-  let scanned=0,repaired=0,missing=0,conflicts=0,invalid=0;
-  const clean=(v:any)=>typeof v==='string'&&v.trim()?v.trim():null;
-  const orgs=await db.collection('organizations').get();
-  for (const org of orgs.docs) {
-    const organizationId=org.id;
-    const members=await org.ref.collection('members').get();
-    for (const member of members.docs) {
-      scanned++; const uid=member.id; const canonical=member.data()||{};
-      const projectionRef=org.ref.collection('musicscale_members').doc(uid);
-      const [projection,user,l1,l2]=await Promise.all([
-        projectionRef.get(),db.collection('users').doc(uid).get(),
-        db.collection('organization_members').doc(`${uid}_${organizationId}`).get(),
-        db.collection('organization_members').doc(`${organizationId}_${uid}`).get()
-      ]);
-      if (projection.exists && clean(projection.data()?.roleId)) continue;
-      const canonicalRole=clean(canonical.roleId)||clean(canonical.internalRoleId);
-      let legacyRole:string|null=null, legacyData:any=null;
-      for(const snap of [l1,l2]) { if(!snap.exists)continue; const d=snap.data()||{}; const oid=clean(d.organizationId)||clean(d.organization_id); const mid=clean(d.uid)||clean(d.userId)||clean(d.user_id); if(oid===organizationId&&mid===uid){const rr=clean(d.roleId)||clean(d.internalRoleId);if(rr){legacyRole=rr;legacyData=d;break;}}}
-      const ud=user.exists?user.data()||{}:{}; const uorg=clean(ud.organizationId)||clean(ud.activeOrganizationId)||clean(ud.primaryOrganizationId);
-      const userRole=uorg===organizationId?(clean(ud.roleId)||clean(ud.internalRoleId)):null;
-      if(canonicalRole&&legacyRole&&canonicalRole!==legacyRole){conflicts++;continue;}
-      const candidate=canonicalRole||legacyRole||userRole;
-      if(!candidate){missing++;continue;}
-      const role=await db.collection('roles').doc(candidate).get();
-      if(!role.exists||clean(role.data()?.organizationId)!==organizationId){invalid++;continue;}
-      const source=canonicalRole?canonical:(legacyRole?legacyData:ud);
-      const patch:any={uid,organizationId,roleId:candidate,updatedAt:admin.firestore.FieldValue.serverTimestamp(),source:'runtime_global_role_recovery_2026_10_06'};
-      for(const k of ['musicscaleRole','ministryFunction','specialtyIds']) if(source?.[k]!==undefined) patch[k]=source[k];
-      await projectionRef.set(patch,{merge:true}); repaired++;
-    }
-  }
-  logger.info('[MUSICSCALE_GLOBAL_ROLE_RECOVERY_COMPLETE]',{scanned,repaired,missing,conflicts,invalid});
-}
-
 async function startLocalServer() {
-  if (process.env.NODE_ENV === "production") {
-    await runOneTimeMemberRoleRecovery();
-  }
   if (process.env.NODE_ENV !== "production") {
     logger.info("Initializing Vite middleware...");
     const { createServer: createViteServer } = await import("vite");
