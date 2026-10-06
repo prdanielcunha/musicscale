@@ -2046,7 +2046,11 @@ const UsersPage: React.FC = () => {
                     key={member.uid}
                     type="button"
                     onClick={() => setSelectedMemberForDetail(member)}
-                    className="group flex w-full items-center gap-3 rounded-2xl border border-slate-200/70 bg-white p-3 text-left transition-all hover:border-primary/30 hover:shadow-sm dark:border-white/5 dark:bg-white/[0.02] sm:p-4"
+                    onPointerUp={(event) => {
+                      if (event.pointerType === "touch") setSelectedMemberForDetail(member);
+                    }}
+                    aria-label={t("users.view_edit_member", "Ver e editar") + ": " + (member.displayName || member.email || t("profile.user", "Usuário"))}
+                    className="group touch-manipulation flex w-full items-center gap-3 rounded-2xl border border-slate-200/70 bg-white p-3 text-left transition-all hover:border-primary/30 hover:shadow-sm dark:border-white/5 dark:bg-white/[0.02] sm:p-4"
                   >
                     <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
                       {member.photoURL ? (

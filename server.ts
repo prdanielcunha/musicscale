@@ -1983,6 +1983,24 @@ app.post(
               projectionsSnapshot.docs.map((projectionDoc: any) => [projectionDoc.id, projectionDoc.data() || {}]),
           );
 
+          // Compatibility safety net: older MusicScale role/function data may still
+          // live in organization_members. A partial/empty projection must never make
+          // an existing member look unconfigured.
+          const legacyMembershipByUid = new Map<string, any>();
+          for (const uid of uids) {
+              for (const legacyId of [`${uid}_${organizationId}`, `${organizationId}_${uid}`]) {
+                  const legacySnapshot = await db.collection("organization_members").doc(legacyId).get().catch(() => null);
+                  if (!legacySnapshot?.exists) continue;
+                  const legacyData = legacySnapshot.data() || {};
+                  const boundOrg = String(legacyData.organizationId || legacyData.organization_id || "").trim();
+                  const boundUid = String(legacyData.uid || legacyData.userId || legacyData.user_id || "").trim();
+                  if (boundOrg === organizationId && boundUid === uid) {
+                      legacyMembershipByUid.set(uid, legacyData);
+                      break;
+                  }
+              }
+          }
+
           const userByUid = new Map<string, any>();
           if (uids.length > 0) {
               const userSnapshots = await db.getAll(...uids.map((uid: string) => db.collection("users").doc(uid)));
@@ -2018,7 +2036,8 @@ app.post(
               const userData = userByUid.get(uid) || {};
               const authData = authByUid.get(uid) || {};
               const projectionData = projectionByUid.get(uid) || {};
-              const organizationRole = textValue(memberData.organizationRole, memberData.role, "member").toLowerCase();
+              const legacyData = legacyMembershipByUid.get(uid) || {};
+              const organizationRole = textValue(memberData.organizationRole, memberData.role, legacyData.organizationRole, legacyData.role, "member").toLowerCase();
 
               return {
                   id: uid,
@@ -2046,14 +2065,18 @@ app.post(
                       projectionData.internalRoleId,
                       memberData.roleId,
                       memberData.internalRoleId,
+                      legacyData.roleId,
+                      legacyData.internalRoleId,
                   ),
-                  musicscaleRole: textValue(projectionData.musicscaleRole, memberData.musicscaleRole),
-                  ministryFunction: projectionData.ministryFunction ?? memberData.ministryFunction ?? null,
-                  specialtyIds: Array.isArray(projectionData.specialtyIds)
+                  musicscaleRole: textValue(projectionData.musicscaleRole, memberData.musicscaleRole, legacyData.musicscaleRole),
+                  ministryFunction: projectionData.ministryFunction ?? memberData.ministryFunction ?? legacyData.ministryFunction ?? null,
+                  specialtyIds: Array.isArray(projectionData.specialtyIds) && projectionData.specialtyIds.length > 0
                       ? projectionData.specialtyIds
-                      : Array.isArray(memberData.specialtyIds)
+                      : Array.isArray(memberData.specialtyIds) && memberData.specialtyIds.length > 0
                         ? memberData.specialtyIds
-                        : [],
+                        : Array.isArray(legacyData.specialtyIds)
+                          ? legacyData.specialtyIds
+                          : [],
                   systemRole: textValue(userData.systemRole, memberData.systemRole),
               };
           });
