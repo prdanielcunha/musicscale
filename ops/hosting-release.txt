@@ -1,2 +1,2 @@
-MusicScale 0.10.9-beta.6 — 2026-10-06
-Hotfix crítico: restaura funções, ministérios e especialidades dos integrantes a partir do legado tenant-bound no diretório canônico e persiste a recuperação na projeção MusicScale, sem cruzar organizações.
+MusicScale 0.10.9-beta.7 — 2026-10-06
+Recupera catálogos de funções e instrumentos pelo bootstrap autenticado quando o Firestore do navegador falha. Preserva IDs musicais e compatibilidade com referências legadas. Inclui auditoria global somente leitura das formações fixas.

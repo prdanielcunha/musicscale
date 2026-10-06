@@ -96,6 +96,18 @@ describe('MusicData server bootstrap fallback', () => {
     expect(res.headers['Cache-Control']).toContain('no-store');
   });
 
+  it('recovers role and instrument catalogs only after authorizing the same tenant', async () => {
+    const db = makeDb('org-1');
+    const handler = createMusicDataBootstrapHandler({db,auth:{},resolveAuthorization: (async () => ({context:{isActive:true}})) as any});
+    const res=makeResponse();
+    await handler({query:{organizationId:'org-1',includeTaxonomy:'true'},headers:{}},res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.data.roles).toEqual([]);
+    expect(res.body.data.instruments).toEqual([]);
+    expect(db.calls).toHaveLength(8);
+    expect(db.calls.every(call=>call.value==='org-1')).toBe(true);
+  });
+
   it('fails closed before any tenant data read when canonical authorization is inactive', async () => {
     const db = makeDb('org-1');
     const handler = createMusicDataBootstrapHandler({

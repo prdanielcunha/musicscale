@@ -35,7 +35,7 @@ function jsonSafe(value: any): any {
   return value;
 }
 
-async function readTenantCollection(db: any, collectionName: CriticalCollectionName, organizationId: string) {
+async function readTenantCollection(db: any, collectionName: CriticalCollectionName | 'roles' | 'instruments', organizationId: string) {
   const snapshot = await db.collection(collectionName)
     .where('organizationId', '==', organizationId)
     .get();
@@ -93,11 +93,19 @@ export function createMusicDataBootstrapHandler(deps: MusicDataBootstrapDependen
         )
       );
 
+      const taxonomy = req.query?.includeTaxonomy === 'true'
+        ? {
+            roles: await readTenantCollection(deps.db, 'roles', organizationId),
+            instruments: await readTenantCollection(deps.db, 'instruments', organizationId),
+          }
+        : {};
+
       res.set?.('Cache-Control', 'private, no-store, max-age=0');
       return res.status(200).json({
         success: true,
         organizationId,
         data: {
+          ...taxonomy,
           songs,
           scales,
           bandScales,

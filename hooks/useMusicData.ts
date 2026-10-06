@@ -1,3 +1,4 @@
+import { resolveMemberMusicRoleId } from '../utils/memberMusicRole';
 import { markStartupMetric, markStartupFailure, recordStartupGauge } from '../lib/startupTelemetry';
 import { logger } from '../lib/logger';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -206,7 +207,7 @@ export const useMusicData = () => {
         try {
           const token = await user.getIdToken(attempt > 0);
           const response = await fetch(
-            `/api/v1/music-data/bootstrap?organizationId=${encodeURIComponent(orgId)}`,
+            `/api/v1/music-data/bootstrap?organizationId=${encodeURIComponent(orgId)}&includeTaxonomy=true`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -240,6 +241,8 @@ export const useMusicData = () => {
               fixedBandScales: FixedBandScale[];
               eventTypes: EventType[];
               locations: Location[];
+              roles?: Role[];
+              instruments?: Instrument[];
             };
           }
 
@@ -486,10 +489,26 @@ export const useMusicData = () => {
 
       const failedSecondary = secondaryResults.filter(r => r.status === 'rejected');
       if (failedSecondary.length > 0) {
-          const failedNames = failedSecondary.map((r: any) => r.reason?.message || 'unknown');
-          logger.warn(`[useMusicData] Secondary batch failed for: ${failedNames.join(', ')}`);
+        // The member directory can succeed while browser Firestore taxonomy
+        // reads fail. Recover the catalog through the same authenticated tenant.
+        try {
+          const recovered = await fetchServerCriticalBootstrap();
+          if (generationRef.current !== currentGeneration) return;
+          for (const [index, name] of ['roles', 'instruments'].entries()) {
+            if (secondaryResults[index].status === 'rejected') {
+              const data = recovered[name as 'roles' | 'instruments'];
+              if (Array.isArray(data)) secondaryResults[index] = {
+                status: 'fulfilled', value: { name, data }
+              };
+            }
+          }
+        } catch {
+          // Keep the failed state visible; never turn a failed read into [].
+        }
+        if (secondaryResults.some(r => r.status === 'rejected')) {
           markStartupFailure('secondary_data_failed');
-          return; // successful users data was already applied independently
+          return;
+        }
       }
 
       const getSecondaryData = (name: string) => {
@@ -528,8 +547,8 @@ export const useMusicData = () => {
       );
       const uniqueRolesMap = new Map<string, Role>();
       filteredRoles.forEach((role: any) => {
-          if (!uniqueRolesMap.has(role.name)) {
-              uniqueRolesMap.set(role.name, role);
+          if (!uniqueRolesMap.has(role.id)) {
+              uniqueRolesMap.set(role.id, role);
           }
       });
 
@@ -553,7 +572,7 @@ export const useMusicData = () => {
              else if (rName.includes('visitante') && dName.includes('visitante')) found = true;
           });
           if (!found) {
-             uniqueRolesMap.set(dr.name, dr);
+             uniqueRolesMap.set(dr.id, dr);
              api.roles.create(dr).catch(()=>{});
           }
       });
@@ -561,31 +580,9 @@ export const useMusicData = () => {
       const allRolesArray = Array.from(uniqueRolesMap.values());
       setRoles(allRolesArray);
       
-      const getRoleKeyFromName = (roleName: string): string => {
-        const name = (roleName || "").toLowerCase();
-        if (name.includes("dono") || name === "owner" || name === "ceo" || name.includes("founder")) return "owner";
-        if (name.includes("administrador") || name === "admin") return "admin";
-        if (name.includes("líder") || name.includes("lider") || name.includes("ministro") || name === "leader") return "leader";
-        if (name.includes("músico") || name.includes("musico") || name.includes("vocal") || name === "musician") return "musician";
-        return "viewer";
-      };
-
-      const normalizedUsers = allUsersData.map((u: any) => {
-          const roleSourceStr = u.musicscaleRole || u.ministryFunction || u.organizationRole || u.roleId || u.role || 'viewer';
-          
-          let match = allRolesArray.find(r => r.id === roleSourceStr);
-          if (!match) {
-             const mappedKey = getRoleKeyFromName(roleSourceStr || "");
-             if (mappedKey === 'owner') match = allRolesArray.find(r => r.name.includes('Dono'));
-             else if (mappedKey === 'admin') match = allRolesArray.find(r => r.name.includes('Admin'));
-             else if (mappedKey === 'leader') match = allRolesArray.find(r => r.name.includes('Líder') || r.name.includes('Ministro'));
-             else if (mappedKey === 'musician') match = allRolesArray.find(r => r.name.includes('Músico') || r.name.includes('Vocal'));
-             else match = allRolesArray.find(r => r.name.includes('Visitante'));
-          }
-          
-          let resolvedRoleId = match ? match.id : u.roleId;
-          return { ...u, roleId: resolvedRoleId };
-      });
+      const normalizedUsers = allUsersData.map((u: any) => ({
+        ...u, roleId: resolveMemberMusicRoleId(u, allRolesArray)
+      }));
       setAllUsers(normalizedUsers);
       setUsersStatus('ready');
       setInstruments(instrumentsData);

@@ -23,6 +23,26 @@ const hasArray=(v:any)=>Array.isArray(v);
 async function main(){
  if(!db) throw new Error("Firebase Admin DB is not initialized.");
  const out:Hit[]=[];
+ const inventory:any[]=[];
+ // Read-only collection-group inventory includes root and nested legacy paths.
+ for (const collection of ['roles','instruments','fixedBandScales','bandScales']) {
+   const snapshot=await db.collectionGroup(collection).get();
+   for (const doc of snapshot.docs) {
+     const d=doc.data();
+     inventory.push({collection,path:doc.ref.path,storedId:clean(d.id),
+       organizationId:clean(d.organizationId),organization_id:clean(d.organization_id),
+       name:collection==='roles'||collection==='instruments'?clean(d.name):undefined,
+       fields:Object.keys(d).sort(),assignments:Array.isArray(d.assignments)?d.assignments.length:null,
+       createdAt:d.createdAt?.toDate?.()?.toISOString?.()||null,
+       updatedAt:d.updatedAt?.toDate?.()?.toISOString?.()||null});
+   }
+ }
+ const audits=await db.collection('audits').where('targetCollection','==','fixedBandScales').get();
+ const bandHistory=audits.docs.map(doc=>{
+   const d=doc.data();return {action:d.action,organizationId:d.organizationId,targetId:d.targetId,
+     timestamp:d.timestamp?.toDate?.()?.toISOString?.()||null,
+     detailFields:Object.keys(d.details||{}).sort()};
+ });
  let orgs=0,members=0,recoverable=0,profileRecoverable=0,missing=0,conflicts=0;
  const orgSnap=await db.collection("organizations").get();
 
@@ -123,6 +143,7 @@ async function main(){
    conflicts,
    generatedAt:new Date().toISOString()
  };
+ await writeFile("tmp/firestore-audit/member-role-recovery.inventory.json",JSON.stringify({inventory,bandHistory},null,2));
  await writeFile("tmp/firestore-audit/member-role-recovery.summary.json",JSON.stringify(summary,null,2));
  await writeFile("tmp/firestore-audit/member-role-recovery.audit.json",JSON.stringify(out,null,2));
  console.log(JSON.stringify(summary));

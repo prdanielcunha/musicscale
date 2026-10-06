@@ -146,6 +146,35 @@ describe('useMusicData users readiness', () => {
     expect(api.users.list).toHaveBeenCalledTimes(1);
   });
 
+  it('recovers failed role/instrument reads and keeps fixed formations visible', async () => {
+    mocks.useAuth.mockReturnValue({...authA,user:{uid:'u1',getIdToken:vi.fn().mockResolvedValue('test-token')}});
+    const fixed=[{id:'fixed-a',organizationId:'org-a',name:'Banda',assignments:[]}];
+    const recoveredRoles=[{id:'role-a',organizationId:'org-a',name:'Vocal'}];
+    const recoveredInstruments=[{id:'spec-a',organizationId:'org-a',name:'Voz'}];
+    const api=createApi({
+      roles:{list:vi.fn().mockRejectedValue(new Error('unavailable')),create:vi.fn().mockResolvedValue(undefined)},
+      instruments:{list:vi.fn().mockRejectedValue(new Error('unavailable'))},
+      fixedBandScales:{list:vi.fn().mockResolvedValue(fixed)},
+      users:{list:vi.fn().mockResolvedValue([{...userA,musicscaleRole:'musician',organizationRole:'admin'}])},
+    });
+    mocks.useApi.mockReturnValue(api);
+    const fetchMock=vi.fn().mockResolvedValue({ok:true,json:async()=>({success:true,organizationId:'org-a',data:{
+      songs:[],scales:[],bandScales:[],fixedBandScales:fixed,eventTypes:[],locations:[],
+      roles:recoveredRoles,instruments:recoveredInstruments,
+    }})});
+    vi.stubGlobal('fetch',fetchMock);
+    try {
+      const {result,unmount}=renderHook(()=>useMusicData());
+      await waitFor(()=>expect(result.current.instruments).toEqual(recoveredInstruments));
+      expect(result.current.allUsers[0].roleId).toBe('role-a');
+      expect(result.current.roles).toContainEqual(recoveredRoles[0]);
+      expect(result.current.fixedBandScales).toEqual(fixed);
+      expect(fetchMock.mock.calls[0][0]).toContain('organizationId=org-a&includeTaxonomy=true');
+      expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer test-token');
+      unmount();
+    } finally { vi.unstubAllGlobals(); }
+  });
+
   it('reports users error without converting the unresolved roster into authoritative empty data', async () => {
     const users = deferred<any[]>();
     const api = createApi({ users: { list: vi.fn(() => users.promise) } });
