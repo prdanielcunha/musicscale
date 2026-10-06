@@ -31,6 +31,12 @@ export interface MemberDirectoryMusicProfile {
   legacyUserFallbackAllowed: boolean;
 }
 
+export interface MemberDirectoryRoleOption {
+  id: string;
+  name?: string;
+  organizationId?: string;
+}
+
 const VALID_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const VALID_WRITE_SOURCES = new Set([
   'member_profile_update',
@@ -86,12 +92,13 @@ export function resolveMemberDirectoryMusicProfile(
   projectionData: any,
   memberData: any,
   userData: any,
-  organizationId: string
+  organizationId: string,
+  availableRoles: readonly MemberDirectoryRoleOption[] = []
 ): MemberDirectoryMusicProfile {
   const legacyUserFallbackAllowed = cleanString(userData?.organizationId) === organizationId;
   const legacyUserData = legacyUserFallbackAllowed ? (userData || {}) : {};
 
-  const roleId =
+  const explicitRoleId =
     cleanString(projectionData?.roleId) ||
     cleanString(projectionData?.internalRoleId) ||
     cleanString(memberData?.roleId) ||
@@ -120,8 +127,22 @@ export function resolveMemberDirectoryMusicProfile(
     cleanStringArray(legacyUserData?.specialtyIds) ??
     [];
 
+  const normalizeRoleName = (value: unknown) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+
+  const roleFromLegacyName = !explicitRoleId && musicscaleRole
+    ? availableRoles.find((role) =>
+        role.organizationId === organizationId &&
+        normalizeRoleName(role.name) === normalizeRoleName(musicscaleRole)
+      )?.id || ''
+    : '';
+
   return {
-    roleId,
+    roleId: explicitRoleId || roleFromLegacyName,
     musicscaleRole,
     ministryFunction,
     specialtyIds,
