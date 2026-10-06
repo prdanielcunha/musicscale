@@ -72,7 +72,8 @@ import { reanalyzeCandidates } from "./services/server/curationReanalyzer.js";
 import { extractSongIdentity } from "./utils/songDiscovery/identityGenerator.js";
 import { preVerifyCandidates, bulkImportCandidates } from './services/server/bulkImportService.js';
 import { BandScaleCommandService } from './services/server/bandScale/bandScaleCommandService.js';
-import { beginAiImportFinOpsWritePath, finalizeAiImportFinOpsWritePath } from "./services/server/aiImportFinOpsWritePath.js";\nimport { runGlobalMemberRoleRecovery } from "./services/server/globalMemberRoleRecovery.js";
+import { beginAiImportFinOpsWritePath, finalizeAiImportFinOpsWritePath } from "./services/server/aiImportFinOpsWritePath.js";
+import { runGlobalMemberRoleRecovery } from "./services/server/globalMemberRoleRecovery.js";
 
 if (fs.existsSync(".env.local")) {
   dotenv.config({ path: ".env.local" });
@@ -800,7 +801,8 @@ app.post(
 - Resultado geral: ${overallStatus === "passed" ? "APROVADO" : (overallStatus === "warning" ? "ATENÇÃO" : "REPROVADO")}
 - Firestore verificado? ${documentsFound.length > 0 ? "SIM" : "NÃO"}
 - Paths esperados verificados:
-  - ${expectedPaths.join('\n  - ')}
+  - ${expectedPaths.join('
+  - ')}
 - Idempotency status final: ${idempotencyFinalStatus}
 - Dados sensíveis encontrados? ${sensitiveDataFound ? "SIM" : "NÃO"}
 - Response público preservado? SIM
@@ -3163,7 +3165,8 @@ RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
         requestId,
         metrics: {
           wordCount: result.lyrics.split(/\s+/).length,
-          chordLinesCount: result.chords.split('\n').length,
+          chordLinesCount: result.chords.split('
+').length,
           hasUrl: !!url,
           extractionStrategy: selectedStrategy
         }
@@ -3280,10 +3283,12 @@ Analiza: Tono, energía, flujo emocional, repeticiones recurrentes de la iglesia
 Responda EXCLUSIVAMENTE en español.
 
 Setlist Actual (Contexto):
-${currentSongs && currentSongs.length > 0 ? currentSongs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tono: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Ninguna canción añadida aún.'}
+${currentSongs && currentSongs.length > 0 ? currentSongs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tono: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('
+') : 'Ninguna canción añadida aún.'}
 
 Canciones Disponibles en el Repertorio:
-${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: any) => `- ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Id: ${s.id}, Tono original: ${s.key})`).join('\n') : 'Sugerir canciones externas si es necesario.'}`;
+${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: any) => `- ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Id: ${s.id}, Tono original: ${s.key})`).join('
+') : 'Sugerir canciones externas si es necesario.'}`;
       } else if (language === "en") {
         prompt = `Act as a worship music director silently watching the flow of the setlist.
 Your task is to suggest 1 to 3 songs to continue or complement the setlist.
@@ -3291,10 +3296,12 @@ Analyze: Musical key relationship, tempo energy, emotional worship flow, and tea
 Respond EXCLUSIVAMENTE in English.
 
 Current Setlist (Context):
-${currentSongs && currentSongs.length > 0 ? currentSongs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Original language: ${s.language || '?'}, Key: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'No songs added. Offer welcoming suggestions.'}
+${currentSongs && currentSongs.length > 0 ? currentSongs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Original language: ${s.language || '?'}, Key: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('
+') : 'No songs added. Offer welcoming suggestions.'}
 
 Available Repertoire Songs:
-${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: any) => `- ${s.title} - ${s.artist} (Original language: ${s.language || '?'}, Id: ${s.id}, Original Key: ${s.key})`).join('\n') : 'Suggest external songs if necessary.'}`;
+${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: any) => `- ${s.title} - ${s.artist} (Original language: ${s.language || '?'}, Id: ${s.id}, Original Key: ${s.key})`).join('
+') : 'Suggest external songs if necessary.'}`;
       } else {
         prompt = `Atue como um diretor musical assistindo silenciosamente o fluxo.
 Sua tarefa é sugerir de 1 a 3 músicas para continuar ou complementar o setlist.
@@ -3302,10 +3309,12 @@ Analise: Tonalidade, energia, fluxo emocional, repetições recorrentes na igrej
 Responda EXCLUSIVAMENTE em português.
 
 Setlist Atual (Context):
-${currentSongs && currentSongs.length > 0 ? currentSongs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tom: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Nenhuma música. Comece sugerindo algo para abrir o culto.'}
+${currentSongs && currentSongs.length > 0 ? currentSongs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tom: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('
+') : 'Nenhuma música. Comece sugerindo algo para abrir o culto.'}
 
 Músicas Disponíveis no Repertório:
-${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: any) => `- ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Id: ${s.id}, Tom original: ${s.key})`).join('\n') : 'Sugerir de fora se necessário.'}`;
+${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: any) => `- ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Id: ${s.id}, Tom original: ${s.key})`).join('
+') : 'Sugerir de fora se necessário.'}`;
       }
 
       let response;
@@ -3446,21 +3455,24 @@ Identifica: excesos de repetición, fluidez de transiciones entre tonos y tempos
 Responde EXCLUSIVAMENTE en español.
 
 Canciones Actuales en la Escala:
-${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tono: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Escala vacía.'}`;
+${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tono: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('
+') : 'Escala vacía.'}`;
       } else if (language === "en") {
         prompt = `Analyze the worship setlist flow (Setlist Intelligence & Worship Flow).
 Identify: tonal transitions flow, BPM or tempo gaps, worship emotional flow, team repetition fatigue, and structural congregational balancing.
 Respond EXCLUSIVAMENTE in English.
 
 Current Scheduled Songs:
-${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Original language: ${s.language || '?'}, Key: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Empty.'}`;
+${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Original language: ${s.language || '?'}, Key: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('
+') : 'Empty.'}`;
       } else {
         prompt = `Analise a escala de adoração (Setlist Intelligence & Worship Flow).
 Identifique: excesso de repetição, fluidez de transições, equilíbrio congregacional, curva de energia, e comportamento de transição.
 Responda EXCLUSIVAMENTE em português.
 
 Músicas Atuais na Escala:
-${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tom: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Vazia.'}`;
+${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tom: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('
+') : 'Vazia.'}`;
       }
 
       const response = await ai.models.generateContent({
@@ -5994,7 +6006,11 @@ app.post("/api/curation/reprocess-song", requireEcosystemRole, async (req: any, 
   });
 
   // Vite middleware for development
-async function startLocalServer() {\n  if (process.env.RUN_GLOBAL_MEMBER_ROLE_RECOVERY === "true") {\n    logger.info("[GLOBAL_MEMBER_ROLE_RECOVERY] Starting one-shot production recovery before readiness.");\n    await runGlobalMemberRoleRecovery();\n  }
+async function startLocalServer() {
+  if (process.env.RUN_GLOBAL_MEMBER_ROLE_RECOVERY === "true") {
+    logger.info("[GLOBAL_MEMBER_ROLE_RECOVERY] Starting one-shot production recovery before readiness.");
+    await runGlobalMemberRoleRecovery();
+  }
   if (process.env.NODE_ENV !== "production") {
     logger.info("Initializing Vite middleware...");
     const { createServer: createViteServer } = await import("vite");
