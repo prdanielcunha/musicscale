@@ -1,4 +1,2 @@
-MusicScale 0.10.8-beta.4 — 2026-10-06
-Hotfix de sincronização do NestTuner: certifica o NestTuner 0.6.7-beta.1 no MusicScale, incluindo o encolhimento correto do iframe ao fechar Configurações avançadas e o Som de referência interativo que acompanha a corda/nota selecionada. Mantém a integração Firebase Hosting com microfone/autoplay/fullscreen delegados e atualiza o consumidor para MusicScale 0.10.8-beta.4.
-
-member-role-recovery-audit 2026-10-06
+MusicScale 0.10.9-beta.7 — 2026-10-06
+Recupera catálogos de funções e instrumentos pelo bootstrap autenticado quando o Firestore do navegador falha. Preserva IDs musicais e compatibilidade com referências legadas. Inclui auditoria global somente leitura das formações fixas.
