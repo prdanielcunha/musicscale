@@ -1,2 +1,2 @@
-MusicScale 0.10.9-beta.0 — 2026-10-06
-Hotfix de confiabilidade das Escalas Fixas: formações salvas passam a integrar o bootstrap autenticado e tenant-scoped do MusicScale. Falhas na leitura direta do Firestore não podem mais transformar silenciosamente escalas fixas existentes em uma lista vazia; o servidor recupera os registros no mesmo caminho seguro usado pelos dados essenciais.
+MusicScale 0.10.8-beta.3 — 2026-10-05
+Hotfix definitivo do NestTuner no iPhone: a integração deixa de depender da execução de um Web Component remoto no Safari e passa a usar a aplicação NestTuner certificada em uma superfície iframe full-bleed sem moldura. O NestTuner 0.6.7-beta.0 informa pronto/altura por postMessage, permitindo altura dinâmica e rolagem do MusicScale em vez de uma janela interna. Microfone continua delegado explicitamente ao afinador.
