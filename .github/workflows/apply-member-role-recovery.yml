@@ -20,8 +20,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
         with:
-          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production
-          audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
+          service_account: mn-musicscale-runtime@millionsnest.iam.gserviceaccount.com
       - name: Apply safe global member role recovery
         env:
           FIREBASE_PROJECT_ID: millionsnest
