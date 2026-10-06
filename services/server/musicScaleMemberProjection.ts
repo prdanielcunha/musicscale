@@ -23,6 +23,20 @@ export interface MusicScaleMemberWriteOptions {
   source?: string;
 }
 
+export interface MemberDirectoryMusicProfile {
+  roleId: string;
+  musicscaleRole: string;
+  ministryFunction: string | string[] | null;
+  specialtyIds: string[];
+  legacyUserFallbackAllowed: boolean;
+}
+
+export interface MemberDirectoryRoleOption {
+  id: string;
+  name?: string;
+  organizationId?: string;
+}
+
 const VALID_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const VALID_WRITE_SOURCES = new Set([
   'member_profile_update',
@@ -49,6 +63,91 @@ function profileFrom(data: any, source: MusicScaleMemberSource): ResolvedMusicSc
     ? data.specialtyIds.filter((item: unknown) => typeof item === 'string' && item.trim()).map((item: string) => item.trim())
     : undefined;
   return { roleId, musicscaleRole, ministryFunction, specialtyIds, source };
+}
+
+function cleanStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return [...new Set(
+    value
+      .filter((item: unknown) => typeof item === 'string')
+      .map((item: string) => item.trim())
+      .filter(Boolean)
+  )];
+}
+
+/**
+ * Restores the legacy MusicScale profile shape used before the canonical
+ * organization member-directory migration, without crossing tenant boundaries.
+ *
+ * Historic MusicScale member metadata lived in users/{uid} and was only read
+ * through a query constrained by users.organizationId == active organization.
+ * The canonical directory may safely use that same legacy source only when the
+ * stored organizationId still matches the organization being requested.
+ *
+ * Explicit projection/member fields always win. An explicit empty
+ * specialtyIds array remains authoritative and is never replaced by legacy
+ * data.
+ */
+export function resolveMemberDirectoryMusicProfile(
+  projectionData: any,
+  memberData: any,
+  userData: any,
+  organizationId: string,
+  availableRoles: readonly MemberDirectoryRoleOption[] = []
+): MemberDirectoryMusicProfile {
+  const legacyUserFallbackAllowed = cleanString(userData?.organizationId) === organizationId;
+  const legacyUserData = legacyUserFallbackAllowed ? (userData || {}) : {};
+
+  const explicitRoleId =
+    cleanString(projectionData?.roleId) ||
+    cleanString(projectionData?.internalRoleId) ||
+    cleanString(memberData?.roleId) ||
+    cleanString(memberData?.internalRoleId) ||
+    '';
+
+  // memberData.role is the canonical organization-access role and must never
+  // become a MusicScale ministry role. The generic legacy `role` fallback is
+  // accepted only from the historically tenant-bound users/{uid} profile.
+  const musicscaleRole =
+    cleanString(projectionData?.musicscaleRole) ||
+    cleanString(memberData?.musicscaleRole) ||
+    cleanString(legacyUserData?.musicscaleRole) ||
+    cleanString(legacyUserData?.role) ||
+    '';
+
+  const ministryFunction =
+    projectionData?.ministryFunction ??
+    memberData?.ministryFunction ??
+    legacyUserData?.ministryFunction ??
+    null;
+
+  const specialtyIds =
+    cleanStringArray(projectionData?.specialtyIds) ??
+    cleanStringArray(memberData?.specialtyIds) ??
+    cleanStringArray(legacyUserData?.specialtyIds) ??
+    [];
+
+  const normalizeRoleName = (value: unknown) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+
+  const roleFromLegacyName = !explicitRoleId && musicscaleRole
+    ? availableRoles.find((role) =>
+        role.organizationId === organizationId &&
+        normalizeRoleName(role.name) === normalizeRoleName(musicscaleRole)
+      )?.id || ''
+    : '';
+
+  return {
+    roleId: explicitRoleId || roleFromLegacyName,
+    musicscaleRole,
+    ministryFunction,
+    specialtyIds,
+    legacyUserFallbackAllowed,
+  };
 }
 
 export function assertMusicScaleMemberIdentity(organizationId: string, uid: string): void {

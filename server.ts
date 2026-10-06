@@ -45,7 +45,7 @@ import Stripe from "stripe";
 import { PLAN_FEATURES, PLAN_LIMITS } from "./services/entitlementsConstants.js";
 import { compareSongs } from "./utils/songDiscovery/matcher.js";
 import { requireEcosystemRole } from "./services/server/ecosystemAuth.js";
-import { writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
+import { resolveMemberDirectoryMusicProfile, writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
 import { createMusicDataBootstrapHandler } from "./services/server/musicDataBootstrap.js";
 import { createConnectNextScheduleReadHandler } from "./services/server/connect/nextScheduleReadHandler.js";
@@ -1969,9 +1969,10 @@ app.post(
           }
 
           const organizationRef = db.collection("organizations").doc(organizationId);
-          const [membersSnapshot, projectionsSnapshot] = await Promise.all([
+          const [membersSnapshot, projectionsSnapshot, rolesSnapshot] = await Promise.all([
               organizationRef.collection("members").get(),
               organizationRef.collection("musicscale_members").get(),
+              db.collection("roles").where("organizationId", "==", organizationId).get(),
           ]);
 
           const activeMemberDocs = membersSnapshot.docs.filter((memberDoc: any) => {
@@ -1982,6 +1983,10 @@ app.post(
           const projectionByUid = new Map(
               projectionsSnapshot.docs.map((projectionDoc: any) => [projectionDoc.id, projectionDoc.data() || {}]),
           );
+          const directoryRoles = rolesSnapshot.docs.map((roleDoc: any) => ({
+              id: roleDoc.id,
+              ...(roleDoc.data() || {}),
+          }));
 
           const userByUid = new Map<string, any>();
           if (uids.length > 0) {
@@ -2019,6 +2024,13 @@ app.post(
               const authData = authByUid.get(uid) || {};
               const projectionData = projectionByUid.get(uid) || {};
               const organizationRole = textValue(memberData.organizationRole, memberData.role, "member").toLowerCase();
+              const musicProfile = resolveMemberDirectoryMusicProfile(
+                  projectionData,
+                  memberData,
+                  userData,
+                  organizationId,
+                  directoryRoles,
+              );
 
               return {
                   id: uid,
@@ -2041,19 +2053,10 @@ app.post(
                       authData.displayName,
                   ),
                   photoURL: textValue(memberData.photoURL, userData.photoURL, authData.photoURL),
-                  roleId: textValue(
-                      projectionData.roleId,
-                      projectionData.internalRoleId,
-                      memberData.roleId,
-                      memberData.internalRoleId,
-                  ),
-                  musicscaleRole: textValue(projectionData.musicscaleRole, memberData.musicscaleRole),
-                  ministryFunction: projectionData.ministryFunction ?? memberData.ministryFunction ?? null,
-                  specialtyIds: Array.isArray(projectionData.specialtyIds)
-                      ? projectionData.specialtyIds
-                      : Array.isArray(memberData.specialtyIds)
-                        ? memberData.specialtyIds
-                        : [],
+                  roleId: musicProfile.roleId,
+                  musicscaleRole: musicProfile.musicscaleRole,
+                  ministryFunction: musicProfile.ministryFunction,
+                  specialtyIds: musicProfile.specialtyIds,
                   systemRole: textValue(userData.systemRole, memberData.systemRole),
               };
           });
@@ -5996,38 +5999,132 @@ app.post("/api/curation/reprocess-song", requireEcosystemRole, async (req: any, 
   // Vite middleware for development
 async function runOneTimeMemberRoleRecovery() {
   if (process.env.MEMBER_ROLE_RECOVERY_20261006 !== 'true' || !db) return;
-  let scanned=0,repaired=0,missing=0,conflicts=0,invalid=0;
+  let scanned=0,repaired=0,roleRepaired=0,profileRepaired=0,missingRole=0,conflicts=0,invalidRole=0;
   const clean=(v:any)=>typeof v==='string'&&v.trim()?v.trim():null;
+  const hasOwn=(value:any,key:string)=>Boolean(value&&Object.prototype.hasOwnProperty.call(value,key));
+  const cleanArray=(value:any)=>Array.isArray(value)
+    ? [...new Set(value.filter((item:any)=>typeof item==='string').map((item:string)=>item.trim()).filter(Boolean))]
+    : null;
   const orgs=await db.collection('organizations').get();
   for (const org of orgs.docs) {
     const organizationId=org.id;
-    const members=await org.ref.collection('members').get();
+    const [members,orgRolesSnapshot]=await Promise.all([
+      org.ref.collection('members').get(),
+      db.collection('roles').where('organizationId','==',organizationId).get()
+    ]);
+    const normalizeRoleName=(value:any)=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+    const orgRoleById=new Map<string,any>(
+      orgRolesSnapshot.docs.map((roleDoc:any)=>[roleDoc.id,roleDoc.data()||{}] as [string,any])
+    );
+    const orgRoleIdByName=new Map<string,string>(
+      orgRolesSnapshot.docs
+        .map((roleDoc:any)=>[normalizeRoleName(roleDoc.data()?.name),roleDoc.id] as [string,string])
+        .filter(([name])=>Boolean(name))
+    );
     for (const member of members.docs) {
-      scanned++; const uid=member.id; const canonical=member.data()||{};
+      scanned++;
+      const uid=member.id;
+      const canonical=member.data()||{};
       const projectionRef=org.ref.collection('musicscale_members').doc(uid);
       const [projection,user,l1,l2]=await Promise.all([
-        projectionRef.get(),db.collection('users').doc(uid).get(),
+        projectionRef.get(),
+        db.collection('users').doc(uid).get(),
         db.collection('organization_members').doc(`${uid}_${organizationId}`).get(),
         db.collection('organization_members').doc(`${organizationId}_${uid}`).get()
       ]);
-      if (projection.exists && clean(projection.data()?.roleId)) continue;
+
+      const projectionData=projection.exists?projection.data()||{}:{};
+      const ud=user.exists?user.data()||{}:{};
+      // Historical users/{uid} MusicScale fields were tenant-scoped by
+      // users.organizationId. Never use active/primary organization as proof,
+      // because those fields can change as a person switches organizations.
+      const legacyUserData=clean(ud.organizationId)===organizationId?ud:{};
+
+      let legacyData:any=null;
+      for(const snap of [l1,l2]) {
+        if(!snap.exists) continue;
+        const d=snap.data()||{};
+        const oid=clean(d.organizationId)||clean(d.organization_id);
+        const mid=clean(d.uid)||clean(d.userId)||clean(d.user_id);
+        if(oid===organizationId&&mid===uid){legacyData=d;break;}
+      }
+
+      const patch:any={};
+      const projectionRole=clean(projectionData.roleId)||clean(projectionData.internalRoleId);
       const canonicalRole=clean(canonical.roleId)||clean(canonical.internalRoleId);
-      let legacyRole:string|null=null, legacyData:any=null;
-      for(const snap of [l1,l2]) { if(!snap.exists)continue; const d=snap.data()||{}; const oid=clean(d.organizationId)||clean(d.organization_id); const mid=clean(d.uid)||clean(d.userId)||clean(d.user_id); if(oid===organizationId&&mid===uid){const rr=clean(d.roleId)||clean(d.internalRoleId);if(rr){legacyRole=rr;legacyData=d;break;}}}
-      const ud=user.exists?user.data()||{}:{}; const uorg=clean(ud.organizationId)||clean(ud.activeOrganizationId)||clean(ud.primaryOrganizationId);
-      const userRole=uorg===organizationId?(clean(ud.roleId)||clean(ud.internalRoleId)):null;
-      if(canonicalRole&&legacyRole&&canonicalRole!==legacyRole){conflicts++;continue;}
-      const candidate=canonicalRole||legacyRole||userRole;
-      if(!candidate){missing++;continue;}
-      const role=await db.collection('roles').doc(candidate).get();
-      if(!role.exists||clean(role.data()?.organizationId)!==organizationId){invalid++;continue;}
-      const source=canonicalRole?canonical:(legacyRole?legacyData:ud);
-      const patch:any={uid,organizationId,roleId:candidate,updatedAt:admin.firestore.FieldValue.serverTimestamp(),source:'runtime_global_role_recovery_2026_10_06'};
-      for(const k of ['musicscaleRole','ministryFunction','specialtyIds']) if(source?.[k]!==undefined) patch[k]=source[k];
-      await projectionRef.set(patch,{merge:true}); repaired++;
+      const legacyRole=clean(legacyData?.roleId)||clean(legacyData?.internalRoleId);
+      const userRole=clean(legacyUserData.roleId)||clean(legacyUserData.internalRoleId);
+
+      if(!projectionRole) {
+        const roleCandidates=[canonicalRole,legacyRole,userRole].filter(Boolean) as string[];
+        const uniqueRoleCandidates=[...new Set(roleCandidates)];
+        if(uniqueRoleCandidates.length>1){
+          conflicts++;
+        } else {
+          const recoverableRoleName=
+            clean(canonical?.musicscaleRole) ||
+            clean(legacyData?.musicscaleRole) ||
+            clean(legacyUserData?.musicscaleRole) ||
+            clean(legacyUserData?.role);
+          const candidate=uniqueRoleCandidates[0] ||
+            (recoverableRoleName ? orgRoleIdByName.get(normalizeRoleName(recoverableRoleName)) : null) ||
+            null;
+
+          if(!candidate){
+            missingRole++;
+          } else {
+            const roleData=orgRoleById.get(candidate);
+            if(!roleData||clean(roleData.organizationId)!==organizationId){
+              invalidRole++;
+            } else {
+              patch.roleId=candidate;
+              roleRepaired++;
+            }
+          }
+        }
+      }
+
+      const profileSources=[canonical,legacyData,legacyUserData].filter(Boolean);
+      if(!clean(projectionData.musicscaleRole)){
+        const recoveredMusicScaleRole=
+          clean(canonical?.musicscaleRole) ||
+          clean(legacyData?.musicscaleRole) ||
+          clean(legacyUserData?.musicscaleRole) ||
+          clean(legacyUserData?.role);
+        if(recoveredMusicScaleRole) patch.musicscaleRole=recoveredMusicScaleRole;
+      }
+      if(!hasOwn(projectionData,'ministryFunction')){
+        for(const source of profileSources){
+          if(hasOwn(source,'ministryFunction')&&source.ministryFunction!=null){
+            patch.ministryFunction=source.ministryFunction;
+            break;
+          }
+        }
+      }
+      // An explicit [] means the user intentionally has no specialties. Only a
+      // missing field is eligible for legacy recovery.
+      if(!hasOwn(projectionData,'specialtyIds')){
+        for(const source of profileSources){
+          const value=cleanArray(source?.specialtyIds);
+          if(value!==null){patch.specialtyIds=value;break;}
+        }
+      }
+
+      const recoveredProfileFields=['musicscaleRole','ministryFunction','specialtyIds'].filter((key)=>hasOwn(patch,key));
+      if(recoveredProfileFields.length>0) profileRepaired++;
+      if(Object.keys(patch).length===0) continue;
+
+      patch.uid=uid;
+      patch.organizationId=organizationId;
+      patch.updatedAt=admin.firestore.FieldValue.serverTimestamp();
+      patch.source='runtime_global_profile_recovery_2026_10_06';
+      await projectionRef.set(patch,{merge:true});
+      repaired++;
     }
   }
-  logger.info('[MUSICSCALE_GLOBAL_ROLE_RECOVERY_COMPLETE]',{scanned,repaired,missing,conflicts,invalid});
+  logger.info('[MUSICSCALE_GLOBAL_PROFILE_RECOVERY_COMPLETE]',{
+    scanned,repaired,roleRepaired,profileRepaired,missingRole,conflicts,invalidRole
+  });
 }
 
 async function startLocalServer() {
