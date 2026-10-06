@@ -6013,11 +6013,13 @@ async function runOneTimeMemberRoleRecovery() {
       db.collection('roles').where('organizationId','==',organizationId).get()
     ]);
     const normalizeRoleName=(value:any)=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
-    const orgRoleById=new Map(orgRolesSnapshot.docs.map((roleDoc:any)=>[roleDoc.id,roleDoc.data()||{}]));
-    const orgRoleIdByName=new Map(
+    const orgRoleById=new Map<string,any>(
+      orgRolesSnapshot.docs.map((roleDoc:any)=>[roleDoc.id,roleDoc.data()||{}] as [string,any])
+    );
+    const orgRoleIdByName=new Map<string,string>(
       orgRolesSnapshot.docs
-        .map((roleDoc:any)=>[normalizeRoleName(roleDoc.data()?.name),roleDoc.id] as const)
-        .filter(([name]:readonly [string,string])=>Boolean(name))
+        .map((roleDoc:any)=>[normalizeRoleName(roleDoc.data()?.name),roleDoc.id] as [string,string])
+        .filter(([name])=>Boolean(name))
     );
     for (const member of members.docs) {
       scanned++;
