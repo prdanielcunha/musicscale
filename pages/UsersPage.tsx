@@ -1,3 +1,4 @@
+import { resolveMemberMusicRoleId } from '../utils/memberMusicRole';
 import { composeSpecialtyCatalog, toggleSpecialtySelection } from '../utils/specialtyCatalog';
 import { logger } from "../lib/logger";
 
@@ -1618,37 +1619,9 @@ const UsersPage: React.FC = () => {
     if (!selectedRole) setLoading(true);
     try {
       const userProfiles = await api.users.list();
-      const normalizedProfiles = userProfiles.map(u => {
-          const ministryRole = Array.isArray(u.ministryFunction)
-            ? u.ministryFunction.find((value) => typeof value === "string" && value.trim())
-            : u.ministryFunction;
-          // Organization access (owner/admin/manager/member/viewer) is not a
-          // MusicScale ministry function. Only an explicit MusicScale projection
-          // may populate roleId; otherwise the member stays an ordinary "Membro"
-          // until the leader assigns Músico, Vocal, Ministro, etc.
-          const roleSourceStr = String(u.roleId || u.musicscaleRole || ministryRole || "").trim();
-
-          if (!roleSourceStr) {
-             return { ...u, roleId: "" };
-          }
-
-          let match = roles.find(r => r.id === roleSourceStr);
-          if (!match) {
-             const mappedKey = getRoleKeyFromName(roleSourceStr);
-             if (mappedKey === 'owner') match = roles.find(r => r.name === 'Dono');
-             else if (mappedKey === 'admin') match = roles.find(r => r.name === 'Administrador');
-             else if (mappedKey === 'leader') match = roles.find(r => r.name === 'Líder' || r.name === 'Ministro' || r.name === 'Líder / Ministro');
-             else if (mappedKey === 'musician') match = roles.find(r => r.name === 'Músico' || r.name === 'Vocal' || r.name === 'Músico / Vocal');
-             else {
-               const normalizedSource = roleSourceStr.toLocaleLowerCase();
-               if (normalizedSource === 'viewer' || normalizedSource.includes('visitante')) {
-                 match = roles.find(r => r.name === 'Visitante');
-               }
-             }
-          }
-
-          return { ...u, roleId: match?.id || "" };
-      });
+      const normalizedProfiles = userProfiles.map(u => ({
+        ...u, roleId: resolveMemberMusicRoleId(u, roles)
+      }));
       setAllUsers(normalizedProfiles);
     } catch (err) {
       setError(t("users.load_err", "Falha ao carregar os usuários."));

@@ -1,42 +1,152 @@
 import { adminDb as db } from "../services/firebaseAdmin.js";
 import { mkdir, writeFile } from "node:fs/promises";
 
-type Hit = { organizationId:string; uid:string; projectionRoleId:string|null; canonicalRoleId:string|null; legacyRoleId:string|null; userRoleId:string|null; recoverableRoleId:string|null; source:string; conflict:boolean };
+type Hit = {
+  organizationId:string;
+  uid:string;
+  projectionRoleId:string|null;
+  canonicalRoleId:string|null;
+  legacyRoleId:string|null;
+  userRoleId:string|null;
+  recoverableRoleId:string|null;
+  source:string;
+  conflict:boolean;
+  legacyUserBound:boolean;
+  recoverableProfileFields:string[];
+};
 
 const clean=(v:any)=>typeof v==="string"&&v.trim()?v.trim():null;
+const hasOwn=(v:any,key:string)=>Boolean(v&&Object.prototype.hasOwnProperty.call(v,key));
+const hasString=(v:any)=>Boolean(clean(v));
+const hasArray=(v:any)=>Array.isArray(v);
+
 async function main(){
  if(!db) throw new Error("Firebase Admin DB is not initialized.");
- const out:Hit[]=[]; let orgs=0,members=0,recoverable=0,missing=0,conflicts=0;
+ const out:Hit[]=[];
+ const inventory:any[]=[];
+ // Read-only collection-group inventory includes root and nested legacy paths.
+ for (const collection of ['roles','instruments','fixedBandScales','bandScales']) {
+   const snapshot=await db.collectionGroup(collection).get();
+   for (const doc of snapshot.docs) {
+     const d=doc.data();
+     inventory.push({collection,path:doc.ref.path,storedId:clean(d.id),
+       organizationId:clean(d.organizationId),organization_id:clean(d.organization_id),
+       name:collection==='roles'||collection==='instruments'?clean(d.name):undefined,
+       fields:Object.keys(d).sort(),assignments:Array.isArray(d.assignments)?d.assignments.length:null,
+       createdAt:d.createdAt?.toDate?.()?.toISOString?.()||null,
+       updatedAt:d.updatedAt?.toDate?.()?.toISOString?.()||null});
+   }
+ }
+ const audits=await db.collection('audits').where('targetCollection','==','fixedBandScales').get();
+ const bandHistory=audits.docs.map(doc=>{
+   const d=doc.data();return {action:d.action,organizationId:d.organizationId,targetId:d.targetId,
+     timestamp:d.timestamp?.toDate?.()?.toISOString?.()||null,
+     detailFields:Object.keys(d.details||{}).sort()};
+ });
+ let orgs=0,members=0,recoverable=0,profileRecoverable=0,missing=0,conflicts=0;
  const orgSnap=await db.collection("organizations").get();
+
  for(const org of orgSnap.docs){
-   orgs++; const organizationId=org.id;
+   orgs++;
+   const organizationId=org.id;
    const memberSnap=await org.ref.collection("members").get();
+
    for(const member of memberSnap.docs){
-     members++; const uid=member.id; const canonical=member.data()||{};
+     members++;
+     const uid=member.id;
+     const canonical=member.data()||{};
      const [projection,user,...legacySnaps]=await Promise.all([
        org.ref.collection("musicscale_members").doc(uid).get(),
        db.collection("users").doc(uid).get(),
        db.collection("organization_members").doc(`${uid}_${organizationId}`).get(),
        db.collection("organization_members").doc(`${organizationId}_${uid}`).get()
      ]);
-     const projectionRoleId=projection.exists?clean(projection.data()?.roleId)||clean(projection.data()?.internalRoleId):null;
+
+     const projectionData=projection.exists?projection.data()||{}:{};
+     const projectionRoleId=clean(projectionData.roleId)||clean(projectionData.internalRoleId);
      const canonicalRoleId=clean(canonical.roleId)||clean(canonical.internalRoleId);
+
      let legacyRoleId:string|null=null;
-     for(const snap of legacySnaps){ if(!snap.exists) continue; const d=snap.data()||{}; const oid=clean(d.organizationId)||clean(d.organization_id); const mid=clean(d.uid)||clean(d.userId)||clean(d.user_id); if(oid===organizationId&&mid===uid){legacyRoleId=clean(d.roleId)||clean(d.internalRoleId); if(legacyRoleId) break;} }
-     const userData=user.exists?user.data()||{}:{}; const userOrg=clean(userData.organizationId)||clean(userData.activeOrganizationId)||clean(userData.primaryOrganizationId);
-     const userRoleId=userOrg===organizationId?(clean(userData.roleId)||clean(userData.internalRoleId)):null;
+     let legacyData:any={};
+     for(const snap of legacySnaps){
+       if(!snap.exists) continue;
+       const d=snap.data()||{};
+       const oid=clean(d.organizationId)||clean(d.organization_id);
+       const mid=clean(d.uid)||clean(d.userId)||clean(d.user_id);
+       if(oid===organizationId&&mid===uid){
+         legacyData=d;
+         legacyRoleId=clean(d.roleId)||clean(d.internalRoleId);
+         break;
+       }
+     }
+
+     const userData=user.exists?user.data()||{}:{};
+     // Match the historical tenant query exactly. active/primary org is mutable
+     // navigation state and is not proof that legacy MusicScale fields belong here.
+     const legacyUserBound=clean(userData.organizationId)===organizationId;
+     const boundUserData=legacyUserBound?userData:{};
+     const userRoleId=legacyUserBound?(clean(userData.roleId)||clean(userData.internalRoleId)):null;
+
      const candidates=[projectionRoleId,canonicalRoleId,legacyRoleId,userRoleId].filter(Boolean) as string[];
-     const unique=[...new Set(candidates)]; const conflict=unique.length>1;
+     const unique=[...new Set(candidates)];
+     const conflict=unique.length>1;
      const recoverableRoleId=projectionRoleId||(!conflict?(canonicalRoleId||legacyRoleId||userRoleId):null);
      const source=projectionRoleId?"projection":canonicalRoleId?"canonical":legacyRoleId?"legacy":userRoleId?"user":"none";
-     if(conflict) conflicts++; else if(!projectionRoleId&&recoverableRoleId) recoverable++; else if(!recoverableRoleId) missing++;
-     if(!projectionRoleId||conflict) out.push({organizationId,uid,projectionRoleId,canonicalRoleId,legacyRoleId,userRoleId,recoverableRoleId,source,conflict});
+
+     const recoverableProfileFields:string[]=[];
+     if(!hasString(projectionData.musicscaleRole)){
+       if(
+         hasString(canonical.musicscaleRole) ||
+         hasString(legacyData.musicscaleRole) ||
+         hasString(boundUserData.musicscaleRole) ||
+         hasString(boundUserData.role)
+       ) recoverableProfileFields.push("musicscaleRole");
+     }
+     if(!hasOwn(projectionData,"ministryFunction")){
+       if(
+         hasOwn(canonical,"ministryFunction") ||
+         hasOwn(legacyData,"ministryFunction") ||
+         hasOwn(boundUserData,"ministryFunction")
+       ) recoverableProfileFields.push("ministryFunction");
+     }
+     if(!hasOwn(projectionData,"specialtyIds")){
+       if(
+         hasArray(canonical.specialtyIds) ||
+         hasArray(legacyData.specialtyIds) ||
+         hasArray(boundUserData.specialtyIds)
+       ) recoverableProfileFields.push("specialtyIds");
+     }
+
+     if(conflict) conflicts++;
+     else if(!projectionRoleId&&recoverableRoleId) recoverable++;
+     else if(!recoverableRoleId) missing++;
+
+     if(recoverableProfileFields.length>0) profileRecoverable++;
+
+     if(!projectionRoleId||conflict||recoverableProfileFields.length>0){
+       out.push({
+         organizationId,uid,projectionRoleId,canonicalRoleId,legacyRoleId,userRoleId,
+         recoverableRoleId,source,conflict,legacyUserBound,recoverableProfileFields
+       });
+     }
    }
  }
+
  await mkdir("tmp/firestore-audit",{recursive:true});
- const summary={organizations:orgs,members,affected:out.length,recoverable,missing,conflicts,generatedAt:new Date().toISOString()};
+ const summary={
+   organizations:orgs,
+   members,
+   affected:out.length,
+   recoverable,
+   profileRecoverable,
+   missing,
+   conflicts,
+   generatedAt:new Date().toISOString()
+ };
+ await writeFile("tmp/firestore-audit/member-role-recovery.inventory.json",JSON.stringify({inventory,bandHistory},null,2));
  await writeFile("tmp/firestore-audit/member-role-recovery.summary.json",JSON.stringify(summary,null,2));
  await writeFile("tmp/firestore-audit/member-role-recovery.audit.json",JSON.stringify(out,null,2));
  console.log(JSON.stringify(summary));
 }
+
 main().catch(e=>{console.error(e);process.exit(1)});
