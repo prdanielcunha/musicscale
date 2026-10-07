@@ -1,2 +1,2 @@
-MusicScale 0.10.9-beta.10 — 2026-10-07
-Reconcilia a produção estável com o NestAI, preservando as correções validadas de funções, integrantes, bootstrap de dados e bandas fixas.
+MusicScale 0.10.9-beta.11 — 2026-10-07
+Sincroniza o SDK NestAI mantendo integralmente a produção validada de funções, integrantes, bootstrap de dados e bandas fixas.
