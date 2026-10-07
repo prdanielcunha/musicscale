@@ -17,8 +17,8 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import cors from "cors";
 import crypto from "crypto";
 import path from "path";
-import { GoogleGenAI } from "@google/genai";
 import { createFixChordsHandler } from "./services/server/fixChordsHandler.js";
+import { createMusicScaleNestAiClient, normalizeNestAiLocale, nestAiHttpStatus } from "./services/server/nestAiProxy.js";
 import { authorizeAiRequest, InMemoryAiRateLimiter } from "./services/server/aiRequestSecurity.js";
 import { createAiFinOpsFirestoreAdapter } from "./services/server/aiFinOpsFirestoreAdapter.js";
 import { resolveAiImportFinOpsReadPath } from "./services/server/aiImportFinOpsReadPath.js";
@@ -2229,12 +2229,18 @@ app.post(
     dbInstance: db,
     authInstance: auth,
     rateLimiter: fixChordsRateLimiter,
-    apiKey: process.env.GEMINI_API_KEY,
-    model: process.env.GEMINI_MODEL,
     logger,
     generateContent: async (params) => {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      return await ai.models.generateContent(params);
+      const client = createMusicScaleNestAiClient({
+        req: params.request,
+        organizationId: params.organizationId,
+        locale: 'pt-BR',
+      });
+      const response = await client.run<string>({
+        task: params.task,
+        input: params.input,
+      });
+      return { text: String(response.result || '') };
     }
   }));
   // API Route for AI Song Import - Complete production SaaS refactor with structured logging and smart fallbacks
