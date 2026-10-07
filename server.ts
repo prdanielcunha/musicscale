@@ -4408,95 +4408,55 @@ app.post(
 
   app.post("/api/changelog/aggregate", async (req, res) => {
     try {
-      const { language = "pt" } = req.body;
-      
-      // Smart Auto-Aggregation: Scan repository directories to see what has been built!
+      const { language = "pt", organizationId } = req.body ?? {};
+      if (!organizationId || typeof organizationId !== "string") {
+        return res.status(400).json({ error: "organizationId ausente" });
+      }
+
+      // Smart Auto-Aggregation scans a bounded list of filenames only; file contents
+      // are never sent automatically to AI.
       const dirsToScan = ["pages", "components", "contexts", "services"];
       const detectedFiles: string[] = [];
-      
       try {
         dirsToScan.forEach(dir => {
           const fullPath = path.join(process.cwd(), dir);
           if (fs.existsSync(fullPath)) {
             const files = fs.readdirSync(fullPath);
-            files.slice(0, 5).forEach(f => detectedFiles.push(`${dir}/${f}`));
+            files.slice(0, 5).forEach(file => detectedFiles.push(`${dir}/${file}`));
           }
         });
-      } catch (e) {
-        logger.warn("Changelog system directory scanning warning:", e);
+      } catch (error) {
+        logger.warn("Changelog system directory scanning warning:", error);
       }
-      
-      const fileContext = detectedFiles.length > 0
-        ? detectedFiles.join(", ")
-        : "LiveWorshipDirector.tsx, locales/pt.json, locales/es.json, UpdatesPage.tsx, Sidebar.tsx";
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const prompt = `Você é o Principal Product Marketing Director e SaaS Experience Architect do MusicScale.
-Sua tarefa é analisar os arquivos que acabaram de ser implantados/revisados e compor uma nota de lançamento (release note) espetacular, de padrão Apple, Linear e Superhuman.
-As notas de lançamento devem se concentrar em benefícios emocionais reais (por exemplo, "maior segurança na transmissão ao vivo", "leituras sem reflexo ou oscilações no altar", "fluidez em multilinguagem nativa", "facilidade de transposição sem atraso em ensaios"), e nunca em jargão de código puro ou nomes de commits frios.
-
-Arquivos / Módulos detectados nesta entrega: ${fileContext}
-
-Você DEVE produzir e retornar um JSON estritamente válido que contenha TODOS os seguintes campos exatamente assim (e traduzido em pt, en, es):
-{
-  "version": "[Gerar uma versão menor ou de patch incrementada, por exemplo, '1.2.5' ou '1.3.0']",
-  "title": {
-    "pt": "[Um título deslumbrante em português, ex: 'Direção Litúrgica em Tempo Real & Sincronia Multilíngue']",
-    "en": "[Beautiful title in English, ex: 'Real-Time Liturgical Guidance & Multi-Language Harmony']",
-    "es": "[Title in Spanish, ex: 'Dirección Litúrgica en Tiempo Real & Sintonía Multilingüe']"
-  },
-  "description": {
-    "pt": "[Uma descrição de 1-2 frases em português explicando o impacto emocional imediato e operacional do recurso no altar]",
-    "en": "[An emotional 1-2 sentence description in English focused on ministry benefit on stage]",
-    "es": "[An emotional 1-2 sentence description in Spanish]"
-  },
-  "highlights": {
-    "pt": [
-      "[Frase curta de benefício 1]",
-      "[Frase curta de benefício 2]",
-      "[Frase curta de benefício 3]"
-    ],
-    "en": [
-      "[Short benefit phrase 1 in English]",
-      "[Short benefit phrase 2 in English]",
-      "[Short benefit phrase 3 in English]"
-    ],
-    "es": [
-      "[Short benefit phrase 1 in Spanish]",
-      "[Short benefit phrase 2 in Spanish]",
-      "[Short benefit phrase 3 in Spanish]"
-    ]
-  },
-  "category": "[Escolha EXCLUSIVAMENTE uma das categorias: 'Novidades', 'Performance', 'Experiência', 'Inteligência', 'Estabilidade', 'Offline', 'Performance Mode', 'IA', 'Refinamentos']",
-  "isMajor": true
-}
-
-Atenção: Retorne APENAS o objeto JSON puro sem marcações de código markdown \`\`\`json ou qualquer texto fora do JSON. Certifique-se de que todas as aspas estejam escapadas corretamente e o JSON seja perfeitamente parseável.`;
-
-      const response = await ai.models.generateContent({
-        model: process.env.GEMINI_MODEL || "gemini-3.5-flash",
-        contents: [{ role: "user", parts: [{ text: prompt }] }]
+      const nestAi = createMusicScaleNestAiClient({
+        req,
+        organizationId,
+        locale: normalizeNestAiLocale(language),
+      });
+      const aiResponse = await nestAi.run<{
+        version: string;
+        title: { pt: string; en: string; es: string };
+        description: { pt: string; en: string; es: string };
+        highlights: { pt: string[]; en: string[]; es: string[] };
+        category: string;
+        isMajor: boolean;
+      }>({
+        task: "musicscale.release-note.generate",
+        input: {
+          detectedFiles: detectedFiles.length > 0
+            ? detectedFiles
+            : ["LiveWorshipDirector.tsx", "locales/pt.json", "locales/es.json", "UpdatesPage.tsx", "Sidebar.tsx"],
+          suppliedChanges: null,
+        },
       });
 
-      let jsonText = response.text || "{}";
-      
-      // Clean possible markdown backticks
-      if (jsonText.includes("```")) {
-        const match = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-        if (match && match[1]) {
-          jsonText = match[1];
-        } else {
-          jsonText = jsonText.replace(/```(?:json)?|```/g, "").trim();
-        }
-      }
-      
-      jsonText = jsonText.trim();
-      const parsed = JSON.parse(jsonText);
-      
-      res.json({ success: true, suggestion: parsed });
-    } catch (e: any) {
-      logger.error("Auto-Changelog aggregation fail: ", e);
-      res.status(500).json({ error: e.message || "Failed to parse AI suggestion" });
+      return res.json({ success: true, suggestion: aiResponse.result });
+    } catch (error: any) {
+      logger.error("Auto-Changelog aggregation fail: ", error);
+      return res.status(nestAiHttpStatus(error)).json({
+        error: error?.message || "NESTAI_UNAVAILABLE"
+      });
     }
   });
 
