@@ -1,0 +1,16 @@
+name: Register with NestAI
+on:
+  push:
+    branches: ["main", "production"]
+    paths:
+      - "millionsnest.app.json"
+      - ".github/workflows/nestai-register.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  register:
+    uses: prdanielcunha/NestAI/.github/workflows/register-app.yml@production

@@ -1,7 +1,7 @@
 {
   "name": "music-scale-manager",
   "private": true,
-  "version": "0.10.9-beta.9",
+  "version": "0.10.9-beta.10",
   "type": "module",
   "scripts": {
     "assets:materialize": "tsx scripts/materialize-brand-assets.ts",
@@ -73,7 +73,8 @@
     "stripe": "^22.1.0",
     "uuid": "^14.0.0",
     "vite-plugin-pwa": "^1.3.0",
-    "workbox-window": "^7.4.1"
+    "workbox-window": "^7.4.1",
+    "@millionsnest/ai": "https://github.com/prdanielcunha/NestAI/releases/download/sdk-v0.2.0/millionsnest-ai-0.2.0.tgz"
   },
   "devDependencies": {
     "@firebase/eslint-plugin-security-rules": "^0.0.2",
