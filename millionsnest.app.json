@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "appId": "musicscale",
+  "name": "MusicScale",
+  "ai": {
+    "enabled": true,
+    "tasks": [
+      "musicscale.song.structure",
+      "musicscale.team.message.compose",
+      "musicscale.live.diagnostic.explain",
+      "musicscale.live.song-match.assist",
+      "musicscale.live.request.classify",
+      "musicscale.live.search.interpret",
+      "musicscale.live.metadata.normalize",
+      "musicscale.live.post-service.summary",
+      "musicscale.live.pre-service-risk.explain",
+      "musicscale.chords.repair",
+      "musicscale.song.import.enrich",
+      "musicscale.song.suggest",
+      "musicscale.setlist.analyze",
+      "musicscale.release-note.generate"
+    ],
+    "defaultSensitivity": "P1_INTERNAL"
+  },
+  "locales": [
+    "pt-BR",
+    "en",
+    "es"
+  ],
+  "owner": {
+    "repository": "prdanielcunha/musicscale"
+  }
+}
