@@ -1,4 +1,4 @@
-import { auth } from './firebase';
+import { nestAiProtectedHeaders } from './nestAiBrowser';
 import { entitlementsService } from './entitlementsService';
 
 export interface AISongSuggestion {
@@ -32,10 +32,7 @@ export const aiSuggestionService = {
 
       const response = await fetch('/api/ai-suggest-songs', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
-        },
+        headers: await nestAiProtectedHeaders(),
         body: JSON.stringify({ 
           currentSongs, 
           librarySongs, 
