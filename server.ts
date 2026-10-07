@@ -3213,85 +3213,26 @@ app.post(
          return res.status(403).json({ error: "Requer plano Pro para IA avançada" });
       }
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      let prompt = "";
-      if (language === "es") {
-        prompt = `Actúa como un director musical que observa silenciosamente el flujo de adoración.
-Tu tarea es sugerir de 1 a 3 canciones para continuar o complementar el setlist.
-Analiza: Tono, energía, flujo emocional, repeticiones recurrentes de la iglesia.
-Responda EXCLUSIVAMENTE en español.
-
-Setlist Actual (Contexto):
-${currentSongs && currentSongs.length > 0 ? currentSongs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tono: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Ninguna canción añadida aún.'}
-
-Canciones Disponibles en el Repertorio:
-${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: any) => `- ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Id: ${s.id}, Tono original: ${s.key})`).join('\n') : 'Sugerir canciones externas si es necesario.'}`;
-      } else if (language === "en") {
-        prompt = `Act as a worship music director silently watching the flow of the setlist.
-Your task is to suggest 1 to 3 songs to continue or complement the setlist.
-Analyze: Musical key relationship, tempo energy, emotional worship flow, and team repetition patterns.
-Respond EXCLUSIVAMENTE in English.
-
-Current Setlist (Context):
-${currentSongs && currentSongs.length > 0 ? currentSongs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Original language: ${s.language || '?'}, Key: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'No songs added. Offer welcoming suggestions.'}
-
-Available Repertoire Songs:
-${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: any) => `- ${s.title} - ${s.artist} (Original language: ${s.language || '?'}, Id: ${s.id}, Original Key: ${s.key})`).join('\n') : 'Suggest external songs if necessary.'}`;
-      } else {
-        prompt = `Atue como um diretor musical assistindo silenciosamente o fluxo.
-Sua tarefa é sugerir de 1 a 3 músicas para continuar ou complementar o setlist.
-Analise: Tonalidade, energia, fluxo emocional, repetições recorrentes na igreja.
-Responda EXCLUSIVAMENTE em português.
-
-Setlist Atual (Context):
-${currentSongs && currentSongs.length > 0 ? currentSongs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tom: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Nenhuma música. Comece sugerindo algo para abrir o culto.'}
-
-Músicas Disponíveis no Repertório:
-${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: any) => `- ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Id: ${s.id}, Tom original: ${s.key})`).join('\n') : 'Sugerir de fora se necessário.'}`;
-      }
-
-      let response;
-      const requestPayload = {
-        model: process.env.GEMINI_MODEL || "gemini-3.5-flash",
-        contents: [
-            {
-                role: "user",
-                parts: [{ text: prompt }]
-            }
-        ],
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: "ARRAY" as any,
-                description: "Lista de músicas sugeridas",
-                items: {
-                    type: "OBJECT" as any,
-                    properties: {
-                        id: { type: "STRING" as any, description: "Id da música se disponível" },
-                        title: { type: "STRING" as any, description: "Título da música" },
-                        artist: { type: "STRING" as any, description: "Artista" },
-                        reason: { type: "STRING" as any, description: "Por que se encaixa no fluxo de forma natural" },
-                        recommendedKey: { type: "STRING" as any, description: "Tom sugerido" }
-                    },
-                    required: ["title", "artist", "reason", "recommendedKey"]
-                }
-            }
-        }
-      };
-      
-      try {
-         response = await ai.models.generateContent(requestPayload);
-      } catch (err: any) {
-         if (err?.status === 503 || String(err).includes('503') || String(err).includes('UNAVAILABLE')) {
-            requestPayload.model = "gemini-flash-latest";
-            response = await ai.models.generateContent(requestPayload);
-         } else {
-            throw err;
-         }
-      }
-
-      const jsonStr = response.text || "[]";
-      const suggestions = JSON.parse(jsonStr);
+      const nestAi = createMusicScaleNestAiClient({
+        req,
+        organizationId: orgId,
+        locale: normalizeNestAiLocale(language),
+      });
+      const aiResponse = await nestAi.run<Array<{
+        id?: string;
+        title: string;
+        artist: string;
+        reason: string;
+        recommendedKey: string;
+      }>>({
+        task: "musicscale.song.suggest",
+        input: {
+          currentSongs: Array.isArray(currentSongs) ? currentSongs : [],
+          librarySongs: Array.isArray(librarySongs) ? librarySongs.slice(0, 50) : [],
+          context: context ?? null,
+        },
+      });
+      const suggestions = aiResponse.result;
 
       const processingTimeMs = Date.now() - startTime;
       logger.info(`[Analytics] AI Song Suggestion: time_ms=${processingTimeMs}`);
@@ -3380,74 +3321,31 @@ ${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: an
          return res.status(403).json({ error: "Requer plano Pro para IA avançada" });
       }
       
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      let prompt = "";
-      if (language === "es") {
-        prompt = `Analiza la escala de adoración (Setlist Intelligence & Worship Flow).
-Identifica: excesos de repetición, fluidez de transiciones entre tonos y tempos, coherencia congregacional, curva de energía y flujo de ministración.
-Responde EXCLUSIVAMENTE en español.
-
-Canciones Actuales en la Escala:
-${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tono: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Escala vacía.'}`;
-      } else if (language === "en") {
-        prompt = `Analyze the worship setlist flow (Setlist Intelligence & Worship Flow).
-Identify: tonal transitions flow, BPM or tempo gaps, worship emotional flow, team repetition fatigue, and structural congregational balancing.
-Respond EXCLUSIVAMENTE in English.
-
-Current Scheduled Songs:
-${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Original language: ${s.language || '?'}, Key: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Empty.'}`;
-      } else {
-        prompt = `Analise a escala de adoração (Setlist Intelligence & Worship Flow).
-Identifique: excesso de repetição, fluidez de transições, equilíbrio congregacional, curva de energia, e comportamento de transição.
-Responda EXCLUSIVAMENTE em português.
-
-Músicas Atuais na Escala:
-${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tom: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Vazia.'}`;
-      }
-
-      const response = await ai.models.generateContent({
-        model: process.env.GEMINI_MODEL || "gemini-3.5-flash",
-        contents: [
-            {
-                role: "user",
-                parts: [{ text: prompt }]
-            }
-        ],
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: "OBJECT" as any,
-                properties: {
-                    healthScore: { type: "INTEGER" as any, description: "0 a 100" },
-                    metrics: {
-                        type: "OBJECT" as any,
-                        properties: {
-                            fluidez: { type: "INTEGER" as any },
-                            energia: { type: "INTEGER" as any },
-                            tonalidade: { type: "INTEGER" as any },
-                            repeticao: { type: "INTEGER" as any },
-                            equilibrio: { type: "INTEGER" as any }
-                        }
-                    },
-                    feedback: { type: "STRING" as any, description: "Parágrafo inspirador sobre o fluxo do setlist" },
-                    suggestions: {
-                        type: "ARRAY" as any,
-                        items: {
-                            type: "OBJECT" as any,
-                            properties: {
-                                type: { type: "STRING" as any, description: "'transition' | 'key_change' | 'add_song'" },
-                                text: { type: "STRING" as any }
-                            }
-                        }
-                    },
-                    learningInsight: { type: "STRING" as any, description: "Observação de Behavioral learning (padrões)" }
-                }
-            }
-        }
+      const nestAi = createMusicScaleNestAiClient({
+        req,
+        organizationId: orgId,
+        locale: normalizeNestAiLocale(language),
       });
-
-      const jsonStr = response.text || "{}";
-      const result = JSON.parse(jsonStr);
+      const aiResponse = await nestAi.run<{
+        healthScore: number;
+        metrics: {
+          fluidez: number;
+          energia: number;
+          tonalidade: number;
+          repeticao: number;
+          equilibrio: number;
+        };
+        feedback: string;
+        suggestions: Array<{ type: string; text: string }>;
+        learningInsight: string;
+      }>({
+        task: "musicscale.setlist.analyze",
+        input: {
+          songs: Array.isArray(songs) ? songs : [],
+          organizationContext: organizationContext ?? null,
+        },
+      });
+      const result = aiResponse.result;
 
       const processingTimeMs = Date.now() - startTime;
       logger.info(`[Analytics] AI Setlist Analysis: time_ms=${processingTimeMs}, score=${result.healthScore}`);
