@@ -11,9 +11,10 @@ describe('AI import musical document integrity contract', () => {
     expect(serverSource).not.toContain('lyrics: parsedAiObj.cleanLyrics');
   });
 
-  it('does not ask Gemini to reconstruct the musical document', () => {
-    expect(serverSource).toContain('NÃO reescreva, reordene, resuma, corrija, transponha ou reformate a cifra nem a letra.');
-    expect(serverSource).toContain('Nunca devolva campos cleanChords, cleanLyrics, chords ou lyrics.');
+  it('delegates semantic enrichment to the canonical NestAI task without reconstructing the musical document locally', () => {
+    expect(serverSource).toContain('task: "musicscale.song.import.enrich"');
+    expect(serverSource).toContain('canonicalDocument: textToProcess');
+    expect(serverSource).toContain('// authoritative for the canonical lyrics/chords document.');
     expect(serverSource).not.toContain('"cleanChords": "a cifra completa estruturada');
     expect(serverSource).not.toContain('"cleanLyrics": "apenas a letra formatada');
   });
@@ -30,6 +31,6 @@ describe('AI import musical document integrity contract', () => {
     expect(serverSource).toContain('allowedSectionAnnotationTypes');
     expect(serverSource).toContain('allowedSectionAnnotationInstruments');
     expect(serverSource).toContain('...(sectionAnnotations.length > 0 ? { sectionAnnotations } : {})');
-    expect(serverSource).toContain('use SOMENTE nomes de seção que existam literalmente no documento');
+    expect(serverSource).toContain('parserSectionLookup.get');
   });
 });
