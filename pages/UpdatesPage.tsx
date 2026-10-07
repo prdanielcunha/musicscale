@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
+import { nestAiProtectedHeaders } from "../services/nestAiBrowser";
 import { 
   Sparkles, 
   Zap, 
@@ -136,8 +137,8 @@ export const UpdatesPage: React.FC = () => {
       
       const res = await fetch("/api/changelog/aggregate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language: currentLanguage })
+        headers: await nestAiProtectedHeaders(),
+        body: JSON.stringify({ language: currentLanguage, organizationId: userProfile?.organizationId })
       });
       
       if (!res.ok) throw new Error("Auto-generation failed");
