@@ -11,6 +11,13 @@ vi.mock('../../hooks/useEcosystemAdmin', () => ({  useEcosystemAdmin: () => ({ i
 vi.mock('../../contexts/ToastContext', () => ({  useToast: () => ({ success: vi.fn(), error: vi.fn(), feedbackToast: vi.fn() })}));
 vi.mock('../../contexts/ModalContext', () => ({  useModals: () => ({ openFeedback: vi.fn() })}));
 vi.mock('../../hooks/useMusicScaleEntitlements', () => ({  useMusicScaleFeature: () => true}));
+vi.mock('../../services/nestAiBrowser', () => ({
+  nestAiProtectedHeaders: vi.fn().mockResolvedValue({
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer test-token',
+    'x-firebase-appcheck': 'test-app-check',
+  }),
+}));
 
 // Mock components that might be problematic in tests
 vi.mock('../common/Modal', () => ({  default: ({ children }: any) => <div>{children}</div>}));
