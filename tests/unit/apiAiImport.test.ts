@@ -4,12 +4,11 @@ import app from '../../server';
 
 vi.hoisted(() => {
   process.env.VERCEL = 'true';
-  process.env.GEMINI_API_KEY = 'test-gemini-key';
 });
 
 // Create a state object that we can mutate in tests.
 // The AI contract is metadata-only: the deterministic parser owns chords/lyrics.
-const geminiMockState = vi.hoisted(() => ({
+const nestAiMockState = vi.hoisted(() => ({
   text: JSON.stringify({
     capitalizedTitle: "Test Song",
     capitalizedArtist: "Test Artist",
@@ -19,17 +18,19 @@ const geminiMockState = vi.hoisted(() => ({
 }));
 
 // Mock dependencies
-vi.mock('@google/genai', () => {
-  return {
-    GoogleGenAI: class {
-      models = {
-        generateContent: vi.fn().mockImplementation(() => {
-          return Promise.resolve({ text: geminiMockState.text });
-        })
-      };
-    }
-  };
-});
+vi.mock('../../services/server/nestAiProxy', () => ({
+  createMusicScaleNestAiClient: vi.fn(() => ({
+    run: vi.fn().mockImplementation(async () => ({
+      requestId: 'test-nestai-request',
+      task: 'musicscale.song.import.enrich',
+      version: 1,
+      result: JSON.parse(nestAiMockState.text),
+      meta: { providerClass: 'free', cached: false, fallbackUsed: false, retries: 0 },
+    })),
+  })),
+  normalizeNestAiLocale: vi.fn(() => 'pt-BR'),
+  nestAiHttpStatus: vi.fn(() => 503),
+}));
 
 vi.mock('../../services/server/aiRequestSecurity', async () => {
   const actual = await vi.importActual('../../services/server/aiRequestSecurity') as any;
@@ -68,7 +69,7 @@ const canonicalFSharpInput = `Tom: F#\nCapotraste: 2\nForma dos acordes no tom d
 describe('AI Import API Backend Normalization', () => {
   beforeEach(() => {
     // Reset mock state to the metadata-only contract.
-    geminiMockState.text = JSON.stringify({
+    nestAiMockState.text = JSON.stringify({
       capitalizedTitle: "Test Song",
       capitalizedArtist: "Test Artist",
       originalKey: "F#",
@@ -120,7 +121,7 @@ describe('AI Import API Backend Normalization', () => {
   it('should ignore a conflicting AI chart body and keep the deterministic chart authoritative', async () => {
     // Deliberately emulate a legacy/malicious model response that tries to replace
     // the body with chords in another key. The server must ignore these fields.
-    geminiMockState.text = JSON.stringify({
+    nestAiMockState.text = JSON.stringify({
       capitalizedTitle: "Test Song",
       capitalizedArtist: "Test Artist",
       originalKey: "F#",
@@ -149,7 +150,7 @@ describe('AI Import API Backend Normalization', () => {
   });
 
   it('should return INDETERMINATE when deterministic key evidence is genuinely insufficient', async () => {
-    geminiMockState.text = JSON.stringify({
+    nestAiMockState.text = JSON.stringify({
       capitalizedTitle: "Test Song",
       capitalizedArtist: "Test Artist",
       originalKey: "C",
@@ -202,7 +203,7 @@ describe('AI Import API Backend Normalization', () => {
   });
 
   it('should split concatenated title and artist when evident, and use explicit values when provided', async () => {
-    geminiMockState.text = JSON.stringify({
+    nestAiMockState.text = JSON.stringify({
       capitalizedTitle: "Toda Terra",
       capitalizedArtist: "Gabriela Rocha",
       originalKey: "E",
