@@ -391,7 +391,7 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
               </Tag>
               {user.specialtyIds && user.specialtyIds.length > 0 && (
                 <Tag className="!bg-slate-100 dark:!bg-gray-700 !text-slate-500 dark:!text-gray-400 !text-[10px] font-bold uppercase">
-                  {t("users.specialties_count", "{{count}} Especialidades", { count: user.specialtyIds.length })}
+                  {t("users.specialties_count", "{{count}} Especialidades", { count: composeSpecialtyCatalog(instruments).filter(option => option.aliasIds.some(id => user.specialtyIds?.includes(id))).length })}
                 </Tag>
               )}
             </div>
@@ -1685,6 +1685,19 @@ const UsersPage: React.FC = () => {
     consumedIntentLocationKeyRef.current = location.key || "default";
     navigate(location.pathname, { replace: true, state: null });
   }, [location.key, location.pathname, navigate]);
+
+  useEffect(() => {
+    const state = location.state as { memberUid?: unknown; origin?: unknown } | null;
+    if (state?.origin !== "band-directory" || typeof state.memberUid !== "string") return;
+    if (loading || musicDataLoading) return;
+    const member = allUsers.find(candidate => candidate.uid === state.memberUid);
+    if (member) {
+      setSelectedMemberForDetail(member);
+    } else {
+      toastError(t("users.member_not_found", "Integrante não encontrado."));
+    }
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.state, location.pathname, allUsers, loading, musicDataLoading, navigate, toastError, t]);
 
   useEffect(() => {
     return () => {
