@@ -160,6 +160,46 @@ service cloud.firestore {
         );
     }
 
+    // Targeted compatibility fallback for scale writes. This preserves the legacy
+    // roles/explicit permission accepted by hasPermission(..., 'canManageScales')
+    // without recursively evaluating every generic role/permission branch.
+    function hasLegacyScaleAuthority(orgId) {
+      return isAuthenticated() && (
+        (
+          exists(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)) &&
+          get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('status', '') in ['active', 'ativo'] &&
+          (
+            get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('role', '') in
+              ['owner', 'Owner', 'admin', 'Admin', 'worship_leader', 'leader', 'Lider', 'Líder', 'pastor', 'Pastor', 'minister', 'Minister', 'ministro', 'Ministro'] ||
+            get(path('/databases/' + database + '/documents/organization_members/' + request.auth.uid + '_' + orgId)).data.get('permissions', {}).get('canManageScales', false) == true
+          )
+        ) ||
+        (
+          exists(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)) &&
+          get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('status', '') in ['active', 'ativo'] &&
+          (
+            get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('role', '') in
+              ['owner', 'Owner', 'admin', 'Admin', 'worship_leader', 'leader', 'Lider', 'Líder', 'pastor', 'Pastor', 'minister', 'Minister', 'ministro', 'Ministro'] ||
+            get(path('/databases/' + database + '/documents/organization_members/' + orgId + '_' + request.auth.uid)).data.get('permissions', {}).get('canManageScales', false) == true
+          )
+        ) ||
+        (
+          !hasAnyMembershipDocument(orgId) &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('organizationId', '') == orgId &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') in
+            ['owner', 'Owner', 'admin', 'Admin', 'worship_leader', 'leader', 'Lider', 'Líder', 'pastor', 'Pastor', 'minister', 'Minister', 'ministro', 'Ministro']
+        )
+      );
+    }
+
+    function hasScaleWriteAuthority(orgId) {
+      return hasCanonicalLiveSessionAuthority(orgId) ||
+        isSystemAdmin() ||
+        hasCanonicalSupportRole() ||
+        hasLegacyScaleAuthority(orgId);
+    }
+
     function hasLiveSessionAuthority(orgId) {
       return hasCanonicalLiveSessionAuthority(orgId) ||
         hasPermission(orgId, 'canManageScales') ||
@@ -525,16 +565,16 @@ service cloud.firestore {
 
     match /bandScales/{scaleId} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
-      allow create: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(incoming().get('organizationId', '')) || hasPermission(incoming().get('organizationId', ''), 'canManageScales')) && isOrgActive(incoming().get('organizationId', ''));
-      allow update: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(resource.data.get('organizationId', '')) || hasPermission(resource.data.get('organizationId', ''), 'canManageScales')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
-      allow delete: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(resource.data.get('organizationId', '')) || hasPermission(resource.data.get('organizationId', ''), 'canManageScales')) && checkOrgAccess(resource.data.get('organizationId', ''));
+      allow create: if hasScaleWriteAuthority(incoming().get('organizationId', '')) && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if hasScaleWriteAuthority(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if hasScaleWriteAuthority(resource.data.get('organizationId', ''));
     }
 
     match /fixedBandScales/{id} {
       allow read: if isAuthenticated() && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
-      allow create: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(incoming().get('organizationId', '')) || hasPermission(incoming().get('organizationId', ''), 'canManageScales')) && isOrgActive(incoming().get('organizationId', ''));
-      allow update: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(resource.data.get('organizationId', '')) || hasPermission(resource.data.get('organizationId', ''), 'canManageScales')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
-      allow delete: if isAuthenticated() && (hasCanonicalLiveSessionAuthority(resource.data.get('organizationId', '')) || hasPermission(resource.data.get('organizationId', ''), 'canManageScales')) && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if hasScaleWriteAuthority(incoming().get('organizationId', '')) && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if hasScaleWriteAuthority(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', '')) && (!('organizationId' in request.resource.data) || request.resource.data.get('organizationId', '') == resource.data.get('organizationId', ''));
+      allow delete: if hasScaleWriteAuthority(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
     }
 
     match /liveSessions/{id} {
