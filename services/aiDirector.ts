@@ -1,4 +1,4 @@
-import { auth } from './firebase';
+import { nestAiProtectedHeaders } from './nestAiBrowser';
 import { entitlementsService } from './entitlementsService';
 
 export interface SetlistIntelligence {
@@ -54,10 +54,7 @@ export const aiDirectorService = {
     try {
       const response = await fetch('/api/ai-analyze-setlist', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
-        },
+        headers: await nestAiProtectedHeaders(),
         body: JSON.stringify({ 
           songs, 
           organizationContext,

@@ -25,7 +25,7 @@ import { useModals } from "../../contexts/ModalContext";
 import { submitFeedback } from "../../services/feedback";
 import { normalizePastedSongText, normalizeSongClipboardPaste } from "../../utils/textNormalizer";
 import { useMusicScaleFeature } from "../../hooks/useMusicScaleEntitlements";
-import { auth } from "../../services/firebase";
+import { nestAiProtectedHeaders } from "../../services/nestAiBrowser";
 import { FeatureLockedCard } from "../premium/EntitlementGates";
 import { transposeChordDocument, validateChordContentKeyConsistency, isValidKey, normalizeKey, areKeysEnharmonicallyEquivalent } from "../../utils/chordEngine";
 import { buildSongParts } from "./songParts";
@@ -429,14 +429,10 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
     if (error) setError(null);
     try {
       // Call the new express backend to process with Gemini
-      const token = await auth.currentUser?.getIdToken() || "";
       const payload = { ...formData, rawText: textToSend, orgId: organization?.id, userId: userProfile?.uid };
       const response = await fetch("/api/ai-import", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": token ? `Bearer ${token}` : ""
-        },
+        headers: await nestAiProtectedHeaders(),
         body: JSON.stringify(payload)
       });
       

@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, initializeAuth, inMemoryPersistence, connectAuthEmulator } from 'firebase/auth';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken as readAppCheckToken, type AppCheck } from 'firebase/app-check';
 import {
   initializeFirestore,
   persistentLocalCache,
@@ -28,6 +29,22 @@ const { firebaseConfig, useEmulators } = getFirebaseRuntimeConfig({
 });
 
 const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+
+const DEFAULT_APPCHECK_SITE_KEY = '6LcpY-EtAAAAAElqBbIL_K7nAkm2wpuF6fbhsggG';
+let nestAiAppCheck: AppCheck | null = null;
+
+export async function getMusicScaleAppCheckToken(): Promise<string> {
+  if (useEmulators) return 'emulator-app-check-token';
+  const siteKey = String(import.meta.env?.VITE_FIREBASE_APPCHECK_SITE_KEY || DEFAULT_APPCHECK_SITE_KEY).trim();
+  if (!siteKey) throw new Error('MUSICSCALE_APPCHECK_NOT_CONFIGURED');
+  if (!nestAiAppCheck) {
+    nestAiAppCheck = initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(siteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+  }
+  return (await readAppCheckToken(nestAiAppCheck, false)).token;
+}
 
 // Browser persistence is part of the real product session contract. Emulator/E2E
 // contexts are disposable and isolated, and Firebase Auth browser persistence can
