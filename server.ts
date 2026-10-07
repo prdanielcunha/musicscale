@@ -17,8 +17,8 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import cors from "cors";
 import crypto from "crypto";
 import path from "path";
-import { GoogleGenAI } from "@google/genai";
 import { createFixChordsHandler } from "./services/server/fixChordsHandler.js";
+import { createMusicScaleNestAiClient, normalizeNestAiLocale, nestAiHttpStatus } from "./services/server/nestAiProxy.js";
 import { authorizeAiRequest, InMemoryAiRateLimiter } from "./services/server/aiRequestSecurity.js";
 import { createAiFinOpsFirestoreAdapter } from "./services/server/aiFinOpsFirestoreAdapter.js";
 import { resolveAiImportFinOpsReadPath } from "./services/server/aiImportFinOpsReadPath.js";
@@ -601,7 +601,7 @@ app.post(
       const requestId = "diag_finops_" + crypto.randomUUID();
       const rawText = `FinOps diagnostic smoke test ${requestId}`;
       const adapter = createAiFinOpsFirestoreAdapter(db);
-      const model = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+      const model = "nestai-managed";
 
       // Execute synthetic begin
       const beginRes = await beginAiImportFinOpsWritePath({
@@ -2232,12 +2232,18 @@ app.post(
     dbInstance: db,
     authInstance: auth,
     rateLimiter: fixChordsRateLimiter,
-    apiKey: process.env.GEMINI_API_KEY,
-    model: process.env.GEMINI_MODEL,
     logger,
     generateContent: async (params) => {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      return await ai.models.generateContent(params);
+      const client = createMusicScaleNestAiClient({
+        req: params.request,
+        organizationId: params.organizationId,
+        locale: 'pt-BR',
+      });
+      const response = await client.run<string>({
+        task: params.task,
+        input: params.input,
+      });
+      return { text: String(response.result || '') };
     }
   }));
   // API Route for AI Song Import - Complete production SaaS refactor with structured logging and smart fallbacks
@@ -2428,7 +2434,7 @@ app.post(
           logWarn("FINOPS_SHADOW", "AI_FINOPS_HMAC_SECRET is missing. Shadow read-path skipped.");
         } else {
           const finOpsAdapter = createAiFinOpsFirestoreAdapter(db);
-          const aiImportModel = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+          const aiImportModel = "nestai-managed";
           const estimatedInputChars = typeof rawText === "string" ? rawText.length : (typeof url === "string" ? url.length : 0);
           
           const decision = await resolveAiImportFinOpsReadPath({
@@ -2581,7 +2587,7 @@ app.post(
             logWarn("FINOPS_SHADOW_WRITE", "AI_FINOPS_HMAC_SECRET is missing. Shadow write-path skipped.");
           } else {
             const finOpsAdapter = createAiFinOpsFirestoreAdapter(db);
-            const aiImportModel = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+            const aiImportModel = "nestai-managed";
             const estimatedInputChars = typeof textToProcess === "string" ? textToProcess.length : 0;
 
             const beginRes = await beginAiImportFinOpsWritePath({
@@ -2629,108 +2635,44 @@ app.post(
       }
       // AI_FINOPS_SHADOW_WRITE_PATH_END
 
-      // Step 7: Preparing Gemini API Configuration
-      const model = process.env.GEMINI_MODEL || "gemini-3.5-flash";
-      logInfo("7_GEMINI_PREPARATION", `Instantiating GoogleGenAI core client config... Target Model: "${model}"`);
+      // Step 7: NestAI semantic enrichment. The deterministic parser remains
+      // authoritative for the canonical lyrics/chords document.
+      logInfo("7_NESTAI_PREPARATION", "Preparing canonical MusicScale enrichment task");
 
       try {
-        if (!process.env.GEMINI_API_KEY) {
-          throw new Error("GEMINI_API_KEY is not defined in server environment variables!");
-        }
-
-        const ai = new GoogleGenAI({
-          apiKey: process.env.GEMINI_API_KEY,
-          httpOptions: {
-            headers: {
-              'User-Agent': 'aistudio-build'
-            }
-          }
-        });
-
         if (typeof textToProcess === "string" && textToProcess.length > AI_IMPORT_GEMINI_INPUT_MAX_CHARS) {
-          logWarn("7_GEMINI_PREPARATION", "Gemini input exceeded safe character limit and was truncated.", {
+          logWarn("7_NESTAI_PREPARATION", "NestAI input exceeded safe character limit and was truncated.", {
             originalLength: textToProcess.length,
             truncatedLength: AI_IMPORT_GEMINI_INPUT_MAX_CHARS
           });
           textToProcess = textToProcess.slice(0, AI_IMPORT_GEMINI_INPUT_MAX_CHARS);
         }
 
-        const prompt = `Você é um músico especialista em análise de cifras. O documento musical abaixo já foi normalizado por um parser determinístico e é a fonte canônica da importação.
-
-Sua tarefa é SOMENTE enriquecer metadados e resolver ambiguidades semânticas. NÃO reescreva, reordene, resuma, corrija, transponha ou reformate a cifra nem a letra. Nunca devolva campos cleanChords, cleanLyrics, chords ou lyrics.
-
-REGRAS DE INTEGRIDADE:
-1. A ordem das seções, linhas, acordes e letras é imutável. Não proponha uma nova versão do documento.
-2. Não mova acordes para outras posições e não tente alinhar acordes sobre sílabas. O alinhamento existente pertence ao documento canônico.
-3. Não remova repetições de letra: repetições podem ser intencionais.
-4. Não invente título, artista, tom, BPM, ritmo ou seção. Quando a evidência for insuficiente, retorne null/unknown e adicione um warning curto.
-5. Para originalKey, use somente um tom musical válido quando houver evidência clara no conteúdo. NÃO transponha acordes.
-6. Para sections, descreva apenas as seções que aparecem no documento e mantenha a ordem observada. Esse campo é apenas metadado; não controla o corpo da cifra.
-7. Para sectionAnnotations, use SOMENTE nomes de seção que existam literalmente no documento. Classifique partes instrumentais quando houver evidência: solo, riff, instrumental, interlude, intro, outro ou technical. Se a seção for vocal, use vocal. Se não souber, unknown. Nunca crie uma nova seção para explicar sua inferência.
-8. instrument é um vocabulário fechado: guitar, acoustic_guitar, bass, keys, piano, synth, drums, sax, violin, strings, other ou unknown. Não devolva nomes livres de instrumentos.
-
-POSSÍVEIS DADOS DE IDENTIFICAÇÃO DA FONTE:
-Título candidato: ${preProcessed?.title || "não identificado"}
-Artista candidato: ${preProcessed?.artist || "não identificado"}
-
-O título e o artista podem ter sido concatenados pela área de transferência. Separe-os semanticamente apenas quando houver evidência clara. Nunca devolva título e artista unidos no mesmo campo. Não invente artista.
-
-DOCUMENTO MUSICAL CANÔNICO — SOMENTE LEITURA:
-----------------------------------------
-${textToProcess}
-----------------------------------------
-
-RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
-{
-  "sections": [{"name": "string", "type": "intro|verse|chorus|bridge|outro|unknown"}],
-  "sectionAnnotations": [{"section": "nome exato da seção", "type": "solo|riff|instrumental|interlude|intro|outro|technical|vocal|unknown", "instrument": "guitar|acoustic_guitar|bass|keys|piano|synth|drums|sax|violin|strings|other|unknown", "confidence": "high|medium|low"}],
-  "language": "pt | en | es | unknown",
-  "suggestedBpm": number | null,
-  "suggestedRhythm": "string | null",
-  "capitalizedTitle": "string | null",
-  "capitalizedArtist": "string | null",
-  "originalKey": "string | null",
-  "warnings": ["string"]
-}
-`;
-
-        // Step 8: Gemini API invocation with strict timeout (25s limit)
-        logInfo("8_GEMINI_INVOCATION", `Sending prompt compilation to Gemini API (25000ms max timeout race)`);
-
-        let timeoutId: any;
-        const geminiTimeoutPromise = new Promise((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error("TimeoutException: Gemini request exceeded our 60000ms SLA limit")), 60000);
+        const nestAi = createMusicScaleNestAiClient({
+          req,
+          organizationId: aiAuthContext.organizationId,
+          locale: normalizeNestAiLocale(req.body?.language),
         });
 
-        const geminiRequestPromise = (async () => {
-          const res = await ai.models.generateContent({
-            model: model,
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            config: {
-              responseMimeType: "application/json"
-            }
-          });
-          clearTimeout(timeoutId);
-          return res;
-        })();
+        logInfo("8_NESTAI_INVOCATION", "Sending canonical metadata enrichment task to NestAI");
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error("TimeoutException: NestAI request exceeded our 60000ms SLA limit")), 60000);
+        });
+        const nestAiResponse = await Promise.race([
+          nestAi.run<Record<string, unknown>>({
+            task: "musicscale.song.import.enrich",
+            input: {
+              canonicalDocument: textToProcess,
+              titleCandidate: preProcessed?.title || null,
+              artistCandidate: preProcessed?.artist || null,
+            },
+            requestId,
+          }),
+          timeoutPromise,
+        ]);
 
-        const geminiResponse = (await Promise.race([geminiRequestPromise, geminiTimeoutPromise])) as any;
-        logInfo("8_GEMINI_INVOCATION", "Successfully received response back from Gemini API channel");
-
-        // Step 9: Parse Response
-        const rawContentText = geminiResponse.text || "";
-        
-        let sanitizedJsonStr = rawContentText.trim();
-        if (sanitizedJsonStr.startsWith("\`\`\`json")) {
-          sanitizedJsonStr = sanitizedJsonStr.substring(7);
-        }
-        if (sanitizedJsonStr.endsWith("\`\`\`")) {
-          sanitizedJsonStr = sanitizedJsonStr.substring(0, sanitizedJsonStr.length - 3);
-        }
-        sanitizedJsonStr = sanitizedJsonStr.trim();
-
-        const parsedAiObj = JSON.parse(sanitizedJsonStr);
-        logInfo("9_RESP_PARSING", "Gemini response parsed into JSON schema flawlessly");
+        const parsedAiObj = nestAiResponse.result;
+        logInfo("9_RESP_PARSING", "NestAI response passed the centralized structured-output contract");
 
         const normalizeSectionIdentity = (value: string): string =>
           value
@@ -3274,85 +3216,26 @@ RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
          return res.status(403).json({ error: "Requer plano Pro para IA avançada" });
       }
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      let prompt = "";
-      if (language === "es") {
-        prompt = `Actúa como un director musical que observa silenciosamente el flujo de adoración.
-Tu tarea es sugerir de 1 a 3 canciones para continuar o complementar el setlist.
-Analiza: Tono, energía, flujo emocional, repeticiones recurrentes de la iglesia.
-Responda EXCLUSIVAMENTE en español.
-
-Setlist Actual (Contexto):
-${currentSongs && currentSongs.length > 0 ? currentSongs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tono: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Ninguna canción añadida aún.'}
-
-Canciones Disponibles en el Repertorio:
-${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: any) => `- ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Id: ${s.id}, Tono original: ${s.key})`).join('\n') : 'Sugerir canciones externas si es necesario.'}`;
-      } else if (language === "en") {
-        prompt = `Act as a worship music director silently watching the flow of the setlist.
-Your task is to suggest 1 to 3 songs to continue or complement the setlist.
-Analyze: Musical key relationship, tempo energy, emotional worship flow, and team repetition patterns.
-Respond EXCLUSIVAMENTE in English.
-
-Current Setlist (Context):
-${currentSongs && currentSongs.length > 0 ? currentSongs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Original language: ${s.language || '?'}, Key: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'No songs added. Offer welcoming suggestions.'}
-
-Available Repertoire Songs:
-${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: any) => `- ${s.title} - ${s.artist} (Original language: ${s.language || '?'}, Id: ${s.id}, Original Key: ${s.key})`).join('\n') : 'Suggest external songs if necessary.'}`;
-      } else {
-        prompt = `Atue como um diretor musical assistindo silenciosamente o fluxo.
-Sua tarefa é sugerir de 1 a 3 músicas para continuar ou complementar o setlist.
-Analise: Tonalidade, energia, fluxo emocional, repetições recorrentes na igreja.
-Responda EXCLUSIVAMENTE em português.
-
-Setlist Atual (Context):
-${currentSongs && currentSongs.length > 0 ? currentSongs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tom: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Nenhuma música. Comece sugerindo algo para abrir o culto.'}
-
-Músicas Disponíveis no Repertório:
-${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: any) => `- ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Id: ${s.id}, Tom original: ${s.key})`).join('\n') : 'Sugerir de fora se necessário.'}`;
-      }
-
-      let response;
-      const requestPayload = {
-        model: process.env.GEMINI_MODEL || "gemini-3.5-flash",
-        contents: [
-            {
-                role: "user",
-                parts: [{ text: prompt }]
-            }
-        ],
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: "ARRAY" as any,
-                description: "Lista de músicas sugeridas",
-                items: {
-                    type: "OBJECT" as any,
-                    properties: {
-                        id: { type: "STRING" as any, description: "Id da música se disponível" },
-                        title: { type: "STRING" as any, description: "Título da música" },
-                        artist: { type: "STRING" as any, description: "Artista" },
-                        reason: { type: "STRING" as any, description: "Por que se encaixa no fluxo de forma natural" },
-                        recommendedKey: { type: "STRING" as any, description: "Tom sugerido" }
-                    },
-                    required: ["title", "artist", "reason", "recommendedKey"]
-                }
-            }
-        }
-      };
-      
-      try {
-         response = await ai.models.generateContent(requestPayload);
-      } catch (err: any) {
-         if (err?.status === 503 || String(err).includes('503') || String(err).includes('UNAVAILABLE')) {
-            requestPayload.model = "gemini-flash-latest";
-            response = await ai.models.generateContent(requestPayload);
-         } else {
-            throw err;
-         }
-      }
-
-      const jsonStr = response.text || "[]";
-      const suggestions = JSON.parse(jsonStr);
+      const nestAi = createMusicScaleNestAiClient({
+        req,
+        organizationId: orgId,
+        locale: normalizeNestAiLocale(language),
+      });
+      const aiResponse = await nestAi.run<Array<{
+        id?: string;
+        title: string;
+        artist: string;
+        reason: string;
+        recommendedKey: string;
+      }>>({
+        task: "musicscale.song.suggest",
+        input: {
+          currentSongs: Array.isArray(currentSongs) ? currentSongs : [],
+          librarySongs: Array.isArray(librarySongs) ? librarySongs.slice(0, 50) : [],
+          context: context ?? null,
+        },
+      });
+      const suggestions = aiResponse.result;
 
       const processingTimeMs = Date.now() - startTime;
       logger.info(`[Analytics] AI Song Suggestion: time_ms=${processingTimeMs}`);
@@ -3441,74 +3324,31 @@ ${librarySongs && librarySongs.length > 0 ? librarySongs.slice(0, 50).map((s: an
          return res.status(403).json({ error: "Requer plano Pro para IA avançada" });
       }
       
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      let prompt = "";
-      if (language === "es") {
-        prompt = `Analiza la escala de adoración (Setlist Intelligence & Worship Flow).
-Identifica: excesos de repetición, fluidez de transiciones entre tonos y tempos, coherencia congregacional, curva de energía y flujo de ministración.
-Responde EXCLUSIVAMENTE en español.
-
-Canciones Actuales en la Escala:
-${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tono: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Escala vacía.'}`;
-      } else if (language === "en") {
-        prompt = `Analyze the worship setlist flow (Setlist Intelligence & Worship Flow).
-Identify: tonal transitions flow, BPM or tempo gaps, worship emotional flow, team repetition fatigue, and structural congregational balancing.
-Respond EXCLUSIVAMENTE in English.
-
-Current Scheduled Songs:
-${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Original language: ${s.language || '?'}, Key: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Empty.'}`;
-      } else {
-        prompt = `Analise a escala de adoração (Setlist Intelligence & Worship Flow).
-Identifique: excesso de repetição, fluidez de transições, equilíbrio congregacional, curva de energia, e comportamento de transição.
-Responda EXCLUSIVAMENTE em português.
-
-Músicas Atuais na Escala:
-${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.title} - ${s.artist} (Idioma original: ${s.language || '?'}, Tom: ${s.selectedKey || s.key}, BPM: ${s.bpm || '?'})`).join('\n') : 'Vazia.'}`;
-      }
-
-      const response = await ai.models.generateContent({
-        model: process.env.GEMINI_MODEL || "gemini-3.5-flash",
-        contents: [
-            {
-                role: "user",
-                parts: [{ text: prompt }]
-            }
-        ],
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: "OBJECT" as any,
-                properties: {
-                    healthScore: { type: "INTEGER" as any, description: "0 a 100" },
-                    metrics: {
-                        type: "OBJECT" as any,
-                        properties: {
-                            fluidez: { type: "INTEGER" as any },
-                            energia: { type: "INTEGER" as any },
-                            tonalidade: { type: "INTEGER" as any },
-                            repeticao: { type: "INTEGER" as any },
-                            equilibrio: { type: "INTEGER" as any }
-                        }
-                    },
-                    feedback: { type: "STRING" as any, description: "Parágrafo inspirador sobre o fluxo do setlist" },
-                    suggestions: {
-                        type: "ARRAY" as any,
-                        items: {
-                            type: "OBJECT" as any,
-                            properties: {
-                                type: { type: "STRING" as any, description: "'transition' | 'key_change' | 'add_song'" },
-                                text: { type: "STRING" as any }
-                            }
-                        }
-                    },
-                    learningInsight: { type: "STRING" as any, description: "Observação de Behavioral learning (padrões)" }
-                }
-            }
-        }
+      const nestAi = createMusicScaleNestAiClient({
+        req,
+        organizationId: orgId,
+        locale: normalizeNestAiLocale(language),
       });
-
-      const jsonStr = response.text || "{}";
-      const result = JSON.parse(jsonStr);
+      const aiResponse = await nestAi.run<{
+        healthScore: number;
+        metrics: {
+          fluidez: number;
+          energia: number;
+          tonalidade: number;
+          repeticao: number;
+          equilibrio: number;
+        };
+        feedback: string;
+        suggestions: Array<{ type: string; text: string }>;
+        learningInsight: string;
+      }>({
+        task: "musicscale.setlist.analyze",
+        input: {
+          songs: Array.isArray(songs) ? songs : [],
+          organizationContext: organizationContext ?? null,
+        },
+      });
+      const result = aiResponse.result;
 
       const processingTimeMs = Date.now() - startTime;
       logger.info(`[Analytics] AI Setlist Analysis: time_ms=${processingTimeMs}, score=${result.healthScore}`);
@@ -4571,95 +4411,55 @@ ${songs && songs.length > 0 ? songs.map((s: any, i: number) => `${i + 1}. ${s.ti
 
   app.post("/api/changelog/aggregate", async (req, res) => {
     try {
-      const { language = "pt" } = req.body;
-      
-      // Smart Auto-Aggregation: Scan repository directories to see what has been built!
+      const { language = "pt", organizationId } = req.body ?? {};
+      if (!organizationId || typeof organizationId !== "string") {
+        return res.status(400).json({ error: "organizationId ausente" });
+      }
+
+      // Smart Auto-Aggregation scans a bounded list of filenames only; file contents
+      // are never sent automatically to AI.
       const dirsToScan = ["pages", "components", "contexts", "services"];
       const detectedFiles: string[] = [];
-      
       try {
         dirsToScan.forEach(dir => {
           const fullPath = path.join(process.cwd(), dir);
           if (fs.existsSync(fullPath)) {
             const files = fs.readdirSync(fullPath);
-            files.slice(0, 5).forEach(f => detectedFiles.push(`${dir}/${f}`));
+            files.slice(0, 5).forEach(file => detectedFiles.push(`${dir}/${file}`));
           }
         });
-      } catch (e) {
-        logger.warn("Changelog system directory scanning warning:", e);
+      } catch (error) {
+        logger.warn("Changelog system directory scanning warning:", error);
       }
-      
-      const fileContext = detectedFiles.length > 0
-        ? detectedFiles.join(", ")
-        : "LiveWorshipDirector.tsx, locales/pt.json, locales/es.json, UpdatesPage.tsx, Sidebar.tsx";
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const prompt = `Você é o Principal Product Marketing Director e SaaS Experience Architect do MusicScale.
-Sua tarefa é analisar os arquivos que acabaram de ser implantados/revisados e compor uma nota de lançamento (release note) espetacular, de padrão Apple, Linear e Superhuman.
-As notas de lançamento devem se concentrar em benefícios emocionais reais (por exemplo, "maior segurança na transmissão ao vivo", "leituras sem reflexo ou oscilações no altar", "fluidez em multilinguagem nativa", "facilidade de transposição sem atraso em ensaios"), e nunca em jargão de código puro ou nomes de commits frios.
-
-Arquivos / Módulos detectados nesta entrega: ${fileContext}
-
-Você DEVE produzir e retornar um JSON estritamente válido que contenha TODOS os seguintes campos exatamente assim (e traduzido em pt, en, es):
-{
-  "version": "[Gerar uma versão menor ou de patch incrementada, por exemplo, '1.2.5' ou '1.3.0']",
-  "title": {
-    "pt": "[Um título deslumbrante em português, ex: 'Direção Litúrgica em Tempo Real & Sincronia Multilíngue']",
-    "en": "[Beautiful title in English, ex: 'Real-Time Liturgical Guidance & Multi-Language Harmony']",
-    "es": "[Title in Spanish, ex: 'Dirección Litúrgica en Tiempo Real & Sintonía Multilingüe']"
-  },
-  "description": {
-    "pt": "[Uma descrição de 1-2 frases em português explicando o impacto emocional imediato e operacional do recurso no altar]",
-    "en": "[An emotional 1-2 sentence description in English focused on ministry benefit on stage]",
-    "es": "[An emotional 1-2 sentence description in Spanish]"
-  },
-  "highlights": {
-    "pt": [
-      "[Frase curta de benefício 1]",
-      "[Frase curta de benefício 2]",
-      "[Frase curta de benefício 3]"
-    ],
-    "en": [
-      "[Short benefit phrase 1 in English]",
-      "[Short benefit phrase 2 in English]",
-      "[Short benefit phrase 3 in English]"
-    ],
-    "es": [
-      "[Short benefit phrase 1 in Spanish]",
-      "[Short benefit phrase 2 in Spanish]",
-      "[Short benefit phrase 3 in Spanish]"
-    ]
-  },
-  "category": "[Escolha EXCLUSIVAMENTE uma das categorias: 'Novidades', 'Performance', 'Experiência', 'Inteligência', 'Estabilidade', 'Offline', 'Performance Mode', 'IA', 'Refinamentos']",
-  "isMajor": true
-}
-
-Atenção: Retorne APENAS o objeto JSON puro sem marcações de código markdown \`\`\`json ou qualquer texto fora do JSON. Certifique-se de que todas as aspas estejam escapadas corretamente e o JSON seja perfeitamente parseável.`;
-
-      const response = await ai.models.generateContent({
-        model: process.env.GEMINI_MODEL || "gemini-3.5-flash",
-        contents: [{ role: "user", parts: [{ text: prompt }] }]
+      const nestAi = createMusicScaleNestAiClient({
+        req,
+        organizationId,
+        locale: normalizeNestAiLocale(language),
+      });
+      const aiResponse = await nestAi.run<{
+        version: string;
+        title: { pt: string; en: string; es: string };
+        description: { pt: string; en: string; es: string };
+        highlights: { pt: string[]; en: string[]; es: string[] };
+        category: string;
+        isMajor: boolean;
+      }>({
+        task: "musicscale.release-note.generate",
+        input: {
+          detectedFiles: detectedFiles.length > 0
+            ? detectedFiles
+            : ["LiveWorshipDirector.tsx", "locales/pt.json", "locales/es.json", "UpdatesPage.tsx", "Sidebar.tsx"],
+          suppliedChanges: null,
+        },
       });
 
-      let jsonText = response.text || "{}";
-      
-      // Clean possible markdown backticks
-      if (jsonText.includes("```")) {
-        const match = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-        if (match && match[1]) {
-          jsonText = match[1];
-        } else {
-          jsonText = jsonText.replace(/```(?:json)?|```/g, "").trim();
-        }
-      }
-      
-      jsonText = jsonText.trim();
-      const parsed = JSON.parse(jsonText);
-      
-      res.json({ success: true, suggestion: parsed });
-    } catch (e: any) {
-      logger.error("Auto-Changelog aggregation fail: ", e);
-      res.status(500).json({ error: e.message || "Failed to parse AI suggestion" });
+      return res.json({ success: true, suggestion: aiResponse.result });
+    } catch (error: any) {
+      logger.error("Auto-Changelog aggregation fail: ", error);
+      return res.status(nestAiHttpStatus(error)).json({
+        error: error?.message || "NESTAI_UNAVAILABLE"
+      });
     }
   });
 
