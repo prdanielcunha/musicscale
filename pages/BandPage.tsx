@@ -44,7 +44,6 @@ const UserCard: React.FC<{
   onOpen: () => void;
 }> = ({ user, specialties, role, onOpen }) => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const roleStyle = getRoleBadgeStyle(role?.name);
 
   return (
@@ -104,6 +103,7 @@ const UserCard: React.FC<{
 
 const BandPage: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { instruments, roles, allUsers, loading, error } = useMusic();
   const { organization } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
