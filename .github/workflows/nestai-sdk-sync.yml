@@ -1,0 +1,16 @@
+name: Install official NestAI SDK
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/nestai-sdk-sync.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    uses: prdanielcunha/NestAI/.github/workflows/sync-sdk-dependency.yml@production
+    with:
+      sdk_version: "0.2.0"
