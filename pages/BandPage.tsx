@@ -1,5 +1,6 @@
 import { logger } from "../lib/logger";
 import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { useMusic } from "../contexts/MusicDataContext";
@@ -17,6 +18,7 @@ import Tag from "../components/common/Tag";
 import { UserIcon } from "../components/icons/UserIcon";
 import { UsersIcon } from "../components/icons/UsersIcon";
 import { XCircleIcon } from "../components/icons/XCircleIcon";
+import { composeSpecialtyCatalog, specialtyKey } from "../utils/specialtyCatalog";
 
 const getRoleBadgeStyle = (roleName?: string) => {
   switch (roleName) {
@@ -39,13 +41,15 @@ const UserCard: React.FC<{
   user: UserProfile;
   specialties: Instrument[];
   role?: Role;
-}> = ({ user, specialties, role }) => {
+  onOpen: () => void;
+}> = ({ user, specialties, role, onOpen }) => {
   const { t } = useTranslation();
   const roleStyle = getRoleBadgeStyle(role?.name);
 
   return (
+    <button type="button" onClick={onOpen} className="w-full text-left rounded-[inherit] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60" aria-label={t("band.manage_member", "Ver ou editar {{name}}", { name: user.displayName || t("common.unnamed_user", "Usuário sem Nome") })}>
     <Card
-      className="flex flex-col p-5 group transition-all duration-300 hover:border-slate-300 dark:hover:border-white/10 hover:shadow-sm active:scale-[0.99] cursor-pointer"
+      className="flex flex-col p-5 group transition-all duration-300 hover:border-primary/30 dark:hover:border-primary/30 hover:shadow-sm active:scale-[0.99] cursor-pointer"
       padding="none"
     >
       <div className="flex items-start justify-between mb-4">
@@ -88,12 +92,18 @@ const UserCard: React.FC<{
           )}
         </div>
       </div>
+      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] font-semibold text-slate-400 dark:border-white/5">
+        <span>{t("band.member_actions_hint", "Toque para ver e gerenciar")}</span>
+        <span aria-hidden="true" className="text-primary">→</span>
+      </div>
     </Card>
+    </button>
   );
 };
 
 const BandPage: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { instruments, roles, allUsers, loading, error } = useMusic();
   const { organization } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
@@ -124,16 +134,25 @@ const BandPage: React.FC = () => {
   }, [specialtyFilterIds, instruments]);
 
   const processedUsers = useMemo(() => {
-    const instrumentMap = new Map<string, Instrument>(
-      instruments.map((i) => [i.id, i]),
-    );
+    const specialtyCatalog = composeSpecialtyCatalog(instruments);
+    const specialtyByAliasId = new Map<string, Instrument>();
+    for (const option of specialtyCatalog) {
+      for (const aliasId of option.aliasIds) specialtyByAliasId.set(aliasId, option);
+    }
     const roleMap = new Map<string, Role>(roles.map((r) => [r.id, r]));
 
     return allUsers
       .map((user) => {
+        const seenSpecialtyKeys = new Set<string>();
         const userSpecialties = (user.specialtyIds || [])
-          .map((id) => instrumentMap.get(id))
+          .map((id) => specialtyByAliasId.get(id))
           .filter((i): i is Instrument => !!i)
+          .filter((instrument) => {
+            const key = specialtyKey(instrument);
+            if (seenSpecialtyKeys.has(key)) return false;
+            seenSpecialtyKeys.add(key);
+            return true;
+          })
           .sort((a, b) => a.name.localeCompare(b.name));
 
         return {
@@ -257,6 +276,7 @@ const BandPage: React.FC = () => {
               user={user}
               specialties={specialties}
               role={role}
+              onOpen={() => navigate("/users", { state: { memberUid: user.uid, origin: "band-directory" } })}
             />
           ))}
         </div>
