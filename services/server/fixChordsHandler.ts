@@ -5,15 +5,21 @@ export interface FixChordsHandlerDeps {
   dbInstance: any;
   authInstance: any;
   rateLimiter: InMemoryAiRateLimiter;
-  apiKey?: string;
-  model?: string;
   logger: {
     info: (...args: any[]) => void;
     error: (...args: any[]) => void;
     warn: (...args: any[]) => void;
   };
   randomUUID?: () => string;
-  generateContent: (params: { model: string; contents: any[]; config?: { abortSignal?: AbortSignal } }) => Promise<{ text: string }>;
+  generateContent: (params: {
+    model: string;
+    contents: any[];
+    config?: { abortSignal?: AbortSignal };
+    request: any;
+    organizationId: string;
+    task: 'musicscale.chords.repair';
+    input: { chords: string; instructions?: string };
+  }) => Promise<{ text: string }>;
   scheduleTimeout?: (callback: () => void, delayMs: number) => unknown;
   cancelTimeout?: (handle: unknown) => void;
 }
@@ -69,10 +75,6 @@ export function createFixChordsHandler(deps: FixChordsHandlerDeps) {
         instructionsLen = instructions.length;
       }
 
-      if (!deps.apiKey || deps.apiKey.trim() === '') {
-        return logAndRespond(503, 'AI_PROVIDER_UNAVAILABLE');
-      }
-
       const rateLimitRes = deps.rateLimiter.acquire({
         uid: authUid,
         organizationId: authOrgId,
@@ -91,23 +93,17 @@ export function createFixChordsHandler(deps: FixChordsHandlerDeps) {
       const timeoutId = sched(() => controller.abort(), 30000);
       let providerResponse: { text: string } | null = null;
       try {
-        const textPrompt = `Você é um músico e especialista em cifras musicais.
-Sua tarefa é receber a cifra de uma música e corrigi-la.
-1. Remova lixo, dicionários de acordes no topo da página, notas do autor e tablaturas quebradas.
-2. É estritamente necessário que os acordes fiquem em uma linha própria, separados por espaço, sem letras da música junto.
-3. Mantenha a letra da música intacta e na linha de baixo dos acordes correspondentes.
-4. Ajuste acordes deslocados ou formatos incorretos.
-5. Se houver seções instrumentais (ex: Solo) só com acordes, NÃO apague a seção, mantenha a tag ([Solo]) e os acordes.
-Instruções Extras: ${instructions || 'Faça um auto-reajuste padrão para a cifra ficar perfeita e remover lixos do início.'}
-Retorne APENAS o texto da cifra corrigida, sem nenhum markdown ou formatação em volta, sem bloco \`\`\`.
-
-Cifra original:
-${chords}`;
-
         providerResponse = await deps.generateContent({
-          model: deps.model || 'gemini-3.5-flash',
-          contents: [{ role: 'user', parts: [{ text: textPrompt }] }],
-          config: { abortSignal: controller.signal }
+          model: 'nestai-managed',
+          contents: [],
+          config: { abortSignal: controller.signal },
+          request: req,
+          organizationId: authOrgId,
+          task: 'musicscale.chords.repair',
+          input: {
+            chords,
+            ...(typeof instructions === 'string' && instructions.trim() ? { instructions } : {})
+          }
         });
       } catch (err: any) {
         if (controller.signal.aborted || err?.name === 'AbortError') {
