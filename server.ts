@@ -2632,108 +2632,44 @@ app.post(
       }
       // AI_FINOPS_SHADOW_WRITE_PATH_END
 
-      // Step 7: Preparing Gemini API Configuration
-      const model = process.env.GEMINI_MODEL || "gemini-3.5-flash";
-      logInfo("7_GEMINI_PREPARATION", `Instantiating GoogleGenAI core client config... Target Model: "${model}"`);
+      // Step 7: NestAI semantic enrichment. The deterministic parser remains
+      // authoritative for the canonical lyrics/chords document.
+      logInfo("7_NESTAI_PREPARATION", "Preparing canonical MusicScale enrichment task");
 
       try {
-        if (!process.env.GEMINI_API_KEY) {
-          throw new Error("GEMINI_API_KEY is not defined in server environment variables!");
-        }
-
-        const ai = new GoogleGenAI({
-          apiKey: process.env.GEMINI_API_KEY,
-          httpOptions: {
-            headers: {
-              'User-Agent': 'aistudio-build'
-            }
-          }
-        });
-
         if (typeof textToProcess === "string" && textToProcess.length > AI_IMPORT_GEMINI_INPUT_MAX_CHARS) {
-          logWarn("7_GEMINI_PREPARATION", "Gemini input exceeded safe character limit and was truncated.", {
+          logWarn("7_NESTAI_PREPARATION", "NestAI input exceeded safe character limit and was truncated.", {
             originalLength: textToProcess.length,
             truncatedLength: AI_IMPORT_GEMINI_INPUT_MAX_CHARS
           });
           textToProcess = textToProcess.slice(0, AI_IMPORT_GEMINI_INPUT_MAX_CHARS);
         }
 
-        const prompt = `Você é um músico especialista em análise de cifras. O documento musical abaixo já foi normalizado por um parser determinístico e é a fonte canônica da importação.
-
-Sua tarefa é SOMENTE enriquecer metadados e resolver ambiguidades semânticas. NÃO reescreva, reordene, resuma, corrija, transponha ou reformate a cifra nem a letra. Nunca devolva campos cleanChords, cleanLyrics, chords ou lyrics.
-
-REGRAS DE INTEGRIDADE:
-1. A ordem das seções, linhas, acordes e letras é imutável. Não proponha uma nova versão do documento.
-2. Não mova acordes para outras posições e não tente alinhar acordes sobre sílabas. O alinhamento existente pertence ao documento canônico.
-3. Não remova repetições de letra: repetições podem ser intencionais.
-4. Não invente título, artista, tom, BPM, ritmo ou seção. Quando a evidência for insuficiente, retorne null/unknown e adicione um warning curto.
-5. Para originalKey, use somente um tom musical válido quando houver evidência clara no conteúdo. NÃO transponha acordes.
-6. Para sections, descreva apenas as seções que aparecem no documento e mantenha a ordem observada. Esse campo é apenas metadado; não controla o corpo da cifra.
-7. Para sectionAnnotations, use SOMENTE nomes de seção que existam literalmente no documento. Classifique partes instrumentais quando houver evidência: solo, riff, instrumental, interlude, intro, outro ou technical. Se a seção for vocal, use vocal. Se não souber, unknown. Nunca crie uma nova seção para explicar sua inferência.
-8. instrument é um vocabulário fechado: guitar, acoustic_guitar, bass, keys, piano, synth, drums, sax, violin, strings, other ou unknown. Não devolva nomes livres de instrumentos.
-
-POSSÍVEIS DADOS DE IDENTIFICAÇÃO DA FONTE:
-Título candidato: ${preProcessed?.title || "não identificado"}
-Artista candidato: ${preProcessed?.artist || "não identificado"}
-
-O título e o artista podem ter sido concatenados pela área de transferência. Separe-os semanticamente apenas quando houver evidência clara. Nunca devolva título e artista unidos no mesmo campo. Não invente artista.
-
-DOCUMENTO MUSICAL CANÔNICO — SOMENTE LEITURA:
-----------------------------------------
-${textToProcess}
-----------------------------------------
-
-RETORNE APENAS JSON VÁLIDO com esta estrutura exata:
-{
-  "sections": [{"name": "string", "type": "intro|verse|chorus|bridge|outro|unknown"}],
-  "sectionAnnotations": [{"section": "nome exato da seção", "type": "solo|riff|instrumental|interlude|intro|outro|technical|vocal|unknown", "instrument": "guitar|acoustic_guitar|bass|keys|piano|synth|drums|sax|violin|strings|other|unknown", "confidence": "high|medium|low"}],
-  "language": "pt | en | es | unknown",
-  "suggestedBpm": number | null,
-  "suggestedRhythm": "string | null",
-  "capitalizedTitle": "string | null",
-  "capitalizedArtist": "string | null",
-  "originalKey": "string | null",
-  "warnings": ["string"]
-}
-`;
-
-        // Step 8: Gemini API invocation with strict timeout (25s limit)
-        logInfo("8_GEMINI_INVOCATION", `Sending prompt compilation to Gemini API (25000ms max timeout race)`);
-
-        let timeoutId: any;
-        const geminiTimeoutPromise = new Promise((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error("TimeoutException: Gemini request exceeded our 60000ms SLA limit")), 60000);
+        const nestAi = createMusicScaleNestAiClient({
+          req,
+          organizationId: aiAuthContext.organizationId,
+          locale: normalizeNestAiLocale(req.body?.language),
         });
 
-        const geminiRequestPromise = (async () => {
-          const res = await ai.models.generateContent({
-            model: model,
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            config: {
-              responseMimeType: "application/json"
-            }
-          });
-          clearTimeout(timeoutId);
-          return res;
-        })();
+        logInfo("8_NESTAI_INVOCATION", "Sending canonical metadata enrichment task to NestAI");
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error("TimeoutException: NestAI request exceeded our 60000ms SLA limit")), 60000);
+        });
+        const nestAiResponse = await Promise.race([
+          nestAi.run<Record<string, unknown>>({
+            task: "musicscale.song.import.enrich",
+            input: {
+              canonicalDocument: textToProcess,
+              titleCandidate: preProcessed?.title || null,
+              artistCandidate: preProcessed?.artist || null,
+            },
+            requestId,
+          }),
+          timeoutPromise,
+        ]);
 
-        const geminiResponse = (await Promise.race([geminiRequestPromise, geminiTimeoutPromise])) as any;
-        logInfo("8_GEMINI_INVOCATION", "Successfully received response back from Gemini API channel");
-
-        // Step 9: Parse Response
-        const rawContentText = geminiResponse.text || "";
-        
-        let sanitizedJsonStr = rawContentText.trim();
-        if (sanitizedJsonStr.startsWith("\`\`\`json")) {
-          sanitizedJsonStr = sanitizedJsonStr.substring(7);
-        }
-        if (sanitizedJsonStr.endsWith("\`\`\`")) {
-          sanitizedJsonStr = sanitizedJsonStr.substring(0, sanitizedJsonStr.length - 3);
-        }
-        sanitizedJsonStr = sanitizedJsonStr.trim();
-
-        const parsedAiObj = JSON.parse(sanitizedJsonStr);
-        logInfo("9_RESP_PARSING", "Gemini response parsed into JSON schema flawlessly");
+        const parsedAiObj = nestAiResponse.result;
+        logInfo("9_RESP_PARSING", "NestAI response passed the centralized structured-output contract");
 
         const normalizeSectionIdentity = (value: string): string =>
           value
