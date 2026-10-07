@@ -601,7 +601,7 @@ app.post(
       const requestId = "diag_finops_" + crypto.randomUUID();
       const rawText = `FinOps diagnostic smoke test ${requestId}`;
       const adapter = createAiFinOpsFirestoreAdapter(db);
-      const model = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+      const model = "nestai-managed";
 
       // Execute synthetic begin
       const beginRes = await beginAiImportFinOpsWritePath({
@@ -2431,7 +2431,7 @@ app.post(
           logWarn("FINOPS_SHADOW", "AI_FINOPS_HMAC_SECRET is missing. Shadow read-path skipped.");
         } else {
           const finOpsAdapter = createAiFinOpsFirestoreAdapter(db);
-          const aiImportModel = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+          const aiImportModel = "nestai-managed";
           const estimatedInputChars = typeof rawText === "string" ? rawText.length : (typeof url === "string" ? url.length : 0);
           
           const decision = await resolveAiImportFinOpsReadPath({
@@ -2584,7 +2584,7 @@ app.post(
             logWarn("FINOPS_SHADOW_WRITE", "AI_FINOPS_HMAC_SECRET is missing. Shadow write-path skipped.");
           } else {
             const finOpsAdapter = createAiFinOpsFirestoreAdapter(db);
-            const aiImportModel = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+            const aiImportModel = "nestai-managed";
             const estimatedInputChars = typeof textToProcess === "string" ? textToProcess.length : 0;
 
             const beginRes = await beginAiImportFinOpsWritePath({
