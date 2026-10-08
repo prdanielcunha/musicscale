@@ -37,6 +37,7 @@ export interface MusicScaleEntitlements {
   organizationId: string;
   app: 'musicscale';
   accessSource?: 'ecosystem';
+  entitlementSource?: 'hub_internal_trial';
   accessAllowed?: boolean;
   plan: MusicScalePlan;
   status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'expired' | 'inactive' | 'none';
