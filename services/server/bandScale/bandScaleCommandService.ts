@@ -4,6 +4,7 @@ import { BandScaleAuthorizationService } from "./bandScaleAuthorizationService.j
 import { IdempotencyService } from "./idempotencyService.js";
 import { AssignmentNormalizer, BandAssignment } from "./assignmentNormalizer.js";
 import { AssignmentDiffService } from "./assignmentDiffService.js";
+import { validateBandScaleAssignedUsers } from "./assignmentMembershipValidator.js";
 import { NotificationFactory } from "./notificationFactory.js";
 import { logger } from "../../../lib/logger.js";
 
@@ -81,20 +82,7 @@ export class BandScaleCommandService {
    * Helper to validate that all users exist and belong to the same organization.
    */
   private static async validateUsersOrganization(userIds: string[], orgId: string): Promise<void> {
-    if (!db || userIds.length === 0) return;
-
-    const uniqueUserIds = Array.from(new Set(userIds));
-    const userSnaps = await Promise.all(uniqueUserIds.map((id) => db.collection("users").doc(id).get()));
-
-    for (const snap of userSnaps) {
-      if (!snap.exists) {
-        throw new Error(`Integrante com ID ${snap.id} não foi encontrado no sistema.`);
-      }
-      const uData = snap.data();
-      if (uData?.organizationId !== orgId) {
-        throw new Error(`O integrante ${uData?.displayName || snap.id} não pertence a esta organização.`);
-      }
-    }
+    await validateBandScaleAssignedUsers(db, userIds, orgId);
   }
 
   /**
