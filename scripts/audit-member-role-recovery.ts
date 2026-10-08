@@ -1,152 +1,151 @@
-import { adminDb as db } from "../services/firebaseAdmin.js";
-import { mkdir, writeFile } from "node:fs/promises";
+/**
+ * Read-only MusicScale integrity audit. Public CI: ONLY aggregate counters
+ * may leave the runner. Never log/store organization IDs, user IDs, role
+ * names, formation names, payloads, or private Firestore documents.
+ *
+ * Missing MusicScale roleId is not by itself data loss: historical member
+ * profiles can use a tenant-bound role name and some members have no ministry
+ * assignment. This audit makes NO writes or repair decisions.
+ */
+import { adminDb as db } from '../services/firebaseAdmin.js';
+import { mkdir, writeFile } from 'node:fs/promises';
 
-type Hit = {
-  organizationId:string;
-  uid:string;
-  projectionRoleId:string|null;
-  canonicalRoleId:string|null;
-  legacyRoleId:string|null;
-  userRoleId:string|null;
-  recoverableRoleId:string|null;
-  source:string;
-  conflict:boolean;
-  legacyUserBound:boolean;
-  recoverableProfileFields:string[];
-};
-
-const clean=(v:any)=>typeof v==="string"&&v.trim()?v.trim():null;
-const hasOwn=(v:any,key:string)=>Boolean(v&&Object.prototype.hasOwnProperty.call(v,key));
-const hasString=(v:any)=>Boolean(clean(v));
-const hasArray=(v:any)=>Array.isArray(v);
-
-async function main(){
- if(!db) throw new Error("Firebase Admin DB is not initialized.");
- const out:Hit[]=[];
- const inventory:any[]=[];
- // Read-only collection-group inventory includes root and nested legacy paths.
- for (const collection of ['roles','instruments','fixedBandScales','bandScales']) {
-   const snapshot=await db.collectionGroup(collection).get();
-   for (const doc of snapshot.docs) {
-     const d=doc.data();
-     inventory.push({collection,path:doc.ref.path,storedId:clean(d.id),
-       organizationId:clean(d.organizationId),organization_id:clean(d.organization_id),
-       name:collection==='roles'||collection==='instruments'?clean(d.name):undefined,
-       fields:Object.keys(d).sort(),assignments:Array.isArray(d.assignments)?d.assignments.length:null,
-       createdAt:d.createdAt?.toDate?.()?.toISOString?.()||null,
-       updatedAt:d.updatedAt?.toDate?.()?.toISOString?.()||null});
-   }
- }
- const audits=await db.collection('audits').where('targetCollection','==','fixedBandScales').get();
- const bandHistory=audits.docs.map(doc=>{
-   const d=doc.data();return {action:d.action,organizationId:d.organizationId,targetId:d.targetId,
-     timestamp:d.timestamp?.toDate?.()?.toISOString?.()||null,
-     detailFields:Object.keys(d.details||{}).sort()};
- });
- let orgs=0,members=0,recoverable=0,profileRecoverable=0,missing=0,conflicts=0;
- const orgSnap=await db.collection("organizations").get();
-
- for(const org of orgSnap.docs){
-   orgs++;
-   const organizationId=org.id;
-   const memberSnap=await org.ref.collection("members").get();
-
-   for(const member of memberSnap.docs){
-     members++;
-     const uid=member.id;
-     const canonical=member.data()||{};
-     const [projection,user,...legacySnaps]=await Promise.all([
-       org.ref.collection("musicscale_members").doc(uid).get(),
-       db.collection("users").doc(uid).get(),
-       db.collection("organization_members").doc(`${uid}_${organizationId}`).get(),
-       db.collection("organization_members").doc(`${organizationId}_${uid}`).get()
-     ]);
-
-     const projectionData=projection.exists?projection.data()||{}:{};
-     const projectionRoleId=clean(projectionData.roleId)||clean(projectionData.internalRoleId);
-     const canonicalRoleId=clean(canonical.roleId)||clean(canonical.internalRoleId);
-
-     let legacyRoleId:string|null=null;
-     let legacyData:any={};
-     for(const snap of legacySnaps){
-       if(!snap.exists) continue;
-       const d=snap.data()||{};
-       const oid=clean(d.organizationId)||clean(d.organization_id);
-       const mid=clean(d.uid)||clean(d.userId)||clean(d.user_id);
-       if(oid===organizationId&&mid===uid){
-         legacyData=d;
-         legacyRoleId=clean(d.roleId)||clean(d.internalRoleId);
-         break;
-       }
-     }
-
-     const userData=user.exists?user.data()||{}:{};
-     // Match the historical tenant query exactly. active/primary org is mutable
-     // navigation state and is not proof that legacy MusicScale fields belong here.
-     const legacyUserBound=clean(userData.organizationId)===organizationId;
-     const boundUserData=legacyUserBound?userData:{};
-     const userRoleId=legacyUserBound?(clean(userData.roleId)||clean(userData.internalRoleId)):null;
-
-     const candidates=[projectionRoleId,canonicalRoleId,legacyRoleId,userRoleId].filter(Boolean) as string[];
-     const unique=[...new Set(candidates)];
-     const conflict=unique.length>1;
-     const recoverableRoleId=projectionRoleId||(!conflict?(canonicalRoleId||legacyRoleId||userRoleId):null);
-     const source=projectionRoleId?"projection":canonicalRoleId?"canonical":legacyRoleId?"legacy":userRoleId?"user":"none";
-
-     const recoverableProfileFields:string[]=[];
-     if(!hasString(projectionData.musicscaleRole)){
-       if(
-         hasString(canonical.musicscaleRole) ||
-         hasString(legacyData.musicscaleRole) ||
-         hasString(boundUserData.musicscaleRole) ||
-         hasString(boundUserData.role)
-       ) recoverableProfileFields.push("musicscaleRole");
-     }
-     if(!hasOwn(projectionData,"ministryFunction")){
-       if(
-         hasOwn(canonical,"ministryFunction") ||
-         hasOwn(legacyData,"ministryFunction") ||
-         hasOwn(boundUserData,"ministryFunction")
-       ) recoverableProfileFields.push("ministryFunction");
-     }
-     if(!hasOwn(projectionData,"specialtyIds")){
-       if(
-         hasArray(canonical.specialtyIds) ||
-         hasArray(legacyData.specialtyIds) ||
-         hasArray(boundUserData.specialtyIds)
-       ) recoverableProfileFields.push("specialtyIds");
-     }
-
-     if(conflict) conflicts++;
-     else if(!projectionRoleId&&recoverableRoleId) recoverable++;
-     else if(!recoverableRoleId) missing++;
-
-     if(recoverableProfileFields.length>0) profileRecoverable++;
-
-     if(!projectionRoleId||conflict||recoverableProfileFields.length>0){
-       out.push({
-         organizationId,uid,projectionRoleId,canonicalRoleId,legacyRoleId,userRoleId,
-         recoverableRoleId,source,conflict,legacyUserBound,recoverableProfileFields
-       });
-     }
-   }
- }
-
- await mkdir("tmp/firestore-audit",{recursive:true});
- const summary={
-   organizations:orgs,
-   members,
-   affected:out.length,
-   recoverable,
-   profileRecoverable,
-   missing,
-   conflicts,
-   generatedAt:new Date().toISOString()
- };
- await writeFile("tmp/firestore-audit/member-role-recovery.inventory.json",JSON.stringify({inventory,bandHistory},null,2));
- await writeFile("tmp/firestore-audit/member-role-recovery.summary.json",JSON.stringify(summary,null,2));
- await writeFile("tmp/firestore-audit/member-role-recovery.audit.json",JSON.stringify(out,null,2));
- console.log(JSON.stringify(summary));
+function clean(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+function roleName(value: unknown): string {
+  return clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+function roleId(data: any): string {
+  return clean(data?.roleId) || clean(data?.internalRoleId);
+}
+function tenantBound(data: any, orgId: string, uid: string): boolean {
+  return (clean(data?.organizationId) || clean(data?.organization_id)) === orgId &&
+    (clean(data?.uid) || clean(data?.userId) || clean(data?.user_id)) === uid;
+}
+function activeCohort(org: any, sub: any): boolean {
+  const projected = sub?.apps?.musicscale;
+  const app = org?.apps?.musicscale;
+  const appStatus = clean(projected?.status || app?.status).toLowerCase();
+  if (appStatus === 'active' || appStatus === 'trialing') return true;
+  // Legacy MusicScale root subscription: no other app identity may qualify.
+  return (!sub?.apps?.nestlocal || sub?.apps?.musicscale) &&
+    (clean(sub?.app) === 'musicscale' ||
+      (clean(sub?.stripeSubscriptionId) && !sub?.apps)) &&
+    ['active', 'trialing'].includes(clean(sub?.status).toLowerCase());
 }
 
-main().catch(e=>{console.error(e);process.exit(1)});
+async function main() {
+  if (!db) throw Error('DB_UNAVAILABLE');
+  const stats = {
+    schemaVersion: 2, readOnly: true, personalDataExported: false,
+    organizationsScanned: 0, organizationsWithActiveMusicScaleProjection: 0,
+    organizationsWithFixedFormations: 0, membersScanned: 0,
+    activeProjectionMembersScanned: 0,
+    membersWithProjectionRoleId: 0, membersWithOtherTenantBoundRoleId: 0,
+    membersResolvedByLegacyRoleName: 0,
+    membersWithNoIdentifiedMinistryRole: 0,
+    membersWithConflictingRoleIds: 0, membersWithUnverifiedRoleId: 0,
+    activeProjectionMembersWithNoIdentifiedMinistryRole: 0,
+    activeProjectionMembersWithConflictingRoleIds: 0,
+    fixedFormationsRoot: 0, fixedFormationsNested: 0,
+    fixedFormationMemberAssignments: 0,
+    fixedFormationsWithMissingTenant: 0,
+    fixedFormationsForActiveProjection: 0,
+  };
+  const [organizations, roles, formations] = await Promise.all([
+    db.collection('organizations').get(),
+    db.collection('roles').get(),
+    db.collectionGroup('fixedBandScales').get(),
+  ]);
+  const rolesByTenant = new Map<string, { ids: Set<string>; names: Map<string, string[]> }>();
+  for (const role of roles.docs) {
+    const data = role.data() || {};
+    const orgId = clean(data.organizationId);
+    if (!orgId) continue;
+    if (!rolesByTenant.has(orgId)) rolesByTenant.set(orgId, { ids: new Set(), names: new Map() });
+    const tenant = rolesByTenant.get(orgId)!;
+    tenant.ids.add(role.id);
+    const name = roleName(data.name);
+    if (name) tenant.names.set(name, [...(tenant.names.get(name) || []), role.id]);
+  }
+  const activeOrgs = new Set<string>();
+  const formationOrgs = new Set<string>();
+  // One projection read per organization. No Stripe live billing assertions:
+  // this is explicitly the canonical Firestore access projection only.
+  const cohort = new Map<string, boolean>();
+  for (const org of organizations.docs) {
+    stats.organizationsScanned++;
+    const id = org.id;
+    const sub = await db.collection('subscriptions').doc(id).get();
+    const active = activeCohort(org.data() || {}, sub.exists ? sub.data() || {} : {});
+    cohort.set(id, active);
+    if (active) { activeOrgs.add(id); stats.organizationsWithActiveMusicScaleProjection++; }
+  }
+  for (const formation of formations.docs) {
+    const data = formation.data() || {};
+    const orgId = clean(data.organizationId);
+    if (!orgId) stats.fixedFormationsWithMissingTenant++;
+    else {
+      formationOrgs.add(orgId);
+      if (activeOrgs.has(orgId)) stats.fixedFormationsForActiveProjection++;
+    }
+    if (formation.ref.parent.path === 'fixedBandScales') stats.fixedFormationsRoot++;
+    else stats.fixedFormationsNested++;
+    if (Array.isArray(data.assignments)) stats.fixedFormationMemberAssignments += data.assignments.length;
+  }
+  stats.organizationsWithFixedFormations = formationOrgs.size;
+  for (const org of organizations.docs) {
+    const id = org.id, active = cohort.get(id) === true;
+    const members = await org.ref.collection('members').get();
+    for (const member of members.docs) {
+      const uid = member.id, canonical = member.data() || {};
+      stats.membersScanned++;
+      if (active) stats.activeProjectionMembersScanned++;
+      const [projectionSnap, userSnap, aSnap, bSnap] = await Promise.all([
+        org.ref.collection('musicscale_members').doc(uid).get(),
+        db.collection('users').doc(uid).get(),
+        db.collection('organization_members').doc(uid + '_' + id).get(),
+        db.collection('organization_members').doc(id + '_' + uid).get(),
+      ]);
+      const projection = projectionSnap.exists ? projectionSnap.data() || {} : {};
+      const user = userSnap.exists ? userSnap.data() || {} : {};
+      const userBound = clean(user.organizationId) === id;
+      const sources = [
+        roleId(projection), roleId(canonical),
+        ...[aSnap, bSnap].map(s => s.exists && tenantBound(s.data(), id, uid) ? roleId(s.data()) : ''),
+        userBound ? roleId(user) : '',
+      ].filter(Boolean);
+      const unique = [...new Set(sources)];
+      if (unique.length > 1) {
+        stats.membersWithConflictingRoleIds++;
+        if (active) stats.activeProjectionMembersWithConflictingRoleIds++;
+      }
+      const valid = rolesByTenant.get(id);
+      const known = sources.find(r => valid?.ids.has(r)) || '';
+      if (sources.length > 0 && !known) stats.membersWithUnverifiedRoleId++;
+      if (known) {
+        if (roleId(projection) && valid?.ids.has(roleId(projection))) stats.membersWithProjectionRoleId++;
+        else stats.membersWithOtherTenantBoundRoleId++;
+        continue;
+      }
+      // The old UI allowed a MusicScale ministry role name in a tenant-bound
+      // historical user profile. Do not use generic canonical member.role.
+      const name = roleName(
+        projection.musicscaleRole || canonical.musicscaleRole ||
+        (userBound ? (user.musicscaleRole || user.role) : '')
+      );
+      const matches = valid?.names.get(name) || [];
+      if (name && matches.length === 1) stats.membersResolvedByLegacyRoleName++;
+      else {
+        stats.membersWithNoIdentifiedMinistryRole++;
+        if (active) stats.activeProjectionMembersWithNoIdentifiedMinistryRole++;
+      }
+    }
+  }
+  await mkdir('tmp/firestore-audit', { recursive: true });
+  await writeFile('tmp/firestore-audit/global-integrity-summary.json',
+    JSON.stringify({ ...stats, generatedAt: new Date().toISOString() }, null, 2));
+  console.log('GLOBAL_MUSICSCALE_INTEGRITY_AGGREGATE ' + JSON.stringify(stats));
+}
+main().catch(() => { console.error('GLOBAL_AUDIT_FAILED_WITHOUT_PERSONAL_DETAILS'); process.exitCode = 1; });

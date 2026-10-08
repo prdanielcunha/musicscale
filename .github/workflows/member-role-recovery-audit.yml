@@ -25,7 +25,7 @@ jobs:
         with:
           workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production
           audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production
-      - name: Audit member role recovery candidates
+      - name: Read-only global MusicScale tenant and formation integrity audit
         env:
           FIREBASE_PROJECT_ID: millionsnest
           GCLOUD_PROJECT: millionsnest
@@ -33,7 +33,7 @@ jobs:
         run: npx tsx scripts/audit-member-role-recovery.ts
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: member-role-recovery-audit-${{ github.run_id }}
-          path: tmp/firestore-audit/member-role-recovery.*.json
+          name: musicscale-anonymous-integrity-${{ github.run_id }}
+          path: tmp/firestore-audit/global-integrity-summary.json
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 3
