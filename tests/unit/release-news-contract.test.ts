@@ -61,16 +61,29 @@ describe('release news contract', () => {
     expect(help).toContain('help_modal.version_build');
   });
 
-  it('keeps refinements collapsed and acknowledges only the feature release on close', () => {
+  it('keeps tuner, pad and medley featured while secondary fixes remain collapsed', () => {
     const highlights = read('components/ReleaseHighlights.tsx');
+    const featured = read('components/PinnedReleaseHighlights.tsx');
+    const catalog = read('lib/releaseSpotlight.ts');
     const modal = read('components/WhatsNewModal.tsx');
+    const page = read('pages/UpdatesPage.tsx');
 
+    expect(catalog).toContain("id: 'tuner'");
+    expect(catalog).toContain("id: 'pad'");
+    expect(catalog).toContain("id: 'medley'");
+    expect(catalog).toContain("to: '/stage-tools/tuner'");
+    expect(catalog).toContain("to: '/stage-tools'");
+    expect(catalog).toContain("to: '/scales'");
+    expect(catalog).not.toContain('expiresAt');
+    expect(featured).toContain('PINNED_PRODUCT_HIGHLIGHTS.map');
+    expect(featured).toContain('data-testid={`pinned-release-${feature.id}`}');
+    expect(featured).toContain('to={feature.action.to}');
+    expect(featured).toContain('focus-visible:ring-2');
+    expect(highlights).toContain('<PinnedReleaseHighlights onAction={onAction} />');
     expect(highlights).toContain('<details');
-    expect(highlights).toContain('refinements.summary');
-    expect(highlights).toContain('refinements.items');
-    expect(highlights).toContain('FEATURE_RELEASE.actions');
-    expect(highlights).toContain("releaseNews.viewFeature");
-    expect(highlights).toContain("to={action.to}");
+    expect(highlights).toContain('secondary-release-updates');
+    expect(highlights).toContain('RELEASE_DETAIL_GROUPS.map');
+    expect(page).toContain('<PinnedReleaseHighlights titleId="updates-featured-title" />');
     expect(modal).toContain('markReleaseSeen();');
     expect(modal).toContain('<ReleaseHighlights onAction={handleClose} />');
     expect(modal).not.toContain('markAsSeen');
