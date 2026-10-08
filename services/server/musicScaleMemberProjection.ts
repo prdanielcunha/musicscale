@@ -164,23 +164,41 @@ export async function resolveMusicScaleMemberProfile(
   assertMusicScaleMemberIdentity(organizationId, uid);
   const projection = await db.collection('organizations').doc(organizationId)
     .collection('musicscale_members').doc(uid).get();
-  if (projection.exists) return profileFrom(projection.data(), 'projection');
+  const projected = projection.exists ? profileFrom(projection.data(), 'projection') : null;
+  // A valid projected MusicScale role stays authoritative. A *partial* record
+  // must not hide the existing tenant-bound role stored before the migration.
+  if (projected?.roleId) return projected;
 
+  let fallback: ResolvedMusicScaleMemberProfile | null = null;
   if (canonicalMembershipData && (cleanString(canonicalMembershipData.roleId) || cleanString(canonicalMembershipData.internalRoleId))) {
-    return profileFrom(canonicalMembershipData, 'legacy_canonical_membership');
-  }
-
-  for (const id of [`${uid}_${organizationId}`, `${organizationId}_${uid}`]) {
-    const legacy = await db.collection('organization_members').doc(id).get();
-    if (!legacy.exists) continue;
-    const data = legacy.data();
-    const boundOrg = cleanString(data?.organizationId) || cleanString(data?.organization_id);
-    const boundUid = cleanString(data?.uid) || cleanString(data?.userId) || cleanString(data?.user_id);
-    if (boundOrg === organizationId && boundUid === uid) {
-      return profileFrom(data, 'legacy_membership_mirror');
+    fallback = profileFrom(canonicalMembershipData, 'legacy_canonical_membership');
+  } else {
+    for (const id of [`${uid}_${organizationId}`, `${organizationId}_${uid}`]) {
+      const legacy = await db.collection('organization_members').doc(id).get();
+      if (!legacy.exists) continue;
+      const data = legacy.data();
+      const boundOrg = cleanString(data?.organizationId) || cleanString(data?.organization_id);
+      const boundUid = cleanString(data?.uid) || cleanString(data?.userId) || cleanString(data?.user_id);
+      if (boundOrg === organizationId && boundUid === uid) {
+        const candidate = profileFrom(data, 'legacy_membership_mirror');
+        if (candidate.roleId) { fallback = candidate; break; }
+      }
     }
   }
-  return { roleId: null, source: 'none' };
+
+  if (projected) {
+    // Keep explicit projection values (including specialtyIds: []) while
+    // supplying only missing fields from the old same-organization profile.
+    // This is a read-only compatibility projection, not a Firestore migration.
+    return {
+      roleId: fallback?.roleId ?? null,
+      musicscaleRole: projected.musicscaleRole ?? fallback?.musicscaleRole,
+      ministryFunction: projected.ministryFunction ?? fallback?.ministryFunction,
+      specialtyIds: projected.specialtyIds ?? fallback?.specialtyIds,
+      source: 'projection',
+    };
+  }
+  return fallback ?? { roleId: null, source: 'none' };
 }
 
 export async function validateMusicScaleRole(db: any, organizationId: string, roleId: string): Promise<any> {

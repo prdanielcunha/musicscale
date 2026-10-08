@@ -1,4 +1,4 @@
-MusicScale 0.10.9-beta.13 — 2026-10-08
-Auditoria global read-only, com métricas anônimas sobre funções dos integrantes e escalas fixas, sem exportação de dados pessoais.
-Esta revisão não executa migração nem restauração automática de funções e preserva todas as assinaturas e dados existentes.
-Trial sem cartão e demais funcionalidades comerciais permanecem protegidos pelas flags de produção.
+MusicScale 0.10.9-beta.14 — 2026-10-08
+Correção preventiva de compatibilidade: funções de integrantes em projeções incompletas são lidas do vínculo legado da mesma organização, sem alterar ou migrar registros.
+Preserva campos explícitos, especialmente especialidades vazias definidas intencionalmente, e a segurança entre organizações.
+Auditoria global anônima e somente leitura mantida; assinaturas existentes e flags comerciais não são modificadas.
