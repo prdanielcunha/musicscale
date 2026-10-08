@@ -28,6 +28,50 @@ describe('MusicScale member projection', () => {
     expect(canonical.organizationRole).toBe('member');
   });
 
+  it('recovers the canonical role from a partial projection without overwriting its explicit fields', async () => {
+    const { db, writes } = mockDb({
+      'organizations/org-a/musicscale_members/user-1': {
+        musicscaleRole: 'ministro', specialtyIds: [], ministryFunction: 'Teclado'
+      }
+    });
+    const result = await resolveMusicScaleMemberProfile(db, 'org-a', 'user-1', {
+      organizationRole: 'member', roleId: 'role-old',
+      musicscaleRole: 'músico', specialtyIds: ['guitar']
+    });
+    expect(result).toMatchObject({
+      roleId: 'role-old', source: 'projection',
+      musicscaleRole: 'ministro', ministryFunction: 'Teclado', specialtyIds: []
+    });
+    expect(writes).toHaveLength(0);
+  });
+
+  it('recovers a missing projection role from the same-tenant legacy mirror', async () => {
+    const { db, writes } = mockDb({
+      'organizations/org-a/musicscale_members/user-1': { musicscaleRole: 'vocal' },
+      'organization_members/user-1_org-a': {
+        uid: 'user-1', organizationId: 'org-a', roleId: 'role-old', specialtyIds: ['vocal']
+      }
+    });
+    const result = await resolveMusicScaleMemberProfile(db, 'org-a', 'user-1');
+    expect(result).toMatchObject({
+      roleId: 'role-old', source: 'projection', musicscaleRole: 'vocal',
+      specialtyIds: ['vocal']
+    });
+    expect(writes).toHaveLength(0);
+  });
+
+  it('never borrows a role from an improperly tenant-bound mirror', async () => {
+    const { db } = mockDb({
+      'organizations/org-a/musicscale_members/user-1': { musicscaleRole: 'vocal' },
+      'organization_members/user-1_org-a': {
+        uid: 'user-1', organizationId: 'org-b', roleId: 'role-foreign'
+      }
+    });
+    await expect(resolveMusicScaleMemberProfile(db, 'org-a', 'user-1')).resolves.toMatchObject({
+      roleId: null, source: 'projection', musicscaleRole: 'vocal'
+    });
+  });
+
   it('keeps old users working through canonical tenant-bound fallback', async () => {
     const { db } = mockDb({});
     await expect(resolveMusicScaleMemberProfile(db, 'org-a', 'user-1', {
