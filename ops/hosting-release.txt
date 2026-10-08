@@ -1,3 +1,4 @@
-MusicScale 0.10.9-beta.12 — 2026-10-08
-Preparação do trial sem cartão com 14 dias, extensão de até 7 dias autorizada apenas por CEO, administrador global ou suporte do MillionsNest.
-Correções de proteção contra cache vencido e validação server-side. Deploy público somente após a promoção segura e revisão das flags do Hub.
+MusicScale 0.10.9-beta.13 — 2026-10-08
+Auditoria global read-only, com métricas anônimas sobre funções dos integrantes e escalas fixas, sem exportação de dados pessoais.
+Esta revisão não executa migração nem restauração automática de funções e preserva todas as assinaturas e dados existentes.
+Trial sem cartão e demais funcionalidades comerciais permanecem protegidos pelas flags de produção.
