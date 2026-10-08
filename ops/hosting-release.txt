@@ -1,4 +1,5 @@
-MusicScale 0.10.9-beta.15 — 2026-10-08
-Correção da validação de integrantes para escalas de bandas: membresia ativa canônica da organização, independente da organização principal de navegação do usuário.
-Mantida a compatibilidade com vínculos antigos validamente associados ao mesmo tenant, com bloqueio de integrantes removidos ou desativados.
-Nenhum cadastro, escala ou assinatura é alterado por migração; trial, Stripe e créditos comerciais permanecem sem mudança.
+MusicScale 0.10.9-beta.16 — 2026-10-08
+Novidades do MusicScale: Afinador NestTuner, Pad de Palco e Medleys Inteligentes permanecem em destaque na apresentação de novidades e na página de atualizações, em PT/EN/ES.
+Notas de ajustes, refinamentos e hotfixes ficam em seção separada e recolhida por padrão. O reconhecimento de aviso não remove esses destaques.
+Proteção de deploy Cloud Run: preservação de flags de ambiente e vinculações de segredos já existentes.
+Sem alteração de dados dos clientes, Stripe, limites de avaliação, permissões, créditos de IA ou regras de acesso.
