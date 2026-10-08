@@ -111,6 +111,17 @@ export function resolveSubscriptionAccess(
     };
   }
 
+  if(contextValidation.entitlements?.entitlementSource==='hub_internal_trial' &&
+     contextValidation.entitlements?.status==='expired') {
+    return {
+      loaded:true,valid:false,status:'inactive',
+      reason:'hub_trial_expired',
+      message:'Seu período gratuito do MusicScale terminou. Seus dados foram preservados. Assine para continuar usando os recursos.',
+      source:'entitlements',organizationId:contextValidation.organization?.id,
+      retryable:false,technicalError:false,
+    };
+  }
+
   if (statusList.some(s => ['expired', 'incomplete_expired', 'past_due', 'unpaid'].includes(s))) {
     return {
       loaded: true,
