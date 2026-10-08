@@ -42,6 +42,13 @@ class EntitlementsService {
   private readonly transitionalCacheExpiryMs = 2500;
 
   private getCacheExpiryMs(entitlements: MusicScaleEntitlements): number {
+    // Never keep a server-issued temporary Hub grant alive past its deadline.
+    // Includes the seven-day authorized extension when one was granted.
+    if (entitlements.entitlementSource === 'hub_internal_trial') {
+      const deadline = Date.parse(String(entitlements.trialEndsAt || ''));
+      return Number.isFinite(deadline)
+        ? Math.max(0,Math.min(5000,deadline-Date.now())) : 0;
+    }
     // Active/trialing access is also invalidated by the real-time subscription
     // listener in AuthContext. A denied/transitional snapshot must never pin a
     // newly paying customer behind a one-minute cache after Stripe/Hub repairs.
@@ -140,6 +147,8 @@ class EntitlementsService {
       status: finalStatus,
       ...(raw?.organizationId === orgId && raw?.accessSource === 'ecosystem' ? { accessSource: 'ecosystem' as const } : {}),
       ...(raw?.organizationId === orgId && raw?.accessAllowed === true ? { accessAllowed: true } : {}),
+      ...(raw?.organizationId === orgId && raw?.entitlementSource === 'hub_internal_trial'
+        ? { entitlementSource: 'hub_internal_trial' as const } : {}),
       features,
       limits,
       usage,
@@ -297,6 +306,13 @@ class EntitlementsService {
           if (orgSnap.exists()) {
             const orgData = orgSnap.data();
             const cachedAppsData = orgData?.apps?.musicscale;
+            if (cachedAppsData?.trialSource === 'hub_internal_trial') {
+              // An organization projection does not attest to current time,
+              // payment status, revocation or the admin-granted extension.
+              // Only the authenticated MusicScale backend may validate it.
+              logger.warn('[EntitlementsService] Refusing legacy cache fallback for Hub trial.');
+              return getStarterFallback(orgId, 'unavailable');
+            }
             if (cachedAppsData && (cachedAppsData.status === 'active' || cachedAppsData.status === 'trialing')) {
               logger.info('[EntitlementsService] Fallback successful! Read from apps.musicscale in organization document.');
               return this.normalizeEntitlements(cachedAppsData, orgId);

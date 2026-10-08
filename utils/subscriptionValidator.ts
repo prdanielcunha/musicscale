@@ -79,6 +79,12 @@ export function getSubscriptionBlockReason(context: SubscriptionContext): { reas
     return { valid: false, reason: 'invalid_canceled', message: 'Sua assinatura está cancelada e o período de acesso encerrou.' };
   }
 
+  if(context.entitlements?.entitlementSource==='hub_internal_trial' &&
+    context.entitlements?.status==='expired') {
+    return {valid:false,reason:'hub_trial_expired',
+      message:'Seu período gratuito terminou. Assine no MillionsNest para continuar.'};
+  }
+
   if (statusList.some(s => ['expired', 'incomplete_expired', 'past_due', 'unpaid'].includes(s))) {
      return { valid: false, reason: 'invalid_payment_failed', message: 'Houve um problema com pagamento ou a assinatura está vencida.' };
   }

@@ -1,5 +1,6 @@
 import { applyEcosystemEntitlements } from './services/effectiveEntitlements.js';
 import { organizationHasEcosystemAccess } from './services/server/ecosystemEntitlements.js';
+import { resolveHubMusicScaleTrialFromDb } from './services/server/hubMusicScaleTrial.js';
 import { logger } from './lib/logger.js';
 logger.info("Server process started");
 
@@ -1204,6 +1205,34 @@ app.post(
         }
       }
 
+      // Only newly issued, opt-in Hub trials enter this branch. Paid legacy
+      // customers preserve their existing Stripe/Firestore behavior.
+      if (orgSnap.exists && orgSnap.data()?.apps?.musicscale?.trialSource === 'hub_internal_trial') {
+        const subscriptionSnap = await db.collection('subscriptions').doc(orgId).get();
+        const data = subscriptionSnap.exists ? subscriptionSnap.data() || {} : {};
+        const contract = data.apps?.musicscale || data;
+        const contractStatus = String(contract?.status || '').toLowerCase();
+        if (['active','trialing'].includes(contractStatus) &&
+            (contract.stripeSubscriptionId || data.stripeSubscriptionId || data.subscriptionId)) {
+          verifiedStatus = contractStatus;
+          verifiedPlan = String(contract.plan || data.plan || 'starter').toLowerCase();
+          currentPeriodEnd = contract.currentPeriodEnd || data.currentPeriodEnd || null;
+          entitlementSource = 'subscriptions';
+          reason = 'PAID_CANONICAL_ENTITLEMENT';
+        } else {
+          const trial = await resolveHubMusicScaleTrialFromDb({
+            db, organizationId:orgId,
+            enabled:process.env.MUSICSCALE_HUB_TRIAL_V2_ENABLED === 'true',
+          });
+          verifiedStatus = trial.active ? 'trialing' : 'expired';
+          verifiedPlan = trial.active ? 'pro' : 'starter';
+          currentPeriodEnd = trial.effectiveEndsAt;
+          entitlementSource = trial.valid ? 'hub_internal_trial' : 'hub_trial_invalid';
+          reason = trial.active ? 'HUB_TRIAL_ACTIVE' :
+            trial.expired ? 'HUB_TRIAL_EXPIRED' : 'HUB_TRIAL_UNAVAILABLE';
+        }
+      }
+
       const accessAllowed = (verifiedStatus === 'active' || verifiedStatus === 'trialing');
       if (!accessAllowed) {
         verifiedPlan = 'starter';
@@ -1251,7 +1280,7 @@ app.post(
         usage: { libraryImports },
         supportTier: verifiedPlan === 'pro' ? 'priority' : verifiedPlan === 'advanced' ? 'basic_priority' : 'standard',
         currentPeriodEnd,
-        trialEndsAt: null,
+        trialEndsAt: entitlementSource === 'hub_internal_trial' ? currentPeriodEnd : null,
         planUpdatedAt: new Date().toISOString(),
         entitlementsVersion: 2,
       }, orgId, ecosystemAccess));
@@ -3821,6 +3850,27 @@ app.post(
         }
       }
       
+      // Never authorize living-library imports from a stale Hub trial cache.
+      // Real Stripe contracts continue to take precedence over trial expiry.
+      if (!unlimitedAccess && orgData?.apps?.musicscale?.trialSource === 'hub_internal_trial') {
+        const billingSnap = await db.collection('subscriptions').doc(organizationId).get();
+        const billing = billingSnap.exists ? billingSnap.data() || {} : {};
+        const contract = billing.apps?.musicscale || billing;
+        const paidStatus = String(contract.status || '').toLowerCase();
+        if (['active','trialing'].includes(paidStatus) &&
+            (contract.stripeSubscriptionId || billing.stripeSubscriptionId || billing.subscriptionId)) {
+          verifiedStatus = paidStatus;
+          verifiedPlan = String(contract.plan || billing.plan || 'starter').toLowerCase();
+        } else {
+          const trial = await resolveHubMusicScaleTrialFromDb({
+            db,organizationId,
+            enabled:process.env.MUSICSCALE_HUB_TRIAL_V2_ENABLED === 'true',
+          });
+          verifiedStatus = trial.active ? 'trialing' : 'expired';
+          verifiedPlan = trial.active ? 'pro' : 'starter';
+        }
+      }
+
       if (!unlimitedAccess && verifiedStatus !== 'active' && verifiedStatus !== 'trialing') {
         return res.json({
           success: false,
