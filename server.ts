@@ -3850,6 +3850,27 @@ app.post(
         }
       }
       
+      // Never authorize living-library imports from a stale Hub trial cache.
+      // Real Stripe contracts continue to take precedence over trial expiry.
+      if (!unlimitedAccess && orgData?.apps?.musicscale?.trialSource === 'hub_internal_trial') {
+        const billingSnap = await db.collection('subscriptions').doc(organizationId).get();
+        const billing = billingSnap.exists ? billingSnap.data() || {} : {};
+        const contract = billing.apps?.musicscale || billing;
+        const paidStatus = String(contract.status || '').toLowerCase();
+        if (['active','trialing'].includes(paidStatus) &&
+            (contract.stripeSubscriptionId || billing.stripeSubscriptionId || billing.subscriptionId)) {
+          verifiedStatus = paidStatus;
+          verifiedPlan = String(contract.plan || billing.plan || 'starter').toLowerCase();
+        } else {
+          const trial = await resolveHubMusicScaleTrialFromDb({
+            db,organizationId,
+            enabled:process.env.MUSICSCALE_HUB_TRIAL_V2_ENABLED === 'true',
+          });
+          verifiedStatus = trial.active ? 'trialing' : 'expired';
+          verifiedPlan = trial.active ? 'pro' : 'starter';
+        }
+      }
+
       if (!unlimitedAccess && verifiedStatus !== 'active' && verifiedStatus !== 'trialing') {
         return res.json({
           success: false,
