@@ -1,4 +1,4 @@
-MusicScale 0.10.9-beta.14 — 2026-10-08
-Correção preventiva de compatibilidade: funções de integrantes em projeções incompletas são lidas do vínculo legado da mesma organização, sem alterar ou migrar registros.
-Preserva campos explícitos, especialmente especialidades vazias definidas intencionalmente, e a segurança entre organizações.
-Auditoria global anônima e somente leitura mantida; assinaturas existentes e flags comerciais não são modificadas.
+MusicScale 0.10.9-beta.15 — 2026-10-08
+Correção da validação de integrantes para escalas de bandas: membresia ativa canônica da organização, independente da organização principal de navegação do usuário.
+Mantida a compatibilidade com vínculos antigos validamente associados ao mesmo tenant, com bloqueio de integrantes removidos ou desativados.
+Nenhum cadastro, escala ou assinatura é alterado por migração; trial, Stripe e créditos comerciais permanecem sem mudança.
