@@ -125,7 +125,7 @@
     "unauthorizedIntent": "No tienes permiso para gestionar el equipo.",
     "rolesUnavailable": "Funciones de equipo no disponibles para la configuración.",
     "add_existing_user": "Agregar existente",
-    "invite_user": "Invitar persona",
+    "invite_user": "Invitar integrante",
     "invite": {
       "title": "Invitar a {{organization}}",
       "organization": "organización",
@@ -182,7 +182,9 @@
       "create_error": "No fue posible crear la invitación. Inténtalo de nuevo.",
       "no_org": "No se encontró una organización activa.",
       "member_limit_unavailable": "No fue posible confirmar el límite de usuarios de la organización. Inténtalo de nuevo en unos instantes.",
-      "organization_unavailable": "La organización no está disponible para nuevas invitaciones en este momento."
+      "organization_unavailable": "La organización no está disponible para nuevas invitaciones en este momento.",
+      "musicscale_role_select": "Función musical en MusicScale (opcional)",
+      "musicscale_role_none": "Asignar función musical después"
     },
     "members_title": "Integrantes",
     "members_subtitle": "Abre un integrante para ver sus datos, función, especialidades y acciones permitidas por tu nivel de acceso.",
