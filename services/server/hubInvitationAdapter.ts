@@ -38,6 +38,8 @@ function validateAcceptSuccess(data: any): any {
   const organizationId = typeof data?.organizationId === 'string' ? data.organizationId.trim() : '';
   const activeOrganizationId = typeof data?.activeOrganizationId === 'string' ? data.activeOrganizationId.trim() : '';
   const membershipRole = typeof data?.membershipRole === 'string' ? data.membershipRole.trim() : '';
+  const authenticatedUid = typeof data?.authenticatedUid === 'string' ? data.authenticatedUid.trim() : '';
+  const authenticatedEmail = normalizeEmail(data?.authenticatedEmail);
   const reasonCode = typeof data?.reasonCode === 'string' ? data.reasonCode.trim() : '';
 
   if (
@@ -45,13 +47,15 @@ function validateAcceptSuccess(data: any): any {
     !VALID_ID.test(organizationId) ||
     activeOrganizationId !== organizationId ||
     !membershipRole ||
+    !VALID_ID.test(authenticatedUid) ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authenticatedEmail) ||
     typeof data?.alreadyMember !== 'boolean' ||
     !VALID_ACCEPT_REASON_CODES.has(reasonCode)
   ) {
     throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
   }
 
-  return { ...data, organizationId, activeOrganizationId, membershipRole, reasonCode };
+  return { ...data, organizationId, activeOrganizationId, membershipRole, authenticatedUid, authenticatedEmail, reasonCode };
 }
 
 export class HubInvitationAdapter {
