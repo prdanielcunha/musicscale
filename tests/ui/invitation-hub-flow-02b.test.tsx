@@ -71,10 +71,10 @@ describe('JoinPage invitation routes (H-R)', () => {
     await waitFor(() => expect(showToast).toHaveBeenCalled()); expect(screen.queryByText('false')).toBeNull();
     window.history.replaceState({}, '', original);
   });
-  it('R displays a safe backend reason', async () => {
+  it('R maps backend mismatch to a helpful localized invitation message', async () => {
     authState.user = { getIdToken: vi.fn(async () => 'id-token') }; acceptInvite.mockResolvedValue({ success: false, message: 'EMAIL_MISMATCH' });
     renderJoin('/join?invite=legacy', '/join'); fireEvent.click(screen.getByText('Aceitar convite'));
-    expect(await screen.findByText('EMAIL_MISMATCH')).toBeTruthy();
+    expect(await screen.findByText('Este convite pertence a outro endereço de e-mail.')).toBeTruthy();
   });
 });
 
