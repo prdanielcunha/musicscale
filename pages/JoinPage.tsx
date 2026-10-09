@@ -49,7 +49,7 @@ export default function JoinPage() {
       setError(
         ['UNAUTHORIZED', 'UNAUTHENTICATED', 'INVALID_ID_TOKEN'].includes(reason)
           ? localized.login
-          : reason === 'INVITE_IDENTITY_MISMATCH'
+          : ['INVITE_IDENTITY_MISMATCH', 'EMAIL_MISMATCH'].includes(reason)
             ? localized.email
             : localized.generic
       );
