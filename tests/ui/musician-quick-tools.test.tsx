@@ -38,7 +38,10 @@ describe('MusicScale Home musician quick tool rail', () => {
     const css = fs.readFileSync('components/dashboard/premium-music-dashboard.css','utf8');
     const home = fs.readFileSync('pages/DashboardPage.tsx','utf8');
     const stage = fs.readFileSync('pages/StageToolsPage.tsx','utf8');
+    const shell = fs.readFileSync('PrivateApp.tsx','utf8');
     expect(css).toContain('.ms-app-shell:has(.ms-premium-dashboard) .ms-main-shell');
+    expect(shell).toContain('https://millionsnest.com/dashboard/billing');
+    expect(shell).not.toContain('/dashboard/musicscale/plans');
     expect(css).toContain('.ms-premium-dashboard {');
     expect(css).toContain('background: transparent;');
     expect(css).toContain('.ms-premium-quick-tools__rail');
