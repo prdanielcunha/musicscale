@@ -16,7 +16,7 @@ const instrument = {
 const person = {
   id: 'member-a', uid: 'member-a', organizationId: 'org-a',
   displayName: 'Integrante da Equipe', specialtyIds: ['inst-vocal'],
-} as UserProfile;
+} as unknown as UserProfile;
 
 function Subject({
   users = [person], status = 'ready', onRetry,
