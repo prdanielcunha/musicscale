@@ -42,7 +42,8 @@ interface ScopedOfflineSnapshot {
 
 export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const musicData = useMusicData();
-  const { user, effectiveOrganizationId, entitlements } = useAuth();
+  const { user, effectiveOrganizationId } = useAuth();
+  const { entitlements } = useAuth();
   const isHubInternalTrial = !!effectiveOrganizationId &&
     entitlements?.organizationId === effectiveOrganizationId &&
     entitlements.entitlementSource === 'hub_internal_trial';
