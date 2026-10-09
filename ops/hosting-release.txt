@@ -1,4 +1,6 @@
-MusicScale 0.10.9-beta.17 — 2026-10-08
-Compatibilidade do diretório de integrantes: membros ativos de vínculos antigos da mesma organização e proprietário verificado aparecem no seletor mesmo sem projeção canônica materializada.
-A associação canônica continua soberana, especialmente registros removidos/inativos. A verificação de salvamento aceita proprietário exato da organização sem membership materializado, mas não amplia permissões para outras organizações.
-Nenhum registro Firestore, função, assinatura ou escala é migrado/alterado nesta atualização. Preserva correção responsiva beta.16 e todos os recursos já em produção.
+MusicScale 0.10.9-beta.18 — 2026-10-08
+Correção urgente: o formulário de Escala Fixa exibe funções e integrantes juntos em celular, tablet e computador, sem prender a pessoa em uma aba invisível.
+Ao abrir, a lista é revalidada na API autenticada e limitada à organização atual. Integrantes ativos podem ser atribuídos mesmo sem especialidade previamente cadastrada.
+O salvamento continua exigindo nome e uma atribuição real. Diretório indisponível mostra opção de tentar novamente, sem inventar integrantes.
+Preserva as correções beta.16 e beta.17, incluindo vínculos antigos verificados por organização.
+Sem alterações de dados Firestore, assinaturas Stripe e flags comerciais.
