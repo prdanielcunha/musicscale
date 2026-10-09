@@ -57,32 +57,44 @@ describe('Hub internal trial music gateway protects Admin SDK routes',()=>{
       .organizationId).toBe('org-1');
   });
 
+  it('does not bypass expired grants when new trial acquisition flag is disabled', async()=>{
+    const expired={...validTrial,beginsAt:new Date(now-15*DAY),expiresAt:new Date(now-DAY)};
+    const old=process.env.MUSICSCALE_HUB_TRIAL_V2_ENABLED;
+    try {
+      process.env.MUSICSCALE_HUB_TRIAL_V2_ENABLED='false';
+      expect(await canUseHubTrialMusicWorkspace({db:fakeDb({marker:true,trial:expired}),
+        organizationId:orgId,now})).toEqual({ok:false,error:'HUB_TRIAL_EXPIRED'});
+    } finally {
+      if(old===undefined)delete process.env.MUSICSCALE_HUB_TRIAL_V2_ENABLED;
+      else process.env.MUSICSCALE_HUB_TRIAL_V2_ENABLED=old;
+    }
+  });
   it('allows legacy organization regardless of internal trial toggle',async()=>{
-    expect((await canUseHubTrialMusicWorkspace({db:fakeDb({marker:false}),organizationId:orgId,enabled:true})).ok).toBe(true);
+    expect((await canUseHubTrialMusicWorkspace({db:fakeDb({marker:false}),organizationId:orgId})).ok).toBe(true);
   });
   it('allows active server-issued Hub trial and verified MusicScale paid conversion',async()=>{
     expect((await canUseHubTrialMusicWorkspace({db:fakeDb({marker:true,trial:validTrial}),
-      organizationId:orgId,enabled:true,now})).ok).toBe(true);
+      organizationId:orgId,now})).ok).toBe(true);
     const paid={apps:{musicscale:{status:'active',stripeSubscriptionId:'sub_ms'}}};
     expect((await canUseHubTrialMusicWorkspace({db:fakeDb({marker:true,trial:{...validTrial,status:'expired'},subscription:paid}),
-      organizationId:orgId,enabled:true,now})).ok).toBe(true);
+      organizationId:orgId,now})).ok).toBe(true);
   });
   it('denies expired trial even if another app has active Stripe subscription',async()=>{
     const other={status:'active',stripeSubscriptionId:'sub_local',
       apps:{nestlocal:{status:'active',stripeSubscriptionId:'sub_local'}}};
     const expired={...validTrial,beginsAt:new Date(now-15*DAY),expiresAt:new Date(now-DAY)};
     expect(await canUseHubTrialMusicWorkspace({db:fakeDb({marker:true,trial:expired,subscription:other}),
-      organizationId:orgId,enabled:true,now})).toEqual({ok:false,error:'HUB_TRIAL_EXPIRED'});
+      organizationId:orgId,now})).toEqual({ok:false,error:'HUB_TRIAL_EXPIRED'});
   });
   it('fails closed on untrusted grants and read outage after a new trial is identified',async()=>{
     expect((await canUseHubTrialMusicWorkspace({db:fakeDb({marker:true,trial:{...validTrial,revoked:true}}),
-      organizationId:orgId,enabled:true,now})).ok).toBe(false);
+      organizationId:orgId,now})).ok).toBe(false);
     expect(await canUseHubTrialMusicWorkspace({db:fakeDb({marker:true,throwOnTrial:true}),
-      organizationId:orgId,enabled:true,now})).toEqual({ok:false,error:'HUB_TRIAL_VERIFICATION_UNAVAILABLE'});
+      organizationId:orgId,now})).toEqual({ok:false,error:'HUB_TRIAL_VERIFICATION_UNAVAILABLE'});
   });
   it('middleware returns 403 and never runs the next handler on expired cohort',async()=>{
     const expired={...validTrial,beginsAt:new Date(now-15*DAY),expiresAt:new Date(now-DAY)};
-    const guard=createHubTrialWorkspaceMiddleware({db:fakeDb({marker:true,trial:expired}),enabled:()=>true});
+    const guard=createHubTrialWorkspaceMiddleware({db:fakeDb({marker:true,trial:expired})});
     const next=vi.fn();const json=vi.fn();const set=vi.fn();
     await guard({path:'/api/v1/music-data/bootstrap',query:{organizationId:orgId}},
       {status:vi.fn(()=>({json})),set},next);
