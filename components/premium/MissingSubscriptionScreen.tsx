@@ -27,7 +27,8 @@ export const MissingSubscriptionScreen: React.FC<{ resolution?: SubscriptionAcce
     (entitlements?.entitlementSource === 'hub_internal_trial' && entitlements?.status === 'expired');
   const isPaymentIssue = status === 'payment_failed';
   // Billing capability is distinct from MusicScale song/scale permissions.
-  const canManageBilling = isGlobalAdmin || isOwner || hasCapability('billing.manage');
+  const canManageBilling = isGlobalAdmin || isOwner ||
+    hasCapability('organization.billing.manage') || hasCapability('billing.manage');
 
   const handlePlansRedirect = () => {
     const url = entitlementsService.getMillionsNestBaseUrl();
