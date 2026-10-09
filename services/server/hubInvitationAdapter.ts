@@ -161,7 +161,11 @@ export class HubInvitationAdapter {
   async accept(bearer: string, token: string, organizationId: string) {
     if (!VALID_ID.test(organizationId)) throw new HubInvitationError(400, 'INVALID_ORGANIZATION_ID');
     const result = await this.post('/api/v1/invitations/accept', bearer, { token, organizationId });
-    return validateAcceptSuccess(result);
+    const validated = validateAcceptSuccess(result);
+    if (validated.organizationId !== organizationId) {
+      throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
+    }
+    return validated;
   }
 }
 
