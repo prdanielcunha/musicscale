@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { nestAiProtectedHeaders } from "../services/nestAiBrowser";
+import { PinnedReleaseHighlights } from "../components/PinnedReleaseHighlights";
 import { 
   Sparkles, 
   Zap, 
@@ -307,6 +308,11 @@ export const UpdatesPage: React.FC = () => {
           >
             {t('updates.page_desc', 'Projetamos, refinamos e aprimoramos o ecossistema constantemente para silenciar o ruído operacional e dar liberdade no altar.')}
           </motion.p>
+        </div>
+
+        {/* Pinned product milestones always precede the chronological API changelog. */}
+        <div className="mb-10 rounded-[28px] border border-white/[0.08] bg-[#09090c] p-5 shadow-[0_25px_70px_rgba(0,0,0,0.22)] sm:p-8">
+          <PinnedReleaseHighlights titleId="updates-featured-title" />
         </div>
 
         {/* Dynamic Category Filter System - Stripe Styled */}
