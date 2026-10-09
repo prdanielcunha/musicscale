@@ -45,9 +45,12 @@ describe('MusicScale Home musician quick tool rail', () => {
     expect(css).toContain('.ms-premium-dashboard {');
     expect(css).toContain('background: transparent;');
     expect(css).toContain('.ms-premium-quick-tools__rail');
-    expect(home.indexOf('<HomeFocusCard')).toBeLessThan(home.indexOf('<MusicianQuickTools'));
-    expect(home.indexOf('<MusicianQuickTools')).toBeLessThan(home.indexOf('<TrialProgressInline'));
-    expect(home).toContain('{premiumDashboard && (');
+    expect(home).toContain("experience.mode === 'no-upcoming-event'");
+    expect(home).toContain("experience.mode === 'create-next-event'");
+    expect(home).toContain('{showToolsEarly && quickTools}');
+    expect(home).toContain('{!showToolsEarly && quickTools}');
+    expect(home.indexOf('{!showToolsEarly && quickTools}')).toBeLessThan(home.indexOf('<TrialProgressInline'));
+    expect(home).toContain("VITE_NEW_DASHBOARD_UI_PRESENTATION === 'true'");
     expect(stage).toContain('ms-stage-tool-metronome');
     expect(stage).toContain('ms-stage-tool-pads');
     expect(stage).toContain("requestedTool !== 'pads' && requestedTool !== 'metronome'");
