@@ -77,7 +77,7 @@ export class HubJoinRequestAdapter {
 
   async createForOwnerEmail(bearer: string, ownerEmailInput: string) {
     const ownerEmail = typeof ownerEmailInput === 'string' ? ownerEmailInput.trim().toLowerCase() : '';
-    if (!ownerEmail || ownerEmail.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(ownerEmail)) {
+    if (!ownerEmail || ownerEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) {
       throw new HubJoinRequestError(400, 'INVALID_OWNER_EMAIL');
     }
     const data = await this.post('/api/v1/join-requests/by-owner-email', bearer, { ownerEmail });
