@@ -207,10 +207,7 @@ app.use((err: any, req: any, res: any, next: any) => {
 
 // Authenticated music APIs use Admin SDK and bypass client Firestore Rules.
 // Apply the Hub grant gate BEFORE any musical BFF/AI/write handler is registered.
-app.use(createHubTrialWorkspaceMiddleware({
-  db,
-  enabled: () => process.env.MUSICSCALE_HUB_TRIAL_V2_ENABLED === 'true',
-}));
+app.use(createHubTrialWorkspaceMiddleware({ db }));
 
 // Critical first-screen read fallback. The browser prefers direct Firestore reads;
 // this route is only used after those reads fail and re-authorizes the exact tenant.
@@ -1230,7 +1227,7 @@ app.post(
         } else {
           const trial = await resolveHubMusicScaleTrialFromDb({
             db, organizationId:orgId,
-            enabled:process.env.MUSICSCALE_HUB_TRIAL_V2_ENABLED === 'true',
+            enabled:true, // Recognition of EXISTING grants cannot depend on acquisition rollout.
           });
           verifiedStatus = trial.active ? 'trialing' : 'expired';
           verifiedPlan = trial.active ? 'pro' : 'starter';
@@ -3879,7 +3876,7 @@ app.post(
         } else {
           const trial = await resolveHubMusicScaleTrialFromDb({
             db,organizationId,
-            enabled:process.env.MUSICSCALE_HUB_TRIAL_V2_ENABLED === 'true',
+            enabled:true, // Recognition of EXISTING grants cannot depend on acquisition rollout.
           });
           verifiedStatus = trial.active ? 'trialing' : 'expired';
           verifiedPlan = trial.active ? 'pro' : 'starter';
