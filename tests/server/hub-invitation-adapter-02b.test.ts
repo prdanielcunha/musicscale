@@ -156,6 +156,15 @@ describe('02B Hub acceptance response validation', () => {
     await expect(adapter.accept('Bearer x', 'token', 'org-1')).rejects.toMatchObject({ status: 502, reasonCode: 'INVALID_HUB_RESPONSE', ambiguous: true });
   });
 
+  it('rejects a Hub success for a different tenant before any musical role write', async () => {
+    const adapter = new HubInvitationAdapter({
+      origin: 'https://hub.example',
+      fetch: vi.fn(async () => response(200, validAccept({ organizationId: 'org-2', activeOrganizationId: 'org-2' }))) as any
+    });
+    await expect(adapter.accept('Bearer x', 'invitation', 'org-1'))
+      .rejects.toMatchObject({ status: 502, reasonCode: 'INVALID_HUB_RESPONSE', ambiguous: true });
+  });
+
   it('rejects HTTP 2xx success:false', async () => {
     const adapter = new HubInvitationAdapter({ origin: 'https://hub.example', fetch: vi.fn(async () => response(200, { success: false })) as any });
     await expect(adapter.accept('Bearer x', 'token', 'org-1')).rejects.toMatchObject({ status: 502, reasonCode: 'INVALID_HUB_RESPONSE', ambiguous: true });
