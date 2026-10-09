@@ -51,6 +51,9 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Build production bundle
+        env:
+          # Visual-only rollout: never opt in Hub no-card grant, paywall or pricing.
+          VITE_NEW_DASHBOARD_UI_PRESENTATION: 'true'
         run: |
           set -euo pipefail
           npm run build

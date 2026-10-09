@@ -26,5 +26,11 @@ describe('MusicScale global data integrity audit - non-destructive privacy contr
     expect(script).toContain('membersWithConflictingRoleIds');
     expect(script).toContain('fixedFormationsRoot');
     expect(script).toContain('fixedFormationsNested');
+    expect(script).toContain('collectVerifiedMinistryNameMatches');
+    expect(script).toContain('projection.ministryFunction');
+    expect(script).toContain('canonical.ministryFunction');
+    expect(script).toContain('tenantBound(s.data(), id, uid)');
+    expect(script).toContain('membersWithAmbiguousLegacyMinistryNames');
+    expect(script).not.toContain('canonical.role,');
   });
 });

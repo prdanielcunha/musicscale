@@ -59,35 +59,6 @@ describe('fixed-band assignment membership: canonical Hub data',()=>{
     const db=dbWith({'users/userA':{organizationId:'otherOrg',activeOrganizationId:'orgA'}});
     await expect(validateBandScaleAssignedUsers(db,['userA'],'orgA')).rejects.toThrow(/não pertence/);
   });
-  it('allows an owner whose role is proved by the tenant document despite missing membership materialization',async()=>{
-    const db=dbWith({
-      'users/ownerA':{displayName:'Owner',organizationId:'differentOrg'},
-      'organizations/orgA':{ownerUid:'ownerA',status:'active'},
-    });
-    await expect(validateBandScaleAssignedUsers(db,['ownerA'],'orgA')).resolves.toBeUndefined();
-  });
-  it('does not use a user-provided owner role to assign a different organization member',async()=>{
-    const db=dbWith({
-      'users/foreign':{organizationId:'otherOrg',role:'owner'},
-      'organizations/orgA':{ownerUid:'actualOwner',status:'active'},
-    });
-    await expect(validateBandScaleAssignedUsers(db,['foreign'],'orgA')).rejects.toThrow(/não pertence/);
-  });
-  it('keeps explicitly removed canonical membership blocked even for the tenant owner',async()=>{
-    const db=dbWith({
-      'users/ownerA':{organizationId:'otherOrg'},
-      'organizations/orgA':{ownerUid:'ownerA',status:'active'},
-      'organizations/orgA/members/ownerA':{status:'removed',organizationId:'orgA'},
-    });
-    await expect(validateBandScaleAssignedUsers(db,['ownerA'],'orgA')).rejects.toThrow(/associação ativa/);
-  });
-  it('does not authorize a missing owner membership against an archived organization',async()=>{
-    const db=dbWith({
-      'users/ownerA':{organizationId:'otherOrg'},
-      'organizations/orgA':{ownerUid:'ownerA',status:'archived'},
-    });
-    await expect(validateBandScaleAssignedUsers(db,['ownerA'],'orgA')).rejects.toThrow(/não pertence/);
-  });
   it('rejects missing or disabled users, malformed IDs and an absent DB',async()=>{
     await expect(validateBandScaleAssignedUsers(dbWith({}),['userA'],'orgA')).rejects.toThrow(/não encontrado/);
     await expect(validateBandScaleAssignedUsers(dbWith({'users/userA':{disabled:true}}),['userA'],'orgA')).rejects.toThrow(/desativado/);

@@ -26,6 +26,20 @@ const versionManifestPlugin: Plugin = {
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
+    // Preview deployment is dispatched from the production-trusted GitHub
+    // workflow, but checks out MAIN. Restrict visual-only build flags to
+    // exactly that temporary GitHub preview workflow and channel. Production
+    // and local builds never inherit these flags.
+    const isPremiumReviewBuild =
+      process.env.GITHUB_ACTIONS === 'true' &&
+      process.env.GITHUB_WORKFLOW === 'MusicScale Main Firebase Preview' &&
+      process.env.PREVIEW_CHANNEL === 'main-review';
+    const previewOnlyVisualFlags = isPremiumReviewBuild ? {
+      'import.meta.env.VITE_NEW_TRIAL_UI_PRESENTATION': JSON.stringify('true'),
+      'import.meta.env.VITE_NEW_PLANS_UI_PRESENTATION': JSON.stringify('true'),
+      'import.meta.env.VITE_NEW_ONBOARDING_UI_PRESENTATION': JSON.stringify('true'),
+      'import.meta.env.VITE_NEW_DASHBOARD_UI_PRESENTATION': JSON.stringify('true'),
+    } : {};
     return {
       server: {
         port: 3000,
@@ -109,8 +123,7 @@ export default defineConfig(({ mode }) => {
           }
         })
       ],
-      define: {
-      },
+      define: previewOnlyVisualFlags,
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),

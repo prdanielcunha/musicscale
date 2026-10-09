@@ -51,7 +51,72 @@
     "previewValidationFailed": "Preview validation failed",
     "ariaLabelClose": "Close"
   },
+  "dashboardTrial": {
+    "active": "Trial active",
+    "daysRemaining_one": "{{count}} day left",
+    "daysRemaining_other": "{{count}} days left",
+    "effectiveUntil": "Until {{date}}"
+  },
   "premium": {
+    "planSelection": {
+      "eyebrow": "CONTINUE YOUR JOURNEY",
+      "title": "Choose your ideal plan",
+      "subtitle": "Compare features and choose a plan for your organization. MillionsNest handles confirmation and billing.",
+      "preserveTitle": "Your data stays intact",
+      "preserveBody": "Songs, members, roles and setlists remain with your existing organization.",
+      "billingTitle": "Billing by MillionsNest",
+      "billingBody": "The Hub verifies your organization and Stripe securely processes payment.",
+      "periodLabel": "Billing period",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "catalogError": "We couldn't load current prices from the official catalog. Please retry.",
+      "retry": "Try again",
+      "choosePlan": "Choose a plan",
+      "recommended": "Most popular",
+      "description": {
+        "starter": "Essentials for teams getting organized.",
+        "advanced": "For growing ministries and richer repertoire.",
+        "pro": "For teams needing the complete music experience."
+      },
+      "unavailable": "Unavailable",
+      "perMonth": "Billed monthly",
+      "perYear": "Billed yearly",
+      "savings": "Save {{count}}% compared to 12 monthly payments",
+      "verifiedCatalog": "Prices and terms provided by MillionsNest",
+      "manage": "Manage existing subscription",
+      "continue": "Continue to payment",
+      "managerOnly": "Only the billing manager can change the plan.",
+      "disclaimer": "Confirm final pricing, discounts, billing period and renewal in MillionsNest checkout."
+    },
+    "recovery": {
+      "backToRecovery": "Back to access",
+      "suspendedEyebrow": "MUSIC ACCESS SUSPENDED",
+      "verifyingEyebrow": "VERIFYING ACCESS",
+      "expiredTitle": "Your trial has ended",
+      "unavailableTitle": "Pick up where you left off.",
+      "paymentTitle": "Update your subscription.",
+      "memberTitle": "This organization's access is unavailable.",
+      "syncTitle": "We're verifying your access.",
+      "expiredDescription": "Your evaluation period has ended. Music features return once a plan is activated.",
+      "paymentDescription": "A payment needs attention. Billing is managed by MillionsNest.",
+      "memberDescription": "Ask your organization's billing owner to restore access. Your records are not deleted by this restriction.",
+      "syncDescription": "We couldn't verify your access yet. Sync again before starting another purchase.",
+      "preservedTitle": "Your work stays with your organization",
+      "preservedDescription": "Songs, roles, teams and setlists are not deleted when the trial period ends.",
+      "plansAction": "View plans and subscribe",
+      "regularizeAction": "Update payment at MillionsNest",
+      "hubAction": "Open MillionsNest",
+      "retryAction": "Check access again",
+      "verifyingAction": "Checking access...",
+      "whatNowTitle": "What happens now",
+      "restrictedMusicTitle": "Repertoire and setlists unavailable",
+      "restrictedMusicDescription": "Music content cannot be viewed or edited while access is suspended.",
+      "restrictedTeamTitle": "Invites and editing paused",
+      "restrictedTeamDescription": "Team members, lineups and setlists cannot be changed.",
+      "restrictedAiTitle": "AI and stage tools paused",
+      "restrictedAiDescription": "Protected features return when access is restored.",
+      "hubSecurity": "Subscriptions and payments managed by MillionsNest"
+    },
     "upgradeModal": {
       "title": "Unlock Premium Features",
       "description": "The MillionsNest ecosystem manages all licenses for MusicScale. Upgrade at any time and immediately unleash your team on the altar.",
@@ -209,6 +274,20 @@
     "stage_tools": "Stage Tools"
   },
   "dashboard": {
+    "quickTools": {
+      "eyebrow": "READY TO PLAY",
+      "title": "Quick tools",
+      "all": "All tools",
+      "tuner": "Tuner",
+      "metronome": "Metronome",
+      "pads": "Pads",
+      "chords": "Chord sheets",
+      "performance": "Stage mode",
+      "open": "Open {{tool}}"
+    },
+    "premium": {
+      "eyebrow": "MUSIC · PEOPLE · PURPOSE"
+    },
     "title": "Ministry Dashboard",
     "welcome": "Hello, {{name}}",
     "welcome_sub": "Manage your worship ministry with excellence and focus.",

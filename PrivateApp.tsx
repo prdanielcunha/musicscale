@@ -206,7 +206,7 @@ const AppLayout: React.FC = () => {
                            </svg>
                            {subscriptionBanner}
                         </span>
-                        <a href="https://www.millionsnest.com/dashboard/musicscale/plans" target="_blank" rel="noopener noreferrer" className="shrink-0 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-indigo-400 md:text-indigo-600 md:dark:text-indigo-400 hover:text-indigo-300 md:hover:text-indigo-700 md:dark:hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1 rounded transition-colors whitespace-nowrap">
+                        <a href="https://millionsnest.com/dashboard/billing" target="_blank" rel="noopener noreferrer" className="shrink-0 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-indigo-400 md:text-indigo-600 md:dark:text-indigo-400 hover:text-indigo-300 md:hover:text-indigo-700 md:dark:hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1 rounded transition-colors whitespace-nowrap">
                             {t('premiumV2.shell.managePlan')}
                         </a>
                     </div>

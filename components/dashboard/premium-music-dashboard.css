@@ -1,0 +1,81 @@
+/*
+ * MusicScale premium home: light belongs to the whole app canvas, never to
+ * the max-width dashboard column. The :has selector confines it to opted-in
+ * Home only, so other app routes and the legacy dashboard are untouched.
+ */
+.ms-app-shell:has(.ms-premium-dashboard) .ms-main-shell {
+  background-color: #05070d;
+  background-image:
+    radial-gradient(ellipse 110% 68% at 4% -8%, rgba(2, 131, 169, 0.18), transparent 74%),
+    radial-gradient(ellipse 110% 72% at 104% 40%, rgba(57, 55, 134, 0.13), transparent 80%),
+    radial-gradient(ellipse 86% 48% at 48% 106%, rgba(20, 53, 104, 0.085), transparent 82%),
+    linear-gradient(180deg, #07111b 0%, #080c15 44%, #05070d 100%);
+}
+
+.ms-app-shell:has(.ms-premium-dashboard) .ms-v3-header {
+  background-color: rgba(5, 9, 16, 0.82);
+}
+
+.ms-app-shell:has(.ms-premium-dashboard) .ms-route-scroll,
+.ms-app-shell:has(.ms-premium-dashboard) .ms-route-workspace,
+.ms-premium-dashboard {
+  background: transparent;
+}
+
+.ms-premium-dashboard {
+  color-scheme: dark;
+  color: #f7f7fa;
+  /* No rectangular background, clipped halo, filter blur or fixed overlay. */
+}
+
+.ms-premium-dashboard__header {
+  position: relative;
+  padding: 10px 1px 3px;
+}
+
+.ms-premium-dashboard__header::after {
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: 22px;
+  background: linear-gradient(90deg, rgba(62,213,221,0.32), rgba(79,140,255,0.12), transparent 94%);
+}
+
+.ms-premium-dashboard :is(button, a):focus-visible {
+  outline: 2px solid #3ed5dd;
+  outline-offset: 3px;
+}
+
+.ms-premium-dashboard :is(button, a) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ms-premium-dashboard [data-testid="ms-trial-progress-inline"] {
+  box-shadow: inset 0 1px rgba(255,255,255,0.04);
+}
+
+.ms-premium-quick-tools__rail {
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+}
+.ms-premium-quick-tools__rail::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .ms-premium-dashboard {
+    padding-top: 20px;
+    padding-bottom: max(100px, calc(env(safe-area-inset-bottom) + 80px));
+    overflow-x: clip;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-premium-dashboard *,
+  .ms-premium-dashboard *::before,
+  .ms-premium-dashboard *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}

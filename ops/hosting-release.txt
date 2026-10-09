@@ -1,3 +1,10 @@
+MusicScale 0.10.9-beta.28 — CANDIDATO DE RELEASE — 2026-10-09
+PRESERVAÇÃO P0: inclui INTEGRALMENTE os 8 commits exclusivos da beta.27 de production (Google login sem timeout interativo indevido; Firebase App Check registrado; IA diagnóstico seguro; Hub convites/funções; bandas fixas).
+HOME PREMIUM: luz ambiente/degradê aplicado ao shell da página inteira, sem retângulo interno; atalhos compactos responsivos para afinador, metrônomo, pads, cifras e modo Performance conforme permissões. Sem fotos, preserva navegação.
+PROTEÇÕES: integra as salvaguardas da main (trial 14d, direitos pagos legados, backend/Rules, cache) SEM ativar aquisição comercial no ambiente público.
+RELEASE GATES: CANDIDATO EM DRAFT; NÃO MESCLAR NA BRANCH PRODUCTION até (1) auditoria P0 de funções, escalas e bandas fixas por tenant com snapshot e validação de cliente real, (2) smoke autenticado do Google/IA/cifra/salvar escala e reativação do Hub com contrato pago existente, (3) canário e plano de rollback. Nenhuma migração destrutiva, alteração Stripe ou concessão automática de trial.
+COMPATIBILIDADE: PWA, App Check, links/IA, versão, contratos legados e os hotfixes recentes devem permanecer íntegros.
+Preserva beta.27 integralmente:
 MusicScale 0.10.9-beta.27 — 2026-10-09
 P0 IA #447: diagnóstico de conexão segura no domínio real, sem login, dados de cliente, chamada NestAI ou exposição de tokens.
 Força atestação real nova; recusa certificar emulador. Importação e salvamento continuam protegidos pela autenticação e App Check existentes.

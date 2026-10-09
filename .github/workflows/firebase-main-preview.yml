@@ -67,6 +67,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/production'
     runs-on: ubuntu-latest
     environment: firebase-production
+    # Temporary preview builds are activated by Vite only when GitHub
+    # workflow identity AND PREVIEW_CHANNEL match this exact staging channel.
     steps:
       - name: Checkout latest main for homologation
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
