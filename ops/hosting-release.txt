@@ -1,5 +1,4 @@
-MusicScale 0.10.9-beta.19 — 2026-10-09
-Os destaques de recursos permanecem visíveis em Novidades: Afinador NestTuner, Pad de palco e Medleys inteligentes, com acesso direto e explicações em PT/EN/ES.
-Outras atualizações, refinamentos e hotfixes são apresentados separadamente e recolhidos por padrão.
-Preserva a correção urgente de escala fixa beta.18, que tornou visível o seletor de integrantes e usa diretório autenticado da organização.
-Nenhum dado de usuário, assinatura, regra de segurança nem flag comercial é modificado nesta revisão visual.
+MusicScale 0.10.9-beta.20 — 2026-10-09
+Hotfix de convites canônicos: convites por e-mail e link com organização informada abrem a autoridade do MillionsNest Hub para validar identidade e aceitar o vínculo.
+Preserva convites legados, autenticação existente de clientes, dados, funções, regras, Stripe e o hotfix paralelo de escalas.
+O Hub continua decidindo autorização e capacidade; nenhum acesso é concedido pela tela do MusicScale.
