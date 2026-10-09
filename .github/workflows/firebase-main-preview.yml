@@ -67,6 +67,13 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/production'
     runs-on: ubuntu-latest
     environment: firebase-production
+    # Build-time VISUAL-only canary flags on the temporary main-review channel.
+    # Never activate the Hub or MusicScale billing authorization flags here.
+    env:
+      VITE_NEW_TRIAL_UI_PRESENTATION: 'true'
+      VITE_NEW_PLANS_UI_PRESENTATION: 'true'
+      VITE_NEW_ONBOARDING_UI_PRESENTATION: 'true'
+      VITE_NEW_DASHBOARD_UI_PRESENTATION: 'true'
     steps:
       - name: Checkout latest main for homologation
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
