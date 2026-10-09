@@ -51,3 +51,37 @@ export function collectTenantMemberDirectoryCandidates(input: {
   }
   return [...results.values()];
 }
+
+/**
+ * A write may target an active canonical member, or a verified legacy member
+ * that the read-only directory already recognizes. A present canonical
+ * membership (including inactive/removed) always takes precedence.
+ *
+ * This grants NO Hub membership authority: the only permitted write target is
+ * the organization-scoped MusicScale profile projection.
+ */
+export async function isVerifiedTenantMemberForMusicScaleWrite(
+  db: any,
+  organizationId: string,
+  uid: string,
+  verifiedOwnerUid?: string | null,
+): Promise<boolean> {
+  if (!VALID_ID.test(organizationId) || !VALID_ID.test(uid)) return false;
+  const canonical = await db.collection('organizations').doc(organizationId).collection('members').doc(uid).get();
+  if (canonical.exists) {
+    const data = canonical.data() || {};
+    return active(data) && (!data.organizationId || data.organizationId === organizationId);
+  }
+
+  if (uid === verifiedOwnerUid) return true;
+
+  for (const id of [`${uid}_${organizationId}`, `${organizationId}_${uid}`]) {
+    const mirror = await db.collection('organization_members').doc(id).get();
+    if (!mirror.exists) continue;
+    const data = mirror.data() || {};
+    const mirrorUid = data.uid || data.userId || data.user_id;
+    const mirrorOrg = data.organizationId || data.organization_id;
+    if (mirrorUid === uid && mirrorOrg === organizationId && active(data, true)) return true;
+  }
+  return false;
+}
