@@ -57,6 +57,7 @@
     }
   },
   "users": {
+    "email_managed_by_hub": "El correo de acceso se gestiona en la cuenta MillionsNest y no se cambia aquí.",
     "unauthorizedIntent": "No tienes permiso para gestionar el equipo.",
     "rolesUnavailable": "Funciones de equipo no disponibles para la configuración.",
     "add_existing_user": "Agregar existente",

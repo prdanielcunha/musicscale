@@ -22,4 +22,17 @@ describe('Users owner/admin canonical management authority', () => {
     expect(source.match(/isCurrentOrganizationOwner \|\|/g)?.length).toBeGreaterThanOrEqual(2);
     expect(source.match(/isCurrentOrganizationAdmin \|\|/g)?.length).toBeGreaterThanOrEqual(2);
   });
+  it('routes changed names through tenant member profile instead of global user writes', () => {
+    const repository = readFileSync('services/MusicRepository.ts', 'utf8');
+    const server = readFileSync('server.ts', 'utf8');
+    expect(source).toContain('displayName: editName.trim()');
+    expect(source).not.toContain('email: editEmail,');
+    expect(repository).toContain("['roleId', 'musicscaleRole', 'ministryFunction', 'specialtyIds', 'displayName']");
+    expect(repository).toContain('/musicscale-members/');
+    expect(server).toContain('projectionData.displayName,');
+    expect(server).toContain('isVerifiedTenantMemberForMusicScaleWrite(');
+    expect(server).toContain('requestedFields.some(field => !MUSIC_SCALE_MEMBER_FIELDS.includes(field as any))');
+    expect(source).toContain('email_managed_by_hub');
+  });
+
 });
