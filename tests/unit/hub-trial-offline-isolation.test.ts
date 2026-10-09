@@ -21,6 +21,11 @@ describe('Internal Hub trial cannot retain reusable offline music rights',()=>{
     expect(provider).toContain('if (isHubInternalTrial || !offlineFallbackActive || !scopedOfflineData)');
   });
 
+  it('quarantines revoked/invalid server trials as well as expired grants',()=>{
+    expect(provider).toContain("entitlements.entitlementSource === 'hub_trial_invalid'");
+    expect(hook).toContain("entitlements.entitlementSource === 'hub_trial_invalid'");
+  });
+
   it('does not delete user-provided custom pads, song records or remote data',()=>{
     expect(cache).toContain('export async function purgeHubTrialStageCaches');
     expect(cache).toContain('offlineDB.cachedSongs');
