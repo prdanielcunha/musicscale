@@ -24,7 +24,7 @@ describe('02C migrated join-request authority boundaries', () => {
 
   it('onboarding sends owner email only and no caller uid authority in join payload', () => {
     const block = between(onboarding, 'const handleJoinOrg = async () => {', 'if (mode === "premium_join")');
-    expect(block).toContain('ownerEmail: joinEmail');
+    expect(block).toContain('ownerEmail: joinEmail.trim()');
     expect(block).not.toContain('userId: user.uid');
     expect(block).not.toContain('organizationId:');
     expect(block).not.toContain('organizationRole:');

@@ -133,6 +133,8 @@ const validHubAccept = (organizationId = 'org-1', overrides: any = {}) => ({
   organizationId,
   activeOrganizationId: organizationId,
   membershipRole: 'member',
+  authenticatedUid: 'user-1',
+  authenticatedEmail: 'current@example.com',
   alreadyMember: false,
   legacyTokenMigrated: false,
   reasonCode: 'INVITATION_CAN_BE_ACCEPTED',
@@ -350,6 +352,24 @@ describe('02B2 executable Hub-success acceptance', () => {
     expect(paths.some(path => path.startsWith('organization_members/'))).toBe(false);
     expect(paths.some(path => path.startsWith('users/'))).toBe(false);
     expect(paths.some(path => path.includes('/invites/'))).toBe(false);
+  });
+
+  it('canonical acceptance succeeds despite missing satellite Firebase Auth directory IAM', async () => {
+    const db = new FakeDb();
+    const auth = {
+      verifyIdToken: vi.fn(async () => { throw Object.assign(new Error('permission denied'), { code: 'auth/insufficient-permission' }); }),
+      getUser: vi.fn(async () => { throw new Error('permission denied'); })
+    };
+    const hub = { create: vi.fn(), accept: vi.fn(async () => validHubAccept()) };
+    const handlers = createInvitationCompatibilityHandlers({ db, auth, admin, hubFactory: () => hub as any });
+    const res = fakeRes();
+    await handlers.accept({ headers: { authorization: 'Bearer signed-user-token' }, body: { token: 'valid-invitation', organizationId: 'org-1' } }, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({ success: true, organizationId: 'org-1', roleProjectionApplied: false });
+    expect(auth.verifyIdToken).not.toHaveBeenCalled();
+    expect(auth.getUser).not.toHaveBeenCalled();
+    expect(hub.accept).toHaveBeenCalledWith('Bearer signed-user-token', 'valid-invitation', 'org-1');
+    expect(db.writes).toEqual([]);
   });
 
   it('ALREADY_MEMBER recovers a pending MusicScale role intent idempotently', async () => {
