@@ -1,4 +1,5 @@
-MusicScale 0.10.9-beta.20 — 2026-10-09
-Hotfix de segurança de sessão na reaplicação de formações fixas: confirma o usuário autenticado pelo Firebase antes de criar o registro da banda para o evento e renova o token. Quando não há sessão válida, a operação falha de forma segura sem gravar dados.
-Mantém a beta.19 com os destaques permanentes NestTuner, Pad e Medleys. Não altera dados de integrantes, funções, regras do Firestore, assinaturas Stripe ou flags comerciais.
-A correção ainda exige QA integral e validação do caso intermitente #429 antes da promoção.
+MusicScale 0.10.9-beta.21 — 2026-10-09
+Hotfix de convites: ingresso nativo por e-mail ou link com identidade validada pelo Hub e vínculo direto à organização, sem redirecionamentos, com função musical aplicada corretamente.
+Solicitação de entrada pelo e-mail do proprietário usa descoberta e autorização do Hub. Mensagens acessíveis em PT/EN/ES substituem alertas técnicos.
+Mantém integralmente o hotfix anterior de bandas fixas beta.20: sessão Firebase hidratada antes de salvar o snapshot e recusa segura de credenciais inconsistentes.
+Nenhuma mudança em Firestore Rules, dados, assinaturas, cobrança, planos ou permissões globais.
