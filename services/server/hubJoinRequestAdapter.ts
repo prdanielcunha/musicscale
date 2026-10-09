@@ -47,7 +47,7 @@ function validateResolutionSuccess(data: any, organizationId: string, requestId:
 export class HubJoinRequestAdapter {
   constructor(private options: { origin?: string; fetch?: typeof fetch; timeoutMs?: number } = {}) {}
 
-  private async post(path: string, bearer: string): Promise<any> {
+  private async post(path: string, bearer: string, body: object = {}): Promise<any> {
     if (typeof bearer !== 'string' || !bearer.startsWith('Bearer ') || bearer.length <= 7) {
       throw new HubJoinRequestError(401, 'UNAUTHORIZED');
     }
@@ -57,7 +57,7 @@ export class HubJoinRequestAdapter {
       const response = await (this.options.fetch || fetch)(`${resolveHubOrigin(this.options.origin)}${path}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: bearer },
-        body: JSON.stringify({}),
+        body: JSON.stringify(body),
         signal: controller.signal
       });
       let data: any = {};
@@ -73,6 +73,23 @@ export class HubJoinRequestAdapter {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  async createForOwnerEmail(bearer: string, ownerEmailInput: string) {
+    const ownerEmail = typeof ownerEmailInput === 'string' ? ownerEmailInput.trim().toLowerCase() : '';
+    if (!ownerEmail || ownerEmail.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(ownerEmail)) {
+      throw new HubJoinRequestError(400, 'INVALID_OWNER_EMAIL');
+    }
+    const data = await this.post('/api/v1/join-requests/by-owner-email', bearer, { ownerEmail });
+    const reasonCode = typeof data?.reasonCode === 'string' ? data.reasonCode.trim() : '';
+    if (data?.success !== true || !CREATE_SUCCESS_REASONS.has(reasonCode)) {
+      throw new HubJoinRequestError(502, 'INVALID_HUB_RESPONSE', true);
+    }
+    if (reasonCode === 'ALREADY_MEMBER') return { success: true as const, reasonCode };
+    if (!VALID_ID.test(data.requestId) || !Number.isInteger(data.generation) || data.generation < 1) {
+      throw new HubJoinRequestError(502, 'INVALID_HUB_RESPONSE', true);
+    }
+    return { success: true as const, reasonCode, requestId: data.requestId, generation: data.generation };
   }
 
   async create(bearer: string, organizationIdInput: string) {
