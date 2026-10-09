@@ -634,7 +634,9 @@ export const DashboardPage: React.FC = () => {
   // scale card; otherwise the real next event remains the first main focus.
   const showToolsEarly = premiumDashboard &&
     (experience.mode === 'no-upcoming-event' || experience.mode === 'create-next-event');
-  const quickTools = premiumDashboard ? (
+  // All tool destinations require the same performance capability at the router.
+  // Never advertise a shortcut that will resolve to an access-denied page.
+  const quickTools = premiumDashboard && canUsePerformance ? (
     <MusicianQuickTools
       canUsePerformance={canUsePerformance}
       onOpenPerformance={handleExplorePerformance}
