@@ -32,7 +32,7 @@ export default function JoinPage() {
       window.location.replace('/');
     } catch (e: any) {
       const reason = String(e?.message || '');
-      const lang = String(i18n.language || 'pt').toLowerCase();
+      const lang = String(i18n?.language || 'pt').toLowerCase();
       const localized = lang.startsWith('en') ? {
         login: 'Your session needs to be refreshed. Sign in and try again.',
         email: 'This invitation belongs to a different email address.',
