@@ -25,7 +25,7 @@ export function CanonicalPlanSelector({ entitlement, currentPlan, status, loadin
     hasCapability('organization.billing.manage') || hasCapability('billing.manage');
 
   const isExistingSubscription = entitlement?.entitlementSource !== 'hub_internal_trial' &&
-    ['active','past_due','canceled'].includes(status);
+    ['active','trialing','past_due','canceled'].includes(status);
   const [cycle, setCycle] = useState<CatalogCycle>('monthly');
   const [tier, setTier] = useState<MusicScalePlan>(isExistingSubscription ? currentPlan : 'advanced');
   const [catalog, setCatalog] = useState<CatalogPriceMap>({});

@@ -81,6 +81,7 @@
       "disclaimer": "Preço final, descontos, período e renovação devem ser confirmados no checkout do MillionsNest."
     },
     "recovery": {
+      "backToRecovery": "Voltar ao acesso",
       "suspendedEyebrow": "ACESSO MUSICAL SUSPENSO",
       "verifyingEyebrow": "VERIFICAÇÃO DE ACESSO",
       "expiredTitle": "Seu teste terminou",
