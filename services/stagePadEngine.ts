@@ -1,4 +1,5 @@
 import type { CustomPadAssetRow } from './offline/database';
+import { getOfficialWarmPadAssetUrl } from './officialPadLibrary';
 
 const NOTE_FREQUENCIES: Record<string, number> = {
   C: 130.8128,
@@ -159,6 +160,7 @@ interface Voice {
   delay: DelayNode;
   feedback: GainNode;
   release: number;
+  cleanup?: () => void;
 }
 
 const KEY_INDEX: Record<StagePadKey, number> = {
@@ -267,6 +269,52 @@ class StagePadEngine {
     return { ...path, sources, release: config.release };
   }
 
+  private async createOfficialWarmVoice(key: StagePadKey): Promise<Voice> {
+    const context = this.getContext();
+    const config = PRESET_CONFIG.warm;
+    const path = this.createSignalPath(config);
+    const audio = new Audio();
+
+    audio.preload = 'auto';
+    audio.loop = true;
+    audio.src = getOfficialWarmPadAssetUrl(key);
+
+    const mediaSource = context.createMediaElementSource(audio);
+    mediaSource.connect(path.gain);
+
+    try {
+      // Keep play() inside the original user-triggered start path. This is
+      // important on iOS/WebKit, where deferred playback can be blocked.
+      await audio.play();
+    } catch (error) {
+      try {
+        mediaSource.disconnect();
+      } catch {
+        // Already disconnected.
+      }
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      throw error;
+    }
+
+    return {
+      ...path,
+      sources: [],
+      release: config.release,
+      cleanup: () => {
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+        try {
+          mediaSource.disconnect();
+        } catch {
+          // Already disconnected.
+        }
+      },
+    };
+  }
+
   private async decodeCustomAsset(asset: CustomPadAssetRow) {
     const context = this.getContext();
     const signature = `${asset.id}:${asset.updatedAt}:${asset.size}`;
@@ -315,6 +363,15 @@ class StagePadEngine {
         // Already stopped.
       }
     });
+
+    if (voice.cleanup) {
+      const cleanup = voice.cleanup;
+      if (afterSeconds <= 0) {
+        cleanup();
+      } else {
+        globalThis.setTimeout(cleanup, Math.ceil(afterSeconds * 1000));
+      }
+    }
   }
 
   async start(
@@ -332,9 +389,21 @@ class StagePadEngine {
     if (this.activeVoice && this.activeKey === key && this.activePreset === preset) return key;
 
     if (preset === 'custom' && !customAsset) throw new Error('CUSTOM_PAD_MISSING');
-    const nextVoice = preset === 'custom'
-      ? await this.createCustomVoice(key, customAsset!)
-      : this.createSynthVoice(key, preset);
+
+    let nextVoice: Voice;
+    if (preset === 'custom') {
+      nextVoice = await this.createCustomVoice(key, customAsset!);
+    } else if (preset === 'warm') {
+      try {
+        nextVoice = await this.createOfficialWarmVoice(key);
+      } catch {
+        // The official library is additive. A missing/unavailable asset must
+        // never silence the stage: preserve the existing synthesized Warm pad.
+        nextVoice = this.createSynthVoice(key, 'warm');
+      }
+    } else {
+      nextVoice = this.createSynthVoice(key, preset);
+    }
 
     const attack = preset === 'custom' ? 0.7 : PRESET_CONFIG[preset].attack;
     const now = context.currentTime;
