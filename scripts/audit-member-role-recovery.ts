@@ -9,6 +9,7 @@
  */
 import { adminDb as db } from '../services/firebaseAdmin.js';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { collectVerifiedMinistryNameMatches } from '../utils/tenantMinistryAuditMatches.js';
 
 function clean(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -44,6 +45,8 @@ async function main() {
     activeProjectionMembersScanned: 0,
     membersWithProjectionRoleId: 0, membersWithOtherTenantBoundRoleId: 0,
     membersResolvedByLegacyRoleName: 0,
+    membersWithAmbiguousLegacyMinistryNames: 0,
+    activeProjectionMembersWithAmbiguousLegacyMinistryNames: 0,
     membersWithNoIdentifiedMinistryRole: 0,
     membersWithConflictingRoleIds: 0, membersWithUnverifiedRoleId: 0,
     activeProjectionMembersWithNoIdentifiedMinistryRole: 0,
@@ -129,15 +132,28 @@ async function main() {
         else stats.membersWithOtherTenantBoundRoleId++;
         continue;
       }
-      // The old UI allowed a MusicScale ministry role name in a tenant-bound
-      // historical user profile. Do not use generic canonical member.role.
-      const name = roleName(
-        projection.musicscaleRole || canonical.musicscaleRole ||
-        (userBound ? (user.musicscaleRole || user.role) : '')
-      );
-      const matches = valid?.names.get(name) || [];
-      if (name && matches.length === 1) stats.membersResolvedByLegacyRoleName++;
+      // Compatibility evidence, never a mutation: historical MusicScale
+      // profiles also stored ministryFunction as a string OR string array.
+      // Never interpret canonical organization access role as a ministry role;
+      // legacy user.role is usable only when that user profile is tenant-bound.
+      const legacyMirrors = [aSnap, bSnap]
+        .filter(s => s.exists && tenantBound(s.data(), id, uid))
+        .map(s => s.data() || {});
+      const legacyNames: unknown[] = [
+        projection.musicscaleRole, projection.ministryFunction,
+        canonical.musicscaleRole, canonical.ministryFunction,
+        ...legacyMirrors.flatMap(m => [m.musicscaleRole, m.ministryFunction]),
+        ...(userBound ? [user.musicscaleRole, user.ministryFunction, user.role] : []),
+      ];
+      const matches = collectVerifiedMinistryNameMatches(valid?.names, legacyNames);
+      if (matches.length === 1) stats.membersResolvedByLegacyRoleName++;
       else {
+        // More than one unique matching tenant role is ambiguous, not safe
+        // evidence for an automatic assignment or a global role fallback.
+        if (matches.length > 1) {
+          stats.membersWithAmbiguousLegacyMinistryNames++;
+          if (active) stats.activeProjectionMembersWithAmbiguousLegacyMinistryNames++;
+        }
         stats.membersWithNoIdentifiedMinistryRole++;
         if (active) stats.activeProjectionMembersWithNoIdentifiedMinistryRole++;
       }
