@@ -14,6 +14,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useOptionalApi } from '../contexts/ApiContext';
 import { useSuggestionsContext } from '../contexts/SuggestionContext';
 import { HomeFocusCard } from '../components/dashboard/HomeFocusCard';
+import { TrialProgressInline } from '../components/dashboard/TrialProgressInline';
 import { HomeUpcomingEvents } from '../components/dashboard/HomeUpcomingEvents';
 import { HomePreparationWeek } from '../components/dashboard/HomePreparationWeek';
 import { HomeTeamAttention } from '../components/dashboard/HomeTeamAttention';
@@ -80,7 +81,7 @@ const SupportRuntimeInspector = () => {
 export const DashboardPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { user, organization, isOwner } = useAuth();
+  const { user, organization, isOwner, isGlobalAdmin, entitlements } = useAuth();
   const { populatedScales, populatedBandScales, songs, loading: musicLoading, error: musicError, refreshData } = useMusic();
   const { suggestions, loading: suggestionsLoading } = useSuggestionsContext();
   const { openSongDetail, openScaleDetail, openBandScaleDetail, openScaleForm, openBandScaleForm, openAiSongImport } = useModals();
@@ -666,6 +667,11 @@ export const DashboardPage: React.FC = () => {
           onDeleteDraft={handleDeleteDraft}
         />
       )}
+
+      <TrialProgressInline
+        entitlement={entitlements}
+        isBillingManager={isOwner || isGlobalAdmin || hasCapability('billing.manage')}
+      />
 
       {experience.mode !== 'first-value' && additionalPreparationViews.length > 0 && (
         <HomePreparationWeek
