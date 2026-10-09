@@ -31,7 +31,7 @@ export const MissingSubscriptionScreen: React.FC<{ resolution?: SubscriptionAcce
 
   const handlePlansRedirect = () => {
     const url = entitlementsService.getMillionsNestBaseUrl();
-    window.location.assign(`${url}/dashboard/musicscale/plans`);
+    window.location.assign(`${url}/dashboard/billing`);
   };
   const handleHubRedirect = () => {
     const url = entitlementsService.getMillionsNestBaseUrl();
