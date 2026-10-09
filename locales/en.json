@@ -1,4 +1,12 @@
 {
+  "aiConnection": {
+    "title": "Check AI connection",
+    "description": "This test checks this browser’s secure connection. It requires no sign-in, processes no songs and does not confirm saving.",
+    "checking": "Checking…",
+    "check": "Check connection",
+    "success": "Secure connection verified. Processing and saving still need to be tested with an authenticated account.",
+    "failure": "The secure connection could not be verified. This code helps support investigate:"
+  },
   "chordKeyRepair": {
     "title": "Correct chord chart key",
     "description": "Use this tool when the chords are written in a key different from the actual key of the song.",

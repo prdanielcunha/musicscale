@@ -15,6 +15,10 @@ permissions:
 
 jobs:
   audit:
+    strategy:
+      fail-fast: false
+      matrix:
+        identity: [production-deployer, existing-readonly]
     if: github.ref == 'refs/heads/production'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -24,9 +28,16 @@ jobs:
         with:
           persist-credentials: false
       - name: Authenticate using existing production deploy identity
+        if: matrix.identity == 'production-deployer'
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
         with:
           workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
           service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
+      - name: Authenticate using existing read-only WIF identity
+        if: matrix.identity == 'existing-readonly'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production
+          audience: //iam.googleapis.com/projects/555464791734/locations/global/workloadIdentityPools/github-musicscale-p47/providers/github-production
       - name: Read sanitized configuration checks without customer data
         run: python3 scripts/audit-appcheck-auth-readonly.py

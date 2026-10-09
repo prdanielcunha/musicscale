@@ -33,7 +33,7 @@ const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) 
 const DEFAULT_APPCHECK_SITE_KEY = '6LcpY-EtAAAAAElqBbIL_K7nAkm2wpuF6fbhsggG';
 let nestAiAppCheck: AppCheck | null = null;
 
-export async function getMusicScaleAppCheckToken(): Promise<string> {
+export async function getMusicScaleAppCheckToken(forceRefresh = false): Promise<string> {
   if (useEmulators) return 'emulator-app-check-token';
   const siteKey = String(import.meta.env?.VITE_FIREBASE_APPCHECK_SITE_KEY || DEFAULT_APPCHECK_SITE_KEY).trim();
   if (!siteKey) throw new Error('MUSICSCALE_APPCHECK_NOT_CONFIGURED');
@@ -43,7 +43,14 @@ export async function getMusicScaleAppCheckToken(): Promise<string> {
       isTokenAutoRefreshEnabled: true,
     });
   }
-  return (await readAppCheckToken(nestAiAppCheck, false)).token;
+  return (await readAppCheckToken(nestAiAppCheck, forceRefresh)).token;
+}
+
+// Support probe: attests this browser only, without signing in, calling NestAI,
+// reading customer data, or returning the token to the diagnostic UI.
+export async function verifyMusicScaleAiConnection(): Promise<void> {
+  if (useEmulators) throw new Error('APP_CHECK_EMULATOR_MODE');
+  await getMusicScaleAppCheckToken(true);
 }
 
 // Browser persistence is part of the real product session contract. Emulator/E2E
