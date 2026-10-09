@@ -30,6 +30,8 @@ const validAccept = (overrides: any = {}) => ({
   organizationId: 'org-1',
   activeOrganizationId: 'org-1',
   membershipRole: 'member',
+  authenticatedUid: 'user-1',
+  authenticatedEmail: 'current@example.com',
   alreadyMember: false,
   legacyTokenMigrated: false,
   reasonCode: 'INVITATION_CAN_BE_ACCEPTED',
@@ -143,12 +145,24 @@ describe('02B Hub acceptance response validation', () => {
     ['missing activeOrganizationId', { activeOrganizationId: undefined }],
     ['mismatched activeOrganizationId', { activeOrganizationId: 'org-2' }],
     ['missing membershipRole', { membershipRole: undefined }],
+    ['missing Hub-verified UID', { authenticatedUid: undefined }],
+    ['invalid Hub-verified UID', { authenticatedUid: '../uid' }],
+    ['missing Hub-verified email', { authenticatedEmail: undefined }],
     ['missing alreadyMember', { alreadyMember: undefined }],
     ['non-boolean alreadyMember', { alreadyMember: 'false' }],
     ['unexpected reasonCode', { reasonCode: 'OTHER' }]
   ])('rejects malformed success: %s', async (_label, overrides) => {
     const adapter = new HubInvitationAdapter({ origin: 'https://hub.example', fetch: vi.fn(async () => response(200, validAccept(overrides))) as any });
     await expect(adapter.accept('Bearer x', 'token', 'org-1')).rejects.toMatchObject({ status: 502, reasonCode: 'INVALID_HUB_RESPONSE', ambiguous: true });
+  });
+
+  it('rejects a Hub success for a different tenant before any musical role write', async () => {
+    const adapter = new HubInvitationAdapter({
+      origin: 'https://hub.example',
+      fetch: vi.fn(async () => response(200, validAccept({ organizationId: 'org-2', activeOrganizationId: 'org-2' }))) as any
+    });
+    await expect(adapter.accept('Bearer x', 'invitation', 'org-1'))
+      .rejects.toMatchObject({ status: 502, reasonCode: 'INVALID_HUB_RESPONSE', ambiguous: true });
   });
 
   it('rejects HTTP 2xx success:false', async () => {
