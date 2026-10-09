@@ -32,7 +32,7 @@ export default function JoinPage() {
       window.location.replace('/');
     } catch (e: any) {
       const reason = String(e?.message || '');
-      const lang = String(i18n.language || 'pt').toLowerCase();
+      const lang = String(i18n?.language || 'pt').toLowerCase();
       const localized = lang.startsWith('en') ? {
         login: 'Your session needs to be refreshed. Sign in and try again.',
         email: 'This invitation belongs to a different email address.',
@@ -49,7 +49,7 @@ export default function JoinPage() {
       setError(
         ['UNAUTHORIZED', 'UNAUTHENTICATED', 'INVALID_ID_TOKEN'].includes(reason)
           ? localized.login
-          : reason === 'INVITE_IDENTITY_MISMATCH'
+          : ['INVITE_IDENTITY_MISMATCH', 'EMAIL_MISMATCH'].includes(reason)
             ? localized.email
             : localized.generic
       );
