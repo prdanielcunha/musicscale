@@ -44,6 +44,36 @@
     "ariaLabelClose": "Cerrar"
   },
   "premium": {
+    "planSelection": {
+      "eyebrow": "CONTINÚA TU CAMINO",
+      "title": "Elige el plan ideal",
+      "subtitle": "Compara funciones y elige un plan para tu organización. MillionsNest gestiona la confirmación y el cobro.",
+      "preserveTitle": "Tus datos permanecen intactos",
+      "preserveBody": "Canciones, miembros, funciones y escalas siguen vinculados a la misma organización.",
+      "billingTitle": "Facturación con MillionsNest",
+      "billingBody": "El Hub verifica tu organización y Stripe procesa el pago de forma segura.",
+      "periodLabel": "Período de facturación",
+      "monthly": "Mensual",
+      "yearly": "Anual",
+      "catalogError": "No pudimos cargar los precios del catálogo oficial. Inténtalo nuevamente.",
+      "retry": "Reintentar",
+      "choosePlan": "Elige un plan",
+      "recommended": "Más elegido",
+      "description": {
+        "starter": "Lo esencial para empezar a organizar el equipo.",
+        "advanced": "Para ministerios en crecimiento y más repertorio.",
+        "pro": "Para equipos que necesitan una experiencia musical completa."
+      },
+      "unavailable": "No disponible",
+      "perMonth": "Cobro mensual",
+      "perYear": "Cobro anual",
+      "savings": "Ahorra {{count}}% frente a 12 pagos mensuales",
+      "verifiedCatalog": "Precios y condiciones proporcionados por MillionsNest",
+      "manage": "Gestionar suscripción existente",
+      "continue": "Continuar al pago",
+      "managerOnly": "Solo el responsable de facturación puede cambiar el plan.",
+      "disclaimer": "Confirma precio final, descuentos, período y renovación en el checkout de MillionsNest."
+    },
     "upgradeModal": {
       "title": "Desbloquear Funciones Premium",
       "description": "El ecosistema MillionsNest gestiona todas las licenças de MusicScale. Actualiza en cualquier momento y libera de inmediato a tu equipo en el altar.",
