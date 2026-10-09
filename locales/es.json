@@ -43,6 +43,12 @@
     "previewValidationFailed": "Fallo en la validación de la vista previa",
     "ariaLabelClose": "Cerrar"
   },
+  "dashboardTrial": {
+    "active": "Prueba activa",
+    "daysRemaining_one": "Queda {{count}} día",
+    "daysRemaining_other": "Quedan {{count}} días",
+    "effectiveUntil": "Hasta {{date}}"
+  },
   "premium": {
     "upgradeModal": {
       "title": "Desbloquear Funciones Premium",
