@@ -6,6 +6,7 @@ import { useCapability } from '../../hooks/useCapability';
 import { entitlementsService } from '../../services/entitlementsService';
 import type { SubscriptionAccessResolution } from '../../utils/subscriptionAccessResolver';
 import { logger } from '../../lib/logger';
+import { CanonicalPlanSelector } from '../billing/CanonicalPlanSelector';
 
 /**
  * An unavailable MusicScale workspace is not an empty/anonymous workspace.
@@ -17,6 +18,7 @@ export const MissingSubscriptionScreen: React.FC<{ resolution?: SubscriptionAcce
   const { hasCapability } = useCapability();
   const { t } = useTranslation();
   const [isRetrying, setIsRetrying] = React.useState(false);
+  const [showPlanSelection, setShowPlanSelection] = React.useState(false);
 
   const resolution = propResolution || {
     loaded: true, valid: false, status: 'inactive', reason: 'unknown',
@@ -31,6 +33,11 @@ export const MissingSubscriptionScreen: React.FC<{ resolution?: SubscriptionAcce
     hasCapability('organization.billing.manage') || hasCapability('billing.manage');
 
   const handlePlansRedirect = () => {
+    if (!technicalError && canManageBilling && isExpiredTrial &&
+        import.meta.env.VITE_NEW_PLANS_UI_PRESENTATION === 'true') {
+      setShowPlanSelection(true);
+      return;
+    }
     const url = entitlementsService.getMillionsNestBaseUrl();
     window.location.assign(`${url}/dashboard/billing`);
   };
@@ -75,6 +82,21 @@ export const MissingSubscriptionScreen: React.FC<{ resolution?: SubscriptionAcce
       : isPaymentIssue
         ? t('premium.recovery.paymentDescription')
         : t('premium.recovery.expiredDescription');
+
+  if (showPlanSelection && !technicalError && canManageBilling && isExpiredTrial) {
+    return (
+      <div data-testid="ms-trial-recovery-plan-selection" className="min-h-[100dvh] bg-[#050507] pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto max-w-[890px] px-4 pt-[max(16px,env(safe-area-inset-top))]">
+          <button type="button" onClick={() => setShowPlanSelection(false)}
+            className="min-h-11 rounded-xl border border-white/15 px-4 text-xs font-semibold text-white hover:border-[#3ed5dd] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3ed5dd]">
+            {t('premium.recovery.backToRecovery')}
+          </button>
+        </div>
+        <CanonicalPlanSelector entitlement={entitlements} currentPlan={entitlements?.plan || 'starter'}
+          status={entitlements?.status || 'expired'} loading={loading} />
+      </div>
+    );
+  }
 
   return (
     <main
