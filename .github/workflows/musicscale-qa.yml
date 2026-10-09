@@ -82,7 +82,8 @@ jobs:
         java-version: '21'
 
     - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
+      timeout-minutes: 8
+      run: npx playwright install --with-deps chromium webkit
 
     - name: Run E2E Bootstrap Smoke - All Browsers
       run: >-
@@ -183,7 +184,8 @@ jobs:
         java-version: '21'
 
     - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
+      timeout-minutes: 8
+      run: npx playwright install --with-deps chromium webkit
 
     - name: Run Full Playwright E2E - ${{ matrix.project }}
       run: >-
