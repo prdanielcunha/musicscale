@@ -1,0 +1,51 @@
+/*
+ * MusicScale premium dashboard — screenshot-informed visual shell.
+ * All rules are scoped to the flag-enabled root; standard dashboard stays
+ * byte-for-byte unchanged until opt-in. No images, no remote fonts or video.
+ */
+.ms-premium-dashboard {
+  color-scheme: dark;
+  color: #f7f7fa;
+  background:
+    radial-gradient(ellipse 78% 21% at 10% 0%, rgba(20, 112, 171, .2), transparent 78%),
+    radial-gradient(ellipse 50% 28% at 100% 23%, rgba(82, 70, 170, .11), transparent 78%),
+    linear-gradient(180deg, #06101a 0%, #080b12 37%, #050507 100%);
+  isolation: isolate;
+}
+.ms-premium-dashboard__header {
+  position: relative;
+  padding: 10px 1px 3px;
+}
+.ms-premium-dashboard__header::after {
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: 22px;
+  background: linear-gradient(90deg, rgba(62,213,221,.34), rgba(79,140,255,.14), transparent);
+}
+.ms-premium-dashboard :is(button, a):focus-visible {
+  outline: 2px solid #3ed5dd;
+  outline-offset: 3px;
+}
+.ms-premium-dashboard :is(button, a) {
+  -webkit-tap-highlight-color: transparent;
+}
+.ms-premium-dashboard [data-testid="ms-trial-progress-inline"] {
+  box-shadow: inset 0 1px rgba(255,255,255,.04);
+}
+@media (max-width: 639px) {
+  .ms-premium-dashboard {
+    padding-top: max(20px, env(safe-area-inset-top));
+    padding-bottom: max(100px, calc(env(safe-area-inset-bottom) + 80px));
+    overflow-x: clip;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-premium-dashboard *,
+  .ms-premium-dashboard *::before,
+  .ms-premium-dashboard *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
