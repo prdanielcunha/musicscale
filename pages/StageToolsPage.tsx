@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowRight, AudioLines, Gauge, TimerReset, Wrench } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Metronome from '../components/common/Metronome';
 import StagePadPlayer from '../components/songs/StagePadPlayer';
 import OfflineResourcesPanel from '../components/stage/OfflineResourcesPanel';
@@ -10,7 +10,17 @@ import { useAuth } from '../contexts/AuthContext';
 const StageToolsPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, effectiveOrganizationId } = useAuth();
+  const requestedTool = searchParams.get('tool');
+
+  React.useEffect(() => {
+    if (requestedTool !== 'pads' && requestedTool !== 'metronome') return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`ms-stage-tool-${requestedTool}`)?.scrollIntoView({ block: 'start', behavior: 'auto' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [requestedTool]);
 
   return (
     <div className="relative mx-auto w-full min-w-0 max-w-6xl overflow-x-clip pb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:pb-10">
@@ -65,7 +75,7 @@ const StageToolsPage: React.FC = () => {
           </div>
         </section>
 
-        <section className="min-w-0 overflow-hidden rounded-[24px] border border-white/[0.07] bg-[#0d0d11]/92 p-4 shadow-[0_22px_70px_rgba(0,0,0,0.26)] sm:rounded-[28px] sm:p-6">
+        <section id="ms-stage-tool-pads" className="min-w-0 scroll-mt-24 overflow-hidden rounded-[24px] border border-white/[0.07] bg-[#0d0d11]/92 p-4 shadow-[0_22px_70px_rgba(0,0,0,0.26)] sm:rounded-[28px] sm:p-6">
           <div className="mb-5 flex min-w-0 items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-violet-300/12 bg-violet-300/[0.06] text-violet-200">
               <AudioLines className="h-[18px] w-[18px]" aria-hidden="true" />
@@ -82,7 +92,7 @@ const StageToolsPage: React.FC = () => {
           <StagePadPlayer userId={user?.uid} organizationId={effectiveOrganizationId} />
         </section>
 
-        <section className="min-w-0 overflow-hidden rounded-[24px] border border-white/[0.07] bg-[#0d0d11]/92 p-4 shadow-[0_22px_70px_rgba(0,0,0,0.26)] sm:rounded-[28px] sm:p-6">
+        <section id="ms-stage-tool-metronome" className="min-w-0 scroll-mt-24 overflow-hidden rounded-[24px] border border-white/[0.07] bg-[#0d0d11]/92 p-4 shadow-[0_22px_70px_rgba(0,0,0,0.26)] sm:rounded-[28px] sm:p-6">
           <div className="mb-5 flex min-w-0 items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-sky-300/12 bg-sky-300/[0.055] text-sky-200">
               <TimerReset className="h-[18px] w-[18px]" aria-hidden="true" />
