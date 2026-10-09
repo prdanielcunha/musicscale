@@ -43,6 +43,12 @@
     "previewValidationFailed": "Preview validation failed",
     "ariaLabelClose": "Close"
   },
+  "dashboardTrial": {
+    "active": "Trial active",
+    "daysRemaining_one": "{{count}} day left",
+    "daysRemaining_other": "{{count}} days left",
+    "effectiveUntil": "Until {{date}}"
+  },
   "premium": {
     "upgradeModal": {
       "title": "Unlock Premium Features",
