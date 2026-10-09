@@ -61,6 +61,10 @@ class FakeRef {
     const exists = this.db.docs.has(this.path);
     return new FakeSnapshot(this, exists ? this.db.docs.get(this.path) : undefined);
   }
+  async create(data: any) {
+    if (this.db.docs.has(this.path)) throw new Error('already-exists');
+    this.setSync(data);
+  }
   async set(data: any, options?: any) { this.setSync(data, options); }
   setSync(data: any, options?: any) {
     const next = options?.merge ? { ...(this.db.docs.get(this.path) || {}), ...structuredCloneSafe(data) } : structuredCloneSafe(data);
@@ -212,7 +216,7 @@ describe('02B2 executable create handler', () => {
         success: true,
         reasonCode: 'CREATED',
         invitePath: `/join/${organizationId}?token=shareable-secret`,
-        inviteUrl: `https://www.millionsnest.com/join/${organizationId}?token=shareable-secret`,
+        inviteUrl: `https://musicscale.millionsnest.com/join/${organizationId}?token=shareable-secret`,
         invitation: {
           id: 'hub-link-1',
           organizationId,
@@ -260,10 +264,17 @@ describe('02B2 executable create handler', () => {
       mode: 'link'
     });
     expect(res.body).toMatchObject({
-      inviteUrl: 'https://www.millionsnest.com/join/org-1?token=shareable-secret',
-      musicScaleRoleDeferred: true
+      inviteUrl: 'https://musicscale.millionsnest.com/join/org-1?token=shareable-secret',
+      musicScaleRoleDeferred: false,
+      musicScaleRoleBound: true
     });
-    expect([...db.docs.keys()].some(path => path.includes('musicscale_invite_role_intents'))).toBe(false);
+    const hash = crypto.createHash('sha256').update('shareable-secret').digest('hex');
+    const intentPath = `organizations/org-1/musicscale_invite_role_intents/token_${hash}`;
+    expect(db.docs.get(intentPath)).toMatchObject({
+      schemaVersion: 2, organizationId: 'org-1', roleId: 'role-musician',
+      hubInvitationId: 'hub-link-1', status: 'pending', createdByUid: 'actor-1'
+    });
+    expect(JSON.stringify(db.docs.get(intentPath))).not.toContain('shareable-secret');
   });
 
   it('proxies invitation email delivery only after canonical authorization', async () => {
@@ -370,6 +381,35 @@ describe('02B2 executable Hub-success acceptance', () => {
     expect(auth.getUser).not.toHaveBeenCalled();
     expect(hub.accept).toHaveBeenCalledWith('Bearer signed-user-token', 'valid-invitation', 'org-1');
     expect(db.writes).toEqual([]);
+  });
+
+  it('accepts shareable-link musical role for the Hub-verified recipient without leaking tenant authority', async () => {
+    const db = new FakeDb();
+    db.seed('roles/role-musician', { organizationId: 'org-1', name: 'Músico / Vocal' });
+    const raw = 'shareable-secret';
+    const hash = crypto.createHash('sha256').update(raw).digest('hex');
+    const intentPath = `organizations/org-1/musicscale_invite_role_intents/token_${hash}`;
+    db.seed(intentPath, { schemaVersion: 2, inviteTokenHash: hash, organizationId: 'org-1', status: 'pending', roleId: 'role-musician', createdByUid: 'actor-1' });
+    const hub = {
+      create: vi.fn(),
+      accept: vi.fn(async () => validHubAccept('org-1', { authenticatedUid: 'user-1', authenticatedEmail: 'new@example.com', membershipRole: 'manager' }))
+    };
+    const handlers = createInvitationCompatibilityHandlers({ db, auth: {}, admin, hubFactory: () => hub as any });
+    const req = { headers: { authorization: 'Bearer new-recipient-token' }, body: { token: raw, organizationId: 'org-1' } };
+    const res = fakeRes();
+    await handlers.accept(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({ success: true, membershipRole: 'manager', roleProjectionApplied: true });
+    expect(res.body).not.toHaveProperty('authenticatedUid');
+    expect(res.body).not.toHaveProperty('authenticatedEmail');
+    expect(db.docs.get('organizations/org-1/musicscale_members/user-1')).toMatchObject({ roleId: 'role-musician', updatedByUid: 'actor-1' });
+    expect(db.docs.get(intentPath)).toMatchObject({ status: 'applied', appliedToUid: 'user-1' });
+    expect(db.writes.some(write => write.path === 'organizations/org-1/members/user-1')).toBe(false);
+
+    const replay = fakeRes();
+    await handlers.accept(req, replay);
+    expect(replay.statusCode).toBe(200);
+    expect(replay.body.roleProjectionApplied).toBe(true);
   });
 
   it('ALREADY_MEMBER recovers a pending MusicScale role intent idempotently', async () => {
