@@ -418,7 +418,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
                         // On phones the roster lives in another tab. Reveal it
                         // immediately instead of leaving the user on filters.
                         if (compactDesktopLayout && typeof window !== 'undefined' && window.innerWidth < 768) {
-                          requestAnimationFrame(() => memberRosterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+                          window.requestAnimationFrame?.(() => memberRosterRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' }));
                         }
                         setSelectedInstruments(prev => {
                            if (prev.find(i => i.id === inst.id)) {
