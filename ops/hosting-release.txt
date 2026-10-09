@@ -1,3 +1,11 @@
+MusicScale 0.10.9-beta.28 — 2026-10-09
+Evolução visual premium: degradê contínuo no canvas, ferramentas rápidas reais do músico, onboarding, planos, trial informativo e recuperação de acesso com PT/EN/ES.
+Os atalhos preservam autenticação, permissões e planos: Afinador, Metrônomo, Pads, Cifras e Performance quando autorizada.
+Consolida na main todos os hotfixes publicados até beta.27: Google, App Check/IA, convites, funções musicais e bandas fixas.
+VISUAL ONLY: MUSICSCALE_HUB_TRIAL_V2_ENABLED e MUSICSCALE_INTERNAL_TRIAL_ENABLED não são ativados por este release. Cobrança permanece no MillionsNest Hub/Stripe.
+Nenhuma migração de dados, reparação automática de roles ou modificação de assinaturas Stripe.
+
+Preserva beta.27 integralmente:
 MusicScale 0.10.9-beta.27 — 2026-10-09
 P0 IA #447: diagnóstico de conexão segura no domínio real, sem login, dados de cliente, chamada NestAI ou exposição de tokens.
 Força atestação real nova; recusa certificar emulador. Importação e salvamento continuam protegidos pela autenticação e App Check existentes.
