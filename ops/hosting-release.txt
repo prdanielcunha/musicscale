@@ -1,4 +1,4 @@
-MusicScale 0.10.9-beta.16 — 2026-10-08
-Hotfix de criação de Escalas Fixas: no tamanho compacto de desktop/tablet, funções e integrantes aparecem lado a lado; no celular, selecionar função abre automaticamente a escolha de integrante.
-Estados de lista vazia ou falha de carregamento e de salvamento agora mostram mensagem e caminho de recuperação, sem mascarar erro de permissão.
-Sem alterações de banco, funções, assinaturas, integrações Stripe ou permissões; salvar exige nome e um integrante real atribuído.
+MusicScale 0.10.9-beta.17 — 2026-10-08
+Novidades: destaque permanente aos lançamentos relevantes Afinador NestTuner, Pad de Palco e Medleys Inteligentes. Os ajustes técnicos, atualizações menores e hotfixes aparecem abaixo em seção recolhida.
+Card responsivo com caminho para cada recurso, disponível também após o usuário dispensar o anúncio, nos idiomas PT/EN/ES.
+Preserva integralmente o hotfix de Escalas Fixas beta.16, sem alterar dados, assinatura, autenticação, regras Firestore ou fluxos de compra.
