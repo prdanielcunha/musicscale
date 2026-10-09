@@ -305,3 +305,22 @@ export async function readOfflineStageReadCache(
     updatedAt: Math.min(...timestamps),
   };
 }
+
+
+/** No-card trial snapshots must never become an offline license. Purge only
+ * derived musical caches; user-recorded custom pads and server data survive. */
+export async function purgeHubTrialStageCaches(userId: string, organizationId: string): Promise<void> {
+  if (!userId || !organizationId) return;
+  await offlineDB.transaction(
+    'rw', offlineDB.cachedSongs, offlineDB.cachedScales, offlineDB.offlineResourcePacks,
+    async () => {
+      for (const table of [offlineDB.cachedSongs, offlineDB.cachedScales, offlineDB.offlineResourcePacks]) {
+        const rows = await table.toArray();
+        const keys = rows.filter((row: any) =>
+          row?.userId === userId && row?.organizationId === organizationId
+        ).map((row: any) => row.id).filter((id: unknown): id is string => typeof id === 'string');
+        if (keys.length) await table.bulkDelete(keys);
+      }
+    },
+  );
+}
