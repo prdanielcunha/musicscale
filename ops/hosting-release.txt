@@ -1,4 +1,4 @@
-MusicScale 0.10.9-beta.15 — 2026-10-08
-Correção da validação de integrantes para escalas de bandas: membresia ativa canônica da organização, independente da organização principal de navegação do usuário.
-Mantida a compatibilidade com vínculos antigos validamente associados ao mesmo tenant, com bloqueio de integrantes removidos ou desativados.
-Nenhum cadastro, escala ou assinatura é alterado por migração; trial, Stripe e créditos comerciais permanecem sem mudança.
+MusicScale 0.10.9-beta.16 — 2026-10-08
+Hotfix de criação de Escalas Fixas: no tamanho compacto de desktop/tablet, funções e integrantes aparecem lado a lado; no celular, selecionar função abre automaticamente a escolha de integrante.
+Estados de lista vazia ou falha de carregamento e de salvamento agora mostram mensagem e caminho de recuperação, sem mascarar erro de permissão.
+Sem alterações de banco, funções, assinaturas, integrações Stripe ou permissões; salvar exige nome e um integrante real atribuído.

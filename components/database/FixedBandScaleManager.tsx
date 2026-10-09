@@ -80,10 +80,12 @@ const FixedBandScaleManager: React.FC<FixedBandScaleManagerProps> = ({
     null,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialCreateOpen) {
       setScaleToEdit(null);
+      setSaveError(null);
       setIsFormOpen(true);
       onInitialCreateHandled?.();
     }
@@ -95,6 +97,7 @@ const FixedBandScaleManager: React.FC<FixedBandScaleManagerProps> = ({
   );
 
   const handleOpenForm = (scale?: FixedBandScale) => {
+    setSaveError(null);
     setScaleToEdit(scale || null);
     setIsFormOpen(true);
   };
@@ -104,7 +107,11 @@ const FixedBandScaleManager: React.FC<FixedBandScaleManagerProps> = ({
       | Omit<FixedBandScale, "id" | "createdBy" | "createdAt">
       | FixedBandScale,
   ) => {
-    if (!user || !userProfile || !api) return;
+    if (!user || !userProfile || !api) {
+      setSaveError(t('bandScalesPage.sessionUnavailable', 'Não foi possível confirmar sua sessão. Atualize e tente novamente.'));
+      return;
+    }
+    setSaveError(null);
     setIsSubmitting(true);
     try {
       if ("id" in data) {
@@ -116,6 +123,9 @@ const FixedBandScaleManager: React.FC<FixedBandScaleManagerProps> = ({
       setIsFormOpen(false);
     } catch (e) {
       logger.error("Failed to save fixed band scale", e);
+      setSaveError(e instanceof Error && e.message
+        ? e.message
+        : t('bandScalesPage.saveFailed', 'Não foi possível salvar a escala fixa. Tente novamente.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -217,6 +227,7 @@ const FixedBandScaleManager: React.FC<FixedBandScaleManagerProps> = ({
         onSave={handleSave}
         scaleToEdit={scaleToEdit}
         isSubmitting={isSubmitting}
+        saveError={saveError}
       />
 
       <ConfirmationModal
