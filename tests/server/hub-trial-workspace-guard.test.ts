@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+
 import {
   canUseHubTrialMusicWorkspace, createHubTrialWorkspaceMiddleware,
   isProtectedMusicWorkspaceApiPath, musicWorkspaceOrgFromRequest,
@@ -57,6 +59,12 @@ describe('Hub internal trial music gateway protects Admin SDK routes',()=>{
       .organizationId).toBe('org-1');
   });
 
+  it('backend never trusts a disabled acquisition flag to recognize an existing grant',()=>{
+    const server=fs.readFileSync('server.ts','utf8');
+    expect(server).toContain('app.use(createHubTrialWorkspaceMiddleware({ db }))');
+    expect((server.match(/enabled:true, \/\/ Recognition of EXISTING grants/g)||[]).length).toBe(2);
+    expect(server).not.toContain("enabled:process.env.MUSICSCALE_HUB_TRIAL_V2_ENABLED === 'true'");
+  });
   it('does not bypass expired grants when new trial acquisition flag is disabled', async()=>{
     const expired={...validTrial,beginsAt:new Date(now-15*DAY),expiresAt:new Date(now-DAY)};
     const old=process.env.MUSICSCALE_HUB_TRIAL_V2_ENABLED;
