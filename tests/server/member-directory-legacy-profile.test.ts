@@ -127,4 +127,45 @@ describe('member directory legacy MusicScale profile recovery', () => {
     expect(result.roleId).toBe('');
   });
 
+
+  it('recognizes a unique historical ministryFunction when legacy role name has no tenant match', () => {
+    const result = resolveMemberDirectoryMusicProfile(
+      {},
+      { organizationRole: 'member', role: 'admin', ministryFunction: ['  Violão  '] },
+      { organizationId: 'org-1', role: 'musician' },
+      'org-1',
+      [
+        { id: 'guitar-org1', name: 'Violão', organizationId: 'org-1' },
+        { id: 'guitar-org2', name: 'Violão', organizationId: 'org-2' },
+      ],
+    );
+    expect(result.roleId).toBe('guitar-org1');
+    expect(result.ministryFunction).toEqual(['  Violão  ']);
+  });
+
+  it('does not infer a role from ambiguous ministry names or duplicate tenant roles', () => {
+    const roles = [
+      { id: 'vocal-1', name: 'Vocal', organizationId: 'org-1' },
+      { id: 'guitar-1', name: 'Violão', organizationId: 'org-1' },
+      { id: 'guitar-2', name: 'Violão', organizationId: 'org-1' },
+    ];
+    expect(resolveMemberDirectoryMusicProfile(
+      {}, { ministryFunction: ['Vocal', 'Violão'] }, {}, 'org-1', roles,
+    ).roleId).toBe('');
+    expect(resolveMemberDirectoryMusicProfile(
+      {}, { ministryFunction: 'Violão' }, {}, 'org-1', roles,
+    ).roleId).toBe('');
+    expect(resolveMemberDirectoryMusicProfile(
+      {}, { ministryFunction: 'Vocal' }, {}, 'org-2', roles,
+    ).roleId).toBe('');
+  });
+
+  it('keeps explicit music role ID authoritative when ministryFunction differs', () => {
+    expect(resolveMemberDirectoryMusicProfile(
+      { roleId: 'existing-vocal', ministryFunction: 'Violão' },
+      {}, {}, 'org-1',
+      [{ id: 'guitar', name: 'Violão', organizationId: 'org-1' }],
+    ).roleId).toBe('existing-vocal');
+  });
+
 });
