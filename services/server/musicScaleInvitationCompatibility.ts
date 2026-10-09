@@ -9,7 +9,9 @@ import {
   finishRoleIntent,
   normalizeEmail,
   permitsLegacyInvitationFallback,
-  prepareRoleIntent
+  prepareRoleIntent,
+  saveLinkRoleIntent,
+  validateInvitableMusicScaleRole
 } from './hubInvitationAdapter.js';
 
 const VALID_ID = /^[A-Za-z0-9_-]{1,128}$/;
@@ -337,6 +339,7 @@ export function createInvitationCompatibilityHandlers(deps: InvitationCompatibil
       }
 
       const safeRoleId = typeof roleId === 'string' ? roleId.trim() : '';
+      if (inviteMode === 'link' && safeRoleId) await validateInvitableMusicScaleRole(deps.db, organizationId, safeRoleId);
       if (inviteMode === 'email' && safeRoleId) {
         const intent = await prepareRoleIntent(deps.db, organizationId, safeEmail, safeRoleId, context.uid);
         preparedIntent = intent;
@@ -350,13 +353,17 @@ export function createInvitationCompatibilityHandlers(deps: InvitationCompatibil
       if (preparedIntent) {
         await finishRoleIntent(preparedIntent.ref, preparedIntent.generationId, hub);
       }
+      if (inviteMode === 'link' && safeRoleId) {
+        await saveLinkRoleIntent(deps.db, organizationId, hub.inviteUrl, safeRoleId, context.uid, hub.invitation.id);
+      }
       return res.json({
         success: true,
         link: hub.invitePath,
         inviteUrl: hub.inviteUrl,
         reasonCode: hub.reasonCode,
         invitation: hub.invitation,
-        musicScaleRoleDeferred: inviteMode === 'link' && !!safeRoleId
+        musicScaleRoleDeferred: false,
+        musicScaleRoleBound: !!safeRoleId
       });
     } catch (error: any) {
       if (error instanceof HubInvitationError) {
@@ -429,7 +436,7 @@ export function createInvitationCompatibilityHandlers(deps: InvitationCompatibil
           // returns the *current* actor identity only after successful acceptance.
           const hub = await hubFactory().accept(bearer, token, requestedOrganizationId);
           const roleProjectionApplied = await applyRoleIntent(
-            deps.db, hub.organizationId, hub.authenticatedUid, hub.authenticatedEmail
+            deps.db, hub.organizationId, hub.authenticatedUid, hub.authenticatedEmail, token
           );
           // Do not leak token or extra verified identity fields to the client.
           const { authenticatedUid: _uid, authenticatedEmail: _email, ...accepted } = hub;
