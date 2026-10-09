@@ -54,9 +54,8 @@ export function musicWorkspaceOrgFromRequest(req: RequestLike):
 }
 
 export async function canUseHubTrialMusicWorkspace(input: {
-  db: any; organizationId: string; enabled: boolean; now?: number;
+  db: any; organizationId: string; now?: number;
 }): Promise<{ok:boolean; error?: 'HUB_TRIAL_EXPIRED'|'HUB_TRIAL_VERIFICATION_UNAVAILABLE'}> {
-  if (!input.enabled) return {ok:true};
   const snap = await input.db.collection('organizations').doc(input.organizationId).get();
   // Non-trial users still follow their existing authorization and billing rules.
   if (!snap.exists || snap.data()?.apps?.musicscale?.trialSource !== 'hub_internal_trial')
@@ -76,16 +75,18 @@ export async function canUseHubTrialMusicWorkspace(input: {
 }
 
 /** Register before MusicScale BFF, AI, Connect and music command routes. */
-export function createHubTrialWorkspaceMiddleware(deps:{db:any;enabled:()=>boolean}) {
+export function createHubTrialWorkspaceMiddleware(deps:{db:any}) {
   return async (req:RequestLike,res:ResponseLike,next:()=>void) => {
-    if (!deps.enabled() || !isProtectedMusicWorkspaceApiPath(value(req.path))) return next();
+    // This check must run for ALL existing grants. The Hub's acquisition
+    // rollout flag may be turned off without reopening expired music content.
+    if (!isProtectedMusicWorkspaceApiPath(value(req.path))) return next();
     const selected = musicWorkspaceOrgFromRequest(req);
     if (selected.error || !selected.organizationId) {
       return res.status(400).json({error:selected.error || 'MISSING_ORGANIZATION_ID'});
     }
     try {
       const decision = await canUseHubTrialMusicWorkspace({
-        db:deps.db, organizationId:selected.organizationId, enabled:true,
+        db:deps.db, organizationId:selected.organizationId,
       });
       if (!decision.ok) {
         res.set?.('Cache-Control','private, no-store, max-age=0');
