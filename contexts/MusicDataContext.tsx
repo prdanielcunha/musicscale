@@ -46,7 +46,8 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
   const { entitlements } = useAuth();
   const isHubInternalTrial = !!effectiveOrganizationId &&
     entitlements?.organizationId === effectiveOrganizationId &&
-    entitlements.entitlementSource === 'hub_internal_trial';
+    (entitlements.entitlementSource === 'hub_internal_trial' ||
+      entitlements.entitlementSource === 'hub_trial_invalid');
   const { isOffline } = useOffline();
   const userId = user?.uid;
   const [offlineSnapshot, setOfflineSnapshot] = useState<ScopedOfflineSnapshot | null>(null);
