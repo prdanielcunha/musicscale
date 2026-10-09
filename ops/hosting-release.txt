@@ -1,7 +1,10 @@
-MusicScale 0.10.9-beta.25 — 2026-10-09
+MusicScale 0.10.9-beta.26 — 2026-10-09
+Hotfix P0 IA #447: o SDK passa a identificar o MusicScale Web já registrado no App Check, em vez do Web App MillionsNest não registrado.
+Mantém a chave Enterprise existente e o projeto canônico; tokens, autorização, organizações, assinatura e salvamento continuam sob as mesmas verificações.
+Importação e salvamento autenticados exigem validação após publicação; não encerrar #447 somente com build ou emulador.
+Preserva beta.25 integralmente:
 Hotfix P0 Google: a seleção de conta e verificação pelo Google não são mais interrompidas por um prazo indevido de 12 segundos.
 Firebase conclui a etapa interativa; carregamento do módulo e autenticação por e-mail continuam com prazo limitado. O botão permanece bloqueado durante a tentativa.
-App Check/NestAI #447 continua em investigação: esta versão não certifica importação e salvamento autenticados.
 Preserva beta.24 integralmente:
 Hotfix P0: proprietário e administradores agora conseguem salvar o nome de exibição de integrantes existentes no MusicScale, de forma segregada por organização.
 Nome salvo e exibido através da projeção musical autenticada; conta, e-mail e permissões globais do Hub não são alterados.
