@@ -1,30 +1,35 @@
-name: MusicScale Apply Global Member Role Recovery
+name: MusicScale Member Role Recovery Read-only Audit
+# Deliberately NO push trigger: the old production hook auto-mutated client
+# ministry roles using mutable navigation context. Never backfill without an
+# approved, tenant-scoped candidate manifest and point-in-time rollback proof.
 on:
-  push:
-    branches: [ production ]
-    paths:
-      - '.github/workflows/apply-member-role-recovery.yml'
-      - 'scripts/apply-member-role-recovery.ts'
+  workflow_dispatch:
+
 permissions:
   contents: read
   id-token: write
+
 jobs:
-  repair:
+  read-only-review:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment: firebase-production
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with: { node-version: 22, cache: npm }
+        with:
+          node-version: 22
+          cache: npm
       - run: npm ci --no-audit --no-fund
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
         with:
           workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
           service_account: mn-musicscale-runtime@millionsnest.iam.gserviceaccount.com
-      - name: Apply safe global member role recovery
+      - name: Report aggregate music role and fixed band integrity without customer data writes
         env:
           FIREBASE_PROJECT_ID: millionsnest
           GCLOUD_PROJECT: millionsnest
           GOOGLE_CLOUD_PROJECT: millionsnest
-        run: npx tsx scripts/apply-member-role-recovery.ts
+        run: npx tsx scripts/audit-member-role-recovery.ts
