@@ -1,5 +1,17 @@
-MusicScale 0.10.9-beta.19 — 2026-10-09
-Os destaques de recursos permanecem visíveis em Novidades: Afinador NestTuner, Pad de palco e Medleys inteligentes, com acesso direto e explicações em PT/EN/ES.
-Outras atualizações, refinamentos e hotfixes são apresentados separadamente e recolhidos por padrão.
-Preserva a correção urgente de escala fixa beta.18, que tornou visível o seletor de integrantes e usa diretório autenticado da organização.
-Nenhum dado de usuário, assinatura, regra de segurança nem flag comercial é modificado nesta revisão visual.
+MusicScale 0.10.9-beta.27 — 2026-10-09
+P0 IA #447: diagnóstico de conexão segura no domínio real, sem login, dados de cliente, chamada NestAI ou exposição de tokens.
+Força atestação real nova; recusa certificar emulador. Importação e salvamento continuam protegidos pela autenticação e App Check existentes.
+Auditoria somente leitura com as duas identidades WIF já existentes; sem alterações IAM.
+Preserva beta.26 integralmente:
+MusicScale 0.10.9-beta.26 — 2026-10-09
+Hotfix P0 IA #447: o SDK passa a identificar o MusicScale Web já registrado no App Check, em vez do Web App MillionsNest não registrado.
+Mantém a chave Enterprise existente e o projeto canônico; tokens, autorização, organizações, assinatura e salvamento continuam sob as mesmas verificações.
+Importação e salvamento autenticados exigem validação após publicação; não encerrar #447 somente com build ou emulador.
+Preserva beta.25 integralmente:
+Hotfix P0 Google: a seleção de conta e verificação pelo Google não são mais interrompidas por um prazo indevido de 12 segundos.
+Firebase conclui a etapa interativa; carregamento do módulo e autenticação por e-mail continuam com prazo limitado. O botão permanece bloqueado durante a tentativa.
+Preserva beta.24 integralmente:
+Hotfix P0: proprietário e administradores agora conseguem salvar o nome de exibição de integrantes existentes no MusicScale, de forma segregada por organização.
+Nome salvo e exibido através da projeção musical autenticada; conta, e-mail e permissões globais do Hub não são alterados.
+A edição de funções e especialidades reconhece membros legados ativos comprovados do mesmo tenant, sem reviver membros removidos ou inativos.
+Preserva beta.23 integralmente (convites validados, funções musicais escolhidas por convite), beta.22, escalas fixas, assinatura e dados.
