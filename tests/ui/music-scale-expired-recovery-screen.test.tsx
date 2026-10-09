@@ -26,7 +26,7 @@ vi.mock('../../contexts/AuthContext', () => ({
   }),
 }));
 vi.mock('../../hooks/useCapability', () => ({
-  useCapability: () => ({hasCapability:(key:string)=>key==='billing.manage'&&mocks.billingCapability}),
+  useCapability: () => ({hasCapability:(key:string)=>key==='organization.billing.manage'&&mocks.billingCapability}),
 }));
 vi.mock('../../services/entitlementsService', () => ({
   entitlementsService:{getMillionsNestBaseUrl:()=> 'https://millionsnest.com'},
