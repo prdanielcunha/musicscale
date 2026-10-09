@@ -1,6 +1,7 @@
 import { applyEcosystemEntitlements } from './services/effectiveEntitlements.js';
 import { organizationHasEcosystemAccess } from './services/server/ecosystemEntitlements.js';
 import { resolveHubMusicScaleTrialFromDb } from './services/server/hubMusicScaleTrial.js';
+import { resolvePaidMusicScaleContract } from './services/server/musicScalePaidContract.js';
 import { logger } from './lib/logger.js';
 logger.info("Server process started");
 
@@ -1211,13 +1212,11 @@ app.post(
       if (orgSnap.exists && orgSnap.data()?.apps?.musicscale?.trialSource === 'hub_internal_trial') {
         const subscriptionSnap = await db.collection('subscriptions').doc(orgId).get();
         const data = subscriptionSnap.exists ? subscriptionSnap.data() || {} : {};
-        const contract = data.apps?.musicscale || data;
-        const contractStatus = String(contract?.status || '').toLowerCase();
-        if (['active','trialing'].includes(contractStatus) &&
-            (contract.stripeSubscriptionId || data.stripeSubscriptionId || data.subscriptionId)) {
-          verifiedStatus = contractStatus;
-          verifiedPlan = String(contract.plan || data.plan || 'starter').toLowerCase();
-          currentPeriodEnd = contract.currentPeriodEnd || data.currentPeriodEnd || null;
+        const musicContract = resolvePaidMusicScaleContract(data);
+        if (musicContract.valid) {
+          verifiedStatus = musicContract.status!;
+          verifiedPlan = String(musicContract.plan || 'starter').toLowerCase();
+          currentPeriodEnd = musicContract.currentPeriodEnd;
           entitlementSource = 'subscriptions';
           reason = 'PAID_CANONICAL_ENTITLEMENT';
         } else {
@@ -3865,12 +3864,10 @@ app.post(
       if (!unlimitedAccess && orgData?.apps?.musicscale?.trialSource === 'hub_internal_trial') {
         const billingSnap = await db.collection('subscriptions').doc(organizationId).get();
         const billing = billingSnap.exists ? billingSnap.data() || {} : {};
-        const contract = billing.apps?.musicscale || billing;
-        const paidStatus = String(contract.status || '').toLowerCase();
-        if (['active','trialing'].includes(paidStatus) &&
-            (contract.stripeSubscriptionId || billing.stripeSubscriptionId || billing.subscriptionId)) {
-          verifiedStatus = paidStatus;
-          verifiedPlan = String(contract.plan || billing.plan || 'starter').toLowerCase();
+        const paidMusicContract = resolvePaidMusicScaleContract(billing);
+        if (paidMusicContract.valid) {
+          verifiedStatus = paidMusicContract.status!;
+          verifiedPlan = String(paidMusicContract.plan || 'starter').toLowerCase();
         } else {
           const trial = await resolveHubMusicScaleTrialFromDb({
             db,organizationId,
