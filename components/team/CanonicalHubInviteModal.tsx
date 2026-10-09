@@ -227,10 +227,10 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
 
       if (inviteMode === "link") {
         setSuccess(
-          data.musicScaleRoleDeferred
+          data.musicScaleRoleBound
             ? t(
-                "users.invite.link_created_role_deferred",
-                "Link criado. O acesso à organização será aplicado ao entrar; a função musical será definida depois no MusicScale.",
+                "users.invite.link_created_role_bound",
+                "Link criado! O nível de acesso e a função musical escolhidos serão aplicados automaticamente ao aceitar o convite.",
               )
             : t("users.invite.link_created", "Link de uso único criado. Ele expira em 7 dias."),
         );
@@ -492,7 +492,7 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
                         )
                       : t(
                           "users.invite.musicscale_role_link",
-                          "O link define o acesso à organização. Por segurança, a função {{role}} será atribuída no MusicScale depois que a pessoa entrar.",
+                          "O convite registra o nível de acesso e a função {{role}}. Ambos serão aplicados automaticamente quando a pessoa aceitar.",
                           { role: musicScaleRole.name },
                         )
                     : t(
