@@ -263,6 +263,17 @@
     "stage_tools": "Ferramentas de Palco"
   },
   "dashboard": {
+    "quickTools": {
+      "eyebrow": "PRONTO PARA TOCAR",
+      "title": "Ferramentas rápidas",
+      "all": "Ver ferramentas",
+      "tuner": "Afinador",
+      "metronome": "Metrônomo",
+      "pads": "Pads",
+      "chords": "Cifras",
+      "performance": "Modo palco",
+      "open": "Abrir {{tool}}"
+    },
     "premium": {
       "eyebrow": "MÚSICA · PESSOAS · PROPÓSITO"
     },
