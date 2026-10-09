@@ -263,6 +263,9 @@
     "stage_tools": "Stage Tools"
   },
   "dashboard": {
+    "premium": {
+      "eyebrow": "MUSIC · PEOPLE · PURPOSE"
+    },
     "title": "Ministry Dashboard",
     "welcome": "Hello, {{name}}",
     "welcome_sub": "Manage your worship ministry with excellence and focus.",

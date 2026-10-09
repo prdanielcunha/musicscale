@@ -263,6 +263,9 @@
     "stage_tools": "Herramientas de Escenario"
   },
   "dashboard": {
+    "premium": {
+      "eyebrow": "MÚSICA · PERSONAS · PROPÓSITO"
+    },
     "title": "Tablero Ministerial",
     "welcome": "Hola, {{name}}",
     "welcome_sub": "Administre su ministerio de alabanza con excelencia y enfoque.",
