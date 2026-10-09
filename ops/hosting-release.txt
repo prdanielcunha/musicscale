@@ -1,5 +1,5 @@
-MusicScale 0.10.9-beta.22 — 2026-10-09
-Complemento de segurança e usabilidade dos convites: links de equipe agora retêm, de forma vinculada e não editável, o papel da organização (Hub) e a função musical escolhida no MusicScale até a aceitação autenticada.
-A função musical é registrada por hash do token do convite, nunca pelo token bruto; não é necessário cadastrar manualmente a função após ingressar.
-Preserva a correção nativa do UNAUTHORIZED beta.21, validação canônica do Hub, fluxos antigos por email, login Google/email e o hotfix de escalas fixas beta.20.
-Sem alterações de planos, cobrança Stripe, permissões globais ou dados existentes.
+MusicScale 0.10.9-beta.23 — 2026-10-09
+Usabilidade do convite na página Integrantes: botão explícito Convidar integrante e escolha da função musical com e-mail ou link.
+O nível de acesso da organização continua validado no MillionsNest Hub; a função musical escolhida é vinculada ao convite e aplicada após aceitação autenticada.
+Organização do convite deriva do contexto canônico ativo do Hub, sem reutilizar identificadores antigos do perfil.
+Preserva integralmente a beta.22 de convites, o hotfix de bandas fixas, membros existentes, dados, Firestore Rules e cobrança.
