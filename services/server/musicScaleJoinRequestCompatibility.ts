@@ -8,7 +8,7 @@ export interface JoinRequestCompatibilityDependencies {
   db: any;
   auth: any;
   logger?: { error?: (...args: any[]) => void };
-  hubFactory?: () => Pick<HubJoinRequestAdapter, 'create' | 'approve' | 'reject'>;
+  hubFactory?: () => Pick<HubJoinRequestAdapter, 'createForOwnerEmail' | 'approve' | 'reject'>;
 }
 
 export class JoinRequestCompatibilityError extends Error {
@@ -84,15 +84,21 @@ function mapError(error: unknown): { status: number; reasonCode: string } {
   return { status: 500, reasonCode: 'INTERNAL_SERVER_ERROR' };
 }
 
+function requireForwardableBearer(authHeader: unknown): string {
+  if (typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ') || !authHeader.slice(7).trim()) {
+    throw new JoinRequestCompatibilityError(401, 'UNAUTHORIZED');
+  }
+  // Actual Firebase ID token and membership permissions are validated on the Hub.
+  return authHeader;
+}
+
 export function createJoinRequestCompatibilityHandlers(deps: JoinRequestCompatibilityDependencies) {
   const hubFactory = deps.hubFactory || (() => new HubJoinRequestAdapter());
 
   const create = async (req: any, res: any) => {
     try {
-      if (!deps.db || !deps.auth) return res.status(503).json({ success: false, reasonCode: 'SERVICE_UNAVAILABLE' });
-      const principal = await verifyBearer(deps.auth, req.headers?.authorization);
-      const organizationId = await resolveUniqueActiveOwnerOrganization(deps.db, deps.auth, req.body?.ownerEmail);
-      const result = await hubFactory().create(principal.bearer, organizationId);
+      const bearer = requireForwardableBearer(req.headers?.authorization);
+      const result = await hubFactory().createForOwnerEmail(bearer, req.body?.ownerEmail);
       return res.status(200).json(result);
     } catch (error) {
       const mapped = mapError(error);
@@ -103,8 +109,7 @@ export function createJoinRequestCompatibilityHandlers(deps: JoinRequestCompatib
 
   const resolve = async (req: any, res: any, command: 'approve' | 'reject') => {
     try {
-      if (!deps.auth) return res.status(503).json({ success: false, reasonCode: 'SERVICE_UNAVAILABLE' });
-      const principal = await verifyBearer(deps.auth, req.headers?.authorization);
+      const bearer = requireForwardableBearer(req.headers?.authorization);
       const organizationId = req.params?.organizationId;
       const requestId = req.params?.requestId;
       if (!validId(organizationId) || !validId(requestId)) {
@@ -112,8 +117,8 @@ export function createJoinRequestCompatibilityHandlers(deps: JoinRequestCompatib
       }
       const hub = hubFactory();
       const result = command === 'approve'
-        ? await hub.approve(principal.bearer, organizationId, requestId)
-        : await hub.reject(principal.bearer, organizationId, requestId);
+        ? await hub.approve(bearer, organizationId, requestId)
+        : await hub.reject(bearer, organizationId, requestId);
       return res.status(200).json(result);
     } catch (error) {
       const mapped = mapError(error);
