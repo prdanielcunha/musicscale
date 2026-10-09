@@ -122,6 +122,7 @@
     }
   },
   "users": {
+    "email_managed_by_hub": "E-mail de acesso gerenciado pela conta MillionsNest. Não é alterado aqui.",
     "unauthorizedIntent": "Você não tem permissão para gerenciar a equipe.",
     "rolesUnavailable": "Funções de equipe não disponíveis para configuração.",
     "add_existing_user": "Adicionar existente",
