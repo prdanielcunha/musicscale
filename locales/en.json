@@ -122,6 +122,7 @@
     }
   },
   "users": {
+    "email_managed_by_hub": "Sign-in email is managed by your MillionsNest account and cannot be changed here.",
     "unauthorizedIntent": "You do not have permission to manage the team.",
     "rolesUnavailable": "Team roles not available for configuration.",
     "add_existing_user": "Add existing",
