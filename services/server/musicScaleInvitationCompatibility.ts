@@ -398,12 +398,10 @@ export function createInvitationCompatibilityHandlers(deps: InvitationCompatibil
   const accept = async (req: any, res: any) => {
     try {
       if (!deps.db || !deps.auth || !deps.admin) return res.status(503).json({ error: 'SERVICE_UNAVAILABLE' });
-      const principal = await resolveAuthenticatedInvitationPrincipal(deps.auth, req.headers?.authorization);
       const token = req.body?.token;
       if (typeof token !== 'string' || token.length === 0 || token.length > 4096) {
         return res.status(400).json({ error: 'INVALID_TOKEN' });
       }
-      if (req.body?.userId && req.body.userId !== principal.uid) return res.status(403).json({ error: 'ACTOR_ID_MISMATCH' });
 
       const requestedOrganizationId =
         typeof req.body?.organizationId === 'string' ? req.body.organizationId.trim() : '';
@@ -413,19 +411,44 @@ export function createInvitationCompatibilityHandlers(deps: InvitationCompatibil
           return res.status(400).json({ error: 'INVALID_ORGANIZATION_ID', reasonCode: 'INVALID_ORGANIZATION_ID' });
         }
 
+        // The Hub is the only authority for identity, invitation, membership,
+        // app access and tenant context. A second Admin getUser / revoked-token
+        // lookup in this satellite requires Firebase Auth directory IAM that
+        // Cloud Run may not have, rejecting legitimate users as UNAUTHORIZED.
+        // Never accept a client-supplied actor id: Hub resolves it from Bearer.
+        if (req.body?.userId !== undefined) {
+          return res.status(400).json({ error: 'ACTOR_ID_NOT_ACCEPTED', reasonCode: 'ACTOR_ID_NOT_ACCEPTED' });
+        }
+        const bearer = req.headers?.authorization;
+        if (typeof bearer !== 'string' || !bearer.startsWith('Bearer ') || !bearer.slice(7).trim()) {
+          return res.status(401).json({ error: 'UNAUTHORIZED', reasonCode: 'UNAUTHORIZED' });
+        }
+
         try {
-          const hub = await hubFactory().accept(principal.bearer, token, requestedOrganizationId);
-          const roleProjectionApplied = await applyRoleIntent(deps.db, hub.organizationId, principal.uid, principal.email);
-          return res.json({ ...hub, roleProjectionApplied });
+          // Forward the exact ID token. The Hub verifies it server-side and
+          // returns the *current* actor identity only after successful acceptance.
+          const hub = await hubFactory().accept(bearer, token, requestedOrganizationId);
+          const roleProjectionApplied = await applyRoleIntent(
+            deps.db, hub.organizationId, hub.authenticatedUid, hub.authenticatedEmail
+          );
+          // Do not leak token or extra verified identity fields to the client.
+          const { authenticatedUid: _uid, authenticatedEmail: _email, ...accepted } = hub;
+          return res.json({ ...accepted, roleProjectionApplied });
         } catch (hubError) {
           if (!permitsLegacyInvitationFallback(hubError)) {
             const mapped = mapKnownError(hubError);
             if (mapped) return res.status(mapped.status).json({ error: mapped.reasonCode, reasonCode: mapped.reasonCode });
             return res.status(503).json({ error: 'HUB_UNAVAILABLE', reasonCode: 'HUB_UNAVAILABLE' });
           }
+          // Legacy fallback is restricted to an exact Hub INVITE_NOT_FOUND. It
+          // still requires the original server-side Firebase identity checks.
         }
       }
 
+      const principal = await resolveAuthenticatedInvitationPrincipal(deps.auth, req.headers?.authorization);
+      if (req.body?.userId && req.body.userId !== principal.uid) {
+        return res.status(403).json({ error: 'ACTOR_ID_MISMATCH' });
+      }
       const legacyResult = await acceptLegacyInvitation(deps, principal, token);
       return res.json(legacyResult);
     } catch (error: any) {
