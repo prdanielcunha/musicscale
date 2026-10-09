@@ -1,6 +1,5 @@
-MusicScale 0.10.9-beta.18 — 2026-10-08
-Correção urgente: o formulário de Escala Fixa exibe funções e integrantes juntos em celular, tablet e computador, sem prender a pessoa em uma aba invisível.
-Ao abrir, a lista é revalidada na API autenticada e limitada à organização atual. Integrantes ativos podem ser atribuídos mesmo sem especialidade previamente cadastrada.
-O salvamento continua exigindo nome e uma atribuição real. Diretório indisponível mostra opção de tentar novamente, sem inventar integrantes.
-Preserva as correções beta.16 e beta.17, incluindo vínculos antigos verificados por organização.
-Sem alterações de dados Firestore, assinaturas Stripe e flags comerciais.
+MusicScale 0.10.9-beta.19 — 2026-10-09
+Novidades destacadas permanentes: Afinador NestTuner, Pad e Medleys inteligentes em cartões responsivos, com demonstração do que fazem e links para cada recurso.
+Os ajustes e hotfixes ficam separados, recolhidos por padrão; a área Novidades permanece útil mesmo quando chegam futuras versões.
+Inclusos, sem regressão, os hotfixes beta.16 a beta.18 para acesso a integrantes e criação de Escalas Fixas em organizações legadas.
+Conteúdos em português, inglês e espanhol. Sem alterações de bancos de dados, Stripe, usuários ou flags comerciais.
