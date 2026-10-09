@@ -10,7 +10,7 @@ const showToast = vi.fn();
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => authState }));
 vi.mock('../../contexts/ToastContext', () => ({ useToast: () => ({ showToast }) }));
 vi.mock('../../services/inviteService', () => ({ acceptInvite: (...args: any[]) => acceptInvite(...args) }));
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (_key: string, fallback: string) => fallback }) }));
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (_key: string, fallback: string) => fallback, i18n: { language: 'pt' } }) }));
 
 import JoinPage from '../../pages/JoinPage';
 
@@ -61,6 +61,7 @@ describe('JoinPage invitation routes (H-R)', () => {
     authState.user = { getIdToken: vi.fn(async () => 'id-token') }; acceptInvite.mockResolvedValue({ success: false, message: 'safe-error' });
     renderJoin('/join/org-1?token=raw', '/join/:organizationId'); fireEvent.click(screen.getByText('Aceitar convite'));
     await waitFor(() => expect(acceptInvite).toHaveBeenCalledWith('id-token', 'raw', 'org-1'));
+    expect(authState.user.getIdToken).toHaveBeenCalledWith(true);
     expect(localStorage.length).toBe(0);
     const source = readFileSync('pages/JoinPage.tsx', 'utf8'); expect(source).not.toMatch(/(?:setDoc|updateDoc|addDoc|getDoc)\s*\(/);
   });
@@ -74,7 +75,7 @@ describe('JoinPage invitation routes (H-R)', () => {
   it('R displays a safe backend reason', async () => {
     authState.user = { getIdToken: vi.fn(async () => 'id-token') }; acceptInvite.mockResolvedValue({ success: false, message: 'EMAIL_MISMATCH' });
     renderJoin('/join?invite=legacy', '/join'); fireEvent.click(screen.getByText('Aceitar convite'));
-    expect(await screen.findByText('EMAIL_MISMATCH')).toBeTruthy();
+    expect(await screen.findByText('Não foi possível aceitar o convite. Tente novamente.')).toBeTruthy();
   });
 });
 
