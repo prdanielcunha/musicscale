@@ -75,7 +75,7 @@ describe('JoinPage invitation routes (H-R)', () => {
   it('R displays a safe backend reason', async () => {
     authState.user = { getIdToken: vi.fn(async () => 'id-token') }; acceptInvite.mockResolvedValue({ success: false, message: 'EMAIL_MISMATCH' });
     renderJoin('/join?invite=legacy', '/join'); fireEvent.click(screen.getByText('Aceitar convite'));
-    expect(await screen.findByText('Não foi possível aceitar o convite. Tente novamente.')).toBeTruthy();
+    expect(await screen.findByText('Este convite pertence a outro endereço de e-mail.')).toBeTruthy();
   });
 });
 
