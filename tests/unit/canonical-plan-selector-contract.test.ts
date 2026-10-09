@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { catalogAnnualSavings, toMusicScalePlanCatalog } from '../../components/billing/CanonicalPlanSelector';
+import { catalogAnnualSavings, toMusicScalePlanCatalog } from '../../utils/canonicalPlanCatalog';
 
 describe('MillionsNest canonical MusicScale plan selector', () => {
   it('maps exactly the 6 server-catalog MusicScale plan lookup keys', () => {
