@@ -7,6 +7,13 @@ const lock=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
 const notes=fs.readFileSync('ops/hosting-release.txt','utf8');
 
 describe('Beta.28 visual-only production release',()=>{
+  it('never advertises performance tools to tenants without the required capability',()=>{
+    const home=fs.readFileSync('pages/DashboardPage.tsx','utf8');
+    const routes=fs.readFileSync('PrivateApp.tsx','utf8');
+    expect(home).toContain('const quickTools = premiumDashboard && canUsePerformance');
+    expect(routes).toContain('<ProtectedRoute requiredPermission="musicscale.performance.use">');
+  });
+
   it('activates premium appearance strictly from official production Firebase workflow',()=>{
     expect(vite).toContain("process.env.GITHUB_WORKFLOW === 'MusicScale Firebase Production Deploy'");
     expect(vite).toContain("process.env.GITHUB_REF === 'refs/heads/production'");
