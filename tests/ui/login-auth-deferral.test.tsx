@@ -1,5 +1,5 @@
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -60,7 +60,7 @@ describe('LoginPage deferred authentication runtime', () => {
     auth.signUpWithEmail.mockReset().mockResolvedValue({ user: { uid: 'new-user' } });
   });
 
-  afterEach(() => cleanup());
+  afterEach(() => { cleanup(); vi.useRealTimers(); });
 
   it('renders cold login without loading or calling the authentication service', async () => {
     await renderLogin();
@@ -107,5 +107,26 @@ describe('LoginPage deferred authentication runtime', () => {
     expect(await screen.findByText('O popup de login foi bloqueado pelo navegador. Permita popups para este site.')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('button', { name: /Continuar com Google/i })).toBeEnabled());
   });
+
+  it('keeps a slow Google account selection pending and accepts its eventual success', async () => {
+    let complete!: (credential: any) => void;
+    auth.signInWithGoogle.mockReturnValue(new Promise(resolve => { complete = resolve; }));
+    await renderLogin('/login?redirect=%2Fsongs');
+    const pendingButton = screen.getByRole('button', { name: /Continuar com Google/i });
+    vi.useFakeTimers();
+    await act(async () => {
+      fireEvent.click(pendingButton);
+    });
+    expect(auth.signInWithGoogle).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(13000); });
+    expect(screen.queryByText(/problema de rede|Falha ao autenticar/i)).toBeNull();
+    expect(screen.queryByText('destination:/songs')).toBeNull();
+    expect(pendingButton).toBeDisabled();
+    fireEvent.click(pendingButton);
+    expect(auth.signInWithGoogle).toHaveBeenCalledTimes(1);
+    await act(async () => { complete({ user: { uid: 'google-user' } }); });
+    expect(screen.getByText('destination:/songs')).toBeInTheDocument();
+  });
+
 
 });
