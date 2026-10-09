@@ -26,6 +26,7 @@ interface FixedBandScaleFormModalProps {
   ) => Promise<void>;
   scaleToEdit: FixedBandScale | null;
   isSubmitting: boolean;
+  saveError?: string | null;
 }
 
 const FixedBandScaleFormModal: React.FC<FixedBandScaleFormModalProps> = ({
@@ -34,9 +35,10 @@ const FixedBandScaleFormModal: React.FC<FixedBandScaleFormModalProps> = ({
   onSave,
   scaleToEdit,
   isSubmitting,
+  saveError,
 }) => {
   const { t } = useTranslation();
-  const { allUsers, instruments } = useMusic();
+  const { allUsers, instruments, usersStatus, refreshData } = useMusic();
   const [formData, setFormData] = useState<{
     name: string;
     assignments: BandMember[];
@@ -100,6 +102,11 @@ const FixedBandScaleFormModal: React.FC<FixedBandScaleFormModalProps> = ({
       <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
         {t("common.cancel", "Cancelar")}
       </Button>
+      {(!formData.name.trim() || validAssignments.length === 0) && (
+        <span className="w-full text-right text-[11px] text-white/55" aria-live="polite">
+          {t('bandScalesPage.saveRequiresNameAndMember', 'Para salvar, informe o nome e escolha ao menos um integrante para uma função.')}
+        </span>
+      )}
       <Button
         type="submit"
         form="fixed-scale-form"
@@ -139,11 +146,19 @@ const FixedBandScaleFormModal: React.FC<FixedBandScaleFormModalProps> = ({
           />
         </div>
 
+        {saveError && (
+          <div role="alert" className="rounded-xl border border-red-400/25 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+            {saveError}
+          </div>
+        )}
         <div className="flex flex-col">
           <div className="mb-4 rounded-xl border border-slate-200/70 bg-slate-50/70 px-4 py-3 text-xs leading-relaxed text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
             {t("bandScalesPage.fixedScaleMembersHint", "Monte a formação fixa. A presença de cada integrante será confirmada depois, dentro de cada Escala de Músicas.")}
           </div>
           <BandBuilder
+            compactDesktopLayout
+            memberDirectoryState={usersStatus}
+            onRetryMemberDirectory={() => { void refreshData(); }}
             formData={formData}
             setFormData={setFormData as any}
             instrumentsByCat={instrumentsByCat}
