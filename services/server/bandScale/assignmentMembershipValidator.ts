@@ -72,6 +72,19 @@ export async function validateBandScaleAssignedUsers(
         !['disabled', 'inactive', 'removed', 'suspended'].includes(
           String(data.status || '').toLowerCase())) return;
 
+    // An owner may predate members/{uid} materialization. Ownership must be
+    // proven by the *requested tenant document*, not by a user profile or
+    // a caller-supplied role. Explicitly inactive canonical/legacy records
+    // above still fail closed before reaching this fallback.
+    const orgSnap = await db.collection('organizations').doc(organizationId).get();
+    if (orgSnap.exists) {
+      const org = orgSnap.data() || {};
+      const orgState = String(org.status || '').trim().toLowerCase();
+      if (org.disabled !== true && org.archived !== true &&
+          !['disabled', 'suspended', 'archived'].includes(orgState) &&
+          [org.ownerUid, org.ownerUserId, org.ownerId].includes(uid)) return;
+    }
+
     throw new Error('Integrante não pertence a esta organização.');
   }));
 }
