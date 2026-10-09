@@ -19,10 +19,11 @@ describe('P0 auth/startup anti-hang contract', () => {
     );
   });
 
-  it('bounds the deferred auth chunk and Firebase login action', () => {
+  it('bounds module load but does not timeout interactive Google login', () => {
     expect(loginPage).toContain('LOGIN_RUNTIME_TIMEOUT_MS = 12000');
     expect(loginPage).toContain("import(\"../services/authService\")");
-    expect(loginPage).toContain("withLoginTimeout(signInWithGoogle(), 'GOOGLE_SIGN_IN')");
+    expect(loginPage).toContain('const credential = await signInWithGoogle();');
+    expect(loginPage).not.toContain("withLoginTimeout(signInWithGoogle(), 'GOOGLE_SIGN_IN')");
   });
 
   it('bounds user profile hydration so AuthContext always reaches its finally path', () => {
