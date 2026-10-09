@@ -1,5 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import { getFirebaseRuntimeConfig } from '../../services/firebaseRuntimeConfig';
+import musicScaleConfig from '../../firebase-applet-config.json';
+
+describe('MusicScale production attestation identity', () => {
+  it('uses the MusicScale Web app registered in App Check, within the canonical Hub project', () => {
+    const { firebaseConfig, useEmulators } = getFirebaseRuntimeConfig({
+      prodConfig: musicScaleConfig,
+      isDev: false,
+      viteE2eMode: undefined,
+      viteE2eProjectId: undefined,
+      hostname: 'musicscale.millionsnest.com',
+    });
+
+    expect(useEmulators).toBe(false);
+    expect(firebaseConfig.appId).toBe('1:555464791734:web:3059e8ac2b8089a1767817');
+    expect(firebaseConfig.projectId).toBe('millionsnest');
+    expect(firebaseConfig.authDomain).toBe('millionsnest.firebaseapp.com');
+    expect(firebaseConfig.firestoreDatabaseId).toBe('(default)');
+  });
+});
 
 describe('Firebase E2E Config', () => {
   const prodConfig = { projectId: 'prod-id' };
