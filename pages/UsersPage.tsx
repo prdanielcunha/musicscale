@@ -1982,6 +1982,7 @@ const UsersPage: React.FC = () => {
       <CanonicalHubInviteModal
         isOpen={isHubInviteOpen}
         onClose={() => setIsHubInviteOpen(false)}
+        availableMusicScaleRoles={roles}
       />
 
 
