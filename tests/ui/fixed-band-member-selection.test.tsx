@@ -54,7 +54,7 @@ describe('fixed scale owner can pick an actual member', () => {
     expect(functions?.className).toContain('md:w-[36%]');
     const roster = screen.getByText('Vozes').closest('div.flex-col')?.parentElement?.children[1] as HTMLElement;
     expect(roster.className).toContain('md:w-[64%]');
-    expect(roster.className).toContain('md:flex');
+    expect(roster.className.split(/\\s+/)).toContain('flex');
     fireEvent.click(screen.getByTestId('select-instrument-inst-vocal'));
     expect(screen.getByText('Integrante da Equipe')).toBeVisible();
     fireEvent.click(screen.getByTestId('add-assignment-member-a-inst-vocal'));
