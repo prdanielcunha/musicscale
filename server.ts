@@ -48,6 +48,7 @@ import { compareSongs } from "./utils/songDiscovery/matcher.js";
 import { requireEcosystemRole } from "./services/server/ecosystemAuth.js";
 import { resolveMemberDirectoryMusicProfile, writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
+import { collectTenantMemberDirectoryCandidates } from "./services/server/memberDirectoryCandidates.js";
 import { createMusicDataBootstrapHandler } from "./services/server/musicDataBootstrap.js";
 import { createConnectNextScheduleReadHandler } from "./services/server/connect/nextScheduleReadHandler.js";
 import { createConnectNextScheduleRepertoireReadHandler } from "./services/server/connect/nextScheduleRepertoireReadHandler.js";
@@ -1998,15 +1999,24 @@ app.post(
           }
 
           const organizationRef = db.collection("organizations").doc(organizationId);
-          const [membersSnapshot, projectionsSnapshot, rolesSnapshot] = await Promise.all([
+          // Historical MusicScale organizations may have active tenant-bound
+          // membership mirrors but no materialized Hub members document.
+          // The owner is also authoritative via the validated organization
+          // ownership fields, independently of legacy primaryOrg navigation.
+          // This is read-only and canonical removals always win.
+          const [membersSnapshot, projectionsSnapshot, rolesSnapshot, legacyByOrg, legacyByAlias] = await Promise.all([
               organizationRef.collection("members").get(),
               organizationRef.collection("musicscale_members").get(),
               db.collection("roles").where("organizationId", "==", organizationId).get(),
+              db.collection("organization_members").where("organizationId", "==", organizationId).get(),
+              db.collection("organization_members").where("organization_id", "==", organizationId).get(),
           ]);
 
-          const activeMemberDocs = membersSnapshot.docs.filter((memberDoc: any) => {
-              const status = String(memberDoc.data()?.status || "active").trim().toLowerCase();
-              return status === "active" || status === "ativo";
+          const activeMemberDocs = collectTenantMemberDirectoryCandidates({
+              organizationId,
+              canonical: membersSnapshot.docs,
+              legacy: [...legacyByOrg.docs, ...legacyByAlias.docs],
+              ownerUid: actor.isOwner ? actor.uid : null,
           });
           const uids = activeMemberDocs.map((memberDoc: any) => memberDoc.id).filter(Boolean);
           const projectionByUid = new Map(
