@@ -34,7 +34,7 @@ export function collectTenantMemberDirectoryCandidates(input: {
     const uid = data.uid || data.userId || data.user_id;
     const tenant = data.organizationId || data.organization_id;
     if (typeof uid !== 'string' || !VALID_ID.test(uid) ||
-        tenant !== organizationId || !active(data) || canonicalByUid.has(uid)) continue;
+        tenant !== organizationId || !active(data, true) || canonicalByUid.has(uid)) continue;
     results.set(uid, { id: uid, data: () => ({
       ...data,
       uid,
