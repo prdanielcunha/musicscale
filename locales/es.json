@@ -263,6 +263,17 @@
     "stage_tools": "Herramientas de Escenario"
   },
   "dashboard": {
+    "quickTools": {
+      "eyebrow": "LISTO PARA TOCAR",
+      "title": "Herramientas rápidas",
+      "all": "Ver herramientas",
+      "tuner": "Afinador",
+      "metronome": "Metrónomo",
+      "pads": "Pads",
+      "chords": "Cifrados",
+      "performance": "Modo escenario",
+      "open": "Abrir {{tool}}"
+    },
     "premium": {
       "eyebrow": "MÚSICA · PERSONAS · PROPÓSITO"
     },
