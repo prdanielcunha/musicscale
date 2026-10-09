@@ -15,6 +15,7 @@ import { useOptionalApi } from '../contexts/ApiContext';
 import { useSuggestionsContext } from '../contexts/SuggestionContext';
 import { HomeFocusCard } from '../components/dashboard/HomeFocusCard';
 import { TrialProgressInline } from '../components/dashboard/TrialProgressInline';
+import { MusicianQuickTools } from '../components/dashboard/MusicianQuickTools';
 import '../components/dashboard/premium-music-dashboard.css';
 import { HomeUpcomingEvents } from '../components/dashboard/HomeUpcomingEvents';
 import { HomePreparationWeek } from '../components/dashboard/HomePreparationWeek';
@@ -679,6 +680,13 @@ export const DashboardPage: React.FC = () => {
           onChooseScaleToRepeat={() => navigate('/scales')}
           onResolveAttention={handleResolveAttention}
           onDeleteDraft={handleDeleteDraft}
+        />
+      )}
+
+      {premiumDashboard && (
+        <MusicianQuickTools
+          canUsePerformance={canUsePerformance}
+          onOpenPerformance={handleExplorePerformance}
         />
       )}
 
