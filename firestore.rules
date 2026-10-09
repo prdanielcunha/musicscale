@@ -538,7 +538,7 @@ service cloud.firestore {
       }
 
       match /musicscale_members/{uid} {
-        allow read: if isAuthenticated() && (hasActiveMusicScaleTenantMembership(orgId) || hasCanonicalGlobalRole() || hasCanonicalSupportRole());
+        allow read: if isAuthenticated() && isOrgActive(orgId) && (hasActiveMusicScaleTenantMembership(orgId) || hasCanonicalGlobalRole() || hasCanonicalSupportRole());
         allow create, update, delete: if false;
       }
 
@@ -561,11 +561,11 @@ service cloud.firestore {
       }
 
       match /notifications/{notificationId} {
-        allow read: if isAuthenticated() && (
+        allow read: if isAuthenticated() && isOrgActive(orgId) && (
           resource.data.recipientId == request.auth.uid
         );
         allow create: if false;
-        allow update: if isAuthenticated() && (
+        allow update: if isAuthenticated() && isOrgActive(orgId) && (
           resource.data.recipientId == request.auth.uid && 
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'isArchived', 'readAt', 'archivedAt'])
         );
@@ -616,7 +616,9 @@ service cloud.firestore {
 
     
     match /scales/{musicScaleId}/responses/{responseId} {
-      allow read: if isAuthenticated() && (
+      allow read: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/scales/$(musicScaleId)) &&
+        isOrgActive(get(/databases/$(database)/documents/scales/$(musicScaleId)).data.get('organizationId', '')) && (
         isSystemAdmin() ||
         resource.data.userId == request.auth.uid ||
         (
@@ -628,7 +630,9 @@ service cloud.firestore {
     }
     
     match /scales/{musicScaleId}/responseHistory/{historyId} {
-      allow read: if isAuthenticated() && (
+      allow read: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/scales/$(musicScaleId)) &&
+        isOrgActive(get(/databases/$(database)/documents/scales/$(musicScaleId)).data.get('organizationId', '')) && (
         isSystemAdmin() ||
         (
           exists(/databases/$(database)/documents/scales/$(musicScaleId)) &&
