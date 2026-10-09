@@ -38,9 +38,12 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
 }, ref) => {
   const { t } = useTranslation();
   const [selectedInstruments, setSelectedInstruments] = useState<Instrument[]>([]);
-  const [showAllMembers, setShowAllMembers] = useState(false);
+  // When composing a fixed formation, any active tenant member can be
+  // assigned, even without a recorded instrumental specialty.
+  const [showAllMembers, setShowAllMembers] = useState(compactDesktopLayout);
   const [mobileTab, setMobileTab] = useState<"functions" | "formation">("functions");
   const firstInstrumentRef = useRef<HTMLButtonElement>(null);
+  const memberRosterRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
     focusFirstInstrument: async (signal?: AbortSignal): Promise<boolean> => {
@@ -358,8 +361,8 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
 
   return (
     <div className="flex flex-col -mx-4 px-4 sm:mx-0 sm:px-0">
-      {/* Mobile Tabs */}
-      <div className={`${compactDesktopLayout ? 'md:hidden' : 'lg:hidden'} flex rounded-xl bg-slate-100 dark:bg-white/5 p-1 mb-4 flex-shrink-0`}>
+      {/* The fixed formation always shows both panels on phones and tablets. */}
+      <div className={`${compactDesktopLayout ? 'hidden' : 'lg:hidden'} flex rounded-xl bg-slate-100 dark:bg-white/5 p-1 mb-4 flex-shrink-0`}>
         <button 
           type="button" 
           onClick={() => setMobileTab("functions")} 
@@ -378,7 +381,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
 
       <div className={`flex flex-col gap-5 ${compactDesktopLayout ? 'md:flex-row' : 'lg:flex-row'}`}>
         {/* Left Column: Roles / Categories */}
-        <div className={`flex-col gap-6 w-full ${compactDesktopLayout ? 'md:w-[36%]' : 'lg:w-[33%]'} ${mobileTab === 'functions' ? 'flex' : (compactDesktopLayout ? 'hidden md:flex' : 'hidden lg:flex')}`}>
+        <div className={`flex-col gap-6 w-full ${compactDesktopLayout ? 'md:w-[36%]' : 'lg:w-[33%]'} ${compactDesktopLayout ? 'flex' : (mobileTab === 'functions' ? 'flex' : 'hidden lg:flex')}`}>
           {allUsers.length <= 1 && (
             <div className="p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl">
               <h4 className="text-[13px] font-bold text-amber-800 dark:text-amber-400 mb-1">
@@ -415,7 +418,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
                         // On phones the roster lives in another tab. Reveal it
                         // immediately instead of leaving the user on filters.
                         if (compactDesktopLayout && typeof window !== 'undefined' && window.innerWidth < 768) {
-                          setMobileTab('formation');
+                          requestAnimationFrame(() => memberRosterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
                         }
                         setSelectedInstruments(prev => {
                            if (prev.find(i => i.id === inst.id)) {
@@ -446,7 +449,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
         </div>
 
         {/* Right Column: People / Selected Formation */}
-        <div className={`min-w-0 flex-col bg-slate-50 border border-slate-200 dark:border-white/5 dark:bg-[#151516] rounded-2xl p-4 sm:p-5 w-full ${compactDesktopLayout ? 'md:w-[64%]' : 'lg:w-[67%]'} ${mobileTab === 'formation' ? 'flex' : (compactDesktopLayout ? 'hidden md:flex' : 'hidden lg:flex')}`}>
+        <div ref={memberRosterRef} data-testid="fixed-band-member-roster" className={`min-w-0 flex-col bg-slate-50 border border-slate-200 dark:border-white/5 dark:bg-[#151516] rounded-2xl p-4 sm:p-5 w-full ${compactDesktopLayout ? 'md:w-[64%]' : 'lg:w-[67%]'} ${compactDesktopLayout ? 'flex' : (mobileTab === 'formation' ? 'flex' : 'hidden lg:flex')}`}>
           {selectedInstruments.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6">
               <div className="w-16 h-16 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-slate-100 dark:border-white/5 flex items-center justify-center mb-4">
