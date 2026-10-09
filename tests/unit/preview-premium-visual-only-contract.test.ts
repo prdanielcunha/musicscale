@@ -24,10 +24,14 @@ describe('MusicScale premium staging-only visual build',()=>{
     expect(viteConfig).toContain("process.env.PREVIEW_CHANNEL === 'main-review'");
     expect(viteConfig).toContain('define: previewOnlyVisualFlags');
   });
-  it('enables four screens for this preview only; production and developer builds stay OFF',()=>{
+  it('previews all four screens but limits the production release to the safe Dashboard presentation',()=>{
     for(const flag of flags){
       expect(viteConfig).toContain(`'import.meta.env.${flag}': JSON.stringify('true')`);
-      expect(production).not.toContain(`${flag}:`);
+      if(flag === 'VITE_NEW_DASHBOARD_UI_PRESENTATION') {
+        expect(production).toContain("${flag}: 'true'");
+      } else {
+        expect(production).not.toContain(`${flag}:`);
+      }
       expect(preview).not.toContain(`${flag}: 'true'`);
     }
     expect(viteConfig).toContain('} : {}');
