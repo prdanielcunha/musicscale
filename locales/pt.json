@@ -1,4 +1,12 @@
 {
+  "aiConnection": {
+    "title": "Verificar conexão da IA",
+    "description": "Este teste verifica a conexão segura deste navegador. Não exige login, não processa músicas e não confirma o salvamento.",
+    "checking": "Verificando…",
+    "check": "Verificar conexão",
+    "success": "Conexão segura verificada. O processamento e o salvamento precisam ser testados com uma conta autenticada.",
+    "failure": "Não foi possível verificar a conexão segura. Este código ajuda o suporte a investigar:"
+  },
   "chordKeyRepair": {
     "title": "Ajustar tom da cifra",
     "description": "Use esta ferramenta quando os acordes estiverem escritos em um tom diferente do tom real da música.",

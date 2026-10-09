@@ -6,6 +6,7 @@ import StartupInteractionBoundary from './components/bootstrap/StartupInteractio
 import LoginPage from './pages/LoginPage';
 
 const PrivateApp = lazy(() => import('./PrivateApp'));
+const AiConnectionDiagnosticsPage = lazy(() => import('./pages/AiConnectionDiagnosticsPage'));
 
 /**
  * The login page is a public authentication boundary. It must be reachable before
@@ -18,6 +19,10 @@ const PrivateApp = lazy(() => import('./PrivateApp'));
  */
 export const RootApp: React.FC = () => {
     const location = useLocation();
+
+    if (location.pathname === '/diagnostics/ai-connection') {
+        return <ErrorBoundary><AiConnectionDiagnosticsPage /></ErrorBoundary>;
+    }
 
     if (location.pathname === '/login') {
         return (
