@@ -79,6 +79,29 @@ describe('fixed scale owner can pick an actual member', () => {
     }
   });
 
+  it('keeps the picker visible and lets the owner assign a teammate without a recorded specialty', () => {
+    const generic = { ...person, specialtyIds: [] } as UserProfile;
+    render(<Subject users={[generic]} />);
+    expect(screen.getByTestId('fixed-band-member-roster')).toBeVisible();
+    fireEvent.click(screen.getByTestId('select-instrument-inst-vocal'));
+    expect(screen.getByText('Integrante da Equipe')).toBeVisible();
+    fireEvent.click(screen.getByTestId('add-assignment-member-a-inst-vocal'));
+    expect(screen.getByTestId('assignment-count')).toHaveTextContent('1');
+  });
+
+  it('shows the people panel before an instrument is selected without a hidden mobile tab', () => {
+    const before = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    try {
+      render(<Subject />);
+      expect(screen.getByTestId('fixed-band-member-roster')).toBeVisible();
+      fireEvent.click(screen.getByTestId('select-instrument-inst-vocal'));
+      expect(screen.getByTestId('add-assignment-member-a-inst-vocal')).toBeVisible();
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: before });
+    }
+  });
+
   it('makes a failed member directory actionable without creating fake assignments', () => {
     const retry = vi.fn();
     render(<Subject users={[]} status="error" onRetry={retry} />);
