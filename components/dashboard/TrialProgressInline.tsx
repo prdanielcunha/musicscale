@@ -44,14 +44,14 @@ export function TrialProgressInline({ entitlement, isBillingManager }: TrialProg
           <CalendarClock className="h-[18px] w-[18px]" aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <p className="text-xs font-semibold">{t('premium.trialProgress.active')}</p>
+          <p className="text-xs font-semibold">{t('dashboardTrial.active')}</p>
           <p className="text-[11px] text-[#a6a6b2]">
-            {t('premium.trialProgress.daysRemaining', { count: days })}
+            {t('dashboardTrial.daysRemaining', { count: days })}
           </p>
         </div>
       </div>
       <time dateTime={entitlement.trialEndsAt!} className="text-[11px] font-medium text-[#a6a6b2]">
-        {t('premium.trialProgress.effectiveUntil', {date:endDate})}
+        {t('dashboardTrial.effectiveUntil', {date:endDate})}
       </time>
     </aside>
   );
