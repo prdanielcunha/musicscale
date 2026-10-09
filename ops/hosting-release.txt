@@ -1,5 +1,5 @@
-MusicScale 0.10.9-beta.23 — 2026-10-09
-Usabilidade do convite na página Integrantes: botão explícito Convidar integrante e escolha da função musical com e-mail ou link.
-O nível de acesso da organização continua validado no MillionsNest Hub; a função musical escolhida é vinculada ao convite e aplicada após aceitação autenticada.
-Organização do convite deriva do contexto canônico ativo do Hub, sem reutilizar identificadores antigos do perfil.
-Preserva integralmente a beta.22 de convites, o hotfix de bandas fixas, membros existentes, dados, Firestore Rules e cobrança.
+MusicScale 0.10.9-beta.24 — 2026-10-09
+Hotfix P0: proprietário e administradores agora conseguem salvar o nome de exibição de integrantes existentes no MusicScale, de forma segregada por organização.
+Nome salvo e exibido através da projeção musical autenticada; conta, e-mail e permissões globais do Hub não são alterados.
+A edição de funções e especialidades reconhece membros legados ativos comprovados do mesmo tenant, sem reviver membros removidos ou inativos.
+Preserva beta.23 integralmente (convites validados, funções musicais escolhidas por convite), beta.22, escalas fixas, assinatura e dados.

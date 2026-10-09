@@ -46,9 +46,9 @@ import Stripe from "stripe";
 import { PLAN_FEATURES, PLAN_LIMITS } from "./services/entitlementsConstants.js";
 import { compareSongs } from "./utils/songDiscovery/matcher.js";
 import { requireEcosystemRole } from "./services/server/ecosystemAuth.js";
-import { resolveMemberDirectoryMusicProfile, writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
+import { MUSIC_SCALE_MEMBER_FIELDS, resolveMemberDirectoryMusicProfile, writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
-import { collectTenantMemberDirectoryCandidates } from "./services/server/memberDirectoryCandidates.js";
+import { collectTenantMemberDirectoryCandidates, isVerifiedTenantMemberForMusicScaleWrite } from "./services/server/memberDirectoryCandidates.js";
 import { createMusicDataBootstrapHandler } from "./services/server/musicDataBootstrap.js";
 import { createConnectNextScheduleReadHandler } from "./services/server/connect/nextScheduleReadHandler.js";
 import { createConnectNextScheduleRepertoireReadHandler } from "./services/server/connect/nextScheduleRepertoireReadHandler.js";
@@ -2085,6 +2085,7 @@ app.post(
                       authData.email,
                   ),
                   displayName: textValue(
+                      projectionData.displayName,
                       memberData.displayName,
                       memberData.name,
                       userData.displayName,
@@ -2122,19 +2123,28 @@ app.post(
           if (authorization.statusCode) return res.status(authorization.statusCode).json({ error: authorization.error });
           const actor = authorization.context!;
           const requestedFields = Object.keys(req.body || {});
+          if (requestedFields.length === 0 || requestedFields.some(field => !MUSIC_SCALE_MEMBER_FIELDS.includes(field as any))) {
+              return res.status(400).json({ error: "INVALID_MEMBER_PROFILE_FIELDS" });
+          }
           const isSelfProfileOnly = actor.uid === uid && requestedFields.length > 0 &&
               requestedFields.every(field => field === 'ministryFunction' || field === 'specialtyIds');
           const canManageMembers = !!actor.systemRole || actor.isOwner || actor.organizationRole === 'admin' || actor.capabilities.includes('organization.members.manage');
           if (!actor.isActive || (!canManageMembers && !isSelfProfileOnly)) {
               return res.status(403).json({ error: "FORBIDDEN" });
           }
-          const membership = await db.collection('organizations').doc(organizationId).collection('members').doc(uid).get();
-          if (!membership.exists || !['active', 'ativo'].includes(String(membership.data()?.status || '').trim().toLowerCase())) {
+          const organization = await db.collection('organizations').doc(organizationId).get();
+          const orgData = organization.data() || {};
+          const verifiedOwnerUid = orgData.ownerUid || orgData.ownerUserId || orgData.ownerId || orgData.owner_user_id || null;
+          const targetIsActive = await isVerifiedTenantMemberForMusicScaleWrite(
+              db, organizationId, uid, verifiedOwnerUid
+          );
+          if (!targetIsActive) {
               return res.status(404).json({ error: "TARGET_MEMBERSHIP_NOT_FOUND" });
           }
           await writeMusicScaleMemberProjection(db, organizationId, uid, actor.uid, req.body);
           return res.json({ success: true });
       } catch (error: any) {
+          if (error?.message === 'INVALID_MEMBER_DISPLAY_NAME') return res.status(400).json({ error: error.message });
           if (error?.message === 'ROLE_NOT_FOUND') return res.status(404).json({ error: error.message });
           if (['INVALID_ROLE_ID', 'ROLE_ORGANIZATION_MISMATCH'].includes(error?.message)) return res.status(403).json({ error: error.message });
           logger.error('[API] MusicScale member projection update failed:', error);
