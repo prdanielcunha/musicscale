@@ -121,6 +121,14 @@
       "close": "Cerrar"
     }
   },
+  "aiConnection": {
+    "title": "Verificar conexión de IA",
+    "description": "Esta prueba verifica la conexión segura de este navegador. No requiere iniciar sesión, no procesa canciones ni confirma el guardado.",
+    "checking": "Verificando…",
+    "check": "Verificar conexión",
+    "success": "Conexión segura verificada. El procesamiento y el guardado deben probarse con una cuenta autenticada.",
+    "failure": "No se pudo verificar la conexión segura. Este código ayuda al soporte a investigar:"
+  },
   "users": {
     "email_managed_by_hub": "El correo de acceso se gestiona en la cuenta MillionsNest y no se cambia aquí.",
     "unauthorizedIntent": "No tienes permiso para gestionar el equipo.",

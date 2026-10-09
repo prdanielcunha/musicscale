@@ -121,6 +121,14 @@
       "close": "Close"
     }
   },
+  "aiConnection": {
+    "title": "Check AI connection",
+    "description": "This test checks this browser’s secure connection. It requires no sign-in, processes no songs and does not confirm saving.",
+    "checking": "Checking…",
+    "check": "Check connection",
+    "success": "Secure connection verified. Processing and saving still need to be tested with an authenticated account.",
+    "failure": "The secure connection could not be verified. This code helps support investigate:"
+  },
   "users": {
     "email_managed_by_hub": "Sign-in email is managed by your MillionsNest account and cannot be changed here.",
     "unauthorizedIntent": "You do not have permission to manage the team.",

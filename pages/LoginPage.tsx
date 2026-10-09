@@ -144,7 +144,11 @@ export default function LoginPage() {
         import("../services/authService"),
         'AUTH_MODULE'
       );
-      const credential = await withLoginTimeout(signInWithGoogle(), 'GOOGLE_SIGN_IN');
+      // Google sign-in includes account selection and MFA by the user. A short
+      // network deadline cannot bound that interaction: it reports a false error
+      // while Firebase's popup is still active and enables overlapping attempts.
+      // Let Firebase settle on success, cancellation, or its own transport error.
+      const credential = await signInWithGoogle();
       if (!credential) return;
       
       const params = new URLSearchParams(window.location.search);
