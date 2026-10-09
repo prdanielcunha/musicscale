@@ -30,14 +30,16 @@ describe('UsersPage invitation compatibility UI (A-D)', () => {
     expect(modalSource).toContain('mode: inviteMode');
     expect(modalSource).toContain('organizationRole');
     expect(modalSource).toContain('email: email.trim()');
-    expect(modalSource).toContain('roleId: musicScaleRole.id');
+    expect(modalSource).toContain('roleId: selectedMusicScaleRole.id');
+    expect(modalSource).toContain('selectedMusicScaleRole?.id');
+    expect(usersSource).toContain('availableMusicScaleRoles={roles}');
     expect(modalSource).toContain('data.inviteUrl');
     expect(modalSource).toContain('musicscale.millionsnest.com');
   });
 
   it('C-D performs no invitation Firestore write and keeps MusicScale role intent separate from organization access', () => {
     expect(modalSource).not.toMatch(/(?:setDoc|addDoc|updateDoc)\s*\(/);
-    expect(modalSource).toContain('roleId: musicScaleRole.id');
+    expect(modalSource).toContain('roleId: selectedMusicScaleRole.id');
     expect(modalSource).toContain('organizationRole');
     expect(modalSource).not.toContain('organizationRole: musicScaleRole.name');
   });

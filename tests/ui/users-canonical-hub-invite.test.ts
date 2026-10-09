@@ -31,12 +31,31 @@ describe('Users canonical MillionsNest invitation experience', () => {
     expect(users).not.toContain('+ Convidar novo por E-mail');
   });
 
+  it('lets the Integrantes page select a musical role and retains canonical tenant boundaries', () => {
+    const users = read('pages/UsersPage.tsx');
+    const modal = read('components/team/CanonicalHubInviteModal.tsx');
+
+    expect(users).toContain('availableMusicScaleRoles={roles}');
+    expect(users).toContain('users.members_title');
+    expect(users).toContain('setIsHubInviteOpen(true)');
+    expect(modal).toContain('users.invite.musicscale_role_select');
+    expect(modal).toContain('users.invite.musicscale_role_none');
+    expect(modal).toContain('setSelectedMusicScaleRoleId(event.target.value)');
+    expect(modal).toContain('selectedMusicScaleRole?.id');
+    expect(modal).toContain('{ roleId: selectedMusicScaleRole.id }');
+    expect(modal).toContain('context?.currentOrganizationId || organization?.id || ""');
+    expect(modal).not.toContain('userProfile?.activeOrganizationId ||');
+    expect(modal).toContain('["owner", "dono", "ceo", "global_admin"');
+  });
+
   it.each(['pt', 'en', 'es'])('ships invitation copy in %s', locale => {
     const parsed = JSON.parse(read(`locales/${locale}.json`));
     expect(parsed.users.invite.method_email).toBeTruthy();
     expect(parsed.users.invite.method_link).toBeTruthy();
     expect(parsed.users.invite.role_member).toBeTruthy();
     expect(parsed.users.invite.musicscale_role_title).toBeTruthy();
+    expect(parsed.users.invite.musicscale_role_select).toBeTruthy();
+    expect(parsed.users.invite.musicscale_role_none).toBeTruthy();
   });
 
   it('exposes a members directory that opens member details and offers invitation entry points', () => {
