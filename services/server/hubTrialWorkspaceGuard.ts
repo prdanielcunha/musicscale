@@ -82,7 +82,11 @@ export function createHubTrialWorkspaceMiddleware(deps:{db:any}) {
     if (!isProtectedMusicWorkspaceApiPath(value(req.path))) return next();
     const selected = musicWorkspaceOrgFromRequest(req);
     if (selected.error || !selected.organizationId) {
-      return res.status(400).json({error:selected.error || 'MISSING_ORGANIZATION_ID'});
+      // Preserve the historical missing-tenant API contract used by existing
+      // MusicScale clients, while retaining the strict 400 security boundary.
+      return res.status(400).json(selected.error === 'MISSING_ORGANIZATION_ID'
+        ? {error:'X-Organization-Id is required',code:'MISSING_ORGANIZATION_ID'}
+        : {error:selected.error || 'INVALID_ORGANIZATION_ID'});
     }
     try {
       const decision = await canUseHubTrialMusicWorkspace({
