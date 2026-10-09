@@ -504,7 +504,7 @@ service cloud.firestore {
         resource.data.get('ownerUserId', '') == request.auth.uid
       );
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (
+      allow update: if isAuthenticated() && hubTrialMetadataUnchanged() && (
         isSystemAdmin() ||
         resource.data.get('ownerUid', '') == request.auth.uid || 
         resource.data.get('ownerId', '') == request.auth.uid || 
@@ -519,6 +519,11 @@ service cloud.firestore {
       // MULTI-TENANT ISOLATION (NOVA ESTRUTURA)
       // ---------------------------------------------------------------------------------
       
+      match /app_entitlements/{appId} {
+        allow get: if isAuthenticated() && checkOrgAccess(orgId);
+        allow list, create, update, delete: if false;
+      }
+
       match /monthly_usage/{monthStr} {
         allow read: if isAuthenticated() && checkOrgAccess(orgId);
         allow write: if false;
@@ -571,9 +576,9 @@ service cloud.firestore {
       match /{app}/{document=**} {
         // Sensitive subcollections with narrower rules must always be excluded
         // from this generic app wildcard. Firestore ORs overlapping allow rules.
-        allow read: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
-        allow create: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
-        allow update, delete: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
+        allow read: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && app != 'app_entitlements' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow create: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && app != 'app_entitlements' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
+        allow update, delete: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && app != 'app_entitlements' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
       }
     }
 
@@ -692,11 +697,11 @@ service cloud.firestore {
     }
 
     match /roles/{roleId} {
-      allow get: if isAuthenticated() && 'organizationId' in resource.data && checkOrgAccess(resource.data.get('organizationId', ''));
-      allow list: if isAuthenticated() && 'organizationId' in resource.data && (checkOrgAccess(resource.data.get('organizationId', '')) || checkMemberExists(resource.data.get('organizationId', '')) || resource.data.get('organizationId', '') == request.auth.uid);
-      allow create: if isAuthenticated() && hasPermission(incoming().get('organizationId', ''), 'canManageRoles');
-      allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageRoles') && checkOrgAccess(resource.data.get('organizationId', ''));
-      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageRoles') && checkOrgAccess(resource.data.get('organizationId', ''));
+      allow get: if isAuthenticated() && 'organizationId' in resource.data && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow list: if isAuthenticated() && 'organizationId' in resource.data && (checkOrgAccess(resource.data.get('organizationId', '')) || checkMemberExists(resource.data.get('organizationId', '')) || resource.data.get('organizationId', '') == request.auth.uid) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && hasPermission(incoming().get('organizationId', ''), 'canManageRoles') && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageRoles') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageRoles') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
     }
 
     match /locations/{id} {
