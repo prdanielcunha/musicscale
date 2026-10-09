@@ -262,6 +262,9 @@
     "stage_tools": "Ferramentas de Palco"
   },
   "dashboard": {
+    "premium": {
+      "eyebrow": "MÚSICA · PESSOAS · PROPÓSITO"
+    },
     "title": "Painel Ministerial",
     "welcome": "Olá, {{name}}",
     "welcome_sub": "Gerencie seu ministério de louvor com excelência e foco.",
