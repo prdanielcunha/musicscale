@@ -359,7 +359,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
   return (
     <div className="flex flex-col -mx-4 px-4 sm:mx-0 sm:px-0">
       {/* Mobile Tabs */}
-      <div className={`${compactDesktopLayout ? 'md:hidden' : 'lg:hidden'} flex rounded-xl bg-slate-100 dark:bg-white/5 p-1 mb-4 flex-shrink-0">
+      <div className={`${compactDesktopLayout ? 'md:hidden' : 'lg:hidden'} flex rounded-xl bg-slate-100 dark:bg-white/5 p-1 mb-4 flex-shrink-0`}>
         <button 
           type="button" 
           onClick={() => setMobileTab("functions")} 
