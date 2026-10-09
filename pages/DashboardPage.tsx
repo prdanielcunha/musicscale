@@ -15,6 +15,7 @@ import { useOptionalApi } from '../contexts/ApiContext';
 import { useSuggestionsContext } from '../contexts/SuggestionContext';
 import { HomeFocusCard } from '../components/dashboard/HomeFocusCard';
 import { TrialProgressInline } from '../components/dashboard/TrialProgressInline';
+import '../components/dashboard/premium-music-dashboard.css';
 import { HomeUpcomingEvents } from '../components/dashboard/HomeUpcomingEvents';
 import { HomePreparationWeek } from '../components/dashboard/HomePreparationWeek';
 import { HomeTeamAttention } from '../components/dashboard/HomeTeamAttention';
@@ -627,15 +628,28 @@ export const DashboardPage: React.FC = () => {
   };
 
   const { title: contextualTitle, subtitle: contextualSubtitle } = getContextualGreeting();
+  const premiumDashboard = import.meta.env.VITE_NEW_DASHBOARD_UI_PRESENTATION === 'true';
 
 
   return (
-    <div className="relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24 sm:pt-8 sm:pb-12 lg:pb-8 space-y-6 sm:space-y-8 animate-fade-in touch-manipulation">
-      <header>
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+    <div data-premium-dashboard={premiumDashboard ? 'enabled' : undefined}
+      className={premiumDashboard
+        ? 'ms-premium-dashboard relative isolate mx-auto min-h-[100dvh] max-w-6xl px-4 pb-24 pt-5 sm:px-6 sm:pt-8 sm:pb-12 lg:px-8 lg:pb-10 space-y-6 sm:space-y-8 animate-fade-in touch-manipulation'
+        : 'relative isolate max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24 sm:pt-8 sm:pb-12 lg:pb-8 space-y-6 sm:space-y-8 animate-fade-in touch-manipulation'}>
+      <header className={premiumDashboard ? 'ms-premium-dashboard__header' : undefined}>
+        {premiumDashboard && (
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.25em] text-[#3ed5dd]">
+            {t('dashboard.premium.eyebrow', 'MÚSICA · PESSOAS · PROPÓSITO')}
+          </p>
+        )}
+        <h1 className={premiumDashboard
+          ? 'text-[clamp(27px,7vw,38px)] font-bold leading-[1.1] tracking-[-0.05em] text-[#f7f7fa]'
+          : 'text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight'}>
           {contextualTitle}
         </h1>
-        <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base mt-1">
+        <p className={premiumDashboard
+          ? 'mt-2 text-sm leading-6 text-[#a6a6b2] sm:text-base'
+          : 'text-slate-600 dark:text-slate-400 text-sm sm:text-base mt-1'}>
           {contextualSubtitle}
         </p>
       </header>
