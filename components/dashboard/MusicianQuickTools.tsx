@@ -26,7 +26,7 @@ export function MusicianQuickTools({ canUsePerformance, onOpenPerformance }: Mus
     { id: 'tuner', to: '/stage-tools/tuner', icon: Gauge },
     { id: 'metronome', to: '/stage-tools?tool=metronome', icon: TimerReset },
     { id: 'pads', to: '/stage-tools?tool=pads', icon: AudioLines },
-    { id: 'chords', to: '/songs', icon: BookOpenText },
+    { id: 'chords', to: '/chords', icon: BookOpenText },
     ...(canUsePerformance ? [
       { id: 'performance' as const, onClick: onOpenPerformance, icon: MonitorPlay },
     ] : []),
