@@ -9,8 +9,8 @@
  */
 type Snapshot = { id: string; data(): any };
 const VALID_ID = /^[A-Za-z0-9_-]{1,128}$/;
-const active = (data: any) =>
-  ['active', 'ativo'].includes(String(data?.status || '').trim().toLowerCase()) &&
+const active = (data: any, assumeLegacyStatus = false) =>
+  ['active', 'ativo'].includes(String(data?.status || (assumeLegacyStatus ? '' : 'active')).trim().toLowerCase()) &&
   data?.disabled !== true && data?.removed !== true;
 
 export function collectTenantMemberDirectoryCandidates(input: {
