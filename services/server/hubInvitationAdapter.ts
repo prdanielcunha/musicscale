@@ -38,6 +38,8 @@ function validateAcceptSuccess(data: any): any {
   const organizationId = typeof data?.organizationId === 'string' ? data.organizationId.trim() : '';
   const activeOrganizationId = typeof data?.activeOrganizationId === 'string' ? data.activeOrganizationId.trim() : '';
   const membershipRole = typeof data?.membershipRole === 'string' ? data.membershipRole.trim() : '';
+  const authenticatedUid = typeof data?.authenticatedUid === 'string' ? data.authenticatedUid.trim() : '';
+  const authenticatedEmail = normalizeEmail(data?.authenticatedEmail);
   const reasonCode = typeof data?.reasonCode === 'string' ? data.reasonCode.trim() : '';
 
   if (
@@ -45,13 +47,15 @@ function validateAcceptSuccess(data: any): any {
     !VALID_ID.test(organizationId) ||
     activeOrganizationId !== organizationId ||
     !membershipRole ||
+    !VALID_ID.test(authenticatedUid) ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authenticatedEmail) ||
     typeof data?.alreadyMember !== 'boolean' ||
     !VALID_ACCEPT_REASON_CODES.has(reasonCode)
   ) {
     throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
   }
 
-  return { ...data, organizationId, activeOrganizationId, membershipRole, reasonCode };
+  return { ...data, organizationId, activeOrganizationId, membershipRole, authenticatedUid, authenticatedEmail, reasonCode };
 }
 
 export class HubInvitationAdapter {
@@ -157,7 +161,11 @@ export class HubInvitationAdapter {
   async accept(bearer: string, token: string, organizationId: string) {
     if (!VALID_ID.test(organizationId)) throw new HubInvitationError(400, 'INVALID_ORGANIZATION_ID');
     const result = await this.post('/api/v1/invitations/accept', bearer, { token, organizationId });
-    return validateAcceptSuccess(result);
+    const validated = validateAcceptSuccess(result);
+    if (validated.organizationId !== organizationId) {
+      throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
+    }
+    return validated;
   }
 }
 
