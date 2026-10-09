@@ -1,3 +1,5 @@
+import { collectVerifiedMinistryNameMatches, normalizeMinistryAuditName } from '../../utils/tenantMinistryAuditMatches.js';
+
 export const MUSIC_SCALE_MEMBER_FIELDS = [
   'roleId',
   'musicscaleRole',
@@ -128,18 +130,20 @@ export function resolveMemberDirectoryMusicProfile(
     cleanStringArray(legacyUserData?.specialtyIds) ??
     [];
 
-  const normalizeRoleName = (value: unknown) =>
-    String(value || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .trim()
-      .toLowerCase();
-
-  const roleFromLegacyName = !explicitRoleId && musicscaleRole
-    ? availableRoles.find((role) =>
-        role.organizationId === organizationId &&
-        normalizeRoleName(role.name) === normalizeRoleName(musicscaleRole)
-      )?.id || ''
+  // Read-only compatibility for historical tenant-scoped ministry function
+  // strings/arrays. Never infer a role when multiple tenant role IDs match.
+  const tenantRoleNames = new Map<string, string[]>();
+  for (const role of availableRoles) {
+    if (role.organizationId !== organizationId) continue;
+    const name = normalizeMinistryAuditName(role.name);
+    if (!name) continue;
+    tenantRoleNames.set(name, [...(tenantRoleNames.get(name) || []), role.id]);
+  }
+  const musicRoleMatches = collectVerifiedMinistryNameMatches(tenantRoleNames, [musicscaleRole]);
+  const ministryMatches = collectVerifiedMinistryNameMatches(tenantRoleNames, [ministryFunction]);
+  const roleFromLegacyName = explicitRoleId ? ''
+    : musicRoleMatches.length === 1 ? musicRoleMatches[0]
+    : musicRoleMatches.length === 0 && ministryMatches.length === 1 ? ministryMatches[0]
     : '';
 
   return {
