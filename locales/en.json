@@ -50,6 +50,36 @@
     "effectiveUntil": "Until {{date}}"
   },
   "premium": {
+    "planSelection": {
+      "eyebrow": "CONTINUE YOUR JOURNEY",
+      "title": "Choose your ideal plan",
+      "subtitle": "Compare features and choose a plan for your organization. MillionsNest handles confirmation and billing.",
+      "preserveTitle": "Your data stays intact",
+      "preserveBody": "Songs, members, roles and setlists remain with your existing organization.",
+      "billingTitle": "Billing by MillionsNest",
+      "billingBody": "The Hub verifies your organization and Stripe securely processes payment.",
+      "periodLabel": "Billing period",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "catalogError": "We couldn't load current prices from the official catalog. Please retry.",
+      "retry": "Try again",
+      "choosePlan": "Choose a plan",
+      "recommended": "Most popular",
+      "description": {
+        "starter": "Essentials for teams getting organized.",
+        "advanced": "For growing ministries and richer repertoire.",
+        "pro": "For teams needing the complete music experience."
+      },
+      "unavailable": "Unavailable",
+      "perMonth": "Billed monthly",
+      "perYear": "Billed yearly",
+      "savings": "Save {{count}}% compared to 12 monthly payments",
+      "verifiedCatalog": "Prices and terms provided by MillionsNest",
+      "manage": "Manage existing subscription",
+      "continue": "Continue to payment",
+      "managerOnly": "Only the billing manager can change the plan.",
+      "disclaimer": "Confirm final pricing, discounts, billing period and renewal in MillionsNest checkout."
+    },
     "recovery": {
       "suspendedEyebrow": "MUSIC ACCESS SUSPENDED",
       "verifyingEyebrow": "VERIFYING ACCESS",

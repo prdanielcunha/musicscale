@@ -50,6 +50,36 @@
     "effectiveUntil": "Até {{date}}"
   },
   "premium": {
+    "planSelection": {
+      "eyebrow": "CONTINUE SUA JORNADA",
+      "title": "Escolha o plano ideal",
+      "subtitle": "Compare os recursos e selecione o plano da sua organização. A confirmação e a cobrança são realizadas pelo MillionsNest.",
+      "preserveTitle": "Seus dados permanecem intactos",
+      "preserveBody": "Repertório, membros, funções e escalas continuam vinculados à mesma organização.",
+      "billingTitle": "Cobrança pelo MillionsNest",
+      "billingBody": "O Hub confirma sua organização e o Stripe processa o pagamento com segurança.",
+      "periodLabel": "Período de cobrança",
+      "monthly": "Mensal",
+      "yearly": "Anual",
+      "catalogError": "Não foi possível carregar os preços do catálogo oficial. Tente novamente.",
+      "retry": "Tentar novamente",
+      "choosePlan": "Escolha um plano",
+      "recommended": "Mais escolhido",
+      "description": {
+        "starter": "Essencial para equipes em início de organização.",
+        "advanced": "Para ministérios com mais integrantes e repertório.",
+        "pro": "Para equipes que precisam de toda a experiência musical."
+      },
+      "unavailable": "Indisponível",
+      "perMonth": "Cobrado por mês",
+      "perYear": "Cobrado por ano",
+      "savings": "Economia de {{count}}% frente a 12 mensalidades",
+      "verifiedCatalog": "Preços e condições fornecidos pelo MillionsNest",
+      "manage": "Gerenciar assinatura existente",
+      "continue": "Continuar para pagamento",
+      "managerOnly": "Somente o responsável financeiro pode alterar o plano.",
+      "disclaimer": "Preço final, descontos, período e renovação devem ser confirmados no checkout do MillionsNest."
+    },
     "recovery": {
       "suspendedEyebrow": "ACESSO MUSICAL SUSPENSO",
       "verifyingEyebrow": "VERIFICAÇÃO DE ACESSO",
