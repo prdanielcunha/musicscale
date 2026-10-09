@@ -5,32 +5,36 @@ const builder = readFileSync('components/scales/BandBuilder.tsx', 'utf8');
 const form = readFileSync('components/database/FixedBandScaleFormModal.tsx', 'utf8');
 const manager = readFileSync('components/database/FixedBandScaleManager.tsx', 'utf8');
 
-describe('fixed band modal: select a real member before saving', () => {
-  it('shows both function and people panels on tablet and compact desktop widths', () => {
-    // Existing code used lg (1024 px), hiding the entire people roster on
-    // screenshots at 768-1023 px, even when a specialty had been selected.
+describe('fixed scale: owner must always see real tenant members', () => {
+  it('shows function and people panels together on phones, tablets and desktop', () => {
     expect(form).toContain('compactDesktopLayout');
-    expect(builder).toContain("'md:flex-row'");
-    expect(builder).toContain("'md:w-[36%]'");
-    expect(builder).toContain("'md:w-[64%]'");
-    expect(builder).toContain("'hidden md:flex'");
-  });
-
-  it('switches from functions to member choices automatically on phones', () => {
+    expect(builder).toContain("compactDesktopLayout ? 'hidden' : 'lg:hidden'");
+    expect(builder).toContain("compactDesktopLayout ? 'flex' : (mobileTab === 'functions'");
+    expect(builder).toContain("compactDesktopLayout ? 'flex' : (mobileTab === 'formation'");
+    expect(builder).toContain('fixed-band-member-roster');
     expect(builder).toContain("window.innerWidth < 768");
-    expect(builder).toContain("setMobileTab('formation')");
-    expect(builder).toContain('setSelectedInstruments(prev => {');
+    expect(builder).toContain('memberRosterRef.current?.scrollIntoView');
   });
 
-  it('offers retry for empty/error member directories and does not invent people', () => {
-    expect(form).toContain('memberDirectoryState={usersStatus}');
-    expect(form).toContain('onRetryMemberDirectory');
+  it('does not hide tenant members because their specialty is missing', () => {
+    expect(builder).toContain('useState(compactDesktopLayout)');
+    expect(builder).toContain('showAllMembers && otherUsers.length > 0');
+    expect(builder).toContain('compatibleUsers.map(u => renderUserCard');
+  });
+
+  it('recovers a fresh authenticated roster for first-login owners', () => {
+    expect(form).toContain('user.getIdToken()');
+    expect(form).toContain("encodeURIComponent(effectiveOrganizationId) + '/member-directory'");
+    expect(form).toContain('payload.organizationId !== effectiveOrganizationId');
+    expect(form).toContain('member?.organizationId === effectiveOrganizationId');
+    expect(form).toContain('verifiedMembers ?? allUsers.filter');
+    expect(form).toContain('setRetryDirectory(n => n + 1)');
+    expect(form).toContain('controller.abort()');
     expect(builder).toContain('fixed-band-member-directory-empty');
     expect(builder).toContain('membersLoadFailed');
-    expect(builder).toContain('allUsers.length === 0');
   });
 
-  it('keeps saving gated on actual named formations and user assignments', () => {
+  it('requires a name and a real member assignment before saving', () => {
     expect(form).toContain('!formData.name.trim() || validAssignments.length === 0');
     expect(form).toContain('assignment.userId && assignment.instrumentId');
     expect(form).toContain('saveRequiresNameAndMember');
