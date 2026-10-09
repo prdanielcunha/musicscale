@@ -15,6 +15,10 @@ interface BandBuilderProps {
   allUsers: UserProfile[];
   populatedBandScales: PopulatedBandScale[];
   musicScales?: PopulatedScale[];
+  /** Fixed-band modal must reveal people on tablet/compact desktop widths. */
+  compactDesktopLayout?: boolean;
+  memberDirectoryState?: 'idle' | 'loading' | 'ready' | 'error';
+  onRetryMemberDirectory?: () => void;
 }
 
 export interface BandBuilderHandle {
@@ -28,6 +32,9 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
   allUsers,
   populatedBandScales,
   musicScales,
+  compactDesktopLayout = false,
+  memberDirectoryState = 'ready',
+  onRetryMemberDirectory,
 }, ref) => {
   const { t } = useTranslation();
   const [selectedInstruments, setSelectedInstruments] = useState<Instrument[]>([]);
@@ -352,7 +359,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
   return (
     <div className="flex flex-col -mx-4 px-4 sm:mx-0 sm:px-0">
       {/* Mobile Tabs */}
-      <div className="lg:hidden flex rounded-xl bg-slate-100 dark:bg-white/5 p-1 mb-4 flex-shrink-0">
+      <div className={`${compactDesktopLayout ? 'md:hidden' : 'lg:hidden'} flex rounded-xl bg-slate-100 dark:bg-white/5 p-1 mb-4 flex-shrink-0`}>
         <button 
           type="button" 
           onClick={() => setMobileTab("functions")} 
@@ -369,9 +376,9 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
         </button>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className={`flex flex-col gap-5 ${compactDesktopLayout ? 'md:flex-row' : 'lg:flex-row'}`}>
         {/* Left Column: Roles / Categories */}
-        <div className={`flex-col gap-6 w-full lg:w-[33%] ${mobileTab === 'functions' ? 'flex' : 'hidden lg:flex'}`}>
+        <div className={`flex-col gap-6 w-full ${compactDesktopLayout ? 'md:w-[36%]' : 'lg:w-[33%]'} ${mobileTab === 'functions' ? 'flex' : (compactDesktopLayout ? 'hidden md:flex' : 'hidden lg:flex')}`}>
           {allUsers.length <= 1 && (
             <div className="p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl">
               <h4 className="text-[13px] font-bold text-amber-800 dark:text-amber-400 mb-1">
@@ -405,6 +412,11 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
                       ref={isFirst ? firstInstrumentRef : undefined}
                       type="button"
                       onClick={() => {
+                        // On phones the roster lives in another tab. Reveal it
+                        // immediately instead of leaving the user on filters.
+                        if (compactDesktopLayout && typeof window !== 'undefined' && window.innerWidth < 768) {
+                          setMobileTab('formation');
+                        }
                         setSelectedInstruments(prev => {
                            if (prev.find(i => i.id === inst.id)) {
                              return prev.filter(i => i.id !== inst.id);
@@ -434,7 +446,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
         </div>
 
         {/* Right Column: People / Selected Formation */}
-        <div className={`flex-col bg-slate-50 border border-slate-200 dark:border-white/5 dark:bg-[#151516] rounded-2xl p-5 w-full lg:w-[67%] ${mobileTab === 'formation' ? 'flex' : 'hidden lg:flex'}`}>
+        <div className={`min-w-0 flex-col bg-slate-50 border border-slate-200 dark:border-white/5 dark:bg-[#151516] rounded-2xl p-4 sm:p-5 w-full ${compactDesktopLayout ? 'md:w-[64%]' : 'lg:w-[67%]'} ${mobileTab === 'formation' ? 'flex' : (compactDesktopLayout ? 'hidden md:flex' : 'hidden lg:flex')}`}>
           {selectedInstruments.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6">
               <div className="w-16 h-16 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm border border-slate-100 dark:border-white/5 flex items-center justify-center mb-4">
@@ -538,7 +550,26 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
                 </Button>
               </div>
 
-              {compatibleUsers.length === 0 && !showAllMembers ? (
+              {allUsers.length === 0 ? (
+                <div data-testid="fixed-band-member-directory-empty" className="rounded-2xl border border-amber-300/20 bg-amber-500/[0.08] p-5 text-center">
+                  <h4 className="text-sm font-semibold text-amber-100">
+                    {memberDirectoryState === 'loading'
+                      ? t('bandScaleModal.membersLoading', 'Carregando integrantes…')
+                      : t('bandScaleModal.noMembersFound', 'Nenhum integrante encontrado')}
+                  </h4>
+                  <p className="mt-2 text-xs leading-relaxed text-white/65">
+                    {memberDirectoryState === 'error'
+                      ? t('bandScaleModal.membersLoadFailed', 'Não foi possível carregar os integrantes da organização. Tente novamente.')
+                      : t('bandScaleModal.membersMissingHint', 'Confira se os integrantes já estão associados a esta organização.')}
+                  </p>
+                  {onRetryMemberDirectory && (
+                    <Button type="button" size="sm" variant="secondary"
+                      className="mt-4" onClick={onRetryMemberDirectory}>
+                      {t('common.retry', 'Tentar novamente')}
+                    </Button>
+                  )}
+                </div>
+              ) : compatibleUsers.length === 0 && !showAllMembers ? (
                 <div className="text-center py-10 px-4 bg-white dark:bg-[#1C1C1E] border border-dashed border-slate-200 dark:border-white/10 rounded-2xl mt-4">
                   <UserIcon className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
                   <h4 className="text-[14px] font-semibold text-slate-700 dark:text-gray-200 mb-1">
