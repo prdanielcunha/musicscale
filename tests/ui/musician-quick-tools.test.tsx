@@ -21,7 +21,7 @@ describe('MusicScale Home musician quick tool rail', () => {
       '/stage-tools/tuner',
       '/stage-tools?tool=metronome',
       '/stage-tools?tool=pads',
-      '/songs',
+      '/chords',
     ]);
     expect(screen.getByRole('link',{name:'dashboard.quickTools.all'}).getAttribute('href')).toBe('/stage-tools');
     fireEvent.click(screen.getByRole('button', {name:'Abrir dashboard.quickTools.performance'}));
