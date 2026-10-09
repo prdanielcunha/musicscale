@@ -51,6 +51,12 @@ afterEach(() => {
 });
 
 describe('MusicScale premium suspension presentation', () => {
+  it('uses the real Hub billing route, not an unsupported nested path', () => {
+    const source = require('node:fs').readFileSync('components/premium/MissingSubscriptionScreen.tsx','utf8');
+    expect(source).toContain('/dashboard/billing');
+    expect(source).not.toContain('/dashboard/musicscale/plans');
+  });
+
   it('shows the approved trial-ended recovery page and canonical Hub action for owner', () => {
     render(<MissingSubscriptionScreen resolution={expired} />);
     expect(screen.getByRole('heading',{name:'premium.recovery.expiredTitle'})).toBeTruthy();
