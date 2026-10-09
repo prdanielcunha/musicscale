@@ -38,6 +38,8 @@ function validateAcceptSuccess(data: any): any {
   const organizationId = typeof data?.organizationId === 'string' ? data.organizationId.trim() : '';
   const activeOrganizationId = typeof data?.activeOrganizationId === 'string' ? data.activeOrganizationId.trim() : '';
   const membershipRole = typeof data?.membershipRole === 'string' ? data.membershipRole.trim() : '';
+  const authenticatedUid = typeof data?.authenticatedUid === 'string' ? data.authenticatedUid.trim() : '';
+  const authenticatedEmail = normalizeEmail(data?.authenticatedEmail);
   const reasonCode = typeof data?.reasonCode === 'string' ? data.reasonCode.trim() : '';
 
   if (
@@ -45,13 +47,15 @@ function validateAcceptSuccess(data: any): any {
     !VALID_ID.test(organizationId) ||
     activeOrganizationId !== organizationId ||
     !membershipRole ||
+    !VALID_ID.test(authenticatedUid) ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authenticatedEmail) ||
     typeof data?.alreadyMember !== 'boolean' ||
     !VALID_ACCEPT_REASON_CODES.has(reasonCode)
   ) {
     throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
   }
 
-  return { ...data, organizationId, activeOrganizationId, membershipRole, reasonCode };
+  return { ...data, organizationId, activeOrganizationId, membershipRole, authenticatedUid, authenticatedEmail, reasonCode };
 }
 
 export class HubInvitationAdapter {
@@ -157,7 +161,11 @@ export class HubInvitationAdapter {
   async accept(bearer: string, token: string, organizationId: string) {
     if (!VALID_ID.test(organizationId)) throw new HubInvitationError(400, 'INVALID_ORGANIZATION_ID');
     const result = await this.post('/api/v1/invitations/accept', bearer, { token, organizationId });
-    return validateAcceptSuccess(result);
+    const validated = validateAcceptSuccess(result);
+    if (validated.organizationId !== organizationId) {
+      throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
+    }
+    return validated;
   }
 }
 
@@ -165,10 +173,55 @@ export function permitsLegacyInvitationFallback(error: unknown): boolean {
   return error instanceof HubInvitationError && error.status === 404 && error.reasonCode === 'INVITE_NOT_FOUND';
 }
 
-export async function prepareRoleIntent(db: any, organizationId: string, email: string, roleId: string, actorUid: string) {
+/**
+ * A shareable invite must retain its MusicScale assignment without binding to
+ * an email (which is unknown until a verified user accepts it). Never persist
+ * the raw invite token, nor accept an actor or role from the recipient.
+ */
+export const inviteTokenHash = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
+
+export async function validateInvitableMusicScaleRole(db: any, organizationId: string, roleId: string) {
   if (!VALID_ID.test(organizationId)) throw new HubInvitationError(400, 'INVALID_ORGANIZATION_ID');
   const role = await validateMusicScaleRole(db, organizationId, roleId);
-  if (FORBIDDEN_ROLES.has(String(role?.name || '').trim().toLowerCase())) throw new HubInvitationError(403, 'CANNOT_INVITE_GLOBAL_OR_OWNER');
+  if (FORBIDDEN_ROLES.has(String(role?.name || '').trim().toLowerCase())) {
+    throw new HubInvitationError(403, 'CANNOT_INVITE_GLOBAL_OR_OWNER');
+  }
+  return role;
+}
+
+export async function saveLinkRoleIntent(
+  db: any, organizationId: string, inviteUrl: string, roleId: string, actorUid: string, invitationId: string
+) {
+  if (!VALID_ID.test(organizationId) || !VALID_ID.test(actorUid) || !VALID_ID.test(invitationId)) {
+    throw new HubInvitationError(400, 'INVALID_INVITATION_ID');
+  }
+  await validateInvitableMusicScaleRole(db, organizationId, roleId);
+  const url = new URL(inviteUrl);
+  if (url.protocol !== 'https:' || url.hostname !== 'musicscale.millionsnest.com' ||
+    url.pathname !== `/join/${organizationId}` ||
+    Array.from(url.searchParams.keys()).length !== 1) {
+    throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
+  }
+  const token = url.searchParams.get('token');
+  if (!token || token.length > 4096) throw new HubInvitationError(502, 'INVALID_HUB_RESPONSE', true);
+  const hash = inviteTokenHash(token);
+  const ref = db.collection('organizations').doc(organizationId)
+    .collection('musicscale_invite_role_intents').doc(`token_${hash}`);
+  await ref.create({
+    schemaVersion: 2,
+    organizationId,
+    hubInvitationId: invitationId,
+    inviteTokenHash: hash,
+    roleId,
+    createdByUid: actorUid,
+    status: 'pending',
+    createdAt: new Date(),
+    updatedAt: new Date()
+  });
+}
+
+export async function prepareRoleIntent(db: any, organizationId: string, email: string, roleId: string, actorUid: string) {
+  await validateInvitableMusicScaleRole(db, organizationId, roleId);
   const hash = recipientEmailHash(email), generationId = crypto.randomUUID();
   const ref = db.collection('organizations').doc(organizationId).collection('musicscale_invite_role_intents').doc(hash);
   await ref.set({ schemaVersion: 1, organizationId, recipientEmailHash: hash, roleId, createdByUid: actorUid, generationId, status: 'creating', createdAt: new Date(), updatedAt: new Date() });
@@ -186,10 +239,23 @@ export async function abandonRoleIntent(intent: any, generationId: string) {
   if (current.exists && current.data()?.generationId === generationId) await intent.delete();
 }
 
-export async function applyRoleIntent(db: any, organizationId: string, uid: string, email: string): Promise<boolean> {
-  const ref = db.collection('organizations').doc(organizationId).collection('musicscale_invite_role_intents').doc(recipientEmailHash(email));
-  const snap = await ref.get();
-  if (!snap.exists || !['creating', 'pending'].includes(snap.data()?.status) || snap.data()?.organizationId !== organizationId) return false;
+export async function applyRoleIntent(
+  db: any, organizationId: string, uid: string, email: string, acceptedToken?: string
+): Promise<boolean> {
+  const intents = db.collection('organizations').doc(organizationId).collection('musicscale_invite_role_intents');
+  // Token-scoped intent is authoritative for a link; historical email-scoped
+  // intent is retained for existing invitations and is identity-bound in Hub.
+  const tokenHash = acceptedToken ? inviteTokenHash(acceptedToken) : null;
+  const linkRef = tokenHash ? intents.doc(`token_${tokenHash}`) : null;
+  const linkSnap = linkRef ? await linkRef.get() : null;
+  const useLink = Boolean(linkSnap?.exists);
+  const ref = useLink ? linkRef! : intents.doc(recipientEmailHash(email));
+  const snap = useLink ? linkSnap! : await ref.get();
+  const intent = snap.data() || {};
+  if (!snap.exists || intent.organizationId !== organizationId) return false;
+  if (useLink && (intent.inviteTokenHash !== tokenHash || intent.schemaVersion !== 2)) return false;
+  if (intent.status === 'applied' && intent.appliedToUid === uid) return true;
+  if (!['creating', 'pending'].includes(intent.status)) return false;
   try {
     const data = snap.data() || {};
     await validateMusicScaleRole(db, organizationId, data.roleId);

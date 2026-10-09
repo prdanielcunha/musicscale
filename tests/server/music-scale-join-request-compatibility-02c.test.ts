@@ -101,18 +101,18 @@ describe('02C owner-email discovery is discovery only', () => {
 });
 
 describe('02C compatibility handlers have zero local membership authority', () => {
-  it('create ignores body userId authority and forwards exact caller bearer plus discovered org to Hub', async () => {
+  it('create forwards exact bearer and owner email for canonical Hub discovery', async () => {
     const store = fakeDb([{ id: 'org-1', data: { status: 'active', ownerUid: 'owner-1' } }]);
     const auth = fakeAuth();
-    const hubCreate = vi.fn(async (bearer: string, organizationId: string) => {
+    const hubCreate = vi.fn(async (bearer: string, ownerEmail: string) => {
       expect(bearer).toBe('Bearer requester-token');
-      expect(organizationId).toBe('org-1');
-      return { success: true as const, reasonCode: 'JOIN_REQUEST_CREATED', organizationId, requestId: 'requester-1', generation: 1 };
+      expect(ownerEmail).toBe('owner@example.com');
+      return { success: true as const, reasonCode: 'JOIN_REQUEST_CREATED', requestId: 'requester-1', generation: 1 };
     });
     const handlers = createJoinRequestCompatibilityHandlers({
       db: store.db,
       auth,
-      hubFactory: () => ({ create: hubCreate, approve: vi.fn(), reject: vi.fn() }) as any
+      hubFactory: () => ({ createForOwnerEmail: hubCreate, approve: vi.fn(), reject: vi.fn() }) as any
     });
     const result = await invoke(handlers.create, {
       headers: { authorization: 'Bearer requester-token' },
@@ -120,7 +120,9 @@ describe('02C compatibility handlers have zero local membership authority', () =
     });
     expect(result.statusCode).toBe(200);
     expect(result.body).toMatchObject({ success: true, requestId: 'requester-1' });
-    expect(auth.verifyIdToken).toHaveBeenCalledWith('requester-token', true);
+    expect(auth.verifyIdToken).not.toHaveBeenCalled();
+    expect(auth.getUserByEmail).not.toHaveBeenCalled();
+    expect(store.queryCalls).toEqual([]);
     expect(hubCreate).toHaveBeenCalledTimes(1);
     expect(store.writeAttempts).toEqual([]);
   });
@@ -130,7 +132,7 @@ describe('02C compatibility handlers have zero local membership authority', () =
     const auth = fakeAuth();
     const approve = vi.fn(async (bearer, orgId, requestId) => ({ success: true, reasonCode: 'JOIN_REQUEST_APPROVED', organizationId: orgId, requestId, generation: 1 }));
     const reject = vi.fn(async (bearer, orgId, requestId) => ({ success: true, reasonCode: 'JOIN_REQUEST_REJECTED', organizationId: orgId, requestId, generation: 1 }));
-    const handlers = createJoinRequestCompatibilityHandlers({ db: store.db, auth, hubFactory: () => ({ create: vi.fn(), approve, reject }) as any });
+    const handlers = createJoinRequestCompatibilityHandlers({ db: store.db, auth, hubFactory: () => ({ createForOwnerEmail: vi.fn(), approve, reject }) as any });
 
     const approved = await invoke(handlers.approve, { headers: { authorization: 'Bearer actor-token' }, params: { organizationId: 'org-1', requestId: 'requester-1' } });
     const rejected = await invoke(handlers.reject, { headers: { authorization: 'Bearer actor-token' }, params: { organizationId: 'org-1', requestId: 'requester-2' } });
@@ -143,6 +145,23 @@ describe('02C compatibility handlers have zero local membership authority', () =
     expect(store.writeAttempts).toEqual([]);
   });
 
+  it('delegates IAM-restricted satellite Auth to the Hub for both create and resolution', async () => {
+    const auth = {
+      verifyIdToken: vi.fn(async () => { throw Object.assign(new Error('permission denied'), { code: 'auth/insufficient-permission' }); }),
+      getUserByEmail: vi.fn(async () => { throw new Error('permission denied'); })
+    };
+    const hub = {
+      createForOwnerEmail: vi.fn(async () => ({ success: true, reasonCode: 'JOIN_REQUEST_CREATED', requestId: 'person-1', generation: 1 })),
+      approve: vi.fn(async () => ({ success: true, reasonCode: 'JOIN_REQUEST_APPROVED' })),
+      reject: vi.fn(async () => ({ success: true, reasonCode: 'JOIN_REQUEST_REJECTED' }))
+    };
+    const handlers = createJoinRequestCompatibilityHandlers({ db: fakeDb([]).db, auth, hubFactory: () => hub as any });
+    expect((await invoke(handlers.create, { headers: { authorization: 'Bearer real-token' }, body: { ownerEmail: 'owner@example.com' } })).statusCode).toBe(200);
+    expect((await invoke(handlers.approve, { headers: { authorization: 'Bearer real-token' }, params: { organizationId: 'org-1', requestId: 'person-1' } })).statusCode).toBe(200);
+    expect(auth.verifyIdToken).not.toHaveBeenCalled();
+    expect(auth.getUserByEmail).not.toHaveBeenCalled();
+  });
+
   it('Hub timeout/5xx/malformed errors fail closed with no legacy or local fallback', async () => {
     for (const error of [
       new HubJoinRequestError(503, 'HUB_UNAVAILABLE', true),
@@ -153,7 +172,7 @@ describe('02C compatibility handlers have zero local membership authority', () =
       const handlers = createJoinRequestCompatibilityHandlers({
         db: store.db,
         auth: fakeAuth(),
-        hubFactory: () => ({ create: vi.fn(async () => { throw error; }), approve: vi.fn(), reject: vi.fn() }) as any
+        hubFactory: () => ({ createForOwnerEmail: vi.fn(async () => { throw error; }), approve: vi.fn(), reject: vi.fn() }) as any
       });
       const result = await invoke(handlers.create, { headers: { authorization: 'Bearer requester-token' }, body: { ownerEmail: 'owner@example.com' } });
       expect(result.statusCode).toBe(error.status);
@@ -164,11 +183,11 @@ describe('02C compatibility handlers have zero local membership authority', () =
 
   it('invalid or missing bearer and malformed resolution path fail before Hub call', async () => {
     const store = fakeDb([]);
-    const hub = { create: vi.fn(), approve: vi.fn(), reject: vi.fn() };
+    const hub = { createForOwnerEmail: vi.fn(), approve: vi.fn(), reject: vi.fn() };
     const handlers = createJoinRequestCompatibilityHandlers({ db: store.db, auth: fakeAuth(), hubFactory: () => hub as any });
     expect((await invoke(handlers.create, { headers: {}, body: { ownerEmail: 'owner@example.com' } })).statusCode).toBe(401);
     expect((await invoke(handlers.approve, { headers: { authorization: 'Bearer actor-token' }, params: { organizationId: '../bad', requestId: 'u1' } })).statusCode).toBe(400);
-    expect(hub.create).not.toHaveBeenCalled();
+    expect(hub.createForOwnerEmail).not.toHaveBeenCalled();
     expect(hub.approve).not.toHaveBeenCalled();
     expect(store.writeAttempts).toEqual([]);
   });

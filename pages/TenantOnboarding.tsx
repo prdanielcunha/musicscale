@@ -23,10 +23,12 @@ import {
   seedDefaultLocationsForOrg
 } from "../services/firestoreService";
 import { ArrowRight, SparklesIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const TenantOnboarding: React.FC = () => {
   const { user, userProfile, organization, subscription, refreshAuthData, isSupportMode } = useAuth();
   const navigate = useNavigate();
+  const { i18n } = useTranslation();
 
   // If support mode is active, prevent onboarding screen display
   useEffect(() => {
@@ -56,6 +58,7 @@ const TenantOnboarding: React.FC = () => {
   const [state, setState] = useState("");
   const [slug, setSlug] = useState("");
   const [joinEmail, setJoinEmail] = useState("");
+  const [joinFeedback, setJoinFeedback] = useState<{ type: "error" | "success"; message: string } | null>(null);
   
   // Default mode depends on subscription status
   const [mode, setMode] = useState<"select" | "create" | "join" | "premium_join">(hasActiveSub ? "create" : "premium_join");
@@ -222,40 +225,70 @@ const TenantOnboarding: React.FC = () => {
   };
 
   const handleJoinOrg = async () => {
-    if (!joinEmail.trim())
-      return alert("Digite o e-mail do dono da organização.");
+    const language = String(i18n.language || "pt").toLowerCase();
+    const messages = language.startsWith("en") ? {
+      missing: "Enter the organization owner's email.",
+      success: "Request sent! The organization administrator can now review your access.",
+      pending: "Your request is already waiting for approval.",
+      member: "You already belong to this organization. You can open MusicScale.",
+      notFound: "We couldn't find one active organization for this email.",
+      multiple: "This administrator manages multiple organizations. Ask them to send you an invitation link.",
+      login: "Your session has expired. Please sign in again.",
+      generic: "We couldn't send your request. Please try again."
+    } : language.startsWith("es") ? {
+      missing: "Escribe el correo del propietario de la organización.",
+      success: "¡Solicitud enviada! El administrador ya puede revisar tu acceso.",
+      pending: "Tu solicitud ya está pendiente de aprobación.",
+      member: "Ya perteneces a esta organización. Puedes abrir MusicScale.",
+      notFound: "No encontramos una organización activa única para este correo.",
+      multiple: "Este administrador gestiona varias organizaciones. Pídele un enlace de invitación.",
+      login: "Tu sesión ha caducado. Vuelve a iniciar sesión.",
+      generic: "No pudimos enviar tu solicitud. Inténtalo de nuevo."
+    } : {
+      missing: "Informe o e-mail do proprietário da organização.",
+      success: "Solicitação enviada! O administrador já pode analisar seu acesso.",
+      pending: "Sua solicitação já está aguardando aprovação.",
+      member: "Você já faz parte desta organização. Pode abrir o MusicScale.",
+      notFound: "Não encontramos uma única organização ativa para esse e-mail.",
+      multiple: "Este administrador gerencia várias organizações. Peça que ele envie um convite por link.",
+      login: "Sua sessão expirou. Entre novamente.",
+      generic: "Não foi possível enviar a solicitação. Tente novamente."
+    };
+
+    if (!joinEmail.trim()) {
+      setJoinFeedback({ type: "error", message: messages.missing });
+      return;
+    }
+
     setLoading(true);
+    setJoinFeedback(null);
     try {
-      const idToken = await user.getIdToken();
+      if (!user) throw new Error("UNAUTHORIZED");
+      const idToken = await user.getIdToken(true);
       const response = await fetch("/api/orgs/join", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${idToken}`
         },
-        body: JSON.stringify({
-          ownerEmail: joinEmail,
-        }),
+        body: JSON.stringify({ ownerEmail: joinEmail.trim() })
       });
-
-      const textData = await response.text();
-      let data: any = {};
-      try {
-        data = JSON.parse(textData);
-      } catch (err) {
-        throw new Error(
-          `Resposta inválida do servidor: ${textData.substring(0, 100)}`,
-        );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success !== true) {
+        throw new Error(String(data?.reasonCode || data?.error || "JOIN_REQUEST_FAILED"));
       }
-
-      if (!response.ok)
-        throw new Error(data.error || "Erro ao entrar na organização");
-
-      alert(data.message || "Solicitação enviada com sucesso!");
+      const message = data?.reasonCode === "ALREADY_PENDING" ? messages.pending
+        : data?.reasonCode === "ALREADY_MEMBER" ? messages.member
+        : messages.success;
+      setJoinFeedback({ type: "success", message });
       setJoinEmail("");
     } catch (e: any) {
-      logger.error(e);
-      alert(e.message || "Erro ao entrar na organização.");
+      const reason = String(e?.message || "");
+      const message = ["UNAUTHORIZED", "UNAUTHENTICATED"].includes(reason) ? messages.login
+        : ["OWNER_ORGANIZATION_NOT_FOUND", "OWNER_LOOKUP_UNAVAILABLE"].includes(reason) ? messages.notFound
+        : reason === "OWNER_HAS_MULTIPLE_ORGANIZATIONS" ? messages.multiple
+        : messages.generic;
+      setJoinFeedback({ type: "error", message });
     } finally {
       setLoading(false);
     }
@@ -312,6 +345,12 @@ const TenantOnboarding: React.FC = () => {
                   >
                     {loading ? <Spinner size="sm" /> : "Solicitar Vínculo"}
                   </Button>
+                  {joinFeedback && (
+                    <p role={joinFeedback.type === "error" ? "alert" : "status"}
+                      className={`text-sm leading-relaxed ${joinFeedback.type === "error" ? "text-red-400" : "text-emerald-400"}`}>
+                      {joinFeedback.message}
+                    </p>
+                  )}
                 </div>
             </div>
 
@@ -576,6 +615,12 @@ const TenantOnboarding: React.FC = () => {
               >
                 {loading ? <Spinner size="sm" /> : "Solicitar Vínculo"}
               </Button>
+              {joinFeedback && (
+                <p role={joinFeedback.type === "error" ? "alert" : "status"}
+                  className={joinFeedback.type === "error" ? "text-sm text-red-500" : "text-sm text-emerald-500"}>
+                  {joinFeedback.message}
+                </p>
+              )}
               <button
                 onClick={() => setMode("select")}
                 className="w-full py-2 text-[15px] font-semibold text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-white transition-colors"

@@ -280,10 +280,9 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
 
   const handleSave = async () => {
     await onSave(user.uid, {
-      displayName: editName,
-      email: editEmail,
-      roleId: editRoleId,
+      displayName: editName.trim(),
       specialtyIds: editSpecialtyIds,
+      ...(editRoleId && editRoleId !== (user.roleId || '') ? { roleId: editRoleId } : {}),
     });
     onClose();
   };
@@ -421,11 +420,13 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
               <input
                 type="email"
                 value={editEmail}
-                onChange={(e) => setEditEmail(e.target.value)}
-                disabled={!isRoleEditable && user.uid !== currentUser?.uid}
-                className="input-base disabled:opacity-60 disabled:cursor-not-allowed"
-                placeholder="exemplo@email.com"
+                readOnly
+                aria-describedby="member-email-hub-hint"
+                className="input-base cursor-not-allowed opacity-70"
               />
+              <p id="member-email-hub-hint" className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {t("users.email_managed_by_hub", "E-mail de acesso gerenciado pela conta MillionsNest. Não é alterado aqui.")}
+              </p>
             </div>
           </div>
           <div>
@@ -603,7 +604,7 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
             </Button>
             <Button
               onClick={handleSave}
-              disabled={isSubmitting || (!isRoleEditable && user.uid !== currentUser?.uid)}
+              disabled={isSubmitting || !editName.trim() || editName.trim().length > 120 || (!isRoleEditable && user.uid !== currentUser?.uid)}
               className="flex-1 sm:flex-none"
             >
               {isSubmitting ? <Spinner size="sm" /> : t("common.save_changes", "Salvar Alterações")}
@@ -1982,6 +1983,7 @@ const UsersPage: React.FC = () => {
       <CanonicalHubInviteModal
         isOpen={isHubInviteOpen}
         onClose={() => setIsHubInviteOpen(false)}
+        availableMusicScaleRoles={roles}
       />
 
 

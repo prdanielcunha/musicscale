@@ -223,7 +223,7 @@ export class MusicRepository {
                 const { writeBatch, doc } = await import('firebase/firestore');
                 const { db, auth } = await import('./firebase');
                 const batch = writeBatch(db);
-                const domainFields = ['roleId', 'musicscaleRole', 'ministryFunction', 'specialtyIds'] as const;
+                const domainFields = ['roleId', 'musicscaleRole', 'ministryFunction', 'specialtyIds', 'displayName'] as const;
                 const domainPatch: any = {};
                 const globalPatch: any = { ...data };
                 for (const field of domainFields) {

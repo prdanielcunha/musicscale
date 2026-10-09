@@ -108,6 +108,29 @@ describe('MusicScale member projection', () => {
     expect(writes[0].data).not.toHaveProperty('status');
   });
 
+  it('persists an organization-scoped member display name without changing Hub identity or permissions', async () => {
+    const { db, writes } = mockDb({});
+    await writeMusicScaleMemberProjection(db, 'org-a', 'user-1', 'admin-1', {
+      displayName: '  Novo Nome  ',
+      email: 'forged@example.com',
+      organizationRole: 'owner',
+      systemRole: 'ceo',
+    });
+    expect(writes).toHaveLength(1);
+    expect(writes[0].path).toBe('organizations/org-a/musicscale_members/user-1');
+    expect(writes[0].data).toMatchObject({ displayName: 'Novo Nome', organizationId: 'org-a', uid: 'user-1' });
+    expect(writes[0].data).not.toHaveProperty('email');
+    expect(writes[0].data).not.toHaveProperty('organizationRole');
+    expect(writes[0].data).not.toHaveProperty('systemRole');
+  });
+
+  it('refuses malformed and empty display-name edits', () => {
+    expect(() => sanitizeMusicScaleMemberPatch({ displayName: '   ' })).toThrow('INVALID_MEMBER_DISPLAY_NAME');
+    expect(() => sanitizeMusicScaleMemberPatch({ displayName: 'X'.repeat(121) })).toThrow('INVALID_MEMBER_DISPLAY_NAME');
+    expect(() => sanitizeMusicScaleMemberPatch({ displayName: 42 })).toThrow('INVALID_MEMBER_DISPLAY_NAME');
+    expect(sanitizeMusicScaleMemberPatch({ displayName: ' Maria Silva ' })).toEqual({ displayName: 'Maria Silva' });
+  });
+
   it('sanitizes fields without accepting authority metadata', () => {
     expect(sanitizeMusicScaleMemberPatch({ roleId: ' role-a ', organizationRole: 'admin', globalRole: 'ceo' }))
       .toEqual({ roleId: 'role-a' });

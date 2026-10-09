@@ -122,10 +122,11 @@
     }
   },
   "users": {
+    "email_managed_by_hub": "El correo de acceso se gestiona en la cuenta MillionsNest y no se cambia aquí.",
     "unauthorizedIntent": "No tienes permiso para gestionar el equipo.",
     "rolesUnavailable": "Funciones de equipo no disponibles para la configuración.",
     "add_existing_user": "Agregar existente",
-    "invite_user": "Invitar persona",
+    "invite_user": "Invitar integrante",
     "invite": {
       "title": "Invitar a {{organization}}",
       "organization": "organización",
@@ -154,7 +155,7 @@
       "musicscale_role_title": "Función en MusicScale",
       "musicscale_role_default": "Líder, Ministro, Músico, Vocal y otras funciones se definen dentro de MusicScale después de que la persona entre.",
       "musicscale_role_email": "Esta invitación también está vinculada a la función {{role}}. Se aplicará en MusicScale cuando la persona acepte usando este e-mail.",
-      "musicscale_role_link": "El enlace define el acceso a la organización. Por seguridad, la función {{role}} se asignará en MusicScale después de que la persona entre.",
+      "musicscale_role_link": "La invitación guarda el nivel de acceso y la función musical {{role}}. Ambos se asignarán automáticamente cuando la persona acepte.",
       "link_label": "Enlace de invitación",
       "generate_link": "Generar enlace de esta función",
       "share_label": "¿Cómo deseas enviarlo?",
@@ -165,7 +166,7 @@
       "share": "Compartir",
       "link_copied": "Enlace copiado.",
       "link_created": "Enlace de un solo uso creado. Vence en 7 días.",
-      "link_created_role_deferred": "Enlace creado. El acceso a la organización se aplicará al entrar; la función musical se definirá después en MusicScale.",
+      "link_created_role_bound": "¡Enlace creado! El nivel de acceso y la función musical seleccionados se asignarán automáticamente al aceptar la invitación.",
       "email_sent": "Invitación enviada por e-mail.",
       "email_sent_with_role": "Invitación enviada. Al aceptar con este e-mail, la persona también será agregada a la función {{role}} en MusicScale.",
       "email_fallback": "La invitación fue creada, pero el envío automático no estuvo disponible. Copia el enlace de abajo para enviarlo manualmente.",
@@ -182,7 +183,9 @@
       "create_error": "No fue posible crear la invitación. Inténtalo de nuevo.",
       "no_org": "No se encontró una organización activa.",
       "member_limit_unavailable": "No fue posible confirmar el límite de usuarios de la organización. Inténtalo de nuevo en unos instantes.",
-      "organization_unavailable": "La organización no está disponible para nuevas invitaciones en este momento."
+      "organization_unavailable": "La organización no está disponible para nuevas invitaciones en este momento.",
+      "musicscale_role_select": "Función musical en MusicScale (opcional)",
+      "musicscale_role_none": "Asignar función musical después"
     },
     "members_title": "Integrantes",
     "members_subtitle": "Abre un integrante para ver sus datos, función, especialidades y acciones permitidas por tu nivel de acceso.",

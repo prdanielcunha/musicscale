@@ -2,7 +2,8 @@ export const MUSIC_SCALE_MEMBER_FIELDS = [
   'roleId',
   'musicscaleRole',
   'ministryFunction',
-  'specialtyIds'
+  'specialtyIds',
+  'displayName'
 ] as const;
 
 export type MusicScaleMemberSource =
@@ -213,6 +214,14 @@ export async function validateMusicScaleRole(db: any, organizationId: string, ro
 
 export function sanitizeMusicScaleMemberPatch(input: any): Record<string, unknown> {
   const output: Record<string, unknown> = {};
+  // A display name here is a MusicScale organization-scoped label, never an
+  // Auth email or a canonical Hub identity/organization permission update.
+  if (input?.displayName !== undefined) {
+    if (typeof input.displayName !== 'string' || !input.displayName.trim() || input.displayName.trim().length > 120) {
+      throw new Error('INVALID_MEMBER_DISPLAY_NAME');
+    }
+    output.displayName = input.displayName.trim();
+  }
   const roleId = cleanString(input?.roleId);
   const musicscaleRole = cleanString(input?.musicscaleRole);
   if (roleId) output.roleId = roleId;

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import Modal from "../common/Modal";
 import type { Role } from "../../types";
 import { useAuth } from "../../contexts/AuthContext";
+import { useEcosystem } from "../../contexts/EcosystemContext";
 import { isGlobalPrivilegedUser } from "../../hooks/useEcosystemAdmin";
 
 type InviteMode = "email" | "link";
@@ -13,6 +14,7 @@ interface CanonicalHubInviteModalProps {
   isOpen: boolean;
   onClose: () => void;
   musicScaleRole?: Role | null;
+  availableMusicScaleRoles?: Role[];
 }
 
 interface CreatedInvite {
@@ -27,8 +29,10 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
   isOpen,
   onClose,
   musicScaleRole = null,
+  availableMusicScaleRoles = [],
 }) => {
   const { t } = useTranslation();
+  const { context } = useEcosystem();
   const {
     user: currentUser,
     userProfile,
@@ -41,16 +45,21 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
   const [inviteMode, setInviteMode] = useState<InviteMode>("email");
   const [email, setEmail] = useState("");
   const [organizationRole, setOrganizationRole] = useState<OrganizationInviteRole>("member");
+  const [selectedMusicScaleRoleId, setSelectedMusicScaleRoleId] = useState("");
   const [createdInvite, setCreatedInvite] = useState<CreatedInvite | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const activeOrganizationId =
-    userProfile?.activeOrganizationId ||
-    userProfile?.primaryOrganizationId ||
-    userProfile?.organizationId;
+  // Never send invitations to a stale organization from the legacy user profile.
+  // The selected organization and role grants come from the canonical Hub session.
+  const activeOrganizationId = context?.currentOrganizationId || organization?.id || "";
+  const selectableMusicScaleRoles = availableMusicScaleRoles.filter(role =>
+    !!role.id && (!role.organizationId || role.organizationId === activeOrganizationId) &&
+    !["owner", "dono", "ceo", "global_admin", "ecosystem_owner", "founder", "support", "suporte"].includes(role.name.trim().toLowerCase())
+  );
+  const selectedMusicScaleRole = musicScaleRole || selectableMusicScaleRoles.find(role => role.id === selectedMusicScaleRoleId) || null;
 
   const inviteableRoles = useMemo<OrganizationInviteRole[]>(() => {
     const isGlobal = isGlobalAdmin || isGlobalPrivilegedUser(currentUser, userProfile);
@@ -83,6 +92,7 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
       setInviteMode("email");
       setEmail("");
       setOrganizationRole("member");
+      setSelectedMusicScaleRoleId("");
       setCreatedInvite(null);
       setIsLoading(false);
       setCopied(false);
@@ -192,7 +202,7 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
           mode: inviteMode,
           organizationRole,
           ...(inviteMode === "email" ? { email: email.trim() } : {}),
-          ...(musicScaleRole?.id ? { roleId: musicScaleRole.id } : {}),
+          ...(selectedMusicScaleRole?.id ? { roleId: selectedMusicScaleRole.id } : {}),
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -227,10 +237,10 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
 
       if (inviteMode === "link") {
         setSuccess(
-          data.musicScaleRoleDeferred
+          data.musicScaleRoleBound
             ? t(
-                "users.invite.link_created_role_deferred",
-                "Link criado. O acesso à organização será aplicado ao entrar; a função musical será definida depois no MusicScale.",
+                "users.invite.link_created_role_bound",
+                "Link criado! O nível de acesso e a função musical escolhidos serão aplicados automaticamente ao aceitar o convite.",
               )
             : t("users.invite.link_created", "Link de uso único criado. Ele expira em 7 dias."),
         );
@@ -282,7 +292,7 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
           ? t(
               "users.invite.email_sent_with_role",
               "Convite enviado. Ao aceitar com este e-mail, a pessoa também será adicionada à função {{role}} no MusicScale.",
-              { role: musicScaleRole.name },
+              { role: selectedMusicScaleRole.name },
             )
           : t("users.invite.email_sent", "Convite enviado por e-mail."),
       );
@@ -478,21 +488,41 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
                 })}
               </div>
 
+              {!musicScaleRole && selectableMusicScaleRoles.length > 0 && (
+                <div className="mt-4">
+                  <label htmlFor="invite-musicscale-role" className="mb-2 block text-sm font-medium text-slate-400">
+                    {t("users.invite.musicscale_role_select", "Função musical no MusicScale (opcional)")}
+                  </label>
+                  <select
+                    id="invite-musicscale-role"
+                    value={selectedMusicScaleRoleId}
+                    onChange={(event) => { setSelectedMusicScaleRoleId(event.target.value); setError(""); }}
+                    disabled={isLoading || !!createdInvite}
+                    className="input-base min-h-11 w-full"
+                  >
+                    <option value="">{t("users.invite.musicscale_role_none", "Definir função musical depois")}</option>
+                    {selectableMusicScaleRoles.map(role => (
+                      <option key={role.id} value={role.id}>{role.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
                 <h4 className="text-sm font-semibold text-white">
                   {t("users.invite.musicscale_role_title", "Função no MusicScale")}
                 </h4>
                 <p className="mt-1 text-xs leading-5 text-slate-500">
-                  {musicScaleRole
+                  {selectedMusicScaleRole
                     ? inviteMode === "email"
                       ? t(
                           "users.invite.musicscale_role_email",
                           "Este convite também está ligado à função {{role}}. Ela será aplicada no MusicScale quando a pessoa aceitar usando este e-mail.",
-                          { role: musicScaleRole.name },
+                          { role: selectedMusicScaleRole.name },
                         )
                       : t(
                           "users.invite.musicscale_role_link",
-                          "O link define o acesso à organização. Por segurança, a função {{role}} será atribuída no MusicScale depois que a pessoa entrar.",
+                          "O convite registra o nível de acesso e a função {{role}}. Ambos serão aplicados automaticamente quando a pessoa aceitar.",
                           { role: musicScaleRole.name },
                         )
                     : t(
