@@ -2,6 +2,7 @@ import { applyEcosystemEntitlements } from './services/effectiveEntitlements.js'
 import { organizationHasEcosystemAccess } from './services/server/ecosystemEntitlements.js';
 import { resolveHubMusicScaleTrialFromDb } from './services/server/hubMusicScaleTrial.js';
 import { resolvePaidMusicScaleContract } from './services/server/musicScalePaidContract.js';
+import { createHubTrialWorkspaceMiddleware } from './services/server/hubTrialWorkspaceGuard.js';
 import { logger } from './lib/logger.js';
 logger.info("Server process started");
 
@@ -203,6 +204,13 @@ app.use((err: any, req: any, res: any, next: any) => {
 });
 
 
+
+// Authenticated music APIs use Admin SDK and bypass client Firestore Rules.
+// Apply the Hub grant gate BEFORE any musical BFF/AI/write handler is registered.
+app.use(createHubTrialWorkspaceMiddleware({
+  db,
+  enabled: () => process.env.MUSICSCALE_HUB_TRIAL_V2_ENABLED === 'true',
+}));
 
 // Critical first-screen read fallback. The browser prefers direct Firestore reads;
 // this route is only used after those reads fail and re-authorizes the exact tenant.
