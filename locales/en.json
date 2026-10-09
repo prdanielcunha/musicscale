@@ -125,7 +125,7 @@
     "unauthorizedIntent": "You do not have permission to manage the team.",
     "rolesUnavailable": "Team roles not available for configuration.",
     "add_existing_user": "Add existing",
-    "invite_user": "Invite person",
+    "invite_user": "Invite member",
     "invite": {
       "title": "Invite to {{organization}}",
       "organization": "organization",
@@ -182,7 +182,9 @@
       "create_error": "Could not create the invitation. Try again.",
       "no_org": "No active organization was found.",
       "member_limit_unavailable": "Could not confirm the organization's user limit. Try again in a moment.",
-      "organization_unavailable": "The organization is not available for new invitations right now."
+      "organization_unavailable": "The organization is not available for new invitations right now.",
+      "musicscale_role_select": "MusicScale musical role (optional)",
+      "musicscale_role_none": "Assign musical role later"
     },
     "members_title": "Members",
     "members_subtitle": "Open a member to view their details, role, specialties, and actions allowed by your access level.",
