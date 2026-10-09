@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useAuth } from "../../contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 import type {
   FixedBandScale,
@@ -39,6 +40,51 @@ const FixedBandScaleFormModal: React.FC<FixedBandScaleFormModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const { allUsers, instruments, usersStatus, refreshData } = useMusic();
+  const { user, effectiveOrganizationId } = useAuth();
+  const [verifiedMembers, setVerifiedMembers] = useState<UserProfile[] | null>(null);
+  const [verifiedStatus, setVerifiedStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [retryDirectory, setRetryDirectory] = useState(0);
+
+  // Resolve current tenant membership when this critical form opens.
+  // First-login owners may open it before the background roster loads.
+  useEffect(() => {
+    setVerifiedMembers(null);
+    if (!isOpen || !user || !effectiveOrganizationId) return;
+    const controller = new AbortController();
+    let cancelled = false;
+    setVerifiedStatus('loading');
+    void (async () => {
+      try {
+        const token = await user.getIdToken();
+        if (cancelled) return;
+        const response = await fetch(
+          '/api/orgs/' + encodeURIComponent(effectiveOrganizationId) + '/member-directory',
+          { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', 'Cache-Control': 'no-store' }, signal: controller.signal },
+        );
+        if (!response.ok) throw new Error('MEMBER_DIRECTORY_UNAVAILABLE');
+        const payload = await response.json();
+        if (!payload?.success || payload.organizationId !== effectiveOrganizationId || !Array.isArray(payload.members)) {
+          throw new Error('INVALID_TENANT_DIRECTORY_RESPONSE');
+        }
+        const members = payload.members
+          .filter((member: any) => member?.organizationId === effectiveOrganizationId && typeof member.uid === 'string' && member.uid.trim())
+          .map((member: any) => ({ ...member, id: member.uid, uid: member.uid })) as UserProfile[];
+        if (!cancelled) {
+          setVerifiedMembers(members);
+          setVerifiedStatus('ready');
+        }
+      } catch {
+        if (!cancelled) setVerifiedStatus('error');
+      }
+    })();
+    return () => { cancelled = true; controller.abort(); };
+  }, [isOpen, user?.uid, effectiveOrganizationId, retryDirectory]);
+
+  // Only verified members of the active tenant can be assigned. The already
+  // scoped MusicData directory remains visible while refresh is pending.
+  const eligibleUsers = verifiedMembers ?? allUsers.filter(
+    member => member.organizationId === effectiveOrganizationId,
+  );
   const [formData, setFormData] = useState<{
     name: string;
     assignments: BandMember[];
@@ -157,12 +203,12 @@ const FixedBandScaleFormModal: React.FC<FixedBandScaleFormModalProps> = ({
           </div>
           <BandBuilder
             compactDesktopLayout
-            memberDirectoryState={usersStatus}
-            onRetryMemberDirectory={() => { void refreshData(); }}
+            memberDirectoryState={verifiedMembers ? verifiedStatus : verifiedStatus === 'loading' && eligibleUsers.length === 0 ? 'loading' : verifiedStatus === 'error' && eligibleUsers.length === 0 ? 'error' : usersStatus}
+            onRetryMemberDirectory={() => { setRetryDirectory(n => n + 1); void refreshData(); }}
             formData={formData}
             setFormData={setFormData as any}
             instrumentsByCat={instrumentsByCat}
-            allUsers={allUsers}
+            allUsers={eligibleUsers}
             populatedBandScales={[]}
             musicScales={[]}
           />
