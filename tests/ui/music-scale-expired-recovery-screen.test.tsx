@@ -1,4 +1,5 @@
 import React from 'react';
+import fs from 'node:fs';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -52,7 +53,7 @@ afterEach(() => {
 
 describe('MusicScale premium suspension presentation', () => {
   it('uses the real Hub billing route, not an unsupported nested path', () => {
-    const source = require('node:fs').readFileSync('components/premium/MissingSubscriptionScreen.tsx','utf8');
+    const source = fs.readFileSync('components/premium/MissingSubscriptionScreen.tsx','utf8');
     expect(source).toContain('/dashboard/billing');
     expect(source).not.toContain('/dashboard/musicscale/plans');
   });
