@@ -43,6 +43,12 @@
     "previewValidationFailed": "Falha na validação da prévia",
     "ariaLabelClose": "Fechar"
   },
+  "dashboardTrial": {
+    "active": "Teste ativo",
+    "daysRemaining_one": "Resta {{count}} dia",
+    "daysRemaining_other": "Restam {{count}} dias",
+    "effectiveUntil": "Até {{date}}"
+  },
   "premium": {
     "upgradeModal": {
       "title": "Desbloquear Recursos Premium",
