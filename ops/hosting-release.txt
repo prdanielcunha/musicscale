@@ -1,4 +1,4 @@
-MusicScale 0.10.9-beta.17 — 2026-10-08
-Compatibilidade do diretório de integrantes: membros ativos de vínculos antigos da mesma organização e proprietário verificado aparecem no seletor mesmo sem projeção canônica materializada.
-A associação canônica continua soberana, especialmente registros removidos/inativos. A verificação de salvamento aceita proprietário exato da organização sem membership materializado, mas não amplia permissões para outras organizações.
-Nenhum registro Firestore, função, assinatura ou escala é migrado/alterado nesta atualização. Preserva correção responsiva beta.16 e todos os recursos já em produção.
+MusicScale 0.10.9-beta.18 — 2026-10-08
+A tela Novidades mantém em destaque os recursos relevantes Afinador NestTuner, Pad de Palco e Medleys Inteligentes, com caminho direto para cada um, mesmo após novas versões e avisos de atualização.
+Correções, atualizações menores e hotfixes aparecem em histórico separado e recolhido por padrão. O changelog cronológico da página dedicada continua disponível.
+PT/EN/ES; preservados os hotfixes anteriores de seleção de integrantes (beta.16) e membro legado/proprietário (beta.17), sem migração de cadastros, alteração de assinaturas ou novos créditos IA.
