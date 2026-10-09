@@ -26,7 +26,6 @@ const MUSIC_ENDPOINTS = [
   /^\/api\/orgs\/(?:invite|join|accept-invite)(?:\/|$)/,
   /^\/api\/(?:ai-import|ai-suggest-songs|ai-analyze-setlist|fix-chords)(?:\/|$)/,
   /^\/api\/library\/import\/?$/,
-  /^\/api\/curation(?:\/|$)/,
 ] as const;
 
 /** Account, billing, support and eligibility endpoints deliberately remain accessible. */
