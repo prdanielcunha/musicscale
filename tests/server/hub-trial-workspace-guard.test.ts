@@ -100,6 +100,18 @@ describe('Hub internal trial music gateway protects Admin SDK routes',()=>{
     expect(await canUseHubTrialMusicWorkspace({db:fakeDb({marker:true,throwOnTrial:true}),
       organizationId:orgId,now})).toEqual({ok:false,error:'HUB_TRIAL_VERIFICATION_UNAVAILABLE'});
   });
+  it('keeps the existing HTTP error message on missing tenant without bypassing guard',async()=>{
+    const middleware=createHubTrialWorkspaceMiddleware({db:fakeDb({marker:true})});
+    const next=vi.fn(),json=vi.fn();
+    const status=vi.fn(()=>({json}));
+    await middleware({path:'/api/v1/music-scales/scale-1/publish',headers:{authorization:'Bearer fake'}},
+      {status},next);
+    expect(next).not.toHaveBeenCalled();
+    expect(status).toHaveBeenCalledWith(400);
+    expect(json).toHaveBeenCalledWith({
+      error:'X-Organization-Id is required',code:'MISSING_ORGANIZATION_ID'
+    });
+  });
   it('middleware returns 403 and never runs the next handler on expired cohort',async()=>{
     const expired={...validTrial,beginsAt:new Date(now-15*DAY),expiresAt:new Date(now-DAY)};
     const guard=createHubTrialWorkspaceMiddleware({db:fakeDb({marker:true,trial:expired})});
