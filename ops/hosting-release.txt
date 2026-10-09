@@ -1,3 +1,5 @@
-MusicScale 0.10.9-beta.12 — 2026-10-08
-Preparação do trial sem cartão com 14 dias, extensão de até 7 dias autorizada apenas por CEO, administrador global ou suporte do MillionsNest.
-Correções de proteção contra cache vencido e validação server-side. Deploy público somente após a promoção segura e revisão das flags do Hub.
+MusicScale 0.10.9-beta.19 — 2026-10-09
+Os destaques de recursos permanecem visíveis em Novidades: Afinador NestTuner, Pad de palco e Medleys inteligentes, com acesso direto e explicações em PT/EN/ES.
+Outras atualizações, refinamentos e hotfixes são apresentados separadamente e recolhidos por padrão.
+Preserva a correção urgente de escala fixa beta.18, que tornou visível o seletor de integrantes e usa diretório autenticado da organização.
+Nenhum dado de usuário, assinatura, regra de segurança nem flag comercial é modificado nesta revisão visual.
