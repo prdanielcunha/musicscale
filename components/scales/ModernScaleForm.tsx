@@ -614,6 +614,19 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
       const result = await api.bandScaleCommands.create(snapshotData, crypto.randomUUID());
       bandScaleId = result.scaleId;
     } else {
+      // Legacy client writes use the Firebase Auth credential attached to
+      // Firestore, not the Hub/BFF bearer token. In particular, a restored UI
+      // profile is not proof that the Firestore Auth session has hydrated.
+      // Fail before creating an orphaned event snapshot if the actor switched
+      // or signed out while editing the scale. Refresh the token only for this
+      // critical write; never retry an actual permission-denied response.
+      const { auth } = await import("../../services/firebase");
+      await auth.authStateReady();
+      const firebaseActor = auth.currentUser;
+      if (!firebaseActor || !user || firebaseActor.uid !== user.uid) {
+        throw new Error(t("scaleModal.saveContextUnavailable", "Sua sessão ou organização ainda não terminou de carregar."));
+      }
+      await firebaseActor.getIdToken(true);
       bandScaleId = await api.bandScales.create(
         snapshotData as Omit<BandScale, "id" | "createdBy" | "createdAt">,
       );

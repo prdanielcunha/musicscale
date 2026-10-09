@@ -1,5 +1,4 @@
-MusicScale 0.10.9-beta.19 — 2026-10-09
-Os destaques de recursos permanecem visíveis em Novidades: Afinador NestTuner, Pad de palco e Medleys inteligentes, com acesso direto e explicações em PT/EN/ES.
-Outras atualizações, refinamentos e hotfixes são apresentados separadamente e recolhidos por padrão.
-Preserva a correção urgente de escala fixa beta.18, que tornou visível o seletor de integrantes e usa diretório autenticado da organização.
-Nenhum dado de usuário, assinatura, regra de segurança nem flag comercial é modificado nesta revisão visual.
+MusicScale 0.10.9-beta.20 — 2026-10-09
+Hotfix de segurança de sessão na reaplicação de formações fixas: confirma o usuário autenticado pelo Firebase antes de criar o registro da banda para o evento e renova o token. Quando não há sessão válida, a operação falha de forma segura sem gravar dados.
+Mantém a beta.19 com os destaques permanentes NestTuner, Pad e Medleys. Não altera dados de integrantes, funções, regras do Firestore, assinaturas Stripe ou flags comerciais.
+A correção ainda exige QA integral e validação do caso intermitente #429 antes da promoção.

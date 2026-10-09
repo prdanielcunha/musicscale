@@ -2,9 +2,17 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
+const firebaseAuthMock = vi.hoisted(() => ({
+  authStateReady: vi.fn().mockResolvedValue(undefined),
+  currentUser: {
+    uid: 'u1',
+    getIdToken: vi.fn().mockResolvedValue('fresh-emulator-token'),
+  },
+}));
+
 vi.mock('../../services/firebase', () => ({
   db: { mockDb: true },
-  auth: { mockAuth: true },
+  auth: firebaseAuthMock,
 }));
 
 import ModernScaleForm from '../../components/scales/ModernScaleForm';
@@ -282,6 +290,7 @@ const selectFixedBandAndSaveDraft = async (onSave = vi.fn().mockResolvedValue(un
 describe('ModernScaleForm - fixed band formations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    firebaseAuthMock.currentUser.uid = 'u1';
     isCommandApiV1EnabledMock = true;
     mockBandScaleCommandsCreate.mockResolvedValue({ scaleId: 'snapshot-bs-1' });
     mockBandScalesCreate.mockResolvedValue('snapshot-bs-legacy');
@@ -332,6 +341,8 @@ describe('ModernScaleForm - fixed band formations', () => {
       expect(mockBandScalesCreate).toHaveBeenCalledTimes(1);
     });
     expect(mockBandScaleCommandsCreate).not.toHaveBeenCalled();
+    expect(firebaseAuthMock.authStateReady).toHaveBeenCalledOnce();
+    expect(firebaseAuthMock.currentUser.getIdToken).toHaveBeenCalledWith(true);
 
     expect(mockBandScalesCreate.mock.calls[0][0]).toEqual(
       expect.objectContaining({
@@ -346,6 +357,21 @@ describe('ModernScaleForm - fixed band formations', () => {
         }),
       );
     });
+  });
+
+  it('fails closed if the Firebase session belongs to another actor before copying a formation', async () => {
+    isCommandApiV1EnabledMock = false;
+    firebaseAuthMock.currentUser.uid = 'other-tenant-user';
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    await selectFixedBandAndSaveDraft(onSave);
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
+    });
+    expect(mockBandScalesCreate).not.toHaveBeenCalled();
+    expect(mockBandScaleCommandsCreate).not.toHaveBeenCalled();
+    expect(firebaseAuthMock.currentUser.getIdToken).not.toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it('does not expose per-event band-scale creation in the Music Scale flow', async () => {
