@@ -15,6 +15,7 @@ import { useOptionalApi } from '../contexts/ApiContext';
 import { useSuggestionsContext } from '../contexts/SuggestionContext';
 import { HomeFocusCard } from '../components/dashboard/HomeFocusCard';
 import { TrialProgressInline } from '../components/dashboard/TrialProgressInline';
+import { MusicianQuickTools } from '../components/dashboard/MusicianQuickTools';
 import '../components/dashboard/premium-music-dashboard.css';
 import { HomeUpcomingEvents } from '../components/dashboard/HomeUpcomingEvents';
 import { HomePreparationWeek } from '../components/dashboard/HomePreparationWeek';
@@ -629,6 +630,16 @@ export const DashboardPage: React.FC = () => {
 
   const { title: contextualTitle, subtitle: contextualSubtitle } = getContextualGreeting();
   const premiumDashboard = import.meta.env.VITE_NEW_DASHBOARD_UI_PRESENTATION === 'true';
+  // With an empty agenda, keep musicians' useful tools above the large create-
+  // scale card; otherwise the real next event remains the first main focus.
+  const showToolsEarly = premiumDashboard &&
+    (experience.mode === 'no-upcoming-event' || experience.mode === 'create-next-event');
+  const quickTools = premiumDashboard ? (
+    <MusicianQuickTools
+      canUsePerformance={canUsePerformance}
+      onOpenPerformance={handleExplorePerformance}
+    />
+  ) : null;
 
 
   return (
@@ -653,6 +664,8 @@ export const DashboardPage: React.FC = () => {
           {contextualSubtitle}
         </p>
       </header>
+
+      {showToolsEarly && quickTools}
 
       {experience.mode === 'first-value' ? (
         <FirstScaleJourneyCard />
@@ -681,6 +694,8 @@ export const DashboardPage: React.FC = () => {
           onDeleteDraft={handleDeleteDraft}
         />
       )}
+
+      {!showToolsEarly && quickTools}
 
       <TrialProgressInline
         entitlement={entitlements}

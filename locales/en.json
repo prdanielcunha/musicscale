@@ -263,6 +263,17 @@
     "stage_tools": "Stage Tools"
   },
   "dashboard": {
+    "quickTools": {
+      "eyebrow": "READY TO PLAY",
+      "title": "Quick tools",
+      "all": "All tools",
+      "tuner": "Tuner",
+      "metronome": "Metronome",
+      "pads": "Pads",
+      "chords": "Chord sheets",
+      "performance": "Stage mode",
+      "open": "Open {{tool}}"
+    },
     "premium": {
       "eyebrow": "MUSIC · PEOPLE · PURPOSE"
     },
