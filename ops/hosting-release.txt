@@ -1,5 +1,5 @@
-MusicScale 0.10.9-beta.21 — 2026-10-09
-Hotfix de convites: ingresso nativo por e-mail ou link com identidade validada pelo Hub e vínculo direto à organização, sem redirecionamentos, com função musical aplicada corretamente.
-Solicitação de entrada pelo e-mail do proprietário usa descoberta e autorização do Hub. Mensagens acessíveis em PT/EN/ES substituem alertas técnicos.
-Mantém integralmente o hotfix anterior de bandas fixas beta.20: sessão Firebase hidratada antes de salvar o snapshot e recusa segura de credenciais inconsistentes.
-Nenhuma mudança em Firestore Rules, dados, assinaturas, cobrança, planos ou permissões globais.
+MusicScale 0.10.9-beta.22 — 2026-10-09
+Complemento de segurança e usabilidade dos convites: links de equipe agora retêm, de forma vinculada e não editável, o papel da organização (Hub) e a função musical escolhida no MusicScale até a aceitação autenticada.
+A função musical é registrada por hash do token do convite, nunca pelo token bruto; não é necessário cadastrar manualmente a função após ingressar.
+Preserva a correção nativa do UNAUTHORIZED beta.21, validação canônica do Hub, fluxos antigos por email, login Google/email e o hotfix de escalas fixas beta.20.
+Sem alterações de planos, cobrança Stripe, permissões globais ou dados existentes.
