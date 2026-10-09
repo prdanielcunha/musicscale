@@ -24,6 +24,21 @@ describe('02C Hub join-request adapter', () => {
       .resolves.toEqual({ success: true, reasonCode: 'JOIN_REQUEST_CREATED', organizationId: 'org-1', requestId: 'requester-1', generation: 1 });
   });
 
+  it('resolves owner email only inside authenticated Hub command', async () => {
+    const fetcher = vi.fn(async (url, init) => {
+      expect(url).toBe('https://hub.example/api/v1/join-requests/by-owner-email');
+      expect((init?.headers as any).authorization).toBe('Bearer valid-token');
+      expect(JSON.parse(String(init?.body))).toEqual({ ownerEmail: 'owner@example.com' });
+      return response(201, { success: true, reasonCode: 'JOIN_REQUEST_CREATED', requestId: 'user-1', generation: 1 });
+    });
+    const adapter = new HubJoinRequestAdapter({ origin: 'https://hub.example', fetch: fetcher as any });
+    await expect(adapter.createForOwnerEmail('Bearer valid-token', ' Owner@Example.COM '))
+      .resolves.toEqual({ success: true, reasonCode: 'JOIN_REQUEST_CREATED', requestId: 'user-1', generation: 1 });
+    await expect(adapter.createForOwnerEmail('Bearer valid-token', 'not-an-email'))
+      .rejects.toMatchObject({ status: 400, reasonCode: 'INVALID_OWNER_EMAIL' });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ['approve', '/api/v1/organizations/org-1/join-requests/requester-1/approve', 'JOIN_REQUEST_APPROVED'],
     ['reject', '/api/v1/organizations/org-1/join-requests/requester-1/reject', 'JOIN_REQUEST_REJECTED']
