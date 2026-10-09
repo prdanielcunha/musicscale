@@ -16,7 +16,8 @@ export const useMusicData = () => {
   const { user, effectiveOrganizationId, entitlements } = useAuth();
   const isHubInternalTrial = !!effectiveOrganizationId &&
     entitlements?.organizationId === effectiveOrganizationId &&
-    entitlements.entitlementSource === 'hub_internal_trial';
+    (entitlements.entitlementSource === 'hub_internal_trial' ||
+      entitlements.entitlementSource === 'hub_trial_invalid');
   const api = useApi();
   const generationRef = useRef(0);
   const watchdogRef = useRef<NodeJS.Timeout | null>(null);
