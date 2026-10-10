@@ -8,7 +8,7 @@ Checkpoint: 2026-10-10. Base ref: main at `f169d8b87e105f46f64b6e830b4265f2ba527
 - Existing MedleyComposer, ScaleMedley/MedleyExcerpt, MusicRepository, APIs, publication validator, Firestore rules, memberships, organizations, roles, billing, auth, scales, bands, stage and offline persistence remain unchanged.
 - When enabled, the new editor uses **only** the existing scale-draft callback. It does not directly write to Firestore. Saving/publishing the scale must still pass its canonical server-side validator.
 - Original charts, tabs and other songs are never mutated. Each excerpt includes its original snapshot/source revision; stale source revision is blocked until a user explicitly compares and approves re-snapshotting.
-- 1–8 repetitions and up to 30 excerpts honor the **existing** production validator. The proposed 1–16 repetitions cannot go live before a separately reviewed and tested backward-compatible API/server contract. This is intentional.
+- Original production permits 1–8 repetitions. This isolated branch adds **backward-compatible 1–16 support** to the canonical `utils/medleyModel.ts` validator and new Studio, with regression tests; the legacy editor stays at its existing maximum of 8 until rollout. The change remains UNRELEASED and still needs full security/E2E approval.
 - No new schema, migration, claims, Roles, entitlements, IAM, automatic writes, or rollout to existing customers.
 
 ## Added feature-isolated implementation
@@ -42,7 +42,7 @@ In particular, the suggestions here are **advisory sketches**, not proven instru
 
 ### Intentional restrictions
 
-1. The live `ScaleMedley` contract still supports 1–8 repetitions; do not advertise 16 until the canonical backend validator and stage have been safely extended and regression tested.
+1. The current live release still supports 1–8 repetitions. This branch adds an additive 1–16 validator with unit coverage; do not advertise it to customers until the exact release SHA is tested and deployed.
 2. Browser recovery remains tab-session-only; the persisted library template is cross-device, but unsaved concurrent drafts are **not** globally synchronized. It would be inaccurate to claim multi-device autosave or cross-device conflict merge.
 3. Detected harmonic candidates are **low-confidence suggestions**, not certified voice-leading across every genre/key; manual chord+bar cues are explicitly selected. No generative API is required.
 4. Real phone/tablet device QA, authorized canary organization flag, verified backup/restoration, GitHub release reconciliation and SHA-level Firebase deploy smoke remain mandatory before declaring **fully released**.
