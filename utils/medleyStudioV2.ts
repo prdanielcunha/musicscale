@@ -141,6 +141,12 @@ export function compileStudioMedley(
     medleyPerformanceText(excerpt);
     return excerpt;
   });
+  // Mirror the canonical server's 400 KB scale-document bound before attempting
+  // an update. Fail locally instead of risking a rejected live scale save.
+  const totalBytes = excerpts.reduce((sum, step) => sum +
+    new TextEncoder().encode(step.snapshot).length +
+    new TextEncoder().encode(JSON.stringify(step.tabs || [])).length, 0);
+  if (totalBytes > 400_000) throw new Error('medleyStudioV2.tooLarge');
   return {
     id: existing?.id || crypto.randomUUID(),
     anchorSongId: excerpts[0].songId,
