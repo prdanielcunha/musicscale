@@ -97,6 +97,7 @@ const ArrowDownIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 
 import { MusicScaleSaveRequest, MusicScaleSaveResult, BandScaleWritableData, MusicScaleWritableData, MusicScaleSaveIntent } from "../../contexts/ModalContext";
 import { useFeatureFlag } from "../../hooks/useFeatureFlag";
+import { useMedleyStudioV2Pilot } from "../../hooks/useMedleyStudioV2Pilot";
 import type { HomeAttentionFocusTarget } from "../../utils/homeExperience";
 
 interface ModernScaleFormProps {
@@ -160,7 +161,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     error: showErrorToast,
   } = useToast();
   const isCommandApiV1Enabled = useFeatureFlag('musicscale.bandScaleCommandApiV1');
-  const studioV2Enabled = useFeatureFlag('musicscale.medleyStudioV2');
+  const { enabled: studioV2Enabled } = useMedleyStudioV2Pilot();
 
   const [formData, setFormData] = useState<Partial<Scale & BandScale>>({});
 
