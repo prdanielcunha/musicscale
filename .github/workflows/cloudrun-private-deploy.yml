@@ -20,7 +20,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: musicscale-cloudrun-private
+  group: musicscale-production-release
   cancel-in-progress: false
 
 env:
@@ -41,6 +41,16 @@ jobs:
         with:
           workload_identity_provider: projects/555464791734/locations/global/workloadIdentityPools/mn-prod-github/providers/github
           service_account: mn-web-deployer@millionsnest.iam.gserviceaccount.com
+
+      - name: Snapshot existing Cloud Run IAM (read-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run services get-iam-policy "$SERVICE" \
+            --project "$PROJECT_ID" --region "$REGION" \
+            --format=json | jq -S . > /tmp/musicscale-iam-before.json
+          test -s /tmp/musicscale-iam-before.json
+          sha256sum /tmp/musicscale-iam-before.json | cut -d' ' -f1 > /tmp/musicscale-iam-before.sha
 
       - name: Configure Docker authentication
         run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
@@ -85,7 +95,6 @@ jobs:
             --max-instances 3 \
             --concurrency 40 \
             --timeout 60 \
-            --no-allow-unauthenticated \
             --update-env-vars "FIREBASE_PROJECT_ID=millionsnest,DEPLOY_ENV=production,NODE_ENV=production,GEMINI_MODEL=gemini-3.5-flash,MILLIONSNEST_HUB_ORIGIN=https://www.millionsnest.com,AI_IMPORT_FINOPS_WRITE_PATH_ENABLED=false,AI_IMPORT_FINOPS_READ_PATH_ENABLED=false,AI_FINOPS_DIAGNOSTICS_ENABLED=false,MEMBER_ROLE_RECOVERY_20261006=true" \
             --update-secrets "GEMINI_API_KEY=musicscale-gemini-api-key:latest,STRIPE_SECRET_KEY=musicscale-stripe-secret-key:latest" \
             --quiet
@@ -95,14 +104,20 @@ jobs:
           gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" \
             --format='table(metadata.name,status.url,status.conditions[0].type,status.conditions[0].status)'
 
-      - name: Allow Firebase Hosting invocation
+      - name: Verify existing Cloud Run IAM is unchanged (read-only)
+        shell: bash
         run: |
-          gcloud run services add-iam-policy-binding "$SERVICE" \
-            --project "$PROJECT_ID" \
-            --region "$REGION" \
-            --member="allUsers" \
-            --role="roles/run.invoker" \
-            --quiet
+          set -euo pipefail
+          gcloud run services get-iam-policy "$SERVICE" \
+            --project "$PROJECT_ID" --region "$REGION" \
+            --format=json | jq -S . > /tmp/musicscale-iam-after.json
+          ACTUAL="$(sha256sum /tmp/musicscale-iam-after.json | cut -d' ' -f1)"
+          EXPECTED="$(cat /tmp/musicscale-iam-before.sha)"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "Cloud Run IAM policy changed unexpectedly; blocking Hosting deployment." >&2
+            exit 1
+          fi
+          echo "MUSICSCALE_IAM_UNCHANGED_OK"
 
       - name: Build MusicScale Hosting bundle
         run: |
