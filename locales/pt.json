@@ -2192,6 +2192,11 @@
     "invalidRange": "Confira o início e o fim das linhas."
   },
   "medleyStudioV2": {
+    "sectionChoices": "Partes da música",
+    "unmarkedPart": "Trecho sem título",
+    "moreSections": "Outras seções disponíveis no seletor de partes.",
+    "manualSectionHint": "Sem marcações confiáveis? Escolha as linhas manualmente sem alterar a cifra.",
+    "addPart": "Adicionar outra ocorrência desta parte",
     "progress": "Etapas de criação do medley",
     "step1": "Músicas",
     "step2": "Partes",
