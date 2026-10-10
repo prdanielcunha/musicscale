@@ -100,7 +100,7 @@ export function compileStudioMedley(
     if (!song || !firstOrg || song.organizationId !== firstOrg) throw new Error('medley.missingSong');
     if (!block.id || stepIds.has(block.id)) throw new Error('medley.invalid');
     stepIds.add(block.id);
-    if (!Number.isInteger(block.repetitions) || block.repetitions < 1 || block.repetitions > 8) throw new Error('medley.invalid');
+    if (!Number.isInteger(block.repetitions) || block.repetitions < 1 || block.repetitions > 16) throw new Error('medley.invalid');
     const source = medleyChart(song);
     // A previously approved excerpt must be reviewed BEFORE validating ranges
     // against a changed chart (which may have fewer lines than the snapshot).
