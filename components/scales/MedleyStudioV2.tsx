@@ -7,7 +7,7 @@ import { selectMedleyLines, splitMedleySource } from '../../utils/medleySource';
 import { suggestMedleySegments } from '../../utils/medleySegments';
 import { analyzeMedleyBridge } from '../../utils/medleyStudioHarmony';
 import {
-  compileStudioMedley, duplicateStudioBlock, moveStudioBlock, newStudioBlock, splitStudioBlock,
+  buildStudioPerformancePreview, compileStudioMedley, duplicateStudioBlock, moveStudioBlock, newStudioBlock, splitStudioBlock,
   previewStudioBlock, studioBlocksFromLegacy,
 } from '../../utils/medleyStudioV2';
 import type { StudioBlock } from '../../utils/medleyStudioV2';
@@ -55,12 +55,20 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const [templateName, setTemplateName] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [draftEdited, setDraftEdited] = useState(false);
+  const [showFullPreview, setShowFullPreview] = useState(false);
   const [recoverableBlocks, setRecoverableBlocks] = useState<StudioBlock[] | null>(null);
   const hasLaunched = React.useRef(false);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
   const closeButtonRef = React.useRef<HTMLButtonElement>(null);
 
   const steps = history.present;
+  const fullPreview = useMemo(() => {
+    if (!showFullPreview) return null;
+    try { return buildStudioPerformancePreview(steps, songs); }
+    catch (cause) {
+      return { text: '', truncated: false, error: cause instanceof Error ? cause.message : 'medley.invalid' };
+    }
+  }, [showFullPreview, steps, songs]);
   const selectedIndex = steps.findIndex(item => item.id === activeId);
   const selected = selectedIndex >= 0 ? steps[selectedIndex] : steps[0];
   const songMap = useMemo(() => new Map(songs.map(song => [song.id, song])), [songs]);
@@ -95,6 +103,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     setError('');
     setQuery('');
     setDraftEdited(false);
+    setShowFullPreview(false);
     if (draftIdentity && typeof window !== 'undefined') {
       try { setRecoverableBlocks(loadStudioDraft(draftIdentity, new Set(songs.map(song => song.id)), window.sessionStorage)); }
       catch { setRecoverableBlocks(null); }
@@ -275,6 +284,15 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
             </> : <p className="text-sm text-slate-400">{t('medleyStudioV2.chooseBlock')}</p>}
           </aside>
         </div>
+        <section className="mt-4 rounded-xl border border-white/10 bg-[#101a2a] p-3">
+          <button type="button" className={button + ' w-full justify-between'} aria-expanded={showFullPreview} onClick={() => setShowFullPreview(value => !value)}>{t('medleyStudioV2.fullPreview')} <span>{showFullPreview ? '−' : '+'}</span></button>
+          {showFullPreview && fullPreview && <div className="mt-3">
+            {'error' in fullPreview && fullPreview.error
+              ? <p role="alert" className="text-sm text-amber-300">{t(fullPreview.error)}</p>
+              : <><pre className="max-h-[50vh] overflow-auto whitespace-pre rounded-lg bg-black/30 p-3 font-mono text-xs leading-6 text-slate-100">{fullPreview.text}</pre>
+                {fullPreview.truncated && <p role="status" className="mt-2 text-xs text-amber-300">{t('medleyStudioV2.previewTruncated')}</p>}</>}
+          </div>}
+        </section>
         {error && <p role="alert" className="mt-3 rounded-xl border border-rose-400/40 p-3 text-sm text-rose-300">{error}</p>}
         <footer className="sticky bottom-0 mt-4 flex flex-wrap justify-end gap-2 border-t border-white/10 bg-[#090f1c] py-3 pb-[max(8px,env(safe-area-inset-bottom))]">
           {templateOnly && <label className="min-w-[200px] flex-1 text-xs text-slate-300">{t('medley.templateName')}<input className={field} maxLength={120} value={templateName} onChange={e => setTemplateName(e.target.value)} /></label>}
