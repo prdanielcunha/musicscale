@@ -275,7 +275,15 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
               <span aria-hidden="true" className={'relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br ' + artworkClass(song.id)}>
                 <span className="h-7 w-7 rounded-full border border-white/25 bg-white/5 blur-[1px]" />
               </span>
-              <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{song.title}</strong><small className="text-xs text-slate-400">{song.artist || '—'} · {song.key || '—'}{song.bpm ? ' · ' + song.bpm + ' BPM' : ''}</small></span>
+              <span className="min-w-0 flex-1">
+                <strong className="block truncate text-sm">{song.title}</strong>
+                <small className="text-xs text-slate-400">{song.artist || '—'} · {song.key || '—'}{song.bpm ? ' · ' + song.bpm + ' BPM' : ''}</small>
+                <span className="mt-1 flex flex-wrap gap-1 text-[10px] font-medium text-slate-300">
+                  {!!song.chords?.trim() && <span className="rounded border border-white/15 px-1.5">{t('medleyStudioV2.hasChords')}</span>}
+                  {!!song.lyrics?.trim() && <span className="rounded border border-white/15 px-1.5">{t('medleyStudioV2.hasLyrics')}</span>}
+                  {!!song.sections?.length && <span className="rounded border border-white/15 px-1.5">{t('medleyStudioV2.hasSections')}</span>}
+                </span>
+              </span>
               <Plus size={18} className="shrink-0 text-sky-300" />
             </button>)}{filteredSongs.length === 0 && <p className="p-3 text-sm text-slate-400">{t('medleyStudioV2.emptySearch')}</p>}</div>
           </aside>
