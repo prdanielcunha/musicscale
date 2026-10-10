@@ -64,7 +64,7 @@ export function validateMedleys(medleys: ScaleMedley[], songIds: string[], songs
       if (!song || song.organizationId !== organizationId || !songIds.includes(step.songId) ||
           typeof step.id !== 'string' || !step.id || stepIds.has(step.id) ||
           typeof step.title !== 'string' || step.title.length > 160 ||
-          !Number.isInteger(step.repetitions) || step.repetitions < 1 || step.repetitions > 8 ||
+          !Number.isInteger(step.repetitions) || step.repetitions < 1 || step.repetitions > 16 ||
           !Number.isInteger(step.startLine) || !Number.isInteger(step.endLine) ||
           typeof step.snapshot !== 'string' || typeof step.sourceRevision !== 'string' ||
           (step.sourceUrl !== undefined && (typeof step.sourceUrl !== 'string' || step.sourceUrl.length > 2000)) ||

@@ -9,6 +9,9 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+import { Layers3 } from "lucide-react";
+import { useFeatureFlag } from "../../hooks/useFeatureFlag";
 import type { PopulatedSong, PopulatedScale, ScaleSongNavigationContext } from "../../types";
 import { useApi } from "../../contexts/ApiContext";
 import { useMusic } from "../../contexts/MusicDataContext";
@@ -246,6 +249,12 @@ const Popover: React.FC<{
   );
 };
 
+/** A router-dependent action is mounted only when the new feature is enabled. */
+const SongMedleyAction: React.FC<{ songId: string; label: string; onClose: () => void }> = ({ songId, label, onClose }) => {
+  const navigate = useNavigate();
+  return <button type="button" onClick={() => { onClose(); navigate('/songs?medleySongId=' + encodeURIComponent(songId)); }} title={label} aria-label={label} className="w-11 h-11 flex-shrink-0 bg-sky-500/10 border border-sky-400/20 hover:bg-sky-500/20 text-sky-300 flex items-center justify-center rounded-[14px] transition-colors"><Layers3 className="w-4 h-4" /></button>;
+};
+
 interface SongDetailModalProps {
   song: PopulatedSong | null;
   onClose: () => void;
@@ -298,6 +307,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
   openMode,
 }) => {
   const { t } = useTranslation();
+  const medleyStudioEnabled = useFeatureFlag('musicscale.medleyStudioV2');
   const api = useApi();
   const { songs, populatedScales: scales } = useMusic();
   const { openScaleDetail, saveChord, isSubmitting, openFeedback, openPersistedChordKeyRepair } = useModals();
@@ -781,6 +791,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
                 </button>
               )}
               
+              {canManageScales && medleyStudioEnabled && <SongMedleyAction songId={song.id} onClose={onClose} label={t('medleyStudioV2.createFromSong')} />}
               <button ref={shareButtonRef} onClick={() => setSharePopoverOpen((o) => !o)} disabled={isSharing} className="w-11 h-11 flex-shrink-0 bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.1] text-white flex items-center justify-center rounded-[14px] transition-colors" title="Compartilhar">
                  <ShareIcon className="w-4 h-4" />
               </button>
