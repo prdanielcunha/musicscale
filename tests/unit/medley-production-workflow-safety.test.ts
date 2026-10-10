@@ -17,7 +17,9 @@ describe('MusicScale Medley production infrastructure contract', () => {
     expect(firebase).toContain('group: musicscale-production-release');
     expect(cloudRun).toContain('cancel-in-progress: false');
     expect(firebase).toContain('cancel-in-progress: false');
-    expect(cloudRun).toContain('--only hosting:musicscale');
+    expect(cloudRun).toContain('firebase-production-deploy.yml/dispatches');
+    expect(cloudRun).not.toContain('firebase deploy');
+    expect(firebase).toContain("MUSICSCALE_PREMIUM_PRESENTATION_ROLLOUT: 'true'");
     expect(firebase).toContain('--only "hosting:$HOSTING_TARGET"');
     expect(firebase).toContain("!contains(toJSON(github.event.head_commit.modified), 'types.ts')");
     expect(firebase).toContain("!contains(toJSON(github.event.head_commit.modified), 'services/server/')");
