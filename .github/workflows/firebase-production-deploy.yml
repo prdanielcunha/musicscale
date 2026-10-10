@@ -24,7 +24,16 @@ env:
 
 jobs:
   deploy-production:
-    if: github.ref == 'refs/heads/production'
+    # Cloud Run owns the Hosting release when API source changes; this avoids
+    # exposing a new client while the old Cloud Run validator is still live.
+    if: >-
+      github.ref == 'refs/heads/production' &&
+      (github.event_name == 'workflow_dispatch' ||
+        (!contains(toJSON(github.event.head_commit.modified), 'types.ts') &&
+         !contains(toJSON(github.event.head_commit.modified), 'services/server/') &&
+         !contains(toJSON(github.event.head_commit.modified), 'server.ts') &&
+         !contains(toJSON(github.event.head_commit.modified), 'Dockerfile') &&
+         !contains(toJSON(github.event.head_commit.modified), 'ops/cloudrun-release.txt')))
     runs-on: ubuntu-latest
     environment: firebase-production
     steps:
