@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 const REPO = "prdanielcunha/musicscale";
 export const isValidSha = v => typeof v === "string" && /^[0-9a-f]{40}$/.test(v);
-export const isSensitivePath = p => /^(?:firestore(?:\.indexes)?\.rules|firestore\.indexes\.json|firebase\.json|\.firebaserc|server\.ts|Dockerfile|functions\/|services\/(?:server|firebase|ecosystem|effectiveEntitlements|firestore|stripe|billing|nestai)|contexts\/(?:AuthContext|EcosystemContext)|utils\/rbac\.ts|ops\/(?:hosting-release|cloudrun-release)\.txt|\.github\/workflows\/(?:firebase-production-deploy|cloudrun-private-deploy|deploy-firestore-rules|deploy-firebase-functions|release-guard)\.yml|scripts\/release-guard\.(?:mjs|test\.mjs)|AGENTS\.md)/.test(p);
+export const isSensitivePath = p => /^(?:firestore(?:\.indexes)?\.rules|firestore\.indexes\.json|firebase\.json|\.firebaserc|server\.ts|Dockerfile|functions\/|services\/(?:server|firebase|ecosystem|effectiveEntitlements|firestore|stripe|billing|nestai)|contexts\/(?:AuthContext|EcosystemContext)|utils\/rbac\.ts|ops\/(?:hosting-release|cloudrun-release)\.txt|\.github\/workflows\/(?:firebase-production-deploy|cloudrun-private-deploy|deploy-firestore-rules|deploy-firebase-functions|release-guard)\.yml|scripts\/release-guard\.(?:mjs|nodecheck\.mjs)|AGENTS\.md)/.test(p);
 export function assessChangedPaths(paths) {
   const unique = [...new Set(paths.filter(Boolean))];
   return {count:unique.length, sensitive:unique.filter(isSensitivePath)};

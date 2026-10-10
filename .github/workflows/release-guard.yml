@@ -4,7 +4,7 @@ on:
     branches: [ main, production ]
     paths:
       - 'scripts/release-guard.mjs'
-      - 'scripts/release-guard.test.mjs'
+      - 'scripts/release-guard.nodecheck.mjs'
       - '.github/workflows/release-guard.yml'
       - 'AGENTS.md'
       - 'docs/RELEASE_GUARD.md'
@@ -35,7 +35,7 @@ jobs:
         with:
           node-version: 22
       - run: node --check scripts/release-guard.mjs
-      - run: node --test scripts/release-guard.test.mjs
+      - run: node --test scripts/release-guard.nodecheck.mjs
   promote:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -55,7 +55,7 @@ jobs:
           node-version: 22
       - run: |
           node --check scripts/release-guard.mjs
-          node --test scripts/release-guard.test.mjs
+          node --test scripts/release-guard.nodecheck.mjs
       - name: Check full QA and advance production without force
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

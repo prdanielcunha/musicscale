@@ -11,7 +11,7 @@ O Release Guard sincroniza o SHA exato entre `main` e `production` somente depoi
 
 ## Arquivos adicionados
 - `scripts/release-guard.mjs`: validador e promotor GitHub API com `force:false`.
-- `scripts/release-guard.test.mjs`: testes unitários de políticas.
+- `scripts/release-guard.nodecheck.mjs`: testes unitários de políticas.
 - `.github/workflows/release-guard.yml`: testes em PR e promoção somente por `workflow_dispatch` com SHA completo e confirmação `PROMOTE`.
 
 ## Configuração GitHub fora do código
