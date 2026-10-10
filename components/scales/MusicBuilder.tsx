@@ -487,7 +487,7 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
                {templateError && <p role="alert" className="text-xs text-rose-500">{templateError}</p>}
                {templates.length ? templates.map(template => <button type="button" key={template.id} className="block w-full rounded-lg border border-white/10 p-2 text-left text-xs" onClick={() => applyTemplate(template)}>{template.name}</button>) : <p className="text-xs text-slate-500">{t('medley.noTemplates')}</p>}
              </div>}
-             <React.Suspense fallback={null}><MedleyEditor songs={studioV2Enabled ? songs : selectedSongsList} initialSongIds={studioV2Enabled ? (formData.songIds || []) : undefined} medleys={formData.medleys || []} onChange={medleys => setFormData((prev: any) => ({ ...prev, medleys, songIds: studioV2Enabled ? mergeStudioScaleSongIds(prev.songIds || [], medleys) : orderMedleySongIds(prev.songIds || [], medleys) }))} onSaveTemplate={async (medley, name) => {
+             <React.Suspense fallback={null}><MedleyEditor songs={studioV2Enabled ? songs : selectedSongsList} draftScope={`scale:${formData.id && formData.id !== "CLONE" ? formData.id : "new"}`} initialSongIds={studioV2Enabled ? (formData.songIds || []) : undefined} medleys={formData.medleys || []} onChange={medleys => setFormData((prev: any) => ({ ...prev, medleys, songIds: studioV2Enabled ? mergeStudioScaleSongIds(prev.songIds || [], medleys) : orderMedleySongIds(prev.songIds || [], medleys) }))} onSaveTemplate={async (medley, name) => {
                if (!api) throw new Error('API unavailable');
                await api.medleyTemplates.create({ name, arrangement: medley });
                if (templatesOpen) setTemplates(await api.medleyTemplates.list());
