@@ -14,6 +14,12 @@ const song = (id: string, chords: string): PopulatedSong => ({
   createdBy: { uid: 'u1' } as PopulatedSong['createdBy'], tags: [],
 });
 
+function continueToReview(dialog: HTMLElement, current: 1 | 2 | 3) {
+  for (let step = current; step < 4; step++) {
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
+  }
+}
+
 describe('feature-isolated visual studio', () => {
   it('prioritizes a scale suggestion even beyond the first 75 catalog results', () => {
     const catalog = Array.from({ length: 80 }, (_, i) => song('Library ' + i, 'C G'));
@@ -36,12 +42,15 @@ describe('feature-isolated visual studio', () => {
     expect(within(dialog).getByText('0 / 30 medley.excerpt')).toBeInTheDocument();
     expect(within(dialog).getByText('medleyStudioV2.emptyTimeline')).toBeInTheDocument();
     expect(within(dialog).getByText('medleyStudioV2.scaleSuggestions')).toBeInTheDocument();
-    expect(within(dialog).getByText('medley.use')).toBeDisabled();
+    expect(within(dialog).getByText('medleyStudioV2.next')).toBeDisabled();
+    expect(within(dialog).queryByText('medley.use')).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole('button', { name: /A.*Am/ }));
     expect(within(dialog).getByText('1 / 30 medley.excerpt')).toBeInTheDocument();
-    expect(within(dialog).getByText('medley.use')).toBeDisabled();
+    expect(within(dialog).queryByText('medley.use')).not.toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole('button', { name: /B.*Am/ }));
+    continueToReview(dialog, 1);
+    expect(within(dialog).getByTestId('medley-studio-review')).toBeInTheDocument();
     fireEvent.click(within(dialog).getByText('medley.use'));
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0][0].steps.map((step: {songId: string}) => step.songId)).toEqual(['A','B']);
@@ -61,6 +70,7 @@ describe('feature-isolated visual studio', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'medleyStudioV2.undo' }));
     expect(within(dialog).getByText('2 / 30 medley.excerpt')).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole('button', { name: 'medleyStudioV2.redo' }));
+    continueToReview(dialog, 2);
     fireEvent.click(within(dialog).getByText('medley.use'));
     expect(onChange).toHaveBeenCalledTimes(1);
     const result = onChange.mock.calls[0][0][0];
@@ -77,8 +87,10 @@ describe('feature-isolated visual studio', () => {
       onChange={onChange} onSaveTemplate={onSaveTemplate} onClose={onClose} initialSongIds={['A']} templateOnly launchImmediately />);
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('1 / 30 medley.excerpt')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.addMusic'));
     fireEvent.click(within(dialog).getByText('B'));
     fireEvent.change(within(dialog).getByLabelText('medley.templateName'), { target: { value: 'Adoração em sequência' } });
+    continueToReview(dialog, 1);
     fireEvent.click(within(dialog).getByText('medley.saveTemplate'));
     await waitFor(() => expect(onSaveTemplate).toHaveBeenCalledTimes(1));
     const [arrangement, name] = onSaveTemplate.mock.calls[0];
@@ -93,7 +105,9 @@ describe('feature-isolated visual studio', () => {
     render(<MedleyStudioV2 songs={[song('A', 'Am F'), song('B', 'C G')]} medleys={[]} onChange={onChange} initialSongIds={['A','B']} />);
     fireEvent.click(screen.getByText('medley.create'));
     const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
     fireEvent.click(within(dialog).getAllByText('medleyStudioV2.useAsCue')[0]);
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
     fireEvent.click(within(dialog).getByText('medley.use'));
     const saved = onChange.mock.calls[0][0][0];
     expect(saved.steps[0].transition?.cue).toBe('F → C');
@@ -114,6 +128,7 @@ describe('feature-isolated visual studio', () => {
     };
     render(<MedleyStudioV2 songs={[a,b]} medleys={[old]} onChange={onChange} />);
     fireEvent.click(screen.getByText('medley.edit'));
+    continueToReview(screen.getByRole('dialog'), 2);
     fireEvent.click(within(screen.getByRole('dialog')).getByText('medley.use'));
     expect(onChange).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent('medley.reviewRequired');
