@@ -2192,6 +2192,7 @@
     "invalidRange": "Check the first and last line."
   },
   "medleyStudioV2": {
+    "tooLarge": "This medley exceeds the safe 400 KB scale content limit. Shorten excerpts or tablatures before saving.",
     "split": "Split excerpt in half",
     "splitShort": "Split",
     "savedTemplates": "Organization medleys",
