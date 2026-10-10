@@ -2192,6 +2192,7 @@
     "invalidRange": "Check the first and last line."
   },
   "medleyStudioV2": {
+    "useAsCue": "Use as cue",
     "templateNameRequired": "Name the medley before saving.",
     "createFromSong": "Create medley with this song",
     "createFromRepertoire": "Create medley",
