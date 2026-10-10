@@ -155,6 +155,29 @@ export function compileStudioMedley(
   };
 }
 
+export function buildStudioPerformancePreview(blocks: readonly StudioBlock[], songs: readonly PopulatedSong[], maxChars = 48_000): { text: string; truncated: boolean } {
+  const source = new Map(songs.map(song => [song.id, song]));
+  let text = '';
+  const append = (chunk: string): boolean => {
+    if (text.length + chunk.length > maxChars) return false;
+    text += chunk;
+    return true;
+  };
+  for (const [index, block] of blocks.entries()) {
+    const song = source.get(block.songId);
+    if (!song) throw new Error('medley.missingSong');
+    if (!Number.isInteger(block.repetitions) || block.repetitions < 1 || block.repetitions > 16) throw new Error('medley.invalid');
+    const snapshot = previewStudioBlock(block, song);
+    const title = `\n${index + 1}. ${song.title}${block.label ? ' · ' + block.label : ''} · ${block.key || song.key || '—'}\n`;
+    if (!append(title)) return { text, truncated: true };
+    for (let round = 1; round <= block.repetitions; round++) {
+      if (!append(`[${round}/${block.repetitions}]\n${snapshot}\n`)) return { text, truncated: true };
+    }
+    if (block.cue.trim() && !append(`→ ${block.cue.trim()}\n`)) return { text, truncated: true };
+  }
+  return { text: text.trim(), truncated: false };
+}
+
 /** A studio addition must never discard pre-existing repertoire or band assignments. */
 export function mergeStudioScaleSongIds(songIds: readonly string[], medleys: readonly ScaleMedley[]): string[] {
   const ids = [...songIds];
