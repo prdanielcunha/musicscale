@@ -15,11 +15,33 @@ const song = (id: string, chords: string): PopulatedSong => ({
 });
 
 describe('feature-isolated visual studio', () => {
+  it('starts an empty sequence from a scale; existing songs are suggestions and saving cannot mutate the scale', () => {
+    const a = song('A', 'Am    F');
+    const b = song('B', 'C    G');
+    const onChange = vi.fn();
+    render(<MedleyStudioV2 songs={[b, a]} medleys={[]} onChange={onChange} suggestedSongIds={['A','B']} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('0 / 30 medley.excerpt')).toBeInTheDocument();
+    expect(within(dialog).getByText('medleyStudioV2.emptyTimeline')).toBeInTheDocument();
+    expect(within(dialog).getByText('medleyStudioV2.scaleSuggestions')).toBeInTheDocument();
+    expect(within(dialog).getByText('medley.use')).toBeDisabled();
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: /A.*Am/ }));
+    expect(within(dialog).getByText('1 / 30 medley.excerpt')).toBeInTheDocument();
+    expect(within(dialog).getByText('medley.use')).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('button', { name: /B.*Am/ }));
+    fireEvent.click(within(dialog).getByText('medley.use'));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0][0].steps.map((step: {songId: string}) => step.songId)).toEqual(['A','B']);
+    expect(a.chords).toBe('Am    F');
+    expect(b.chords).toBe('C    G');
+  });
   it('creates A-B-A from copied blocks, supports undo/redo and keeps source intact', () => {
     const a = song('A', 'Am    F\nTexto A');
     const b = song('B', 'C   G\nTexto B');
     const onChange = vi.fn<(medleys: ScaleMedley[]) => void>();
-    render(<MedleyStudioV2 songs={[a,b]} medleys={[]} onChange={onChange} />);
+    render(<MedleyStudioV2 songs={[a,b]} medleys={[]} onChange={onChange} initialSongIds={['A','B']} />);
     fireEvent.click(screen.getByText('medley.create'));
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText('medleyStudioV2.timeline')).toBeInTheDocument();
@@ -57,7 +79,7 @@ describe('feature-isolated visual studio', () => {
 
   it('applies a harmonic suggestion only when explicitly clicked and stores it in the cue', () => {
     const onChange = vi.fn<(medleys: ScaleMedley[]) => void>();
-    render(<MedleyStudioV2 songs={[song('A', 'Am F'), song('B', 'C G')]} medleys={[]} onChange={onChange} />);
+    render(<MedleyStudioV2 songs={[song('A', 'Am F'), song('B', 'C G')]} medleys={[]} onChange={onChange} initialSongIds={['A','B']} />);
     fireEvent.click(screen.getByText('medley.create'));
     const dialog = screen.getByRole('dialog');
     fireEvent.click(within(dialog).getAllByText('medleyStudioV2.useAsCue')[0]);
