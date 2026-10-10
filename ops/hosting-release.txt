@@ -1,3 +1,8 @@
+MusicScale 0.11.0-beta.0 — 2026-10-10
+Candidata do Medley Studio 2.0: editor visual responsivo, medleys de repertório e escalas, trechos reorganizáveis, 16 repetições, ponte harmônica manual, prévia e modo palco com snapshots aprovados.
+Feature flag organizacional musicscale.medleyStudioV2 DESLIGADA por padrão; rollout e homologação separados. Conserva as músicas, escalas, bandas fixas, funções, organizações, membros, assinaturas, autenticação e modelos antigos. Sem migrações destrutivas, alteração de IAM ou alteração de dados existentes.
+Revisão e QA ainda obrigatórios antes da liberação; este arquivo na branch candidata não comprova publicação.
+
 MusicScale 0.10.9-beta.31 — 2026-10-10
 Refino exclusivamente visual de transparência no cabeçalho superior: preserva as cores RGB (6, 7, 10) e (5, 6, 9), alterando somente opacidade para 0.58 em repouso e 0.66 durante rolagem; sem mudar blur ou contornos.
 Preserva dados de clientes, escalas, funções, permissões, assinaturas, IA, demais telas e hotfixes beta.30 e anteriores. Sem migrações.
