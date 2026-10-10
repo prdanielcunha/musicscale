@@ -15,6 +15,17 @@ const song = (id: string, chords: string): PopulatedSong => ({
 });
 
 describe('feature-isolated visual studio', () => {
+  it('prioritizes a scale suggestion even beyond the first 75 catalog results', () => {
+    const catalog = Array.from({ length: 80 }, (_, i) => song('Library ' + i, 'C G'));
+    const priority = song('Priority', 'Am F');
+    const onChange = vi.fn();
+    render(<MedleyStudioV2 songs={[...catalog, priority]} medleys={[]} onChange={onChange} suggestedSongIds={['Priority']} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: /Priority.*Am/ })).toBeInTheDocument();
+    expect(within(dialog).getByText('0 / 30 medley.excerpt')).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
   it('starts an empty sequence from a scale; existing songs are suggestions and saving cannot mutate the scale', () => {
     const a = song('A', 'Am    F');
     const b = song('B', 'C    G');
