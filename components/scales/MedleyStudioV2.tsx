@@ -63,7 +63,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const songMap = useMemo(() => new Map(songs.map(song => [song.id, song])), [songs]);
   const activeSong = selected ? songMap.get(selected.songId) : undefined;
   const filteredSongs = useMemo(() => songs.filter(song => trim(song.title + ' ' + song.artist + ' ' + song.chords).includes(trim(query))).slice(0, 75), [songs, query]);
-  const original = medleys.find(item => item.id === editingId);
+  const original = medleys.find(item => item.id === editingId) || (templateOnly && initialMedley?.id === editingId ? initialMedley : undefined);
   const changedSources = original?.steps.filter(step => {
     const song = songMap.get(step.songId);
     return !song || medleySourceRevision(song) !== step.sourceRevision;
