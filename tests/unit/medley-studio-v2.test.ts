@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PopulatedSong, ScaleMedley } from '../../types';
 import { compileStudioMedley, duplicateStudioBlock, moveStudioBlock, newStudioBlock, studioBlocksFromLegacy, mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
 import { analyzeMedleyBridge, detectedHarmonyEvents } from '../../utils/medleyStudioHarmony';
+import { loadStudioDraft, saveStudioDraft, studioDraftKey } from '../../utils/medleyStudioDraft';
 
 const song = (id: string, chart: string, org = 'org-a'): PopulatedSong => ({
   id, organizationId: org, title: id, artist: '', key: 'Am', status: 'active', tagIds: [],
@@ -58,6 +59,21 @@ describe('isolated Medley Studio 2.0 legacy adapter', () => {
   it('does not allow repeat counts beyond the existing production contract', () => {
     const invalid = { ...newStudioBlock(a), repetitions: 16 };
     expect(() => compileStudioMedley([invalid, newStudioBlock(b)], [a, b])).toThrow('medley.invalid');
+  });
+});
+
+describe('session draft isolation', () => {
+  it('restores a bounded draft without embedding the original chart', () => {
+    const items = new Map<string,string>();
+    const store = { getItem: (key: string) => items.get(key) || null, setItem: (key: string, value: string) => { items.set(key, value); }, removeItem: (key: string) => { items.delete(key); } };
+    const identity = { userId: 'editor', organizationId: 'org-a', scope: 'scale:new' };
+    const block = newStudioBlock(a, 'a1');
+    expect(saveStudioDraft(identity, [block], store, 1000)).toBe(true);
+    expect(loadStudioDraft(identity, new Set(['a']), store, 2000)).toEqual([block]);
+    expect(store.getItem(studioDraftKey(identity))).not.toContain(a.chords);
+    expect(loadStudioDraft({ ...identity, organizationId: 'org-b' }, new Set(['a']), store, 2000)).toBeNull();
+    expect(loadStudioDraft(identity, new Set(['b']), store, 2000)).toBeNull();
+    expect(loadStudioDraft(identity, new Set(['a']), store, 12 * 60 * 60 * 1000 + 2000)).toBeNull();
   });
 });
 
