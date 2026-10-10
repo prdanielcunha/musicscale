@@ -7,7 +7,7 @@ import { selectMedleyLines, splitMedleySource } from '../../utils/medleySource';
 import { suggestMedleySegments } from '../../utils/medleySegments';
 import { analyzeMedleyBridge } from '../../utils/medleyStudioHarmony';
 import {
-  compileStudioMedley, duplicateStudioBlock, moveStudioBlock, newStudioBlock,
+  compileStudioMedley, duplicateStudioBlock, moveStudioBlock, newStudioBlock, splitStudioBlock,
   previewStudioBlock, studioBlocksFromLegacy,
 } from '../../utils/medleyStudioV2';
 import type { StudioBlock } from '../../utils/medleyStudioV2';
@@ -216,6 +216,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
                       <button type="button" className={button} disabled={!index} aria-label={t('medley.moveUp')} onClick={() => edit(s => moveStudioBlock(s, index, index - 1))}><ArrowUp size={16} /></button>
                       <button type="button" className={button} disabled={index === steps.length - 1} aria-label={t('medley.moveDown')} onClick={() => edit(s => moveStudioBlock(s, index, index + 1))}><ArrowDown size={16} /></button>
                       <button type="button" className={button} disabled={steps.length >= 30} aria-label={t('medleyStudioV2.duplicate')} onClick={() => edit(s => duplicateStudioBlock(s, index))}><Copy size={16} /></button>
+                      <button type="button" className={button} disabled={steps.length >= 30 || step.startLine >= step.endLine} aria-label={t('medleyStudioV2.split')} onClick={() => edit(s => splitStudioBlock(s, index, Math.floor((step.startLine + step.endLine) / 2)))}>{t('medleyStudioV2.splitShort')}</button>
                       <button type="button" className={button + ' text-rose-300'} disabled={steps.length <= 2} aria-label={t('medley.remove')} onClick={() => { edit(s => s.filter(item => item.id !== step.id)); if (activeId === step.id) setActiveId(null); }}><Trash2 size={16} /></button>
                     </div>
                   </div>
