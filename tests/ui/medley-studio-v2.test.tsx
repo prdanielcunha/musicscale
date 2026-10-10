@@ -21,6 +21,35 @@ function continueToReview(dialog: HTMLElement, current: 1 | 2 | 3) {
 }
 
 describe('feature-isolated visual studio', () => {
+  it('selects section chips and duplicates an independent occurrence without modifying the song', () => {
+    const a = song('A', '[Intro]\\nAm F\\n[Refrão]\\nC G'.replaceAll('\\n', '\n'));
+    const b = song('B', 'Dm G');
+    const onChange = vi.fn<(medleys: ScaleMedley[]) => void>();
+    const originalChart = a.chords;
+    render(<MedleyStudioV2 songs={[a,b]} medleys={[]} onChange={onChange} initialSongIds={['A', 'B']} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    const sections = within(dialog).getByRole('group', { name: 'medleyStudioV2.sectionChoices' });
+    fireEvent.click(within(sections).getByRole('button', { name: 'Refrão' }));
+    fireEvent.click(within(sections).getByRole('button', { name: 'medleyStudioV2.addPart' }));
+    expect(within(dialog).getByText('3 / 30 medley.excerpt')).toBeInTheDocument();
+    continueToReview(dialog, 2);
+    fireEvent.click(within(dialog).getByText('medley.use'));
+    const medley = onChange.mock.calls[0][0][0];
+    expect(medley.steps.map(step => step.songId)).toEqual(['A', 'A', 'B']);
+    expect(medley.steps[0].snapshot).toContain('[Refrão]');
+    expect(medley.steps[1].snapshot).toBe(medley.steps[0].snapshot);
+    expect(medley.steps[0].id).not.toBe(medley.steps[1].id);
+    expect(a.chords).toBe(originalChart);
+  });
+  it('keeps unmarked charts available for manually choosing lines', () => {
+    render(<MedleyStudioV2 songs={[song('A', 'Am F\\nPalavra'), song('B', 'G C')]} medleys={[]} onChange={vi.fn()} initialSongIds={['A','B']} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('medleyStudioV2.manualSectionHint')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('medley.from')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('medley.to')).toBeInTheDocument();
+  });
   it('prioritizes a scale suggestion even beyond the first 75 catalog results', () => {
     const catalog = Array.from({ length: 80 }, (_, i) => song('Library ' + i, 'C G'));
     const priority = song('Priority', 'Am F');
