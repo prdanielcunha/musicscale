@@ -18,7 +18,7 @@ import { useMusic } from "../contexts/MusicDataContext";
 import { useModals } from "../contexts/ModalContext";
 import { useLimits, useAuth } from "../contexts/AuthContext";
 import { useApi } from "../contexts/ApiContext";
-import { useFeatureFlag } from "../hooks/useFeatureFlag";
+import { useMedleyStudioV2Pilot } from "../hooks/useMedleyStudioV2Pilot";
 import { useCapability } from "../hooks/useCapability";
 import Spinner from "../components/common/Spinner";
 import MusicWorkspaceSkeleton from "../components/common/MusicWorkspaceSkeleton";
@@ -187,7 +187,7 @@ const SongsPage: React.FC = () => {
   const api = useApi();
   const { hasCapability } = useCapability();
   const canManageScales = hasCapability('musicscale.scales.manage');
-  const medleyStudioEnabled = useFeatureFlag('musicscale.medleyStudioV2');
+  const { enabled: medleyStudioEnabled, orgEnabled: medleyOrgEnabled, optedIn: medleyOptedIn, setPilotEnabled: setMedleyPilotEnabled } = useMedleyStudioV2Pilot();
   const [medleyStudioOpen, setMedleyStudioOpen] = useState(false);
   const [medleyStudioSongIds, setMedleyStudioSongIds] = useState<string[]>([]);
   const [medleyTemplates, setMedleyTemplates] = useState<MedleyTemplate[]>([]);
@@ -944,6 +944,11 @@ const SongsPage: React.FC = () => {
             </button>
           </div>
 
+          {canManageScales && !medleyOrgEnabled && <button type="button"
+            aria-pressed={medleyOptedIn} onClick={() => setMedleyPilotEnabled(!medleyOptedIn)}
+            className="min-h-[44px] rounded-xl border border-sky-400/40 bg-sky-500/10 px-3 text-xs font-semibold text-sky-800 dark:text-sky-200 transition-colors hover:bg-sky-500/20">
+            {t(medleyOptedIn ? 'medleyStudioV2.disablePilot' : 'medleyStudioV2.enablePilot')}
+          </button>}
           {medleyStudioEnabled && canManageScales && songs.length >= 2 && <Button variant="secondary" onClick={() => { setMedleyTemplateToCopy(null); setMedleyStudioSongIds(selectedSongIds.length ? selectedSongIds : []); setMedleyStudioOpen(true); }}>
             {t('medleyStudioV2.createFromRepertoire')}
           </Button>}
