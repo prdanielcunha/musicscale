@@ -12,6 +12,7 @@ import {
 } from '../../utils/medleyStudioV2';
 import type { StudioBlock } from '../../utils/medleyStudioV2';
 import { ManualMedleyBridgeEditor } from './ManualMedleyBridgeEditor';
+import { buildSearchIndex, searchSongs } from '../../utils/searchEngine';
 import { useAuth } from '../../contexts/AuthContext';
 import { clearStudioDraft, loadStudioDraft, saveStudioDraft } from '../../utils/medleyStudioDraft';
 
@@ -62,7 +63,8 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const selected = selectedIndex >= 0 ? steps[selectedIndex] : steps[0];
   const songMap = useMemo(() => new Map(songs.map(song => [song.id, song])), [songs]);
   const activeSong = selected ? songMap.get(selected.songId) : undefined;
-  const filteredSongs = useMemo(() => songs.filter(song => trim(song.title + ' ' + song.artist + ' ' + song.chords).includes(trim(query))).slice(0, 75), [songs, query]);
+  const searchIndex = useMemo(() => buildSearchIndex(songs), [songs]);
+  const filteredSongs = useMemo(() => searchSongs(searchIndex, query).slice(0, 75).map(match => match.document.song), [searchIndex, query]);
   const original = medleys.find(item => item.id === editingId) || (templateOnly && initialMedley?.id === editingId ? initialMedley : undefined);
   const changedSources = original?.steps.filter(step => {
     const song = songMap.get(step.songId);
