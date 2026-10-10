@@ -12,7 +12,7 @@ import { MedleyComposer } from './MedleyComposer';
 const MedleyStudioV2 = React.lazy(() => import('./MedleyStudioV2').then(module => ({ default: module.MedleyStudioV2 })));
 import { mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
 // V2 is split into a separate chunk. Disabled organizations never download it.
-import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { useMedleyStudioV2Pilot } from '../../hooks/useMedleyStudioV2Pilot';
 import { orderMedleySongIds, medleySourceRevision } from '../../utils/medleyModel';
 import { useApi } from '../../contexts/ApiContext';
 import { buildSearchIndex, searchSongs } from '../../utils/searchEngine';
@@ -43,7 +43,7 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
   const { t } = useTranslation();
   const api = useApi();
   // Disabled for every organization unless explicitly enabled by the canonical org flag.
-  const studioV2Enabled = useFeatureFlag('musicscale.medleyStudioV2');
+  const { enabled: studioV2Enabled } = useMedleyStudioV2Pilot();
   const MedleyEditor = studioV2Enabled ? MedleyStudioV2 : MedleyComposer;
   const [templates, setTemplates] = useState<MedleyTemplate[]>([]);
   const [templatesOpen, setTemplatesOpen] = useState(false);
