@@ -2192,6 +2192,9 @@
     "invalidRange": "Confira o início e o fim das linhas."
   },
   "medleyStudioV2": {
+    "templateNameRequired": "Dê um nome ao medley para salvá-lo.",
+    "createFromSong": "Criar medley com esta música",
+    "createFromRepertoire": "Criar medley",
     "title": "Medley Studio 2.0",
     "subtitle": "Monte e revise trechos sem alterar as músicas ou escalas originais.",
     "studio": "ESTÚDIO DE ARRANJO",
