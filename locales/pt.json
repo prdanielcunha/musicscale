@@ -2192,6 +2192,10 @@
     "invalidRange": "Confira o início e o fim das linhas."
   },
   "medleyStudioV2": {
+    "savedTemplates": "Medleys salvos na organização",
+    "editCopy": "Editar nova versão",
+    "addToScale": "Usar em nova escala",
+    "refreshTemplates": "Atualizar biblioteca de medleys",
     "manualBridge": "Ponte harmônica manual",
     "meter": "Compasso",
     "bridgeBpm": "BPM da passagem (opcional)",
