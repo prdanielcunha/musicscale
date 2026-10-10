@@ -17,6 +17,11 @@ interface Props {
   medleys: ScaleMedley[];
   onChange: (medleys: ScaleMedley[]) => void;
   onSaveTemplate?: (medley: ScaleMedley, name: string) => Promise<void>;
+  /** Existing scale song IDs are preferred; the studio may also add catalog songs. */
+  initialSongIds?: string[];
+  launchImmediately?: boolean;
+  templateOnly?: boolean;
+  onClose?: () => void;
 }
 interface History {
   past: StudioBlock[][];
@@ -27,7 +32,7 @@ const button = 'inline-flex min-h-[44px] min-w-[44px] items-center justify-cente
 const field = 'min-h-[44px] w-full rounded-xl border border-white/15 bg-[#151d2b] px-3 text-sm text-white focus-visible:outline-2 focus-visible:outline-sky-400';
 const trim = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
 
-export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate }: Props) {
+export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initialSongIds, launchImmediately = false, templateOnly = false, onClose }: Props) {
   const { t } = useTranslation();
   const [isOpen, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -39,6 +44,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate }: Pro
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const hasLaunched = React.useRef(false);
 
   const steps = history.present;
   const selectedIndex = steps.findIndex(item => item.id === activeId);
@@ -63,29 +69,47 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate }: Pro
   const update = (id: string, change: Partial<StudioBlock>) =>
     edit(blocks => blocks.map(item => item.id === id ? { ...item, ...change } : item));
   const start = (medley?: ScaleMedley) => {
-    const blocks = medley ? studioBlocksFromLegacy(medley) : songs.slice(0, 2).map(song => newStudioBlock(song));
+    const preferredSongs = [...new Set(initialSongIds || [])].map(id => songMap.get(id)).filter((song): song is PopulatedSong => !!song);
+    const blocks = medley ? studioBlocksFromLegacy(medley) : (preferredSongs.length ? preferredSongs : songs.slice(0, 2)).slice(0, 30).map(song => newStudioBlock(song));
     setHistory({ past: [], present: blocks, future: [] });
     setActiveId(blocks[0]?.id || null);
     setEditingId(medley?.id || null);
     setSourceApproved(false);
     setError('');
     setQuery('');
+    setTemplateName(medley?.steps.map(step => step.title).join(' → ') || preferredSongs.map(song => song.title).join(' → ') || '');
     setOpen(true);
   };
+  React.useEffect(() => {
+    if (launchImmediately && songs.length && !hasLaunched.current) {
+      hasLaunched.current = true;
+      start();
+    }
+  }, [launchImmediately, songs]);
+  const close = () => { setOpen(false); onClose?.(); };
   const add = (song: PopulatedSong) => {
     if (steps.length >= 30) return setError(t('medley.invalid'));
     const block = newStudioBlock(song);
     edit(previous => [...previous, block]);
     setActiveId(block.id);
   };
-  const save = () => {
+  const save = async () => {
+    if (savingTemplate) return;
     try {
       if (steps.some(step => medleys.some(item => item.id !== editingId && item.steps.some(s => s.songId === step.songId)))) {
         throw new Error('medley.alreadyGrouped');
       }
       const result = compileStudioMedley(steps, songs, original, sourceApproved);
-      onChange([...medleys.filter(item => item.id !== editingId), result]);
-      setOpen(false);
+      if (templateOnly) {
+        if (!onSaveTemplate || !templateName.trim()) throw new Error('medleyStudioV2.templateNameRequired');
+        setSavingTemplate(true);
+        try { await onSaveTemplate(result, templateName.trim()); }
+        catch { throw new Error('medley.templateSaveFailed'); }
+        finally { setSavingTemplate(false); }
+      } else {
+        onChange([...medleys.filter(item => item.id !== editingId), result]);
+      }
+      close();
       setError('');
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'medley.invalid';
@@ -122,7 +146,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate }: Pro
       <div className="mx-auto max-w-[1440px] rounded-2xl border border-white/10 bg-[#090f1c] p-3 shadow-2xl sm:p-5">
         <header className="mb-4 flex items-start justify-between gap-3 border-b border-white/10 pb-4">
           <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-sky-300">{t('medleyStudioV2.studio')}</p><h2 className="text-xl font-bold">{t('medleyStudioV2.title')}</h2><p className="text-xs text-slate-400">{t('medleyStudioV2.noSourceMutation')}</p></div>
-          <button type="button" className={button} aria-label={t('medley.close')} onClick={() => setOpen(false)}><X size={18} /></button>
+          <button type="button" className={button} aria-label={t('medley.close')} onClick={close}><X size={18} /></button>
         </header>
         <div className="mb-3 flex flex-wrap gap-2">
           <button type="button" className={button} onClick={undo} disabled={!history.past.length} aria-label={t('medleyStudioV2.undo')}><Undo2 size={17} /> <span className="ml-1">{t('medleyStudioV2.undo')}</span></button>
@@ -200,8 +224,9 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate }: Pro
         </div>
         {error && <p role="alert" className="mt-3 rounded-xl border border-rose-400/40 p-3 text-sm text-rose-300">{error}</p>}
         <footer className="sticky bottom-0 mt-4 flex flex-wrap justify-end gap-2 border-t border-white/10 bg-[#090f1c] py-3 pb-[max(8px,env(safe-area-inset-bottom))]">
-          <button type="button" className={button} onClick={() => setOpen(false)}>{t('medley.cancel')}</button>
-          <button type="button" className={button + ' border-sky-400 bg-sky-600'} onClick={save} disabled={steps.length < 2}>{t('medley.use')}</button>
+          {templateOnly && <label className="min-w-[200px] flex-1 text-xs text-slate-300">{t('medley.templateName')}<input className={field} maxLength={120} value={templateName} onChange={e => setTemplateName(e.target.value)} /></label>}
+          <button type="button" className={button} onClick={close}>{t('medley.cancel')}</button>
+          <button type="button" className={button + ' border-sky-400 bg-sky-600'} onClick={() => void save()} disabled={savingTemplate || steps.length < 2 || (templateOnly && !templateName.trim())}>{templateOnly ? t('medley.saveTemplate') : t('medley.use')}</button>
         </footer>
       </div>
     </div>}
