@@ -13,7 +13,11 @@
 }
 
 .ms-app-shell:has(.ms-premium-dashboard) .ms-v3-header {
-  background-color: rgba(5, 9, 16, 0.82);
+  background-color: rgba(6, 7, 10, 0.76);
+}
+
+.ms-app-shell:has(.ms-premium-dashboard) .ms-v3-header.is-scrolled {
+  background-color: rgba(5, 6, 9, 0.82);
 }
 
 .ms-app-shell:has(.ms-premium-dashboard) .ms-route-scroll,
