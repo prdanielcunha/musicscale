@@ -2192,6 +2192,8 @@
     "invalidRange": "Check the first and last line."
   },
   "medleyStudioV2": {
+    "fullPreview": "Full medley performance preview",
+    "previewTruncated": "Preview shortened for performance. The approved scale retains the complete excerpts.",
     "tooLarge": "This medley exceeds the safe 400 KB scale content limit. Shorten excerpts or tablatures before saving.",
     "split": "Split excerpt in half",
     "splitShort": "Split",
