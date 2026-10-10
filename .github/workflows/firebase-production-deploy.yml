@@ -18,6 +18,8 @@ concurrency:
 env:
   PROJECT_ID: millionsnest
   HOSTING_TARGET: musicscale
+  # Presentation only; does not enable trials, entitlements, billing, or data migrations.
+  MUSICSCALE_PREMIUM_PRESENTATION_ROLLOUT: 'true'
   OFFICIAL_FIREBASE_URL: https://mn-musicscale-555464791734.web.app
 
 jobs:
