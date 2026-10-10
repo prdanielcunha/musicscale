@@ -336,7 +336,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
                 {sectionChoices.length > 24 && <p className="mt-2 text-xs text-slate-400">{t('medleyStudioV2.moreSections')}</p>}
                 {sectionChoices.every(section => section.source !== 'section') && <p className="mt-2 text-xs text-amber-200">{t('medleyStudioV2.manualSectionHint')}</p>}
                 <button type="button" className={button + ' mt-3 w-full border-sky-500/40 text-sky-200'} disabled={steps.length >= 30} onClick={addSelectedPart}><Plus size={16} className="mr-2" />{t('medleyStudioV2.addPart')}</button>
-              </div>
+              </div>}
               <label className={stage === 3 ? 'hidden' : 'block text-xs'}>{t('medley.excerpt')}
                 <select className={field} value={(() => { const lines = splitMedleySource(medleyChart(activeSong)); if (selected.startLine === 0 && selected.endLine === lines.length - 1) return 'all'; return suggestMedleySegments(medleyChart(activeSong)).find(s => s.startLine === selected.startLine && s.endLine === selected.endLine)?.id || 'manual'; })()}
                   onChange={e => { if (e.target.value === 'all') update(selected.id, { startLine: 0, endLine: splitMedleySource(medleyChart(activeSong)).length - 1, label: '' }); else { const segment = suggestMedleySegments(medleyChart(activeSong)).find(s => s.id === e.target.value); if (segment) update(selected.id, { startLine: segment.startLine, endLine: segment.endLine, label: segment.label || '' }); } }}>
