@@ -489,7 +489,7 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
              </div>}
              <React.Suspense fallback={null}><MedleyEditor songs={studioV2Enabled ? songs : selectedSongsList} draftScope={`scale:${formData.id && formData.id !== "CLONE" ? formData.id : "new"}`} initialSongIds={studioV2Enabled ? (formData.songIds || []) : undefined} medleys={formData.medleys || []} onChange={medleys => setFormData((prev: any) => ({ ...prev, medleys, songIds: studioV2Enabled ? mergeStudioScaleSongIds(prev.songIds || [], medleys) : orderMedleySongIds(prev.songIds || [], medleys) }))} onSaveTemplate={async (medley, name) => {
                if (!api) throw new Error('API unavailable');
-               await api.medleyTemplates.create({ name, arrangement: medley });
+               await api.medleyTemplates.create({ name, arrangement: medley, schemaVersion: 2, status: 'ready' });
                if (templatesOpen) setTemplates(await api.medleyTemplates.list());
              }} /></React.Suspense>
              {selectedSongsList.length > 0 ? (
