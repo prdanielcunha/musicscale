@@ -1381,7 +1381,7 @@ const SongsPage: React.FC = () => {
                 setMedleyStudioSongIds([...new Set(template.arrangement.steps.map(step => step.songId))]);
                 setMedleyStudioOpen(true);
               }}>{t('medleyStudioV2.editCopy')}</button>
-              <button type="button" className="min-h-[44px] rounded-lg border border-white/15 px-3 text-xs text-white" onClick={() => navigate('/scales', { state: { preselectedSongIds: [...new Set(template.arrangement.steps.map(step => step.songId))] } })}>{t('medleyStudioV2.addToScale')}</button>
+              <button type="button" className="min-h-[44px] rounded-lg border border-white/15 px-3 text-xs text-white" onClick={() => navigate('/scales', { state: { preselectedSongIds: [...new Set(template.arrangement.steps.map(step => step.songId))], initialMedleyTemplateId: template.id } })}>{t('medleyStudioV2.addToScale')}</button>
             </div>
           </div>)}
         </div>
