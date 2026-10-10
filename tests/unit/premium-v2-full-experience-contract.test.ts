@@ -37,19 +37,20 @@ describe('Premium V2 full experience contract', () => {
     expect(i18n).toContain('...dashboardGreetings');
   });
 
-  it('makes the header react to the real workspace scroll container and keeps iPhone chrome compositor-cheap', () => {
+  it('makes the header react to workspace scroll with one bounded black glass surface', () => {
     const source = read('components/layout/Header.tsx');
     const css = read('premium-v2-completion.css');
     expect(source).toContain('document.querySelector("main")');
     expect(source).toContain('scrollContainer.scrollTop > 10');
     expect(source).toContain('ms-v3-header');
     expect(source).toContain('is-scrolled');
-    expect(source).toContain('bg-[#0a0a0c]/96');
-    expect(source).toContain('md:backdrop-blur-[32px]');
+    expect(source).not.toContain('bg-[#0a0a0c]/96');
+    expect(source).not.toContain('md:backdrop-blur-[32px]');
     expect(source).not.toContain('window.scrollY > 10');
-    expect(css).toContain('-webkit-backdrop-filter: none');
+    expect(css).toContain('-webkit-backdrop-filter: blur(14px)');
+    expect(css).toContain('backdrop-filter: blur(14px)');
     expect(css).toContain('@media (min-width: 768px)');
-    expect(css).toContain('backdrop-filter: blur(18px) saturate(138%)');
+    expect(css).toContain('backdrop-filter: blur(18px)');
   });
 
   it('treats tablet as an explicit workspace and resolves lazy routes with content-shaped skeletons', () => {
