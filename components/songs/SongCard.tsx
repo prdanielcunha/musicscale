@@ -35,6 +35,8 @@ interface SongCardProps {
   onEdit: (song: PopulatedSong) => void;
   onDelete: (song: PopulatedSong) => void;
   onCreateScale: (song: PopulatedSong) => void;
+  /** Optional and visible only under organization-scoped Medley Studio v2 rollout. */
+  onCreateMedley?: (song: PopulatedSong) => void;
   isSelectionMode: boolean;
   isSelected: boolean;
   onSelectToggle: (songId: string) => void;
@@ -58,6 +60,7 @@ const SongCard: React.FC<SongCardProps> = ({
   onEdit,
   onDelete,
   onCreateScale,
+  onCreateMedley,
   isSelectionMode,
   isSelected,
   onSelectToggle,
@@ -303,6 +306,11 @@ const SongCard: React.FC<SongCardProps> = ({
                       >
                         Visualizar detalhes
                       </button>
+                      {onCreateMedley && (
+                        <button type="button" onClick={(e) => handleActionClick(e, () => onCreateMedley(song), `create-medley-${song.id}`)} className="w-full text-left px-3 py-2.5 text-sm font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-500/10 rounded-xl transition-colors">
+                          {t('medleyStudioV2.createFromSong')}
+                        </button>
+                      )}
                       {canEdit && (
                         <button
                           onClick={(e) => handleActionClick(e, () => onEdit(song), `menu-edit-${song.id}`)}

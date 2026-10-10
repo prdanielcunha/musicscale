@@ -769,9 +769,12 @@ const ScalesPage: React.FC = () => {
     useEffect(() => {
         if (location.state && (location.state as any).preselectedSongIds) {
             const preselectedSongIds = (location.state as any).preselectedSongIds;
+            const initialMedleyTemplateId = (location.state as any).initialMedleyTemplateId;
             navigate(location.pathname, { replace: true, state: {} });
             setTimeout(() => {
-                openScaleForm(undefined, preselectedSongIds);
+                openScaleForm(undefined, preselectedSongIds,
+                  typeof initialMedleyTemplateId === 'string' && initialMedleyTemplateId.length <= 128
+                    ? { initialMedleyTemplateId } : undefined);
             }, 100);
         }
     }, [location.state, navigate, location.pathname, openScaleForm]);
