@@ -1,4 +1,5 @@
-MusicScale 0.10.9-beta.28 — 2026-10-09
+MusicScale 0.10.9-beta.29 — 2026-10-10
+Release de ativação visual do Dashboard premium e ferramentas rápidas do músico; preserva os hotfixes anteriores.
 Ativação visual de produção: Dashboard premium e atalhos de músico habilitados apenas no workflow oficial Firebase; sem ativar trial, cobrança, entitlements ou migrações.
 Sincronização main → production, preservando todos os hotfixes beta.27 e anteriores.
 Promoção condicionada ao QA completo; sem migração de dados, assinaturas ou configurações.
