@@ -1401,7 +1401,7 @@ const SongsPage: React.FC = () => {
           onChange={() => { /* templates only: never alter a scheduled scale */ }}
           onSaveTemplate={async (arrangement, name) => {
             if (!api || !canManageScales) throw new Error('API unavailable');
-            await api.medleyTemplates.create({ name, arrangement });
+            await api.medleyTemplates.create({ name, arrangement, schemaVersion: 2, status: 'ready', ...(medleyTemplateToCopy ? { parentTemplateId: medleyTemplateToCopy.id } : {}) });
             await refreshMedleyTemplates();
           }}
           onClose={() => { setMedleyStudioOpen(false); setMedleyTemplateToCopy(null); }}
