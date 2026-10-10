@@ -44,8 +44,7 @@ describe('feature-isolated visual studio', () => {
       onChange={onChange} onSaveTemplate={onSaveTemplate} onClose={onClose} initialSongIds={['A']} templateOnly launchImmediately />);
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('1 / 30 medley.excerpt')).toBeInTheDocument();
-    const inputs = within(dialog).getAllByRole('button', { name: /\\+ B/ });
-    fireEvent.click(inputs[0]);
+    fireEvent.click(within(dialog).getByText('B'));
     fireEvent.change(within(dialog).getByLabelText('medley.templateName'), { target: { value: 'Adoração em sequência' } });
     fireEvent.click(within(dialog).getByText('medley.saveTemplate'));
     await waitFor(() => expect(onSaveTemplate).toHaveBeenCalledTimes(1));
