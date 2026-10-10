@@ -5,6 +5,7 @@ import { useMusicScaleEntitlements, useMusicScalePlan, useMusicScaleUsage } from
 import { entitlementsService, MusicScalePlan } from '../services/entitlementsService';
 import { PLAN_PRICING_DETAILS } from '../lib/limits';
 import { PremiumBadge, UsageLimitBanner } from '../components/premium/EntitlementGates';
+import { CanonicalPlanSelector } from '../components/billing/CanonicalPlanSelector';
 import Card from '../components/common/Card';
 import Tag from '../components/common/Tag';
 
@@ -72,6 +73,15 @@ const PlansPage: React.FC = () => {
     }
   };
 
+  if (import.meta.env.VITE_NEW_PLANS_UI_PRESENTATION === 'true') {
+    return <CanonicalPlanSelector
+      entitlement={entitlements}
+      currentPlan={currentPlan}
+      status={status}
+      loading={loading}
+    />;
+  }
+
   if (loading) {
     return (
       <div className="flex bg-[#F8FAFC] dark:bg-[#0A0A0B] h-[50vh] w-full justify-center items-center">
@@ -90,7 +100,7 @@ const PlansPage: React.FC = () => {
       });
       window.open(`${baseUrl}/dashboard/billing`, '_blank', 'noreferrer,noopener');
     } catch (e) {
-      window.open('https://millionsnest.com/dashboard/musicscale/plans', '_blank');
+      window.open('https://millionsnest.com/dashboard/billing', '_blank', 'noreferrer,noopener');
     }
   };
 

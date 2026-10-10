@@ -51,7 +51,72 @@
     "previewValidationFailed": "Falha na validação da prévia",
     "ariaLabelClose": "Fechar"
   },
+  "dashboardTrial": {
+    "active": "Teste ativo",
+    "daysRemaining_one": "Resta {{count}} dia",
+    "daysRemaining_other": "Restam {{count}} dias",
+    "effectiveUntil": "Até {{date}}"
+  },
   "premium": {
+    "planSelection": {
+      "eyebrow": "CONTINUE SUA JORNADA",
+      "title": "Escolha o plano ideal",
+      "subtitle": "Compare os recursos e selecione o plano da sua organização. A confirmação e a cobrança são realizadas pelo MillionsNest.",
+      "preserveTitle": "Seus dados permanecem intactos",
+      "preserveBody": "Repertório, membros, funções e escalas continuam vinculados à mesma organização.",
+      "billingTitle": "Cobrança pelo MillionsNest",
+      "billingBody": "O Hub confirma sua organização e o Stripe processa o pagamento com segurança.",
+      "periodLabel": "Período de cobrança",
+      "monthly": "Mensal",
+      "yearly": "Anual",
+      "catalogError": "Não foi possível carregar os preços do catálogo oficial. Tente novamente.",
+      "retry": "Tentar novamente",
+      "choosePlan": "Escolha um plano",
+      "recommended": "Mais escolhido",
+      "description": {
+        "starter": "Essencial para equipes em início de organização.",
+        "advanced": "Para ministérios com mais integrantes e repertório.",
+        "pro": "Para equipes que precisam de toda a experiência musical."
+      },
+      "unavailable": "Indisponível",
+      "perMonth": "Cobrado por mês",
+      "perYear": "Cobrado por ano",
+      "savings": "Economia de {{count}}% frente a 12 mensalidades",
+      "verifiedCatalog": "Preços e condições fornecidos pelo MillionsNest",
+      "manage": "Gerenciar assinatura existente",
+      "continue": "Continuar para pagamento",
+      "managerOnly": "Somente o responsável financeiro pode alterar o plano.",
+      "disclaimer": "Preço final, descontos, período e renovação devem ser confirmados no checkout do MillionsNest."
+    },
+    "recovery": {
+      "backToRecovery": "Voltar ao acesso",
+      "suspendedEyebrow": "ACESSO MUSICAL SUSPENSO",
+      "verifyingEyebrow": "VERIFICAÇÃO DE ACESSO",
+      "expiredTitle": "Seu teste terminou",
+      "unavailableTitle": "Vamos retomar de onde você parou.",
+      "paymentTitle": "Regularize sua assinatura.",
+      "memberTitle": "O acesso desta organização está indisponível.",
+      "syncTitle": "Estamos verificando seu acesso.",
+      "expiredDescription": "O período de avaliação terminou. Seus recursos musicais voltam após a ativação de um plano.",
+      "paymentDescription": "Existe uma pendência de pagamento. A regularização é gerenciada pelo MillionsNest.",
+      "memberDescription": "Peça ao responsável pela organização para restabelecer o acesso. Seus registros não são apagados por esta suspensão.",
+      "syncDescription": "Ainda não foi possível confirmar seus direitos. Tente sincronizar antes de escolher outro plano.",
+      "preservedTitle": "Seu trabalho continua vinculado à organização",
+      "preservedDescription": "Músicas, funções, equipes e escalas não são excluídas pelo encerramento do período de avaliação.",
+      "plansAction": "Ver planos e assinar",
+      "regularizeAction": "Regularizar no MillionsNest",
+      "hubAction": "Abrir MillionsNest",
+      "retryAction": "Verificar acesso novamente",
+      "verifyingAction": "Verificando acesso...",
+      "whatNowTitle": "O que acontece agora",
+      "restrictedMusicTitle": "Repertório e escalas indisponíveis",
+      "restrictedMusicDescription": "Não é possível consultar ou editar o conteúdo musical enquanto o acesso estiver suspenso.",
+      "restrictedTeamTitle": "Convites e edição suspensos",
+      "restrictedTeamDescription": "Não é possível alterar integrantes, formações ou escalas.",
+      "restrictedAiTitle": "Ferramentas de IA e palco suspensas",
+      "restrictedAiDescription": "Recursos protegidos retornam após o restabelecimento do direito.",
+      "hubSecurity": "Assinaturas e pagamentos gerenciados pelo MillionsNest"
+    },
     "upgradeModal": {
       "title": "Desbloquear Recursos Premium",
       "description": "O ecossistema MillionsNest gerencia todas as licenças do MusicScale. Faça seu upgrade a qualquer momento e libere imediatamente a sua equipe no altar.",
@@ -209,6 +274,20 @@
     "stage_tools": "Ferramentas de Palco"
   },
   "dashboard": {
+    "quickTools": {
+      "eyebrow": "PRONTO PARA TOCAR",
+      "title": "Ferramentas rápidas",
+      "all": "Ver ferramentas",
+      "tuner": "Afinador",
+      "metronome": "Metrônomo",
+      "pads": "Pads",
+      "chords": "Cifras",
+      "performance": "Modo palco",
+      "open": "Abrir {{tool}}"
+    },
+    "premium": {
+      "eyebrow": "MÚSICA · PESSOAS · PROPÓSITO"
+    },
     "title": "Painel Ministerial",
     "welcome": "Olá, {{name}}",
     "welcome_sub": "Gerencie seu ministério de louvor com excelência e foco.",

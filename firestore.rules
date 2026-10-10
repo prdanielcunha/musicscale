@@ -14,8 +14,84 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Billing grants are issued only by Hub Admin SDK; no client cache is proof.
+    function isHubTrialOrg(orgId) {
+      return exists(/databases/$(database)/documents/organizations/$(orgId)) &&
+        get(/databases/$(database)/documents/organizations/$(orgId)).data.get('apps', {})
+          .get('musicscale', {}).get('trialSource', '') == 'hub_internal_trial';
+    }
+
+    function isPaidMusicContract(sub) {
+      let ms = sub.get('apps', {}).get('musicscale', {});
+      return (
+        ms.get('status', '') in ['active', 'trialing'] &&
+        ms.get('stripeSubscriptionId', '') is string &&
+        ms.get('stripeSubscriptionId', '').size() > 0
+      ) || (
+        sub.get('app', '') == 'musicscale' &&
+        sub.get('status', '') in ['active', 'trialing'] &&
+        sub.get('stripeSubscriptionId', '') is string &&
+        sub.get('stripeSubscriptionId', '').size() > 0
+      );
+    }
+
+    function hasPaidMusicContract(orgId) {
+      return exists(/databases/$(database)/documents/subscriptions/$(orgId)) &&
+        isPaidMusicContract(get(/databases/$(database)/documents/subscriptions/$(orgId)).data);
+    }
+
+    function isValidMusicTrialExtension(grant) {
+      let days = grant.get('extensionDays', 0);
+      return grant.get('extensionCount', 0) == 1 &&
+        days is int && days >= 1 && days <= 7 &&
+        grant.get('extensionEndsAt', null) is timestamp &&
+        grant.extensionEndsAt == grant.expiresAt + duration.value(days, 'd');
+    }
+
+    function isActiveMusicTrialGrant(grant, orgId) {
+      return grant.get('organizationId', '') == orgId &&
+        grant.get('appId', '') == 'musicscale' &&
+        grant.get('source', '') == 'hub_internal_trial' &&
+        grant.get('status', '') == 'active' &&
+        grant.get('consumed', false) == true &&
+        grant.get('revoked', true) == false &&
+        grant.get('grantVersion', 0) >= 2 &&
+        grant.get('beginsAt', null) is timestamp &&
+        grant.get('expiresAt', null) is timestamp &&
+        grant.expiresAt == grant.beginsAt + duration.value(14, 'd') &&
+        request.time >= grant.beginsAt &&
+        (
+          (
+            grant.get('extensionCount', 0) == 0 &&
+            grant.get('extensionDays', null) == null &&
+            grant.get('extensionEndsAt', null) == null &&
+            request.time < grant.expiresAt
+          ) ||
+          (
+            isValidMusicTrialExtension(grant) &&
+            request.time < grant.extensionEndsAt
+          )
+        );
+    }
+
+    function hasActiveMusicTrial(orgId) {
+      return exists(/databases/$(database)/documents/musicscale_internal_trials/$(orgId)) &&
+        isActiveMusicTrialGrant(get(/databases/$(database)/documents/musicscale_internal_trials/$(orgId)).data, orgId);
+    }
+
+    // Keep all prior MusicScale contracts unchanged. Gate only server-marked
+    // Hub no-card trials, including reads, exports and writes on protected paths.
     function isOrgActive(orgId) {
-      return true;
+      return orgId is string && orgId.size() > 0 &&
+        (!isHubTrialOrg(orgId) || hasPaidMusicContract(orgId) || hasActiveMusicTrial(orgId));
+    }
+
+    function hubTrialMetadataUnchanged() {
+      let prior = resource.data.get('apps', {}).get('musicscale', {});
+      let next = request.resource.data.get('apps', {}).get('musicscale', {});
+      return prior.get('trialSource', null) == next.get('trialSource', null) &&
+        prior.get('trialUsed', null) == next.get('trialUsed', null) &&
+        prior.get('trialEndsAt', null) == next.get('trialEndsAt', null);
     }
 
     function checkMemberExists(orgId) {
@@ -428,7 +504,7 @@ service cloud.firestore {
         resource.data.get('ownerUserId', '') == request.auth.uid
       );
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (
+      allow update: if isAuthenticated() && hubTrialMetadataUnchanged() && (
         isSystemAdmin() ||
         resource.data.get('ownerUid', '') == request.auth.uid || 
         resource.data.get('ownerId', '') == request.auth.uid || 
@@ -443,6 +519,11 @@ service cloud.firestore {
       // MULTI-TENANT ISOLATION (NOVA ESTRUTURA)
       // ---------------------------------------------------------------------------------
       
+      match /app_entitlements/{appId} {
+        allow get: if isAuthenticated() && checkOrgAccess(orgId);
+        allow list, create, update, delete: if false;
+      }
+
       match /monthly_usage/{monthStr} {
         allow read: if isAuthenticated() && checkOrgAccess(orgId);
         allow write: if false;
@@ -457,7 +538,7 @@ service cloud.firestore {
       }
 
       match /musicscale_members/{uid} {
-        allow read: if isAuthenticated() && (hasActiveMusicScaleTenantMembership(orgId) || hasCanonicalGlobalRole() || hasCanonicalSupportRole());
+        allow read: if isAuthenticated() && isOrgActive(orgId) && (hasActiveMusicScaleTenantMembership(orgId) || hasCanonicalGlobalRole() || hasCanonicalSupportRole());
         allow create, update, delete: if false;
       }
 
@@ -480,11 +561,11 @@ service cloud.firestore {
       }
 
       match /notifications/{notificationId} {
-        allow read: if isAuthenticated() && (
+        allow read: if isAuthenticated() && isOrgActive(orgId) && (
           resource.data.recipientId == request.auth.uid
         );
         allow create: if false;
-        allow update: if isAuthenticated() && (
+        allow update: if isAuthenticated() && isOrgActive(orgId) && (
           resource.data.recipientId == request.auth.uid && 
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'isArchived', 'readAt', 'archivedAt'])
         );
@@ -495,9 +576,9 @@ service cloud.firestore {
       match /{app}/{document=**} {
         // Sensitive subcollections with narrower rules must always be excluded
         // from this generic app wildcard. Firestore ORs overlapping allow rules.
-        allow read: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
-        allow create: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
-        allow update, delete: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
+        allow read: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && app != 'app_entitlements' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
+        allow create: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && app != 'app_entitlements' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
+        allow update, delete: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && app != 'app_entitlements' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
       }
     }
 
@@ -535,7 +616,9 @@ service cloud.firestore {
 
     
     match /scales/{musicScaleId}/responses/{responseId} {
-      allow read: if isAuthenticated() && (
+      allow read: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/scales/$(musicScaleId)) &&
+        isOrgActive(get(/databases/$(database)/documents/scales/$(musicScaleId)).data.get('organizationId', '')) && (
         isSystemAdmin() ||
         resource.data.userId == request.auth.uid ||
         (
@@ -547,7 +630,9 @@ service cloud.firestore {
     }
     
     match /scales/{musicScaleId}/responseHistory/{historyId} {
-      allow read: if isAuthenticated() && (
+      allow read: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/scales/$(musicScaleId)) &&
+        isOrgActive(get(/databases/$(database)/documents/scales/$(musicScaleId)).data.get('organizationId', '')) && (
         isSystemAdmin() ||
         (
           exists(/databases/$(database)/documents/scales/$(musicScaleId)) &&
@@ -616,11 +701,11 @@ service cloud.firestore {
     }
 
     match /roles/{roleId} {
-      allow get: if isAuthenticated() && 'organizationId' in resource.data && checkOrgAccess(resource.data.get('organizationId', ''));
-      allow list: if isAuthenticated() && 'organizationId' in resource.data && (checkOrgAccess(resource.data.get('organizationId', '')) || checkMemberExists(resource.data.get('organizationId', '')) || resource.data.get('organizationId', '') == request.auth.uid);
-      allow create: if isAuthenticated() && hasPermission(incoming().get('organizationId', ''), 'canManageRoles');
-      allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageRoles') && checkOrgAccess(resource.data.get('organizationId', ''));
-      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageRoles') && checkOrgAccess(resource.data.get('organizationId', ''));
+      allow get: if isAuthenticated() && 'organizationId' in resource.data && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow list: if isAuthenticated() && 'organizationId' in resource.data && (checkOrgAccess(resource.data.get('organizationId', '')) || checkMemberExists(resource.data.get('organizationId', '')) || resource.data.get('organizationId', '') == request.auth.uid) && isOrgActive(resource.data.get('organizationId', ''));
+      allow create: if isAuthenticated() && hasPermission(incoming().get('organizationId', ''), 'canManageRoles') && isOrgActive(incoming().get('organizationId', ''));
+      allow update: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageRoles') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
+      allow delete: if isAuthenticated() && hasPermission(resource.data.get('organizationId', ''), 'canManageRoles') && checkOrgAccess(resource.data.get('organizationId', '')) && isOrgActive(resource.data.get('organizationId', ''));
     }
 
     match /locations/{id} {

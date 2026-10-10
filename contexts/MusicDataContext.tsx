@@ -6,6 +6,7 @@ import { useOffline } from './OfflineContext';
 import {
   readOfflineStageReadCache,
   writeOfflineStageReadCache,
+  purgeHubTrialStageCaches,
   type OfflineStageReadSnapshot,
 } from '../services/offline/stageReadCache';
 import { readMusicDataCache } from '../lib/musicDataCache';
@@ -42,6 +43,11 @@ interface ScopedOfflineSnapshot {
 export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const musicData = useMusicData();
   const { user, effectiveOrganizationId } = useAuth();
+  const { entitlements } = useAuth();
+  const isHubInternalTrial = !!effectiveOrganizationId &&
+    entitlements?.organizationId === effectiveOrganizationId &&
+    (entitlements.entitlementSource === 'hub_internal_trial' ||
+      entitlements.entitlementSource === 'hub_trial_invalid');
   const { isOffline } = useOffline();
   const userId = user?.uid;
   const [offlineSnapshot, setOfflineSnapshot] = useState<ScopedOfflineSnapshot | null>(null);
@@ -65,6 +71,11 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     setOfflineSnapshot(null);
     setOfflineFallbackActive(false);
     if (!userId || !organizationId) return;
+    if (isHubInternalTrial) {
+      void purgeHubTrialStageCaches(userId, organizationId).catch(error =>
+        logger.warn('[MusicDataProvider] Could not purge trial stage snapshots.', error));
+      return;
+    }
 
     void readOfflineStageReadCache(userId, organizationId)
       .then((snapshot) => {
@@ -82,14 +93,14 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
         cacheReadGenerationRef.current++;
       }
     };
-  }, [userId, effectiveOrganizationId]);
+  }, [userId, effectiveOrganizationId, isHubInternalTrial]);
 
   // Persist only already-authorized, tenant-proven canonical read data. The
   // stage cache inherits the issuedAt of the canonical UID+tenant cache instead
   // of becoming artificially newer every time the provider mounts.
   useEffect(() => {
     const organizationId = effectiveOrganizationId;
-    if (!userId || !organizationId || isOffline || musicData.loading || musicData.error) return;
+    if (!userId || !organizationId || isHubInternalTrial || isOffline || musicData.loading || musicData.error) return;
 
     const songsAreScoped = musicData.songs.every(
       (song) => song.organizationId === organizationId,
@@ -139,6 +150,7 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
   }, [
     userId,
     effectiveOrganizationId,
+    isHubInternalTrial,
     isOffline,
     musicData.loading,
     musicData.error,
@@ -196,7 +208,7 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
       offlineSnapshot?.userId === userId &&
       offlineSnapshot?.organizationId === effectiveOrganizationId;
 
-    if (!hasScopedSnapshot) {
+    if (isHubInternalTrial || !hasScopedSnapshot) {
       setOfflineFallbackActive(false);
       return;
     }
@@ -222,6 +234,7 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     offlineSnapshot,
     userId,
     effectiveOrganizationId,
+    isHubInternalTrial,
     isOffline,
     reconnectPending,
     musicData.loading,
@@ -249,7 +262,7 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
         ? offlineSnapshot.data
         : null;
 
-    if (!offlineFallbackActive || !scopedOfflineData) {
+    if (isHubInternalTrial || !offlineFallbackActive || !scopedOfflineData) {
       return musicData;
     }
 
@@ -278,6 +291,7 @@ export const MusicDataProvider: React.FC<{ children: ReactNode }> = ({ children 
     userId,
     effectiveOrganizationId,
     offlineFallbackActive,
+    isHubInternalTrial,
   ]);
 
   return (

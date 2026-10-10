@@ -110,7 +110,8 @@ jobs:
     - name: Run E2E Rules - MusicScale Security
       run: >-
         npx firebase emulators:exec --project demo-musicscale --only auth,firestore
-        "npx vitest run tests/server/music-scale-security-rules.test.ts"
+        "npx vitest run tests/server/music-scale-security-rules.test.ts
+        tests/server/music-scale-expired-hub-trial-rules.test.ts"
       env:
         CI: true
         GCLOUD_PROJECT: demo-musicscale

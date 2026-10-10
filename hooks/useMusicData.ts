@@ -8,12 +8,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { useApi } from '../contexts/ApiContext';
 
 import { scaleRetentionService } from '../services/offline/ScaleRetentionService';
-import { readMusicDataCache, writeMusicDataCache } from '../lib/musicDataCache';
+import { readMusicDataCache, writeMusicDataCache, removeMusicDataCache } from '../lib/musicDataCache';
 
 export type UsersStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 export const useMusicData = () => {
-  const { user, effectiveOrganizationId } = useAuth();
+  const { user, effectiveOrganizationId, entitlements } = useAuth();
+  const isHubInternalTrial = !!effectiveOrganizationId &&
+    entitlements?.organizationId === effectiveOrganizationId &&
+    (entitlements.entitlementSource === 'hub_internal_trial' ||
+      entitlements.entitlementSource === 'hub_trial_invalid');
   const api = useApi();
   const generationRef = useRef(0);
   const watchdogRef = useRef<NodeJS.Timeout | null>(null);
@@ -84,7 +88,10 @@ export const useMusicData = () => {
     localStorage.removeItem(`musicDataCache_${orgId}`);
 
     // Read new cache
-    const cacheResult = readMusicDataCache<any>(localStorage, uid, orgId);
+    if (isHubInternalTrial) removeMusicDataCache(localStorage, uid, orgId);
+    const cacheResult = isHubInternalTrial
+      ? { status: 'miss' as const, data: null, ageMs: 0 }
+      : readMusicDataCache<any>(localStorage, uid, orgId);
     let hasUsableCache = false;
     let hasUsableUsersCache = false;
 
@@ -667,8 +674,8 @@ export const useMusicData = () => {
           ? cachedPopulatedBandScales.find(bandScale => bandScale.id === scale.bandScale?.id)
           : undefined,
       }));
-      // Write cache
-      writeMusicDataCache(localStorage, uid, orgId, {
+      // A no-card trial must not create reusable client-side music snapshots.
+      if (!isHubInternalTrial) writeMusicDataCache(localStorage, uid, orgId, {
         songs: cachedSongs,
         scales: scalesData,
         bandScales: bandScalesData,
@@ -692,7 +699,7 @@ export const useMusicData = () => {
       }
       logger.warn('Failed to fetch data from Firestore.', err);
     }
-  }, [user, effectiveOrganizationId, api, clearData]);
+  }, [user, effectiveOrganizationId, api, clearData, isHubInternalTrial]);
 
   useEffect(() => {
     if (user && effectiveOrganizationId) {

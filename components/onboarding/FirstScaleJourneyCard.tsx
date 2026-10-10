@@ -34,6 +34,9 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
   const { openSongForm, openScaleForm, openAiSongImport } = useModals();
   const { hasCapability } = useCapability();
   const canManageMembers = hasCapability('musicscale.members.manage');
+  // Presentation-only canary. Keep the proven first-scale onboarding state
+  // machine, actions and optional milestones untouched for existing tenants.
+  const premiumOnboarding = import.meta.env.VITE_NEW_ONBOARDING_UI_PRESENTATION === 'true';
 
   if (isLoading || !isEligible || isCompleted || !currentEssentialStep) return null;
 
@@ -373,21 +376,27 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="mb-8 p-0 rounded-[24px] bg-[#0a0a0c]/80 backdrop-blur-xl border border-white/[0.06] shadow-2xl overflow-hidden relative"
+        className={premiumOnboarding
+          ? 'ms-premium-first-value mb-8 overflow-hidden rounded-[28px] border border-[#4f8cff]/20 bg-[#070d16] text-white shadow-[0_24px_80px_rgba(0,0,0,0.33)] relative isolation-isolate'
+          : 'mb-8 p-0 rounded-[24px] bg-[#0a0a0c]/80 backdrop-blur-xl border border-white/[0.06] shadow-2xl overflow-hidden relative'}
       >
         <div className="absolute top-0 left-0 right-0 h-1 bg-white/[0.02]" />
         <div 
-          className="absolute top-0 left-0 h-1 bg-indigo-500 transition-all duration-700 ease-out rounded-r-full"
+          className={premiumOnboarding
+            ? 'absolute top-0 left-0 h-1 bg-gradient-to-r from-[#3ed5dd] to-[#4f8cff] transition-[width] duration-700 ease-out rounded-r-full'
+            : 'absolute top-0 left-0 h-1 bg-indigo-500 transition-all duration-700 ease-out rounded-r-full'}
           style={{ width: `${(completedEssentialSteps / totalEssentialSteps) * 100}%` }}
         />
         
         {/* Header and Stepper Section */}
-        <div className="p-5 md:p-8 border-b border-white/[0.04] space-y-6 md:space-y-8">
+        <div className={premiumOnboarding
+            ? 'relative p-5 pb-6 sm:p-8 sm:pb-8 border-b border-[#4f8cff]/10 space-y-6 sm:space-y-8 bg-[radial-gradient(ellipse_at_75%_0%,rgba(60,114,214,0.23),transparent_70%)]'
+            : 'p-5 md:p-8 border-b border-white/[0.04] space-y-6 md:space-y-8'}>
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-widest text-indigo-400 mb-2">
+            <div className={premiumOnboarding ? 'text-[10px] font-semibold uppercase tracking-[0.24em] text-[#3ed5dd] mb-3' : 'text-[11px] font-bold uppercase tracking-widest text-indigo-400 mb-2'}>
               {t('firstValueJourney.eyebrow')}
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 tracking-tight">
+            <h1 className={premiumOnboarding ? 'text-[clamp(29px,6vw,42px)] leading-[1.12] font-bold text-white mb-3 tracking-[-0.05em]' : 'text-2xl md:text-3xl font-bold text-white mb-2 tracking-tight'}>
               {t('firstValueJourney.title')}
             </h1>
             <p className="text-sm md:text-base text-zinc-400 max-w-2xl">
@@ -396,7 +405,7 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
           </div>
 
           {/* 4-Column Stepper */}
-          <div className="grid grid-cols-4 gap-2 md:gap-4 md:flex md:flex-row md:max-w-xl">
+          <div className={premiumOnboarding ? 'grid grid-cols-4 gap-2 sm:gap-4 max-w-2xl' : 'grid grid-cols-4 gap-2 md:gap-4 md:flex md:flex-row md:max-w-xl'}>
             {milestones.map((m, idx) => {
               const isCompleted = m.status === 'completed';
               const isCurrent = m.status === 'current';
@@ -410,8 +419,8 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
                   className={`flex flex-col md:flex-row items-center md:justify-start gap-2 md:gap-3 p-2 md:p-0 md:flex-1 text-center md:text-left transition-opacity ${isCompleted ? 'opacity-50' : (isCurrent ? 'opacity-100' : 'opacity-40')}`}
                 >
                   <div className={`w-8 h-8 md:w-10 md:h-10 mx-auto md:mx-0 rounded-full flex items-center justify-center shrink-0 ${
-                    isCompleted ? 'bg-indigo-500/20 text-indigo-400' : 
-                    (isCurrent ? 'bg-white text-zinc-900 shadow-[0_0_15px_rgba(255,255,255,0.2)]' : 'bg-white/[0.05] text-zinc-400')
+                    isCompleted ? (premiumOnboarding ? 'bg-[#3ed5dd]/10 text-[#3ed5dd]' : 'bg-indigo-500/20 text-indigo-400') : 
+                    (isCurrent ? (premiumOnboarding ? 'bg-[#4f8cff] text-white ring-2 ring-[#3ed5dd]/70 shadow-[0_0_20px_rgba(62,213,221,0.22)]' : 'bg-white text-zinc-900 shadow-[0_0_15px_rgba(255,255,255,0.2)]') : 'bg-white/[0.05] text-zinc-400')
                   }`}>
                     {isCompleted ? <CheckCircle2 className="w-4 md:w-5 h-4 md:h-5" /> : getMilestoneIcon(m.id)}
                   </div>
@@ -442,7 +451,7 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
         </div>
 
         {/* Dynamic Content Section */}
-        <div className="p-5 md:p-8 bg-[#0a0a0c]">
+        <div className={premiumOnboarding ? 'relative p-5 sm:p-8 bg-[#071018]' : 'p-5 md:p-8 bg-[#0a0a0c]'}>
           {renderContent()}
         </div>
       </motion.div>
