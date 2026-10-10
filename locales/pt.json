@@ -2192,6 +2192,7 @@
     "invalidRange": "Confira o início e o fim das linhas."
   },
   "medleyStudioV2": {
+    "tooLarge": "O medley excede o limite de conteúdo seguro da escala (400 KB). Reduza os trechos ou tablaturas antes de salvar.",
     "split": "Dividir trecho na metade",
     "splitShort": "Dividir",
     "savedTemplates": "Medleys salvos na organização",
