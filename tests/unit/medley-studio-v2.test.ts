@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PopulatedSong, ScaleMedley } from '../../types';
-import { compileStudioMedley, duplicateStudioBlock, moveStudioBlock, newStudioBlock, studioBlocksFromLegacy } from '../../utils/medleyStudioV2';
+import { compileStudioMedley, duplicateStudioBlock, moveStudioBlock, newStudioBlock, studioBlocksFromLegacy, mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
 import { analyzeMedleyBridge, detectedHarmonyEvents } from '../../utils/medleyStudioHarmony';
 
 const song = (id: string, chart: string, org = 'org-a'): PopulatedSong => ({
@@ -47,6 +47,12 @@ describe('isolated Medley Studio 2.0 legacy adapter', () => {
     const old: ScaleMedley = compileStudioMedley([newStudioBlock(a, 'one'), newStudioBlock(b, 'two')], [a, b]);
     const edited = { ...a, chords: 'Am    E\nverso' };
     expect(() => compileStudioMedley(studioBlocksFromLegacy(old), [edited, b], old)).toThrow('medley.reviewRequired');
+  });
+
+  it('adds repertoire songs from the full catalog without dropping the scale originals', () => {
+    const staged = compileStudioMedley([newStudioBlock(a,'one'), newStudioBlock(b,'two')], [a,b]);
+    expect(mergeStudioScaleSongIds(['unrelated', 'a'], [staged])).toEqual(['unrelated', 'a', 'b']);
+    expect(mergeStudioScaleSongIds(['a', 'b'], [staged])).toEqual(['a','b']);
   });
 
   it('does not allow repeat counts beyond the existing production contract', () => {
