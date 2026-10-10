@@ -9,7 +9,8 @@ import { ScaleSongCard } from "./ScaleSongCard";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { useTranslation } from "react-i18next";
 import { MedleyComposer } from './MedleyComposer';
-import { MedleyStudioV2 } from './MedleyStudioV2';
+const MedleyStudioV2 = React.lazy(() => import('./MedleyStudioV2').then(module => ({ default: module.MedleyStudioV2 })));
+// V2 is split into a separate chunk. Disabled organizations never download it.
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { orderMedleySongIds, medleySourceRevision } from '../../utils/medleyModel';
 import { useApi } from '../../contexts/ApiContext';
@@ -485,11 +486,11 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
                {templateError && <p role="alert" className="text-xs text-rose-500">{templateError}</p>}
                {templates.length ? templates.map(template => <button type="button" key={template.id} className="block w-full rounded-lg border border-white/10 p-2 text-left text-xs" onClick={() => applyTemplate(template)}>{template.name}</button>) : <p className="text-xs text-slate-500">{t('medley.noTemplates')}</p>}
              </div>}
-             <MedleyEditor songs={selectedSongsList} medleys={formData.medleys || []} onChange={medleys => setFormData((prev: any) => ({ ...prev, medleys, songIds: orderMedleySongIds(prev.songIds || [], medleys) }))} onSaveTemplate={async (medley, name) => {
+             <React.Suspense fallback={null}><MedleyEditor songs={selectedSongsList} medleys={formData.medleys || []} onChange={medleys => setFormData((prev: any) => ({ ...prev, medleys, songIds: orderMedleySongIds(prev.songIds || [], medleys) }))} onSaveTemplate={async (medley, name) => {
                if (!api) throw new Error('API unavailable');
                await api.medleyTemplates.create({ name, arrangement: medley });
                if (templatesOpen) setTemplates(await api.medleyTemplates.list());
-             }} />
+             }} /></React.Suspense>
              {selectedSongsList.length > 0 ? (
                 <div className="space-y-2">
                   <div className="mb-3 px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-lg flex items-center gap-2 text-slate-500 dark:text-slate-400">
