@@ -99,7 +99,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
       try { setRecoverableBlocks(loadStudioDraft(draftIdentity, new Set(songs.map(song => song.id)), window.sessionStorage)); }
       catch { setRecoverableBlocks(null); }
     } else setRecoverableBlocks(null);
-    setTemplateName(initialTemplateName || medley?.steps.map(step => step.title).join(' → ') || preferredSongs.map(song => song.title).join(' → ') || '');
+    setTemplateName((initialTemplateName || medley?.steps.map(step => step.title).join(' → ') || preferredSongs.map(song => song.title).join(' → ') || '').slice(0, 120));
     setOpen(true);
   };
   React.useEffect(() => {
