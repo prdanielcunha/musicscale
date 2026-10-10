@@ -19,5 +19,7 @@ describe('MusicScale Medley production infrastructure contract', () => {
     expect(firebase).toContain('cancel-in-progress: false');
     expect(cloudRun).toContain('--only hosting:musicscale');
     expect(firebase).toContain('--only "hosting:$HOSTING_TARGET"');
+    expect(firebase).toContain("!contains(toJSON(github.event.head_commit.modified), 'types.ts')");
+    expect(firebase).toContain("!contains(toJSON(github.event.head_commit.modified), 'services/server/')");
   });
 });
