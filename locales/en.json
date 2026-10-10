@@ -2192,6 +2192,8 @@
     "invalidRange": "Check the first and last line."
   },
   "medleyStudioV2": {
+    "split": "Split excerpt in half",
+    "splitShort": "Split",
     "savedTemplates": "Organization medleys",
     "editCopy": "Edit as new version",
     "addToScale": "Use in new scale",
