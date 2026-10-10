@@ -19,11 +19,12 @@ Checkpoint: 2026-10-10. Base ref: main at `f169d8b87e105f46f64b6e830b4265f2ba527
 - `components/scales/MusicBuilder.tsx`: feature-flagged studio (legacy UI still default), full authorized catalog, append-only selection projection (never discards existing scale repertoire).
 - `pages/SongsPage.tsx` + `components/songs/SongDetailModal.tsx`: new repertoire and song-level entry points, hidden when the organization flag is off; explicit saving uses the EXISTING organization-scoped `medleyTemplates` service, never alters published scales.
 - `components/scales/MedleyStudioV2.tsx`: human-confirmed bridge suggestion can be added as an editable **cue** in the existing safe transition field, not a guessed rewrite of chord charts.
+- `utils/medleyStudioDraft.ts`: bounded session-only recovery of IDs and editing controls, scoped by user, organization and scale; no source chart snapshots, passwords, tokens or memberships stored.
 - `locales/pt.json`, `locales/en.json`, `locales/es.json`: new strings only.
 
 ## Not yet implemented / DO NOT enable flag or release
 
-The complete master plan is broader than this isolated increment. Before activation it still requires: scale-wide picker (including all authorized catalog songs), repertoire entry and per-song action, persisted v2 object with safe dual-read/dual-write adapter and concurrency revisions, structured editable multi-bar harmony, chord parser corpus, v2 standalone drafts and autosave, complete stage/offline integration, full access/RBAC/server-emulator/E2E QA, actual-device accessibility/visual QA, back-up/restore rehearsal, deploy SHA verification and production smoke test.
+The complete master plan is broader than this isolated increment. The scale-wide picker, repertoire entry and song-level action have been added. The current scale `ScaleMedley` snapshot + revision format is already read by the existing Performance Mode/offline reader, so this increment intentionally reuses that established compatibility layer rather than deploying an unverified v2 collection or destructive migration. A tab-session-scoped editing draft can be explicitly recovered. Remaining gates: robust multi-device draft conflict/revision protocol, structured editable multi-bar harmony beyond cue text, musical corpus validation, full emulator authorization/E2E QA, real-device accessibility and visual QA, backup/restore rehearsal, deployed SHA verification and production smoke test.
 
 In particular, the suggestions here are **advisory sketches**, not proven instrument- or genre-specific bridges; they never overwrite the musician's manual passage. The unchanged production validator controls the saved arrangement.
 
