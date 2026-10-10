@@ -1,0 +1,69 @@
+name: MusicScale Release Guard
+on:
+  pull_request:
+    branches: [ main, production ]
+    paths:
+      - 'scripts/release-guard.mjs'
+      - 'scripts/release-guard.test.mjs'
+      - '.github/workflows/release-guard.yml'
+      - 'AGENTS.md'
+      - 'docs/RELEASE_GUARD.md'
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: 'Exact full 40-character main SHA'
+        required: true
+        type: string
+      confirmation:
+        description: 'Type PROMOTE'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: musicscale-release-guard
+  cancel-in-progress: false
+jobs:
+  policy-tests:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: node --check scripts/release-guard.mjs
+      - run: node --test scripts/release-guard.test.mjs
+  promote:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    environment: release-synchronization
+    steps:
+      - name: Checkout exact main history
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: |
+          node --check scripts/release-guard.mjs
+          node --test scripts/release-guard.test.mjs
+      - name: Check full QA and advance production without force
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          RELEASE_CONFIRMATION: ${{ inputs.confirmation }}
+        run: node scripts/release-guard.mjs
+      - name: Document result, not a Firebase deploy
+        if: success()
+        run: |
+          echo '## Release Guard: Git refs synchronized (not deployed)' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No customer data, secrets, Firestore, Stripe or Firebase deploy touched.' >> "$GITHUB_STEP_SUMMARY"
