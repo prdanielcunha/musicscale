@@ -7,15 +7,18 @@ const dashboard = fs.readFileSync('components/dashboard/premium-music-dashboard.
 
 describe('Subtle black glass header', () => {
   it('has one dark, translucent and softly blurred header on mobile', () => {
-    expect(chrome).toMatch(/\.ms-v3-header\s*\{[^}]*background:\s*rgba\(6, 7, 10, 0\.76\)/s);
+    expect(chrome).toMatch(/\.ms-v3-header\s*\{[^}]*background:\s*rgba\(6, 7, 10, 0\.58\)/s);
     expect(chrome).toMatch(/\.ms-v3-header\s*\{[^}]*-webkit-backdrop-filter:\s*blur\(14px\)/s);
     expect(chrome).toMatch(/\.ms-v3-header\s*\{[^}]*backdrop-filter:\s*blur\(14px\)/s);
     expect(chrome).toContain('.ms-v3-header.is-scrolled');
+    expect(chrome).toContain('background: rgba(5, 6, 9, 0.66)');
+    expect(chrome).toContain('background: rgba(6, 7, 10, 0.58)');
   });
 
   it('preserves the continuous canvas on Dashboard without color or glow rim', () => {
     expect(dashboard).toContain('.ms-app-shell:has(.ms-premium-dashboard) .ms-v3-header');
-    expect(dashboard).toContain('background-color: rgba(6, 7, 10, 0.76)');
+    expect(dashboard).toContain('background-color: rgba(6, 7, 10, 0.58)');
+    expect(dashboard).toContain('background-color: rgba(5, 6, 9, 0.66)');
     expect(header).not.toContain('bg-gradient-to-r from-transparent via-white');
     expect(header).not.toContain('border-b border-white');
     expect(header).not.toContain('md:backdrop-blur-[32px]');

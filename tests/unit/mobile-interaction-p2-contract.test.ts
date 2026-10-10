@@ -50,7 +50,7 @@ describe('mobile interaction P2 contract', () => {
     expect(header).not.toContain('bg-[#0a0a0c]/96');
     expect(header).not.toContain('md:backdrop-blur-[32px]');
     expect(headerCss).toMatch(/\.ms-v3-header\s*\{[^}]*backdrop-filter:\s*blur\(14px\)/s);
-    expect(headerCss).toContain('background: rgba(6, 7, 10, 0.76)');
+    expect(headerCss).toContain('background: rgba(6, 7, 10, 0.58)');
 
     expect(bottomNav).not.toContain('backdrop-blur-[24px]');
     expect(bottomNav).not.toContain('backdrop-blur-[16px]');
