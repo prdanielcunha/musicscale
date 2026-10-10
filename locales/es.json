@@ -2192,6 +2192,17 @@
     "invalidRange": "Revisa el inicio y el fin de las líneas."
   },
   "medleyStudioV2": {
+    "manualBridge": "Puente armónico manual",
+    "meter": "Compás",
+    "bridgeBpm": "BPM del puente (opcional)",
+    "chordEvents": "Acordes del puente",
+    "chord": "Acorde",
+    "bars": "Compases",
+    "addChordEvent": "Añadir acorde",
+    "applyManualBridge": "Aplicar puente al medley",
+    "bridgeNotPlayback": "Los acordes son indicaciones para músicos; no se reproduce audio automáticamente.",
+    "replacesCueOnlyOnApply": "Este bloque ya tiene una indicación. Solo se reemplazará al pulsar Aplicar.",
+    "invalidBridge": "Revisa los acordes (p. ej. G7, Am, F#7/C#) y la duración entre 1 y 8 compases.",
     "discard": "Descartar borrador",
     "restore": "Recuperar borrador",
     "recoverDraft": "Hay un borrador sin publicar de este medley en esta sesión.",
