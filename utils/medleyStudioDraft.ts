@@ -44,7 +44,7 @@ export function loadStudioDraft(identity: StudioDraftIdentity, allowedSongIds: R
       block && typeof block.id === 'string' && block.id.length < 100 && !ids.has(block.id) && ids.add(block.id) &&
       typeof block.songId === 'string' && allowedSongIds.has(block.songId) &&
       Number.isInteger(block.startLine) && Number.isInteger(block.endLine) && block.startLine >= 0 &&
-      block.endLine >= block.startLine && Number.isInteger(block.repetitions) && block.repetitions >= 1 && block.repetitions <= 8 &&
+      block.endLine >= block.startLine && Number.isInteger(block.repetitions) && block.repetitions >= 1 && block.repetitions <= 16 &&
       typeof block.label === 'string' && block.label.length <= 100 &&
       typeof block.key === 'string' && block.key.length <= 24 &&
       typeof block.bpm === 'string' && block.bpm.length <= 4 &&
