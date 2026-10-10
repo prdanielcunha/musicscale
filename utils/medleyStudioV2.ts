@@ -86,6 +86,10 @@ export function compileStudioMedley(
     stepIds.add(block.id);
     if (!Number.isInteger(block.repetitions) || block.repetitions < 1 || block.repetitions > 8) throw new Error('medley.invalid');
     const source = medleyChart(song);
+    // A previously approved excerpt must be reviewed BEFORE validating ranges
+    // against a changed chart (which may have fewer lines than the snapshot).
+    const prior = previous.get(block.id);
+    if (prior && medleySourceRevision(song) !== prior.sourceRevision && !acknowledgeChangedSources) throw new Error('medley.reviewRequired');
     if (!source.trim() && !song.chordsUrl && !song.tabs?.length) throw new Error('medley.requiresText');
     const lines = splitMedleySource(source);
     if (!Number.isInteger(block.startLine) || !Number.isInteger(block.endLine) ||
@@ -95,8 +99,6 @@ export function compileStudioMedley(
     if (block.label.length > 100 || block.cue.length > 300) throw new Error('medley.invalid');
     if (block.key.trim() && !isValidKey(block.key.trim())) throw new Error('medley.invalidKey');
     if (block.bpm.trim() && (!Number.isInteger(Number(block.bpm)) || Number(block.bpm) < 20 || Number(block.bpm) > 320)) throw new Error('medley.invalidBpm');
-    const prior = previous.get(block.id);
-    if (prior && medleySourceRevision(song) !== prior.sourceRevision && !acknowledgeChangedSources) throw new Error('medley.reviewRequired');
     const sourceKeyResolution = resolveChordContentSourceKey(song.metadata);
     const sourceKey = sourceKeyResolution?.canAutoConfirm ? sourceKeyResolution.key : undefined;
     if (block.key.trim() && sourceKey && normalizeKey(block.key.trim()) !== normalizeKey(sourceKey) &&
