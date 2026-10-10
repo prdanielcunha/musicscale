@@ -189,7 +189,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
                   </div>
                   {suggestion && <div className="rounded-lg border-l-2 border-sky-600 p-2 text-xs text-slate-400">
                     <p>{t('medleyStudioV2.transition')}: {suggestion.exitChord || '?'} → {suggestion.entryChord || '?'}</p>
-                    {suggestion.candidates.length ? suggestion.candidates.map(candidate => <p key={candidate.id} className="mt-1 break-words">{candidate.chords.join(' – ')} <span className="text-sky-300">({t('medleyStudioV2.' + candidate.explanation)})</span></p>) : <p>{t('medleyStudioV2.manualOnly')}</p>}
+                    {suggestion.candidates.length ? suggestion.candidates.map(candidate => <div key={candidate.id} className="mt-2 flex flex-wrap items-center gap-2"><span className="min-w-0 flex-1 break-words">{candidate.chords.join(' – ')} <span className="text-sky-300">({t('medleyStudioV2.' + candidate.explanation)})</span></span><button type="button" className={button + ' min-h-[36px] text-xs'} onClick={() => update(step.id, { cue: candidate.chords.join(' → '), transition: 'free' })}>{t('medleyStudioV2.useAsCue')}</button></div>) : <p>{t('medleyStudioV2.manualOnly')}</p>}
                     <p className="mt-1 text-[10px]">{t('medleyStudioV2.advisoryOnly')}</p>
                   </div>}
                 </React.Fragment>;
