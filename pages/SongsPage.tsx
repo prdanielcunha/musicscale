@@ -980,6 +980,7 @@ const SongsPage: React.FC = () => {
                   onCreateScale={(s) =>
                     navigate("/scales", { state: { preselectedSongIds: [s.id] } })
                   }
+                  onCreateMedley={medleyStudioEnabled && canManageScales ? (song) => { setMedleyStudioSongIds([song.id]); setMedleyStudioOpen(true); } : undefined}
                   isSelectionMode={isSelectionMode}
                   isSelected={selectedSongIds.includes(song.id)}
                   onSelectToggle={handleSongSelect}
