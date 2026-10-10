@@ -1,3 +1,7 @@
+MusicScale 0.10.9-beta.30 — 2026-10-10
+Ajuste exclusivamente visual: menu superior com black glass translúcido e desfoque discreto, sem brilho ou luzes de contorno, em telas móveis e desktop.
+Preserva os recursos, permissões, escalas, dados, assinaturas, hotfixes e toda a release beta.29.
+
 MusicScale 0.10.9-beta.29 — 2026-10-10
 Release de ativação visual do Dashboard premium e ferramentas rápidas do músico; preserva os hotfixes anteriores.
 Ativação visual de produção: Dashboard premium e atalhos de músico habilitados apenas no workflow oficial Firebase; sem ativar trial, cobrança, entitlements ou migrações.
