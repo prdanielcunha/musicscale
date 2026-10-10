@@ -2192,6 +2192,16 @@
     "invalidRange": "Confira o início e o fim das linhas."
   },
   "medleyStudioV2": {
+    "progress": "Etapas de criação do medley",
+    "step1": "Músicas",
+    "step2": "Partes",
+    "step3": "Transições",
+    "step4": "Revisão",
+    "next": "Continuar",
+    "previous": "Voltar",
+    "addMusic": "Adicionar música",
+    "reviewHint": "Confira a ordem, repetições, tom, andamento e pontes antes de usar.",
+    "draftNotPublished": "Este arranjo ainda não foi publicado. A escala só é salva pelo comando normal de salvar/publicar.",
     "enablePilot": "Experimentar Medley Studio 2.0",
     "disablePilot": "Voltar ao editor clássico",
     "fullPreview": "Prévia completa do medley",
