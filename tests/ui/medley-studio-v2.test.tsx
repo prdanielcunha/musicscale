@@ -1,10 +1,12 @@
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import type { PopulatedSong, ScaleMedley } from '../../types';
 import { MedleyStudioV2 } from '../../components/scales/MedleyStudioV2';
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { uid: 'u1' }, effectiveOrganizationId: 'org-1' }) }));
+beforeEach(() => sessionStorage.clear());
 
 const song = (id: string, chords: string): PopulatedSong => ({
   id, organizationId: 'org-1', title: id, artist: '', key: 'Am', status: 'active', tagIds: [],
