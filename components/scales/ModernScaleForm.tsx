@@ -33,7 +33,7 @@ import FixedBandScaleManagerModal from "./FixedBandScaleManagerModal";
 import MusicBuilder, { MusicBuilderHandle } from "./MusicBuilder";
 import { ScaleSongCard } from "./ScaleSongCard";
 import { ScaleReviewRepertoire } from "./ScaleReviewRepertoire";
-import { orderMedleySongIds } from '../../utils/medleyModel';
+import { orderMedleySongIds, medleySourceRevision } from '../../utils/medleyModel';
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { resolveScaleDurationMinutes } from "../../utils/calendar";
 import { normalizeScaleSongSettings, moveSongId, moveSongBeforeTarget, applyLocalScaleSongSettingsUpdate } from "../../utils/scaleSongSettings";
@@ -112,6 +112,7 @@ interface ModernScaleFormProps {
   zIndexClass?: string;
   initialStep?: 'event' | 'link' | 'build' | 'review';
   focusTarget?: HomeAttentionFocusTarget;
+  initialMedleyTemplateId?: string;
 }
 
 const formInputClass = "mt-1 input-base";
@@ -130,6 +131,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   zIndexClass,
   initialStep,
   focusTarget,
+  initialMedleyTemplateId,
 }) => {
   const { t, i18n } = useTranslation();
   const {
@@ -158,6 +160,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     error: showErrorToast,
   } = useToast();
   const isCommandApiV1Enabled = useFeatureFlag('musicscale.bandScaleCommandApiV1');
+  const studioV2Enabled = useFeatureFlag('musicscale.medleyStudioV2');
 
   const [formData, setFormData] = useState<Partial<Scale & BandScale>>({});
 
@@ -368,6 +371,7 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
   const [isSavingFixedFormation, setIsSavingFixedFormation] = useState(false);
 
   const [isFormInitialized, setIsFormInitialized] = useState<boolean>(false);
+  const hasAppliedTemplateRef = useRef(false);
   const idempotencyKeyRef = useRef<string>("");
   const lastPayloadFingerprintRef = useRef<string>("");
   const fixedBandSnapshotRef = useRef<{
@@ -466,6 +470,42 @@ const ModernScaleForm: React.FC<ModernScaleFormProps> = ({
     initialFormDataRef.current = JSON.stringify(getComparableData(initialData));
     setIsFormInitialized(true);
   }, [isOpen, scaleToEdit, preselectedSongIds, scaleType, eventTypes, locations]);
+
+  // Only explicit handoffs from the organization medley library. Never touch
+  // published scales, source charts, memberships or stored templates.
+  useEffect(() => {
+    if (!isOpen) { hasAppliedTemplateRef.current = false; return; }
+    if (hasAppliedTemplateRef.current || !isFormInitialized || musicDataLoading ||
+        !initialMedleyTemplateId || !studioV2Enabled || !api || scaleType !== 'music' || scaleToEdit) return;
+    hasAppliedTemplateRef.current = true;
+    let disposed = false;
+    (async () => {
+      try {
+        const saved = await api.medleyTemplates.getById(initialMedleyTemplateId);
+        if (disposed) return;
+        if (!saved?.arrangement?.steps?.length || saved.arrangement.steps.length < 2) throw new Error('medley.templateMissingSong');
+        const unavailable = saved.arrangement.steps.some(step => {
+          const song = songs.find(item => item.id === step.songId);
+          return !song || medleySourceRevision(song) !== step.sourceRevision;
+        });
+        if (unavailable) throw new Error('medley.templateReviewHint');
+        const medley = {
+          ...saved.arrangement, id: crypto.randomUUID(), revision: 1,
+          steps: saved.arrangement.steps.map(step => ({ ...step, id: crypto.randomUUID() })),
+        };
+        setFormData(previous => {
+          if ((previous.medleys || []).some(item => item.steps.some(step => medley.steps.some(s => s.songId === step.songId)))) return previous;
+          const medleys = [...(previous.medleys || []), medley];
+          const ids = [...(previous.songIds || [])];
+          for (const step of medley.steps) if (!ids.includes(step.songId)) ids.push(step.songId);
+          return { ...previous, medleys, songIds: orderMedleySongIds(ids, medleys) };
+        });
+      } catch (cause) {
+        if (!disposed) toast({ type: 'warning', message: t(cause instanceof Error && cause.message.startsWith('medley.') ? cause.message : 'medley.templateLoadFailed') });
+      }
+    })();
+    return () => { disposed = true; };
+  }, [isOpen, isFormInitialized, musicDataLoading, initialMedleyTemplateId, studioV2Enabled, api, scaleType, scaleToEdit, songs]);
 
   useEffect(() => {
     if (!isOpen) return;

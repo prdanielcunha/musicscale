@@ -9,6 +9,10 @@ import { ScaleSongCard } from "./ScaleSongCard";
 import { AiContextualSuggestions } from "./AiContextualSuggestions";
 import { useTranslation } from "react-i18next";
 import { MedleyComposer } from './MedleyComposer';
+const MedleyStudioV2 = React.lazy(() => import('./MedleyStudioV2').then(module => ({ default: module.MedleyStudioV2 })));
+import { mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
+// V2 is split into a separate chunk. Disabled organizations never download it.
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { orderMedleySongIds, medleySourceRevision } from '../../utils/medleyModel';
 import { useApi } from '../../contexts/ApiContext';
 import { buildSearchIndex, searchSongs } from '../../utils/searchEngine';
@@ -38,6 +42,9 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
 }, ref) => {
   const { t } = useTranslation();
   const api = useApi();
+  // Disabled for every organization unless explicitly enabled by the canonical org flag.
+  const studioV2Enabled = useFeatureFlag('musicscale.medleyStudioV2');
+  const MedleyEditor = studioV2Enabled ? MedleyStudioV2 : MedleyComposer;
   const [templates, setTemplates] = useState<MedleyTemplate[]>([]);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [templateError, setTemplateError] = useState('');
@@ -480,11 +487,11 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
                {templateError && <p role="alert" className="text-xs text-rose-500">{templateError}</p>}
                {templates.length ? templates.map(template => <button type="button" key={template.id} className="block w-full rounded-lg border border-white/10 p-2 text-left text-xs" onClick={() => applyTemplate(template)}>{template.name}</button>) : <p className="text-xs text-slate-500">{t('medley.noTemplates')}</p>}
              </div>}
-             <MedleyComposer songs={selectedSongsList} medleys={formData.medleys || []} onChange={medleys => setFormData((prev: any) => ({ ...prev, medleys, songIds: orderMedleySongIds(prev.songIds || [], medleys) }))} onSaveTemplate={async (medley, name) => {
+             <React.Suspense fallback={null}><MedleyEditor songs={studioV2Enabled ? songs : selectedSongsList} draftScope={`scale:${formData.id && formData.id !== "CLONE" ? formData.id : "new"}`} initialSongIds={studioV2Enabled ? (formData.songIds || []) : undefined} medleys={formData.medleys || []} onChange={medleys => setFormData((prev: any) => ({ ...prev, medleys, songIds: studioV2Enabled ? mergeStudioScaleSongIds(prev.songIds || [], medleys) : orderMedleySongIds(prev.songIds || [], medleys) }))} onSaveTemplate={async (medley, name) => {
                if (!api) throw new Error('API unavailable');
-               await api.medleyTemplates.create({ name, arrangement: medley });
+               await api.medleyTemplates.create({ name, arrangement: medley, schemaVersion: 2, status: 'ready' });
                if (templatesOpen) setTemplates(await api.medleyTemplates.list());
-             }} />
+             }} /></React.Suspense>
              {selectedSongsList.length > 0 ? (
                 <div className="space-y-2">
                   <div className="mb-3 px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-lg flex items-center gap-2 text-slate-500 dark:text-slate-400">
