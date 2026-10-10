@@ -2192,6 +2192,9 @@
     "invalidRange": "Check the first and last line."
   },
   "medleyStudioV2": {
+    "discard": "Discard draft",
+    "restore": "Restore draft",
+    "recoverDraft": "An unpublished medley draft is available in this session.",
     "useAsCue": "Use as cue",
     "templateNameRequired": "Name the medley before saving.",
     "createFromSong": "Create medley with this song",
