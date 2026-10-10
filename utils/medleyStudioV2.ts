@@ -56,6 +56,22 @@ export function duplicateStudioBlock(blocks: StudioBlock[], index: number, id: s
   return next;
 }
 
+/**
+ * Split an already-selected source interval without changing original text.
+ * Only the LAST child inherits the outgoing transition/cue.
+ */
+export function splitStudioBlock(blocks: StudioBlock[], index: number, splitAfter: number, id: string = crypto.randomUUID()): StudioBlock[] {
+  const block = blocks[index];
+  if (!block || !Number.isInteger(splitAfter) || splitAfter < block.startLine || splitAfter >= block.endLine ||
+      blocks.length >= 30 || blocks.some(current => current.id === id)) return blocks;
+  return [
+    ...blocks.slice(0, index),
+    { ...block, endLine: splitAfter, transition: 'direct', cue: '' },
+    { ...block, id, startLine: splitAfter + 1 },
+    ...blocks.slice(index + 1),
+  ];
+}
+
 /** Always render from a source snippet; never modify the original song or stored chart. */
 export function previewStudioBlock(block: StudioBlock, song: PopulatedSong): string {
   const chart = medleyChart(song);
