@@ -310,7 +310,21 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
             </> : <p className="text-sm text-slate-400">{t('medleyStudioV2.chooseBlock')}</p>}
           </aside>
         </div>
-        <section className="mt-4 rounded-xl border border-white/10 bg-[#101a2a] p-3">
+        {stage === 4 && <section className="mt-4 rounded-xl border border-white/10 bg-[#101a2a] p-3" data-testid="medley-studio-review">
+          <h3 className="text-lg font-bold">{t('medleyStudioV2.step4')}</h3>
+          <p className="mb-3 text-xs text-slate-400">{t('medleyStudioV2.reviewHint')}</p>
+          <ol className="space-y-2">{steps.map((block, index) => <li key={block.id} className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+            <span className="rounded-lg bg-sky-500/15 px-2 py-1 text-xs font-bold text-sky-300">{index + 1}</span>
+            <div className="min-w-0 flex-1">
+              <strong className="block break-words text-sm">{songMap.get(block.songId)?.title || block.songId}</strong>
+              <p className="text-xs text-slate-400">{block.label || t('medley.excerpt')} · {block.repetitions}× · {block.key || '—'} · {block.bpm || '—'} BPM</p>
+              {!!block.cue && <p className="mt-1 break-words text-xs text-sky-200">→ {block.cue}</p>}
+            </div>
+            <button type="button" className={button} onClick={() => { setActiveId(block.id); goToStage(2); }}>{t('medley.edit')}</button>
+          </li>)}</ol>
+          <p className="mt-3 text-xs text-slate-400">{t('medleyStudioV2.draftNotPublished')}</p>
+        </section>}
+        {stage === 4 && <section className="mt-4 rounded-xl border border-white/10 bg-[#101a2a] p-3">
           <button type="button" className={button + ' w-full justify-between'} aria-expanded={showFullPreview} onClick={() => setShowFullPreview(value => !value)}>{t('medleyStudioV2.fullPreview')} <span>{showFullPreview ? '−' : '+'}</span></button>
           {showFullPreview && fullPreview && <div className="mt-3">
             {'error' in fullPreview && fullPreview.error
@@ -318,12 +332,15 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
               : <><pre className="max-h-[50vh] overflow-auto whitespace-pre rounded-lg bg-black/30 p-3 font-mono text-xs leading-6 text-slate-100">{fullPreview.text}</pre>
                 {fullPreview.truncated && <p role="status" className="mt-2 text-xs text-amber-300">{t('medleyStudioV2.previewTruncated')}</p>}</>}
           </div>}
-        </section>
+        </section>}
         {error && <p role="alert" className="mt-3 rounded-xl border border-rose-400/40 p-3 text-sm text-rose-300">{error}</p>}
         <footer className="sticky bottom-0 mt-4 flex flex-wrap justify-end gap-2 border-t border-white/10 bg-[#090f1c] py-3 pb-[max(8px,env(safe-area-inset-bottom))]">
           {templateOnly && <label className="min-w-[200px] flex-1 text-xs text-slate-300">{t('medley.templateName')}<input className={field} maxLength={120} value={templateName} onChange={e => setTemplateName(e.target.value)} /></label>}
           <button type="button" className={button} onClick={close}>{t('medley.cancel')}</button>
-          <button type="button" className={button + ' border-sky-400 bg-sky-600'} onClick={() => void save()} disabled={savingTemplate || steps.length < 2 || (templateOnly && !templateName.trim())}>{templateOnly ? t('medley.saveTemplate') : t('medley.use')}</button>
+          {stage > 1 && <button type="button" className={button} onClick={() => goToStage((stage - 1) as 1 | 2 | 3)}>{t('medleyStudioV2.previous')}</button>}
+          {stage === 2 && <button type="button" className={button} onClick={() => goToStage(1)}>{t('medleyStudioV2.addMusic')}</button>}
+          {stage < 4 && <button type="button" className={button + ' border-sky-400 bg-sky-600'} disabled={stage === 1 ? steps.length < 1 : steps.length < 2} onClick={() => goToStage((stage + 1) as 2 | 3 | 4)}>{t('medleyStudioV2.next')}</button>}
+          {stage === 4 && <button type="button" className={button + ' border-sky-400 bg-sky-600'} onClick={() => void save()} disabled={savingTemplate || steps.length < 2 || (templateOnly && !templateName.trim())}>{templateOnly ? t('medley.saveTemplate') : t('medley.use')}</button>}
         </footer>
       </div>
     </div>}
