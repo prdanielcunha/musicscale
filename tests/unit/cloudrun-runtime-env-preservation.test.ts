@@ -14,7 +14,13 @@ describe('Cloud Run production runtime configuration preservation', () => {
     expect(workflow).toContain('AI_IMPORT_FINOPS_WRITE_PATH_ENABLED=false');
     expect(workflow).toContain('AI_IMPORT_FINOPS_READ_PATH_ENABLED=false');
     expect(workflow).toContain('AI_FINOPS_DIAGNOSTICS_ENABLED=false');
-    expect(workflow).toContain('--no-allow-unauthenticated');
+    // The existing service access policy must remain byte-for-byte unchanged.
+    // The old deploy flag and subsequent allUsers grant could mutate IAM.
+    expect(workflow).toContain('Snapshot existing Cloud Run IAM (read-only)');
+    expect(workflow).toContain('MUSICSCALE_IAM_UNCHANGED_OK');
+    expect(workflow).not.toContain('--allow-unauthenticated');
+    expect(workflow).not.toContain('--no-allow-unauthenticated');
+    expect(workflow).not.toContain('add-iam-policy-binding');
     expect(workflow).toContain('STRIPE_SECRET_KEY=musicscale-stripe-secret-key:latest');
   });
 });
