@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PopulatedSong, ScaleMedley } from '../../types';
-import { compileStudioMedley, duplicateStudioBlock, moveStudioBlock, splitStudioBlock, newStudioBlock, studioBlocksFromLegacy, mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
+import { buildStudioPerformancePreview, compileStudioMedley, duplicateStudioBlock, moveStudioBlock, splitStudioBlock, newStudioBlock, studioBlocksFromLegacy, mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
 import { analyzeMedleyBridge, detectedHarmonyEvents } from '../../utils/medleyStudioHarmony';
 import { loadStudioDraft, saveStudioDraft, studioDraftKey } from '../../utils/medleyStudioDraft';
 
@@ -13,6 +13,17 @@ const a = song('a', '[Intro]\nAm    F\nverso\n[Refrão]\nC     G');
 const b = song('b', 'Dm    G\nletra');
 
 describe('isolated Medley Studio 2.0 legacy adapter', () => {
+  it('previews every repeated chart exactly in stage order and bounds huge previews', () => {
+    const first = { ...newStudioBlock(a, 'first'), repetitions: 2, cue: 'Entrada suave' };
+    const second = newStudioBlock(b, 'second');
+    const output = buildStudioPerformancePreview([first, second], [a, b]);
+    expect(output.truncated).toBe(false);
+    expect(output.text).toContain('[1/2]\\n[Intro]\\nAm    F');
+    expect(output.text).toContain('[2/2]\\n[Intro]\\nAm    F');
+    expect(output.text.indexOf('→ Entrada suave')).toBeLessThan(output.text.indexOf('2. b'));
+    expect(buildStudioPerformancePreview([first, second], [a, b], 20).truncated).toBe(true);
+  });
+
   it('splits exact line intervals and keeps the approved outgoing bridge on the final part only', () => {
     const original = { ...newStudioBlock(a, 'first'), startLine: 0, endLine: 4, cue: 'C → F', transition: 'free' as const };
     const pieces = splitStudioBlock([original, newStudioBlock(b, 'second')], 0, 2, 'half');
