@@ -2192,6 +2192,10 @@
     "invalidRange": "Check the first and last line."
   },
   "medleyStudioV2": {
+    "savedTemplates": "Organization medleys",
+    "editCopy": "Edit as new version",
+    "addToScale": "Use in new scale",
+    "refreshTemplates": "Refresh medley library",
     "manualBridge": "Manual harmonic bridge",
     "meter": "Meter",
     "bridgeBpm": "Bridge BPM (optional)",
