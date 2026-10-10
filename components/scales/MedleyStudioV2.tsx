@@ -77,10 +77,10 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const activeSong = selected ? songMap.get(selected.songId) : undefined;
   const searchIndex = useMemo(() => buildSearchIndex(songs), [songs]);
   const filteredSongs = useMemo(() => {
-    const matches = searchSongs(searchIndex, query).slice(0, 75).map(match => match.document.song);
-    if (query.trim() || !suggestedSongIds?.length) return matches;
+    const matches = searchSongs(searchIndex, query).map(match => match.document.song);
+    if (query.trim() || !suggestedSongIds?.length) return matches.slice(0, 75);
     const rank = new Map(suggestedSongIds.map((id, index) => [id, index]));
-    return matches.sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
+    return matches.sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)).slice(0, 75);
   }, [searchIndex, query, suggestedSongIds]);
   const original = medleys.find(item => item.id === editingId) || (templateOnly && initialMedley?.id === editingId ? initialMedley : undefined);
   const changedSources = original?.steps.filter(step => {
