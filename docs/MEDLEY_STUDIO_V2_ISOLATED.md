@@ -16,7 +16,9 @@ Checkpoint: 2026-10-10. Base ref: main at `f169d8b87e105f46f64b6e830b4265f2ba527
 - `utils/medleyStudioV2.ts`: typed editing draft, reorder/clone and non-destructive adapter to existing saved ScaleMedley.
 - `utils/medleyStudioHarmony.ts`: deterministic, strictly advisory musical sketches based on chords recognized in selected snippets. Human inspection is required; no AI API or audio costs.
 - `components/scales/MedleyStudioV2.tsx`: responsive three-column editing surface (stacked on narrow devices), sequence, selection, section/line editing, duplication, move up/down, undo/redo, previews, suggestions, legacy template save and explicit confirmation of source changes.
-- `components/scales/MusicBuilder.tsx`: smallest possible feature-flagged switch, maintaining the old editor whenever the feature is not enabled.
+- `components/scales/MusicBuilder.tsx`: feature-flagged studio (legacy UI still default), full authorized catalog, append-only selection projection (never discards existing scale repertoire).
+- `pages/SongsPage.tsx` + `components/songs/SongDetailModal.tsx`: new repertoire and song-level entry points, hidden when the organization flag is off; explicit saving uses the EXISTING organization-scoped `medleyTemplates` service, never alters published scales.
+- `components/scales/MedleyStudioV2.tsx`: human-confirmed bridge suggestion can be added as an editable **cue** in the existing safe transition field, not a guessed rewrite of chord charts.
 - `locales/pt.json`, `locales/en.json`, `locales/es.json`: new strings only.
 
 ## Not yet implemented / DO NOT enable flag or release
