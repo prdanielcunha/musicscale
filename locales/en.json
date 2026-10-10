@@ -2190,5 +2190,27 @@
     "requiresText": "Selecting an excerpt requires chart or lyric text.",
     "invalid": "Check the excerpts.",
     "invalidRange": "Check the first and last line."
+  },
+  "medleyStudioV2": {
+    "title": "Medley Studio 2.0",
+    "subtitle": "Arrange and review excerpts without changing source songs or scales.",
+    "studio": "ARRANGEMENT STUDIO",
+    "noSourceMutation": "Original charts are never modified.",
+    "undo": "Undo",
+    "redo": "Redo",
+    "library": "Songs in this scale",
+    "search": "Search song, artist or chart",
+    "emptySearch": "No matching songs.",
+    "timeline": "Arrangement timeline",
+    "transition": "Suggested bridge",
+    "direct": "Direct connection",
+    "dominant": "Dominant — review musically",
+    "twoFive": "II–V — review musically",
+    "manualOnly": "No reliable chords found. Add the transition manually.",
+    "advisoryOnly": "Musical suggestions are never applied or played automatically.",
+    "inspector": "Edit excerpt",
+    "preview": "Excerpt preview",
+    "duplicate": "Duplicate excerpt",
+    "chooseBlock": "Choose an excerpt to edit."
   }
 }
