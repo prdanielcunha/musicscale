@@ -1,5 +1,5 @@
 import type { MedleyExcerpt, PopulatedSong, ScaleMedley } from '../types';
-import { medleyChart, medleySourceRevision, medleyTabsForSelection } from './medleyModel';
+import { medleyChart, medleySourceRevision, medleyTabsForSelection, orderMedleySongIds } from './medleyModel';
 import { selectMedleyLines, splitMedleySource } from './medleySource';
 import { isValidKey, normalizeKey, resolveChordContentSourceKey } from './chordEngine';
 import { medleyPerformanceText } from './medleyPerformanceText';
@@ -131,4 +131,11 @@ export function compileStudioMedley(
     revision: (existing?.revision || 0) + 1,
     steps: excerpts,
   };
+}
+
+/** A studio addition must never discard pre-existing repertoire or band assignments. */
+export function mergeStudioScaleSongIds(songIds: readonly string[], medleys: readonly ScaleMedley[]): string[] {
+  const ids = [...songIds];
+  for (const medley of medleys) for (const step of medley.steps) if (!ids.includes(step.songId)) ids.push(step.songId);
+  return orderMedleySongIds(ids, [...medleys]);
 }
