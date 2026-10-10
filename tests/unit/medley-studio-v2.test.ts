@@ -18,8 +18,8 @@ describe('isolated Medley Studio 2.0 legacy adapter', () => {
     const second = newStudioBlock(b, 'second');
     const output = buildStudioPerformancePreview([first, second], [a, b]);
     expect(output.truncated).toBe(false);
-    expect(output.text).toContain('[1/2]\\n[Intro]\\nAm    F');
-    expect(output.text).toContain('[2/2]\\n[Intro]\\nAm    F');
+    expect(output.text).toContain('[1/2]\n[Intro]\nAm    F');
+    expect(output.text).toContain('[2/2]\n[Intro]\nAm    F');
     expect(output.text.indexOf('→ Entrada suave')).toBeLessThan(output.text.indexOf('2. b'));
     expect(buildStudioPerformancePreview([first, second], [a, b], 20).truncated).toBe(true);
   });
@@ -34,7 +34,7 @@ describe('isolated Medley Studio 2.0 legacy adapter', () => {
     expect(original.endLine).toBe(4);
     expect(splitStudioBlock(pieces, 2, 9)).toBe(pieces);
     const result = compileStudioMedley(pieces, [a, b]);
-    expect(result.steps[0].snapshot + '\\n' + result.steps[1].snapshot).toBe(a.chords);
+    expect(result.steps[0].snapshot + '\n' + result.steps[1].snapshot).toBe(a.chords);
   });
 
   it('allows repeated out-of-order blocks without mutating a song, its spaces or the original array', () => {
