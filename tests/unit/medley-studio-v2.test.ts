@@ -69,6 +69,12 @@ describe('isolated Medley Studio 2.0 legacy adapter', () => {
     expect(mergeStudioScaleSongIds(['a', 'b'], [staged])).toEqual(['a','b']);
   });
 
+  it('rejects oversized source snapshots before any live scale write', () => {
+    const first = song('long-1', 'G '.repeat(101_000));
+    const second = song('long-2', 'C '.repeat(101_000));
+    expect(() => compileStudioMedley([newStudioBlock(first, 'first'), newStudioBlock(second, 'second')], [first, second])).toThrow('medleyStudioV2.tooLarge');
+  });
+
   it('does not allow repeat counts beyond the existing production contract', () => {
     const invalid = { ...newStudioBlock(a), repetitions: 16 };
     expect(() => compileStudioMedley([invalid, newStudioBlock(b)], [a, b])).toThrow('medley.invalid');
