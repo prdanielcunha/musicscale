@@ -2192,6 +2192,17 @@
     "invalidRange": "Check the first and last line."
   },
   "medleyStudioV2": {
+    "manualBridge": "Manual harmonic bridge",
+    "meter": "Meter",
+    "bridgeBpm": "Bridge BPM (optional)",
+    "chordEvents": "Bridge chord events",
+    "chord": "Chord",
+    "bars": "Bars",
+    "addChordEvent": "Add chord",
+    "applyManualBridge": "Apply bridge to medley",
+    "bridgeNotPlayback": "Chords are cues for the musician; no audio is played automatically.",
+    "replacesCueOnlyOnApply": "This block already has a cue. It is only replaced when you press Apply.",
+    "invalidBridge": "Review chords (e.g. G7, Am, F#7/C#) and duration between 1 and 8 bars.",
     "discard": "Discard draft",
     "restore": "Restore draft",
     "recoverDraft": "An unpublished medley draft is available in this session.",
