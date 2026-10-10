@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: musicscale-firebase-production-deploy
+  group: musicscale-production-release
   cancel-in-progress: false
 
 env:
