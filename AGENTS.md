@@ -133,3 +133,11 @@ Permanent rule: this standalone app must be usable from its own domain/PWA witho
 Google/Firebase authenticates identity only. MillionsNest canonical organization, membership, entitlement and RBAC data authorizes access. Never use client-provided organization IDs, local/session storage, e-mail, UID aliases or UI roles as authorization. Direct entry and Hub handoff must converge on the same authorization truth, support wrong-account recovery, multi-organization handling, safe return paths and PT/EN/ES.
 
 Current conformance: MusicScale already provides native Google entry. Preserve it and ensure direct login and Hub handoff converge on canonical MillionsNest organization, entitlement and RBAC resolution.
+
+## 23. Protocolo permanente Release Guard (2026-10-10)
+
+- Desenvolver em branch de trabalho e abrir PR para `main`; `production` permanece protegida.
+- Ler `docs/RELEASE_GUARD.md`; nunca usar force push, reset/rebase destrutivo, migração de dados ou rollback para igualar branches.
+- Exigir QA completo no SHA exato, confirmação de ancestry, arquivos críticos e integridade de refs; release crítica exige revisão específica.
+- Confirmar SHAs idênticos após promoção. Mesmo SHA em Git não certifica deploy Firebase/Cloud Run.
+- Restrições técnicas dependem de rulesets/ambientes/permissões do GitHub; este AGENTS.md é somente instrução para agentes.
