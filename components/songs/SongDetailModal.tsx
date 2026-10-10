@@ -11,7 +11,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Layers3 } from "lucide-react";
-import { useFeatureFlag } from "../../hooks/useFeatureFlag";
+import { useMedleyStudioV2Pilot } from "../../hooks/useMedleyStudioV2Pilot";
 import type { PopulatedSong, PopulatedScale, ScaleSongNavigationContext } from "../../types";
 import { useApi } from "../../contexts/ApiContext";
 import { useMusic } from "../../contexts/MusicDataContext";
@@ -307,7 +307,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
   openMode,
 }) => {
   const { t } = useTranslation();
-  const medleyStudioEnabled = useFeatureFlag('musicscale.medleyStudioV2');
+  const { enabled: medleyStudioEnabled } = useMedleyStudioV2Pilot();
   const api = useApi();
   const { songs, populatedScales: scales } = useMusic();
   const { openScaleDetail, saveChord, isSubmitting, openFeedback, openPersistedChordKeyRepair } = useModals();
