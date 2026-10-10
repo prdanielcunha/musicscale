@@ -2192,6 +2192,9 @@
     "invalidRange": "Check the first and last line."
   },
   "medleyStudioV2": {
+    "templateNameRequired": "Name the medley before saving.",
+    "createFromSong": "Create medley with this song",
+    "createFromRepertoire": "Create medley",
     "title": "Medley Studio 2.0",
     "subtitle": "Arrange and review excerpts without changing source songs or scales.",
     "studio": "ARRANGEMENT STUDIO",
