@@ -2192,6 +2192,16 @@
     "invalidRange": "Check the first and last line."
   },
   "medleyStudioV2": {
+    "progress": "Medley creation steps",
+    "step1": "Songs",
+    "step2": "Parts",
+    "step3": "Transitions",
+    "step4": "Review",
+    "next": "Continue",
+    "previous": "Back",
+    "addMusic": "Add song",
+    "reviewHint": "Review song order, repetitions, keys, tempo and transitions before using.",
+    "draftNotPublished": "This arrangement is not published. The scale is only saved through its normal save/publish action.",
     "enablePilot": "Try Medley Studio 2.0",
     "disablePilot": "Switch back to classic editor",
     "fullPreview": "Full medley performance preview",
