@@ -6,7 +6,7 @@ const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
 const lock=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
 const notes=fs.readFileSync('ops/hosting-release.txt','utf8');
 
-describe('Beta.29 visual-only production release',()=>{
+describe('Premium production presentation release',()=>{
   it('never advertises performance tools to tenants without the required capability',()=>{
     const home=fs.readFileSync('pages/DashboardPage.tsx','utf8');
     const routes=fs.readFileSync('PrivateApp.tsx','utf8');
@@ -34,10 +34,10 @@ describe('Beta.29 visual-only production release',()=>{
     expect(live).not.toContain("firebase deploy --only firestore");
   });
   it('keeps manifest, lockfile and release marker aligned for live smoke gate',()=>{
-    expect(pkg.version).toBe('0.10.9-beta.29');
+    expect(pkg.version).toMatch(/^\d+\.\d+\.\d+-beta\.\d+$/);
     expect(lock.version).toBe(pkg.version);
     expect(lock.packages[''].version).toBe(pkg.version);
-    expect(notes.startsWith('MusicScale 0.10.9-beta.29')).toBe(true);
+    expect(notes.startsWith(`MusicScale ${pkg.version} —`)).toBe(true);
     expect(notes).toContain('preservando todos os hotfixes beta.27 e anteriores.');
   });
 });
