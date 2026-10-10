@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PopulatedSong, ScaleMedley } from '../../types';
-import { compileStudioMedley, duplicateStudioBlock, moveStudioBlock, newStudioBlock, studioBlocksFromLegacy, mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
+import { compileStudioMedley, duplicateStudioBlock, moveStudioBlock, splitStudioBlock, newStudioBlock, studioBlocksFromLegacy, mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
 import { analyzeMedleyBridge, detectedHarmonyEvents } from '../../utils/medleyStudioHarmony';
 import { loadStudioDraft, saveStudioDraft, studioDraftKey } from '../../utils/medleyStudioDraft';
 
@@ -13,6 +13,19 @@ const a = song('a', '[Intro]\nAm    F\nverso\n[Refrão]\nC     G');
 const b = song('b', 'Dm    G\nletra');
 
 describe('isolated Medley Studio 2.0 legacy adapter', () => {
+  it('splits exact line intervals and keeps the approved outgoing bridge on the final part only', () => {
+    const original = { ...newStudioBlock(a, 'first'), startLine: 0, endLine: 4, cue: 'C → F', transition: 'free' as const };
+    const pieces = splitStudioBlock([original, newStudioBlock(b, 'second')], 0, 2, 'half');
+    expect(pieces.map(piece => [piece.id, piece.startLine, piece.endLine])).toEqual([['first', 0, 2], ['half', 3, 4], ['second', 0, 1]]);
+    expect(pieces[0].cue).toBe('');
+    expect(pieces[0].transition).toBe('direct');
+    expect(pieces[1].cue).toBe('C → F');
+    expect(original.endLine).toBe(4);
+    expect(splitStudioBlock(pieces, 2, 9)).toBe(pieces);
+    const result = compileStudioMedley(pieces, [a, b]);
+    expect(result.steps[0].snapshot + '\\n' + result.steps[1].snapshot).toBe(a.chords);
+  });
+
   it('allows repeated out-of-order blocks without mutating a song, its spaces or the original array', () => {
     const first = { ...newStudioBlock(a, 'one'), startLine: 1, endLine: 2 };
     const second = newStudioBlock(b, 'two');
