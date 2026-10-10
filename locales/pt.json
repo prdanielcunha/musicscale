@@ -2192,6 +2192,7 @@
     "invalidRange": "Confira o início e o fim das linhas."
   },
   "medleyStudioV2": {
+    "useAsCue": "Usar como orientação",
     "templateNameRequired": "Dê um nome ao medley para salvá-lo.",
     "createFromSong": "Criar medley com esta música",
     "createFromRepertoire": "Criar medley",
