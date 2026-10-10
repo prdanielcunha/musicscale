@@ -1,3 +1,7 @@
+MusicScale 0.10.9-beta.28 — 2026-10-09
+Sincronização main → production, preservando todos os hotfixes beta.27 e anteriores.
+Promoção condicionada ao QA completo; sem migração de dados, assinaturas ou configurações.
+
 MusicScale 0.10.9-beta.27 — 2026-10-09
 P0 IA #447: diagnóstico de conexão segura no domínio real, sem login, dados de cliente, chamada NestAI ou exposição de tokens.
 Força atestação real nova; recusa certificar emulador. Importação e salvamento continuam protegidos pela autenticação e App Check existentes.
