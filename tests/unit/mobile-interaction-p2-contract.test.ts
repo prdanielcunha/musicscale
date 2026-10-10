@@ -35,7 +35,7 @@ describe('mobile interaction P2 contract', () => {
     expect(presenter).toContain("pathname.startsWith('/stage-tools')");
   });
 
-  it('removes persistent WebKit backdrop/filter pressure from the mobile shell', () => {
+  it('limits mobile blur to the compact black glass header and keeps other chrome lightweight', () => {
     const privateApp = read('PrivateApp.tsx');
     const header = read('components/layout/Header.tsx');
     const bottomNav = read('components/layout/BottomNav.tsx');
@@ -45,9 +45,12 @@ describe('mobile interaction P2 contract', () => {
     expect(privateApp).not.toContain('bg-violet-500/5 blur-[140px]');
     expect(privateApp).toContain('md:backdrop-blur-md');
 
-    expect(header).toContain('bg-[#0a0a0c]/96');
-    expect(header).toContain('md:backdrop-blur-[32px]');
-    expect(header).not.toContain('bg-[#0a0a0c]/88 backdrop-blur-xl');
+    const headerCss = read('premium-v2-completion.css');
+    expect(header).toContain('ms-v3-header sticky top-0');
+    expect(header).not.toContain('bg-[#0a0a0c]/96');
+    expect(header).not.toContain('md:backdrop-blur-[32px]');
+    expect(headerCss).toMatch(/\.ms-v3-header\s*\{[^}]*backdrop-filter:\s*blur\(14px\)/s);
+    expect(headerCss).toContain('background: rgba(6, 7, 10, 0.76)');
 
     expect(bottomNav).not.toContain('backdrop-blur-[24px]');
     expect(bottomNav).not.toContain('backdrop-blur-[16px]');
