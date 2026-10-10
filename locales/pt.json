@@ -2190,5 +2190,27 @@
     "requiresText": "Para selecionar trechos, a música precisa ter letra ou cifra em texto.",
     "invalid": "Confira os trechos.",
     "invalidRange": "Confira o início e o fim das linhas."
+  },
+  "medleyStudioV2": {
+    "title": "Medley Studio 2.0",
+    "subtitle": "Monte e revise trechos sem alterar as músicas ou escalas originais.",
+    "studio": "ESTÚDIO DE ARRANJO",
+    "noSourceMutation": "As cifras de origem não são modificadas.",
+    "undo": "Desfazer",
+    "redo": "Refazer",
+    "library": "Músicas da escala",
+    "search": "Buscar música, artista ou cifra",
+    "emptySearch": "Nenhuma música encontrada.",
+    "timeline": "Linha do tempo",
+    "transition": "Ponte sugerida",
+    "direct": "Ligação direta",
+    "dominant": "Dominante — confirmar musicalmente",
+    "twoFive": "II–V — confirmar musicalmente",
+    "manualOnly": "Sem acordes confiáveis. Ajuste a passagem manualmente.",
+    "advisoryOnly": "Sugestões musicais não são aplicadas nem executadas automaticamente.",
+    "inspector": "Editar trecho",
+    "preview": "Prévia do trecho",
+    "duplicate": "Duplicar trecho",
+    "chooseBlock": "Selecione um trecho para editar."
   }
 }
