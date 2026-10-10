@@ -2192,6 +2192,8 @@
     "invalidRange": "Revisa el inicio y el fin de las líneas."
   },
   "medleyStudioV2": {
+    "fullPreview": "Vista previa completa del medley",
+    "previewTruncated": "Vista previa abreviada para mantener el rendimiento. La escala aprobada conserva los fragmentos completos.",
     "tooLarge": "Este medley supera el límite seguro de contenido de la escala (400 KB). Reduce los fragmentos o tablaturas antes de guardar.",
     "split": "Dividir fragmento por la mitad",
     "splitShort": "Dividir",
