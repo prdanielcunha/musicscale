@@ -11,6 +11,8 @@ import {
   previewStudioBlock, studioBlocksFromLegacy,
 } from '../../utils/medleyStudioV2';
 import type { StudioBlock } from '../../utils/medleyStudioV2';
+import { useAuth } from '../../contexts/AuthContext';
+import { clearStudioDraft, loadStudioDraft, saveStudioDraft } from '../../utils/medleyStudioDraft';
 
 interface Props {
   songs: PopulatedSong[];
@@ -22,6 +24,7 @@ interface Props {
   launchImmediately?: boolean;
   templateOnly?: boolean;
   onClose?: () => void;
+  draftScope?: string;
 }
 interface History {
   past: StudioBlock[][];
@@ -32,8 +35,10 @@ const button = 'inline-flex min-h-[44px] min-w-[44px] items-center justify-cente
 const field = 'min-h-[44px] w-full rounded-xl border border-white/15 bg-[#151d2b] px-3 text-sm text-white focus-visible:outline-2 focus-visible:outline-sky-400';
 const trim = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
 
-export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initialSongIds, launchImmediately = false, templateOnly = false, onClose }: Props) {
+export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initialSongIds, launchImmediately = false, templateOnly = false, onClose, draftScope = 'repertoire' }: Props) {
   const { t } = useTranslation();
+  const { user, effectiveOrganizationId } = useAuth();
+  const draftIdentity = user?.uid && effectiveOrganizationId ? { userId: user.uid, organizationId: effectiveOrganizationId, scope: draftScope } : null;
   const [isOpen, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [history, setHistory] = useState<History>({ past: [], present: [], future: [] });
@@ -44,6 +49,8 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [draftEdited, setDraftEdited] = useState(false);
+  const [recoverableBlocks, setRecoverableBlocks] = useState<StudioBlock[] | null>(null);
   const hasLaunched = React.useRef(false);
 
   const steps = history.present;
@@ -59,13 +66,14 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   }) || [];
 
   const edit = (change: (previous: StudioBlock[]) => StudioBlock[]) => {
+    setDraftEdited(true);
     setHistory(h => ({ past: [...h.past.slice(-39), h.present], present: change(h.present), future: [] }));
     setError('');
   };
-  const undo = () => setHistory(h => h.past.length
-    ? { past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [h.present, ...h.future] } : h);
-  const redo = () => setHistory(h => h.future.length
-    ? { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) } : h);
+  const undo = () => { setDraftEdited(true); setHistory(h => h.past.length
+    ? { past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [h.present, ...h.future] } : h); };
+  const redo = () => { setDraftEdited(true); setHistory(h => h.future.length
+    ? { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) } : h); };
   const update = (id: string, change: Partial<StudioBlock>) =>
     edit(blocks => blocks.map(item => item.id === id ? { ...item, ...change } : item));
   const start = (medley?: ScaleMedley) => {
@@ -77,6 +85,11 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     setSourceApproved(false);
     setError('');
     setQuery('');
+    setDraftEdited(false);
+    if (draftIdentity && typeof window !== 'undefined') {
+      try { setRecoverableBlocks(loadStudioDraft(draftIdentity, new Set(songs.map(song => song.id)), window.sessionStorage)); }
+      catch { setRecoverableBlocks(null); }
+    } else setRecoverableBlocks(null);
     setTemplateName(medley?.steps.map(step => step.title).join(' → ') || preferredSongs.map(song => song.title).join(' → ') || '');
     setOpen(true);
   };
@@ -87,6 +100,10 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     }
   }, [launchImmediately, songs]);
   const close = () => { setOpen(false); onClose?.(); };
+  React.useEffect(() => {
+    if (!isOpen || !draftEdited || !draftIdentity || typeof window === 'undefined') return;
+    try { saveStudioDraft(draftIdentity, steps, window.sessionStorage); } catch { /* browsing restrictions */ }
+  }, [isOpen, draftEdited, history.present, user?.uid, effectiveOrganizationId, draftScope]);
   const add = (song: PopulatedSong) => {
     if (steps.length >= 30) return setError(t('medley.invalid'));
     const block = newStudioBlock(song);
@@ -109,6 +126,10 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
       } else {
         onChange([...medleys.filter(item => item.id !== editingId), result]);
       }
+      if (draftIdentity && typeof window !== 'undefined') {
+        try { clearStudioDraft(draftIdentity, window.sessionStorage); } catch { /* browsing restrictions */ }
+      }
+      setDraftEdited(false);
       close();
       setError('');
     } catch (cause) {
@@ -148,6 +169,11 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
           <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-sky-300">{t('medleyStudioV2.studio')}</p><h2 className="text-xl font-bold">{t('medleyStudioV2.title')}</h2><p className="text-xs text-slate-400">{t('medleyStudioV2.noSourceMutation')}</p></div>
           <button type="button" className={button} aria-label={t('medley.close')} onClick={close}><X size={18} /></button>
         </header>
+        {recoverableBlocks && <div role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-sky-400/40 bg-sky-500/10 p-3 text-sm">
+          <span className="flex-1">{t('medleyStudioV2.recoverDraft')}</span>
+          <button type="button" className={button} onClick={() => { setHistory({ past: [], present: recoverableBlocks, future: [] }); setActiveId(recoverableBlocks[0]?.id || null); setRecoverableBlocks(null); setDraftEdited(true); }}>{t('medleyStudioV2.restore')}</button>
+          <button type="button" className={button} onClick={() => { if (draftIdentity) { try { clearStudioDraft(draftIdentity, window.sessionStorage); } catch { /* storage denied */ } } setRecoverableBlocks(null); }}>{t('medleyStudioV2.discard')}</button>
+        </div>}
         <div className="mb-3 flex flex-wrap gap-2">
           <button type="button" className={button} onClick={undo} disabled={!history.past.length} aria-label={t('medleyStudioV2.undo')}><Undo2 size={17} /> <span className="ml-1">{t('medleyStudioV2.undo')}</span></button>
           <button type="button" className={button} onClick={redo} disabled={!history.future.length} aria-label={t('medleyStudioV2.redo')}><Redo2 size={17} /> <span className="ml-1">{t('medleyStudioV2.redo')}</span></button>
