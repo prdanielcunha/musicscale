@@ -26,6 +26,9 @@ interface Props {
   templateOnly?: boolean;
   onClose?: () => void;
   draftScope?: string;
+  /** Optional existing template. This is copied to a NEW version, never overwritten. */
+  initialMedley?: ScaleMedley;
+  initialTemplateName?: string;
 }
 interface History {
   past: StudioBlock[][];
@@ -36,7 +39,7 @@ const button = 'inline-flex min-h-[44px] min-w-[44px] items-center justify-cente
 const field = 'min-h-[44px] w-full rounded-xl border border-white/15 bg-[#151d2b] px-3 text-sm text-white focus-visible:outline-2 focus-visible:outline-sky-400';
 const trim = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
 
-export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initialSongIds, launchImmediately = false, templateOnly = false, onClose, draftScope = 'repertoire' }: Props) {
+export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initialSongIds, launchImmediately = false, templateOnly = false, onClose, draftScope = 'repertoire', initialMedley, initialTemplateName }: Props) {
   const { t } = useTranslation();
   const { user, effectiveOrganizationId } = useAuth();
   const draftIdentity = user?.uid && effectiveOrganizationId ? { userId: user.uid, organizationId: effectiveOrganizationId, scope: draftScope } : null;
@@ -91,15 +94,15 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
       try { setRecoverableBlocks(loadStudioDraft(draftIdentity, new Set(songs.map(song => song.id)), window.sessionStorage)); }
       catch { setRecoverableBlocks(null); }
     } else setRecoverableBlocks(null);
-    setTemplateName(medley?.steps.map(step => step.title).join(' → ') || preferredSongs.map(song => song.title).join(' → ') || '');
+    setTemplateName(initialTemplateName || medley?.steps.map(step => step.title).join(' → ') || preferredSongs.map(song => song.title).join(' → ') || '');
     setOpen(true);
   };
   React.useEffect(() => {
     if (launchImmediately && songs.length && !hasLaunched.current) {
       hasLaunched.current = true;
-      start();
+      start(initialMedley);
     }
-  }, [launchImmediately, songs]);
+  }, [launchImmediately, songs, initialMedley]);
   const close = () => { setOpen(false); onClose?.(); };
   React.useEffect(() => {
     if (!isOpen || !draftEdited || !draftIdentity || typeof window === 'undefined') return;
