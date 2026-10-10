@@ -75,8 +75,10 @@ describe('isolated Medley Studio 2.0 legacy adapter', () => {
     expect(() => compileStudioMedley([newStudioBlock(first, 'first'), newStudioBlock(second, 'second')], [first, second])).toThrow('medleyStudioV2.tooLarge');
   });
 
-  it('does not allow repeat counts beyond the existing production contract', () => {
-    const invalid = { ...newStudioBlock(a), repetitions: 16 };
+  it('accepts 16 repeated passages but rejects 17 before hitting the server', () => {
+    const valid = { ...newStudioBlock(a), repetitions: 16 };
+    expect(compileStudioMedley([valid, newStudioBlock(b)], [a, b]).steps[0].repetitions).toBe(16);
+    const invalid = { ...valid, repetitions: 17 };
     expect(() => compileStudioMedley([invalid, newStudioBlock(b)], [a, b])).toThrow('medley.invalid');
   });
 });
