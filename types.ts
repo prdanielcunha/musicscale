@@ -473,6 +473,11 @@ export interface MedleyTemplate {
   organizationId: string;
   name: string;
   arrangement: ScaleMedley;
+  /** Optional and backwards-compatible; legacy templates have no version metadata. */
+  schemaVersion?: 2;
+  status?: 'ready' | 'draft';
+  /** Editing creates a NEW immutable template, never overwrites the previous one. */
+  parentTemplateId?: string;
   createdBy: CreatedBy;
   createdAt: string;
   lastModifiedBy?: CreatedBy | null;

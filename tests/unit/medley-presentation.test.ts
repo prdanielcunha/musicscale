@@ -14,4 +14,18 @@ describe('medley presentation', () => {
     expect(html).toContain("default-src 'none'");
     expect(medleyPresentationHtml(medley, 'es-ES')).toContain('<html lang="es">');
   });
+  it('renders approved manual chord and bar cues as offline presentation chips without scripts', () => {
+    const medley = { id: 'medley', anchorSongId: 'a', revision: 1, steps: [{
+      id: 'a1', songId: 'a', sourceRevision: 'hash', startLine: 0, endLine: 0,
+      title: 'Adoração', repetitions: 2, snapshot: 'Am F',
+      transition: { mode: 'free' as const, cue: 'Ponte manual [6/8; 86 BPM]: Bbmaj7 × 2 | F#7/C# × 1' },
+    }] } satisfies ScaleMedley;
+    const html = medleyPresentationHtml(medley);
+    expect(html).toContain('Bbmaj7');
+    expect(html).toContain('F#7/C#');
+    expect(html).toContain('bridge-event');
+    expect(html).toContain('6/8 · 86 BPM');
+    expect(html).not.toContain('<script>');
+    expect(html).toContain("default-src 'none'");
+  });
 });

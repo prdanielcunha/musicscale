@@ -34,4 +34,17 @@ describe('medley stage', () => {
     await waitFor(() => expect(screen.queryByTestId('local-pad')).toBeNull());
     expect(screen.getByRole('dialog').querySelector('pre')?.textContent).toBe('Am   F');
   });
+  it('shows approved manual bar/cue events on stage without starting audio', () => {
+    const manual = { ...medley, steps: [
+      { ...medley.steps[0], transition: { mode: 'free' as const, cue: 'Ponte manual [4/4; 85 BPM]: G7 × 2 | C × 1' } },
+      medley.steps[1],
+    ] };
+    render(<MedleyStage medley={manual} />);
+    fireEvent.click(screen.getByText('medley.openStage'));
+    expect(screen.getByText('G7')).toBeInTheDocument();
+    expect(screen.getByText('C')).toBeInTheDocument();
+    expect(screen.getByText(/85 BPM/)).toBeInTheDocument();
+    expect(screen.queryByTestId('local-pad')).toBeNull();
+    expect(screen.queryByTestId('local-click')).toBeNull();
+  });
 });

@@ -17,6 +17,15 @@ describe('medley approval', () => {
     expect(orderMedleySongIds(['a', 'unrelated', 'b'], [medley])).toEqual(['a', 'b', 'unrelated']);
   });
 
+  it('accepts a backward-compatible sixteen-repeat medley while enforcing the new bound', () => {
+    const approved = structuredClone(medley);
+    approved.steps[0].repetitions = 16;
+    const catalog = new Map([['a', a], ['b', b]]);
+    expect(() => validateMedleys([approved], ['a', 'b'], catalog, 'org-a')).not.toThrow();
+    approved.steps[0].repetitions = 17;
+    expect(() => validateMedleys([approved], ['a', 'b'], catalog, 'org-a')).toThrow('Invalid medley excerpt');
+  });
+
   it('rejects songs from another organization even when referenced by the setlist', () => {
     expect(() => validateMedleys([medley], ['a', 'b'], new Map([['a', a], ['b', song('b', 'org-b')]]), 'org-a')).toThrow();
   });

@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: musicscale-firebase-production-deploy
+  group: musicscale-production-release
   cancel-in-progress: false
 
 env:
@@ -24,7 +24,16 @@ env:
 
 jobs:
   deploy-production:
-    if: github.ref == 'refs/heads/production'
+    # Cloud Run owns the Hosting release when API source changes; this avoids
+    # exposing a new client while the old Cloud Run validator is still live.
+    if: >-
+      github.ref == 'refs/heads/production' &&
+      (github.event_name == 'workflow_dispatch' ||
+        (!contains(toJSON(github.event.head_commit.modified), 'types.ts') &&
+         !contains(toJSON(github.event.head_commit.modified), 'services/server/') &&
+         !contains(toJSON(github.event.head_commit.modified), 'server.ts') &&
+         !contains(toJSON(github.event.head_commit.modified), 'Dockerfile') &&
+         !contains(toJSON(github.event.head_commit.modified), 'ops/cloudrun-release.txt')))
     runs-on: ubuntu-latest
     environment: firebase-production
     steps:
@@ -128,6 +137,25 @@ jobs:
             sleep 2
           done
           test "$LIVE_VERSION" = "$EXPECTED_VERSION"
+
+      - name: Verify protected MusicScale API after Hosting pinTag
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://musicscale.millionsnest.com"
+          STATUS="$(curl --silent --show-error --location --retry 12 --retry-delay 3 --retry-all-errors \
+            -o /tmp/medley-api-unauthorized.json -w '%{http_code}' \
+            "$BASE/api/v1/ecosystem/access-context?organizationId=production-release-smoke")"
+          test "$STATUS" = "401"
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/medley-api-unauthorized.json','utf8'));if(!String(x.error||'').toLowerCase().includes('unauthorized'))process.exit(1)"
+          CONNECT_STATUS="$(curl --silent --show-error --location --retry 12 --retry-delay 3 --retry-all-errors \
+            -o /tmp/medley-connect-unauthorized.json -w '%{http_code}' \
+            -H 'X-Connect-User-Authorization: Bearer release-smoke-invalid-firebase-token' \
+            -H 'X-Organization-Id: production-release-smoke' \
+            "$BASE/api/v1/connect/next-schedule")"
+          test "$CONNECT_STATUS" = "401"
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/medley-connect-unauthorized.json','utf8'));if(x.code!=='INVALID_ID_TOKEN')process.exit(1)"
+          echo "MUSICSCALE_PRODUCTION_AUTH_PROTECTIONS_OK"
 
       - name: Publish deployment evidence
         env:

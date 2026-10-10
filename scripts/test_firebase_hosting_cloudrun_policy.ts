@@ -41,9 +41,13 @@ assert.equal(vercel?.git?.deploymentEnabled, false, "Vercel must remain manual-o
 const deployWorkflow = fs.readFileSync(".github/workflows/cloudrun-private-deploy.yml", "utf8");
 assert.match(deployWorkflow, /push:\s*\n\s*branches:\s*\[ production \]/, "Production pushes must trigger the canonical MusicScale release");
 assert.match(deployWorkflow, /workflow_dispatch:/, "Manual production deployment must remain available as a fallback");
-assert.match(deployWorkflow, /--only hosting:musicscale/, "Canonical production release must deploy the MusicScale Hosting target");
+assert.ok(deployWorkflow.includes("firebase-production-deploy.yml/dispatches"), "API release must dispatch official Firebase Hosting after Cloud Run readiness");
+assert.doesNotMatch(deployWorkflow, /firebase deploy/, "Cloud Run must not independently build/deploy non-premium Hosting");
+const officialHosting = fs.readFileSync(".github/workflows/firebase-production-deploy.yml", "utf8");
+assert.ok(officialHosting.includes('--only "hosting:$HOSTING_TARGET"'), "Official Firebase workflow must deploy the correct MusicScale site");
+assert.match(officialHosting, /MUSICSCALE_PREMIUM_PRESENTATION_ROLLOUT: 'true'/, "Official Hosting must preserve the premium Dashboard");
 assert.doesNotMatch(deployWorkflow, /--only[^\n]*firestore/, "MusicScale release must not overwrite the shared Firestore Rules authority");
-assert.match(deployWorkflow, /musicscale\.millionsnest\.com/, "Canonical release must smoke the public MusicScale production domain");
+assert.match(officialHosting, /musicscale\.millionsnest\.com/, "Official Firebase release must smoke the public MusicScale production domain");
 
 const rulesWorkflow = fs.readFileSync(".github/workflows/deploy-firestore-rules.yml", "utf8");
 assert.match(

@@ -33,6 +33,8 @@ export interface ScaleFormOpenOptions {
   initialStep?: 'event' | 'link' | 'build' | 'review';
   focusTarget?: HomeAttentionFocusTarget;
   source?: 'dashboard-attention' | 'default';
+  /** Explicit user-requested saved medley. Never applied without org feature flag. */
+  initialMedleyTemplateId?: string;
 }
 
 export type MusicScaleSaveIntent = "save-draft" | "publish";
@@ -1240,6 +1242,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             isSubmitting={isSubmitting}
             initialStep={scaleFormOptions?.initialStep}
             focusTarget={scaleFormOptions?.focusTarget}
+            initialMedleyTemplateId={scaleFormOptions?.initialMedleyTemplateId}
           />
         )}
         

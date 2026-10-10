@@ -7,6 +7,7 @@ import { resolveMedleyDirection } from '../../utils/medleyDirection';
 import Metronome from '../common/Metronome';
 import { medleyPresentationHtml } from '../../utils/medleyPresentation';
 import { medleyPerformanceText } from '../../utils/medleyPerformanceText';
+import { parseManualBridge } from '../../utils/medleyStudioManualBridge';
 import StagePadPlayer from '../songs/StagePadPlayer';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -25,6 +26,7 @@ export function MedleyStage({ medley, scaleId, publishRevision }: { medley: Scal
   const live = useLiveWorshipSession(open ? scaleId : undefined);
   const { isFollowingDirection, toggleFollowingDirection, setIsFollowingDirection } = useLiveDirectionFollow(open ? scaleId : undefined);
   const step = medley.steps[position];
+  const manualBridge = parseManualBridge(step?.transition?.cue || '');
   const stageRevisionChanged = !!live.liveSession?.activeMedley && live.liveSession.activeMedley.medleyId === medley.id &&
     live.liveSession.activeMedley.publishRevision !== publishRevision;
   const exportPresentation = () => {
@@ -131,7 +133,19 @@ export function MedleyStage({ medley, scaleId, publishRevision }: { medley: Scal
         <pre className="overflow-x-auto whitespace-pre font-mono text-base leading-8 sm:text-lg" style={{ tabSize: 4 }}>{medleyPerformanceText(step)}</pre>
         {step.sourceUrl && /^https?:\/\//i.test(step.sourceUrl) && <a className="mt-4 inline-block text-indigo-300 underline" href={step.sourceUrl} target="_blank" rel="noopener noreferrer">{t('medley.openSource')}</a>}
         {step.tabs?.map((tab, index) => <section key={`${tab.section}-${index}`} className="mt-6"><h3 className="font-bold">{tab.section}</h3><pre className="overflow-x-auto whitespace-pre font-mono text-sm">{tab.content}</pre></section>)}
-        {position < medley.steps.length - 1 && <div className="mt-8 rounded-xl border border-indigo-400/20 p-4 text-indigo-200">{t('medley.transition')}: {t(`medley.${step.transition?.mode || 'direct'}`)} {step.transition?.cue && `· ${step.transition.cue}`}</div>}
+        {position < medley.steps.length - 1 && <div className="mt-8 rounded-xl border border-indigo-400/20 p-4 text-indigo-200">
+          <strong>{t('medley.transition')}: {t(`medley.${step.transition?.mode || 'direct'}`)}</strong>
+          {manualBridge
+            ? <section aria-label={t('medleyStudioV2.manualBridge')} className="mt-3 space-y-2">
+                <p className="text-xs text-white/60">{t('medleyStudioV2.meter')}: {manualBridge.meter}{manualBridge.bpm ? ` · ${manualBridge.bpm} BPM` : ''}</p>
+                <div className="flex flex-wrap gap-2">{manualBridge.events.map((event, index) =>
+                  <div key={index} className="min-w-[76px] rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-3 text-center">
+                    <strong className="block font-mono text-lg text-white">{event.chord}</strong>
+                    <span className="text-xs text-sky-200">{event.bars} {t('medleyStudioV2.bars')}</span>
+                  </div>)}</div>
+              </section>
+            : step.transition?.cue && <p className="mt-2 text-sm">{step.transition.cue}</p>}
+        </div>}
       </main>
       <footer className="flex gap-3 border-t border-white/10 bg-[#090b12] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <button type="button" disabled={!position && round === 1} className="min-h-12 flex-1 rounded-xl border border-white/20 disabled:opacity-40" onClick={() => void navigate(-1)}>{t('medley.previous')}</button>
