@@ -28,6 +28,26 @@ The complete master plan is broader than this isolated increment. The scale-wide
 
 In particular, the suggestions here are **advisory sketches**, not proven instrument- or genre-specific bridges; they never overwrite the musician's manual passage. The unchanged production validator controls the saved arrangement.
 
+## Second implementation pass — 2026-10-10
+
+- All four independent GitHub Actions E2E profiles and QA-core previously passed at `dfa601f54224c2f5deee4456dee40ae118f0fec9`. All subsequent commits **MUST** re-pass the full CI before any merge; older green checks do not validate newer SHAs.
+- `components/songs/SongCard.tsx`: optional per-song menu entry, restricted by existing scale-management capability plus explicit organization flag.
+- `components/scales/ManualMedleyBridgeEditor.tsx` and `utils/medleyStudioManualBridge.ts`: optional multi-chord, time-signature, BPM, bar-count manual bridge. It serializes into the **existing** 300-character transition cue; unsupported chords/durations fail safely. No new server schema, no audio playback, no new Firestore permissions.
+- `components/scales/MedleyStage.tsx`: read-only display of those manually approved bar/chord events. Existing legacy cue and navigation/leader logic are unchanged.
+- `utils/medleyStudioV2.ts`: split blocks without mutating the source; outgoing transition stays on the last piece, and undo/redo remains available.
+- `components/scales/MedleyStudioV2.tsx`: canonical MusicScale title/artist/lyrics/chord search index instead of parsing entire library charts on every keystroke, input-safe keyboard shortcuts, focus restoration, source-verified template-copy opening.
+- `pages/SongsPage.tsx`: saved organization medleys, copy-as-new-version (no overwrite), stable ancestor metadata, and `Adicionar à escala` action.
+- `pages/ScalesPage.tsx`, `contexts/ModalContext.tsx`, `components/scales/ModernScaleForm.tsx`: explicit library-to-scale handoff; read by organization-scoped repository and **fail closed** if a source was changed or removed. New scale draft only; no modification of existing schedules, assignments or published medleys.
+- `types.ts`: optional `MedleyTemplate.schemaVersion/status/parentTemplateId` metadata only. Existing stored templates and scales require **no migration** and remain readable.
+
+### Intentional restrictions
+
+1. The live `ScaleMedley` contract still supports 1–8 repetitions; do not advertise 16 until the canonical backend validator and stage have been safely extended and regression tested.
+2. Browser recovery remains tab-session-only; the persisted library template is cross-device, but unsaved concurrent drafts are **not** globally synchronized. It would be inaccurate to claim multi-device autosave or cross-device conflict merge.
+3. Detected harmonic candidates are **low-confidence suggestions**, not certified voice-leading across every genre/key; manual chord+bar cues are explicitly selected. No generative API is required.
+4. Real phone/tablet device QA, authorized canary organization flag, verified backup/restoration, GitHub release reconciliation and SHA-level Firebase deploy smoke remain mandatory before declaring **fully released**.
+5. The existing deployment workflow deploys official Firebase Hosting only when its protected `production` ref is dispatched or its `ops/hosting-release.txt` path changes. Merging a non-deployment PR alone **does not prove production deployment**.
+
 ## Release gate
 
 1. Audit any other work concurrently changing `main`/`production`. They currently have divergent histories and content; do not blindly merge or overwrite either.
