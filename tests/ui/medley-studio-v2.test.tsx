@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import type { PopulatedSong, ScaleMedley } from '../../types';
 import { MedleyStudioV2 } from '../../components/scales/MedleyStudioV2';
 
@@ -32,6 +32,39 @@ describe('feature-isolated visual studio', () => {
     expect(result.steps.map(item => item.songId)).toEqual(['A','A','B']);
     expect(result.steps[0].snapshot).toBe('Am    F\nTexto A');
     expect(a.chords).toBe('Am    F\nTexto A');
+  });
+
+  it('saves a new repertoire medley only as an explicitly named tenant-scoped template', async () => {
+    const onSaveTemplate = vi.fn(async (_medley: ScaleMedley, _name: string) => {});
+    const onChange = vi.fn();
+    const onClose = vi.fn();
+    render(<MedleyStudioV2 songs={[song('A', 'Am  F\\nAleluia'), song('B', 'C G\\nGlória')]} medleys={[]}
+      onChange={onChange} onSaveTemplate={onSaveTemplate} onClose={onClose} initialSongIds={['A']} templateOnly launchImmediately />);
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('1 / 30 medley.excerpt')).toBeInTheDocument();
+    const inputs = within(dialog).getAllByRole('button', { name: /\\+ B/ });
+    fireEvent.click(inputs[0]);
+    fireEvent.change(within(dialog).getByLabelText('medley.templateName'), { target: { value: 'Adoração em sequência' } });
+    fireEvent.click(within(dialog).getByText('medley.saveTemplate'));
+    await waitFor(() => expect(onSaveTemplate).toHaveBeenCalledTimes(1));
+    const [arrangement, name] = onSaveTemplate.mock.calls[0];
+    expect(name).toBe('Adoração em sequência');
+    expect(arrangement.steps.map((step: { songId: string }) => step.songId)).toEqual(['A','B']);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('applies a harmonic suggestion only when explicitly clicked and stores it in the cue', () => {
+    const onChange = vi.fn<(medleys: ScaleMedley[]) => void>();
+    render(<MedleyStudioV2 songs={[song('A', 'Am F'), song('B', 'C G')]} medleys={[]} onChange={onChange} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getAllByText('medleyStudioV2.useAsCue')[0]);
+    fireEvent.click(within(dialog).getByText('medley.use'));
+    const saved = onChange.mock.calls[0][0][0];
+    expect(saved.steps[0].transition?.cue).toBe('F → C');
+    expect(saved.steps[0].transition?.mode).toBe('free');
+    expect(saved.steps[0].snapshot).toBe('Am F');
   });
 
   it('never saves a legacy approved medley when its source changed without consent', () => {
