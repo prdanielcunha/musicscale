@@ -58,6 +58,11 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [draftEdited, setDraftEdited] = useState(false);
   const [showFullPreview, setShowFullPreview] = useState(false);
+  const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
+  const goToStage = (next: 1 | 2 | 3 | 4) => {
+    setStage(next);
+    if (next === 4) setShowFullPreview(true);
+  };
   const [recoverableBlocks, setRecoverableBlocks] = useState<StudioBlock[] | null>(null);
   const hasLaunched = React.useRef(false);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
@@ -111,6 +116,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     setQuery('');
     setDraftEdited(false);
     setShowFullPreview(false);
+    setStage(medley || preferredSongs.length ? 2 : 1);
     if (draftIdentity && typeof window !== 'undefined') {
       try { setRecoverableBlocks(loadStudioDraft(draftIdentity, new Set(songs.map(song => song.id)), window.sessionStorage)); }
       catch { setRecoverableBlocks(null); }
@@ -210,6 +216,17 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
           <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-sky-300">{t('medleyStudioV2.studio')}</p><h2 className="text-xl font-bold">{t('medleyStudioV2.title')}</h2><p className="text-xs text-slate-400">{t('medleyStudioV2.noSourceMutation')}</p></div>
           <button type="button" className={button} aria-label={t('medley.close')} ref={closeButtonRef} onClick={close}><X size={18} /></button>
         </header>
+        <nav aria-label={t('medleyStudioV2.progress')} className="mb-4 grid grid-cols-4 gap-1.5" data-testid="medley-studio-steps">
+          {([1, 2, 3, 4] as const).map(number => <button
+            key={number} type="button" disabled={number > stage}
+            aria-current={number === stage ? 'step' : undefined}
+            className={'min-h-[52px] rounded-xl border px-1 py-2 text-[11px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-sky-400 sm:text-sm ' +
+              (number === stage ? 'border-sky-400 bg-sky-500/15 text-sky-100' : number < stage ? 'border-white/20 bg-white/5 text-slate-200' : 'border-white/10 text-slate-500')}
+            onClick={() => goToStage(number)}>
+              <span className="block text-xs tabular-nums">{String(number).padStart(2, '0')}</span>
+              <span>{t('medleyStudioV2.step' + number)}</span>
+          </button>)}
+        </nav>
         {recoverableBlocks && <div role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-sky-400/40 bg-sky-500/10 p-3 text-sm">
           <span className="flex-1">{t('medleyStudioV2.recoverDraft')}</span>
           <button type="button" className={button} onClick={() => { setHistory({ past: [], present: recoverableBlocks, future: [] }); setActiveId(recoverableBlocks[0]?.id || null); setRecoverableBlocks(null); setDraftEdited(true); }}>{t('medleyStudioV2.restore')}</button>
@@ -225,8 +242,8 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
           {changedSources.map(step => <details key={step.id} className="mt-2 text-xs"><summary className="cursor-pointer">{step.title}</summary><div className="mt-2 grid gap-2 sm:grid-cols-2"><pre className="overflow-auto whitespace-pre p-2">{step.snapshot}</pre><pre className="overflow-auto whitespace-pre p-2">{medleyChart(songMap.get(step.songId) || ({ chords: '', lyrics: '' }))}</pre></div></details>)}
           <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={sourceApproved} onChange={e => setSourceApproved(e.target.checked)} />{t('medley.approveChange')}</label>
         </div>}
-        <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(190px,.85fr)_minmax(240px,1.25fr)_minmax(240px,1fr)]">
-          <aside className="min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3">
+        <div className={stage === 1 ? 'grid min-w-0 gap-3' : 'grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]'}>
+          <aside className={'min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3 ' + (stage !== 1 ? 'hidden' : '')}>
             <h3 className="mb-2 font-semibold">{t('medleyStudioV2.library')}</h3>
             <input className={field} aria-label={t('medleyStudioV2.search')} placeholder={t('medleyStudioV2.search')} value={query} onChange={e => setQuery(e.target.value)} />
             {!!suggestedSongIds?.length && !query.trim() && <p className="mt-2 text-xs font-semibold text-sky-300">{t('medleyStudioV2.scaleSuggestions')}</p>}
@@ -234,7 +251,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
               <Plus size={16} className="shrink-0 text-sky-300" /><span className="min-w-0 flex-1"><strong className="block truncate text-sm">{song.title}</strong><small className="text-xs text-slate-400">{song.artist} · {song.key || '—'}</small></span>
             </button>)}{filteredSongs.length === 0 && <p className="p-3 text-sm text-slate-400">{t('medleyStudioV2.emptySearch')}</p>}</div>
           </aside>
-          <section className="min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3" aria-label={t('medleyStudioV2.timeline')}>
+          <section className={'min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3 ' + (stage !== 2 && stage !== 3 ? 'hidden' : '')} aria-label={t('medleyStudioV2.timeline')}>
             <h3 className="mb-2 font-semibold">{t('medleyStudioV2.timeline')}</h3>
             <div className="max-h-[48vh] space-y-2 overflow-y-auto pr-1 lg:max-h-[65vh]">
               {steps.length === 0 && <p className="rounded-xl border border-dashed border-white/15 p-4 text-sm text-slate-400">{t('medleyStudioV2.emptyTimeline')}</p>}
@@ -257,7 +274,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
                       <button type="button" className={button + ' text-rose-300'} aria-label={t('medley.remove')} onClick={() => { edit(s => s.filter(item => item.id !== step.id)); if (activeId === step.id) setActiveId(null); }}><Trash2 size={16} /></button>
                     </div>
                   </div>
-                  {suggestion && <div className="rounded-lg border-l-2 border-sky-600 p-2 text-xs text-slate-400">
+                  {stage === 3 && suggestion && <div className="rounded-lg border-l-2 border-sky-600 p-2 text-xs text-slate-400">
                     <p>{t('medleyStudioV2.transition')}: {suggestion.exitChord || '?'} → {suggestion.entryChord || '?'}</p>
                     {suggestion.candidates.length ? suggestion.candidates.map(candidate => <div key={candidate.id} className="mt-2 flex flex-wrap items-center gap-2"><span className="min-w-0 flex-1 break-words">{candidate.chords.join(' – ')} <span className="text-sky-300">({t('medleyStudioV2.' + candidate.explanation)})</span></span><button type="button" className={button + ' min-h-[36px] text-xs'} onClick={() => update(step.id, { cue: candidate.chords.join(' → '), transition: 'free' })}>{t('medleyStudioV2.useAsCue')}</button></div>) : <p>{t('medleyStudioV2.manualOnly')}</p>}
                     <p className="mt-1 text-[10px]">{t('medleyStudioV2.advisoryOnly')}</p>
@@ -266,8 +283,8 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
               })}
             </div>
           </section>
-          <aside className="min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3">
-            <h3 className="mb-2 font-semibold">{t('medleyStudioV2.inspector')}</h3>
+          <aside className={'min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3 ' + (stage !== 2 && stage !== 3 ? 'hidden' : '')}>
+            <h3 className="mb-2 font-semibold">{t(stage === 3 ? 'medleyStudioV2.step3' : 'medleyStudioV2.inspector')}</h3>
             {selected && activeSong ? <>
               <p className="mb-2 text-sm font-semibold text-sky-300">{activeSong.title}</p>
               <label className="block text-xs">{t('medley.excerpt')}
