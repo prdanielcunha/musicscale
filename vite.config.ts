@@ -34,7 +34,15 @@ export default defineConfig(({ mode }) => {
       process.env.GITHUB_ACTIONS === 'true' &&
       process.env.GITHUB_WORKFLOW === 'MusicScale Main Firebase Preview' &&
       process.env.PREVIEW_CHANNEL === 'main-review';
-    const previewOnlyVisualFlags = isPremiumReviewBuild ? {
+    // Only the official Firebase production release job can enable live
+    // presentation; ordinary builds and preview checks cannot escalate access.
+    const isPremiumProductionBuild =
+      process.env.GITHUB_ACTIONS === 'true' &&
+      process.env.GITHUB_WORKFLOW === 'MusicScale Firebase Production Deploy' &&
+      process.env.GITHUB_REF === 'refs/heads/production' &&
+      process.env.HOSTING_TARGET === 'musicscale' &&
+      process.env.MUSICSCALE_PREMIUM_PRESENTATION_ROLLOUT === 'true';
+    const previewOnlyVisualFlags = (isPremiumReviewBuild || isPremiumProductionBuild) ? {
       'import.meta.env.VITE_NEW_TRIAL_UI_PRESENTATION': JSON.stringify('true'),
       'import.meta.env.VITE_NEW_PLANS_UI_PRESENTATION': JSON.stringify('true'),
       'import.meta.env.VITE_NEW_ONBOARDING_UI_PRESENTATION': JSON.stringify('true'),
