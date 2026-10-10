@@ -245,7 +245,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
                 <label className="text-xs">{t('medley.transition')}<select className={field} value={selected.transition} onChange={e => update(selected.id, { transition: e.target.value as StudioBlock['transition'] })}>{(['direct', 'hold', 'pause', 'free'] as const).map(mode => <option value={mode} key={mode}>{t('medley.' + mode)}</option>)}</select></label>
               </div>
               <label className="mt-2 block text-xs">{t('medley.cue')}<textarea className={field + ' min-h-[66px] py-2'} maxLength={300} value={selected.cue} onChange={e => update(selected.id, { cue: e.target.value })} /></label>
-              <ManualMedleyBridgeEditor key={selected.id} cue={selected.cue} onApply={cue => update(selected.id, { cue, transition: 'free' })} />
+              <div key={selected.id}><ManualMedleyBridgeEditor cue={selected.cue} onApply={cue => update(selected.id, { cue, transition: 'free' })} /></div>
               <div className="mt-3">
                 <p className="mb-1 text-xs font-semibold">{t('medleyStudioV2.preview')}</p>
                 <pre className="max-h-72 overflow-auto rounded-lg bg-black/30 p-3 font-mono text-xs leading-5 text-white whitespace-pre">{preview(selected)}</pre>
