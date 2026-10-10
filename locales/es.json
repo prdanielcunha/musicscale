@@ -2192,6 +2192,7 @@
     "invalidRange": "Revisa el inicio y el fin de las líneas."
   },
   "medleyStudioV2": {
+    "tooLarge": "Este medley supera el límite seguro de contenido de la escala (400 KB). Reduce los fragmentos o tablaturas antes de guardar.",
     "split": "Dividir fragmento por la mitad",
     "splitShort": "Dividir",
     "savedTemplates": "Medleys de la organización",
