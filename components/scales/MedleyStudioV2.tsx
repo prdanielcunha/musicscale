@@ -57,6 +57,8 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const [draftEdited, setDraftEdited] = useState(false);
   const [recoverableBlocks, setRecoverableBlocks] = useState<StudioBlock[] | null>(null);
   const hasLaunched = React.useRef(false);
+  const previousFocusRef = React.useRef<HTMLElement | null>(null);
+  const closeButtonRef = React.useRef<HTMLButtonElement>(null);
 
   const steps = history.present;
   const selectedIndex = steps.findIndex(item => item.id === activeId);
@@ -83,6 +85,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const update = (id: string, change: Partial<StudioBlock>) =>
     edit(blocks => blocks.map(item => item.id === id ? { ...item, ...change } : item));
   const start = (medley?: ScaleMedley) => {
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const preferredSongs = [...new Set(initialSongIds || [])].map(id => songMap.get(id)).filter((song): song is PopulatedSong => !!song);
     const blocks = medley ? studioBlocksFromLegacy(medley) : (preferredSongs.length ? preferredSongs : songs.slice(0, 2)).slice(0, 30).map(song => newStudioBlock(song));
     setHistory({ past: [], present: blocks, future: [] });
@@ -105,7 +108,23 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
       start(initialMedley);
     }
   }, [launchImmediately, songs, initialMedley]);
-  const close = () => { setOpen(false); onClose?.(); };
+  const close = () => { setOpen(false); previousFocusRef.current?.focus(); onClose?.(); };
+  React.useEffect(() => {
+    if (!isOpen) return;
+    closeButtonRef.current?.focus();
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); close(); return; }
+      if (!(event.ctrlKey || event.metaKey) || !['z', 'y'].includes(event.key.toLowerCase())) return;
+      const el = event.target;
+      // Retain native undo history in text fields and editable chord controls.
+      if (el instanceof HTMLElement && (el.matches('input, textarea, select') || el.isContentEditable)) return;
+      event.preventDefault();
+      if (event.key.toLowerCase() === 'y' || event.shiftKey) redo();
+      else undo();
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, [isOpen, history.past, history.future, onClose]);
   React.useEffect(() => {
     if (!isOpen || !draftEdited || !draftIdentity || typeof window === 'undefined') return;
     try { saveStudioDraft(draftIdentity, steps, window.sessionStorage); } catch { /* browsing restrictions */ }
@@ -173,7 +192,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
       <div className="mx-auto max-w-[1440px] rounded-2xl border border-white/10 bg-[#090f1c] p-3 shadow-2xl sm:p-5">
         <header className="mb-4 flex items-start justify-between gap-3 border-b border-white/10 pb-4">
           <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-sky-300">{t('medleyStudioV2.studio')}</p><h2 className="text-xl font-bold">{t('medleyStudioV2.title')}</h2><p className="text-xs text-slate-400">{t('medleyStudioV2.noSourceMutation')}</p></div>
-          <button type="button" className={button} aria-label={t('medley.close')} onClick={close}><X size={18} /></button>
+          <button type="button" className={button} aria-label={t('medley.close')} ref={closeButtonRef} onClick={close}><X size={18} /></button>
         </header>
         {recoverableBlocks && <div role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-sky-400/40 bg-sky-500/10 p-3 text-sm">
           <span className="flex-1">{t('medleyStudioV2.recoverDraft')}</span>
