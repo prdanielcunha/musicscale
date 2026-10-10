@@ -2190,5 +2190,27 @@
     "requiresText": "Para elegir un fragmento se necesita letra o cifra en texto.",
     "invalid": "Revisa los fragmentos.",
     "invalidRange": "Revisa el inicio y el fin de las líneas."
+  },
+  "medleyStudioV2": {
+    "title": "Medley Studio 2.0",
+    "subtitle": "Organiza y revisa fragmentos sin cambiar las canciones ni las escalas originales.",
+    "studio": "ESTUDIO DE ARREGLOS",
+    "noSourceMutation": "Las cifras originales nunca se modifican.",
+    "undo": "Deshacer",
+    "redo": "Rehacer",
+    "library": "Canciones de la escala",
+    "search": "Buscar canción, artista o cifra",
+    "emptySearch": "No se encontraron canciones.",
+    "timeline": "Línea de tiempo",
+    "transition": "Puente sugerido",
+    "direct": "Conexión directa",
+    "dominant": "Dominante — revisar musicalmente",
+    "twoFive": "II–V — revisar musicalmente",
+    "manualOnly": "No hay acordes fiables. Ajusta la transición manualmente.",
+    "advisoryOnly": "Las sugerencias musicales nunca se aplican ni reproducen automáticamente.",
+    "inspector": "Editar fragmento",
+    "preview": "Vista previa",
+    "duplicate": "Duplicar fragmento",
+    "chooseBlock": "Elige un fragmento para editar."
   }
 }
