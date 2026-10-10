@@ -2192,6 +2192,9 @@
     "invalidRange": "Confira o início e o fim das linhas."
   },
   "medleyStudioV2": {
+    "discard": "Descartar rascunho",
+    "restore": "Recuperar rascunho",
+    "recoverDraft": "Há um rascunho não publicado deste medley nesta sessão.",
     "useAsCue": "Usar como orientação",
     "templateNameRequired": "Dê um nome ao medley para salvá-lo.",
     "createFromSong": "Criar medley com esta música",
