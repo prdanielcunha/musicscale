@@ -18,6 +18,8 @@ import { useMusic } from "../contexts/MusicDataContext";
 import { useModals } from "../contexts/ModalContext";
 import { useLimits, useAuth } from "../contexts/AuthContext";
 import { useApi } from "../contexts/ApiContext";
+import { useFeatureFlag } from "../hooks/useFeatureFlag";
+import { useCapability } from "../hooks/useCapability";
 import Spinner from "../components/common/Spinner";
 import MusicWorkspaceSkeleton from "../components/common/MusicWorkspaceSkeleton";
 import Card from "../components/common/Card";
@@ -48,6 +50,9 @@ import { updateSongFreshnessInBatch, updateSongLanguageInBatch, updateSongTagIds
 import { FreshnessStatus } from "../types";
 import { BulkManagePanel, PendingBulkChanges } from "../components/songs/BulkManagePanel";
 import { buildSearchIndex, searchSongs, getSearchSnippet } from "../utils/searchEngine";
+
+// Bundle the studio only for authorized organizations that enable its flag.
+const MedleyStudioV2 = React.lazy(() => import('../components/scales/MedleyStudioV2').then(module => ({ default: module.MedleyStudioV2 })));
 
 // Icons
 const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -180,6 +185,11 @@ const SongsPage: React.FC = () => {
   const { userProfile, permissions } = useAuth();
   const canManageRepertoire = !!(permissions?.manageSongs || permissions?.['musicScale.manageSongs'] || permissions?.['musicscale.songs.edit']);
   const api = useApi();
+  const { hasCapability } = useCapability();
+  const canManageScales = hasCapability('musicscale.scales.manage');
+  const medleyStudioEnabled = useFeatureFlag('musicscale.medleyStudioV2');
+  const [medleyStudioOpen, setMedleyStudioOpen] = useState(false);
+  const [medleyStudioSongIds, setMedleyStudioSongIds] = useState<string[]>([]);
   const isOverLimit = songs.length >= limits.maxSongs;
   const isAiImportAllowed = useMusicScaleFeature('aiImport');
   const navigate = useNavigate();
@@ -187,6 +197,14 @@ const SongsPage: React.FC = () => {
   const { allowance, refreshAllowance, loading: allowanceLoading, error: allowanceError } = useStarterPackAllowance();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const songId = searchParams.get('medleySongId');
+    if (!songId || loading || !medleyStudioEnabled || !canManageScales) return;
+    const matches = songs.some(song => song.id === songId);
+    if (matches) { setMedleyStudioSongIds([songId]); setMedleyStudioOpen(true); }
+    setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('medleySongId'); return next; }, { replace: true });
+  }, [loading, songs, searchParams, medleyStudioEnabled, canManageScales, setSearchParams]);
+  useEffect(() => { setMedleyStudioOpen(false); setMedleyStudioSongIds([]); }, [userProfile?.organizationId]);
 
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
@@ -909,6 +927,9 @@ const SongsPage: React.FC = () => {
             </button>
           </div>
 
+          {medleyStudioEnabled && canManageScales && songs.length >= 2 && <Button variant="secondary" onClick={() => { setMedleyStudioSongIds(selectedSongIds.length ? selectedSongIds : []); setMedleyStudioOpen(true); }}>
+            {t('medleyStudioV2.createFromRepertoire')}
+          </Button>}
           <Can I="musicscale.songs.edit">
             <LockedActionButton
               label={t("refinement.aiImport")}
@@ -1329,6 +1350,21 @@ const SongsPage: React.FC = () => {
         </div>
       )}
 
+      {medleyStudioEnabled && canManageScales && medleyStudioOpen && songs.length > 0 && <React.Suspense fallback={<Spinner />}>
+        <MedleyStudioV2
+          songs={songs}
+          medleys={[]}
+          initialSongIds={medleyStudioSongIds}
+          launchImmediately
+          templateOnly
+          onChange={() => { /* templates only: never alter a scheduled scale */ }}
+          onSaveTemplate={async (arrangement, name) => {
+            if (!api || !canManageScales) throw new Error('API unavailable');
+            await api.medleyTemplates.create({ name, arrangement });
+          }}
+          onClose={() => setMedleyStudioOpen(false)}
+        />
+      </React.Suspense>}
       <UpgradePlanModal 
         isOpen={showLimitModal} 
         onClose={() => setShowLimitModal(false)}
