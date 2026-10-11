@@ -60,7 +60,8 @@ describe('Medley Studio durable recovery UI', () => {
     await waitFor(() => expect(memory.writes).toBeGreaterThan(0), { timeout: 2500 });
     expect(screen.queryByTestId('medley-drafts-list')).not.toBeInTheDocument();
     expect(screen.queryByText('medleyStudioV2.localOnly')).not.toBeInTheDocument();
-    expect(within(dialog).getByTestId('medley-save-toast')).toHaveTextContent('medleyStudioV2.draftStatus_saved');
+    expect(await within(dialog).findByTestId('medley-save-toast', {}, { timeout: 2500 }))
+      .toHaveTextContent('medleyStudioV2.draftStatus_saved');
     await waitFor(() => expect(screen.queryByTestId('medley-save-toast')).not.toBeInTheDocument(), { timeout: 3000 });
     first.unmount();
 
