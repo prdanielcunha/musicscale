@@ -25,9 +25,10 @@ interface Props {
   medleys: ScaleMedley[];
   onChange: (medleys: ScaleMedley[]) => void;
   onSaveTemplate?: (medley: ScaleMedley, name: string) => Promise<void>;
+  allowCreate?: boolean;
 }
 
-export function MedleyComposer({ songs, medleys, onChange, onSaveTemplate }: Props) {
+export function MedleyComposer({ songs, medleys, onChange, onSaveTemplate, allowCreate = true }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -111,7 +112,7 @@ export function MedleyComposer({ songs, medleys, onChange, onSaveTemplate }: Pro
     <section className="mt-4 rounded-2xl border border-primary/25 bg-primary/5 p-4 text-slate-800 dark:text-slate-100">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div><h4 className="font-bold">{t('medley.title')}</h4><p className="text-xs text-slate-500 dark:text-slate-400">{t('medley.description')}</p></div>
-        {songs.length >= 2 && <button type="button" className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white" onClick={() => start()}>{t('medley.create')}</button>}
+        {allowCreate && songs.length >= 2 && <button type="button" className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white" onClick={() => start()}>{t('medley.create')}</button>}
       </div>
       {medleys.map(medley => <div key={medley.id} className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/70 p-3 text-sm dark:bg-black/20">
         <span>{t('medley.title')} · {medley.steps.map(step => step.title).join(' → ')}</span>
