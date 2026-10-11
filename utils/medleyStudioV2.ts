@@ -58,6 +58,31 @@ export function groupStudioSongs(blocks: readonly StudioBlock[]): StudioSongGrou
   return groups;
 }
 
+/**
+ * Delete exactly one chronological appearance of a song (including all of its parts).
+ * Other appearances of that same song, even earlier/later in the medley, are untouched.
+ * A cue pointing to the removed appearance must not become a stale bridge to the next song.
+ */
+export function removeStudioSongOccurrence(blocks: readonly StudioBlock[], startIndex: number): StudioBlock[] {
+  const group = groupStudioSongs(blocks).find(item => item.startIndex === startIndex);
+  if (!group) return [...blocks];
+  const next = [
+    ...blocks.slice(0, startIndex),
+    ...blocks.slice(startIndex + group.blocks.length),
+  ];
+  if (startIndex > 0 && next[startIndex - 1]) {
+    next[startIndex - 1] = { ...next[startIndex - 1], transition: 'direct', cue: '' };
+  }
+  return next;
+}
+
+/** Count song appearances rather than individual sections or repeated chords. */
+export function countStudioSongOccurrences(groups: readonly StudioSongGroup[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const group of groups) counts.set(group.songId, (counts.get(group.songId) || 0) + 1);
+  return counts;
+}
+
 export function moveStudioBlock(blocks: StudioBlock[], from: number, to: number): StudioBlock[] {
   if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || from >= blocks.length || to < 0 || to >= blocks.length) return blocks;
   const next = [...blocks];
