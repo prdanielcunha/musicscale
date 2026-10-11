@@ -51,8 +51,14 @@ export class MusicRepository {
                         }
                     };
                     if (data.globalCurationOptOut === true) {
-                        // Do not silently disregard the opt-out if the network is unavailable.
-                        await processSavedSong();
+                        // The local song is ALREADY saved. Surface an explicit partial
+                        // success, so the user does not unknowingly publish globally
+                        // or create a duplicate by retrying the original form.
+                        try {
+                            await processSavedSong();
+                        } catch {
+                            throw new Error('Música salva no Ministério, mas não foi possível confirmar a exclusão global. Não cadastre novamente; procure o suporte para concluir a preferência.');
+                        }
                     } else {
                         void processSavedSong().catch(error => {
                             console.error('[MusicRepository] Global curation queued but immediate processing unavailable', error);
