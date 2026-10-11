@@ -381,7 +381,11 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
         if (!onSaveTemplate || !templateName.trim()) throw new Error('medleyStudioV2.templateNameRequired');
         setSavingTemplate(true);
         try { await onSaveTemplate(result, templateName.trim(), setSaveProgress); }
-        catch { throw new Error('medley.templateSaveFailed'); }
+        catch (cause) {
+          const code = cause instanceof Error ? cause.message : '';
+          if (code.startsWith('medleyStudioV2.') || code.startsWith('medley.')) throw cause;
+          throw new Error('medley.templateSaveFailed');
+        }
         finally { setSavingTemplate(false); }
       } else {
         onChange([...medleys.filter(item => item.id !== editingId), result]);
@@ -400,7 +404,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'medley.invalid';
       setSaveProgress('');
-      setError(message.startsWith('medley.') ? t(message) : message);
+      setError(message.startsWith('medley.') || message.startsWith('medleyStudioV2.') ? t(message) : message);
     }
   };
   const preview = (block: StudioBlock): string => {
