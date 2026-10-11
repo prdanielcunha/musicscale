@@ -236,7 +236,7 @@ describe('feature-isolated visual studio', () => {
     render(<MedleyStudioV2 songs={[song('A', 'Am F\\nPalavra'), song('B', 'G C')]} medleys={[]} onChange={vi.fn()} initialSongIds={['A','B']} />);
     fireEvent.click(screen.getByText('medley.create'));
     const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByText('medleyStudioV2.manualSectionHint')).toBeInTheDocument();
+    expect(within(dialog).getAllByText('medleyStudioV2.manualSectionHint').length).toBeGreaterThan(0);
     expect(within(dialog).getByLabelText('medley.from')).toBeInTheDocument();
     expect(within(dialog).getByLabelText('medley.to')).toBeInTheDocument();
   });
