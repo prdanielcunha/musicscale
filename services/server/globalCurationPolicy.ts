@@ -14,13 +14,20 @@ export function canOptOutOfGlobalCuration(userData: Record<string, unknown> | nu
   });
 }
 
-/** Default is mandatory inclusion; only a verified global actor can opt out. */
-export async function isVerifiedGlobalCurationOptOut(song: any, db: any): Promise<boolean> {
+/**
+ * Opt-out authority is a server-only document written AFTER bearer-token
+ * verification. A client-created song field never grants this exemption.
+ */
+export async function isVerifiedGlobalCurationOptOut(
+  song: any, songId: string, db: any
+): Promise<boolean> {
   if (song?.globalCurationOptOut !== true) return false;
-  const uid = song?.createdBy?.uid;
-  if (typeof uid !== 'string' || !uid.trim()) return false;
-  // Fail closed if the authoritative identity service is unavailable: do not
-  // publish a song while the authorization of an opt-out request is unknown.
-  const snapshot = await db.collection('users').doc(uid).get();
-  return snapshot.exists && canOptOutOfGlobalCuration(snapshot.data());
+  if (typeof songId !== 'string' || !songId.trim()) return false;
+  const creatorUid = song?.createdBy?.uid;
+  const orgId = song?.organizationId;
+  if (!creatorUid || !orgId) return false;
+  const record = await db.collection('globalCurationOptOuts').doc(songId).get();
+  if (!record.exists) return false;
+  const data = record.data() || {};
+  return data.userId === creatorUid && data.organizationId === orgId;
 }
