@@ -33,6 +33,7 @@ import { VideoIcon } from "../icons/VideoIcon";
 import { LyricsIcon } from "../icons/LyricsIcon";
 import WebViewerModal from "../common/WebViewerModal";
 import LyricsViewerModal from "./LyricsViewerModal";
+import GenerateLyricsDialog from "./GenerateLyricsDialog";
 import TechnicalPartsModal from "./TechnicalPartsModal";
 import { buildSongParts, getFocusedSongParts } from "./songParts";
 import Metronome from "../common/Metronome";
@@ -309,7 +310,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
   const { t } = useTranslation();
   const { enabled: medleyStudioEnabled } = useMedleyStudioV2Pilot();
   const api = useApi();
-  const { songs, populatedScales: scales } = useMusic();
+  const { songs, populatedScales: scales, refreshData } = useMusic();
   const { openScaleDetail, saveChord, isSubmitting, openFeedback, openPersistedChordKeyRepair } = useModals();
   const { feedbackToast } = useToast();
   const { userProfile } = useAuth();
@@ -326,6 +327,7 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
   const [isChordsViewerOpen, setIsChordsViewerOpen] = useState(false);
   const [isWebViewerOpen, setIsWebViewerOpen] = useState(false);
   const [isLyricsViewerOpen, setIsLyricsViewerOpen] = useState(false);
+  const [isGenerateLyricsOpen, setIsGenerateLyricsOpen] = useState(false);
   const [isTechnicalPartsOpen, setIsTechnicalPartsOpen] = useState(false);
   const songParts = useMemo(() => buildSongParts(song), [song]);
   const focusedSongParts = useMemo(
@@ -643,6 +645,12 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
                           <ChordsIcon className="w-4 h-4 text-indigo-400" /> Cifra
                        </button>
                     )}
+                    {canManageSongs && !song.lyrics?.trim() && !!song.chords?.trim() && !scaleContext && (
+                       <button type="button" onClick={() => setIsGenerateLyricsOpen(true)}
+                         className="h-12 rounded-[14px] border border-indigo-400/25 bg-indigo-500/10 px-3 text-sm font-semibold text-indigo-200 hover:bg-indigo-500/20">
+                         {t('lyricsGeneration.generate')}
+                       </button>
+                    )}
                     {song.lyrics && (
                        <button onClick={() => setIsLyricsViewerOpen(true)} className="h-12 rounded-[14px] bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] text-white font-semibold text-[14px] flex items-center justify-center gap-2 transition-all active:scale-[0.98]">
                           <LyricsIcon className="w-4 h-4 text-emerald-400" /> Letra
@@ -829,6 +837,16 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
         onNavigate={onNavigate}
       />
 
+      {isGenerateLyricsOpen && (
+        <GenerateLyricsDialog
+          song={song}
+          onClose={() => setIsGenerateLyricsOpen(false)}
+          onSaved={async (songId, lyrics) => {
+            setSong(previous => previous?.id === songId ? { ...previous, lyrics } : previous);
+            await refreshData();
+          }}
+        />
+      )}
       <LyricsViewerModal
         isOpen={isLyricsViewerOpen}
         onClose={handleClosePerformance}
