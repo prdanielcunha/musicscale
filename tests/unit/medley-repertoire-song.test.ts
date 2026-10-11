@@ -40,6 +40,24 @@ describe('medley as normal repertoire song', () => {
     expect(original.chords).toBe('[Refrão]\nG       C\nDeus é fiel');
   });
 
+  it('provides default key and BPM for normal Pads / metronome and retains per-part changes', () => {
+    const first = source('A', 'G C\nMeu louvor');
+    first.rhythm = '4/4';
+    const second = source('B', 'Am F\nMinha fé');
+    const arranged = medley(
+      excerpt('A', first.chords, { key: 'G' }),
+      excerpt('B', second.chords, { songId: 'B', key: 'Am', bpm: 76 }),
+    );
+    const result = buildMedleyRepertoireSong(arranged, 'Medley completo', [first, second]);
+    expect(result.key).toBe('G');
+    expect(result.selectedKey).toBe('G');
+    expect(result.originalKey).toBe('G');
+    expect(result.bpm).toBe(76);
+    expect(result.rhythm).toBe('4/4');
+    expect(result.metadata?.medley?.sections.map((section: { key: string; bpm: number | null }) => [section.key, section.bpm]))
+      .toEqual([['G', null], ['Am', 76]]);
+  });
+
   it('uses independent lyrics only for a full chart, without mismatching selected lines', () => {
     const original = source('A', 'G   C\nD   G', 'Eu te amo\nSenhor');
     const full = medley(excerpt('A', original.chords));
