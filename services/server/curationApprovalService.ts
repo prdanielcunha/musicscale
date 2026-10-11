@@ -22,6 +22,8 @@ export interface CurationApprovalParams {
     occurrenceId: string;
     idempotencyKey: string;
     decodedToken: { uid: string; hasCurationAccess?: boolean; [key: string]: any };
+    /** Internal processor only. Never accepted from HTTP client payloads. */
+    automated?: boolean;
 }
 
 export type CurationErrorCode =
@@ -60,7 +62,7 @@ export class CurationApprovalService {
 
     async approve(params: CurationApprovalParams) {
         const { db, admin, logger } = this.deps;
-        const { candidateId, occurrenceId, idempotencyKey, decodedToken } = params;
+        const { candidateId, occurrenceId, idempotencyKey, decodedToken, automated = false } = params;
 
         const safeCandidateId = normalizedOptionalString(candidateId, 'candidateId', 'VALIDATION_ERROR');
         const safeOccurrenceId = normalizedOptionalString(occurrenceId, 'occurrenceId', 'VALIDATION_ERROR');
@@ -112,6 +114,16 @@ export class CurationApprovalService {
             }
             const occData = occSnap.data() as any;
             const snapshot = occData.snapshot;
+            if (automated && (
+                candidateData.classification !== 'likely_unique' ||
+                candidateData.occurrenceCount !== 1 ||
+                (candidateData.analysisSummary?.warningCodes || []).length > 0 ||
+                !occData.normalizedIdentity?.lyricsFingerprint ||
+                !Array.isArray(occData.normalizedIdentity?.normalizedArtists) ||
+                occData.normalizedIdentity.normalizedArtists.length === 0
+            )) {
+                throw new CurationError('CANDIDATE_STATE_INVALID', 'Revisão humana obrigatória para candidata inconclusiva.', 409);
+            }
 
             const occurrencesSnap = await t.get(candidateRef.collection('occurrences'));
 
@@ -130,7 +142,9 @@ export class CurationApprovalService {
             const fContent = normalizedOptionalString(canonical.contentFingerprint, 'contentFingerprint', 'CANONICAL_IDENTITY_INVALID') || '';
             const baseId = normTitle ? normTitle + "_" + normArtists.join('_') : '';
             
-            const reservationId = fContent || fLyrics || baseId;
+            // Automatic publication reserves lyrics identity across alternate titles
+            // and artists; two concurrent uploads cannot each claim to be unique.
+            const reservationId = automated ? (fLyrics || fContent || baseId) : (fContent || fLyrics || baseId);
 
             if (!normalizedOptionalString(reservationId, 'reservationId', 'CANONICAL_IDENTITY_INVALID') || reservationId === '_') {
                 throw new CurationError('CANONICAL_IDENTITY_INVALID', 'Identidade da candidata inválida (título normalizado ausente).', 400);
@@ -199,6 +213,9 @@ export class CurationApprovalService {
                 }
             }
 
+            if (automated && titleQuery.docs.length > 0) {
+                throw new CurationError('DUPLICATE_GLOBAL_SONG', 'Identidade semelhante encontrada na rechecagem.', 409);
+            }
             for (const docSnap of titleQuery.docs) {
                 const globalSong = docSnap.data();
                 const comparisonObj = {
@@ -239,6 +256,14 @@ export class CurationApprovalService {
             }
 
             const primaryArtist = normArtists[0] || snapshot.artist || '';
+            const sourceSong = sourceSongMap.get(occData.source?.songId)?.songSnap?.data() || {};
+            const sourceContributor = sourceSong.createdBy || {};
+            const contribution = {
+                userId: typeof sourceContributor.uid === 'string' ? sourceContributor.uid : '',
+                userName: typeof sourceContributor.displayName === 'string' ? sourceContributor.displayName : '',
+                organizationId: typeof occData.source?.organizationId === 'string' ? occData.source.organizationId : '',
+                songId: typeof occData.source?.songId === 'string' ? occData.source.songId : ''
+            };
             const safeSnapshotTitle = normalizedOptionalString(snapshot.title, 'snapshot.title', 'OCCURRENCE_SNAPSHOT_INVALID')!;
             const newGlobalSong = {
                 title: safeSnapshotTitle,
@@ -264,6 +289,10 @@ export class CurationApprovalService {
                 normalizedArtists: safeCanonical.normalizedArtists,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 createdBy: safeUid,
+                contribution,
+                sourceOrganizationId: contribution.organizationId,
+                sourceSongId: contribution.songId,
+                publicationMethod: automated ? 'automatic_curation' : 'human_curation',
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 status: 'active',
                 importCount: 0
@@ -294,7 +323,7 @@ export class CurationApprovalService {
                 const serverTimestamp = admin.firestore.FieldValue.serverTimestamp();
                 const logData = {
                     eventType: 'approved',
-                    actorType: 'admin',
+                    actorType: automated ? 'system' : 'admin',
                     actorId: safeUid,
                     resultingGlobalSongId: globalSongRef.id,
                     schemaVersion: 1,
@@ -305,7 +334,7 @@ export class CurationApprovalService {
                         sourceSongId: occData.source?.songId || null,
                         sourceCandidateId: safeCandidateId,
                     },
-                    action: 'approved_as_new',
+                    action: automated ? 'automatically_approved_as_unique' : 'approved_as_new',
                     actorUid: safeUid,
                     createdAt: serverTimestamp
                 };

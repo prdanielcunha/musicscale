@@ -289,6 +289,8 @@ export interface Song {
   chordsLastModifiedBy?: CreatedBy | null;
   chordsLastModifiedAt?: string | null; // ISO date string
   originGlobalSongId?: string; // Reference to the global library song
+  /** Optional request; backend only honors opt-out for verified ecosystem roles. */
+  globalCurationOptOut?: boolean;
   bandNotes?: string; // Internal band comments/observations for this song
   tabs?: { section: string, content: string }[];
   metadata?: any;

@@ -1989,6 +1989,8 @@
     "errorEmpty": "Paste lyrics or chords to continue.",
     "processButton": "Process with AI",
     "saveDestination": "Save Destination",
+    "globalCurationLabel": "Send to Living Library (Global)",
+    "globalCurationDescription": "Smart curation checks duplicates. Verified new songs are published automatically; uncertain matches go to review.",
     "pasteClipboard": "Paste from clipboard",
     "preview": {
       "titleField": "Title",

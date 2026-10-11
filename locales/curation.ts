@@ -14,6 +14,14 @@ export const curationTranslations = {
       backfillSuccess: "Backfill concluído! {{updated}} atualizadas de {{processed}} verificadas.",
       errorPrefix: "Erro: {{error}}"
     },
+    added: {
+      title: "Adicionadas à Biblioteca Viva",
+      view: "Ver histórico", hide: "Ocultar",
+      description: "Últimas 50 publicações globais, com origem e responsável.",
+      loading: "Carregando publicações...", error: "Não foi possível carregar o histórico. Feche e abra novamente para tentar.",
+      empty: "Nenhuma publicação encontrada.", by: "Por", organization: "Organização",
+      unknown: "Não informado"
+    },
     filters: {
       all: "Todas",
       pending_review: "Aguardando Revisão",
@@ -78,6 +86,14 @@ export const curationTranslations = {
       backfillSuccess: "Backfill complete! {{updated}} updated out of {{processed}} checked.",
       errorPrefix: "Error: {{error}}"
     },
+    added: {
+      title: "Added to the Living Library",
+      view: "View history", hide: "Hide",
+      description: "Last 50 global publications, including source and contributor.",
+      loading: "Loading publications...", error: "Unable to load history. Close and reopen to try again.",
+      empty: "No publications found.", by: "By", organization: "Organization",
+      unknown: "Not available"
+    },
     filters: {
       all: "All",
       pending_review: "Awaiting Review",
@@ -141,6 +157,14 @@ export const curationTranslations = {
       reanalysisSuccess: "¡Reanálisis completado! {{count}} candidatas procesadas.",
       backfillSuccess: "¡Backfill completado! {{updated}} actualizadas de {{processed}} verificadas.",
       errorPrefix: "Error: {{error}}"
+    },
+    added: {
+      title: "Añadidas a la Biblioteca Viva",
+      view: "Ver historial", hide: "Ocultar",
+      description: "Últimas 50 publicaciones globales, con origen y responsable.",
+      loading: "Cargando publicaciones...", error: "No se pudo cargar el historial. Cierra y vuelve a abrir para intentarlo.",
+      empty: "No se encontraron publicaciones.", by: "Por", organization: "Organización",
+      unknown: "No disponible"
     },
     filters: {
       all: "Todas",

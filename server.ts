@@ -61,6 +61,7 @@ import { createInvitationCompatibilityHandlers } from "./services/server/musicSc
 import { createJoinRequestCompatibilityHandlers } from "./services/server/musicScaleJoinRequestCompatibility.js";
 import { createMemberRemovalCompatibilityHandler } from "./services/server/musicScaleMemberRemovalCompatibility.js";
 import { runSongDiscoveryProcessor } from "./services/server/songDiscoveryProcessor.js";
+import { canOptOutOfGlobalCuration } from './services/server/globalCurationPolicy.js';
 import { SongDiscoveryInboxService } from "./services/server/songDiscoveryInboxService.js";
 import { analyzeInboxBatch } from "./services/server/songInboxAnalyzer.js";
 import { fixCandidatesWithoutTitle } from "./services/server/fixCandidatesWithoutTitle.js";
@@ -5582,13 +5583,75 @@ app.post("/api/admin/songs-for-reprocessing", requireEcosystemRole, async (req: 
     }
 });
 
+
+/** Administrator-only audit list of actual global publications (not merely submissions). */
+app.get('/api/curation/recently-added', requireEcosystemRole, async (_req: any, res: any) => {
+  try {
+    if (!db) return res.status(503).json({ error: 'SERVICE_UNAVAILABLE' });
+    const published = await db.collection('globalSongs')
+      .orderBy('createdAt', 'desc').limit(50).get();
+    const rows = published.docs
+      .map((doc: any) => ({ id: doc.id, ...doc.data() }))
+      .filter((row: any) => row.status === 'active');
+    const organizationIds = [...new Set(rows.map((row: any) =>
+      row.contribution?.organizationId || row.sourceOrganizationId || ''
+    ).filter(Boolean))] as string[];
+    const organizationNames = new Map<string, string>();
+    await Promise.all(organizationIds.map(async id => {
+      const snapshot = await db.collection('organizations').doc(id).get();
+      if (snapshot.exists) {
+        const org = snapshot.data() || {};
+        organizationNames.set(id, org.name || org.displayName || '');
+      }
+    }));
+    return res.json({
+      songs: rows.map((row: any) => {
+        const orgId = row.contribution?.organizationId || row.sourceOrganizationId || '';
+        const creator = row.contribution || {};
+        const legacyCreator = row.createdBy || {};
+        const publicationDate = typeof row.createdAt?.toDate === 'function'
+          ? row.createdAt.toDate().toISOString()
+          : typeof row.createdAt === 'string' ? row.createdAt : null;
+        return {
+          id: row.id,
+          title: row.title || '',
+          artist: row.artist || '',
+          addedAt: publicationDate,
+          addedBy: creator.userName || (typeof legacyCreator === 'object' ? legacyCreator.displayName || '' : '') || '',
+          addedByUid: creator.userId || (typeof legacyCreator === 'string' ? legacyCreator : legacyCreator.uid || ''),
+          organizationId: orgId,
+          organizationName: organizationNames.get(orgId) || '',
+          publicationMethod: row.publicationMethod || 'legacy'
+        };
+      })
+    });
+  } catch (error) {
+    logger.error('[Curadoria] Unable to list recently added global songs', error);
+    return res.status(500).json({ error: 'RECENTLY_ADDED_UNAVAILABLE' });
+  }
+});
+
 app.post("/api/curation/auto-process-song", async (req: any, res: any) => {
       try {
           if (!db) {
               return res.status(500).json({ error: "Banco de dados não carregado." });
           }
 
-          const { songId } = req.body;
+          // This endpoint previously processed arbitrary cross-tenant song IDs.
+          // It now requires the verified creator's bearer token.
+          const bearer = typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
+          if (!bearer.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'UNAUTHORIZED' });
+          }
+          let actorUid: string;
+          try {
+            const decoded = await auth.verifyIdToken(bearer.slice(7), true);
+            actorUid = decoded.uid;
+          } catch {
+            return res.status(401).json({ error: 'INVALID_TOKEN' });
+          }
+
+          const { songId } = req.body || {};
           if (!songId || typeof songId !== 'string' || songId.trim().length === 0) {
               return res.status(400).json({ error: "O parâmetro songId é obrigatório e deve ser uma string não vazia." });
           }
@@ -5601,10 +5664,29 @@ app.post("/api/curation/auto-process-song", async (req: any, res: any) => {
           }
 
           const songData = songSnap.data();
+          // The verified actor must be the original creator; never trust an
+          // arbitrary songId or organizationId from the client.
+          if (!songData?.createdBy?.uid || songData.createdBy.uid !== actorUid) {
+            return res.status(403).json({ error: 'SOURCE_CREATOR_MISMATCH' });
+          }
           const organizationId = songData?.organizationId;
 
           if (!organizationId) {
               return res.json({ outcome: "ignored", reasonCode: "MISSING_ORGANIZATION_ID" });
+          }
+
+          if (songData.globalCurationOptOut === true) {
+              const actorSnapshot = await db.collection('users').doc(actorUid).get();
+              if (actorSnapshot.exists && canOptOutOfGlobalCuration(actorSnapshot.data())) {
+                  // Only this authenticated, canonical global user can establish
+                  // the server-only exemption. Firestore clients cannot forge it.
+                  await db.collection('globalCurationOptOuts').doc(trimmedSongId).set({
+                      userId: actorUid,
+                      organizationId,
+                      verifiedAt: admin.firestore.FieldValue.serverTimestamp()
+                  }, { merge: true });
+              }
+              // An ordinary member's forged flag is ignored: curation remains on.
           }
 
           const result = await runSongDiscoveryProcessor(songData, trimmedSongId, organizationId, db);

@@ -6,7 +6,7 @@ if (getApps().length === 0) {
 
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import * as logger from 'firebase-functions/logger';
-import { processLocalSongWritten } from './processor.js'; 
+import { processLocalSongWritten } from './processor.js';
 import { processGlobalSongContentMetricsWritten } from './globalSongMetricsProcessor.js';
 
 export * from './notifications.js';
@@ -43,6 +43,8 @@ export const onLocalSongWritten = onDocumentWritten(
     
     try {
       await processLocalSongWritten(change.after, songId, organizationId);
+
+
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : "Unknown error";
       logger.error('Error processing song write', {

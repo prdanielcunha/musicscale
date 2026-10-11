@@ -12,6 +12,7 @@ import { CandidateDetailsModal } from '../components/curation/CandidateDetailsMo
 import { OrganizationScannerModal } from '../components/curation/OrganizationScannerModal';
 import { InboxAnalysisModal } from '../components/curation/InboxAnalysisModal';
 import { ImportCandidatesModal } from '../components/curation/ImportCandidatesModal';
+import { RecentlyAddedSongs } from '../components/curation/RecentlyAddedSongs';
 
 export default function CurationPage() {
   const { isCurationAdmin, user } = useAuth();
@@ -246,6 +247,8 @@ export default function CurationPage() {
           </div>
         )}
       </div>
+
+      {isCurationAdmin && <RecentlyAddedSongs />}
 
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
          <div className="flex bg-white dark:bg-[#1A1A1A] p-1 rounded-xl shadow-sm border border-slate-200 dark:border-white/10 overflow-x-auto w-full sm:w-auto">

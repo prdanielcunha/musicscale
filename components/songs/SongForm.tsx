@@ -39,8 +39,9 @@ const SongForm: React.FC<SongFormProps> = ({
 }) => {
   const { t } = useTranslation();
   const { openDraftChordKeyRepair } = useModals();
-  const { userProfile, permissions, organization } = useAuth();
+  const { userProfile, permissions, organization, isSupportMode } = useAuth();
   const { isEcosystemAdmin } = useEcosystemAdmin();
+  const mayOptOutOfGlobalCuration = isEcosystemAdmin || isSupportMode;
   const canManageRepertoire = !!(permissions?.manageSongs || permissions?.['musicScale.manageSongs']);
   const canManageChords = !!(permissions?.manageSongs || permissions?.['musicScale.manageSongs'] || permissions?.manageChords || permissions?.['musicscale.chords.edit']);
 
@@ -65,7 +66,7 @@ const SongForm: React.FC<SongFormProps> = ({
 
   const [options, setOptions] = useState({
     saveToOrganization: defaultOptions?.saveToOrganization ?? true,
-    saveToGlobalLibrary: defaultOptions?.saveToGlobalLibrary ?? false,
+    saveToGlobalLibrary: defaultOptions?.saveToGlobalLibrary ?? true,
   });
 
   const handleChange = (
@@ -171,7 +172,7 @@ const SongForm: React.FC<SongFormProps> = ({
         metadata: { ...formMetadata },
       };
       // Type casting because the type might expect other things that are implicitly excluded or included
-      onSave(songDataForNew as any, options);
+      onSave({ ...songDataForNew, globalCurationOptOut: mayOptOutOfGlobalCuration && !options.saveToGlobalLibrary } as any, { saveToOrganization: true, saveToGlobalLibrary: mayOptOutOfGlobalCuration ? options.saveToGlobalLibrary : true });
     }
   };
 
@@ -457,7 +458,8 @@ const SongForm: React.FC<SongFormProps> = ({
             <input
               type="checkbox"
               name="saveToOrganization"
-              checked={options.saveToOrganization}
+              checked={true}
+              disabled
               onChange={handleChange}
               className="h-5 w-5 rounded bg-slate-200 dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-primary focus:ring-primary-dark"
             />
@@ -470,7 +472,7 @@ const SongForm: React.FC<SongFormProps> = ({
             </div>
           </label>
 
-          {isEcosystemAdmin && (
+          {mayOptOutOfGlobalCuration && !songToEdit && (
             <label
               className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${options.saveToGlobalLibrary ? 'bg-orange-500/5 border-orange-500/20 ring-1 ring-orange-500/20' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10'}`}
             >
@@ -484,9 +486,9 @@ const SongForm: React.FC<SongFormProps> = ({
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <Globe className={`w-4 h-4 ${options.saveToGlobalLibrary ? 'text-orange-500' : 'text-slate-400'}`} />
-                  <span className={`text-sm font-bold ${options.saveToGlobalLibrary ? 'text-orange-500' : 'text-slate-700 dark:text-gray-300'}`}>Salvar também na Biblioteca Viva MusicScale</span>
+                  <span className={`text-sm font-bold ${options.saveToGlobalLibrary ? 'text-orange-500' : 'text-slate-700 dark:text-gray-300'}`}>{t("aiImport.globalCurationLabel", "Enviar à Biblioteca Viva (Global)")}</span>
                 </div>
-                <p className="text-xs text-slate-500 mt-0.5">Estará disponível publicamente na Biblioteca Viva</p>
+                <p className="text-xs text-slate-500 mt-0.5">{t("aiImport.globalCurationDescription", "A Curadoria inteligente verifica duplicidades. Músicas inéditas são publicadas automaticamente; casos duvidosos vão para aprovação.")}</p>
               </div>
             </label>
           )}
@@ -499,7 +501,7 @@ const SongForm: React.FC<SongFormProps> = ({
         </Button>
         <Button
           type="submit"
-          disabled={isSubmitting || (!canManageRepertoire && !canManageChords) || (!options.saveToOrganization && !options.saveToGlobalLibrary)}
+          disabled={isSubmitting || (!canManageRepertoire && !canManageChords)}
         >
           {isSubmitting
             ? "Salvando..."

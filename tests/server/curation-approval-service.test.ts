@@ -434,6 +434,75 @@ describe('CurationApprovalService', () => {
         await service.approve(defaultParams);
         expect(myT.sets.length).toBe(2); // reservation, globalSong
     });
+    it('17a. autopublicação rejeita candidata inconclusiva sem efetuar writes', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', {
+            exists: true,
+            data: () => ({ ...stdCandidate, classification: 'possible_duplicate', occurrenceCount: 1, analysisSummary: { warningCodes: [] } })
+        });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', {
+            exists: true,
+            data: () => ({ ...stdOccurrence, normalizedIdentity: { lyricsFingerprint: 'hash', normalizedArtists: ['artist'] } })
+        });
+        await expect(service.approve({ ...defaultParams, automated: true })).rejects.toMatchObject({
+            code: 'CANDIDATE_STATE_INVALID'
+        });
+        expect(myT.sets).toHaveLength(0);
+        expect(myT.updates).toHaveLength(0);
+    });
+
+    it('17b. autopublicação valida outra música de mesmo título na transação', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', {
+            exists: true,
+            data: () => ({
+                ...stdCandidate, classification: 'likely_unique', occurrenceCount: 1,
+                analysisSummary: { warningCodes: [] },
+                canonicalIdentity: { normalizedTitle: 'A', normalizedArtists: ['artist'], lyricsFingerprint: 'hash' }
+            })
+        });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', {
+            exists: true,
+            data: () => ({ ...stdOccurrence, normalizedIdentity: { lyricsFingerprint: 'hash', normalizedArtists: ['artist'] } })
+        });
+        myT.registerQuery('globalSongs_query', [{ id: 'existing-song', data: () => ({ title: 'A' }) }]);
+        await expect(service.approve({ ...defaultParams, automated: true })).rejects.toMatchObject({
+            code: 'DUPLICATE_GLOBAL_SONG'
+        });
+        expect(myT.sets).toHaveLength(0);
+    });
+
+    it('17c. autopublicação grava autor original, organização e decisão do sistema', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', {
+            exists: true,
+            data: () => ({
+                ...stdCandidate, classification: 'likely_unique', occurrenceCount: 1,
+                analysisSummary: { warningCodes: [] },
+                canonicalIdentity: { normalizedTitle: 'A', normalizedArtists: ['artist'], lyricsFingerprint: 'hash' }
+            })
+        });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', {
+            exists: true,
+            data: () => ({
+                ...stdOccurrence, normalizedIdentity: { lyricsFingerprint: 'hash', normalizedArtists: ['artist'] },
+                source: { organizationId: 'org1', songId: 'song1' }
+            })
+        });
+        myT.registerQuery('globalLibraryCandidates/c1/occurrences', [
+            { id: 'o1', data: () => ({ source: { organizationId: 'org1', songId: 'song1' } }) }
+        ]);
+        myT.registerDocument('songs/song1', {
+            exists: true,
+            data: () => ({ organizationId: 'org1', createdBy: { uid: 'musician1', displayName: 'Musicista' } })
+        });
+        const result = await service.approve({ ...defaultParams, automated: true });
+        expect(result.success).toBe(true);
+        const published = myT.sets.find(item => item.data?.publicationMethod === 'automatic_curation');
+        expect(published.data.contribution).toMatchObject({
+            userId: 'musician1', userName: 'Musicista', organizationId: 'org1', songId: 'song1'
+        });
+        const audit = myT.sets.find(item => item.data?.action === 'automatically_approved_as_unique');
+        expect(audit.data.actorType).toBe('system');
+    });
+
     it('18. duplicidade de ocorrências atualiza o local song apenas uma vez', async () => {
         myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => stdCandidate });
         myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => stdOccurrence });
