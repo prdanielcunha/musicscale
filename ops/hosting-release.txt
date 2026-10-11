@@ -1,3 +1,8 @@
+MusicScale 0.11.0-beta.10 — 2026-10-11
+Novo fluxo do Medley Studio: etapa Músicas exclusiva para escolher, ordenar e remover músicas; etapa Partes com todas as seções selecionadas inicialmente e opção de desmarcar apenas as desejadas; botão Adicionar música logo após a última música na etapa de partes.
+Mantém alterações de rascunhos beta.9, progressão por pontes e revisão, cifras e letras originais, snapshots, A→B→A, permissões canônicas, dados e assinaturas dos clientes, i18n PT/EN/ES. Sem mudanças de Firestore Rules, Functions, Auth, billing, migrations ou exclusões.
+Promoção somente com QA do SHA exato, fast-forward main→production sem força, deploy oficial Firebase Hosting e verificação de /version.json + smoke das rotas.
+
 MusicScale 0.11.0-beta.9 — 2026-10-11
 UX mobile do Medley Studio: ao salvar rascunho automaticamente no dispositivo, mostrar apenas toast curto "Salvo", sem faixa fixa nem painel enorme de rascunhos dentro do editor.
 Caso o medley seja interrompido, ao abrir novamente o editor mostrar pergunta compacta "Continuar de onde parou?" com opções Continuar ou Criar novo; preserva rascunhos antigos e permite acessar versões adicionais de forma recolhida, sem títulos quebrados no iPhone.
