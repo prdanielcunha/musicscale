@@ -1081,6 +1081,7 @@ const SongsPage: React.FC = () => {
                   song={song}
                   onView={openSongDetail}
                   onEdit={openSongForm}
+                  onGeneratedLyrics={() => void refreshData()}
                   onDelete={openDeleteSongConfirmation}
                   onCreateScale={(s) =>
                     navigate("/scales", { state: { preselectedSongIds: [s.id] } })
