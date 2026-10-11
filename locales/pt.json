@@ -2320,7 +2320,7 @@
     "preview": "Prévia do trecho",
     "duplicate": "Duplicar trecho",
     "chooseBlock": "Selecione um trecho para editar.",
-    "multiSelectHint": "Toque em várias partes. A ordem segue a cifra; toque novamente para desmarcar.",
+    "multiSelectHint": "Todas as partes começam selecionadas. Toque para desmarcar ou remarcar; a ordem segue a cifra.",
     "addSongAgain": "Adicionar outra entrada",
     "quickArrange": "Trechos desta entrada",
     "advancedEdit": "Editar detalhes",
