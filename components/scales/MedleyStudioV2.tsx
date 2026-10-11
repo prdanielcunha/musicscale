@@ -455,6 +455,14 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
         <div role="status" aria-live="polite" data-testid="medley-draft-status" className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
           <span className={draftStatus === 'failed' || draftStatus === 'conflict' ? 'text-rose-300' : 'text-sky-300'}>{t('medleyStudioV2.draftStatus_' + draftStatus)}</span>
           <span>{t('medleyStudioV2.localOnly')}</span>
+          {draftStatus === 'failed' && draftIdentity && draftIdRef.current && <button type="button" className={button} onClick={() => {
+            if (draftIdRef.current && draftIdentity) void persist(draftIdentity, draftIdRef.current, snapshot());
+          }}>{t('medleyStudioV2.retryDraft')}</button>}
+          {draftStatus === 'conflict' && draftIdentity && <button type="button" className={button} onClick={() => {
+            const copyId = crypto.randomUUID();
+            draftIdRef.current = copyId;
+            void persist(draftIdentity, copyId, { ...snapshot(), name: (templateName + ' ' + t('medleyStudioV2.copySuffix')).slice(0, 120) });
+          }}>{t('medleyStudioV2.saveConflictCopy')}</button>}
         </div>
         {durableDrafts.length > 0 && <section data-testid="medley-drafts-list" aria-label={t('medleyStudioV2.myDrafts')} className="mb-3 rounded-xl border border-sky-400/30 bg-sky-500/5 p-3">
           <h3 className="mb-2 text-sm font-semibold text-sky-200">{t('medleyStudioV2.myDrafts')}</h3>
