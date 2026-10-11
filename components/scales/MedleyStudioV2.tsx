@@ -689,7 +689,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
                <button type="button" className={button + ' mt-3 w-full border-dashed border-sky-500/30 text-sky-200'} disabled={steps.length >= 30} onClick={() => { addSelectedPart(last.id); goToStage(2); }}><Plus size={16} className="mr-2" />{t('medleyStudioV2.addPart')}</button>
              </li>;
            })}</ol>
-           <p className="mt-3 text-xs text-slate-400">{t('medleyStudioV2.draftNotPublished')}</p>
+           <p className="mt-3 text-xs text-slate-400">{t(templateOnly ? 'medleyStudioV2.readyToSaveSong' : 'medleyStudioV2.draftNotPublished')}</p>
         </section>}
         {stage === 4 && <section className="mt-4 rounded-xl border border-white/10 bg-[#101a2a] p-3">
           <button type="button" className={button + ' w-full justify-between'} aria-expanded={showFullPreview} onClick={() => setShowFullPreview(value => !value)}>{t('medleyStudioV2.fullPreview')} <span>{showFullPreview ? '−' : '+'}</span></button>
@@ -703,12 +703,12 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
         {error && <p role="alert" className="mt-3 rounded-xl border border-rose-400/40 p-3 text-sm text-rose-300">{error}</p>}
         {savingTemplate && templateOnly && <p role="status" aria-live="polite" data-testid="medley-save-progress" className="mt-3 rounded-xl border border-sky-400/30 bg-sky-500/10 p-3 text-sm text-sky-200">{saveProgress || t('medleyStudioV2.preparingRepertoire')}</p>}
         <footer className="sticky bottom-0 z-10 mt-4 flex flex-wrap justify-end gap-2 border-t border-white/10 bg-[#090f1c] py-3 pb-[max(16px,env(safe-area-inset-bottom))]">
-          {templateOnly && <label className="min-w-[200px] flex-1 text-xs text-slate-300">{t('medley.templateName')}<input className={field} maxLength={120} value={templateName} onChange={e => { setTemplateName(e.target.value); setDraftEdited(true); }} /></label>}
+          {templateOnly && <label className="min-w-[200px] flex-1 text-xs text-slate-300">{t('medleyStudioV2.songName')}<input className={field} maxLength={120} value={templateName} onChange={e => { setTemplateName(e.target.value); setDraftEdited(true); }} /></label>}
           <button type="button" className={button} onClick={() => close()} disabled={savingTemplate}>{t('medley.cancel')}</button>
           {stage > 1 && <button type="button" className={button} onClick={() => goToStage((stage - 1) as 1 | 2 | 3)}>{t('medleyStudioV2.previous')}</button>}
           {stage === 2 && <button type="button" className={button} onClick={() => goToStage(1)}>{t('medleyStudioV2.addMusic')}</button>}
           {stage < 4 && <button type="button" className={button + ' border-sky-400 bg-sky-600'} disabled={stage === 1 ? steps.length < 1 : steps.length < 2} onClick={() => goToStage((stage + 1) as 2 | 3 | 4)}>{t('medleyStudioV2.next')}</button>}
-          {stage === 4 && <button type="button" className={button + ' border-sky-400 bg-sky-600'} onClick={() => void save()} disabled={savingTemplate || steps.length < 2 || (templateOnly && !templateName.trim())}>{templateOnly ? t('medley.saveTemplate') : t('medley.use')}</button>}
+          {stage === 4 && <button type="button" className={button + ' border-sky-400 bg-sky-600'} onClick={() => void save()} disabled={savingTemplate || steps.length < 2 || (templateOnly && !templateName.trim())}>{templateOnly ? t('medleyStudioV2.saveAsSong') : t('medley.use')}</button>}
         </footer>
       </div>
     </div>, document.body)}
