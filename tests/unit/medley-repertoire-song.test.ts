@@ -7,7 +7,7 @@ import {
 const source = (id: string, chords: string, lyrics = ''): Song => ({
   id, organizationId: 'org-1', title: 'Música ' + id, artist: 'Cantor ' + id,
   key: 'G', status: 'active', tagIds: [], chords, lyrics, tabs: [],
-  chordsUrl: '', videoUrl: '', createdAt: '', createdBy: { uid: 'user-1' },
+  chordsUrl: '', videoUrl: '', createdAt: '', createdBy: { uid: 'user-1', displayName: null, photoURL: null },
   lastPlayed: null,
 });
 
