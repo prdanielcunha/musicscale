@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PopulatedSong, ScaleMedley } from '../../types';
-import { buildStudioPerformancePreview, compileStudioMedley, duplicateStudioBlock, moveStudioBlock, splitStudioBlock, newStudioBlock, studioBlocksFromLegacy, mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
+import { buildStudioPerformancePreview, compileStudioMedley, duplicateStudioBlock, groupStudioSongs, moveStudioBlock, splitStudioBlock, newStudioBlock, studioBlocksFromLegacy, mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
 import { analyzeMedleyBridge, detectedHarmonyEvents } from '../../utils/medleyStudioHarmony';
 import { loadStudioDraft, saveStudioDraft, studioDraftKey } from '../../utils/medleyStudioDraft';
 
@@ -24,6 +24,29 @@ describe('isolated Medley Studio 2.0 legacy adapter', () => {
     expect(buildStudioPerformancePreview([first, second], [a, b], 20).truncated).toBe(true);
   });
 
+  it('groups contiguous excerpts in a single song card without losing source ordering', () => {
+    const a1 = newStudioBlock(a, 'a1');
+    const a2 = { ...newStudioBlock(a, 'a2'), label: 'Refrão' };
+    const b1 = newStudioBlock(b, 'b1');
+    expect(groupStudioSongs([a1, a2, b1]).map(group => [group.songId, group.blocks.length, group.startIndex]))
+      .toEqual([['a', 2, 0], ['b', 1, 2]]);
+    expect(groupStudioSongs([a1, b1, a2]).map(group => group.songId)).toEqual(['a', 'b', 'a']);
+    const saved = compileStudioMedley([a1, a2, b1], [a, b]);
+    expect(saved.steps.map(step => step.songId)).toEqual(['a', 'a', 'b']);
+  });
+
+  it('moves a hand-authored outgoing bridge onto the last duplicated part of a song', () => {
+    const original = { ...newStudioBlock(a, 'one'), transition: 'free' as const, cue: 'F → C' };
+    const next = newStudioBlock(b, 'two');
+    const blocks = duplicateStudioBlock([original, next], 0, 'copy');
+    expect(blocks.map(block => block.songId)).toEqual(['a', 'a', 'b']);
+    expect(blocks[0].cue).toBe('');
+    expect(blocks[0].transition).toBe('direct');
+    expect(blocks[1].cue).toBe('F → C');
+    expect(blocks[1].transition).toBe('free');
+    expect(compileStudioMedley(blocks, [a, b]).steps[1].transition?.cue).toBe('F → C');
+    expect(original.cue).toBe('F → C');
+  });
   it('splits exact line intervals and keeps the approved outgoing bridge on the final part only', () => {
     const original = { ...newStudioBlock(a, 'first'), startLine: 0, endLine: 4, cue: 'C → F', transition: 'free' as const };
     const pieces = splitStudioBlock([original, newStudioBlock(b, 'second')], 0, 2, 'half');
