@@ -2261,6 +2261,8 @@
     "draftMissingSource": "Parte do repertório não está disponível nesta organização. O rascunho foi preservado; revise antes de finalizar.",
     "draftLimitReached": "Limite de rascunhos neste dispositivo atingido. Exclua um rascunho antigo.",
     "draftSaveFailed": "Não foi possível gravar o rascunho neste dispositivo.",
+    "retryDraft": "Tentar salvar novamente",
+    "saveConflictCopy": "Salvar meu trabalho como cópia",
     "useAsCue": "Usar como orientação",
     "templateNameRequired": "Dê um nome ao medley para salvá-lo.",
     "createFromSong": "Criar medley com esta música",
