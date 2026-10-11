@@ -111,7 +111,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const activeSong = selected ? songMap.get(selected.songId) : undefined;
   const selectedPosition = selected ? steps.findIndex(step => step.id === selected.id) : -1;
   const selectedIsSongBoundary = selectedPosition >= 0 && !!steps[selectedPosition + 1] && steps[selectedPosition + 1].songId !== selected.songId;
-  const expandedGroup = songGroups.find(group => group.blocks[0].id === expandedGroupId);
+  const expandedGroup = songGroups.find(group => group.blocks.some(block => block.id === expandedGroupId));
   const searchIndex = useMemo(() => buildSearchIndex(songs), [songs]);
   const filteredSongs = useMemo(() => {
     const matches = searchSongs(searchIndex, query).map(match => match.document.song);
@@ -239,6 +239,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     const focusBlock = occurrence?.blocks.find(block => !block.manualExtra &&
       block.startLine === section.startLine && block.endLine === section.endLine) || occurrence?.blocks[0];
     if (focusBlock) setActiveId(focusBlock.id);
+    if (occurrence && group.blocks.some(block => block.id === expandedGroupId)) setExpandedGroupId(occurrence.blocks[0].id);
     edit(() => next);
   };
   const sectionPicker = (group: StudioSongGroup, song: PopulatedSong) => {
