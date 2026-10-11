@@ -442,13 +442,13 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const handleSaveSong = useCallback(async (
     songData: Omit<Song, 'id' | 'createdAt' | 'lastPlayed' | 'createdBy'> | Song,
-    options: { saveToOrganization: boolean; saveToGlobalLibrary: boolean } = { saveToOrganization: true, saveToGlobalLibrary: false },
+    options: { saveToOrganization: boolean; saveToGlobalLibrary: boolean } = { saveToOrganization: true, saveToGlobalLibrary: true },
     onSuccess?: () => void
   ) => {
     if (!user || !userProfile) return;
 
-    const isEcosystemAdmin = userProfile?.systemRole === "ceo" || userProfile?.systemRole === "admin" || userProfile?.systemRole === "global_admin";
-
+    // Check for local duplicates before persisting. Global matching is always
+    // server-side and must never block the organization's independent copy.
     // Check for duplicates only when creating a new song
     if (!('id' in songData)) {
         let matches: DuplicateMatch[] = [];
@@ -467,21 +467,6 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             }
         }
         
-        if (options.saveToGlobalLibrary && isEcosystemAdmin) {
-            const { checkGlobalDuplicates } = await import('../services/globalLibraryService');
-            const result = await checkGlobalDuplicates(songData.title, songData.artist, songData.key);
-            if (result.isDuplicate || result.matches.length > 0) {
-                for (const match of result.matches) {
-                   matches.push({
-                       song: match,
-                       score: result.isDuplicate ? 1.0 : 0.85,
-                       matchType: result.isDuplicate ? 'exact' : 'probable',
-                       location: 'global_library'
-                   });
-                }
-            }
-        }
-
         matches.sort((a, b) => b.score - a.score);
 
         if (matches.length > 0) {
@@ -494,29 +479,22 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       if (!api) return;
       
-      if (options.saveToOrganization) {
-        if ('id' in songData) {
-          const { tags, ...songToSave } = songData as PopulatedSong;
-          await api.songs.update(songToSave.id, songToSave as Song);
-        } else {
-          await api.songs.create(songData);
-        }
-      }
-
-      const isEcosystemAdmin = userProfile?.systemRole === "ceo" || userProfile?.systemRole === "admin" || userProfile?.systemRole === "global_admin";
-      if (options.saveToGlobalLibrary && isEcosystemAdmin) {
-        await api.submitToGlobal(userProfile, songData);
+      if ('id' in songData) {
+        const { tags, ...songToSave } = songData as PopulatedSong;
+        await api.songs.update(songToSave.id, songToSave as Song);
+      } else {
+        await api.songs.create(songData);
       }
 
       setSongToEdit(null);
       if (onSuccess) onSuccess();
 
-      if (options.saveToGlobalLibrary) {
+      if (!('id' in songData)) {
         setSuccessConfig({
-          title: 'Música Compartilhada!',
-          message: options.saveToOrganization 
-            ? 'A música foi salva no seu repertório e adicionada à Biblioteca Viva MusicScale.'
-            : 'A música foi adicionada à Biblioteca Viva MusicScale.',
+          title: 'Música salva!',
+          message: songData.globalCurationOptOut
+            ? 'A música foi salva somente no repertório do Ministério.'
+            : 'A música foi salva no repertório e enviada à Curadoria inteligente da Biblioteca Viva.',
           actionText: 'Ok',
           onAction: () => setSuccessConfig(null),
           stayText: '',
@@ -540,25 +518,18 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     setIsSubmitting(true);
     try {
-      if (duplicateSongInfo.options.saveToOrganization) {
-        await api.songs.create(duplicateSongInfo.newSongData);
-      }
-      
-      const isEcosystemAdmin = userProfile?.systemRole === "ceo" || userProfile?.systemRole === "admin" || userProfile?.systemRole === "global_admin";
-      if (duplicateSongInfo.options.saveToGlobalLibrary && isEcosystemAdmin) {
-        await api.submitToGlobal(userProfile, duplicateSongInfo.newSongData, true);
-      }
+      await api.songs.create(duplicateSongInfo.newSongData);
 
       closeAllModals();
       setDuplicateSongInfo(null);
       if (duplicateSongInfo.onSuccess) duplicateSongInfo.onSuccess();
 
-      if (duplicateSongInfo.options.saveToGlobalLibrary) {
+      {
         setSuccessConfig({
-          title: t('songs.sharedTitle', 'Música Compartilhada!'),
-          message: duplicateSongInfo.options.saveToOrganization 
-            ? t('songs.savedAndSharedMsg', 'A música foi salva no seu repertório e adicionada à Biblioteca Viva MusicScale.')
-            : t('songs.sharedMsg', 'A música foi adicionada à Biblioteca Viva MusicScale.'),
+          title: t('songs.savedTitle', 'Música salva!'),
+          message: duplicateSongInfo.newSongData.globalCurationOptOut
+            ? t('songs.savedLocalOnly', 'A música foi salva somente no Ministério.')
+            : t('songs.sentToCuration', 'A música foi salva no Ministério e enviada à Curadoria inteligente.'),
           actionText: 'Ok',
           onAction: () => setSuccessConfig(null),
           stayText: '',
@@ -579,24 +550,12 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const handleReplaceDuplicateSong = useCallback(async (existingSong: PopulatedSong) => {
     if (!duplicateSongInfo || !user || !userProfile || !api || !existingSong?.id) return;
-    if (!duplicateSongInfo.options.saveToOrganization) return;
+    // Replacements stay local; curation is applied to newly created songs.
 
     const pending = duplicateSongInfo;
-    const hasGlobalMatch = pending.matches.some((match) => match.location === 'global_library');
-    const isEcosystemAdmin =
-      userProfile?.systemRole === "ceo" ||
-      userProfile?.systemRole === "admin" ||
-      userProfile?.systemRole === "global_admin";
-
     setIsSubmitting(true);
     try {
       await api.replaceSongContent(existingSong.id, pending.newSongData as Partial<Song>);
-
-      // If this work is already represented in the global library, do not create
-      // another global copy. Otherwise preserve the user's selected destination.
-      if (pending.options.saveToGlobalLibrary && isEcosystemAdmin && !hasGlobalMatch) {
-        await api.submitToGlobal(userProfile, pending.newSongData);
-      }
 
       setDuplicateSongInfo(null);
       setSongToEdit(null);
