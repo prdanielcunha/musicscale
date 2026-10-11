@@ -1,3 +1,10 @@
+MusicScale 0.11.0-beta.9 — 2026-10-11
+UX mobile do Medley Studio: ao salvar rascunho automaticamente no dispositivo, mostrar apenas toast curto "Salvo", sem faixa fixa nem painel enorme de rascunhos dentro do editor.
+Caso o medley seja interrompido, ao abrir novamente o editor mostrar pergunta compacta "Continuar de onde parou?" com opções Continuar ou Criar novo; preserva rascunhos antigos e permite acessar versões adicionais de forma recolhida, sem títulos quebrados no iPhone.
+Mantém IndexedDB e recuperação offline, isolamento UID/organização, controle de revisões, proteção de perda de dados e erros persistentes com retry. Rascunhos ainda são locais ao aparelho: sem sincronização cloud entre dispositivos.
+Apenas UX/i18n/testes frontend; preserva integralmente beta.8, beta.7 e demais hotfixes, sem migrações, force push, alteração de Firestore Rules, auth, Stripe, permissões, funções, dados de músicas, escalas ou assinaturas.
+Publicar somente com QA completo do SHA exato, promoção fast-forward, deploy Firebase Hosting oficial e smoke de /version.json e rotas.
+
 MusicScale 0.11.0-beta.8 — 2026-10-11
 Repertório: gerar letra determinística a partir da cifra em músicas comuns e medleys, com prévia editável, preservando cifra, tablaturas e versos existentes; sem IA paga e sem inventar palavras.
 Medley Studio: salvar como música comum, com cifra e letra separadas; recuperar arranjos antigos de modelos e escalas em qualquer organização autorizada, sem misturar dados ou alterar edições manuais.
