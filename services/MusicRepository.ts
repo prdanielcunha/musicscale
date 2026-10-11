@@ -31,18 +31,35 @@ export class MusicRepository {
             async create(data: Omit<Song, 'id' | 'createdAt' | 'createdBy' | 'organizationId'>): Promise<string> {
                 const id = await super.create(data);
                 if (typeof window !== 'undefined') {
-                    // Fire-and-forget reprocessing to queue auto-curation
-                    import('./firebase').then(({ auth }) => {
-                        auth.currentUser?.getIdToken().then(token => {
-                            if (token) {
-                                fetch('/api/curation/auto-process-song', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                    body: JSON.stringify({ songId: id })
-                                }).catch(err => console.error("Auto-process error:", err));
+                    // All new organizational songs enter server-side curation.
+                    // Privileged opt-outs must be ACKNOWLEDGED before claiming success.
+                    const processSavedSong = async () => {
+                        const { auth } = await import('./firebase');
+                        const token = await auth.currentUser?.getIdToken();
+                        if (!token) throw new Error('CURATION_AUTH_REQUIRED');
+                        const response = await fetch('/api/curation/auto-process-song', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ songId: id })
+                        });
+                        if (!response.ok) throw new Error('CURATION_PROCESSING_UNAVAILABLE');
+                        if (data.globalCurationOptOut === true) {
+                            const outcome = await response.json();
+                            if (outcome.reasonCode !== 'VERIFIED_ECOSYSTEM_OPT_OUT') {
+                                throw new Error('A música foi salva no Ministério, mas a exclusão global não foi confirmada. Não a cadastre novamente; contate o suporte.');
                             }
-                        }).catch(() => {});
-                    }).catch(() => {});
+                        }
+                    };
+                    if (data.globalCurationOptOut === true) {
+                        // Do not silently disregard the opt-out if the network is unavailable.
+                        await processSavedSong();
+                    } else {
+                        void processSavedSong().catch(error => {
+                            console.error('[MusicRepository] Global curation queued but immediate processing unavailable', error);
+                            // The Firebase onLocalSongWritten trigger also durably queues
+                            // the song in songDiscoveryInbox for later retry.
+                        });
+                    }
                 }
                 return id;
             }
