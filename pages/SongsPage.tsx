@@ -20,6 +20,7 @@ import { useLimits, useAuth } from "../contexts/AuthContext";
 import { useApi } from "../contexts/ApiContext";
 import { useMedleyStudioV2Pilot } from "../hooks/useMedleyStudioV2Pilot";
 import { useCapability } from "../hooks/useCapability";
+import { listMedleyTemplates, saveMedleyTemplate } from "../services/medleyTemplateApi";
 import Spinner from "../components/common/Spinner";
 import MusicWorkspaceSkeleton from "../components/common/MusicWorkspaceSkeleton";
 import Card from "../components/common/Card";
@@ -182,7 +183,8 @@ const SongsPage: React.FC = () => {
   const { openSongForm, openAiSongImport, openSongDetail, openDeleteSongConfirmation } =
     useModals();
   const { limits, effectivePlan } = useLimits();
-  const { userProfile, permissions } = useAuth();
+  const { userProfile, permissions, effectiveOrganizationId } = useAuth();
+  const templateOrgId = effectiveOrganizationId || userProfile?.organizationId || '';
   const canManageRepertoire = !!(permissions?.manageSongs || permissions?.['musicScale.manageSongs'] || permissions?.['musicscale.songs.edit']);
   const api = useApi();
   const { hasCapability } = useCapability();
@@ -197,7 +199,7 @@ const SongsPage: React.FC = () => {
   const refreshMedleyTemplates = async () => {
     if (!api || !medleyStudioEnabled || !canManageScales) return;
     setTemplatesLoading(true);
-    try { setMedleyTemplates(await api.medleyTemplates.list()); setTemplateListError(''); }
+    try { setMedleyTemplates(await listMedleyTemplates(api, templateOrgId)); setTemplateListError(''); }
     catch { setTemplateListError(t('medley.templateLoadFailed')); }
     finally { setTemplatesLoading(false); }
   };
@@ -219,9 +221,9 @@ const SongsPage: React.FC = () => {
   useEffect(() => {
     if (!medleyStudioEnabled || !canManageScales || !api) return;
     let cancelled = false;
-    api.medleyTemplates.list().then(items => { if (!cancelled) { setMedleyTemplates(items); setTemplateListError(''); } }).catch(() => { if (!cancelled) setTemplateListError(t('medley.templateLoadFailed')); });
+    listMedleyTemplates(api, templateOrgId).then(items => { if (!cancelled) { setMedleyTemplates(items); setTemplateListError(''); } }).catch(() => { if (!cancelled) setTemplateListError(t('medley.templateLoadFailed')); });
     return () => { cancelled = true; };
-  }, [api, medleyStudioEnabled, canManageScales, userProfile?.organizationId]);
+  }, [api, medleyStudioEnabled, canManageScales, templateOrgId]);
 
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
@@ -1402,7 +1404,7 @@ const SongsPage: React.FC = () => {
           onChange={() => { /* templates only: never alter a scheduled scale */ }}
           onSaveTemplate={async (arrangement, name) => {
             if (!api || !canManageScales) throw new Error('API unavailable');
-            await api.medleyTemplates.create({ name, arrangement, schemaVersion: 2, status: 'ready', ...(medleyTemplateToCopy ? { parentTemplateId: medleyTemplateToCopy.id } : {}) });
+            await saveMedleyTemplate(api, templateOrgId, { name, arrangement, schemaVersion: 2, status: 'ready', ...(medleyTemplateToCopy ? { parentTemplateId: medleyTemplateToCopy.id } : {}) });
             await refreshMedleyTemplates();
           }}
           onClose={() => { setMedleyStudioOpen(false); setMedleyTemplateToCopy(null); }}

@@ -15,6 +15,8 @@ import { mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
 import { useMedleyStudioV2Pilot } from '../../hooks/useMedleyStudioV2Pilot';
 import { orderMedleySongIds, medleySourceRevision } from '../../utils/medleyModel';
 import { useApi } from '../../contexts/ApiContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { listMedleyTemplates, saveMedleyTemplate } from '../../services/medleyTemplateApi';
 import { buildSearchIndex, searchSongs } from '../../utils/searchEngine';
 
 const formLabelClass =
@@ -42,6 +44,8 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
 }, ref) => {
   const { t } = useTranslation();
   const api = useApi();
+  const { effectiveOrganizationId, userProfile } = useAuth();
+  const templateOrgId = effectiveOrganizationId || userProfile?.organizationId || '';
   // Disabled for every organization unless explicitly enabled by the canonical org flag.
   const { enabled: studioV2Enabled } = useMedleyStudioV2Pilot();
   const MedleyEditor = studioV2Enabled ? MedleyStudioV2 : MedleyComposer;
@@ -51,7 +55,7 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
   const loadTemplates = async () => {
     if (!api) return;
     setTemplatesOpen(true);
-    try { setTemplates(await api.medleyTemplates.list()); setTemplateError(''); }
+    try { setTemplates(await listMedleyTemplates(api, templateOrgId)); setTemplateError(''); }
     catch { setTemplateError(t('medley.templateLoadFailed')); }
   };
   const applyTemplate = (template: MedleyTemplate) => {
@@ -489,8 +493,8 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
              </div>}
              <React.Suspense fallback={null}><MedleyEditor songs={studioV2Enabled ? songs : selectedSongsList} draftScope={`scale:${formData.id && formData.id !== "CLONE" ? formData.id : "new"}`} initialSongIds={studioV2Enabled ? [] : undefined} suggestedSongIds={studioV2Enabled ? (formData.songIds || []) : undefined} medleys={formData.medleys || []} onChange={medleys => setFormData((prev: any) => ({ ...prev, medleys, songIds: studioV2Enabled ? mergeStudioScaleSongIds(prev.songIds || [], medleys) : orderMedleySongIds(prev.songIds || [], medleys) }))} onSaveTemplate={async (medley, name) => {
                if (!api) throw new Error('API unavailable');
-               await api.medleyTemplates.create({ name, arrangement: medley, schemaVersion: 2, status: 'ready' });
-               if (templatesOpen) setTemplates(await api.medleyTemplates.list());
+               await saveMedleyTemplate(api, templateOrgId, { name, arrangement: medley, schemaVersion: 2, status: 'ready' });
+               if (templatesOpen) setTemplates(await listMedleyTemplates(api, templateOrgId));
              }} /></React.Suspense>
              {selectedSongsList.length > 0 ? (
                 <div className="space-y-2">
