@@ -1989,6 +1989,8 @@
     "errorEmpty": "Cole a letra ou cifra para continuar.",
     "processButton": "Processar com IA",
     "saveDestination": "Destino do Salvamento",
+    "globalCurationLabel": "Enviar à Biblioteca Viva (Global)",
+    "globalCurationDescription": "A Curadoria inteligente verifica duplicidades. Músicas inéditas são publicadas automaticamente; casos duvidosos vão para aprovação.",
     "pasteClipboard": "Colar da área de transferência",
     "preview": {
       "titleField": "Título",
