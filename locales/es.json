@@ -1989,6 +1989,8 @@
     "errorEmpty": "Pega la letra o los acordes para continuar.",
     "processButton": "Procesar con IA",
     "saveDestination": "Destino de guardado",
+    "globalCurationLabel": "Enviar a la Biblioteca Viva (Global)",
+    "globalCurationDescription": "La curaduría inteligente comprueba duplicados. Las canciones inéditas se publican automáticamente; los casos dudosos se envían a revisión.",
     "pasteClipboard": "Pegar desde el portapapeles",
     "preview": {
       "titleField": "Título",
