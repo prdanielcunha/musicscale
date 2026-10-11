@@ -36,14 +36,25 @@ export function newStudioBlock(song: PopulatedSong, id: string = crypto.randomUU
 }
 
 export function studioBlocksFromLegacy(medley: ScaleMedley): StudioBlock[] {
-  return medley.steps.map(step => ({
-    id: step.id, songId: step.songId, startLine: step.startLine,
-    endLine: step.endLine, label: step.label || '',
-    repetitions: step.repetitions, key: step.key || '',
-    bpm: step.bpm ? String(step.bpm) : '',
-    transition: step.transition?.mode || 'direct',
-    cue: step.transition?.cue || '',
-  }));
+  // The persisted ScaleMedley contract has no draft-only origin flag. Reconstruct
+  // manually repeated excerpts within each song appearance without a migration.
+  let previousSongId = '';
+  const seenRanges = new Set<string>();
+  return medley.steps.map(step => {
+    if (step.songId !== previousSongId) { seenRanges.clear(); previousSongId = step.songId; }
+    const range = step.startLine + ':' + step.endLine;
+    const manualExtra = seenRanges.has(range);
+    seenRanges.add(range);
+    return {
+      id: step.id, songId: step.songId, startLine: step.startLine,
+      endLine: step.endLine, label: step.label || '',
+      repetitions: step.repetitions, key: step.key || '',
+      bpm: step.bpm ? String(step.bpm) : '',
+      transition: step.transition?.mode || 'direct',
+      cue: step.transition?.cue || '',
+      ...(manualExtra ? { manualExtra: true } : {}),
+    };
+  });
 }
 
 /** One musical card per contiguous song occurrence; keep every excerpt unchanged. */
