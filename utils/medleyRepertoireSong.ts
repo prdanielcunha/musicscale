@@ -1,5 +1,6 @@
 import type { ScaleMedley, Song } from '../types';
-import { extractLyricsFromCanonicalChordDocument, getRecognizedSectionKey } from './chordDocumentNormalizer';
+import { getRecognizedSectionKey } from './chordDocumentNormalizer';
+import { generateLyricsFromChords } from './generateLyricsFromChords';
 import { medleyChart } from './medleyModel';
 import { medleyPerformanceText } from './medleyPerformanceText';
 import { splitMedleySource } from './medleySource';
@@ -38,7 +39,7 @@ export function buildMedleyRepertoireSong(
     const label = [step.title, step.label].filter(Boolean).join(' · ');
     const header = '[' + label + ']';
     const performanceChart = medleyPerformanceText(step);
-    let selectedLyrics = extractLyricsFromCanonicalChordDocument(performanceChart);
+    let selectedLyrics = generateLyricsFromChords(performanceChart).lyrics;
 
     if (!hasSungText(selectedLyrics) && source?.lyrics?.trim()) {
       const entireSource = step.startLine === 0 &&
