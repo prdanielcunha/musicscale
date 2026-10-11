@@ -113,7 +113,7 @@ describe('feature-isolated visual studio', () => {
     continueToReview(dialog, 1);
     fireEvent.click(within(dialog).getByText('medley.use'));
     const steps = onChange.mock.calls[0][0][0].steps;
-    expect(steps.map(step => [step.songId, step.label, step.repetitions])).toEqual([
+    expect(steps.map(step => [step.songId, step.label || '', step.repetitions])).toEqual([
       ['A', 'Intro', 1], ['A', 'Refrão', 2], ['B', '', 1],
     ]);
     expect(a.chords).toBe('[Intro]\nAm F\n[Verso]\nG C\n[Refrão]\nF G');
