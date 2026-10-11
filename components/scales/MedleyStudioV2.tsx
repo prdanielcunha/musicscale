@@ -26,6 +26,7 @@ interface Props {
   medleys: ScaleMedley[];
   onChange: (medleys: ScaleMedley[]) => void;
   onSaveTemplate?: (medley: ScaleMedley, name: string, onProgress?: (message: string) => void) => Promise<void>;
+  allowCreate?: boolean;
   /** Existing scale song IDs are preferred; the studio may also add catalog songs. */
   initialSongIds?: string[];
   /** Suggestions for a scale are never silently inserted as sequence blocks. */
@@ -58,7 +59,7 @@ function artworkClass(songId: string): string {
   return artworkPalettes[hash % artworkPalettes.length];
 }
 
-export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initialSongIds, suggestedSongIds, launchImmediately = false, templateOnly = false, onClose, draftScope = 'repertoire', initialMedley, initialTemplateName }: Props) {
+export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initialSongIds, suggestedSongIds, launchImmediately = false, templateOnly = false, onClose, draftScope = 'repertoire', initialMedley, initialTemplateName, allowCreate = true }: Props) {
   const { t } = useTranslation();
   const { user, effectiveOrganizationId } = useAuth();
   const draftIdentity = user?.uid && effectiveOrganizationId ? { userId: user.uid, organizationId: effectiveOrganizationId, scope: draftScope } : null;
@@ -449,7 +450,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   return <section className="mt-4 rounded-2xl border border-sky-500/25 bg-[#0a1425] p-3 text-slate-100 sm:p-4" data-testid="medley-studio-v2">
     <div className="flex items-center justify-between gap-2">
       <div><h3 className="flex items-center gap-2 font-bold"><Music2 size={18} className="text-sky-400" />{t('medleyStudioV2.title')}</h3><p className="text-xs text-slate-400">{t('medleyStudioV2.subtitle')}</p></div>
-      {songs.length >= 2 && <button type="button" className={button + ' bg-sky-600'} onClick={() => start()}>{t('medley.create')}</button>}
+      {allowCreate && songs.length >= 2 && <button type="button" className={button + ' bg-sky-600'} onClick={() => start()}>{t('medley.create')}</button>}
     </div>
     {medleys.map(medley => <div key={medley.id} className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 p-3 text-sm">
       <div><strong>{medley.steps.map(s => s.title).join(' → ')}</strong><p className="text-xs text-slate-400">{medley.steps.length} {t('medley.excerpt')}</p></div>
