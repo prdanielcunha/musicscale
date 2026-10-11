@@ -2192,6 +2192,14 @@
     "invalidRange": "Revisa el inicio y el fin de las líneas."
   },
   "medleyStudioV2": {
+    "hasChords": "Acordes",
+    "hasLyrics": "Letra",
+    "hasSections": "Secciones",
+    "sectionChoices": "Partes de la canción",
+    "unmarkedPart": "Fragmento sin título",
+    "moreSections": "Hay más secciones disponibles en el selector de partes.",
+    "manualSectionHint": "¿Sin marcadores fiables? Selecciona las líneas manualmente sin cambiar la cifra.",
+    "addPart": "Añadir otra aparición de esta parte",
     "progress": "Pasos de creación del medley",
     "step1": "Canciones",
     "step2": "Partes",

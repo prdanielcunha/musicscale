@@ -2192,6 +2192,14 @@
     "invalidRange": "Check the first and last line."
   },
   "medleyStudioV2": {
+    "hasChords": "Chords",
+    "hasLyrics": "Lyrics",
+    "hasSections": "Sections",
+    "sectionChoices": "Song sections",
+    "unmarkedPart": "Unlabeled passage",
+    "moreSections": "More sections are available in the section picker.",
+    "manualSectionHint": "No reliable section markers? Select the lines manually without altering the chart.",
+    "addPart": "Add another occurrence of this part",
     "progress": "Medley creation steps",
     "step1": "Songs",
     "step2": "Parts",
