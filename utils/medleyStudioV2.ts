@@ -42,6 +42,22 @@ export function studioBlocksFromLegacy(medley: ScaleMedley): StudioBlock[] {
   }));
 }
 
+/** One musical card per contiguous song occurrence; keep every excerpt unchanged. */
+export interface StudioSongGroup {
+  songId: string;
+  startIndex: number;
+  blocks: StudioBlock[];
+}
+export function groupStudioSongs(blocks: readonly StudioBlock[]): StudioSongGroup[] {
+  const groups: StudioSongGroup[] = [];
+  blocks.forEach((block, index) => {
+    const last = groups[groups.length - 1];
+    if (last?.songId === block.songId) last.blocks.push(block);
+    else groups.push({ songId: block.songId, startIndex: index, blocks: [block] });
+  });
+  return groups;
+}
+
 export function moveStudioBlock(blocks: StudioBlock[], from: number, to: number): StudioBlock[] {
   if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || from >= blocks.length || to < 0 || to >= blocks.length) return blocks;
   const next = [...blocks];
@@ -51,8 +67,12 @@ export function moveStudioBlock(blocks: StudioBlock[], from: number, to: number)
 
 export function duplicateStudioBlock(blocks: StudioBlock[], index: number, id: string = crypto.randomUUID()): StudioBlock[] {
   if (!blocks[index]) return blocks;
+  // The outgoing bridge belongs after the LAST part of this song, not between
+  // two occurrences of the same song.
   const next = [...blocks];
-  next.splice(index + 1, 0, { ...blocks[index], id });
+  next.splice(index, 1,
+    { ...blocks[index], transition: 'direct', cue: '' },
+    { ...blocks[index], id });
   return next;
 }
 
