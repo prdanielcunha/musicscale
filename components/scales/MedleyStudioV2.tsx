@@ -25,7 +25,7 @@ interface Props {
   songs: PopulatedSong[];
   medleys: ScaleMedley[];
   onChange: (medleys: ScaleMedley[]) => void;
-  onSaveTemplate?: (medley: ScaleMedley, name: string) => Promise<void>;
+  onSaveTemplate?: (medley: ScaleMedley, name: string, onProgress?: (message: string) => void) => Promise<void>;
   /** Existing scale song IDs are preferred; the studio may also add catalog songs. */
   initialSongIds?: string[];
   /** Suggestions for a scale are never silently inserted as sequence blocks. */
@@ -73,6 +73,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [saveProgress, setSaveProgress] = useState('');
   const [draftEdited, setDraftEdited] = useState(false);
   const [showFullPreview, setShowFullPreview] = useState(false);
   const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
@@ -368,15 +369,18 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   };
   const save = async () => {
     if (savingTemplate) return;
+    setSaveProgress(t('medleyStudioV2.preparingRepertoire'));
     try {
       if (steps.some(step => medleys.some(item => item.id !== editingId && item.steps.some(s => s.songId === step.songId)))) {
         throw new Error('medley.alreadyGrouped');
       }
       const result = compileStudioMedley(steps, songs, original, sourceApproved);
+      // Keep the same identity across retries of a partially completed server save.
+      if (templateOnly && !original && draftIdRef.current) result.id = draftIdRef.current;
       if (templateOnly) {
         if (!onSaveTemplate || !templateName.trim()) throw new Error('medleyStudioV2.templateNameRequired');
         setSavingTemplate(true);
-        try { await onSaveTemplate(result, templateName.trim()); }
+        try { await onSaveTemplate(result, templateName.trim(), setSaveProgress); }
         catch { throw new Error('medley.templateSaveFailed'); }
         finally { setSavingTemplate(false); }
       } else {
@@ -395,6 +399,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
       setError('');
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'medley.invalid';
+      setSaveProgress('');
       setError(message.startsWith('medley.') ? t(message) : message);
     }
   };
@@ -458,7 +463,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
       <div className="mx-auto max-w-[1440px] rounded-2xl border border-white/10 bg-[#090f1c] p-3 shadow-2xl sm:p-5">
         <header className="mb-4 flex items-start justify-between gap-3 border-b border-white/10 pb-4">
           <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-sky-300">{t('medleyStudioV2.studio')}</p><h2 className="text-xl font-bold">{t('medleyStudioV2.title')}</h2><p className="text-xs text-slate-400">{t('medleyStudioV2.noSourceMutation')}</p></div>
-          <button type="button" className={button} aria-label={t('medley.close')} ref={closeButtonRef} onClick={() => close()}><X size={18} /></button>
+          <button type="button" className={button} aria-label={t('medley.close')} ref={closeButtonRef} disabled={savingTemplate} onClick={() => close()}><X size={18} /></button>
         </header>
         <nav aria-label={t('medleyStudioV2.progress')} className="mb-4 grid grid-cols-4 gap-1.5" data-testid="medley-studio-steps">
           {([1, 2, 3, 4] as const).map(number => <button
@@ -692,9 +697,10 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
           </div>}
         </section>}
         {error && <p role="alert" className="mt-3 rounded-xl border border-rose-400/40 p-3 text-sm text-rose-300">{error}</p>}
+        {savingTemplate && templateOnly && <p role="status" aria-live="polite" data-testid="medley-save-progress" className="mt-3 rounded-xl border border-sky-400/30 bg-sky-500/10 p-3 text-sm text-sky-200">{saveProgress || t('medleyStudioV2.preparingRepertoire')}</p>}
         <footer className="sticky bottom-0 z-10 mt-4 flex flex-wrap justify-end gap-2 border-t border-white/10 bg-[#090f1c] py-3 pb-[max(16px,env(safe-area-inset-bottom))]">
           {templateOnly && <label className="min-w-[200px] flex-1 text-xs text-slate-300">{t('medley.templateName')}<input className={field} maxLength={120} value={templateName} onChange={e => { setTemplateName(e.target.value); setDraftEdited(true); }} /></label>}
-          <button type="button" className={button} onClick={() => close()}>{t('medley.cancel')}</button>
+          <button type="button" className={button} onClick={() => close()} disabled={savingTemplate}>{t('medley.cancel')}</button>
           {stage > 1 && <button type="button" className={button} onClick={() => goToStage((stage - 1) as 1 | 2 | 3)}>{t('medleyStudioV2.previous')}</button>}
           {stage === 2 && <button type="button" className={button} onClick={() => goToStage(1)}>{t('medleyStudioV2.addMusic')}</button>}
           {stage < 4 && <button type="button" className={button + ' border-sky-400 bg-sky-600'} disabled={stage === 1 ? steps.length < 1 : steps.length < 2} onClick={() => goToStage((stage + 1) as 2 | 3 | 4)}>{t('medleyStudioV2.next')}</button>}
