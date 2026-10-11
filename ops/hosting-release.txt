@@ -1,3 +1,9 @@
+MusicScale 0.11.0-beta.5 — 2026-10-11
+Publicação combinada e não destrutiva das PRs #483 e #484 após QA: seleção múltipla de partes por música no Medley Studio, montagem na ordem da cifra, repetição por trecho (1–16×), duplicação manual opcional e edição isolada de ocorrências A→B→A.
+Mantém a seleção/contagem/remoção de músicas por ocorrência da beta.4, efeitos Undo/Redo e controles de transição. PT/EN/ES, preservação de cifras, letras, tablaturas, escalas e modelos existentes.
+Somente componentes/UI, utilitários de medley, arquivos de tradução e testes; não altera Firestore Rules, funções, Hub, billing, autenticação, API ou dados persistidos de clientes. Sem migrations nem force push.
+Publicar somente com checks completos aprovados para o SHA exato e release supervisionada no Firebase Hosting oficial. Comprovar /version.json beta.5 e smoke de rotas após deploy.
+
 MusicScale 0.11.0-beta.4 — 2026-10-11
 Medley Studio: músicas selecionadas no repertório aparecem marcadas, com quantidade de ocorrências e posição cronológica (#1, #3) sem confundirem trechos de uma mesma música.
 Permite retirar exatamente uma ocorrência (com todas as partes pertencentes àquele card) ou todas as ocorrências daquela música; mantém a ordenação das demais músicas A→B→A, undo/redo e remove pontes obsoletas.
