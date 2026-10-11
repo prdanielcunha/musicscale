@@ -142,7 +142,9 @@ export class CurationApprovalService {
             const fContent = normalizedOptionalString(canonical.contentFingerprint, 'contentFingerprint', 'CANONICAL_IDENTITY_INVALID') || '';
             const baseId = normTitle ? normTitle + "_" + normArtists.join('_') : '';
             
-            const reservationId = fContent || fLyrics || baseId;
+            // Automatic publication reserves lyrics identity across alternate titles
+            // and artists; two concurrent uploads cannot each claim to be unique.
+            const reservationId = automated ? (fLyrics || fContent || baseId) : (fContent || fLyrics || baseId);
 
             if (!normalizedOptionalString(reservationId, 'reservationId', 'CANONICAL_IDENTITY_INVALID') || reservationId === '_') {
                 throw new CurationError('CANONICAL_IDENTITY_INVALID', 'Identidade da candidata inválida (título normalizado ausente).', 400);
