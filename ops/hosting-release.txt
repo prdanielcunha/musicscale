@@ -1,3 +1,9 @@
+MusicScale 0.11.0-beta.7 — 2026-10-11
+Medley Studio 2.0: rascunhos locais duráveis via IndexedDB, autosave automático, recuperação depois de fechar/reabrir o app, lista de rascunhos, renomear, duplicar, excluir e retomar. Estados visuais de salvamento e conflito em PT/EN/ES; cópia segura em caso de edição concorrente.
+Cópia armazenada apenas no dispositivo; NÃO declarar sincronização entre dispositivos implementada. Recuperação depende da disponibilidade de IndexedDB do navegador (pode ser removida em modo privativo ou limpeza de dados); sem alteração de dados na nuvem nem permissões.
+Preserva a correção P0 beta.6 de medleys, músicas, escalas, organizações, roles, assinatura, auth e dados de clientes. Sem Firestore Rules, backfill, migração destrutiva, exclusão ou force push.
+Publicar somente após QA integral no SHA da main e fast-forward para production com verificação de Firebase Hosting, /version.json e smoke de rotas.
+
 MusicScale 0.11.0-beta.6 — 2026-10-11
 Correção P0 para salvar medleys no repertório quando as regras canônicas do Firebase recusam a operação e a API de Rules responde 503.
 Fallback autenticado para API MusicScale Cloud Run, com validação da organização, assinatura, funções de proprietário/administrador/líder/ministro e isolamento de dados por organização.
