@@ -236,8 +236,7 @@ const SongsPage: React.FC = () => {
     const items = [...latest.values()];
     let repaired = 0;
     let failed = 0;
-    try {
-      for (const [index, item] of items.entries()) {
+    for (const [index, item] of items.entries()) {
         setMedleyRepairProgress(t('medleyStudioV2.repairProgress', { current: index + 1, total: items.length }));
         try {
           if (orgId !== tenantRef.current) return; // Never continue after an organization switch.
@@ -248,8 +247,7 @@ const SongsPage: React.FC = () => {
           logger.warn('Medley repertoire reconciliation skipped', { arrangementId: item.arrangement.id, error });
         }
       }
-      if (orgId === tenantRef.current && items.length) setMedleyRepairProgress(t('medleyStudioV2.repairComplete', { repaired, failed }));
-    }
+    if (orgId === tenantRef.current && items.length) setMedleyRepairProgress(t('medleyStudioV2.repairComplete', { repaired, failed }));
   };
   const { allowance, refreshAllowance, loading: allowanceLoading, error: allowanceError } = useStarterPackAllowance();
   const location = useLocation();
