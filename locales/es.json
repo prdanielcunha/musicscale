@@ -2191,6 +2191,22 @@
     "invalid": "Revisa los fragmentos.",
     "invalidRange": "Revisa el inicio y el fin de las líneas."
   },
+  "lyricsGeneration": {
+    "generate": "Generar letra",
+    "title": "Generar letra desde los acordes",
+    "hint": "MusicScale elimina acordes y tablaturas sin inventar palabras. Revisa la letra antes de guardar; la cifra original no cambia.",
+    "preview": "Vista previa de la letra (editable)",
+    "save": "Guardar letra",
+    "saving": "Guardando letra…",
+    "cancel": "Cancelar",
+    "draftReady": "Letra generada en el editor. Revísala y guarda la canción normalmente.",
+    "noLyricsFound": "No se encontraron versos cantados en la cifra. Comprueba si contiene palabras.",
+    "unavailable": "Necesitas permiso para editar el repertorio, una cifra guardada y el campo de letra vacío.",
+    "alreadyHasLyrics": "Otra persona ya guardó la letra de esta canción. Actualiza el repertorio; no se sustituyó nada.",
+    "chordsChanged": "La cifra cambió durante la edición. Abre de nuevo la canción para generar la letra desde la versión actual.",
+    "organizationChanged": "Cambió la organización o la sesión. Vuelve al repertorio e inténtalo otra vez.",
+    "saveFailed": "No se pudo guardar la letra. Comprueba la conexión y los permisos e inténtalo otra vez."
+  },
   "medleyStudioV2": {
     "songName": "Nombre de la nueva canción",
     "saveAsSong": "Guardar canción en el repertorio",
