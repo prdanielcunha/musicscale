@@ -4,6 +4,10 @@ import { compareSongs } from '../../utils/songDiscovery/matcher.js';
 import { GlobalLibraryCandidateRepository } from './globalLibraryCandidateRepository.js';
 import { GlobalLibraryCandidateOccurrence, GlobalLibraryCandidateMatch } from '../../utils/songDiscovery/curationTypes.js';
 import * as crypto from 'crypto';
+import { admin } from '../firebaseAdmin.js';
+import { CurationApprovalService } from './curationApprovalService.js';
+import { isVerifiedGlobalCurationOptOut } from './globalCurationPolicy.js';
+import { GENERIC_TITLES, MIN_LYRICS_WORDS_FOR_STRONG_MATCH } from '../../utils/songDiscovery/constants.js';
 
 const DISCOVERY_ALGORITHM_VERSION = '1.0';
 
@@ -92,6 +96,10 @@ export async function runSongDiscoveryProcessor(
     return { outcome: 'ignored', reasonCode: 'DRAFT_OR_DELETED_OR_ARCHIVED' };
   }
 
+  if (await isVerifiedGlobalCurationOptOut(songData, dbInstance)) {
+    return { outcome: 'ignored', reasonCode: 'VERIFIED_ECOSYSTEM_OPT_OUT' };
+  }
+
   if (songData.originGlobalSongId) {
     console.log('[Discovery] Ignored: Imported origin exists', {
       songId,
@@ -125,19 +133,35 @@ export async function runSongDiscoveryProcessor(
   const repo = new GlobalLibraryCandidateRepository(dbInstance);
 
   try {
+    // Search by title AND lyric fingerprint: a title edit must not hide a duplicate.
+    // Overflow is ambiguous, never proof that a song is unique.
+    const MAX_MATCH_SCAN = 50;
     const globalSongsQuery = await dbInstance.collection('globalSongs')
       .where('normalizedTitle', '==', identity.normalizedTitle)
-      .limit(5)
+      .limit(MAX_MATCH_SCAN + 1)
       .get();
+    const lyricMatchesQuery = identity.lyricsFingerprint
+      ? await dbInstance.collection('globalSongs')
+          .where('lyricsFingerprint', '==', identity.lyricsFingerprint)
+          .limit(MAX_MATCH_SCAN + 1)
+          .get()
+      : null;
+    const globalSongDocuments = new Map<string, any>();
+    for (const doc of [...globalSongsQuery.docs, ...(lyricMatchesQuery?.docs || [])]) {
+      globalSongDocuments.set(doc.id, doc);
+    }
+    const searchOverflow = globalSongsQuery.docs.length > MAX_MATCH_SCAN ||
+      (lyricMatchesQuery?.docs.length || 0) > MAX_MATCH_SCAN;
+    const existingLyricsMatch = (lyricMatchesQuery?.docs.length || 0) > 0;
 
     let bestGlobalMatch: Omit<GlobalLibraryCandidateMatch, 'id' | 'createdAt' | 'updatedAt'> | null = null;
     const globalMatches: Omit<GlobalLibraryCandidateMatch, 'id' | 'createdAt' | 'updatedAt'>[] = [];
 
-    for (const doc of globalSongsQuery.docs) {
+    for (const doc of globalSongDocuments.values()) {
       const globalData = doc.data() as any;
       const candidateIdentity = {
         normalizedTitle: globalData.normalizedTitle || '',
-        normalizedArtists: globalData.normalizedArtists || [],
+        normalizedArtists: globalData.normalizedArtists || (globalData.normalizedArtist ? [globalData.normalizedArtist] : []),
         normalizedLyrics: globalData.normalizedLyrics || null,
         lyricsFingerprint: globalData.fingerprints?.lyrics || null,
         contentFingerprint: globalData.fingerprints?.content || null,
@@ -173,7 +197,7 @@ export async function runSongDiscoveryProcessor(
 
     const candidatesQuery = await dbInstance.collection('globalLibraryCandidates')
       .where('canonicalIdentity.normalizedTitle', '==', identity.normalizedTitle)
-      .limit(5)
+      .limit(MAX_MATCH_SCAN + 1)
       .get();
 
     for (const doc of candidatesQuery.docs) {
@@ -186,14 +210,27 @@ export async function runSongDiscoveryProcessor(
       }
     }
 
-    if (!targetCandidateId && globalSongsQuery.empty) {
+    if (searchOverflow || candidatesQuery.docs.length > MAX_MATCH_SCAN) {
       fallbackWarning = 'SEARCH_LIMITED_NO_GLOBAL_MATCH';
     }
 
     let finalClassification = bestGlobalMatch?.classification || 'likely_unique';
-    if (fallbackWarning === 'SEARCH_LIMITED_NO_GLOBAL_MATCH' || fallbackWarning?.includes('SEARCH_LIMITED')) {
-        finalClassification = 'insufficient_data';
+    if (existingLyricsMatch && finalClassification === 'likely_unique') {
+      finalClassification = 'possible_duplicate';
     }
+    if (fallbackWarning) {
+      finalClassification = 'insufficient_data';
+    }
+
+    // Automatic publication requires positive evidence of a complete, searchable
+    // song, NOT merely absence of a match in a partial query. Ambiguous titles,
+    // prior candidates, missing metadata or another lyric fingerprint must be reviewed.
+    const normalizedWordCount = (identity.normalizedLyrics || '').split(/\s+/).filter(Boolean).length;
+    const mayAutoPublish = !fallbackWarning && globalSongDocuments.size === 0 &&
+      candidatesQuery.empty && !GENERIC_TITLES.has(identity.normalizedTitle) &&
+      identity.normalizedArtists.length > 0 &&
+      normalizedWordCount >= MIN_LYRICS_WORDS_FOR_STRONG_MATCH &&
+      finalClassification === 'likely_unique' && songData.status !== 'inactive';
 
     // 7. Structure the Occurrence input safely
     const occurrenceInput: Omit<GlobalLibraryCandidateOccurrence, 'id' | 'candidateId' | 'createdAt' | 'updatedAt'> = {
@@ -260,6 +297,25 @@ export async function runSongDiscoveryProcessor(
         await repo.saveCandidateMatches(newCandidateId, globalMatches);
       }
 
+      if (mayAutoPublish && result.outcome === 'candidate_created' && safeOccurrenceId) {
+        try {
+          const approval = new CurationApprovalService({ db: dbInstance, admin, logger: console });
+          await approval.approve({
+            candidateId: newCandidateId,
+            occurrenceId: safeOccurrenceId,
+            idempotencyKey: `automatic_${idempotencyKey}`,
+            decodedToken: { uid: 'millionsnest-auto-curation', hasCurationAccess: true },
+            automated: true
+          });
+          console.log('[Discovery] Verified unique candidate published', { songId, candidateId: newCandidateId });
+        } catch (error: any) {
+          // Never compromise the organization's saved song. The candidate remains
+          // reviewable, and collisions fail closed instead of publishing duplicates.
+          console.warn('[Discovery] Automatic publication deferred to human review', {
+            songId, candidateId: newCandidateId, reasonCode: error?.code || 'AUTOMATIC_APPROVAL_FAILED'
+          });
+        }
+      }
       console.log('[Discovery] Document processed successfully: candidate created', {
         songId,
         candidateId: newCandidateId,
