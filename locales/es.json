@@ -2203,7 +2203,7 @@
     "music": "Canción",
     "bridgeOnlyBetweenSongs": "Los puentes armónicos solo se aplican entre canciones diferentes. Selecciona la última parte antes de la siguiente canción.",
     "chosenSongs": "Secuencia seleccionada",
-    "appearances": "aparición(es)",
+    "appearances": "veces",
     "selectionOrder": "Orden de canciones del medley",
     "selected": "Seleccionada",
     "removeOccurrence": "Eliminar aparición",
@@ -2275,6 +2275,7 @@
     "advancedEdit": "Editar detalles",
     "decreaseRepeats": "Reducir repeticiones",
     "increaseRepeats": "Aumentar repeticiones",
-    "customOrderHint": "Duplica un fragmento para repetirlo y cambia su posición en el paso Partes."
+    "customOrderHint": "Duplica un fragmento para repetirlo y cambia su posición en el paso Partes.",
+    "appearance": "vez"
   }
 }
