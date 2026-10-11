@@ -1,5 +1,4 @@
 import { initializeApp, getApps } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
 
 if (getApps().length === 0) {
   initializeApp();
@@ -8,7 +7,6 @@ if (getApps().length === 0) {
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import * as logger from 'firebase-functions/logger';
 import { processLocalSongWritten } from './processor.js';
-import { runSongDiscoveryProcessor } from '../../services/server/songDiscoveryProcessor.js'; 
 import { processGlobalSongContentMetricsWritten } from './globalSongMetricsProcessor.js';
 
 export * from './notifications.js';
@@ -46,19 +44,7 @@ export const onLocalSongWritten = onDocumentWritten(
     try {
       await processLocalSongWritten(change.after, songId, organizationId);
 
-      // Durable immediate discovery: the browser may close as soon as the
-      // organizational save commits, so the client request is not authoritative.
-      // The processor is idempotent across Function retries and browser calls.
-      // Privileged opt-out requests are instead settled by the authenticated API,
-      // which writes the server-only exemption before processing.
-      if (songData.globalCurationOptOut !== true) {
-        const result = await runSongDiscoveryProcessor(songData, songId, organizationId, getFirestore(), event.id);
-        logger.info('Global curation discovery processed', {
-          songId, organizationId, outcome: result.outcome, reasonCode: result.reasonCode || null
-        });
-      } else {
-        logger.info('Curation decision deferred pending verified ecosystem opt-out', { songId, organizationId });
-      }
+
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : "Unknown error";
       logger.error('Error processing song write', {
