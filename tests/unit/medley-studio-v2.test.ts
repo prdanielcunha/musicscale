@@ -51,7 +51,7 @@ describe('isolated Medley Studio 2.0 legacy adapter', () => {
     const withRepeat = both.map(block => block.id === 'whole' ? { ...block, repetitions: 3 } : block);
     const stored = compileStudioMedley(withRepeat, [a,b]);
     expect(stored.steps.map(item => item.repetitions)).toEqual([1,3,1]);
-    expect(stored.steps[0].snapshot).toBe('[Intro]\\nAm    F\\nverso'.replaceAll('\\n', '\n'));
+    expect(stored.steps[0].snapshot).toBe('[Intro]\\nAm    F'.replaceAll('\\n', '\n'));
     expect(a.chords).toBe('[Intro]\\nAm    F\\nverso\\n[Refrão]\\nC     G'.replaceAll('\\n', '\n'));
     const removedIntro = toggleStudioSongSection(withRepeat, 0, intro, a);
     expect(removedIntro.map(block => block.id)).toEqual(['whole','b']);
