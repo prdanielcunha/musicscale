@@ -9,6 +9,7 @@ import { useModals } from "../../contexts/ModalContext";
 import { detectLanguageFromText } from "../../utils/languageDetector";
 import { getSongFreshnessStatus } from "../../utils/songHelpers";
 import { Globe, ShieldCheck } from "lucide-react";
+import { generateLyricsFromChords } from "../../utils/generateLyricsFromChords";
 
 const formInputClass = "mt-1 input-base";
 const formLabelClass =
@@ -62,6 +63,7 @@ const SongForm: React.FC<SongFormProps> = ({
   const [formMetadata, setFormMetadata] = useState<Record<string, any>>(songToEdit?.metadata || {});
   
   const [manualLanguageSelected, setManualLanguageSelected] = useState(false);
+  const [lyricsGenerationStatus, setLyricsGenerationStatus] = useState<'generated' | 'empty' | ''>('');
 
   const [options, setOptions] = useState({
     saveToOrganization: defaultOptions?.saveToOrganization ?? true,
@@ -83,6 +85,7 @@ const SongForm: React.FC<SongFormProps> = ({
       return;
     }
     const { name, value } = e.target;
+    if (name === 'chords' || name === 'lyrics') setLyricsGenerationStatus('');
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -344,9 +347,29 @@ const SongForm: React.FC<SongFormProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label htmlFor="lyrics" className={formLabelClass}>
-            Letra
-          </label>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <label htmlFor="lyrics" className={formLabelClass}>
+              Letra
+            </label>
+            {canManageRepertoire && !formData.lyrics.trim() && !!formData.chords.trim() && (
+              <button type="button" onClick={() => {
+                const result = generateLyricsFromChords(formData.chords);
+                if (!result.hasSungContent) {
+                  setLyricsGenerationStatus('empty');
+                  return;
+                }
+                setFormData(prev => prev.lyrics.trim() ? prev : { ...prev, lyrics: result.lyrics });
+                setLyricsGenerationStatus('generated');
+              }} className="rounded-lg border border-indigo-400/20 bg-indigo-500/10 px-3 py-2 text-xs font-bold text-indigo-500 dark:text-indigo-300 hover:bg-indigo-500/20">
+                {t('lyricsGeneration.generate')}
+              </button>
+            )}
+          </div>
+          {lyricsGenerationStatus && (
+            <p role="status" className={`mb-2 text-xs ${lyricsGenerationStatus === 'empty' ? 'text-amber-500' : 'text-emerald-500'}`}>
+              {t(lyricsGenerationStatus === 'empty' ? 'lyricsGeneration.noLyricsFound' : 'lyricsGeneration.draftReady')}
+            </p>
+          )}
           <textarea
             name="lyrics"
             id="lyrics"
