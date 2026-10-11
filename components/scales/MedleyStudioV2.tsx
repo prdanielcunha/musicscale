@@ -382,16 +382,23 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
         {stage === 4 && <section className="mt-4 rounded-xl border border-white/10 bg-[#101a2a] p-3" data-testid="medley-studio-review">
           <h3 className="text-lg font-bold">{t('medleyStudioV2.step4')}</h3>
           <p className="mb-3 text-xs text-slate-400">{t('medleyStudioV2.reviewHint')}</p>
-          <ol className="space-y-2">{steps.map((block, index) => <li key={block.id} className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
-            <span className="rounded-lg bg-sky-500/15 px-2 py-1 text-xs font-bold text-sky-300">{index + 1}</span>
-            <div className="min-w-0 flex-1">
-              <strong className="block break-words text-sm">{songMap.get(block.songId)?.title || block.songId}</strong>
-              <p className="text-xs text-slate-400">{block.label || t('medley.excerpt')} · {block.repetitions}× · {block.key || '—'} · {block.bpm || '—'} BPM</p>
-              {!!block.cue && <p className="mt-1 break-words text-xs text-sky-200">→ {block.cue}</p>}
-            </div>
-            <button type="button" className={button} onClick={() => { setActiveId(block.id); goToStage(2); }}>{t('medley.edit')}</button>
-          </li>)}</ol>
-          <p className="mt-3 text-xs text-slate-400">{t('medleyStudioV2.draftNotPublished')}</p>
+          <ol className="space-y-3">{songGroups.map((group, groupIndex) => {
+             const song = songMap.get(group.songId);
+             const last = group.blocks[group.blocks.length - 1];
+             return <li key={group.blocks[0].id} data-testid="medley-review-song-card" className="rounded-xl border border-white/10 bg-white/5 p-3">
+               <div className="mb-2 flex items-center gap-3">
+                 <span className="rounded-lg bg-sky-500/15 px-2 py-1 text-xs font-bold text-sky-300">{groupIndex + 1}</span>
+                 <div className="min-w-0 flex-1"><strong className="block truncate text-sm">{song?.title || group.songId}</strong><p className="text-xs text-slate-400">{song?.artist || '—'} · {song?.key || '—'}{song?.bpm ? ' · ' + song.bpm + ' BPM' : ''}</p></div>
+               </div>
+               <ol className="space-y-1 border-l border-sky-500/30 pl-3">{group.blocks.map((block, partIndex) => <li key={block.id} className="flex min-w-0 items-center gap-2 rounded-lg bg-black/15 px-2 py-2">
+                 <span className="text-xs tabular-nums text-sky-300">{partIndex + 1}</span>
+                 <div className="min-w-0 flex-1"><strong className="block truncate text-sm">{block.label || t('medley.excerpt')}</strong><p className="text-xs text-slate-400">{block.repetitions}× · {block.key || '—'} · {block.bpm || '—'} BPM</p>{!!block.cue && <p className="break-words text-xs text-sky-200">→ {block.cue}</p>}</div>
+                 <button type="button" className={button} onClick={() => { setActiveId(block.id); goToStage(2); }}>{t('medley.edit')}</button>
+               </li>)}</ol>
+               <button type="button" className={button + ' mt-3 w-full border-dashed border-sky-500/30 text-sky-200'} disabled={steps.length >= 30} onClick={() => { addSelectedPart(last.id); goToStage(2); }}><Plus size={16} className="mr-2" />{t('medleyStudioV2.addPart')}</button>
+             </li>;
+           })}</ol>
+           <p className="mt-3 text-xs text-slate-400">{t('medleyStudioV2.draftNotPublished')}</p>
         </section>}
         {stage === 4 && <section className="mt-4 rounded-xl border border-white/10 bg-[#101a2a] p-3">
           <button type="button" className={button + ' w-full justify-between'} aria-expanded={showFullPreview} onClick={() => setShowFullPreview(value => !value)}>{t('medleyStudioV2.fullPreview')} <span>{showFullPreview ? '−' : '+'}</span></button>
