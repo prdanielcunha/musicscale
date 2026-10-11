@@ -61,6 +61,7 @@ import { createInvitationCompatibilityHandlers } from "./services/server/musicSc
 import { createJoinRequestCompatibilityHandlers } from "./services/server/musicScaleJoinRequestCompatibility.js";
 import { createMemberRemovalCompatibilityHandler } from "./services/server/musicScaleMemberRemovalCompatibility.js";
 import { runSongDiscoveryProcessor } from "./services/server/songDiscoveryProcessor.js";
+import { canOptOutOfGlobalCuration } from './services/server/globalCurationPolicy.js';
 import { SongDiscoveryInboxService } from "./services/server/songDiscoveryInboxService.js";
 import { analyzeInboxBatch } from "./services/server/songInboxAnalyzer.js";
 import { fixCandidatesWithoutTitle } from "./services/server/fixCandidatesWithoutTitle.js";
@@ -5672,6 +5673,20 @@ app.post("/api/curation/auto-process-song", async (req: any, res: any) => {
 
           if (!organizationId) {
               return res.json({ outcome: "ignored", reasonCode: "MISSING_ORGANIZATION_ID" });
+          }
+
+          if (songData.globalCurationOptOut === true) {
+              const actorSnapshot = await db.collection('users').doc(actorUid).get();
+              if (actorSnapshot.exists && canOptOutOfGlobalCuration(actorSnapshot.data())) {
+                  // Only this authenticated, canonical global user can establish
+                  // the server-only exemption. Firestore clients cannot forge it.
+                  await db.collection('globalCurationOptOuts').doc(trimmedSongId).set({
+                      userId: actorUid,
+                      organizationId,
+                      verifiedAt: admin.firestore.FieldValue.serverTimestamp()
+                  }, { merge: true });
+              }
+              // An ordinary member's forged flag is ignored: curation remains on.
           }
 
           const result = await runSongDiscoveryProcessor(songData, trimmedSongId, organizationId, db);
