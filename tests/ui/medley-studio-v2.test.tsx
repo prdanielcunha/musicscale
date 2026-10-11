@@ -33,10 +33,12 @@ describe('feature-isolated visual studio', () => {
     fireEvent.click(within(sections).getByRole('button', { name: 'Refrão' }));
     const firstCard = within(dialog).getAllByTestId('medley-song-card')[0];
     expect(within(dialog).getAllByTestId('medley-song-card')).toHaveLength(2);
+    expect(within(firstCard).getByTestId('medley-inline-inspector')).toBeInTheDocument();
     fireEvent.click(within(firstCard).getByRole('button', { name: 'medleyStudioV2.addPart' }));
     expect(within(dialog).getByText('3 / 30 medley.excerpt')).toBeInTheDocument();
     expect(within(dialog).getAllByTestId('medley-song-card')).toHaveLength(2);
     expect(within(within(dialog).getAllByTestId('medley-song-card')[0]).getAllByTestId('medley-part-row')).toHaveLength(2);
+    expect(within(within(dialog).getAllByTestId('medley-song-card')[0]).getByTestId('medley-inline-inspector')).toBeInTheDocument();
     fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
     expect(within(dialog).getAllByTestId('medley-song-bridge')).toHaveLength(1);
     fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
