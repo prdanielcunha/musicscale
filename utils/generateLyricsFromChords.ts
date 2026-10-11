@@ -1,7 +1,7 @@
 import { getRecognizedSectionKey, normalizeChordDocumentStructure } from './chordDocumentNormalizer';
 
 /** Chord tokens: never infer new words, delete repetitions or reorder lines. */
-const CHORD = /^[A-G](?:#|b)?(?:(?:m|maj|min|dim|aug|sus|add|M|º|°|ø|\d|7M|M7)\w*)?(?:\([^)]*\))?(?:\/[A-G][#b]?)?$/;
+const CHORD = /^[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add)(?:2|4|6|7|9|11|13)?|(?:m|M)?(?:2|4|5|6|7|9|11|13)(?:M|maj)?|m|M|º|°|ø)?(?:\([0-9#b+,\-]+\))?(?:\/(?:[A-G][#b]?|[0-9]+))?$/;
 const isChordRow = (line: string): boolean => {
   const parts = line.trim().replace(/^[:|\s]+|[:|\s]+$/g, '').split(/[\s|]+/).filter(Boolean);
   if (!parts.length) return false;
@@ -31,8 +31,9 @@ export function generateLyricsFromChords(chords: string): { lyrics: string; hasS
       continue;
     }
     if (isChartMetadata(trimmed) || isTablature(trimmed) || isChordRow(trimmed)) continue;
-    // Standalone bracketed chord groups are not section headers.
-    if (/^\[(?:[A-G][#b]?(?:[mM0-9]|maj|min|sus|add|dim|aug|°|º|\/)*)(?:\s+[A-G][#b]?(?:[mM0-9]|maj|min|sus|add|dim|aug|°|º|\/)*)*\]$/.test(trimmed)) continue;
+    // Bracket labels may be chords (e.g. [Am D/F#]) or meaningful medley titles.
+    const bracket = trimmed.match(/^\[([^\]]+)\]$/);
+    if (bracket && bracket[1].split(/\s+/).every(token => CHORD.test(token))) continue;
     const section = getRecognizedSectionKey(trimmed);
     if (section) {
       // Ignore purely instrumental cues in the lyrics view.
@@ -41,7 +42,7 @@ export function generateLyricsFromChords(chords: string): { lyrics: string; hasS
       continue;
     }
     // Chords embedded inline, e.g. [G]Senhor [D/F#]meu Deus.
-    const withoutInlineChords = trimmed.replace(/\[([A-G][#b]?(?:(?:m|maj|min|dim|aug|sus|add|M|º|°|\d)[\w()]*)?(?:\/[A-G][#b]?)?)\]/g, '');
+    const withoutInlineChords = trimmed.replace(/\[([^\]]+)\]/g, (match, token: string) => CHORD.test(token.trim()) ? '' : match);
     const lyric = withoutInlineChords.trim();
     if (!lyric || isChordRow(lyric) || isTablature(lyric)) continue;
     // Don't count unknown bracket-only labels or musical cues as verses.
