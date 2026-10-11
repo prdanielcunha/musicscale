@@ -1,3 +1,10 @@
+MusicScale 0.11.0-beta.6 — 2026-10-11
+Correção P0 para salvar medleys no repertório quando as regras canônicas do Firebase recusam a operação e a API de Rules responde 503.
+Fallback autenticado para API MusicScale Cloud Run, com validação da organização, assinatura, funções de proprietário/administrador/líder/ministro e isolamento de dados por organização.
+Sem alteração de Firestore Rules, Stripe, memberships, músicas existentes, escalas publicadas, cifras, letras, tablaturas, IA ou dados de clientes; sem migrations destrutivas.
+Preserva integralmente a beta.5 e todos os recursos, preservando todos os hotfixes beta.27 e anteriores.
+Publicar somente após QA, deploy do Cloud Run privado, Firebase Hosting oficial e smoke do medley.
+
 MusicScale 0.11.0-beta.5 — 2026-10-11
 Publicação combinada e não destrutiva das PRs #483 e #484 após QA: seleção múltipla de partes por música no Medley Studio, montagem na ordem da cifra, repetição por trecho (1–16×), duplicação manual opcional e edição isolada de ocorrências A→B→A.
 Mantém a seleção/contagem/remoção de músicas por ocorrência da beta.4, efeitos Undo/Redo e controles de transição. PT/EN/ES, preservação de cifras, letras, tablaturas, escalas e modelos existentes.
