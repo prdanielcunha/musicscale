@@ -269,7 +269,7 @@ describe('feature-isolated visual studio', () => {
     expect(a.chords).toBe('Am    F\nTexto A');
   });
 
-  it('saves a new repertoire medley only as an explicitly named tenant-scoped template', async () => {
+  it('saves a new repertoire medley as an explicitly named normal song', async () => {
     const onSaveTemplate = vi.fn(async (_medley: ScaleMedley, _name: string) => {});
     const onChange = vi.fn();
     const onClose = vi.fn();
@@ -279,7 +279,7 @@ describe('feature-isolated visual studio', () => {
     expect(within(dialog).getByText('1 / 30 medley.excerpt')).toBeInTheDocument();
     fireEvent.click(within(dialog).getByText('medleyStudioV2.addMusic'));
     fireEvent.click(within(dialog).getByText('B'));
-    fireEvent.change(within(dialog).getByLabelText('medley.templateName'), { target: { value: 'Adoração em sequência' } });
+    fireEvent.change(within(dialog).getByLabelText('medleyStudioV2.songName'), { target: { value: 'Adoração em sequência' } });
     continueToReview(dialog, 1);
     fireEvent.click(within(dialog).getByText('medleyStudioV2.saveAsSong'));
     await waitFor(() => expect(onSaveTemplate).toHaveBeenCalledTimes(1));
