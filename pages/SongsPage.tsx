@@ -21,7 +21,9 @@ import { useApi } from "../contexts/ApiContext";
 import { useMedleyStudioV2Pilot } from "../hooks/useMedleyStudioV2Pilot";
 import { useCapability } from "../hooks/useCapability";
 import { listMedleyTemplates } from "../services/medleyTemplateApi";
-import { buildMedleyRepertoireSong, isSongForMedley, medleyRepertoireRepairPatch } from "../utils/medleyRepertoireSong";
+import { buildMedleyRepertoireSong, isSongForMedley } from "../utils/medleyRepertoireSong";
+import { collectLegacyMedleyCandidates } from "../utils/legacyMedleyCandidates";
+import { upsertMedleyRepertoireSong } from "../services/medleyRepertoireWrite";
 import type { ScaleMedley } from "../types";
 import Spinner from "../components/common/Spinner";
 import MusicWorkspaceSkeleton from "../components/common/MusicWorkspaceSkeleton";
@@ -185,7 +187,7 @@ const SongsPage: React.FC = () => {
   const { openSongForm, openAiSongImport, openSongDetail, openDeleteSongConfirmation } =
     useModals();
   const { limits, effectivePlan } = useLimits();
-  const { userProfile, permissions, effectiveOrganizationId } = useAuth();
+  const { user, userProfile, permissions, effectiveOrganizationId } = useAuth();
   const templateOrgId = effectiveOrganizationId || userProfile?.organizationId || '';
   const canManageRepertoire = !!(permissions?.manageSongs || permissions?.['musicScale.manageSongs'] || permissions?.['musicscale.songs.edit']);
   const api = useApi();
@@ -207,47 +209,62 @@ const SongsPage: React.FC = () => {
     arrangement: ScaleMedley,
     name: string,
     progress: (message: string) => void = () => {},
+    organizationId = templateOrgId,
   ) => {
-    if (!api || !canManageRepertoire || !templateOrgId) throw new Error(t('medleyStudioV2.repertoirePermissionRequired'));
+    if (!api || !canManageRepertoire || !user?.uid || !organizationId ||
+        organizationId !== tenantRef.current) {
+      throw new Error('medleyStudioV2.repertoirePermissionRequired');
+    }
     progress(t('medleyStudioV2.checkingRepertoire'));
-    // A fresh tenant-scoped read prevents duplicates even when the UI subscription lags.
+    // The repository is constructed for the signed-in tenant; never use another tenant's cached data.
     const currentSongs = await api.songs.list();
+    if (organizationId !== tenantRef.current ||
+        currentSongs.some(song => song.organizationId !== organizationId)) {
+      throw new Error('medleyStudioV2.repertoirePermissionRequired');
+    }
     progress(t('medleyStudioV2.generatingLyrics'));
     const draft = buildMedleyRepertoireSong(arrangement, name, currentSongs);
-    const existing = currentSongs.find(song => isSongForMedley(song, arrangement.id));
+    const existing = currentSongs.find(song =>
+      song.organizationId === organizationId && isSongForMedley(song, arrangement.id));
+    if (organizationId !== tenantRef.current) throw new Error('medleyStudioV2.repertoirePermissionRequired');
+    if (!existing && currentSongs.length >= limits.maxSongs) {
+      throw new Error('medleyStudioV2.repertoireLimitReached');
+    }
     progress(t('medleyStudioV2.savingRepertoire'));
-    if (existing) {
-      const patch = medleyRepertoireRepairPatch(existing, draft);
-      if (patch) await api.songs.update(existing.id, patch);
-    } else {
-      if (currentSongs.length >= limits.maxSongs) throw new Error(t('medleyStudioV2.repertoireLimitReached'));
-      await api.songs.create(draft);
+    await upsertMedleyRepertoireSong({
+      organizationId, userId: user.uid,
+      displayName: userProfile?.displayName, photoURL: userProfile?.photoURL,
+      draft, existingId: existing?.id,
+    });
+    if (organizationId === tenantRef.current) {
+      void Promise.resolve(refreshData()).catch(() => {});
     }
-    // Never make a successful server save appear failed because a subsequent refresh fails.
-    void Promise.resolve(refreshData()).catch(() => {});
   };
-  const repairExistingMedleys = async (orgId: string, itemsToRepair: MedleyTemplate[]) => {
-    if (!api || !canManageRepertoire || !orgId) return;
-    const latest = new Map<string, MedleyTemplate>();
-    for (const item of itemsToRepair) {
-      const previous = latest.get(item.arrangement.id);
-      if (!previous || item.arrangement.revision > previous.arrangement.revision) latest.set(item.arrangement.id, item);
-    }
-    const items = [...latest.values()];
+  const repairExistingMedleys = async (
+    orgId: string,
+    templates: MedleyTemplate[],
+    savedScales: import('../types').Scale[],
+  ) => {
+    if (!api || !canManageRepertoire || !orgId || orgId !== tenantRef.current) return;
+    const items = collectLegacyMedleyCandidates(orgId, templates, savedScales);
     let repaired = 0;
     let failed = 0;
     for (const [index, item] of items.entries()) {
-        setMedleyRepairProgress(t('medleyStudioV2.repairProgress', { current: index + 1, total: items.length }));
-        try {
-          if (orgId !== tenantRef.current) return; // Never continue after an organization switch.
-          await saveMedleyAsRepertoireSong(item.arrangement, item.name);
-          repaired++;
-        } catch (error) {
-          failed++;
-          logger.warn('Medley repertoire reconciliation skipped', { arrangementId: item.arrangement.id, error });
-        }
+      if (orgId !== tenantRef.current) return;
+      setMedleyRepairProgress(t('medleyStudioV2.repairProgress', { current: index + 1, total: items.length }));
+      try {
+        await saveMedleyAsRepertoireSong(item.arrangement, item.name, () => {}, orgId);
+        repaired++;
+      } catch (error) {
+        failed++;
+        logger.warn('Medley repertoire reconciliation skipped', {
+          arrangementId: item.arrangement.id, origin: item.origin, error,
+        });
       }
-    if (orgId === tenantRef.current && items.length) setMedleyRepairProgress(t('medleyStudioV2.repairComplete', { repaired, failed }));
+    }
+    if (orgId === tenantRef.current && items.length) {
+      setMedleyRepairProgress(t('medleyStudioV2.repairComplete', { repaired, failed }));
+    }
   };
   const { allowance, refreshAllowance, loading: allowanceLoading, error: allowanceError } = useStarterPackAllowance();
   const location = useLocation();
@@ -265,20 +282,32 @@ const SongsPage: React.FC = () => {
     setMedleyRepairProgress('');
   }, [templateOrgId]);
   useEffect(() => {
-    if (!medleyStudioEnabled || !canManageScales || !canManageRepertoire || !api || !templateOrgId ||
-        repairedForOrg.current.has(templateOrgId)) return;
+    if (loading || error || !medleyStudioEnabled || !canManageRepertoire || !api ||
+        !templateOrgId || !user?.uid || repairedForOrg.current.has(templateOrgId)) return;
     let cancelled = false;
     const orgId = templateOrgId;
     repairedForOrg.current.add(orgId);
-    void listMedleyTemplates(api, orgId).then(items => {
-      if (cancelled || tenantRef.current !== orgId) return;
-      if (items.length) void repairExistingMedleys(orgId, items);
-    }).catch(error => {
-      repairedForOrg.current.delete(orgId);
-      logger.warn('Legacy medley discovery failed', { organizationId: orgId, error });
-    });
+    // Both legacy storage locations are tenant-scoped. One failing must not hide the other.
+    void Promise.allSettled([listMedleyTemplates(api, orgId), api.scales.list()])
+      .then(async results => {
+        if (cancelled || tenantRef.current !== orgId) return;
+        const templates = results[0].status === 'fulfilled' ? results[0].value : [];
+        const savedScales = results[1].status === 'fulfilled' ? results[1].value : [];
+        if (results.every(result => result.status === 'rejected')) {
+          repairedForOrg.current.delete(orgId);
+          logger.warn('Legacy medley discovery unavailable', { organizationId: orgId });
+          return;
+        }
+        if (results.some(result => result.status === 'rejected')) {
+          logger.warn('Some legacy medley sources could not be read', { organizationId: orgId });
+        }
+        await repairExistingMedleys(orgId, templates, savedScales);
+      }).catch(reason => {
+        repairedForOrg.current.delete(orgId);
+        logger.warn('Legacy medley reconciliation unavailable', { organizationId: orgId, reason });
+      });
     return () => { cancelled = true; };
-  }, [api, medleyStudioEnabled, canManageScales, canManageRepertoire, templateOrgId]);
+  }, [api, medleyStudioEnabled, canManageRepertoire, loading, error, user?.uid, templateOrgId]);
 
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
