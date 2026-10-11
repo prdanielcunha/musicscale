@@ -2191,6 +2191,22 @@
     "invalid": "Check the excerpts.",
     "invalidRange": "Check the first and last line."
   },
+  "lyricsGeneration": {
+    "generate": "Generate lyrics",
+    "title": "Generate lyrics from chords",
+    "hint": "MusicScale removes chords and tablature without inventing words. Review the lyrics before saving; the original chart is unchanged.",
+    "preview": "Lyrics preview (editable)",
+    "save": "Save lyrics",
+    "saving": "Saving lyrics…",
+    "cancel": "Cancel",
+    "draftReady": "Lyrics generated in the editor. Review the text and save the song as usual.",
+    "noLyricsFound": "No sung lyrics were found in this chord chart. Check whether the chart contains words.",
+    "unavailable": "You need repertoire editing permission, a saved chart, and empty lyrics.",
+    "alreadyHasLyrics": "Someone else already added lyrics to this song. Refresh your repertoire; nothing was overwritten.",
+    "chordsChanged": "The chord chart changed while editing. Reopen the song to generate lyrics from the latest version.",
+    "organizationChanged": "Your organization or sign-in changed. Return to the repertoire and try again.",
+    "saveFailed": "The lyrics could not be saved. Check your connection and permissions and try again."
+  },
   "medleyStudioV2": {
     "songName": "New song name",
     "saveAsSong": "Save song to repertoire",
