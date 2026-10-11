@@ -2268,6 +2268,13 @@
     "inspector": "Editar fragmento",
     "preview": "Vista previa",
     "duplicate": "Duplicar fragmento",
-    "chooseBlock": "Elige un fragmento para editar."
+    "chooseBlock": "Elige un fragmento para editar.",
+    "multiSelectHint": "Selecciona varias partes. Se mantiene el orden de la cifra; toca de nuevo para desmarcar.",
+    "addSongAgain": "Añadir otra aparición",
+    "quickArrange": "Fragmentos de esta aparición",
+    "advancedEdit": "Editar detalles",
+    "decreaseRepeats": "Reducir repeticiones",
+    "increaseRepeats": "Aumentar repeticiones",
+    "customOrderHint": "Duplica un fragmento para repetirlo y cambia su posición en el paso Partes."
   }
 }
