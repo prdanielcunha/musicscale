@@ -243,17 +243,25 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   };
   const sectionPicker = (group: StudioSongGroup, song: PopulatedSong) => {
     const choices = suggestMedleySegments(medleyChart(song));
+    const titleTotals = new Map<string, number>();
+    for (const section of choices) if (section.label) titleTotals.set(section.label, (titleTotals.get(section.label) || 0) + 1);
+    const titleIndexes = new Map<string, number>();
     return <div className="rounded-xl border border-sky-400/15 bg-sky-500/5 p-3" role="group" aria-label={t('medleyStudioV2.sectionChoices')}>
       <p className="mb-1 text-xs font-semibold text-slate-200">{t('medleyStudioV2.sectionChoices')}</p>
       <p className="mb-3 text-xs text-slate-400">{t('medleyStudioV2.multiSelectHint')}</p>
-      <div className="flex flex-wrap gap-2">{choices.map((section, index) => {
+      <div className="flex max-h-[210px] flex-wrap content-start gap-2 overflow-y-auto pr-1">{choices.map((section, index) => {
+        const ordinal = section.label ? (titleIndexes.get(section.label) || 0) + 1 : index + 1;
+        if (section.label) titleIndexes.set(section.label, ordinal);
+        const partName = section.label
+          ? section.label + ((titleTotals.get(section.label) || 0) > 1 ? ' · ' + ordinal : '')
+          : (section.source === 'whole' ? t('medley.whole') : t('medleyStudioV2.unmarkedPart') + ' ' + (index + 1));
         const chosen = group.blocks.some(block => !block.manualExtra && block.startLine === section.startLine && block.endLine === section.endLine);
         return <button type="button" key={section.id} aria-pressed={chosen}
           className={'min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-sky-400 ' +
             (chosen ? 'border-sky-400 bg-sky-500/25 text-white' : 'border-white/15 bg-white/5 text-slate-200')}
           onClick={() => selectSection(group, song, section)}>
           {chosen && <Check size={14} aria-hidden="true" className="mr-1 inline-block" />}
-          {section.label || (section.source === 'whole' ? t('medley.whole') : t('medleyStudioV2.unmarkedPart') + ' ' + (index + 1))}
+          {partName}
         </button>;
       })}</div>
       {choices.every(section => section.source !== 'section') && <p className="mt-2 text-xs text-amber-200">{t('medleyStudioV2.manualSectionHint')}</p>}
