@@ -486,9 +486,9 @@ const SongForm: React.FC<SongFormProps> = ({
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <Globe className={`w-4 h-4 ${options.saveToGlobalLibrary ? 'text-orange-500' : 'text-slate-400'}`} />
-                  <span className={`text-sm font-bold ${options.saveToGlobalLibrary ? 'text-orange-500' : 'text-slate-700 dark:text-gray-300'}`}>Enviar à Biblioteca Viva (Global)</span>
+                  <span className={`text-sm font-bold ${options.saveToGlobalLibrary ? 'text-orange-500' : 'text-slate-700 dark:text-gray-300'}`}>{t("aiImport.globalCurationLabel", "Enviar à Biblioteca Viva (Global)")}</span>
                 </div>
-                <p className="text-xs text-slate-500 mt-0.5">A Curadoria inteligente verifica duplicidades. Músicas inéditas são publicadas automaticamente; casos duvidosos vão para aprovação.</p>
+                <p className="text-xs text-slate-500 mt-0.5">{t("aiImport.globalCurationDescription", "A Curadoria inteligente verifica duplicidades. Músicas inéditas são publicadas automaticamente; casos duvidosos vão para aprovação.")}</p>
               </div>
             </label>
           )}
@@ -501,7 +501,7 @@ const SongForm: React.FC<SongFormProps> = ({
         </Button>
         <Button
           type="submit"
-          disabled={isSubmitting || (!canManageRepertoire && !canManageChords) || false}
+          disabled={isSubmitting || (!canManageRepertoire && !canManageChords)}
         >
           {isSubmitting
             ? "Salvando..."
