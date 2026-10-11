@@ -2192,6 +2192,18 @@
     "invalidRange": "Revisa el inicio y el fin de las líneas."
   },
   "medleyStudioV2": {
+    "preparingRepertoire": "Preparando el medley…",
+    "checkingRepertoire": "Comprobando las canciones existentes…",
+    "generatingLyrics": "Generando la letra de los fragmentos seleccionados…",
+    "savingRepertoire": "Guardando los acordes y la letra en el repertorio…",
+    "savingArrangement": "Guardando el arreglo del medley…",
+    "reconcileExisting": "Corregir medleys ya creados",
+    "repairProgress": "Corrigiendo medleys existentes: {{current}} de {{total}}…",
+    "repairComplete": "Completado: {{repaired}} medley(s) revisados; {{failed}} requieren atención.",
+    "repertoirePermissionRequired": "Necesitas permiso para gestionar el repertorio para guardar este medley como canción.",
+    "repertoireLimitReached": "Has alcanzado el límite de canciones. Libera espacio o cambia de plan para guardar este medley.",
+    "noLyricsDetected": "No se pudo recuperar letra cantada de los fragmentos seleccionados. Añade la letra a las canciones originales e inténtalo de nuevo; no se inventarán letras.",
+    "sectionLyricsUnavailable": "La canción original tiene los acordes y la letra separados, y este fragmento no se puede alinear de forma segura. Añade la letra correspondiente a la cifra.",
     "hasChords": "Acordes",
     "hasLyrics": "Letra",
     "hasSections": "Secciones",
