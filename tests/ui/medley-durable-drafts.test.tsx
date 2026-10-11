@@ -8,6 +8,7 @@ const memory = vi.hoisted(() => ({
   drafts: new Map<string, any>(),
   organization: 'org-a',
   writes: 0,
+  failWrites: false,
 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('../../contexts/AuthContext', () => ({
@@ -18,6 +19,7 @@ vi.mock('../../services/offline/medleyStudioDraftStore', () => ({
   medleyDraftStorageKey: (identity: any, id: string) =>
     [identity.userId, identity.organizationId, identity.scope, id].join(':'),
   saveDurableMedleyDraft: vi.fn(async (identity: any, id: string, editor: any, expectedRevision: number) => {
+    if (memory.failWrites) throw new Error('simulated offline storage failure');
     const key = [identity.userId, identity.organizationId, identity.scope, id].join(':');
     const previous = memory.drafts.get(key);
     if ((previous?.revision || 0) !== expectedRevision) throw new Error('revision conflict');
@@ -43,6 +45,7 @@ beforeEach(() => {
   memory.drafts.clear();
   memory.organization = 'org-a';
   memory.writes = 0;
+  memory.failWrites = false;
   sessionStorage.clear();
 });
 
@@ -64,6 +67,21 @@ describe('Medley Studio durable recovery UI', () => {
     fireEvent.click(within(drafts).getByRole('button', { name: 'medleyStudioV2.continueDraft' }));
     expect(within(reopened).getByText('3 / 30 medley.excerpt')).toBeInTheDocument();
     expect(within(reopened).getByTestId('medley-draft-status')).toHaveTextContent('medleyStudioV2.draftStatus_saved');
+  });
+
+  it('blocks closing unsaved edits when local storage rejects the write', async () => {
+    memory.failWrites = true;
+    render(<MedleyStudioV2 songs={songs} medleys={[]} initialSongIds={['A', 'B']} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getAllByRole('button', { name: 'medleyStudioV2.duplicate' })[0]);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'medley.close' }));
+    await waitFor(() => expect(within(dialog).getByRole('alert')).toHaveTextContent('medleyStudioV2.draftSaveFailed'));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    memory.failWrites = false;
+    fireEvent.click(within(dialog).getByRole('button', { name: 'medleyStudioV2.retryDraft' }));
+    await waitFor(() => expect(memory.writes).toBeGreaterThan(0));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
   it('does not display organization A drafts when B is active', async () => {
