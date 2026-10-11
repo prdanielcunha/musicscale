@@ -1,44 +1,65 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { useMedleyStudioV2Pilot } from '../../hooks/useMedleyStudioV2Pilot';
 
-const context = vi.hoisted(() => ({ org: 'org-a', user: 'user-1', orgEnabled: false }));
+const context = vi.hoisted(() => ({
+  organizationId: 'org-a' as string | null,
+  effectiveId: 'org-a' as string | null,
+  userId: 'user-1' as string | null,
+  featureFlag: undefined as boolean | undefined,
+}));
+
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({
-  user: { uid: context.user }, effectiveOrganizationId: context.org,
-  organization: { featureFlags: { 'musicscale.medleyStudioV2': context.orgEnabled } },
+  user: context.userId ? { uid: context.userId } : null,
+  effectiveOrganizationId: context.effectiveId,
+  organization: context.organizationId ? {
+    id: context.organizationId,
+    featureFlags: context.featureFlag === undefined ? {} : { 'musicscale.medleyStudioV2': context.featureFlag },
+  } : null,
 }) }));
-function Pilot() {
-  const { enabled, optedIn, setPilotEnabled } = useMedleyStudioV2Pilot();
-  return <div>
-    <span data-testid="enabled">{String(enabled)}</span>
-    <span data-testid="opted">{String(optedIn)}</span>
-    <button onClick={() => setPilotEnabled(true)}>optin</button>
-    <button onClick={() => setPilotEnabled(false)}>optout</button>
-  </div>;
+
+function RouteState() {
+  const { enabled } = useMedleyStudioV2Pilot();
+  return <span data-testid="enabled">{String(enabled)}</span>;
 }
-beforeEach(() => { localStorage.clear(); context.org = 'org-a'; context.user = 'user-1'; context.orgEnabled = false; });
-describe('medley pilot is explicitly opt-in and scoped by tenant/user', () => {
-  it('preserves the default classic editor and allows explicit opt-in/out', () => {
-    render(<Pilot />);
-    expect(screen.getByTestId('enabled')).toHaveTextContent('false');
-    fireEvent.click(screen.getByText('optin'));
+
+beforeEach(() => {
+  localStorage.clear();
+  context.organizationId = 'org-a';
+  context.effectiveId = 'org-a';
+  context.userId = 'user-1';
+  context.featureFlag = undefined;
+});
+
+describe('Medley Studio V2 standard route with safe tenant fallback', () => {
+  it('opens V2 by default without public browser opt-in', () => {
+    localStorage.setItem('musicscale:medleyStudioV2:pilot:user-1:org-a', 'disabled');
+    render(<RouteState />);
     expect(screen.getByTestId('enabled')).toHaveTextContent('true');
-    fireEvent.click(screen.getByText('optout'));
-    expect(screen.getByTestId('enabled')).toHaveTextContent('false');
   });
-  it('never enables a separate tenant or different user based on another session', () => {
-    const { unmount } = render(<Pilot />);
-    fireEvent.click(screen.getByText('optin'));
-    unmount();
-    context.org = 'org-b';
-    render(<Pilot />);
+
+  it('preserves the legacy editor when an organization explicitly disables V2', () => {
+    context.featureFlag = false;
+    const { rerender } = render(<RouteState />);
     expect(screen.getByTestId('enabled')).toHaveTextContent('false');
-  });
-  it('accepts official tenant rollout without requiring a local pilot opt-in', () => {
-    context.orgEnabled = true;
-    render(<Pilot />);
+    context.featureFlag = true;
+    rerender(<RouteState />);
     expect(screen.getByTestId('enabled')).toHaveTextContent('true');
-    expect(screen.getByTestId('opted')).toHaveTextContent('false');
+  });
+
+  it('fails closed for an unresolved or cross-tenant organization', () => {
+    const { rerender } = render(<RouteState />);
+    expect(screen.getByTestId('enabled')).toHaveTextContent('true');
+    context.effectiveId = 'org-b';
+    rerender(<RouteState />);
+    expect(screen.getByTestId('enabled')).toHaveTextContent('false');
+    context.effectiveId = null;
+    rerender(<RouteState />);
+    expect(screen.getByTestId('enabled')).toHaveTextContent('false');
+    context.effectiveId = 'org-a';
+    context.userId = null;
+    rerender(<RouteState />);
+    expect(screen.getByTestId('enabled')).toHaveTextContent('false');
   });
 });

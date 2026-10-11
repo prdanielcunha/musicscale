@@ -1,3 +1,10 @@
+MusicScale 0.11.0-beta.2 — 2026-10-10
+Studio Medley 2.0 como entrada padrão apenas após autenticação e resolução do tenant canônico; não exige opt-in no navegador.
+Rollback: organization.featureFlags['musicscale.medleyStudioV2'] === false ou organization.features['musicscale.medleyStudioV2'] === false mantém editor anterior.
+Atualização exclusiva de frontend/UX e testes, sem nova fonte de verdade, migração de dados, IAM, regras Firestore, API, autenticação ou assinatura. Mantém o adaptador canônico e validações server-side já existentes.
+Limitações honestas: harmonias automáticas permanecem sugestões conservadoras e não equivalem a validação musical de banda; testes físicos, backup/restore e smoke autenticado de múltiplos tenants requerem homologação real.
+Este marcador não é aprovação para publicar com falhas de QA.
+
 MusicScale 0.11.0-beta.1 — 2026-10-10
 Preparação da jornada visual do Medley Studio 2.0: seleção contextual, quatro etapas, blocos e partes musicais, artes abstratas locais, revisão explícita e orientações PT/EN/ES.
 O salvamento permanece pelo adaptador e validador canônicos existentes, sem migração, mudança de regras, autenticação, billing, funções, assinaturas ou escalas já publicadas.
