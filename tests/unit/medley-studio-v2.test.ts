@@ -75,6 +75,18 @@ describe('isolated Medley Studio 2.0 legacy adapter', () => {
     expect(unchanged).toEqual(arranged);
   });
 
+  it('restores manually repeated passages from a saved medley without changing its persisted schema', () => {
+    const selected = toggleStudioSongSection([newStudioBlock(a, 'original'), newStudioBlock(b, 'second')], 0, suggestMedleySegments(a.chords)[0], a);
+    const duplicated = duplicateStudioBlock(selected, 0, 'extra');
+    const legacy = compileStudioMedley(duplicated, [a, b]);
+    const reopened = studioBlocksFromLegacy(legacy);
+    expect(reopened.map(item => item.id)).toEqual(['original','extra','second']);
+    expect(reopened[1].manualExtra).toBe(true);
+    const updated = toggleStudioSongSection(reopened, 0, suggestMedleySegments(a.chords)[1], a, 'refrain');
+    expect(updated.map(item => item.id)).toEqual(['original','refrain','extra','second']);
+    expect(updated[2].manualExtra).toBe(true);
+  });
+
   it('counts A-B-A as two chronological appearances of A, not repeated inner sections', () => {
     const blocks = [
       newStudioBlock(a, 'a-intro'),
