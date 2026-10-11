@@ -232,7 +232,7 @@ const SongsPage: React.FC = () => {
       await api.songs.create(draft);
     }
     // Never make a successful server save appear failed because a subsequent refresh fails.
-    void refreshData();
+    void Promise.resolve(refreshData()).catch(() => {});
   };
   const repairExistingMedleys = async () => {
     if (medleyRepairBusy || !canManageRepertoire) return;
