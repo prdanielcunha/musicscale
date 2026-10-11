@@ -194,9 +194,7 @@ const SongsPage: React.FC = () => {
   const { enabled: medleyStudioEnabled } = useMedleyStudioV2Pilot();
   const [medleyStudioOpen, setMedleyStudioOpen] = useState(false);
   const [medleyStudioSongIds, setMedleyStudioSongIds] = useState<string[]>([]);
-  const [medleyTemplates, setMedleyTemplates] = useState<MedleyTemplate[]>([]);
   // Historical medley templates are migration inputs, never a separate user-facing list.
-  const [medleyRepairBusy, setMedleyRepairBusy] = useState(false);
   const [medleyRepairProgress, setMedleyRepairProgress] = useState('');
   const repairedForOrg = useRef(new Set<string>());
   const tenantRef = useRef(templateOrgId);
@@ -228,9 +226,8 @@ const SongsPage: React.FC = () => {
     // Never make a successful server save appear failed because a subsequent refresh fails.
     void Promise.resolve(refreshData()).catch(() => {});
   };
-  const repairExistingMedleys = async (orgId = templateOrgId, itemsToRepair: MedleyTemplate[] = medleyTemplates) => {
+  const repairExistingMedleys = async (orgId: string, itemsToRepair: MedleyTemplate[]) => {
     if (!api || !canManageRepertoire || !orgId) return;
-    setMedleyRepairBusy(true);
     const latest = new Map<string, MedleyTemplate>();
     for (const item of itemsToRepair) {
       const previous = latest.get(item.arrangement.id);
@@ -252,8 +249,6 @@ const SongsPage: React.FC = () => {
         }
       }
       if (orgId === tenantRef.current && items.length) setMedleyRepairProgress(t('medleyStudioV2.repairComplete', { repaired, failed }));
-    } finally {
-      setMedleyRepairBusy(false);
     }
   };
   const { allowance, refreshAllowance, loading: allowanceLoading, error: allowanceError } = useStarterPackAllowance();
@@ -261,15 +256,14 @@ const SongsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
     const songId = searchParams.get('medleySongId');
-    if (!songId || loading || !medleyStudioEnabled || !canManageScales) return;
+    if (!songId || loading || !medleyStudioEnabled || !canManageRepertoire) return;
     const matches = songs.some(song => song.id === songId);
     if (matches) { setMedleyStudioSongIds([songId]); setMedleyStudioOpen(true); }
     setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('medleySongId'); return next; }, { replace: true });
-  }, [loading, songs, searchParams, medleyStudioEnabled, canManageScales, setSearchParams]);
+  }, [loading, songs, searchParams, medleyStudioEnabled, canManageRepertoire, setSearchParams]);
   useEffect(() => {
     setMedleyStudioOpen(false);
     setMedleyStudioSongIds([]);
-    setMedleyTemplates([]);
     setMedleyRepairProgress('');
   }, [templateOrgId]);
   useEffect(() => {
@@ -280,7 +274,6 @@ const SongsPage: React.FC = () => {
     repairedForOrg.current.add(orgId);
     void listMedleyTemplates(api, orgId).then(items => {
       if (cancelled || tenantRef.current !== orgId) return;
-      setMedleyTemplates(items);
       if (items.length) void repairExistingMedleys(orgId, items);
     }).catch(error => {
       repairedForOrg.current.delete(orgId);
@@ -1010,7 +1003,7 @@ const SongsPage: React.FC = () => {
             </button>
           </div>
 
-          {medleyStudioEnabled && canManageRepertoire && songs.length >= 2 && <Button variant="secondary" onClick={() => { setMedleyTemplateToCopy(null); setMedleyStudioSongIds(selectedSongIds.length ? selectedSongIds : []); setMedleyStudioOpen(true); }}>
+          {medleyStudioEnabled && canManageRepertoire && songs.length >= 2 && <Button variant="secondary" onClick={() => { setMedleyStudioSongIds(selectedSongIds.length ? selectedSongIds : []); setMedleyStudioOpen(true); }}>
             {t('medleyStudioV2.createFromRepertoire')}
           </Button>}
           <Can I="musicscale.songs.edit">
