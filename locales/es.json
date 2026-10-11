@@ -2202,6 +2202,12 @@
     "addPart": "Añadir otra parte de esta canción",
     "music": "Canción",
     "bridgeOnlyBetweenSongs": "Los puentes armónicos solo se aplican entre canciones diferentes. Selecciona la última parte antes de la siguiente canción.",
+    "chosenSongs": "Secuencia seleccionada",
+    "appearances": "veces",
+    "selectionOrder": "Orden de canciones del medley",
+    "selected": "Seleccionada",
+    "removeOccurrence": "Eliminar aparición",
+    "clearSong": "Eliminar todas las apariciones",
     "progress": "Pasos de creación del medley",
     "step1": "Canciones",
     "step2": "Partes",
@@ -2262,6 +2268,14 @@
     "inspector": "Editar fragmento",
     "preview": "Vista previa",
     "duplicate": "Duplicar fragmento",
-    "chooseBlock": "Elige un fragmento para editar."
+    "chooseBlock": "Elige un fragmento para editar.",
+    "multiSelectHint": "Selecciona varias partes. Se mantiene el orden de la cifra; toca de nuevo para desmarcar.",
+    "addSongAgain": "Añadir otra aparición",
+    "quickArrange": "Fragmentos de esta aparición",
+    "advancedEdit": "Editar detalles",
+    "decreaseRepeats": "Reducir repeticiones",
+    "increaseRepeats": "Aumentar repeticiones",
+    "customOrderHint": "Duplica un fragmento para repetirlo y cambia su posición en el paso Partes.",
+    "appearance": "vez"
   }
 }

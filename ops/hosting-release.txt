@@ -1,3 +1,16 @@
+MusicScale 0.11.0-beta.5 — 2026-10-11
+Publicação combinada e não destrutiva das PRs #483 e #484 após QA: seleção múltipla de partes por música no Medley Studio, montagem na ordem da cifra, repetição por trecho (1–16×), duplicação manual opcional e edição isolada de ocorrências A→B→A.
+Mantém a seleção/contagem/remoção de músicas por ocorrência da beta.4, efeitos Undo/Redo e controles de transição. PT/EN/ES, preservação de cifras, letras, tablaturas, escalas e modelos existentes.
+Somente componentes/UI, utilitários de medley, arquivos de tradução e testes; não altera Firestore Rules, funções, Hub, billing, autenticação, API ou dados persistidos de clientes. Sem migrations nem force push.
+Publicar somente com checks completos aprovados para o SHA exato e release supervisionada no Firebase Hosting oficial. Comprovar /version.json beta.5 e smoke de rotas após deploy.
+
+MusicScale 0.11.0-beta.4 — 2026-10-11
+Medley Studio: músicas selecionadas no repertório aparecem marcadas, com quantidade de ocorrências e posição cronológica (#1, #3) sem confundirem trechos de uma mesma música.
+Permite retirar exatamente uma ocorrência (com todas as partes pertencentes àquele card) ou todas as ocorrências daquela música; mantém a ordenação das demais músicas A→B→A, undo/redo e remove pontes obsoletas.
+Mostra resumo ordenado das músicas do medley, prioriza escolhidas no catálogo mesmo após 75 itens e mantém campos de cifra, letra, abas, BPM, assinatura, permissões, escala e tenant intactos.
+Inclui i18n PT/EN/ES, testes unitários/UI e ajuste de relógio fixo exclusivamente em teste histórico de ordenação de eventos para não depender da data atual.
+Sem alteração em Firestore Rules, API, backend, bancos, IAM, dados ou migrations. Publicar somente após QA completa aprovada, Firebase Hosting oficial e smoke ao vivo.
+
 MusicScale 0.11.0-beta.3 — 2026-10-11
 Correção do Medley Studio V2: trechos consecutivos da mesma música dentro do mesmo card e seleção inline; revisão agrupada por música, preservando ordenação, trechos, repetições e edição.
 Pontes harmônicas sugeridas apenas nas fronteiras entre músicas distintas, com orientação/ponte de saída associada ao último trecho da música anterior.

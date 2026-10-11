@@ -161,7 +161,10 @@ describe('Home Experience Domain Logic', () => {
         { id: '2', date: '2026-10-11', time: '11:00' } as any,
         { id: '3', date: '2026-10-11', time: '09:00' } as any
       ];
-      const summaries = buildHomeEventSummaries(musicScales, [], undefined, today);
+      // Fix the simulated clock: these dates are historical after 2026-10-11.
+      // Their ordering must not depend on when CI happens to execute.
+      const fixedNow = new Date('2026-10-10T12:00:00Z').getTime();
+      const summaries = buildHomeEventSummaries(musicScales, [], undefined, today, fixedNow);
       expect(summaries[0].id).toBe('3');
       expect(summaries[1].id).toBe('2');
       expect(summaries[2].id).toBe('1');

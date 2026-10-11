@@ -91,6 +91,118 @@ describe('feature-isolated visual studio', () => {
     fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
     expect(within(dialog).getAllByTestId('medley-song-bridge')).toHaveLength(1);
   });
+  it('selects several parts with one tap each, sorts them by chart order and adjusts repetitions inline', () => {
+    const a = song('A', '[Intro]\nAm F\n[Verso]\nG C\n[Refrão]\nF G');
+    const b = song('B', 'Dm G');
+    const onChange = vi.fn<(medleys: ScaleMedley[]) => void>();
+    render(<MedleyStudioV2 songs={[a,b]} medleys={[]} onChange={onChange} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    const rowA = within(dialog).getAllByTestId('medley-picker-song').find(node => node.getAttribute('data-song-id') === 'A')!;
+    fireEvent.click(within(rowA).getByRole('button', { name: /A.*Am/ }));
+    let picker = within(rowA).getByTestId('medley-quick-sections');
+    fireEvent.click(within(picker).getByRole('button', { name: 'Refrão' }));
+    fireEvent.click(within(picker).getByRole('button', { name: 'Intro' }));
+    picker = within(rowA).getByTestId('medley-quick-sections');
+    expect(within(picker).getAllByTestId('medley-quick-arrangement')).toHaveLength(1);
+    expect(within(picker).getByTestId('medley-quick-arrangement').textContent).toMatch(/Intro.*Refrão/);
+    fireEvent.click(within(picker).getByRole('button', { name: 'medleyStudioV2.increaseRepeats 2' }));
+    expect(within(picker).getByTestId('medley-quick-arrangement')).toHaveTextContent('2×');
+    const rowB = within(dialog).getAllByTestId('medley-picker-song').find(node => node.getAttribute('data-song-id') === 'B')!;
+    fireEvent.click(within(rowB).getByRole('button', { name: /B.*Am/ }));
+    continueToReview(dialog, 1);
+    fireEvent.click(within(dialog).getByText('medley.use'));
+    const steps = onChange.mock.calls[0][0][0].steps;
+    expect(steps.map(step => [step.songId, step.label || '', step.repetitions])).toEqual([
+      ['A', 'Intro', 1], ['A', 'Refrão', 2], ['B', '', 1],
+    ]);
+    expect(a.chords).toBe('[Intro]\nAm F\n[Verso]\nG C\n[Refrão]\nF G');
+  });
+
+  it('reopening a chosen song edits its sections, while another appearance is inserted explicitly', () => {
+    const a = song('A', '[Intro]\nAm F\n[Refrão]\nC G');
+    const onChange = vi.fn<(medleys: ScaleMedley[]) => void>();
+    render(<MedleyStudioV2 songs={[a,song('B','Dm G')]} medleys={[]} onChange={onChange} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    const rowA = within(dialog).getAllByTestId('medley-picker-song').find(node => node.getAttribute('data-song-id') === 'A')!;
+    const rowB = within(dialog).getAllByTestId('medley-picker-song').find(node => node.getAttribute('data-song-id') === 'B')!;
+    fireEvent.click(within(rowA).getByRole('button', { name: /A.*Am/ }));
+    fireEvent.click(within(rowA).getByRole('button', { name: 'Intro' }));
+    fireEvent.click(within(rowB).getByRole('button', { name: /B.*Am/ }));
+    fireEvent.click(within(rowA).getByRole('button', { name: /A.*Am/ }));
+    expect(within(rowA).getByTestId('medley-selection-count')).toHaveTextContent('1×');
+    fireEvent.click(within(rowA).getByRole('button', { name: 'medleyStudioV2.addSongAgain' }));
+    expect(within(rowA).getByTestId('medley-selection-count')).toHaveTextContent('2×');
+    fireEvent.click(within(rowA).getByRole('button', { name: 'Refrão' }));
+    continueToReview(dialog, 1);
+    fireEvent.click(within(dialog).getByText('medley.use'));
+    expect(onChange.mock.calls[0][0][0].steps.map(step => [step.songId, step.label || '']))
+      .toEqual([['A', 'Intro'],['B',''],['A','Refrão']]);
+  });
+
+  it('marks selections live, shows A-B-A as two A appearances, removes an exact position, and supports undo', () => {
+    const onChange = vi.fn<(medleys: ScaleMedley[]) => void>();
+    render(<MedleyStudioV2 songs={[song('A', 'Am F'),song('B', 'C G'),song('C', 'Dm G')]} medleys={[]} onChange={onChange} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    const row = (id: string) => within(dialog).getAllByTestId('medley-picker-song').find(item => item.getAttribute('data-song-id') === id)!;
+    fireEvent.click(within(row('A')).getByRole('button', { name: /A.*Am/ }));
+    fireEvent.click(within(row('B')).getByRole('button', { name: /B.*Am/ }));
+    fireEvent.click(within(row('A')).getByRole('button', { name: 'medleyStudioV2.addSongAgain' }));
+    expect(within(row('A')).getByTestId('medley-selection-count')).toHaveTextContent('2×');
+    expect(within(row('B')).getByTestId('medley-selection-count')).toHaveTextContent('1×');
+    expect(within(row('A')).getAllByTestId('medley-picker-occurrence')).toHaveLength(2);
+    expect(within(row('A')).getByText('#1')).toBeInTheDocument();
+    expect(within(row('A')).getByText('#3')).toBeInTheDocument();
+    expect(within(dialog).getByTestId('medley-selection-summary')).toHaveTextContent('3 medleyStudioV2.appearances');
+    fireEvent.click(within(row('A')).getByRole('button', { name: 'medleyStudioV2.removeOccurrence A #1' }));
+    expect(within(row('A')).getByTestId('medley-selection-count')).toHaveTextContent('1×');
+    expect(within(row('A')).getByText('#2')).toBeInTheDocument();
+    expect(within(row('B')).getByText('#1')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'medleyStudioV2.undo' }));
+    expect(within(row('A')).getByTestId('medley-selection-count')).toHaveTextContent('2×');
+    fireEvent.click(within(row('A')).getByRole('button', { name: 'medleyStudioV2.removeOccurrence A #3' }));
+    expect(within(row('A')).getByTestId('medley-selection-count')).toHaveTextContent('1×');
+    continueToReview(dialog, 1);
+    fireEvent.click(within(dialog).getByText('medley.use'));
+    expect(onChange.mock.calls[0][0][0].steps.map(step => step.songId)).toEqual(['A','B']);
+  });
+
+  it('keeps one occurrence for multiple parts of A and removes its entire card from the picker', () => {
+    render(<MedleyStudioV2 songs={[song('A','[Intro]\\nAm F\\n[Refrão]\\nC G'.replaceAll('\\n','\n')), song('B','Dm G')]} medleys={[]} onChange={vi.fn()} initialSongIds={['A','B']} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    const card = within(dialog).getAllByTestId('medley-song-card')[0];
+    fireEvent.click(within(card).getByRole('button', { name: 'medleyStudioV2.addPart' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'medleyStudioV2.addMusic' }));
+    const rowA = within(dialog).getAllByTestId('medley-picker-song').find(item => item.getAttribute('data-song-id') === 'A')!;
+    expect(within(rowA).getByTestId('medley-selection-count')).toHaveTextContent('1×');
+    expect(within(rowA).getAllByTestId('medley-picker-occurrence')).toHaveLength(1);
+    fireEvent.click(within(rowA).getByRole('button', { name: 'medleyStudioV2.removeOccurrence A #1' }));
+    expect(within(rowA).queryByTestId('medley-selection-count')).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
+    expect(within(dialog).getAllByTestId('medley-song-card')).toHaveLength(1);
+    expect(within(dialog).getAllByTestId('medley-song-card')[0]).toHaveAttribute('data-song-id','B');
+  });
+
+  it('clears only the requested song from A-B-A and preserves B for subsequent additions', () => {
+    const onChange = vi.fn<(medleys: ScaleMedley[]) => void>();
+    render(<MedleyStudioV2 songs={[song('A','Am F'), song('B','C G'), song('C','Dm G')]} medleys={[]} onChange={onChange} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    const row = (id: string) => within(dialog).getAllByTestId('medley-picker-song').find(item => item.getAttribute('data-song-id') === id)!;
+    for (const id of ['A','B']) fireEvent.click(within(row(id)).getByRole('button', { name: new RegExp(id + '.*Am') }));
+    fireEvent.click(within(row('A')).getByRole('button', { name: 'medleyStudioV2.addSongAgain' }));
+    fireEvent.click(within(row('A')).getByRole('button', { name: 'medleyStudioV2.clearSong A' }));
+    expect(within(row('A')).queryByTestId('medley-selection-count')).not.toBeInTheDocument();
+    expect(within(row('B')).getByText('#1')).toBeInTheDocument();
+    fireEvent.click(within(row('C')).getByRole('button', { name: /C.*Am/ }));
+    continueToReview(dialog, 1);
+    fireEvent.click(within(dialog).getByText('medley.use'));
+    expect(onChange.mock.calls[0][0][0].steps.map(step => step.songId)).toEqual(['B','C']);
+  });
+
   it('keeps unmarked charts available for manually choosing lines', () => {
     render(<MedleyStudioV2 songs={[song('A', 'Am F\\nPalavra'), song('B', 'G C')]} medleys={[]} onChange={vi.fn()} initialSongIds={['A','B']} />);
     fireEvent.click(screen.getByText('medley.create'));

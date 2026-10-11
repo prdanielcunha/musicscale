@@ -3,6 +3,8 @@ import { medleyChart, medleySourceRevision, medleyTabsForSelection, orderMedleyS
 import { selectMedleyLines, splitMedleySource } from './medleySource';
 import { isValidKey, normalizeKey, resolveChordContentSourceKey } from './chordEngine';
 import { medleyPerformanceText } from './medleyPerformanceText';
+import type { MedleySegment } from './medleySegments';
+import { suggestMedleySegments } from './medleySegments';
 
 /**
  * UI-only draft contract. Publishing still uses the EXISTING ScaleMedley/MedleyExcerpt
@@ -19,6 +21,8 @@ export interface StudioBlock {
   bpm: string;
   transition: 'direct' | 'hold' | 'pause' | 'free';
   cue: string;
+  /** Draft-only: an intentionally inserted extra passage stays outside automatic selection. */
+  manualExtra?: boolean;
 }
 
 export function newStudioBlock(song: PopulatedSong, id: string = crypto.randomUUID()): StudioBlock {
@@ -32,14 +36,25 @@ export function newStudioBlock(song: PopulatedSong, id: string = crypto.randomUU
 }
 
 export function studioBlocksFromLegacy(medley: ScaleMedley): StudioBlock[] {
-  return medley.steps.map(step => ({
-    id: step.id, songId: step.songId, startLine: step.startLine,
-    endLine: step.endLine, label: step.label || '',
-    repetitions: step.repetitions, key: step.key || '',
-    bpm: step.bpm ? String(step.bpm) : '',
-    transition: step.transition?.mode || 'direct',
-    cue: step.transition?.cue || '',
-  }));
+  // The persisted ScaleMedley contract has no draft-only origin flag. Reconstruct
+  // manually repeated excerpts within each song appearance without a migration.
+  let previousSongId = '';
+  const seenRanges = new Set<string>();
+  return medley.steps.map(step => {
+    if (step.songId !== previousSongId) { seenRanges.clear(); previousSongId = step.songId; }
+    const range = step.startLine + ':' + step.endLine;
+    const manualExtra = seenRanges.has(range);
+    seenRanges.add(range);
+    return {
+      id: step.id, songId: step.songId, startLine: step.startLine,
+      endLine: step.endLine, label: step.label || '',
+      repetitions: step.repetitions, key: step.key || '',
+      bpm: step.bpm ? String(step.bpm) : '',
+      transition: step.transition?.mode || 'direct',
+      cue: step.transition?.cue || '',
+      ...(manualExtra ? { manualExtra: true } : {}),
+    };
+  });
 }
 
 /** One musical card per contiguous song occurrence; keep every excerpt unchanged. */
@@ -58,6 +73,84 @@ export function groupStudioSongs(blocks: readonly StudioBlock[]): StudioSongGrou
   return groups;
 }
 
+/**
+ * Delete exactly one chronological appearance of a song (including all of its parts).
+ * Other appearances of that same song, even earlier/later in the medley, are untouched.
+ * A cue pointing to the removed appearance must not become a stale bridge to the next song.
+ */
+export function removeStudioSongOccurrence(blocks: readonly StudioBlock[], startIndex: number): StudioBlock[] {
+  const group = groupStudioSongs(blocks).find(item => item.startIndex === startIndex);
+  if (!group) return [...blocks];
+  const next = [
+    ...blocks.slice(0, startIndex),
+    ...blocks.slice(startIndex + group.blocks.length),
+  ];
+  if (startIndex > 0 && next[startIndex - 1]) {
+    next[startIndex - 1] = { ...next[startIndex - 1], transition: 'direct', cue: '' };
+  }
+  return next;
+}
+
+/** Count song appearances rather than individual sections or repeated chords. */
+export function countStudioSongOccurrences(groups: readonly StudioSongGroup[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const group of groups) counts.set(group.songId, (counts.get(group.songId) || 0) + 1);
+  return counts;
+}
+
+/**
+ * Toggle one detected chart section inside exactly one chronological song occurrence.
+ * Existing hand-added duplicates stay in position; other songs, keys and charts never change.
+ * The first selection replaces a default full-chart block. Selected sections are inserted
+ * in source order, while arbitrary manual duplicates remain untouched.
+ */
+export function toggleStudioSongSection(
+  blocks: readonly StudioBlock[],
+  groupStartIndex: number,
+  segment: MedleySegment,
+  song: PopulatedSong,
+  newId: string = crypto.randomUUID(),
+): StudioBlock[] {
+  const group = groupStudioSongs(blocks).find(item => item.startIndex === groupStartIndex && item.songId === song.id);
+  if (!group || !suggestMedleySegments(medleyChart(song)).some(part =>
+    part.startLine === segment.startLine && part.endLine === segment.endLine)) return [...blocks];
+  const rangeEnd = Math.max(0, splitMedleySource(medleyChart(song)).length - 1);
+  const current = group.blocks;
+  const selectedIndex = current.findIndex(block => !block.manualExtra &&
+    block.startLine === segment.startLine && block.endLine === segment.endLine);
+  const defaultWhole = current.length === 1 && !current[0].manualExtra &&
+    current[0].startLine === 0 && current[0].endLine === rangeEnd && !current[0].label;
+  const newRange = { startLine: segment.startLine, endLine: segment.endLine, label: segment.label || '' };
+  let updated: StudioBlock[];
+  if (selectedIndex >= 0) {
+    // Never silently turn the final selected part into an empty medley entry.
+    if (current.length === 1) {
+      if (defaultWhole) return [...blocks];
+      updated = [{ ...current[0], startLine: 0, endLine: rangeEnd, label: '' }];
+    } else {
+      updated = current.filter((_, index) => index !== selectedIndex);
+    }
+  } else if (defaultWhole) {
+    updated = [{ ...current[0], ...newRange }];
+  } else {
+    if (blocks.length >= 30 || blocks.some(block => block.id === newId)) return [...blocks];
+    const created = { ...newStudioBlock(song, newId), ...newRange };
+    updated = [...current];
+    const sortedIndex = updated.findIndex(block => !block.manualExtra && block.startLine > segment.startLine);
+    const manualIndex = updated.findIndex(block => block.manualExtra);
+    const insertion = sortedIndex >= 0 ? sortedIndex : manualIndex >= 0 ? manualIndex : updated.length;
+    updated.splice(insertion, 0, created);
+  }
+  // A manually authored bridge belongs to the final passage of the song occurrence.
+  const outgoing = current[current.length - 1];
+  if (outgoing.cue || outgoing.transition !== 'direct') {
+    updated = updated.map((block, index) => index === updated.length - 1
+      ? { ...block, cue: outgoing.cue, transition: outgoing.transition }
+      : { ...block, cue: '', transition: 'direct' });
+  }
+  return [...blocks.slice(0, groupStartIndex), ...updated, ...blocks.slice(groupStartIndex + current.length)];
+}
+
 export function moveStudioBlock(blocks: StudioBlock[], from: number, to: number): StudioBlock[] {
   if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || from >= blocks.length || to < 0 || to >= blocks.length) return blocks;
   const next = [...blocks];
@@ -72,7 +165,7 @@ export function duplicateStudioBlock(blocks: StudioBlock[], index: number, id: s
   const next = [...blocks];
   next.splice(index, 1,
     { ...blocks[index], transition: 'direct', cue: '' },
-    { ...blocks[index], id });
+    { ...blocks[index], id, manualExtra: true });
   return next;
 }
 
@@ -86,8 +179,8 @@ export function splitStudioBlock(blocks: StudioBlock[], index: number, splitAfte
       blocks.length >= 30 || blocks.some(current => current.id === id)) return blocks;
   return [
     ...blocks.slice(0, index),
-    { ...block, endLine: splitAfter, transition: 'direct', cue: '' },
-    { ...block, id, startLine: splitAfter + 1 },
+    { ...block, endLine: splitAfter, transition: 'direct', cue: '', manualExtra: true },
+    { ...block, id, startLine: splitAfter + 1, manualExtra: true },
     ...blocks.slice(index + 1),
   ];
 }

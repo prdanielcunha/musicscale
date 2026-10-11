@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PopulatedSong, ScaleMedley } from '../../types';
-import { buildStudioPerformancePreview, compileStudioMedley, duplicateStudioBlock, groupStudioSongs, moveStudioBlock, splitStudioBlock, newStudioBlock, studioBlocksFromLegacy, mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
+import { buildStudioPerformancePreview, compileStudioMedley, countStudioSongOccurrences, duplicateStudioBlock, groupStudioSongs, moveStudioBlock, removeStudioSongOccurrence, splitStudioBlock, toggleStudioSongSection, newStudioBlock, studioBlocksFromLegacy, mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
+import { suggestMedleySegments } from '../../utils/medleySegments';
 import { analyzeMedleyBridge, detectedHarmonyEvents } from '../../utils/medleyStudioHarmony';
 import { loadStudioDraft, saveStudioDraft, studioDraftKey } from '../../utils/medleyStudioDraft';
 
@@ -33,6 +34,94 @@ describe('isolated Medley Studio 2.0 legacy adapter', () => {
     expect(groupStudioSongs([a1, b1, a2]).map(group => group.songId)).toEqual(['a', 'b', 'a']);
     const saved = compileStudioMedley([a1, a2, b1], [a, b]);
     expect(saved.steps.map(step => step.songId)).toEqual(['a', 'a', 'b']);
+  });
+
+  it('automatically assembles selected song parts in original chart order without changing the original chart', () => {
+    const sections = suggestMedleySegments(a.chords);
+    const intro = sections.find(section => section.label === 'Intro')!;
+    const refrain = sections.find(section => section.label === 'Refrão')!;
+    const whole = newStudioBlock(a, 'whole');
+    const baseline = [whole, newStudioBlock(b, 'b')];
+    const selectedRefrain = toggleStudioSongSection(baseline, 0, refrain, a, 'unused');
+    expect(selectedRefrain[0]).toMatchObject({ id: 'whole', label: 'Refrão', startLine: 3, endLine: 4 });
+    const both = toggleStudioSongSection(selectedRefrain, 0, intro, a, 'intro');
+    expect(both.map(item => [item.id, item.songId, item.label])).toEqual([
+      ['intro', 'a', 'Intro'], ['whole', 'a', 'Refrão'], ['b', 'b', ''],
+    ]);
+    const withRepeat = both.map(block => block.id === 'whole' ? { ...block, repetitions: 3 } : block);
+    const stored = compileStudioMedley(withRepeat, [a,b]);
+    expect(stored.steps.map(item => item.repetitions)).toEqual([1,3,1]);
+    expect(stored.steps[0].snapshot).toBe('[Intro]\\nAm    F'.replaceAll('\\n', '\n'));
+    expect(a.chords).toBe('[Intro]\\nAm    F\\nverso\\n[Refrão]\\nC     G'.replaceAll('\\n', '\n'));
+    const removedIntro = toggleStudioSongSection(withRepeat, 0, intro, a);
+    expect(removedIntro.map(block => block.id)).toEqual(['whole','b']);
+    expect(removedIntro[0].repetitions).toBe(3);
+  });
+
+  it('edits one A occurrence only, preserving a duplicated manual extra, bridge and A-B-A', () => {
+    const [intro, refrain] = suggestMedleySegments(a.chords);
+    const first = { ...newStudioBlock(a, 'first'), cue: 'C → Dm', transition: 'free' as const };
+    const second = newStudioBlock(a, 'return');
+    const original = [first, newStudioBlock(b, 'between'), second];
+    let arranged = toggleStudioSongSection(original, 0, intro, a);
+    arranged = duplicateStudioBlock(arranged, 0, 'manual-copy');
+    expect(arranged[1].manualExtra).toBe(true);
+    arranged = toggleStudioSongSection(arranged, 0, refrain, a, 'refrain');
+    expect(arranged.map(item => item.id)).toEqual(['first', 'refrain', 'manual-copy', 'between','return']);
+    expect(arranged[2].cue).toBe('C → Dm');
+    expect(arranged[2].transition).toBe('free');
+    expect(arranged[4]).toEqual(second);
+    const unchanged = toggleStudioSongSection(arranged, 3, { ...intro, startLine: 200 }, a);
+    expect(unchanged).toEqual(arranged);
+  });
+
+  it('restores manually repeated passages from a saved medley without changing its persisted schema', () => {
+    const selected = toggleStudioSongSection([newStudioBlock(a, 'original'), newStudioBlock(b, 'second')], 0, suggestMedleySegments(a.chords)[0], a);
+    const duplicated = duplicateStudioBlock(selected, 0, 'extra');
+    const legacy = compileStudioMedley(duplicated, [a, b]);
+    const reopened = studioBlocksFromLegacy(legacy);
+    expect(reopened.map(item => item.id)).toEqual(['original','extra','second']);
+    expect(reopened[1].manualExtra).toBe(true);
+    const updated = toggleStudioSongSection(reopened, 0, suggestMedleySegments(a.chords)[1], a, 'refrain');
+    expect(updated.map(item => item.id)).toEqual(['original','refrain','extra','second']);
+    expect(updated[2].manualExtra).toBe(true);
+  });
+
+  it('counts A-B-A as two chronological appearances of A, not repeated inner sections', () => {
+    const blocks = [
+      newStudioBlock(a, 'a-intro'),
+      { ...newStudioBlock(a, 'a-refrain'), label: 'Refrão' },
+      newStudioBlock(b, 'b'),
+      newStudioBlock(a, 'a-return'),
+    ];
+    const groups = groupStudioSongs(blocks);
+    expect(groups.map(group => [group.songId, group.startIndex, group.blocks.length]))
+      .toEqual([['a', 0, 2], ['b', 2, 1], ['a', 3, 1]]);
+    expect([...countStudioSongOccurrences(groups)]).toEqual([['a', 2], ['b', 1]]);
+    expect(compileStudioMedley(blocks, [a,b]).steps.map(step => step.songId)).toEqual(['a','a','b','a']);
+  });
+
+  it('removes only a selected appearance and all its parts while preserving original order and other A entries', () => {
+    const blocks = [
+      { ...newStudioBlock(a, 'a1'), label: 'Intro' },
+      { ...newStudioBlock(a, 'a2'), label: 'Refrão', cue: 'F → Gm', transition: 'free' as const },
+      { ...newStudioBlock(b, 'b1'), cue: 'Dm → Am', transition: 'free' as const },
+      { ...newStudioBlock(a, 'a3'), label: 'Final' },
+    ];
+    const removeFirst = removeStudioSongOccurrence(blocks, 0);
+    expect(removeFirst.map(block => block.id)).toEqual(['b1','a3']);
+    expect(removeFirst[0].cue).toBe('Dm → Am');
+    const removeLast = removeStudioSongOccurrence(blocks, 3);
+    expect(removeLast.map(block => block.id)).toEqual(['a1','a2','b1']);
+    expect(removeLast[2].cue).toBe('');
+    expect(removeLast[2].transition).toBe('direct');
+    const removeMiddle = removeStudioSongOccurrence(blocks, 2);
+    expect(removeMiddle.map(block => block.id)).toEqual(['a1','a2','a3']);
+    expect(removeMiddle[1].cue).toBe('');
+    expect(groupStudioSongs(removeMiddle)).toHaveLength(1);
+    expect(blocks.map(block => block.id)).toEqual(['a1','a2','b1','a3']);
+    expect(blocks[1].cue).toBe('F → Gm');
+    expect(removeStudioSongOccurrence(blocks, 99)).toEqual(blocks);
   });
 
   it('moves a hand-authored outgoing bridge onto the last duplicated part of a song', () => {

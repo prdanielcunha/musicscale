@@ -1,17 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowDown, ArrowUp, Copy, Music2, Plus, Redo2, Trash2, Undo2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, Copy, Music2, Plus, Redo2, Trash2, Undo2, X } from 'lucide-react';
 import type { PopulatedSong, ScaleMedley } from '../../types';
 import { medleyChart, medleySourceRevision } from '../../utils/medleyModel';
 import { selectMedleyLines, splitMedleySource } from '../../utils/medleySource';
 import { suggestMedleySegments } from '../../utils/medleySegments';
+import type { MedleySegment } from '../../utils/medleySegments';
 import { analyzeMedleyBridge } from '../../utils/medleyStudioHarmony';
 import {
-  buildStudioPerformancePreview, compileStudioMedley, duplicateStudioBlock, groupStudioSongs, moveStudioBlock, newStudioBlock, splitStudioBlock,
-  previewStudioBlock, studioBlocksFromLegacy,
+  buildStudioPerformancePreview, compileStudioMedley, countStudioSongOccurrences, duplicateStudioBlock, groupStudioSongs, moveStudioBlock, newStudioBlock, removeStudioSongOccurrence, splitStudioBlock,
+  previewStudioBlock, studioBlocksFromLegacy, toggleStudioSongSection,
 } from '../../utils/medleyStudioV2';
-import type { StudioBlock } from '../../utils/medleyStudioV2';
+import type { StudioBlock, StudioSongGroup } from '../../utils/medleyStudioV2';
 import { ManualMedleyBridgeEditor } from './ManualMedleyBridgeEditor';
 import { buildSearchIndex, searchSongs } from '../../utils/searchEngine';
 import { useAuth } from '../../contexts/AuthContext';
@@ -63,6 +64,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const [history, setHistory] = useState<History>({ past: [], present: [], future: [] });
   const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [sourceApproved, setSourceApproved] = useState(false);
   const [error, setError] = useState('');
   const [templateId, setTemplateId] = useState<string | null>(null);
@@ -86,6 +88,16 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
 
   const steps = history.present;
   const songGroups = useMemo(() => groupStudioSongs(steps), [steps]);
+  const selectionCounts = useMemo(() => countStudioSongOccurrences(songGroups), [songGroups]);
+  const songAppearances = useMemo(() => {
+    const map = new Map<string, { position: number; startIndex: number; parts: number }[]>();
+    songGroups.forEach((group, index) => {
+      const entries = map.get(group.songId) || [];
+      entries.push({ position: index + 1, startIndex: group.startIndex, parts: group.blocks.length });
+      map.set(group.songId, entries);
+    });
+    return map;
+  }, [songGroups]);
   const fullPreview = useMemo(() => {
     if (!showFullPreview) return null;
     try { return buildStudioPerformancePreview(steps, songs); }
@@ -99,14 +111,23 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const activeSong = selected ? songMap.get(selected.songId) : undefined;
   const selectedPosition = selected ? steps.findIndex(step => step.id === selected.id) : -1;
   const selectedIsSongBoundary = selectedPosition >= 0 && !!steps[selectedPosition + 1] && steps[selectedPosition + 1].songId !== selected.songId;
-  const sectionChoices = useMemo(() => activeSong ? suggestMedleySegments(medleyChart(activeSong)) : [], [activeSong]);
+  const expandedGroup = songGroups.find(group => group.blocks.some(block => block.id === expandedGroupId));
   const searchIndex = useMemo(() => buildSearchIndex(songs), [songs]);
   const filteredSongs = useMemo(() => {
     const matches = searchSongs(searchIndex, query).map(match => match.document.song);
-    if (query.trim() || !suggestedSongIds?.length) return matches.slice(0, 75);
-    const rank = new Map(suggestedSongIds.map((id, index) => [id, index]));
-    return matches.sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)).slice(0, 75);
-  }, [searchIndex, query, suggestedSongIds]);
+    if (query.trim()) return matches.slice(0, 75);
+    // Always show selected songs, even beyond the first 75 library results.
+    const selectedOrder = new Map<string, number>();
+    songGroups.forEach((group, index) => { if (!selectedOrder.has(group.songId)) selectedOrder.set(group.songId, index); });
+    const suggestedRank = new Map(suggestedSongIds?.map((id, index) => [id, index]) || []);
+    const selected = [...selectedOrder.keys()].map(id => songs.find(song => song.id === id)).filter((song): song is PopulatedSong => !!song);
+    const suggested = [...suggestedRank.keys()].map(id => songs.find(song => song.id === id)).filter((song): song is PopulatedSong => !!song);
+    const candidates = [...selected, ...suggested, ...matches];
+    const seen = new Set<string>();
+    return candidates.filter(song => { if (seen.has(song.id)) return false; seen.add(song.id); return true; })
+      .sort((a, b) => (selectedOrder.get(a.id) ?? Infinity) - (selectedOrder.get(b.id) ?? Infinity) ||
+        (suggestedRank.get(a.id) ?? Infinity) - (suggestedRank.get(b.id) ?? Infinity)).slice(0, 75);
+  }, [searchIndex, query, suggestedSongIds, songGroups, songs]);
   const original = medleys.find(item => item.id === editingId) || (templateOnly && initialMedley?.id === editingId ? initialMedley : undefined);
   const changedSources = original?.steps.filter(step => {
     const song = songMap.get(step.songId);
@@ -134,6 +155,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     setSourceApproved(false);
     setError('');
     setQuery('');
+    setExpandedGroupId(null);
     setDraftEdited(false);
     setShowFullPreview(false);
     setStage(medley || preferredSongs.length ? 2 : 1);
@@ -178,6 +200,30 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     const block = newStudioBlock(song);
     edit(previous => [...previous, block]);
     setActiveId(block.id);
+    setExpandedGroupId(block.id);
+  };
+  const openSongSections = (song: PopulatedSong) => {
+    const occurrence = [...songGroups].reverse().find(group => group.songId === song.id);
+    if (!occurrence) { add(song); return; }
+    setExpandedGroupId(occurrence.blocks[0].id);
+    setActiveId(occurrence.blocks[0].id);
+  };
+  const removeOccurrence = (startIndex: number) => {
+    const appearance = songGroups.find(group => group.startIndex === startIndex);
+    if (!appearance) return;
+    if (appearance.blocks.some(block => block.id === activeId)) {
+      setActiveId(steps[startIndex + appearance.blocks.length]?.id || steps[startIndex - 1]?.id || null);
+    }
+    edit(previous => removeStudioSongOccurrence(previous, startIndex));
+  };
+  const clearSongOccurrences = (songId: string) => {
+    const starts = songGroups.filter(group => group.songId === songId).map(group => group.startIndex).reverse();
+    if (!starts.length) return;
+    const removedIds = new Set(songGroups.filter(group => group.songId === songId).flatMap(group => group.blocks.map(block => block.id)));
+    if (activeId && removedIds.has(activeId)) {
+      setActiveId(steps.find(block => block.songId !== songId)?.id || null);
+    }
+    edit(previous => starts.reduce((items, startIndex) => removeStudioSongOccurrence(items, startIndex), previous));
   };
   const addSelectedPart = (blockId: string) => {
     if (steps.length >= 30 || !steps.some(block => block.id === blockId)) return;
@@ -185,6 +231,42 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     edit(previous => duplicateStudioBlock(previous, previous.findIndex(block => block.id === blockId), occurrenceId)
       .map(block => block.id === occurrenceId ? { ...block, repetitions: 1 } : block));
     setActiveId(occurrenceId);
+  };
+  const selectSection = (group: StudioSongGroup, song: PopulatedSong, section: MedleySegment) => {
+    const next = toggleStudioSongSection(steps, group.startIndex, section, song);
+    if (next.length > 30) { setError(t('medley.invalid')); return; }
+    const occurrence = groupStudioSongs(next).find(item => item.startIndex === group.startIndex && item.songId === song.id);
+    const focusBlock = occurrence?.blocks.find(block => !block.manualExtra &&
+      block.startLine === section.startLine && block.endLine === section.endLine) || occurrence?.blocks[0];
+    if (focusBlock) setActiveId(focusBlock.id);
+    if (occurrence && group.blocks.some(block => block.id === expandedGroupId)) setExpandedGroupId(occurrence.blocks[0].id);
+    edit(() => next);
+  };
+  const sectionPicker = (group: StudioSongGroup, song: PopulatedSong) => {
+    const choices = suggestMedleySegments(medleyChart(song));
+    const titleTotals = new Map<string, number>();
+    for (const section of choices) if (section.label) titleTotals.set(section.label, (titleTotals.get(section.label) || 0) + 1);
+    const titleIndexes = new Map<string, number>();
+    return <div className="rounded-xl border border-sky-400/15 bg-sky-500/5 p-3" role="group" aria-label={t('medleyStudioV2.sectionChoices')}>
+      <p className="mb-1 text-xs font-semibold text-slate-200">{t('medleyStudioV2.sectionChoices')}</p>
+      <p className="mb-3 text-xs text-slate-400">{t('medleyStudioV2.multiSelectHint')}</p>
+      <div className="flex max-h-[210px] flex-wrap content-start gap-2 overflow-y-auto pr-1">{choices.map((section, index) => {
+        const ordinal = section.label ? (titleIndexes.get(section.label) || 0) + 1 : index + 1;
+        if (section.label) titleIndexes.set(section.label, ordinal);
+        const partName = section.label
+          ? section.label + ((titleTotals.get(section.label) || 0) > 1 ? ' · ' + ordinal : '')
+          : (section.source === 'whole' ? t('medley.whole') : t('medleyStudioV2.unmarkedPart') + ' ' + (index + 1));
+        const chosen = group.blocks.some(block => !block.manualExtra && block.startLine === section.startLine && block.endLine === section.endLine);
+        return <button type="button" key={section.id} aria-pressed={chosen}
+          className={'min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-sky-400 ' +
+            (chosen ? 'border-sky-400 bg-sky-500/25 text-white' : 'border-white/15 bg-white/5 text-slate-200')}
+          onClick={() => selectSection(group, song, section)}>
+          {chosen && <Check size={14} aria-hidden="true" className="mr-1 inline-block" />}
+          {partName}
+        </button>;
+      })}</div>
+      {choices.every(section => section.source !== 'section') && <p className="mt-2 text-xs text-amber-200">{t('medleyStudioV2.manualSectionHint')}</p>}
+    </div>;
   };
   const save = async () => {
     if (savingTemplate) return;
@@ -223,19 +305,10 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   // Stage 2 places the editor inside the song card; stage 3 keeps bridge controls adjacent.
   const inspector = (selected && activeSong ? <>
               <p className="mb-2 text-sm font-semibold text-sky-300">{activeSong.title}</p>
-              {stage === 2 && <div className="mb-3 rounded-xl border border-sky-400/15 bg-sky-500/5 p-3" role="group" aria-label={t('medleyStudioV2.sectionChoices')}>
-                <p className="mb-2 text-xs font-semibold text-slate-200">{t('medleyStudioV2.sectionChoices')}</p>
-                <div className="flex flex-wrap gap-2">{sectionChoices.slice(0, 24).map(section => {
-                  const selectedSection = selected.startLine === section.startLine && selected.endLine === section.endLine;
-                  return <button type="button" key={section.id} aria-pressed={selectedSection}
-                    className={'min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-sky-400 ' + (selectedSection ? 'border-sky-400 bg-sky-500/20 text-white' : 'border-white/15 bg-white/5 text-slate-200')}
-                    onClick={() => update(selected.id, { startLine: section.startLine, endLine: section.endLine, label: section.label || '' })}>
-                    {section.label || (section.source === 'whole' ? t('medley.whole') : t('medleyStudioV2.unmarkedPart'))}
-                  </button>;
-                })}</div>
-                {sectionChoices.length > 24 && <p className="mt-2 text-xs text-slate-400">{t('medleyStudioV2.moreSections')}</p>}
-                {sectionChoices.every(section => section.source !== 'section') && <p className="mt-2 text-xs text-amber-200">{t('medleyStudioV2.manualSectionHint')}</p>}
-              </div>}
+              {stage === 2 && (() => {
+                const group = songGroups.find(item => item.blocks.some(block => block.id === selected.id));
+                return group ? <div className="mb-3">{sectionPicker(group, activeSong)}</div> : null;
+              })()}
               <label className={stage === 3 ? 'hidden' : 'block text-xs'}>{t('medley.excerpt')}
                 <select className={field} value={(() => { const lines = splitMedleySource(medleyChart(activeSong)); if (selected.startLine === 0 && selected.endLine === lines.length - 1) return 'all'; return suggestMedleySegments(medleyChart(activeSong)).find(s => s.startLine === selected.startLine && s.endLine === selected.endLine)?.id || 'manual'; })()}
                   onChange={e => { if (e.target.value === 'all') update(selected.id, { startLine: 0, endLine: splitMedleySource(medleyChart(activeSong)).length - 1, label: '' }); else { const segment = suggestMedleySegments(medleyChart(activeSong)).find(s => s.id === e.target.value); if (segment) update(selected.id, { startLine: segment.startLine, endLine: segment.endLine, label: segment.label || '' }); } }}>
@@ -315,21 +388,82 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
             <h3 className="mb-2 font-semibold">{t('medleyStudioV2.library')}</h3>
             <input className={field} aria-label={t('medleyStudioV2.search')} placeholder={t('medleyStudioV2.search')} value={query} onChange={e => setQuery(e.target.value)} />
             {!!suggestedSongIds?.length && !query.trim() && <p className="mt-2 text-xs font-semibold text-sky-300">{t('medleyStudioV2.scaleSuggestions')}</p>}
-            <div className="mt-2 max-h-[340px] space-y-1 overflow-auto lg:max-h-[58vh]">{filteredSongs.map(song => <button key={song.id} type="button" className="flex min-h-[44px] w-full items-center gap-2 rounded-lg border border-transparent p-2 text-left hover:border-sky-500/30 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-sky-400" onClick={() => add(song)}>
-              <span aria-hidden="true" className={'relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br ' + artworkClass(song.id)}>
-                <span className="h-7 w-7 rounded-full border border-white/25 bg-white/5 blur-[1px]" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <strong className="block truncate text-sm">{song.title}</strong>
-                <small className="text-xs text-slate-400">{song.artist || '—'} · {song.key || '—'}{song.bpm ? ' · ' + song.bpm + ' BPM' : ''}</small>
-                <span className="mt-1 flex flex-wrap gap-1 text-[10px] font-medium text-slate-300">
-                  {!!song.chords?.trim() && <span className="rounded border border-white/15 px-1.5">{t('medleyStudioV2.hasChords')}</span>}
-                  {!!song.lyrics?.trim() && <span className="rounded border border-white/15 px-1.5">{t('medleyStudioV2.hasLyrics')}</span>}
-                  {!!song.sections?.length && <span className="rounded border border-white/15 px-1.5">{t('medleyStudioV2.hasSections')}</span>}
-                </span>
-              </span>
-              <Plus size={18} className="shrink-0 text-sky-300" />
-            </button>)}{filteredSongs.length === 0 && <p className="p-3 text-sm text-slate-400">{t('medleyStudioV2.emptySearch')}</p>}</div>
+            {songGroups.length > 0 && <div className="mt-3 rounded-xl border border-sky-400/15 bg-sky-500/5 p-3" data-testid="medley-selection-summary">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <strong className="text-sky-200">{t('medleyStudioV2.chosenSongs')}</strong>
+                <span className="tabular-nums text-slate-300">{songGroups.length} {t(songGroups.length === 1 ? 'medleyStudioV2.appearance' : 'medleyStudioV2.appearances')}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5" aria-label={t('medleyStudioV2.selectionOrder')}>
+                {songGroups.map((group, index) => <span key={group.blocks[0].id} className="rounded-lg border border-sky-500/25 bg-[#132943] px-2 py-1.5 text-[11px] text-sky-100">
+                  <span className="font-bold tabular-nums">{index + 1}.</span> {songMap.get(group.songId)?.title || group.songId}
+                </span>)}
+              </div>
+            </div>}
+            <div className="mt-2 max-h-[340px] space-y-2 overflow-auto lg:max-h-[58vh]">
+              {filteredSongs.map(song => {
+                const count = selectionCounts.get(song.id) || 0;
+                const appearances = songAppearances.get(song.id) || [];
+                return <div key={song.id} data-testid="medley-picker-song" data-song-id={song.id}
+                  className={'rounded-xl border p-1 transition-colors ' + (count ? 'border-sky-400/60 bg-sky-500/10' : 'border-white/10 bg-white/[.02]')}>
+                  <button type="button" disabled={steps.length >= 30 && !count}
+                    className="flex min-h-[56px] w-full items-center gap-2 rounded-lg p-2 text-left hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-sky-400 disabled:opacity-45"
+                    onClick={() => openSongSections(song)}>
+                    <span aria-hidden="true" className={'relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br ' + artworkClass(song.id)}>
+                      <span className="h-7 w-7 rounded-full border border-white/25 bg-white/5 blur-[1px]" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <strong className="block truncate text-sm">{song.title}</strong>
+                      <small className="block truncate text-xs text-slate-400">{song.artist || '—'} · {song.key || '—'}{song.bpm ? ' · ' + song.bpm + ' BPM' : ''}</small>
+                      <span className="mt-1 flex flex-wrap gap-1 text-[10px] font-medium text-slate-300">
+                        {!!song.chords?.trim() && <span className="rounded border border-white/15 px-1.5">{t('medleyStudioV2.hasChords')}</span>}
+                        {!!song.lyrics?.trim() && <span className="rounded border border-white/15 px-1.5">{t('medleyStudioV2.hasLyrics')}</span>}
+                        {!!song.sections?.length && <span className="rounded border border-white/15 px-1.5">{t('medleyStudioV2.hasSections')}</span>}
+                      </span>
+                    </span>
+                    {count > 0 && <span data-testid="medley-selection-count" className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sky-400/40 bg-sky-500/20 px-2 py-1.5 text-xs font-semibold tabular-nums text-sky-100">
+                      <Check size={14} aria-hidden="true" /> {count}×
+                    </span>}
+                    <span aria-hidden="true" className="shrink-0 text-sky-300">{count ? <Check size={18} /> : <Plus size={18} />}</span>
+                  </button>
+                  {count > 0 && <div className="border-t border-sky-400/15 px-2 pb-2 pt-2">
+                    <p className="mb-1 text-[11px] font-medium text-sky-200" role="status">{t('medleyStudioV2.selected')} · {count} {t(count === 1 ? 'medleyStudioV2.appearance' : 'medleyStudioV2.appearances')}</p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button type="button" className="min-h-[40px] rounded-lg border border-sky-400/30 bg-sky-500/10 px-2 text-xs font-semibold text-sky-100"
+                        disabled={steps.length >= 30} onClick={() => add(song)}>{t('medleyStudioV2.addSongAgain')}</button>
+                      {count > 1 && <button type="button" className="min-h-[40px] rounded-lg border border-rose-400/25 px-2 text-[11px] font-semibold text-rose-200 focus-visible:outline-2 focus-visible:outline-rose-400"
+                        aria-label={t('medleyStudioV2.clearSong') + ' ' + song.title} onClick={() => clearSongOccurrences(song.id)}>{t('medleyStudioV2.clearSong')}</button>}
+                      {appearances.map(item => <div key={item.startIndex} data-testid="medley-picker-occurrence" className="inline-flex min-h-[40px] items-center gap-1 rounded-lg border border-white/15 bg-black/20 pl-2 text-xs text-slate-200">
+                        <span className="tabular-nums">#{item.position}</span>
+                        <button type="button" className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-r-lg text-rose-200 hover:bg-rose-500/15 focus-visible:outline-2 focus-visible:outline-rose-400"
+                          aria-label={t('medleyStudioV2.removeOccurrence') + ' ' + song.title + ' #' + item.position}
+                          onClick={() => removeOccurrence(item.startIndex)}><X size={16} aria-hidden="true" /></button>
+                      </div>)}
+                    </div>
+                  </div>}
+                  {expandedGroup?.songId === song.id && <div className="mt-2 border-t border-white/10 px-2 pb-3 pt-3" data-testid="medley-quick-sections">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <strong className="text-sm text-white">{t('medleyStudioV2.quickArrange')}</strong>
+                      <button type="button" className="min-h-[40px] rounded-lg px-3 text-sky-200 underline underline-offset-2"
+                        onClick={() => { setActiveId(expandedGroup.blocks[0].id); goToStage(2); }}>{t('medleyStudioV2.advancedEdit')}</button>
+                    </div>
+                    {sectionPicker(expandedGroup, song)}
+                    <ol className="mt-3 space-y-1.5" data-testid="medley-quick-arrangement">{expandedGroup.blocks.map((block, index) =>
+                      <li key={block.id} className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-black/20 p-2">
+                        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-100">{index + 1}. {block.label || t('medley.excerpt')}</span>
+                        <button type="button" disabled={block.repetitions <= 1} className={button + ' px-2'} aria-label={t('medleyStudioV2.decreaseRepeats') + ' ' + (index + 1)}
+                          onClick={() => update(block.id, { repetitions: Math.max(1, block.repetitions - 1) })}>−</button>
+                        <span className="min-w-[32px] text-center text-sm tabular-nums" aria-live="polite">{block.repetitions}×</span>
+                        <button type="button" disabled={block.repetitions >= 16} className={button + ' px-2'} aria-label={t('medleyStudioV2.increaseRepeats') + ' ' + (index + 1)}
+                          onClick={() => update(block.id, { repetitions: Math.min(16, block.repetitions + 1) })}>+</button>
+                        <button type="button" className={button + ' text-sky-200'} disabled={steps.length >= 30} aria-label={t('medleyStudioV2.duplicate') + ' ' + (index + 1)}
+                          onClick={() => addSelectedPart(block.id)}><Copy size={16} /></button>
+                      </li>)}</ol>
+                    <p className="mt-2 text-[11px] text-slate-400">{t('medleyStudioV2.customOrderHint')}</p>
+                  </div>}
+                </div>;
+              })}
+              {filteredSongs.length === 0 && <p className="p-3 text-sm text-slate-400">{t('medleyStudioV2.emptySearch')}</p>}
+            </div>
           </aside>
 
           <section className={'min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3 ' + (stage !== 2 && stage !== 3 ? 'hidden' : '')} aria-label={t('medleyStudioV2.timeline')}>
