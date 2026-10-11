@@ -382,7 +382,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
             {songGroups.length > 0 && <div className="mt-3 rounded-xl border border-sky-400/15 bg-sky-500/5 p-3" data-testid="medley-selection-summary">
               <div className="flex items-center justify-between gap-2 text-xs">
                 <strong className="text-sky-200">{t('medleyStudioV2.chosenSongs')}</strong>
-                <span className="tabular-nums text-slate-300">{songGroups.length} {t('medleyStudioV2.appearances')}</span>
+                <span className="tabular-nums text-slate-300">{songGroups.length} {t(songGroups.length === 1 ? 'medleyStudioV2.appearance' : 'medleyStudioV2.appearances')}</span>
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5" aria-label={t('medleyStudioV2.selectionOrder')}>
                 {songGroups.map((group, index) => <span key={group.blocks[0].id} className="rounded-lg border border-sky-500/25 bg-[#132943] px-2 py-1.5 text-[11px] text-sky-100">
@@ -417,7 +417,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
                     <span aria-hidden="true" className="shrink-0 text-sky-300">{count ? <Check size={18} /> : <Plus size={18} />}</span>
                   </button>
                   {count > 0 && <div className="border-t border-sky-400/15 px-2 pb-2 pt-2">
-                    <p className="mb-1 text-[11px] font-medium text-sky-200" role="status">{t('medleyStudioV2.selected')} · {count} {t('medleyStudioV2.appearances')}</p>
+                    <p className="mb-1 text-[11px] font-medium text-sky-200" role="status">{t('medleyStudioV2.selected')} · {count} {t(count === 1 ? 'medleyStudioV2.appearance' : 'medleyStudioV2.appearances')}</p>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <button type="button" className="min-h-[40px] rounded-lg border border-sky-400/30 bg-sky-500/10 px-2 text-xs font-semibold text-sky-100"
                         disabled={steps.length >= 30} onClick={() => add(song)}>{t('medleyStudioV2.addSongAgain')}</button>
