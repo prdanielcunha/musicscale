@@ -458,6 +458,7 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-20 md:pb-4">
              {!!formData.medleys?.length && <React.Suspense fallback={null}>
                <MedleyEditor
+                 allowCreate={false}
                  songs={studioV2Enabled ? songs : selectedSongsList}
                  draftScope={`scale:${formData.id && formData.id !== "CLONE" ? formData.id : "new"}`}
                  initialSongIds={studioV2Enabled ? [] : undefined}
