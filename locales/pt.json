@@ -2268,6 +2268,13 @@
     "inspector": "Editar trecho",
     "preview": "Prévia do trecho",
     "duplicate": "Duplicar trecho",
-    "chooseBlock": "Selecione um trecho para editar."
+    "chooseBlock": "Selecione um trecho para editar.",
+    "multiSelectHint": "Toque em várias partes. A ordem segue a cifra; toque novamente para desmarcar.",
+    "addSongAgain": "Adicionar outra entrada",
+    "quickArrange": "Trechos desta entrada",
+    "advancedEdit": "Editar detalhes",
+    "decreaseRepeats": "Diminuir repetições",
+    "increaseRepeats": "Aumentar repetições",
+    "customOrderHint": "Duplique um trecho para usá-lo novamente; ajuste a posição na etapa Partes."
   }
 }
