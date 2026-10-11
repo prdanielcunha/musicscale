@@ -91,6 +91,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState('');
   const draftIdRef = React.useRef<string | null>(null);
+  const activeIdentityRef = React.useRef<string | null>(null);
   const revisionRef = React.useRef(new Map<string, number>());
   const queueRef = React.useRef<Promise<void>>(Promise.resolve());
   const saveSequenceRef = React.useRef(0);
@@ -203,6 +204,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     setShowFullPreview(false);
     setStage(medley || preferredSongs.length ? 2 : 1);
     draftIdRef.current = crypto.randomUUID();
+    activeIdentityRef.current = draftIdentity ? medleyDraftStorageKey(draftIdentity, 'active') : null;
     setDraftStatus('idle');
     setDurableDrafts([]);
     setRenameId(null);
@@ -221,6 +223,19 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     }
   }, [launchImmediately, songs, initialMedley]);
   const snapshot = (): DraftEditorState => ({ blocks: history.present, name: templateName, editingId, stage, activeId });
+  React.useEffect(() => {
+    const identityKey = draftIdentity ? medleyDraftStorageKey(draftIdentity, 'active') : null;
+    if (isOpen && activeIdentityRef.current !== identityKey) {
+      // Never expose an old tenant's draft after an organization/user switch.
+      setOpen(false);
+      setHistory({ past: [], present: [], future: [] });
+      setDurableDrafts([]);
+      setRecoverableBlocks(null);
+      setDraftEdited(false);
+      draftIdRef.current = null;
+      activeIdentityRef.current = null;
+    }
+  }, [isOpen, user?.uid, effectiveOrganizationId, draftScope]);
   const close = (keepDraft = true) => {
     if (keepDraft && draftEdited && draftIdentity && draftIdRef.current) void persist(draftIdentity, draftIdRef.current, snapshot());
     setOpen(false); previousFocusRef.current?.focus(); onClose?.();
@@ -249,17 +264,14 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     const editor: DraftEditorState = { blocks: history.present, name: templateName, editingId, stage, activeId };
     setDraftStatus('saving');
     const timer = window.setTimeout(() => { void persist(draftIdentity, id, editor); }, 450);
-    const flushOnHide = () => {
-      if (document.visibilityState !== 'hidden') return;
-      window.clearTimeout(timer);
-      void persist(draftIdentity, id, editor);
-    };
+    const flush = () => { window.clearTimeout(timer); void persist(draftIdentity, id, editor); };
+    const flushOnHide = () => { if (document.visibilityState === 'hidden') flush(); };
     document.addEventListener('visibilitychange', flushOnHide);
-    window.addEventListener('pagehide', flushOnHide);
+    window.addEventListener('pagehide', flush);
     return () => {
       window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', flushOnHide);
-      window.removeEventListener('pagehide', flushOnHide);
+      window.removeEventListener('pagehide', flush);
     };
   }, [isOpen, draftEdited, history.present, templateName, editingId, stage, activeId, user?.uid, effectiveOrganizationId, draftScope, persist]);
   const add = (song: PopulatedSong) => {
@@ -352,8 +364,10 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
         onChange([...medleys.filter(item => item.id !== editingId), result]);
       }
       if (templateOnly && draftIdentity && draftIdRef.current) {
-        await queueRef.current;
-        await deleteDurableMedleyDraft(draftIdentity, draftIdRef.current);
+        try {
+          await queueRef.current;
+          await deleteDurableMedleyDraft(draftIdentity, draftIdRef.current);
+        } catch { setDraftStatus('failed'); } // Remote save was already confirmed.
       }
       if (draftIdentity && typeof window !== 'undefined') clearStudioDraft(draftIdentity, window.sessionStorage);
       setDraftEdited(false);
@@ -421,7 +435,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
         <button type="button" className={button} onClick={() => setTemplateId(null)}>{t('medley.cancel')}</button></div>}
     </div>)}
     {error && !isOpen && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
-    {isOpen && createPortal(<div role="dialog" aria-modal="true" aria-label={t('medleyStudioV2.title')} className="fixed inset-0 z-[200] overflow-y-auto overscroll-contain bg-black/90 p-2 pb-[max(16px,env(safe-area-inset-bottom))] sm:p-5">
+    {isOpen && draftIdentity && activeIdentityRef.current === medleyDraftStorageKey(draftIdentity, 'active') && createPortal(<div role="dialog" aria-modal="true" aria-label={t('medleyStudioV2.title')} className="fixed inset-0 z-[200] overflow-y-auto overscroll-contain bg-black/90 p-2 pb-[max(16px,env(safe-area-inset-bottom))] sm:p-5">
       <div className="mx-auto max-w-[1440px] rounded-2xl border border-white/10 bg-[#090f1c] p-3 shadow-2xl sm:p-5">
         <header className="mb-4 flex items-start justify-between gap-3 border-b border-white/10 pb-4">
           <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-sky-300">{t('medleyStudioV2.studio')}</p><h2 className="text-xl font-bold">{t('medleyStudioV2.title')}</h2><p className="text-xs text-slate-400">{t('medleyStudioV2.noSourceMutation')}</p></div>
