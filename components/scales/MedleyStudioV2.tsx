@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowUp, Copy, Music2, Plus, Redo2, Trash2, Undo2, X } from 'lucide-react';
 import type { PopulatedSong, ScaleMedley } from '../../types';
@@ -144,8 +145,10 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   }, [launchImmediately, songs, initialMedley]);
   const close = () => { setOpen(false); previousFocusRef.current?.focus(); onClose?.(); };
   React.useEffect(() => {
+    if (isOpen) closeButtonRef.current?.focus({ preventScroll: true });
+  }, [isOpen]);
+  React.useEffect(() => {
     if (!isOpen) return;
-    closeButtonRef.current?.focus();
     const keydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); close(); return; }
       if (!(event.ctrlKey || event.metaKey) || !['z', 'y'].includes(event.key.toLowerCase())) return;
@@ -234,7 +237,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
         <button type="button" className={button} onClick={() => setTemplateId(null)}>{t('medley.cancel')}</button></div>}
     </div>)}
     {error && !isOpen && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
-    {isOpen && <div role="dialog" aria-modal="true" aria-label={t('medleyStudioV2.title')} className="fixed inset-0 z-[120] overflow-y-auto bg-black/90 p-2 pb-[max(16px,env(safe-area-inset-bottom))] sm:p-5">
+    {isOpen && createPortal(<div role="dialog" aria-modal="true" aria-label={t('medleyStudioV2.title')} className="fixed inset-0 z-[200] overflow-y-auto overscroll-contain bg-black/90 p-2 pb-[max(16px,env(safe-area-inset-bottom))] sm:p-5">
       <div className="mx-auto max-w-[1440px] rounded-2xl border border-white/10 bg-[#090f1c] p-3 shadow-2xl sm:p-5">
         <header className="mb-4 flex items-start justify-between gap-3 border-b border-white/10 pb-4">
           <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-sky-300">{t('medleyStudioV2.studio')}</p><h2 className="text-xl font-bold">{t('medleyStudioV2.title')}</h2><p className="text-xs text-slate-400">{t('medleyStudioV2.noSourceMutation')}</p></div>
@@ -384,7 +387,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
           </div>}
         </section>}
         {error && <p role="alert" className="mt-3 rounded-xl border border-rose-400/40 p-3 text-sm text-rose-300">{error}</p>}
-        <footer className="sticky bottom-0 mt-4 flex flex-wrap justify-end gap-2 border-t border-white/10 bg-[#090f1c] py-3 pb-[max(8px,env(safe-area-inset-bottom))]">
+        <footer className="sticky bottom-0 z-10 mt-4 flex flex-wrap justify-end gap-2 border-t border-white/10 bg-[#090f1c] py-3 pb-[max(16px,env(safe-area-inset-bottom))]">
           {templateOnly && <label className="min-w-[200px] flex-1 text-xs text-slate-300">{t('medley.templateName')}<input className={field} maxLength={120} value={templateName} onChange={e => setTemplateName(e.target.value)} /></label>}
           <button type="button" className={button} onClick={close}>{t('medley.cancel')}</button>
           {stage > 1 && <button type="button" className={button} onClick={() => goToStage((stage - 1) as 1 | 2 | 3)}>{t('medleyStudioV2.previous')}</button>}
@@ -393,6 +396,6 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
           {stage === 4 && <button type="button" className={button + ' border-sky-400 bg-sky-600'} onClick={() => void save()} disabled={savingTemplate || steps.length < 2 || (templateOnly && !templateName.trim())}>{templateOnly ? t('medley.saveTemplate') : t('medley.use')}</button>}
         </footer>
       </div>
-    </div>}
+    </div>, document.body)}
   </section>;
 }

@@ -21,6 +21,30 @@ function continueToReview(dialog: HTMLElement, current: 1 | 2 | 3) {
 }
 
 describe('feature-isolated visual studio', () => {
+  it('puts the mobile studio above the app shell rather than below its header and bottom dock', () => {
+    const { container } = render(<MedleyStudioV2 songs={[song('A', 'Am F'), song('B', 'C G')]} medleys={[]} onChange={vi.fn()} initialSongIds={['A', 'B']} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.parentElement).toBe(document.body);
+    expect(container.contains(dialog)).toBe(false);
+    expect(within(dialog).getByRole('heading', { name: 'medleyStudioV2.title', level: 2 })).toBeVisible();
+    expect(within(dialog).getByText('medleyStudioV2.next')).toBeVisible();
+  });
+
+  it('keeps focus in the section editor instead of jumping to the close button after editing', () => {
+    const a = song('A', '[Intro]\\nAm F\\n[Refrão]\\nC G'.replaceAll('\\n', '\n'));
+    render(<MedleyStudioV2 songs={[a, song('B', 'Dm G')]} medleys={[]} onChange={vi.fn()} initialSongIds={['A', 'B']} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: 'medley.close' })).toHaveFocus();
+    const sections = within(dialog).getByRole('group', { name: 'medleyStudioV2.sectionChoices' });
+    const sectionButton = within(sections).getByRole('button', { name: 'Refrão' });
+    sectionButton.focus();
+    fireEvent.click(sectionButton);
+    expect(sectionButton).toHaveFocus();
+    expect(sectionButton).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('selects section chips and duplicates an independent occurrence without modifying the song', () => {
     const a = song('A', '[Intro]\\nAm F\\n[Refrão]\\nC G'.replaceAll('\\n', '\n'));
     const b = song('B', 'Dm G');
