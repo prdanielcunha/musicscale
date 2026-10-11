@@ -210,6 +210,28 @@ describe('feature-isolated visual studio', () => {
     expect(onChange.mock.calls[0][0][0].steps.map(step => step.songId)).toEqual(['B','C']);
   });
 
+  it('adds another song after the final song during the part-selection step', () => {
+    const a = song('A', '[Intro]\nAm F\n[Refrão]\nC G');
+    const b = song('B', 'Dm G');
+    const c = song('C', '[Verso]\nC G\n[Ponte]\nF G');
+    render(<MedleyStudioV2 songs={[a,b,c]} medleys={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /A.*Am/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: /B.*Am/ }));
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
+    const addAfterLast = within(dialog).getByTestId('medley-add-song-after-last');
+    expect(addAfterLast).toHaveTextContent('medleyStudioV2.addMusic');
+    fireEvent.click(addAfterLast);
+    expect(within(dialog).queryByTestId('medley-quick-sections')).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: /C.*Am/ }));
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
+    expect(within(dialog).getAllByTestId('medley-song-card').map(card => card.getAttribute('data-song-id'))).toEqual(['A','B','C']);
+    const picker = within(within(dialog).getAllByTestId('medley-song-card')[2]).getByRole('group', { name: 'medleyStudioV2.sectionChoices' });
+    expect(within(picker).getByRole('button', { name: 'Verso' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(picker).getByRole('button', { name: 'Ponte' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('keeps unmarked charts available for manually choosing lines', () => {
     render(<MedleyStudioV2 songs={[song('A', 'Am F\\nPalavra'), song('B', 'G C')]} medleys={[]} onChange={vi.fn()} initialSongIds={['A','B']} />);
     fireEvent.click(screen.getByText('medley.create'));
