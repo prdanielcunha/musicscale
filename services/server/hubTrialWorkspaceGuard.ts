@@ -18,6 +18,7 @@ const MUSIC_ENDPOINTS = [
   /^\/api\/v1\/music-data\/bootstrap\/?$/,
   /^\/api\/v1\/connect\/next-schedule(?:\/|$)/,
   /^\/api\/v1\/music-scales(?:\/|$)/,
+  /^\/api\/v1\/medley-templates(?:\/|$)/,
   /^\/api\/v1\/band-scales(?:\/|$)/,
   /^\/api\/v1\/organizations\/[^/]+\/serve-guard(?:\/|$)/,
   /^\/api\/v1\/onboarding\/starter-pack(?:\/|$)/,
