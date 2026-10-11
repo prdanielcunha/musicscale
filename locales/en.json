@@ -2192,6 +2192,18 @@
     "invalidRange": "Check the first and last line."
   },
   "medleyStudioV2": {
+    "preparingRepertoire": "Preparing the medley…",
+    "checkingRepertoire": "Checking existing repertoire songs…",
+    "generatingLyrics": "Generating lyrics for the selected excerpts…",
+    "savingRepertoire": "Saving the chords and lyrics to the repertoire…",
+    "savingArrangement": "Saving the medley arrangement…",
+    "reconcileExisting": "Repair previously created medleys",
+    "repairProgress": "Repairing existing medleys: {{current}} of {{total}}…",
+    "repairComplete": "Finished: {{repaired}} medley(s) checked; {{failed}} require attention.",
+    "repertoirePermissionRequired": "You need permission to manage repertoire songs to save this medley as a song.",
+    "repertoireLimitReached": "Your repertoire song limit has been reached. Free up space or change your plan to save this medley.",
+    "noLyricsDetected": "No sung lyrics could be recovered from these excerpts. Add lyrics to the source songs and try again; lyrics will not be invented.",
+    "sectionLyricsUnavailable": "The source song has separate chords and lyrics; this excerpt cannot be aligned safely. Add the matching lyrics to the chord excerpt.",
     "hasChords": "Chords",
     "hasLyrics": "Lyrics",
     "hasSections": "Sections",
