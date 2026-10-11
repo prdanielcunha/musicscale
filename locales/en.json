@@ -2192,6 +2192,9 @@
     "invalidRange": "Check the first and last line."
   },
   "medleyStudioV2": {
+    "songName": "New song name",
+    "saveAsSong": "Save song to repertoire",
+    "readyToSaveSong": "Saving turns this medley into a regular repertoire song with chords, lyrics and musical settings.",
     "preparingRepertoire": "Preparing the medley…",
     "checkingRepertoire": "Checking existing repertoire songs…",
     "generatingLyrics": "Generating lyrics for the selected excerpts…",
