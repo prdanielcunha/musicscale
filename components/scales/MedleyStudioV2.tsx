@@ -16,7 +16,10 @@ import type { StudioBlock, StudioSongGroup } from '../../utils/medleyStudioV2';
 import { ManualMedleyBridgeEditor } from './ManualMedleyBridgeEditor';
 import { buildSearchIndex, searchSongs } from '../../utils/searchEngine';
 import { useAuth } from '../../contexts/AuthContext';
-import { clearStudioDraft, loadStudioDraft, saveStudioDraft } from '../../utils/medleyStudioDraft';
+import { clearStudioDraft, loadStudioDraft } from '../../utils/medleyStudioDraft';
+import type { StudioDraftIdentity } from '../../utils/medleyStudioDraft';
+import { deleteDurableMedleyDraft, listDurableMedleyDrafts, medleyDraftStorageKey, MedleyDraftConflictError, saveDurableMedleyDraft } from '../../services/offline/medleyStudioDraftStore';
+import type { DraftEditorState, DurableMedleyDraft } from '../../services/offline/medleyStudioDraftStore';
 
 interface Props {
   songs: PopulatedSong[];
@@ -75,6 +78,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
   const goToStage = (next: 1 | 2 | 3 | 4) => {
     setStage(next);
+    setDraftEdited(true);
     if (next === 4) setShowFullPreview(true);
     if (next === 3) {
       const boundary = history.present.find((block, i) => history.present[i + 1] && block.songId !== history.present[i + 1].songId);
@@ -82,6 +86,50 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     }
   };
   const [recoverableBlocks, setRecoverableBlocks] = useState<StudioBlock[] | null>(null);
+  const [durableDrafts, setDurableDrafts] = useState<DurableMedleyDraft[]>([]);
+  const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved' | 'failed' | 'conflict'>('idle');
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameText, setRenameText] = useState('');
+  const draftIdRef = React.useRef<string | null>(null);
+  const activeIdentityRef = React.useRef<string | null>(null);
+  const revisionRef = React.useRef(new Map<string, number>());
+  const queueRef = React.useRef<Promise<boolean>>(Promise.resolve(true));
+  const saveSequenceRef = React.useRef(0);
+  const persist = React.useCallback((identity: StudioDraftIdentity, id: string, editor: DraftEditorState) => {
+    const key = medleyDraftStorageKey(identity, id);
+    const sequence = ++saveSequenceRef.current;
+    setDraftStatus('saving');
+    const job = queueRef.current.catch(() => false).then(async () => {
+      const saved = await saveDurableMedleyDraft(identity, id, editor, revisionRef.current.get(key) || 0);
+      revisionRef.current.set(key, saved.revision);
+      if (activeIdentityRef.current === medleyDraftStorageKey(identity, 'active')) {
+        setDurableDrafts(current => [saved, ...current.filter(item => item.key !== saved.key)].sort((a, b) => b.updatedAt - a.updatedAt));
+      }
+      if (draftIdRef.current === id && saveSequenceRef.current === sequence) setDraftStatus('saved');
+      return true;
+    }).catch((cause: unknown) => {
+      if (draftIdRef.current === id && saveSequenceRef.current === sequence)
+        setDraftStatus(cause instanceof MedleyDraftConflictError ? 'conflict' : 'failed');
+      return false;
+    });
+    queueRef.current = job;
+    return job;
+  }, []);
+  const resumeDraft = (draft: DurableMedleyDraft) => {
+    if (!draftIdentity || draft.userId !== draftIdentity.userId || draft.organizationId !== draftIdentity.organizationId || draft.scope !== draftIdentity.scope) return;
+    draftIdRef.current = draft.id;
+    revisionRef.current.set(draft.key, draft.revision);
+    setHistory({ past: [], present: draft.blocks, future: [] });
+    setActiveId(draft.activeId || draft.blocks[0]?.id || null);
+    setEditingId(draft.editingId);
+    setTemplateName(draft.name);
+    setStage(draft.stage);
+    setShowFullPreview(draft.stage === 4);
+    setRecoverableBlocks(null);
+    setDraftEdited(false);
+    setDraftStatus('saved');
+    setError(draft.blocks.some(block => !songs.some(song => song.id === block.songId)) ? t('medleyStudioV2.draftMissingSource') : '');
+  };
   const hasLaunched = React.useRef(false);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
   const closeButtonRef = React.useRef<HTMLButtonElement>(null);
@@ -159,9 +207,18 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     setDraftEdited(false);
     setShowFullPreview(false);
     setStage(medley || preferredSongs.length ? 2 : 1);
+    draftIdRef.current = crypto.randomUUID();
+    activeIdentityRef.current = draftIdentity ? medleyDraftStorageKey(draftIdentity, 'active') : null;
+    setDraftStatus('idle');
+    setDurableDrafts([]);
+    setRenameId(null);
     if (draftIdentity && typeof window !== 'undefined') {
       try { setRecoverableBlocks(loadStudioDraft(draftIdentity, new Set(songs.map(song => song.id)), window.sessionStorage)); }
       catch { setRecoverableBlocks(null); }
+      const requestedIdentity = medleyDraftStorageKey(draftIdentity, 'active');
+      void listDurableMedleyDrafts(draftIdentity)
+        .then(items => { if (activeIdentityRef.current === requestedIdentity) setDurableDrafts(items); })
+        .catch(() => { if (activeIdentityRef.current === requestedIdentity) setDraftStatus('failed'); });
     } else setRecoverableBlocks(null);
     setTemplateName((initialTemplateName || medley?.steps.map(step => step.title).join(' → ') || preferredSongs.map(song => song.title).join(' → ') || '').slice(0, 120));
     setOpen(true);
@@ -172,7 +229,36 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
       start(initialMedley);
     }
   }, [launchImmediately, songs, initialMedley]);
-  const close = () => { setOpen(false); previousFocusRef.current?.focus(); onClose?.(); };
+  const snapshot = (): DraftEditorState => ({ blocks: history.present, name: templateName, editingId, stage, activeId });
+  React.useEffect(() => {
+    const identityKey = draftIdentity ? medleyDraftStorageKey(draftIdentity, 'active') : null;
+    if (isOpen && activeIdentityRef.current !== identityKey) {
+      // Never expose an old tenant's draft after an organization/user switch.
+      setOpen(false);
+      setHistory({ past: [], present: [], future: [] });
+      setDurableDrafts([]);
+      setRecoverableBlocks(null);
+      setDraftEdited(false);
+      draftIdRef.current = null;
+      activeIdentityRef.current = null;
+    }
+  }, [isOpen, user?.uid, effectiveOrganizationId, draftScope]);
+  const close = (keepDraft = true) => {
+    const finish = () => { setOpen(false); previousFocusRef.current?.focus(); onClose?.(); };
+    if (keepDraft && draftEdited) {
+      if (!draftIdentity || !draftIdRef.current) {
+        setDraftStatus('failed');
+        setError(t('medleyStudioV2.draftSaveFailed'));
+        return;
+      }
+      void persist(draftIdentity, draftIdRef.current, snapshot()).then(saved => {
+        if (saved) finish();
+        else setError(t('medleyStudioV2.draftSaveFailed'));
+      });
+      return;
+    }
+    finish();
+  };
   React.useEffect(() => {
     if (isOpen) closeButtonRef.current?.focus({ preventScroll: true });
   }, [isOpen]);
@@ -190,11 +276,23 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     };
     window.addEventListener('keydown', keydown);
     return () => window.removeEventListener('keydown', keydown);
-  }, [isOpen, history.past, history.future, onClose]);
+  }, [isOpen, history.past, history.future, onClose, close]);
   React.useEffect(() => {
-    if (!isOpen || !draftEdited || !draftIdentity || typeof window === 'undefined') return;
-    try { saveStudioDraft(draftIdentity, steps, window.sessionStorage); } catch { /* browsing restrictions */ }
-  }, [isOpen, draftEdited, history.present, user?.uid, effectiveOrganizationId, draftScope]);
+    if (!isOpen || !draftEdited || !draftIdentity || !draftIdRef.current) return;
+    const id = draftIdRef.current;
+    const editor: DraftEditorState = { blocks: history.present, name: templateName, editingId, stage, activeId };
+    setDraftStatus('saving');
+    const timer = window.setTimeout(() => { void persist(draftIdentity, id, editor); }, 450);
+    const flush = () => { window.clearTimeout(timer); void persist(draftIdentity, id, editor); };
+    const flushOnHide = () => { if (document.visibilityState === 'hidden') flush(); };
+    document.addEventListener('visibilitychange', flushOnHide);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', flushOnHide);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [isOpen, draftEdited, history.present, templateName, editingId, stage, activeId, user?.uid, effectiveOrganizationId, draftScope, persist]);
   const add = (song: PopulatedSong) => {
     if (steps.length >= 30) return setError(t('medley.invalid'));
     const block = newStudioBlock(song);
@@ -284,11 +382,16 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
       } else {
         onChange([...medleys.filter(item => item.id !== editingId), result]);
       }
-      if (draftIdentity && typeof window !== 'undefined') {
-        try { clearStudioDraft(draftIdentity, window.sessionStorage); } catch { /* browsing restrictions */ }
+      if (templateOnly && draftIdentity && draftIdRef.current) {
+        try {
+          await queueRef.current;
+          await deleteDurableMedleyDraft(draftIdentity, draftIdRef.current);
+        } catch { setDraftStatus('failed'); } // Remote save was already confirmed.
       }
+      if (draftIdentity && typeof window !== 'undefined') clearStudioDraft(draftIdentity, window.sessionStorage);
       setDraftEdited(false);
-      close();
+      // onChange merely updates the scale form: keep its draft until the form's server save is confirmed.
+      close(!templateOnly);
       setError('');
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'medley.invalid';
@@ -346,16 +449,16 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
         {onSaveTemplate && <button type="button" className={button} onClick={() => { setTemplateId(medley.id); setTemplateName(medley.steps.map(s => s.title).join(' → ')); }}>{t('medley.saveTemplate')}</button>}
         <button type="button" className={button + ' text-rose-300'} onClick={() => onChange(medleys.filter(m => m.id !== medley.id))}>{t('medley.separate')}</button>
       </div>
-      {templateId === medley.id && <div className="flex w-full flex-wrap gap-2"><input className={field + ' flex-1'} maxLength={120} aria-label={t('medley.templateName')} value={templateName} onChange={e => setTemplateName(e.target.value)} />
+      {templateId === medley.id && <div className="flex w-full flex-wrap gap-2"><input className={field + ' flex-1'} maxLength={120} aria-label={t('medley.templateName')} value={templateName} onChange={e => { setTemplateName(e.target.value); setDraftEdited(true); }} />
         <button type="button" className={button} disabled={savingTemplate || !templateName.trim()} onClick={async () => { setSavingTemplate(true); try { await onSaveTemplate?.(medley, templateName.trim()); setTemplateId(null); setError(''); } catch { setError(t('medley.templateSaveFailed')); } finally { setSavingTemplate(false); } }}>{t('medley.save')}</button>
         <button type="button" className={button} onClick={() => setTemplateId(null)}>{t('medley.cancel')}</button></div>}
     </div>)}
     {error && !isOpen && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
-    {isOpen && createPortal(<div role="dialog" aria-modal="true" aria-label={t('medleyStudioV2.title')} className="fixed inset-0 z-[200] overflow-y-auto overscroll-contain bg-black/90 p-2 pb-[max(16px,env(safe-area-inset-bottom))] sm:p-5">
+    {isOpen && draftIdentity && activeIdentityRef.current === medleyDraftStorageKey(draftIdentity, 'active') && createPortal(<div role="dialog" aria-modal="true" aria-label={t('medleyStudioV2.title')} className="fixed inset-0 z-[200] overflow-y-auto overscroll-contain bg-black/90 p-2 pb-[max(16px,env(safe-area-inset-bottom))] sm:p-5">
       <div className="mx-auto max-w-[1440px] rounded-2xl border border-white/10 bg-[#090f1c] p-3 shadow-2xl sm:p-5">
         <header className="mb-4 flex items-start justify-between gap-3 border-b border-white/10 pb-4">
           <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-sky-300">{t('medleyStudioV2.studio')}</p><h2 className="text-xl font-bold">{t('medleyStudioV2.title')}</h2><p className="text-xs text-slate-400">{t('medleyStudioV2.noSourceMutation')}</p></div>
-          <button type="button" className={button} aria-label={t('medley.close')} ref={closeButtonRef} onClick={close}><X size={18} /></button>
+          <button type="button" className={button} aria-label={t('medley.close')} ref={closeButtonRef} onClick={() => close()}><X size={18} /></button>
         </header>
         <nav aria-label={t('medleyStudioV2.progress')} className="mb-4 grid grid-cols-4 gap-1.5" data-testid="medley-studio-steps">
           {([1, 2, 3, 4] as const).map(number => <button
@@ -368,6 +471,47 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
               <span>{t('medleyStudioV2.step' + number)}</span>
           </button>)}
         </nav>
+        <div role="status" aria-live="polite" data-testid="medley-draft-status" className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+          <span className={draftStatus === 'failed' || draftStatus === 'conflict' ? 'text-rose-300' : 'text-sky-300'}>{t('medleyStudioV2.draftStatus_' + draftStatus)}</span>
+          <span>{t('medleyStudioV2.localOnly')}</span>
+          {draftStatus === 'failed' && draftIdentity && draftIdRef.current && <button type="button" className={button} onClick={() => {
+            if (draftIdRef.current && draftIdentity) void persist(draftIdentity, draftIdRef.current, snapshot());
+          }}>{t('medleyStudioV2.retryDraft')}</button>}
+          {draftStatus === 'conflict' && draftIdentity && <button type="button" className={button} onClick={() => {
+            const copyId = crypto.randomUUID();
+            draftIdRef.current = copyId;
+            void persist(draftIdentity, copyId, { ...snapshot(), name: (templateName + ' ' + t('medleyStudioV2.copySuffix')).slice(0, 120) });
+          }}>{t('medleyStudioV2.saveConflictCopy')}</button>}
+        </div>
+        {durableDrafts.length > 0 && <section data-testid="medley-drafts-list" aria-label={t('medleyStudioV2.myDrafts')} className="mb-3 rounded-xl border border-sky-400/30 bg-sky-500/5 p-3">
+          <h3 className="mb-2 text-sm font-semibold text-sky-200">{t('medleyStudioV2.myDrafts')}</h3>
+          <div className="max-h-52 space-y-2 overflow-auto">{durableDrafts.map(draft => <div key={draft.key} className="flex flex-wrap items-center gap-2 rounded-lg border border-white/10 p-2 text-sm">
+            {renameId === draft.id ? <input className={field + ' min-w-32 flex-1'} aria-label={t('medleyStudioV2.renameDraft')} maxLength={120} value={renameText} onChange={event => setRenameText(event.target.value)} /> :
+              <strong className="min-w-0 flex-1 break-words">{draft.name || t('medleyStudioV2.untitledDraft')}</strong>}
+            <time className="text-xs text-slate-400" dateTime={new Date(draft.updatedAt).toISOString()}>{new Date(draft.updatedAt).toLocaleString()}</time>
+            {renameId === draft.id ? <button type="button" className={button} onClick={() => {
+              if (!draftIdentity) return;
+              void saveDurableMedleyDraft(draftIdentity, draft.id, { ...draft, name: renameText.trim().slice(0, 120) }, draft.revision)
+                .then(saved => { revisionRef.current.set(saved.key, saved.revision); setDurableDrafts(items => items.map(item => item.key === saved.key ? saved : item)); setRenameId(null); })
+                .catch(() => setDraftStatus('conflict'));
+            }}>{t('medleyStudioV2.saveName')}</button> : <>
+              <button type="button" className={button} onClick={() => resumeDraft(draft)}>{t('medleyStudioV2.continueDraft')}</button>
+              <button type="button" className={button} onClick={() => { setRenameId(draft.id); setRenameText(draft.name); }}>{t('medleyStudioV2.renameDraft')}</button>
+              <button type="button" className={button} onClick={() => {
+                if (!draftIdentity) return;
+                void saveDurableMedleyDraft(draftIdentity, crypto.randomUUID(), { ...draft, name: (draft.name + ' ' + t('medleyStudioV2.copySuffix')).slice(0, 120) }, 0)
+                  .then(copy => setDurableDrafts(items => [copy, ...items])).catch(() => setDraftStatus('failed'));
+              }}>{t('medleyStudioV2.duplicateDraft')}</button>
+              <button type="button" className={button + ' text-rose-300'} onClick={() => {
+                if (!draftIdentity || !window.confirm(t('medleyStudioV2.confirmDelete'))) return;
+                void deleteDurableMedleyDraft(draftIdentity, draft.id).then(() => {
+                  setDurableDrafts(items => items.filter(item => item.key !== draft.key));
+                  if (draftIdRef.current === draft.id) { draftIdRef.current = crypto.randomUUID(); setDraftEdited(false); }
+                }).catch(() => setDraftStatus('failed'));
+              }}>{t('medleyStudioV2.deleteDraft')}</button>
+            </>}
+          </div>)}</div>
+        </section>}
         {recoverableBlocks && <div role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-sky-400/40 bg-sky-500/10 p-3 text-sm">
           <span className="flex-1">{t('medleyStudioV2.recoverDraft')}</span>
           <button type="button" className={button} onClick={() => { setHistory({ past: [], present: recoverableBlocks, future: [] }); setActiveId(recoverableBlocks[0]?.id || null); setRecoverableBlocks(null); setDraftEdited(true); }}>{t('medleyStudioV2.restore')}</button>
@@ -549,8 +693,8 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
         </section>}
         {error && <p role="alert" className="mt-3 rounded-xl border border-rose-400/40 p-3 text-sm text-rose-300">{error}</p>}
         <footer className="sticky bottom-0 z-10 mt-4 flex flex-wrap justify-end gap-2 border-t border-white/10 bg-[#090f1c] py-3 pb-[max(16px,env(safe-area-inset-bottom))]">
-          {templateOnly && <label className="min-w-[200px] flex-1 text-xs text-slate-300">{t('medley.templateName')}<input className={field} maxLength={120} value={templateName} onChange={e => setTemplateName(e.target.value)} /></label>}
-          <button type="button" className={button} onClick={close}>{t('medley.cancel')}</button>
+          {templateOnly && <label className="min-w-[200px] flex-1 text-xs text-slate-300">{t('medley.templateName')}<input className={field} maxLength={120} value={templateName} onChange={e => { setTemplateName(e.target.value); setDraftEdited(true); }} /></label>}
+          <button type="button" className={button} onClick={() => close()}>{t('medley.cancel')}</button>
           {stage > 1 && <button type="button" className={button} onClick={() => goToStage((stage - 1) as 1 | 2 | 3)}>{t('medleyStudioV2.previous')}</button>}
           {stage === 2 && <button type="button" className={button} onClick={() => goToStage(1)}>{t('medleyStudioV2.addMusic')}</button>}
           {stage < 4 && <button type="button" className={button + ' border-sky-400 bg-sky-600'} disabled={stage === 1 ? steps.length < 1 : steps.length < 2} onClick={() => goToStage((stage + 1) as 2 | 3 | 4)}>{t('medleyStudioV2.next')}</button>}
