@@ -102,7 +102,9 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     const job = queueRef.current.catch(() => false).then(async () => {
       const saved = await saveDurableMedleyDraft(identity, id, editor, revisionRef.current.get(key) || 0);
       revisionRef.current.set(key, saved.revision);
-      setDurableDrafts(current => [saved, ...current.filter(item => item.key !== saved.key)].sort((a, b) => b.updatedAt - a.updatedAt));
+      if (activeIdentityRef.current === medleyDraftStorageKey(identity, 'active')) {
+        setDurableDrafts(current => [saved, ...current.filter(item => item.key !== saved.key)].sort((a, b) => b.updatedAt - a.updatedAt));
+      }
       if (draftIdRef.current === id && saveSequenceRef.current === sequence) setDraftStatus('saved');
       return true;
     }).catch((cause: unknown) => {
@@ -213,7 +215,10 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     if (draftIdentity && typeof window !== 'undefined') {
       try { setRecoverableBlocks(loadStudioDraft(draftIdentity, new Set(songs.map(song => song.id)), window.sessionStorage)); }
       catch { setRecoverableBlocks(null); }
-      void listDurableMedleyDrafts(draftIdentity).then(setDurableDrafts).catch(() => setDraftStatus('failed'));
+      const requestedIdentity = medleyDraftStorageKey(draftIdentity, 'active');
+      void listDurableMedleyDrafts(draftIdentity)
+        .then(items => { if (activeIdentityRef.current === requestedIdentity) setDurableDrafts(items); })
+        .catch(() => { if (activeIdentityRef.current === requestedIdentity) setDraftStatus('failed'); });
     } else setRecoverableBlocks(null);
     setTemplateName((initialTemplateName || medley?.steps.map(step => step.title).join(' → ') || preferredSongs.map(song => song.title).join(' → ') || '').slice(0, 120));
     setOpen(true);
