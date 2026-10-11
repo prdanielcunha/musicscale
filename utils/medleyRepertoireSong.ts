@@ -66,13 +66,20 @@ export function buildMedleyRepertoireSong(
   const chords = chartParts.join('\n\n');
   const lyrics = lyricParts.join('\n\n');
   const artists = [...new Set(arrangement.steps.map(step => sources.get(step.songId)?.artist?.trim()).filter((artist): artist is string => !!artist))];
-  const key = arrangement.steps[0].key || '';
+  const key = arrangement.steps[0].key || sources.get(arrangement.steps[0].songId)?.key || '';
+  // A regular Song has a single default key/BPM for Pads and metronome. Retain
+  // per-excerpt settings in metadata for medleys that change key/tempo mid-song.
+  const bpm = arrangement.steps.find(step => Number.isFinite(step.bpm))?.bpm ?? null;
   const metadata = {
     medley: {
       arrangementId: arrangement.id,
       arrangementRevision: arrangement.revision,
       sourceSongIds: [...new Set(arrangement.steps.map(step => step.songId))],
       stepCount: arrangement.steps.length,
+      sections: arrangement.steps.map(step => ({
+        title: step.title, label: step.label || '', key: step.key || '', bpm: step.bpm ?? null,
+        repetitions: step.repetitions,
+      })),
       generatedChordsFingerprint: fingerprint(chords),
       generatedLyricsFingerprint: fingerprint(lyrics),
     },
@@ -83,7 +90,8 @@ export function buildMedleyRepertoireSong(
     artist: artists.join(' / ').slice(0, 250),
     key,
     selectedKey: key,
-    bpm: arrangement.steps[0].bpm ?? null,
+    originalKey: key,
+    bpm,
     status: 'active',
     tagIds: [],
     lyrics,
@@ -92,6 +100,7 @@ export function buildMedleyRepertoireSong(
     chordsUrl: '',
     videoUrl: '',
     lastPlayed: null,
+    rhythm: sources.get(arrangement.steps[0].songId)?.rhythm || '',
     sourceType: 'medley',
     metadata,
   };
