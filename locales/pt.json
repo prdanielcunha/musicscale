@@ -2192,6 +2192,18 @@
     "invalidRange": "Confira o início e o fim das linhas."
   },
   "medleyStudioV2": {
+    "preparingRepertoire": "Preparando o medley…",
+    "checkingRepertoire": "Verificando músicas existentes…",
+    "generatingLyrics": "Gerando a letra dos trechos selecionados…",
+    "savingRepertoire": "Salvando cifra e letra no repertório…",
+    "savingArrangement": "Salvando o arranjo do medley…",
+    "reconcileExisting": "Corrigir medleys já criados",
+    "repairProgress": "Corrigindo medleys existentes: {{current}} de {{total}}…",
+    "repairComplete": "Concluído: {{repaired}} medley(s) verificados e {{failed}} com pendências.",
+    "repertoirePermissionRequired": "Você precisa de permissão para editar o repertório para salvar a música do medley.",
+    "repertoireLimitReached": "O repertório atingiu o limite de músicas do plano. Libere espaço ou ajuste seu plano para salvar este medley.",
+    "noLyricsDetected": "Não foi possível obter letra cantada dos trechos selecionados. Adicione a letra às músicas de origem e tente novamente; nenhuma letra será inventada.",
+    "sectionLyricsUnavailable": "A cifra e a letra estão separadas na música original e o trecho selecionado não pode ser alinhado com segurança. Ajuste a cifra para incluir a letra nesse trecho.",
     "hasChords": "Cifra",
     "hasLyrics": "Letra",
     "hasSections": "Partes",
