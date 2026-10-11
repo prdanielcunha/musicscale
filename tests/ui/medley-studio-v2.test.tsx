@@ -137,7 +137,7 @@ describe('feature-isolated visual studio', () => {
     fireEvent.click(within(rowA).getByRole('button', { name: 'Refrão' }));
     continueToReview(dialog, 1);
     fireEvent.click(within(dialog).getByText('medley.use'));
-    expect(onChange.mock.calls[0][0][0].steps.map(step => [step.songId, step.label]))
+    expect(onChange.mock.calls[0][0][0].steps.map(step => [step.songId, step.label || '']))
       .toEqual([['A', 'Intro'],['B',''],['A','Refrão']]);
   });
 
