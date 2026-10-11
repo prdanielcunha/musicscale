@@ -2325,7 +2325,7 @@
     "preview": "Vista previa",
     "duplicate": "Duplicar fragmento",
     "chooseBlock": "Elige un fragmento para editar.",
-    "multiSelectHint": "Selecciona varias partes. Se mantiene el orden de la cifra; toca de nuevo para desmarcar.",
+    "multiSelectHint": "Todas las partes empiezan seleccionadas. Toca para desmarcar o volver a marcar; se conserva el orden de la cifra.",
     "addSongAgain": "Añadir otra aparición",
     "quickArrange": "Fragmentos de esta aparición",
     "advancedEdit": "Editar detalles",

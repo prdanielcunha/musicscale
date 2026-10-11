@@ -2325,7 +2325,7 @@
     "preview": "Excerpt preview",
     "duplicate": "Duplicate excerpt",
     "chooseBlock": "Choose an excerpt to edit.",
-    "multiSelectHint": "Select several sections. Chart order is preserved; tap again to deselect.",
+    "multiSelectHint": "All sections start selected. Tap to deselect or reselect; chart order is preserved.",
     "addSongAgain": "Add another appearance",
     "quickArrange": "Passages for this appearance",
     "advancedEdit": "Edit details",

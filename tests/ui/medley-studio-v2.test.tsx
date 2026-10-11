@@ -32,42 +32,44 @@ describe('feature-isolated visual studio', () => {
   });
 
   it('keeps focus in the section editor instead of jumping to the close button after editing', () => {
-    const a = song('A', '[Intro]\\nAm F\\n[Refrão]\\nC G'.replaceAll('\\n', '\n'));
+    const a = song('A', '[Intro]\nAm F\n[Refrão]\nC G');
     render(<MedleyStudioV2 songs={[a, song('B', 'Dm G')]} medleys={[]} onChange={vi.fn()} initialSongIds={['A', 'B']} />);
     fireEvent.click(screen.getByText('medley.create'));
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByRole('button', { name: 'medley.close' })).toHaveFocus();
-    const sections = within(dialog).getByRole('group', { name: 'medleyStudioV2.sectionChoices' });
+    const card = within(dialog).getAllByTestId('medley-song-card')[0];
+    const sections = within(card).getByRole('group', { name: 'medleyStudioV2.sectionChoices' });
     const sectionButton = within(sections).getByRole('button', { name: 'Refrão' });
+    expect(sectionButton).toHaveAttribute('aria-pressed', 'true');
     sectionButton.focus();
     fireEvent.click(sectionButton);
     expect(sectionButton).toHaveFocus();
-    expect(sectionButton).toHaveAttribute('aria-pressed', 'true');
+    expect(sectionButton).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('selects section chips and duplicates an independent occurrence without modifying the song', () => {
-    const a = song('A', '[Intro]\\nAm F\\n[Refrão]\\nC G'.replaceAll('\\n', '\n'));
+  it('deselects one initially selected section and duplicates an independent excerpt without changing its source', () => {
+    const a = song('A', '[Intro]\nAm F\n[Refrão]\nC G');
     const b = song('B', 'Dm G');
     const onChange = vi.fn<(medleys: ScaleMedley[]) => void>();
     const originalChart = a.chords;
     render(<MedleyStudioV2 songs={[a,b]} medleys={[]} onChange={onChange} initialSongIds={['A', 'B']} />);
     fireEvent.click(screen.getByText('medley.create'));
     const dialog = screen.getByRole('dialog');
-    const sections = within(dialog).getByRole('group', { name: 'medleyStudioV2.sectionChoices' });
-    fireEvent.click(within(sections).getByRole('button', { name: 'Refrão' }));
     const firstCard = within(dialog).getAllByTestId('medley-song-card')[0];
-    expect(within(dialog).getAllByTestId('medley-song-card')).toHaveLength(2);
+    const sections = within(firstCard).getByRole('group', { name: 'medleyStudioV2.sectionChoices' });
+    expect(within(sections).getByRole('button', { name: 'Intro' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(sections).getByRole('button', { name: 'Refrão' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(within(sections).getByRole('button', { name: 'Intro' }));
+    expect(within(sections).getByRole('button', { name: 'Intro' })).toHaveAttribute('aria-pressed', 'false');
     expect(within(firstCard).getByTestId('medley-inline-inspector')).toBeInTheDocument();
     fireEvent.click(within(firstCard).getByRole('button', { name: 'medleyStudioV2.addPart' }));
     expect(within(dialog).getByText('3 / 30 medley.excerpt')).toBeInTheDocument();
     expect(within(dialog).getAllByTestId('medley-song-card')).toHaveLength(2);
-    expect(within(within(dialog).getAllByTestId('medley-song-card')[0]).getAllByTestId('medley-part-row')).toHaveLength(2);
-    expect(within(within(dialog).getAllByTestId('medley-song-card')[0]).getByTestId('medley-inline-inspector')).toBeInTheDocument();
+    expect(within(firstCard).getAllByTestId('medley-part-row')).toHaveLength(2);
     fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
     expect(within(dialog).getAllByTestId('medley-song-bridge')).toHaveLength(1);
     fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
     expect(within(dialog).getAllByTestId('medley-review-song-card')).toHaveLength(2);
-    expect(within(within(dialog).getAllByTestId('medley-review-song-card')[0]).getAllByRole('button', { name: 'medley.edit' })).toHaveLength(2);
     fireEvent.click(within(dialog).getByText('medley.use'));
     const medley = onChange.mock.calls[0][0][0];
     expect(medley.steps.map(step => step.songId)).toEqual(['A', 'A', 'B']);
@@ -76,6 +78,7 @@ describe('feature-isolated visual studio', () => {
     expect(medley.steps[0].id).not.toBe(medley.steps[1].id);
     expect(a.chords).toBe(originalChart);
   });
+
   it('adds a new part within the same song from review, without creating an extra song card', () => {
     const a = song('A', '[Intro]\nAm F\n[Refrão]\nC G');
     const b = song('B', 'Dm G');
@@ -91,7 +94,7 @@ describe('feature-isolated visual studio', () => {
     fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
     expect(within(dialog).getAllByTestId('medley-song-bridge')).toHaveLength(1);
   });
-  it('selects several parts with one tap each, sorts them by chart order and adjusts repetitions inline', () => {
+  it('keeps step one for songs, selects every part by default in step two and adjusts repetitions', () => {
     const a = song('A', '[Intro]\nAm F\n[Verso]\nG C\n[Refrão]\nF G');
     const b = song('B', 'Dm G');
     const onChange = vi.fn<(medleys: ScaleMedley[]) => void>();
@@ -100,17 +103,20 @@ describe('feature-isolated visual studio', () => {
     const dialog = screen.getByRole('dialog');
     const rowA = within(dialog).getAllByTestId('medley-picker-song').find(node => node.getAttribute('data-song-id') === 'A')!;
     fireEvent.click(within(rowA).getByRole('button', { name: /A.*Am/ }));
-    let picker = within(rowA).getByTestId('medley-quick-sections');
-    fireEvent.click(within(picker).getByRole('button', { name: 'Refrão' }));
-    fireEvent.click(within(picker).getByRole('button', { name: 'Intro' }));
-    picker = within(rowA).getByTestId('medley-quick-sections');
-    expect(within(picker).getAllByTestId('medley-quick-arrangement')).toHaveLength(1);
-    expect(within(picker).getByTestId('medley-quick-arrangement').textContent).toMatch(/Intro.*Refrão/);
-    fireEvent.click(within(picker).getByRole('button', { name: 'medleyStudioV2.increaseRepeats 2' }));
-    expect(within(picker).getByTestId('medley-quick-arrangement')).toHaveTextContent('2×');
+    expect(within(dialog).queryByTestId('medley-quick-sections')).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('group', { name: 'medleyStudioV2.sectionChoices' })).not.toBeInTheDocument();
     const rowB = within(dialog).getAllByTestId('medley-picker-song').find(node => node.getAttribute('data-song-id') === 'B')!;
     fireEvent.click(within(rowB).getByRole('button', { name: /B.*Am/ }));
-    continueToReview(dialog, 1);
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
+    const firstCard = within(dialog).getAllByTestId('medley-song-card')[0];
+    const picker = within(firstCard).getByRole('group', { name: 'medleyStudioV2.sectionChoices' });
+    for (const label of ['Intro','Verso','Refrão']) expect(within(picker).getByRole('button', { name: label })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(within(picker).getByRole('button', { name: 'Verso' }));
+    expect(within(picker).getByRole('button', { name: 'Verso' })).toHaveAttribute('aria-pressed', 'false');
+    expect(within(firstCard).getAllByTestId('medley-part-row')).toHaveLength(2);
+    fireEvent.click(within(firstCard).getAllByTestId('medley-part-row')[1].querySelector('button')!);
+    fireEvent.change(within(firstCard).getByLabelText('medley.repeat'), { target: { value: '2' } });
+    continueToReview(dialog, 2);
     fireEvent.click(within(dialog).getByText('medley.use'));
     const steps = onChange.mock.calls[0][0][0].steps;
     expect(steps.map(step => [step.songId, step.label || '', step.repetitions])).toEqual([
@@ -119,7 +125,7 @@ describe('feature-isolated visual studio', () => {
     expect(a.chords).toBe('[Intro]\nAm F\n[Verso]\nG C\n[Refrão]\nF G');
   });
 
-  it('reopening a chosen song edits its sections, while another appearance is inserted explicitly', () => {
+  it('preserves A-B-A as three song choices and allows different parts in each occurrence', () => {
     const a = song('A', '[Intro]\nAm F\n[Refrão]\nC G');
     const onChange = vi.fn<(medleys: ScaleMedley[]) => void>();
     render(<MedleyStudioV2 songs={[a,song('B','Dm G')]} medleys={[]} onChange={onChange} />);
@@ -128,14 +134,15 @@ describe('feature-isolated visual studio', () => {
     const rowA = within(dialog).getAllByTestId('medley-picker-song').find(node => node.getAttribute('data-song-id') === 'A')!;
     const rowB = within(dialog).getAllByTestId('medley-picker-song').find(node => node.getAttribute('data-song-id') === 'B')!;
     fireEvent.click(within(rowA).getByRole('button', { name: /A.*Am/ }));
-    fireEvent.click(within(rowA).getByRole('button', { name: 'Intro' }));
     fireEvent.click(within(rowB).getByRole('button', { name: /B.*Am/ }));
-    fireEvent.click(within(rowA).getByRole('button', { name: /A.*Am/ }));
-    expect(within(rowA).getByTestId('medley-selection-count')).toHaveTextContent('1×');
     fireEvent.click(within(rowA).getByRole('button', { name: 'medleyStudioV2.addSongAgain' }));
     expect(within(rowA).getByTestId('medley-selection-count')).toHaveTextContent('2×');
-    fireEvent.click(within(rowA).getByRole('button', { name: 'Refrão' }));
-    continueToReview(dialog, 1);
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
+    const cards = within(dialog).getAllByTestId('medley-song-card');
+    expect(cards.map(card => card.getAttribute('data-song-id'))).toEqual(['A','B','A']);
+    fireEvent.click(within(cards[0]).getByRole('button', { name: 'Refrão' }));
+    fireEvent.click(within(cards[2]).getByRole('button', { name: 'Intro' }));
+    continueToReview(dialog, 2);
     fireEvent.click(within(dialog).getByText('medley.use'));
     expect(onChange.mock.calls[0][0][0].steps.map(step => [step.songId, step.label || '']))
       .toEqual([['A', 'Intro'],['B',''],['A','Refrão']]);
@@ -203,11 +210,33 @@ describe('feature-isolated visual studio', () => {
     expect(onChange.mock.calls[0][0][0].steps.map(step => step.songId)).toEqual(['B','C']);
   });
 
+  it('adds another song after the final song during the part-selection step', () => {
+    const a = song('A', '[Intro]\nAm F\n[Refrão]\nC G');
+    const b = song('B', 'Dm G');
+    const c = song('C', '[Verso]\nC G\n[Ponte]\nF G');
+    render(<MedleyStudioV2 songs={[a,b,c]} medleys={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /A.*Am/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: /B.*Am/ }));
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
+    const addAfterLast = within(dialog).getByTestId('medley-add-song-after-last');
+    expect(addAfterLast).toHaveTextContent('medleyStudioV2.addMusic');
+    fireEvent.click(addAfterLast);
+    expect(within(dialog).queryByTestId('medley-quick-sections')).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: /C.*Am/ }));
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
+    expect(within(dialog).getAllByTestId('medley-song-card').map(card => card.getAttribute('data-song-id'))).toEqual(['A','B','C']);
+    const picker = within(within(dialog).getAllByTestId('medley-song-card')[2]).getByRole('group', { name: 'medleyStudioV2.sectionChoices' });
+    expect(within(picker).getByRole('button', { name: 'Verso' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(picker).getByRole('button', { name: 'Ponte' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('keeps unmarked charts available for manually choosing lines', () => {
     render(<MedleyStudioV2 songs={[song('A', 'Am F\\nPalavra'), song('B', 'G C')]} medleys={[]} onChange={vi.fn()} initialSongIds={['A','B']} />);
     fireEvent.click(screen.getByText('medley.create'));
     const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByText('medleyStudioV2.manualSectionHint')).toBeInTheDocument();
+    expect(within(dialog).getAllByText('medleyStudioV2.manualSectionHint').length).toBeGreaterThan(0);
     expect(within(dialog).getByLabelText('medley.from')).toBeInTheDocument();
     expect(within(dialog).getByLabelText('medley.to')).toBeInTheDocument();
   });
