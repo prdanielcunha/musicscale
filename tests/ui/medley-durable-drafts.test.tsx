@@ -58,15 +58,20 @@ describe('Medley Studio durable recovery UI', () => {
     fireEvent.click(within(dialog).getAllByRole('button', { name: 'medleyStudioV2.duplicate' })[0]);
     expect(within(dialog).getByText('3 / 30 medley.excerpt')).toBeInTheDocument();
     await waitFor(() => expect(memory.writes).toBeGreaterThan(0), { timeout: 2500 });
+    expect(screen.queryByTestId('medley-drafts-list')).not.toBeInTheDocument();
+    expect(screen.queryByText('medleyStudioV2.localOnly')).not.toBeInTheDocument();
+    expect(within(dialog).getByTestId('medley-save-toast')).toHaveTextContent('medleyStudioV2.draftStatus_saved');
+    await waitFor(() => expect(screen.queryByTestId('medley-save-toast')).not.toBeInTheDocument(), { timeout: 3000 });
     first.unmount();
 
     render(ui());
     fireEvent.click(screen.getByText('medley.create'));
     const reopened = screen.getByRole('dialog');
-    const drafts = await within(reopened).findByTestId('medley-drafts-list');
-    fireEvent.click(within(drafts).getByRole('button', { name: 'medleyStudioV2.continueDraft' }));
+    const recovery = await screen.findByRole('alertdialog', { name: 'medleyStudioV2.resumeTitle' });
+    expect(screen.queryByTestId('medley-drafts-list')).not.toBeInTheDocument();
+    fireEvent.click(within(recovery).getByRole('button', { name: 'medleyStudioV2.continueDraft' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(within(reopened).getByText('3 / 30 medley.excerpt')).toBeInTheDocument();
-    expect(within(reopened).getByTestId('medley-draft-status')).toHaveTextContent('medleyStudioV2.draftStatus_saved');
   });
 
   it('blocks closing unsaved edits when local storage rejects the write', async () => {
@@ -76,7 +81,7 @@ describe('Medley Studio durable recovery UI', () => {
     const dialog = screen.getByRole('dialog');
     fireEvent.click(within(dialog).getAllByRole('button', { name: 'medleyStudioV2.duplicate' })[0]);
     fireEvent.click(within(dialog).getByRole('button', { name: 'medley.close' }));
-    await waitFor(() => expect(within(dialog).getByRole('alert')).toHaveTextContent('medleyStudioV2.draftSaveFailed'));
+    await waitFor(() => expect(within(dialog).getByTestId('medley-draft-error')).toHaveTextContent('medleyStudioV2.draftStatus_failed'));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     memory.failWrites = false;
     fireEvent.click(within(dialog).getByRole('button', { name: 'medleyStudioV2.retryDraft' }));
@@ -96,5 +101,23 @@ describe('Medley Studio durable recovery UI', () => {
     fireEvent.click(screen.getByText('medley.create'));
     await waitFor(() => expect(screen.queryByText('Private A')).not.toBeInTheDocument());
     expect(screen.queryByTestId('medley-drafts-list')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('offers recovery only when returning to unfinished work, and starting fresh keeps the old draft', async () => {
+    memory.drafts.set('user-a:org-a:repertoire:draft-1', {
+      id: 'draft-1', key: 'user-a:org-a:repertoire:draft-1',
+      userId: 'user-a', organizationId: 'org-a', scope: 'repertoire',
+      name: 'Previous arrangement', revision: 1, updatedAt: 100,
+      editingId: null, stage: 2, activeId: null, blocks: [],
+    });
+    render(<MedleyStudioV2 songs={songs} medleys={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const recovery = await screen.findByRole('alertdialog', { name: 'medleyStudioV2.resumeTitle' });
+    expect(within(recovery).getByText('Previous arrangement')).toBeInTheDocument();
+    fireEvent.click(within(recovery).getByRole('button', { name: 'medleyStudioV2.startNew' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('medley-drafts-list')).not.toBeInTheDocument();
+    expect(memory.drafts).toHaveProperty('size', 1);
   });
 });
