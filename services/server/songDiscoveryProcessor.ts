@@ -96,7 +96,7 @@ export async function runSongDiscoveryProcessor(
     return { outcome: 'ignored', reasonCode: 'DRAFT_OR_DELETED_OR_ARCHIVED' };
   }
 
-  if (await isVerifiedGlobalCurationOptOut(songData, dbInstance)) {
+  if (await isVerifiedGlobalCurationOptOut(songData, songId, dbInstance)) {
     return { outcome: 'ignored', reasonCode: 'VERIFIED_ECOSYSTEM_OPT_OUT' };
   }
 
@@ -163,8 +163,8 @@ export async function runSongDiscoveryProcessor(
         normalizedTitle: globalData.normalizedTitle || '',
         normalizedArtists: globalData.normalizedArtists || (globalData.normalizedArtist ? [globalData.normalizedArtist] : []),
         normalizedLyrics: globalData.normalizedLyrics || null,
-        lyricsFingerprint: globalData.fingerprints?.lyrics || null,
-        contentFingerprint: globalData.fingerprints?.content || null,
+        lyricsFingerprint: globalData.lyricsFingerprint || globalData.fingerprints?.lyrics || null,
+        contentFingerprint: globalData.contentFingerprint || globalData.fingerprints?.content || null,
         originalTitle: globalData.title || '',
         openingLyrics: null,
         chorusLyrics: null,
