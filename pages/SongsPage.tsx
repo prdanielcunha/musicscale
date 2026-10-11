@@ -1465,7 +1465,11 @@ const SongsPage: React.FC = () => {
             if (!api || !canManageScales) throw new Error('API unavailable');
             await saveMedleyAsRepertoireSong(arrangement, name, onProgress);
             onProgress?.(t('medleyStudioV2.savingArrangement'));
-            await saveMedleyTemplate(api, templateOrgId, { name, arrangement, schemaVersion: 2, status: 'ready', ...(medleyTemplateToCopy ? { parentTemplateId: medleyTemplateToCopy.id } : {}) });
+            // Retry safely when the repertoire song was written but the template response was lost.
+            const stored = await listMedleyTemplates(api, templateOrgId);
+            if (!stored.some(template => template.arrangement.id === arrangement.id && template.arrangement.revision === arrangement.revision)) {
+              await saveMedleyTemplate(api, templateOrgId, { name, arrangement, schemaVersion: 2, status: 'ready', ...(medleyTemplateToCopy ? { parentTemplateId: medleyTemplateToCopy.id } : {}) });
+            }
             await refreshMedleyTemplates();
           }}
           onClose={() => { setMedleyStudioOpen(false); setMedleyTemplateToCopy(null); }}
