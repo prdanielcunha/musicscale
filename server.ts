@@ -50,6 +50,7 @@ import { compareSongs } from "./utils/songDiscovery/matcher.js";
 import { requireEcosystemRole } from "./services/server/ecosystemAuth.js";
 import { MUSIC_SCALE_MEMBER_FIELDS, resolveMemberDirectoryMusicProfile, writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
+import { medleyTemplateRoutes } from './services/server/medleyTemplateRoutes.js';
 import { collectTenantMemberDirectoryCandidates, isVerifiedTenantMemberForMusicScaleWrite } from "./services/server/memberDirectoryCandidates.js";
 import { createMusicDataBootstrapHandler } from "./services/server/musicDataBootstrap.js";
 import { createConnectNextScheduleReadHandler } from "./services/server/connect/nextScheduleReadHandler.js";
@@ -208,6 +209,10 @@ app.use((err: any, req: any, res: any, next: any) => {
 // Authenticated music APIs use Admin SDK and bypass client Firestore Rules.
 // Apply the Hub grant gate BEFORE any musical BFF/AI/write handler is registered.
 app.use(createHubTrialWorkspaceMiddleware({ db }));
+const medleyTemplateHandlers = medleyTemplateRoutes(db, auth);
+app.get('/api/v1/medley-templates', medleyTemplateHandlers.list);
+app.post('/api/v1/medley-templates', medleyTemplateHandlers.create);
+
 
 // Critical first-screen read fallback. The browser prefers direct Firestore reads;
 // this route is only used after those reads fail and re-authorizes the exact tenant.
