@@ -25,29 +25,29 @@ describe('mandatory global curation with verified privileged opt-out', () => {
 
   it('defaults every new song to global curation without database lookups', async () => {
     const { db, get } = dbFor({});
-    expect(await isVerifiedGlobalCurationOptOut({ createdBy: { uid: 'u1' } }, db)).toBe(false);
+    expect(await isVerifiedGlobalCurationOptOut({ createdBy: { uid: 'u1' } }, 'song1', db)).toBe(false);
     expect(get).not.toHaveBeenCalled();
   });
 
-  it('ignores member attempts to opt out, even if they submit a hidden flag', async () => {
-    const { db } = dbFor({ systemRole: 'member' });
+  it('ignores a member flag without a server-issued exemption', async () => {
+    const { db } = dbFor({ systemRole: 'member' }, false);
     expect(await isVerifiedGlobalCurationOptOut({
-      globalCurationOptOut: true, createdBy: { uid: 'member1' }
-    }, db)).toBe(false);
+      globalCurationOptOut: true, organizationId: 'org1', createdBy: { uid: 'member1' }
+    }, 'song1', db)).toBe(false);
   });
 
-  it('honors opt-out only with an authoritative privileged user document', async () => {
-    const { db, doc } = dbFor({ systemRole: 'ecosystem_support' });
+  it('requires the exemption to match the actual song creator and organization', async () => {
+    const { db } = dbFor({ userId: 'someoneElse', organizationId: 'org1' });
     expect(await isVerifiedGlobalCurationOptOut({
-      globalCurationOptOut: true, createdBy: { uid: 'support1' }
-    }, db)).toBe(true);
-    expect(doc).toHaveBeenCalledWith('support1');
+      globalCurationOptOut: true, organizationId: 'org1', createdBy: { uid: 'support1' }
+    }, 'song1', db)).toBe(false);
   });
 
-  it('does not honor claimed global role without a verified user record', async () => {
-    const { db } = dbFor({ systemRole: 'ceo' }, false);
+  it('accepts a server-issued exemption for the precise song, creator and organization', async () => {
+    const { db, doc } = dbFor({ userId: 'support1', organizationId: 'org1' });
     expect(await isVerifiedGlobalCurationOptOut({
-      globalCurationOptOut: true, createdBy: { uid: 'fake' }
-    }, db)).toBe(false);
+      globalCurationOptOut: true, organizationId: 'org1', createdBy: { uid: 'support1' }
+    }, 'song1', db)).toBe(true);
+    expect(doc).toHaveBeenCalledWith('song1');
   });
 });
