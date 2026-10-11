@@ -2261,6 +2261,8 @@
     "draftMissingSource": "Algunas canciones no están disponibles en esta organización. Se conservó el borrador; revísalo antes de finalizar.",
     "draftLimitReached": "Se alcanzó el límite de borradores de este dispositivo. Elimina uno anterior.",
     "draftSaveFailed": "No se pudo guardar el borrador en este dispositivo.",
+    "retryDraft": "Volver a intentar guardar",
+    "saveConflictCopy": "Guardar mi trabajo como copia",
     "useAsCue": "Usar como indicación",
     "templateNameRequired": "Escribe un nombre para guardar el medley.",
     "createFromSong": "Crear medley con esta canción",
