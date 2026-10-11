@@ -1,3 +1,10 @@
+MusicScale 0.11.0-beta.3 — 2026-10-11
+Correção do Medley Studio V2: trechos consecutivos da mesma música dentro do mesmo card e seleção inline; revisão agrupada por música, preservando ordenação, trechos, repetições e edição.
+Pontes harmônicas sugeridas apenas nas fronteiras entre músicas distintas, com orientação/ponte de saída associada ao último trecho da música anterior.
+Inclui correção já aprovada de sobreposição, safe area e foco no Safari do iPhone; PT/EN/ES e testes automatizados de regressão.
+Não altera cifra/letra/tablatura originais, organizações, funções, bandas fixas, escalas existentes, Firestore Rules, autenticação, billing, Stripe, dados de clientes ou persistência canônica. Nenhuma migração ou delete.
+Publicar somente após QA completa no SHA exato, release gate, Hosting Firebase oficial, /version.json e smoke autenticado/sem autenticação conforme escopo.
+
 MusicScale 0.11.0-beta.2 — 2026-10-10
 Studio Medley 2.0 como entrada padrão apenas após autenticação e resolução do tenant canônico; não exige opt-in no navegador.
 Rollback: organization.featureFlags['musicscale.medleyStudioV2'] === false ou organization.features['musicscale.medleyStudioV2'] === false mantém editor anterior.
