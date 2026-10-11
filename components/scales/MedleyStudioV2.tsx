@@ -115,7 +115,8 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     const matches = searchSongs(searchIndex, query).map(match => match.document.song);
     if (query.trim()) return matches.slice(0, 75);
     // Always show selected songs, even beyond the first 75 library results.
-    const selectedOrder = new Map(songGroups.map((group, index) => [group.songId, index]));
+    const selectedOrder = new Map<string, number>();
+    songGroups.forEach((group, index) => { if (!selectedOrder.has(group.songId)) selectedOrder.set(group.songId, index); });
     const suggestedRank = new Map(suggestedSongIds?.map((id, index) => [id, index]) || []);
     const selected = [...selectedOrder.keys()].map(id => songs.find(song => song.id === id)).filter((song): song is PopulatedSong => !!song);
     const suggested = [...suggestedRank.keys()].map(id => songs.find(song => song.id === id)).filter((song): song is PopulatedSong => !!song);
@@ -204,6 +205,15 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
       setActiveId(steps[startIndex + appearance.blocks.length]?.id || steps[startIndex - 1]?.id || null);
     }
     edit(previous => removeStudioSongOccurrence(previous, startIndex));
+  };
+  const clearSongOccurrences = (songId: string) => {
+    const starts = songGroups.filter(group => group.songId === songId).map(group => group.startIndex).reverse();
+    if (!starts.length) return;
+    const removedIds = new Set(songGroups.filter(group => group.songId === songId).flatMap(group => group.blocks.map(block => block.id)));
+    if (activeId && removedIds.has(activeId)) {
+      setActiveId(steps.find(block => block.songId !== songId)?.id || null);
+    }
+    edit(previous => starts.reduce((items, startIndex) => removeStudioSongOccurrence(items, startIndex), previous));
   };
   const addSelectedPart = (blockId: string) => {
     if (steps.length >= 30 || !steps.some(block => block.id === blockId)) return;
@@ -380,7 +390,9 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
                   </button>
                   {count > 0 && <div className="border-t border-sky-400/15 px-2 pb-2 pt-2">
                     <p className="mb-1 text-[11px] font-medium text-sky-200" role="status">{t('medleyStudioV2.selected')} · {count} {t('medleyStudioV2.appearances')}</p>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {count > 1 && <button type="button" className="min-h-[40px] rounded-lg border border-rose-400/25 px-2 text-[11px] font-semibold text-rose-200 focus-visible:outline-2 focus-visible:outline-rose-400"
+                        aria-label={t('medleyStudioV2.clearSong') + ' ' + song.title} onClick={() => clearSongOccurrences(song.id)}>{t('medleyStudioV2.clearSong')}</button>}
                       {appearances.map(item => <div key={item.startIndex} data-testid="medley-picker-occurrence" className="inline-flex min-h-[40px] items-center gap-1 rounded-lg border border-white/15 bg-black/20 pl-2 text-xs text-slate-200">
                         <span className="tabular-nums">#{item.position}</span>
                         <button type="button" className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-r-lg text-rose-200 hover:bg-rose-500/15 focus-visible:outline-2 focus-visible:outline-rose-400"
