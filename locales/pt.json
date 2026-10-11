@@ -2203,7 +2203,7 @@
     "music": "Música",
     "bridgeOnlyBetweenSongs": "As pontes harmônicas são criadas apenas entre músicas diferentes. Selecione o último trecho antes da próxima música.",
     "chosenSongs": "Sequência escolhida",
-    "appearances": "ocorrência(s)",
+    "appearances": "vezes",
     "selectionOrder": "Ordem das músicas no medley",
     "selected": "Selecionada",
     "removeOccurrence": "Remover ocorrência",
@@ -2275,6 +2275,7 @@
     "advancedEdit": "Editar detalhes",
     "decreaseRepeats": "Diminuir repetições",
     "increaseRepeats": "Aumentar repetições",
-    "customOrderHint": "Duplique um trecho para usá-lo novamente; ajuste a posição na etapa Partes."
+    "customOrderHint": "Duplique um trecho para usá-lo novamente; ajuste a posição na etapa Partes.",
+    "appearance": "vez"
   }
 }
