@@ -281,7 +281,7 @@ describe('feature-isolated visual studio', () => {
     fireEvent.click(within(dialog).getByText('B'));
     fireEvent.change(within(dialog).getByLabelText('medley.templateName'), { target: { value: 'Adoração em sequência' } });
     continueToReview(dialog, 1);
-    fireEvent.click(within(dialog).getByText('medley.saveTemplate'));
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.saveAsSong'));
     await waitFor(() => expect(onSaveTemplate).toHaveBeenCalledTimes(1));
     const [arrangement, name] = onSaveTemplate.mock.calls[0];
     expect(name).toBe('Adoração em sequência');
