@@ -20,7 +20,7 @@ export function saveStudioDraft(identity: StudioDraftIdentity, blocks: readonly 
   const record: SavedDraft = { version: 1, identity, updatedAt: now, blocks: blocks.map(block => ({
     id: block.id, songId: block.songId, startLine: block.startLine, endLine: block.endLine,
     label: block.label, repetitions: block.repetitions, key: block.key, bpm: block.bpm,
-    transition: block.transition, cue: block.cue,
+    transition: block.transition, cue: block.cue, ...(block.manualExtra ? { manualExtra: true } : {}),
   })) };
   const serialized = JSON.stringify(record);
   if (serialized.length > MAX_CHARS) return false;
@@ -49,6 +49,7 @@ export function loadStudioDraft(identity: StudioDraftIdentity, allowedSongIds: R
       typeof block.key === 'string' && block.key.length <= 24 &&
       typeof block.bpm === 'string' && block.bpm.length <= 4 &&
       typeof block.cue === 'string' && block.cue.length <= 300 &&
+      (block.manualExtra === undefined || typeof block.manualExtra === 'boolean') &&
       ['direct', 'hold', 'pause', 'free'].includes(block.transition))) return null;
     return parsed.blocks;
   } catch { return null; }
