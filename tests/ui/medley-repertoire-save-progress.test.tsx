@@ -36,10 +36,10 @@ describe('medley save progress', () => {
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
     fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'medley.saveTemplate' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'medleyStudioV2.saveAsSong' }));
     const progress = await within(dialog).findByTestId('medley-save-progress');
     expect(progress).toHaveTextContent('Salvando cifra e letra…');
-    expect(within(dialog).getByRole('button', { name: 'medley.saveTemplate' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'medleyStudioV2.saveAsSong' })).toBeDisabled();
     expect(within(dialog).getByRole('button', { name: 'medley.cancel' })).toBeDisabled();
     expect(onSaveTemplate).toHaveBeenCalledTimes(1);
     await act(async () => { finish(); });
