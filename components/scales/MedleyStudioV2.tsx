@@ -217,6 +217,45 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     catch { return t('medley.unsafeKeyChange'); }
   };
 
+  // Stage 2 places the editor inside the song card; stage 3 keeps bridge controls adjacent.
+  const inspector = (selected && activeSong ? <>
+              <p className="mb-2 text-sm font-semibold text-sky-300">{activeSong.title}</p>
+              {stage === 2 && <div className="mb-3 rounded-xl border border-sky-400/15 bg-sky-500/5 p-3" role="group" aria-label={t('medleyStudioV2.sectionChoices')}>
+                <p className="mb-2 text-xs font-semibold text-slate-200">{t('medleyStudioV2.sectionChoices')}</p>
+                <div className="flex flex-wrap gap-2">{sectionChoices.slice(0, 24).map(section => {
+                  const selectedSection = selected.startLine === section.startLine && selected.endLine === section.endLine;
+                  return <button type="button" key={section.id} aria-pressed={selectedSection}
+                    className={'min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-sky-400 ' + (selectedSection ? 'border-sky-400 bg-sky-500/20 text-white' : 'border-white/15 bg-white/5 text-slate-200')}
+                    onClick={() => update(selected.id, { startLine: section.startLine, endLine: section.endLine, label: section.label || '' })}>
+                    {section.label || (section.source === 'whole' ? t('medley.whole') : t('medleyStudioV2.unmarkedPart'))}
+                  </button>;
+                })}</div>
+                {sectionChoices.length > 24 && <p className="mt-2 text-xs text-slate-400">{t('medleyStudioV2.moreSections')}</p>}
+                {sectionChoices.every(section => section.source !== 'section') && <p className="mt-2 text-xs text-amber-200">{t('medleyStudioV2.manualSectionHint')}</p>}
+              </div>}
+              <label className={stage === 3 ? 'hidden' : 'block text-xs'}>{t('medley.excerpt')}
+                <select className={field} value={(() => { const lines = splitMedleySource(medleyChart(activeSong)); if (selected.startLine === 0 && selected.endLine === lines.length - 1) return 'all'; return suggestMedleySegments(medleyChart(activeSong)).find(s => s.startLine === selected.startLine && s.endLine === selected.endLine)?.id || 'manual'; })()}
+                  onChange={e => { if (e.target.value === 'all') update(selected.id, { startLine: 0, endLine: splitMedleySource(medleyChart(activeSong)).length - 1, label: '' }); else { const segment = suggestMedleySegments(medleyChart(activeSong)).find(s => s.id === e.target.value); if (segment) update(selected.id, { startLine: segment.startLine, endLine: segment.endLine, label: segment.label || '' }); } }}>
+                  <option value="manual">{t('medley.manual')}</option><option value="all">{t('medley.whole')}</option>
+                  {suggestMedleySegments(medleyChart(activeSong)).filter(s => s.startLine !== 0 || s.endLine !== splitMedleySource(medleyChart(activeSong)).length - 1).map(s => <option key={s.id} value={s.id}>{s.label || s.id}</option>)}
+                </select></label>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <label className={stage === 3 ? 'hidden' : 'text-xs'}>{t('medley.from')}<input className={field} type="number" min={1} max={splitMedleySource(medleyChart(activeSong)).length} value={selected.startLine + 1} onChange={e => update(selected.id, { startLine: Number(e.target.value) - 1 })} /></label>
+                <label className={stage === 3 ? 'hidden' : 'text-xs'}>{t('medley.to')}<input className={field} type="number" min={1} max={splitMedleySource(medleyChart(activeSong)).length} value={selected.endLine + 1} onChange={e => update(selected.id, { endLine: Number(e.target.value) - 1 })} /></label>
+                <label className={stage === 3 ? 'hidden' : 'text-xs'}>{t('medley.repeat')}<input className={field} type="number" min={1} max={16} value={selected.repetitions} onChange={e => update(selected.id, { repetitions: Number(e.target.value) })} /></label>
+                <label className={stage === 3 ? 'hidden' : 'text-xs'}>{t('medley.key')}<input className={field} maxLength={24} value={selected.key} onChange={e => update(selected.id, { key: e.target.value })} /></label>
+                <label className={stage === 3 ? 'hidden' : 'text-xs'}>BPM<input className={field} type="number" min={20} max={320} value={selected.bpm} onChange={e => update(selected.id, { bpm: e.target.value })} /></label>
+                <label className={stage !== 3 || !selectedIsSongBoundary ? 'hidden' : 'text-xs'}>{t('medley.transition')}<select className={field} value={selected.transition} onChange={e => update(selected.id, { transition: e.target.value as StudioBlock['transition'] })}>{(['direct', 'hold', 'pause', 'free'] as const).map(mode => <option value={mode} key={mode}>{t('medley.' + mode)}</option>)}</select></label>
+              </div>
+              <label className={stage !== 3 || !selectedIsSongBoundary ? 'hidden' : 'mt-2 block text-xs'}>{t('medley.cue')}<textarea className={field + ' min-h-[66px] py-2'} maxLength={300} value={selected.cue} onChange={e => update(selected.id, { cue: e.target.value })} /></label>
+              <div className={stage !== 3 || !selectedIsSongBoundary ? 'hidden' : ''} key={selected.id}><ManualMedleyBridgeEditor cue={selected.cue} onApply={cue => update(selected.id, { cue, transition: 'free' })} /></div>
+              {stage === 3 && !selectedIsSongBoundary && <p className="mt-3 text-xs text-slate-400">{t('medleyStudioV2.bridgeOnlyBetweenSongs')}</p>}
+              <div className={stage === 3 ? 'hidden' : 'mt-3'}>
+                <p className="mb-1 text-xs font-semibold">{t('medleyStudioV2.preview')}</p>
+                <pre className="max-h-72 overflow-auto rounded-lg bg-black/30 p-3 font-mono text-xs leading-5 text-white whitespace-pre">{preview(selected)}</pre>
+              </div>
+            </> : <p className="text-sm text-slate-400">{t('medleyStudioV2.chooseBlock')}</p>);
+
   if (!songs.length && !medleys.length) return null;
 
   return <section className="mt-4 rounded-2xl border border-sky-500/25 bg-[#0a1425] p-3 text-slate-100 sm:p-4" data-testid="medley-studio-v2">
@@ -268,7 +307,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
           {changedSources.map(step => <details key={step.id} className="mt-2 text-xs"><summary className="cursor-pointer">{step.title}</summary><div className="mt-2 grid gap-2 sm:grid-cols-2"><pre className="overflow-auto whitespace-pre p-2">{step.snapshot}</pre><pre className="overflow-auto whitespace-pre p-2">{medleyChart(songMap.get(step.songId) || ({ chords: '', lyrics: '' }))}</pre></div></details>)}
           <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={sourceApproved} onChange={e => setSourceApproved(e.target.checked)} />{t('medley.approveChange')}</label>
         </div>}
-        <div className={stage === 1 ? 'grid min-w-0 gap-3' : 'grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]'}>
+        <div className={stage === 3 ? 'grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]' : 'grid min-w-0 gap-3'}>
           <aside className={'min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3 ' + (stage !== 1 ? 'hidden' : '')}>
             <h3 className="mb-2 font-semibold">{t('medleyStudioV2.library')}</h3>
             <input className={field} aria-label={t('medleyStudioV2.search')} placeholder={t('medleyStudioV2.search')} value={query} onChange={e => setQuery(e.target.value)} />
@@ -292,7 +331,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
 
           <section className={'min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3 ' + (stage !== 2 && stage !== 3 ? 'hidden' : '')} aria-label={t('medleyStudioV2.timeline')}>
             <h3 className="mb-2 font-semibold">{t('medleyStudioV2.timeline')}</h3>
-            <div className="max-h-[48vh] space-y-3 overflow-y-auto pr-1 lg:max-h-[65vh]">
+            <div className={stage === 2 ? 'space-y-3' : 'max-h-[48vh] space-y-3 overflow-y-auto pr-1 lg:max-h-[65vh]'}>
               {songGroups.length === 0 && <p className="rounded-xl border border-dashed border-white/15 p-4 text-sm text-slate-400">{t('medleyStudioV2.emptyTimeline')}</p>}
               {songGroups.map((group, groupIndex) => {
                 const song = songMap.get(group.songId);
@@ -327,6 +366,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
                         </li>;
                       })}
                     </ol>
+                    {stage === 2 && group.blocks.some(block => block.id === selected?.id) && <div className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3" data-testid="medley-inline-inspector"><h3 className="mb-2 text-sm font-semibold">{t('medleyStudioV2.inspector')}</h3>{inspector}</div>}
                     {stage === 2 && <button type="button" className={button + ' mt-3 w-full border-dashed border-sky-500/40 text-sky-200'} disabled={steps.length >= 30} onClick={() => addSelectedPart(last.id)}><Plus size={16} className="mr-2" />{t('medleyStudioV2.addPart')}</button>}
                   </article>
                   {suggestion && <div data-testid="medley-song-bridge" className="rounded-lg border border-sky-400/20 bg-sky-500/5 p-3 text-xs text-slate-300">
@@ -338,46 +378,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
               })}
             </div>
           </section>
-          <aside className={'min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3 ' + (stage !== 2 && stage !== 3 ? 'hidden' : '')}>
-            <h3 className="mb-2 font-semibold">{t(stage === 3 ? 'medleyStudioV2.step3' : 'medleyStudioV2.inspector')}</h3>
-            {selected && activeSong ? <>
-              <p className="mb-2 text-sm font-semibold text-sky-300">{activeSong.title}</p>
-              {stage === 2 && <div className="mb-3 rounded-xl border border-sky-400/15 bg-sky-500/5 p-3" role="group" aria-label={t('medleyStudioV2.sectionChoices')}>
-                <p className="mb-2 text-xs font-semibold text-slate-200">{t('medleyStudioV2.sectionChoices')}</p>
-                <div className="flex flex-wrap gap-2">{sectionChoices.slice(0, 24).map(section => {
-                  const selectedSection = selected.startLine === section.startLine && selected.endLine === section.endLine;
-                  return <button type="button" key={section.id} aria-pressed={selectedSection}
-                    className={'min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-sky-400 ' + (selectedSection ? 'border-sky-400 bg-sky-500/20 text-white' : 'border-white/15 bg-white/5 text-slate-200')}
-                    onClick={() => update(selected.id, { startLine: section.startLine, endLine: section.endLine, label: section.label || '' })}>
-                    {section.label || (section.source === 'whole' ? t('medley.whole') : t('medleyStudioV2.unmarkedPart'))}
-                  </button>;
-                })}</div>
-                {sectionChoices.length > 24 && <p className="mt-2 text-xs text-slate-400">{t('medleyStudioV2.moreSections')}</p>}
-                {sectionChoices.every(section => section.source !== 'section') && <p className="mt-2 text-xs text-amber-200">{t('medleyStudioV2.manualSectionHint')}</p>}
-              </div>}
-              <label className={stage === 3 ? 'hidden' : 'block text-xs'}>{t('medley.excerpt')}
-                <select className={field} value={(() => { const lines = splitMedleySource(medleyChart(activeSong)); if (selected.startLine === 0 && selected.endLine === lines.length - 1) return 'all'; return suggestMedleySegments(medleyChart(activeSong)).find(s => s.startLine === selected.startLine && s.endLine === selected.endLine)?.id || 'manual'; })()}
-                  onChange={e => { if (e.target.value === 'all') update(selected.id, { startLine: 0, endLine: splitMedleySource(medleyChart(activeSong)).length - 1, label: '' }); else { const segment = suggestMedleySegments(medleyChart(activeSong)).find(s => s.id === e.target.value); if (segment) update(selected.id, { startLine: segment.startLine, endLine: segment.endLine, label: segment.label || '' }); } }}>
-                  <option value="manual">{t('medley.manual')}</option><option value="all">{t('medley.whole')}</option>
-                  {suggestMedleySegments(medleyChart(activeSong)).filter(s => s.startLine !== 0 || s.endLine !== splitMedleySource(medleyChart(activeSong)).length - 1).map(s => <option key={s.id} value={s.id}>{s.label || s.id}</option>)}
-                </select></label>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <label className={stage === 3 ? 'hidden' : 'text-xs'}>{t('medley.from')}<input className={field} type="number" min={1} max={splitMedleySource(medleyChart(activeSong)).length} value={selected.startLine + 1} onChange={e => update(selected.id, { startLine: Number(e.target.value) - 1 })} /></label>
-                <label className={stage === 3 ? 'hidden' : 'text-xs'}>{t('medley.to')}<input className={field} type="number" min={1} max={splitMedleySource(medleyChart(activeSong)).length} value={selected.endLine + 1} onChange={e => update(selected.id, { endLine: Number(e.target.value) - 1 })} /></label>
-                <label className={stage === 3 ? 'hidden' : 'text-xs'}>{t('medley.repeat')}<input className={field} type="number" min={1} max={16} value={selected.repetitions} onChange={e => update(selected.id, { repetitions: Number(e.target.value) })} /></label>
-                <label className={stage === 3 ? 'hidden' : 'text-xs'}>{t('medley.key')}<input className={field} maxLength={24} value={selected.key} onChange={e => update(selected.id, { key: e.target.value })} /></label>
-                <label className={stage === 3 ? 'hidden' : 'text-xs'}>BPM<input className={field} type="number" min={20} max={320} value={selected.bpm} onChange={e => update(selected.id, { bpm: e.target.value })} /></label>
-                <label className={stage !== 3 || !selectedIsSongBoundary ? 'hidden' : 'text-xs'}>{t('medley.transition')}<select className={field} value={selected.transition} onChange={e => update(selected.id, { transition: e.target.value as StudioBlock['transition'] })}>{(['direct', 'hold', 'pause', 'free'] as const).map(mode => <option value={mode} key={mode}>{t('medley.' + mode)}</option>)}</select></label>
-              </div>
-              <label className={stage !== 3 || !selectedIsSongBoundary ? 'hidden' : 'mt-2 block text-xs'}>{t('medley.cue')}<textarea className={field + ' min-h-[66px] py-2'} maxLength={300} value={selected.cue} onChange={e => update(selected.id, { cue: e.target.value })} /></label>
-              <div className={stage !== 3 || !selectedIsSongBoundary ? 'hidden' : ''} key={selected.id}><ManualMedleyBridgeEditor cue={selected.cue} onApply={cue => update(selected.id, { cue, transition: 'free' })} /></div>
-              {stage === 3 && !selectedIsSongBoundary && <p className="mt-3 text-xs text-slate-400">{t('medleyStudioV2.bridgeOnlyBetweenSongs')}</p>}
-              <div className={stage === 3 ? 'hidden' : 'mt-3'}>
-                <p className="mb-1 text-xs font-semibold">{t('medleyStudioV2.preview')}</p>
-                <pre className="max-h-72 overflow-auto rounded-lg bg-black/30 p-3 font-mono text-xs leading-5 text-white whitespace-pre">{preview(selected)}</pre>
-              </div>
-            </> : <p className="text-sm text-slate-400">{t('medleyStudioV2.chooseBlock')}</p>}
-          </aside>
+          {stage === 3 && <aside className="min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3"><h3 className="mb-2 font-semibold">{t('medleyStudioV2.step3')}</h3>{inspector}</aside>}
         </div>
         {stage === 4 && <section className="mt-4 rounded-xl border border-white/10 bg-[#101a2a] p-3" data-testid="medley-studio-review">
           <h3 className="text-lg font-bold">{t('medleyStudioV2.step4')}</h3>
