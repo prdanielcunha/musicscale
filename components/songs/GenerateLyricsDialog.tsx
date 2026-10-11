@@ -37,7 +37,9 @@ export default function GenerateLyricsDialog({ song, onClose, onSaved }: Props) 
         songId: song.id, organizationId: effectiveOrganizationId,
         userId: user.uid, expectedChords: song.chords || '', lyrics: preview,
       });
-      await onSaved(song.id, preview.trim());
+      // A committed write must not appear to have failed because the subsequent
+      // local repertoire refresh encountered a transient network error.
+      try { await onSaved(song.id, preview.trim()); } catch { /* saved successfully */ }
       onClose();
     } catch (cause) {
       const code = cause instanceof Error ? cause.message : '';
