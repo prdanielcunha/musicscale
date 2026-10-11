@@ -21,6 +21,8 @@ import { useApi } from "../contexts/ApiContext";
 import { useMedleyStudioV2Pilot } from "../hooks/useMedleyStudioV2Pilot";
 import { useCapability } from "../hooks/useCapability";
 import { listMedleyTemplates, saveMedleyTemplate } from "../services/medleyTemplateApi";
+import { buildMedleyRepertoireSong, isSongForMedley, medleyRepertoireRepairPatch } from "../utils/medleyRepertoireSong";
+import type { ScaleMedley } from "../types";
 import Spinner from "../components/common/Spinner";
 import MusicWorkspaceSkeleton from "../components/common/MusicWorkspaceSkeleton";
 import Card from "../components/common/Card";
@@ -196,6 +198,8 @@ const SongsPage: React.FC = () => {
   const [medleyTemplateToCopy, setMedleyTemplateToCopy] = useState<MedleyTemplate | null>(null);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [templateListError, setTemplateListError] = useState('');
+  const [medleyRepairBusy, setMedleyRepairBusy] = useState(false);
+  const [medleyRepairProgress, setMedleyRepairProgress] = useState('');
   const refreshMedleyTemplates = async () => {
     if (!api || !medleyStudioEnabled || !canManageScales) return;
     setTemplatesLoading(true);
@@ -207,6 +211,57 @@ const SongsPage: React.FC = () => {
   const isAiImportAllowed = useMusicScaleFeature('aiImport');
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const saveMedleyAsRepertoireSong = async (
+    arrangement: ScaleMedley,
+    name: string,
+    progress: (message: string) => void = () => {},
+  ) => {
+    if (!api || !canManageRepertoire || !templateOrgId) throw new Error(t('medleyStudioV2.repertoirePermissionRequired'));
+    progress(t('medleyStudioV2.checkingRepertoire'));
+    // A fresh tenant-scoped read prevents duplicates even when the UI subscription lags.
+    const currentSongs = await api.songs.list();
+    progress(t('medleyStudioV2.generatingLyrics'));
+    const draft = buildMedleyRepertoireSong(arrangement, name, currentSongs);
+    const existing = currentSongs.find(song => isSongForMedley(song, arrangement.id));
+    progress(t('medleyStudioV2.savingRepertoire'));
+    if (existing) {
+      const patch = medleyRepertoireRepairPatch(existing, draft);
+      if (patch) await api.songs.update(existing.id, patch);
+    } else {
+      if (currentSongs.length >= limits.maxSongs) throw new Error(t('medleyStudioV2.repertoireLimitReached'));
+      await api.songs.create(draft);
+    }
+    // Never make a successful server save appear failed because a subsequent refresh fails.
+    void refreshData();
+  };
+  const repairExistingMedleys = async () => {
+    if (medleyRepairBusy || !canManageRepertoire) return;
+    setMedleyRepairBusy(true);
+    setTemplateListError('');
+    const latest = new Map<string, MedleyTemplate>();
+    for (const item of medleyTemplates) {
+      const previous = latest.get(item.arrangement.id);
+      if (!previous || item.arrangement.revision > previous.arrangement.revision) latest.set(item.arrangement.id, item);
+    }
+    const items = [...latest.values()];
+    let repaired = 0;
+    let failed = 0;
+    try {
+      for (const [index, item] of items.entries()) {
+        setMedleyRepairProgress(t('medleyStudioV2.repairProgress', { current: index + 1, total: items.length }));
+        try {
+          await saveMedleyAsRepertoireSong(item.arrangement, item.name);
+          repaired++;
+        } catch (error) {
+          failed++;
+          logger.warn('Medley repertoire reconciliation skipped', { arrangementId: item.arrangement.id, error });
+        }
+      }
+      setMedleyRepairProgress(t('medleyStudioV2.repairComplete', { repaired, failed }));
+    } finally {
+      setMedleyRepairBusy(false);
+    }
+  };
   const { allowance, refreshAllowance, loading: allowanceLoading, error: allowanceError } = useStarterPackAllowance();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -986,7 +1041,11 @@ const SongsPage: React.FC = () => {
       </div>
 
       {medleyStudioEnabled && canManageScales && medleyTemplates.length > 0 && <section className="rounded-2xl border border-sky-500/20 bg-[#101827] p-3 text-white sm:p-4">
-        <h3 className="mb-3 text-sm font-bold">{t('medleyStudioV2.savedTemplates')}</h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-bold">{t('medleyStudioV2.savedTemplates')}</h3>
+          {canManageRepertoire && <button type="button" className="min-h-[44px] rounded-lg border border-sky-400/30 px-3 text-xs text-sky-200 disabled:opacity-50" disabled={medleyRepairBusy} onClick={() => void repairExistingMedleys()}>{t('medleyStudioV2.reconcileExisting')}</button>}
+        </div>
+        {medleyRepairProgress && <p role="status" aria-live="polite" className="mb-3 text-xs text-sky-200">{medleyRepairProgress}</p>}
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {medleyTemplates.map(template => <div key={template.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
             <strong className="block truncate text-sm">{template.name}</strong>
@@ -1402,8 +1461,10 @@ const SongsPage: React.FC = () => {
           launchImmediately
           templateOnly
           onChange={() => { /* templates only: never alter a scheduled scale */ }}
-          onSaveTemplate={async (arrangement, name) => {
+          onSaveTemplate={async (arrangement, name, onProgress) => {
             if (!api || !canManageScales) throw new Error('API unavailable');
+            await saveMedleyAsRepertoireSong(arrangement, name, onProgress);
+            onProgress?.(t('medleyStudioV2.savingArrangement'));
             await saveMedleyTemplate(api, templateOrgId, { name, arrangement, schemaVersion: 2, status: 'ready', ...(medleyTemplateToCopy ? { parentTemplateId: medleyTemplateToCopy.id } : {}) });
             await refreshMedleyTemplates();
           }}
