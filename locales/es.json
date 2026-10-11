@@ -2192,6 +2192,9 @@
     "invalidRange": "Revisa el inicio y el fin de las líneas."
   },
   "medleyStudioV2": {
+    "songName": "Nombre de la nueva canción",
+    "saveAsSong": "Guardar canción en el repertorio",
+    "readyToSaveSong": "Al guardar, este medley se convierte en una canción normal del repertorio con acordes, letra y datos musicales.",
     "preparingRepertoire": "Preparando el medley…",
     "checkingRepertoire": "Comprobando las canciones existentes…",
     "generatingLyrics": "Generando la letra de los fragmentos seleccionados…",
