@@ -14,8 +14,6 @@ import { mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
 // V2 is split into a separate chunk. Disabled organizations never download it.
 import { useMedleyStudioV2Pilot } from '../../hooks/useMedleyStudioV2Pilot';
 import { orderMedleySongIds } from '../../utils/medleyModel';
-import { useApi } from '../../contexts/ApiContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { buildSearchIndex, searchSongs } from '../../utils/searchEngine';
 
 const formLabelClass =
@@ -42,7 +40,6 @@ const MusicBuilder = forwardRef<MusicBuilderHandle, MusicBuilderProps>(({
   onUpdateSongSettings,
 }, ref) => {
   const { t } = useTranslation();
-  const api = useApi();
   // Existing published scale snapshots remain editable for backward compatibility.
   // New medleys are created as ordinary repertoire Songs, not as scale-local lists.
   const { enabled: studioV2Enabled } = useMedleyStudioV2Pilot();
