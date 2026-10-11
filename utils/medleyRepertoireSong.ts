@@ -34,13 +34,13 @@ export function buildMedleyRepertoireSong(
 
   for (const step of arrangement.steps) {
     const source = sources.get(step.songId);
-    if (!source) throw new Error('medley.missingSong');
+    if (!source && !step.snapshot.trim() && !(step.tabs || []).length) throw new Error('medley.missingSong');
     const label = [step.title, step.label].filter(Boolean).join(' · ');
     const header = '[' + label + ']';
     const performanceChart = medleyPerformanceText(step);
     let selectedLyrics = extractLyricsFromCanonicalChordDocument(performanceChart);
 
-    if (!hasSungText(selectedLyrics) && source.lyrics?.trim()) {
+    if (!hasSungText(selectedLyrics) && source?.lyrics?.trim()) {
       const entireSource = step.startLine === 0 &&
         step.endLine === splitMedleySource(medleyChart(source)).length - 1;
       if (entireSource) {
