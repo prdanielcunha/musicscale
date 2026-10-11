@@ -2203,7 +2203,7 @@
     "music": "Song",
     "bridgeOnlyBetweenSongs": "Harmonic bridges apply only between different songs. Select the last part before the next song.",
     "chosenSongs": "Selected sequence",
-    "appearances": "appearance(s)",
+    "appearances": "times",
     "selectionOrder": "Medley song order",
     "selected": "Selected",
     "removeOccurrence": "Remove appearance",
@@ -2275,6 +2275,7 @@
     "advancedEdit": "Edit details",
     "decreaseRepeats": "Decrease repetitions",
     "increaseRepeats": "Increase repetitions",
-    "customOrderHint": "Duplicate a passage to use it again; adjust its position in the Parts step."
+    "customOrderHint": "Duplicate a passage to use it again; adjust its position in the Parts step.",
+    "appearance": "time"
   }
 }
