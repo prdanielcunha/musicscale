@@ -1,3 +1,8 @@
+MusicScale 0.11.0-beta.1 — 2026-10-10
+Preparação da jornada visual do Medley Studio 2.0: seleção contextual, quatro etapas, blocos e partes musicais, artes abstratas locais, revisão explícita e orientações PT/EN/ES.
+O salvamento permanece pelo adaptador e validador canônicos existentes, sem migração, mudança de regras, autenticação, billing, funções, assinaturas ou escalas já publicadas.
+Rollout ainda sob feature flag organizacional; tornar a experiência padrão exige certificação e ativação separadas. Este marcador não autoriza pular CI, backup/restore, smoke e canário.
+
 MusicScale 0.11.0-beta.0 — 2026-10-10
 Candidata do Medley Studio 2.0: editor visual responsivo, medleys de repertório e escalas, trechos reorganizáveis, 16 repetições, ponte harmônica manual, prévia e modo palco com snapshots aprovados.
 Feature flag organizacional musicscale.medleyStudioV2 DESLIGADA por padrão; rollout e homologação separados. Conserva as músicas, escalas, bandas fixas, funções, organizações, membros, assinaturas, autenticação e modelos antigos. Sem migrações destrutivas, alteração de IAM ou alteração de dados existentes.

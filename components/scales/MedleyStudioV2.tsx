@@ -23,6 +23,8 @@ interface Props {
   onSaveTemplate?: (medley: ScaleMedley, name: string) => Promise<void>;
   /** Existing scale song IDs are preferred; the studio may also add catalog songs. */
   initialSongIds?: string[];
+  /** Suggestions for a scale are never silently inserted as sequence blocks. */
+  suggestedSongIds?: string[];
   launchImmediately?: boolean;
   templateOnly?: boolean;
   onClose?: () => void;
@@ -39,8 +41,19 @@ interface History {
 const button = 'inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-white/15 px-3 text-sm font-semibold text-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:opacity-35';
 const field = 'min-h-[44px] w-full rounded-xl border border-white/15 bg-[#151d2b] px-3 text-sm text-white focus-visible:outline-2 focus-visible:outline-sky-400';
 const trim = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
+const artworkPalettes = [
+  'from-blue-600/60 via-indigo-800/50 to-[#090f1c]',
+  'from-amber-700/45 via-rose-950/60 to-[#090f1c]',
+  'from-teal-600/40 via-slate-800/70 to-[#090f1c]',
+  'from-violet-700/40 via-blue-950/60 to-[#090f1c]',
+] as const;
+function artworkClass(songId: string): string {
+  let hash = 0;
+  for (let i = 0; i < songId.length; i++) hash = ((hash * 31) + songId.charCodeAt(i)) >>> 0;
+  return artworkPalettes[hash % artworkPalettes.length];
+}
 
-export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initialSongIds, launchImmediately = false, templateOnly = false, onClose, draftScope = 'repertoire', initialMedley, initialTemplateName }: Props) {
+export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initialSongIds, suggestedSongIds, launchImmediately = false, templateOnly = false, onClose, draftScope = 'repertoire', initialMedley, initialTemplateName }: Props) {
   const { t } = useTranslation();
   const { user, effectiveOrganizationId } = useAuth();
   const draftIdentity = user?.uid && effectiveOrganizationId ? { userId: user.uid, organizationId: effectiveOrganizationId, scope: draftScope } : null;
@@ -56,6 +69,11 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [draftEdited, setDraftEdited] = useState(false);
   const [showFullPreview, setShowFullPreview] = useState(false);
+  const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
+  const goToStage = (next: 1 | 2 | 3 | 4) => {
+    setStage(next);
+    if (next === 4) setShowFullPreview(true);
+  };
   const [recoverableBlocks, setRecoverableBlocks] = useState<StudioBlock[] | null>(null);
   const hasLaunched = React.useRef(false);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
@@ -73,8 +91,14 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const selected = selectedIndex >= 0 ? steps[selectedIndex] : steps[0];
   const songMap = useMemo(() => new Map(songs.map(song => [song.id, song])), [songs]);
   const activeSong = selected ? songMap.get(selected.songId) : undefined;
+  const sectionChoices = useMemo(() => activeSong ? suggestMedleySegments(medleyChart(activeSong)) : [], [activeSong]);
   const searchIndex = useMemo(() => buildSearchIndex(songs), [songs]);
-  const filteredSongs = useMemo(() => searchSongs(searchIndex, query).slice(0, 75).map(match => match.document.song), [searchIndex, query]);
+  const filteredSongs = useMemo(() => {
+    const matches = searchSongs(searchIndex, query).map(match => match.document.song);
+    if (query.trim() || !suggestedSongIds?.length) return matches.slice(0, 75);
+    const rank = new Map(suggestedSongIds.map((id, index) => [id, index]));
+    return matches.sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)).slice(0, 75);
+  }, [searchIndex, query, suggestedSongIds]);
   const original = medleys.find(item => item.id === editingId) || (templateOnly && initialMedley?.id === editingId ? initialMedley : undefined);
   const changedSources = original?.steps.filter(step => {
     const song = songMap.get(step.songId);
@@ -95,7 +119,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const start = (medley?: ScaleMedley) => {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const preferredSongs = [...new Set(initialSongIds || [])].map(id => songMap.get(id)).filter((song): song is PopulatedSong => !!song);
-    const blocks = medley ? studioBlocksFromLegacy(medley) : (preferredSongs.length ? preferredSongs : songs.slice(0, 2)).slice(0, 30).map(song => newStudioBlock(song));
+    const blocks = medley ? studioBlocksFromLegacy(medley) : preferredSongs.slice(0, 30).map(song => newStudioBlock(song));
     setHistory({ past: [], present: blocks, future: [] });
     setActiveId(blocks[0]?.id || null);
     setEditingId(medley?.id || null);
@@ -104,6 +128,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     setQuery('');
     setDraftEdited(false);
     setShowFullPreview(false);
+    setStage(medley || preferredSongs.length ? 2 : 1);
     if (draftIdentity && typeof window !== 'undefined') {
       try { setRecoverableBlocks(loadStudioDraft(draftIdentity, new Set(songs.map(song => song.id)), window.sessionStorage)); }
       catch { setRecoverableBlocks(null); }
@@ -143,6 +168,18 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     const block = newStudioBlock(song);
     edit(previous => [...previous, block]);
     setActiveId(block.id);
+  };
+  const addSelectedPart = () => {
+    if (!selected || steps.length >= 30) return;
+    const occurrence: StudioBlock = { ...selected, id: crypto.randomUUID(), repetitions: 1, transition: 'direct', cue: '' };
+    edit(previous => {
+      const at = previous.findIndex(block => block.id === selected.id);
+      if (at < 0) return previous;
+      const next = [...previous];
+      next.splice(at + 1, 0, occurrence);
+      return next;
+    });
+    setActiveId(occurrence.id);
   };
   const save = async () => {
     if (savingTemplate) return;
@@ -203,6 +240,17 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
           <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-sky-300">{t('medleyStudioV2.studio')}</p><h2 className="text-xl font-bold">{t('medleyStudioV2.title')}</h2><p className="text-xs text-slate-400">{t('medleyStudioV2.noSourceMutation')}</p></div>
           <button type="button" className={button} aria-label={t('medley.close')} ref={closeButtonRef} onClick={close}><X size={18} /></button>
         </header>
+        <nav aria-label={t('medleyStudioV2.progress')} className="mb-4 grid grid-cols-4 gap-1.5" data-testid="medley-studio-steps">
+          {([1, 2, 3, 4] as const).map(number => <button
+            key={number} type="button" disabled={number > stage}
+            aria-current={number === stage ? 'step' : undefined}
+            className={'min-h-[52px] rounded-xl border px-1 py-2 text-[11px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-sky-400 sm:text-sm ' +
+              (number === stage ? 'border-sky-400 bg-sky-500/15 text-sky-100' : number < stage ? 'border-white/20 bg-white/5 text-slate-200' : 'border-white/10 text-slate-500')}
+            onClick={() => goToStage(number)}>
+              <span className="block text-xs tabular-nums">{String(number).padStart(2, '0')}</span>
+              <span>{t('medleyStudioV2.step' + number)}</span>
+          </button>)}
+        </nav>
         {recoverableBlocks && <div role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-sky-400/40 bg-sky-500/10 p-3 text-sm">
           <span className="flex-1">{t('medleyStudioV2.recoverDraft')}</span>
           <button type="button" className={button} onClick={() => { setHistory({ past: [], present: recoverableBlocks, future: [] }); setActiveId(recoverableBlocks[0]?.id || null); setRecoverableBlocks(null); setDraftEdited(true); }}>{t('medleyStudioV2.restore')}</button>
@@ -218,17 +266,31 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
           {changedSources.map(step => <details key={step.id} className="mt-2 text-xs"><summary className="cursor-pointer">{step.title}</summary><div className="mt-2 grid gap-2 sm:grid-cols-2"><pre className="overflow-auto whitespace-pre p-2">{step.snapshot}</pre><pre className="overflow-auto whitespace-pre p-2">{medleyChart(songMap.get(step.songId) || ({ chords: '', lyrics: '' }))}</pre></div></details>)}
           <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={sourceApproved} onChange={e => setSourceApproved(e.target.checked)} />{t('medley.approveChange')}</label>
         </div>}
-        <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(190px,.85fr)_minmax(240px,1.25fr)_minmax(240px,1fr)]">
-          <aside className="min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3">
+        <div className={stage === 1 ? 'grid min-w-0 gap-3' : 'grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]'}>
+          <aside className={'min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3 ' + (stage !== 1 ? 'hidden' : '')}>
             <h3 className="mb-2 font-semibold">{t('medleyStudioV2.library')}</h3>
             <input className={field} aria-label={t('medleyStudioV2.search')} placeholder={t('medleyStudioV2.search')} value={query} onChange={e => setQuery(e.target.value)} />
+            {!!suggestedSongIds?.length && !query.trim() && <p className="mt-2 text-xs font-semibold text-sky-300">{t('medleyStudioV2.scaleSuggestions')}</p>}
             <div className="mt-2 max-h-[340px] space-y-1 overflow-auto lg:max-h-[58vh]">{filteredSongs.map(song => <button key={song.id} type="button" className="flex min-h-[44px] w-full items-center gap-2 rounded-lg border border-transparent p-2 text-left hover:border-sky-500/30 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-sky-400" onClick={() => add(song)}>
-              <Plus size={16} className="shrink-0 text-sky-300" /><span className="min-w-0 flex-1"><strong className="block truncate text-sm">{song.title}</strong><small className="text-xs text-slate-400">{song.artist} · {song.key || '—'}</small></span>
+              <span aria-hidden="true" className={'relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br ' + artworkClass(song.id)}>
+                <span className="h-7 w-7 rounded-full border border-white/25 bg-white/5 blur-[1px]" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <strong className="block truncate text-sm">{song.title}</strong>
+                <small className="text-xs text-slate-400">{song.artist || '—'} · {song.key || '—'}{song.bpm ? ' · ' + song.bpm + ' BPM' : ''}</small>
+                <span className="mt-1 flex flex-wrap gap-1 text-[10px] font-medium text-slate-300">
+                  {!!song.chords?.trim() && <span className="rounded border border-white/15 px-1.5">{t('medleyStudioV2.hasChords')}</span>}
+                  {!!song.lyrics?.trim() && <span className="rounded border border-white/15 px-1.5">{t('medleyStudioV2.hasLyrics')}</span>}
+                  {!!song.sections?.length && <span className="rounded border border-white/15 px-1.5">{t('medleyStudioV2.hasSections')}</span>}
+                </span>
+              </span>
+              <Plus size={18} className="shrink-0 text-sky-300" />
             </button>)}{filteredSongs.length === 0 && <p className="p-3 text-sm text-slate-400">{t('medleyStudioV2.emptySearch')}</p>}</div>
           </aside>
-          <section className="min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3" aria-label={t('medleyStudioV2.timeline')}>
+          <section className={'min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3 ' + (stage !== 2 && stage !== 3 ? 'hidden' : '')} aria-label={t('medleyStudioV2.timeline')}>
             <h3 className="mb-2 font-semibold">{t('medleyStudioV2.timeline')}</h3>
             <div className="max-h-[48vh] space-y-2 overflow-y-auto pr-1 lg:max-h-[65vh]">
+              {steps.length === 0 && <p className="rounded-xl border border-dashed border-white/15 p-4 text-sm text-slate-400">{t('medleyStudioV2.emptyTimeline')}</p>}
               {steps.map((step, index) => {
                 const song = songMap.get(step.songId);
                 const next = steps[index + 1];
@@ -245,10 +307,10 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
                       <button type="button" className={button} disabled={index === steps.length - 1} aria-label={t('medley.moveDown')} onClick={() => edit(s => moveStudioBlock(s, index, index + 1))}><ArrowDown size={16} /></button>
                       <button type="button" className={button} disabled={steps.length >= 30} aria-label={t('medleyStudioV2.duplicate')} onClick={() => edit(s => duplicateStudioBlock(s, index))}><Copy size={16} /></button>
                       <button type="button" className={button} disabled={steps.length >= 30 || step.startLine >= step.endLine} aria-label={t('medleyStudioV2.split')} onClick={() => edit(s => splitStudioBlock(s, index, Math.floor((step.startLine + step.endLine) / 2)))}>{t('medleyStudioV2.splitShort')}</button>
-                      <button type="button" className={button + ' text-rose-300'} disabled={steps.length <= 2} aria-label={t('medley.remove')} onClick={() => { edit(s => s.filter(item => item.id !== step.id)); if (activeId === step.id) setActiveId(null); }}><Trash2 size={16} /></button>
+                      <button type="button" className={button + ' text-rose-300'} aria-label={t('medley.remove')} onClick={() => { edit(s => s.filter(item => item.id !== step.id)); if (activeId === step.id) setActiveId(null); }}><Trash2 size={16} /></button>
                     </div>
                   </div>
-                  {suggestion && <div className="rounded-lg border-l-2 border-sky-600 p-2 text-xs text-slate-400">
+                  {stage === 3 && suggestion && <div className="rounded-lg border-l-2 border-sky-600 p-2 text-xs text-slate-400">
                     <p>{t('medleyStudioV2.transition')}: {suggestion.exitChord || '?'} → {suggestion.entryChord || '?'}</p>
                     {suggestion.candidates.length ? suggestion.candidates.map(candidate => <div key={candidate.id} className="mt-2 flex flex-wrap items-center gap-2"><span className="min-w-0 flex-1 break-words">{candidate.chords.join(' – ')} <span className="text-sky-300">({t('medleyStudioV2.' + candidate.explanation)})</span></span><button type="button" className={button + ' min-h-[36px] text-xs'} onClick={() => update(step.id, { cue: candidate.chords.join(' → '), transition: 'free' })}>{t('medleyStudioV2.useAsCue')}</button></div>) : <p>{t('medleyStudioV2.manualOnly')}</p>}
                     <p className="mt-1 text-[10px]">{t('medleyStudioV2.advisoryOnly')}</p>
@@ -257,34 +319,62 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
               })}
             </div>
           </section>
-          <aside className="min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3">
-            <h3 className="mb-2 font-semibold">{t('medleyStudioV2.inspector')}</h3>
+          <aside className={'min-w-0 rounded-xl border border-white/10 bg-[#101a2a] p-3 ' + (stage !== 2 && stage !== 3 ? 'hidden' : '')}>
+            <h3 className="mb-2 font-semibold">{t(stage === 3 ? 'medleyStudioV2.step3' : 'medleyStudioV2.inspector')}</h3>
             {selected && activeSong ? <>
               <p className="mb-2 text-sm font-semibold text-sky-300">{activeSong.title}</p>
-              <label className="block text-xs">{t('medley.excerpt')}
+              {stage === 2 && <div className="mb-3 rounded-xl border border-sky-400/15 bg-sky-500/5 p-3" role="group" aria-label={t('medleyStudioV2.sectionChoices')}>
+                <p className="mb-2 text-xs font-semibold text-slate-200">{t('medleyStudioV2.sectionChoices')}</p>
+                <div className="flex flex-wrap gap-2">{sectionChoices.slice(0, 24).map(section => {
+                  const selectedSection = selected.startLine === section.startLine && selected.endLine === section.endLine;
+                  return <button type="button" key={section.id} aria-pressed={selectedSection}
+                    className={'min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-sky-400 ' + (selectedSection ? 'border-sky-400 bg-sky-500/20 text-white' : 'border-white/15 bg-white/5 text-slate-200')}
+                    onClick={() => update(selected.id, { startLine: section.startLine, endLine: section.endLine, label: section.label || '' })}>
+                    {section.label || (section.source === 'whole' ? t('medley.whole') : t('medleyStudioV2.unmarkedPart'))}
+                  </button>;
+                })}</div>
+                {sectionChoices.length > 24 && <p className="mt-2 text-xs text-slate-400">{t('medleyStudioV2.moreSections')}</p>}
+                {sectionChoices.every(section => section.source !== 'section') && <p className="mt-2 text-xs text-amber-200">{t('medleyStudioV2.manualSectionHint')}</p>}
+                <button type="button" className={button + ' mt-3 w-full border-sky-500/40 text-sky-200'} disabled={steps.length >= 30} onClick={addSelectedPart}><Plus size={16} className="mr-2" />{t('medleyStudioV2.addPart')}</button>
+              </div>}
+              <label className={stage === 3 ? 'hidden' : 'block text-xs'}>{t('medley.excerpt')}
                 <select className={field} value={(() => { const lines = splitMedleySource(medleyChart(activeSong)); if (selected.startLine === 0 && selected.endLine === lines.length - 1) return 'all'; return suggestMedleySegments(medleyChart(activeSong)).find(s => s.startLine === selected.startLine && s.endLine === selected.endLine)?.id || 'manual'; })()}
                   onChange={e => { if (e.target.value === 'all') update(selected.id, { startLine: 0, endLine: splitMedleySource(medleyChart(activeSong)).length - 1, label: '' }); else { const segment = suggestMedleySegments(medleyChart(activeSong)).find(s => s.id === e.target.value); if (segment) update(selected.id, { startLine: segment.startLine, endLine: segment.endLine, label: segment.label || '' }); } }}>
                   <option value="manual">{t('medley.manual')}</option><option value="all">{t('medley.whole')}</option>
                   {suggestMedleySegments(medleyChart(activeSong)).filter(s => s.startLine !== 0 || s.endLine !== splitMedleySource(medleyChart(activeSong)).length - 1).map(s => <option key={s.id} value={s.id}>{s.label || s.id}</option>)}
                 </select></label>
               <div className="mt-2 grid grid-cols-2 gap-2">
-                <label className="text-xs">{t('medley.from')}<input className={field} type="number" min={1} max={splitMedleySource(medleyChart(activeSong)).length} value={selected.startLine + 1} onChange={e => update(selected.id, { startLine: Number(e.target.value) - 1 })} /></label>
-                <label className="text-xs">{t('medley.to')}<input className={field} type="number" min={1} max={splitMedleySource(medleyChart(activeSong)).length} value={selected.endLine + 1} onChange={e => update(selected.id, { endLine: Number(e.target.value) - 1 })} /></label>
-                <label className="text-xs">{t('medley.repeat')}<input className={field} type="number" min={1} max={16} value={selected.repetitions} onChange={e => update(selected.id, { repetitions: Number(e.target.value) })} /></label>
-                <label className="text-xs">{t('medley.key')}<input className={field} maxLength={24} value={selected.key} onChange={e => update(selected.id, { key: e.target.value })} /></label>
-                <label className="text-xs">BPM<input className={field} type="number" min={20} max={320} value={selected.bpm} onChange={e => update(selected.id, { bpm: e.target.value })} /></label>
-                <label className="text-xs">{t('medley.transition')}<select className={field} value={selected.transition} onChange={e => update(selected.id, { transition: e.target.value as StudioBlock['transition'] })}>{(['direct', 'hold', 'pause', 'free'] as const).map(mode => <option value={mode} key={mode}>{t('medley.' + mode)}</option>)}</select></label>
+                <label className={stage === 3 ? 'hidden' : 'text-xs'}>{t('medley.from')}<input className={field} type="number" min={1} max={splitMedleySource(medleyChart(activeSong)).length} value={selected.startLine + 1} onChange={e => update(selected.id, { startLine: Number(e.target.value) - 1 })} /></label>
+                <label className={stage === 3 ? 'hidden' : 'text-xs'}>{t('medley.to')}<input className={field} type="number" min={1} max={splitMedleySource(medleyChart(activeSong)).length} value={selected.endLine + 1} onChange={e => update(selected.id, { endLine: Number(e.target.value) - 1 })} /></label>
+                <label className={stage === 3 ? 'hidden' : 'text-xs'}>{t('medley.repeat')}<input className={field} type="number" min={1} max={16} value={selected.repetitions} onChange={e => update(selected.id, { repetitions: Number(e.target.value) })} /></label>
+                <label className={stage === 3 ? 'hidden' : 'text-xs'}>{t('medley.key')}<input className={field} maxLength={24} value={selected.key} onChange={e => update(selected.id, { key: e.target.value })} /></label>
+                <label className={stage === 3 ? 'hidden' : 'text-xs'}>BPM<input className={field} type="number" min={20} max={320} value={selected.bpm} onChange={e => update(selected.id, { bpm: e.target.value })} /></label>
+                <label className={stage === 2 ? 'hidden' : 'text-xs'}>{t('medley.transition')}<select className={field} value={selected.transition} onChange={e => update(selected.id, { transition: e.target.value as StudioBlock['transition'] })}>{(['direct', 'hold', 'pause', 'free'] as const).map(mode => <option value={mode} key={mode}>{t('medley.' + mode)}</option>)}</select></label>
               </div>
-              <label className="mt-2 block text-xs">{t('medley.cue')}<textarea className={field + ' min-h-[66px] py-2'} maxLength={300} value={selected.cue} onChange={e => update(selected.id, { cue: e.target.value })} /></label>
-              <div key={selected.id}><ManualMedleyBridgeEditor cue={selected.cue} onApply={cue => update(selected.id, { cue, transition: 'free' })} /></div>
-              <div className="mt-3">
+              <label className={stage === 2 ? 'hidden' : 'mt-2 block text-xs'}>{t('medley.cue')}<textarea className={field + ' min-h-[66px] py-2'} maxLength={300} value={selected.cue} onChange={e => update(selected.id, { cue: e.target.value })} /></label>
+              <div className={stage === 2 ? 'hidden' : ''} key={selected.id}><ManualMedleyBridgeEditor cue={selected.cue} onApply={cue => update(selected.id, { cue, transition: 'free' })} /></div>
+              <div className={stage === 3 ? 'hidden' : 'mt-3'}>
                 <p className="mb-1 text-xs font-semibold">{t('medleyStudioV2.preview')}</p>
                 <pre className="max-h-72 overflow-auto rounded-lg bg-black/30 p-3 font-mono text-xs leading-5 text-white whitespace-pre">{preview(selected)}</pre>
               </div>
             </> : <p className="text-sm text-slate-400">{t('medleyStudioV2.chooseBlock')}</p>}
           </aside>
         </div>
-        <section className="mt-4 rounded-xl border border-white/10 bg-[#101a2a] p-3">
+        {stage === 4 && <section className="mt-4 rounded-xl border border-white/10 bg-[#101a2a] p-3" data-testid="medley-studio-review">
+          <h3 className="text-lg font-bold">{t('medleyStudioV2.step4')}</h3>
+          <p className="mb-3 text-xs text-slate-400">{t('medleyStudioV2.reviewHint')}</p>
+          <ol className="space-y-2">{steps.map((block, index) => <li key={block.id} className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+            <span className="rounded-lg bg-sky-500/15 px-2 py-1 text-xs font-bold text-sky-300">{index + 1}</span>
+            <div className="min-w-0 flex-1">
+              <strong className="block break-words text-sm">{songMap.get(block.songId)?.title || block.songId}</strong>
+              <p className="text-xs text-slate-400">{block.label || t('medley.excerpt')} · {block.repetitions}× · {block.key || '—'} · {block.bpm || '—'} BPM</p>
+              {!!block.cue && <p className="mt-1 break-words text-xs text-sky-200">→ {block.cue}</p>}
+            </div>
+            <button type="button" className={button} onClick={() => { setActiveId(block.id); goToStage(2); }}>{t('medley.edit')}</button>
+          </li>)}</ol>
+          <p className="mt-3 text-xs text-slate-400">{t('medleyStudioV2.draftNotPublished')}</p>
+        </section>}
+        {stage === 4 && <section className="mt-4 rounded-xl border border-white/10 bg-[#101a2a] p-3">
           <button type="button" className={button + ' w-full justify-between'} aria-expanded={showFullPreview} onClick={() => setShowFullPreview(value => !value)}>{t('medleyStudioV2.fullPreview')} <span>{showFullPreview ? '−' : '+'}</span></button>
           {showFullPreview && fullPreview && <div className="mt-3">
             {'error' in fullPreview && fullPreview.error
@@ -292,12 +382,15 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
               : <><pre className="max-h-[50vh] overflow-auto whitespace-pre rounded-lg bg-black/30 p-3 font-mono text-xs leading-6 text-slate-100">{fullPreview.text}</pre>
                 {fullPreview.truncated && <p role="status" className="mt-2 text-xs text-amber-300">{t('medleyStudioV2.previewTruncated')}</p>}</>}
           </div>}
-        </section>
+        </section>}
         {error && <p role="alert" className="mt-3 rounded-xl border border-rose-400/40 p-3 text-sm text-rose-300">{error}</p>}
         <footer className="sticky bottom-0 mt-4 flex flex-wrap justify-end gap-2 border-t border-white/10 bg-[#090f1c] py-3 pb-[max(8px,env(safe-area-inset-bottom))]">
           {templateOnly && <label className="min-w-[200px] flex-1 text-xs text-slate-300">{t('medley.templateName')}<input className={field} maxLength={120} value={templateName} onChange={e => setTemplateName(e.target.value)} /></label>}
           <button type="button" className={button} onClick={close}>{t('medley.cancel')}</button>
-          <button type="button" className={button + ' border-sky-400 bg-sky-600'} onClick={() => void save()} disabled={savingTemplate || steps.length < 2 || (templateOnly && !templateName.trim())}>{templateOnly ? t('medley.saveTemplate') : t('medley.use')}</button>
+          {stage > 1 && <button type="button" className={button} onClick={() => goToStage((stage - 1) as 1 | 2 | 3)}>{t('medleyStudioV2.previous')}</button>}
+          {stage === 2 && <button type="button" className={button} onClick={() => goToStage(1)}>{t('medleyStudioV2.addMusic')}</button>}
+          {stage < 4 && <button type="button" className={button + ' border-sky-400 bg-sky-600'} disabled={stage === 1 ? steps.length < 1 : steps.length < 2} onClick={() => goToStage((stage + 1) as 2 | 3 | 4)}>{t('medleyStudioV2.next')}</button>}
+          {stage === 4 && <button type="button" className={button + ' border-sky-400 bg-sky-600'} onClick={() => void save()} disabled={savingTemplate || steps.length < 2 || (templateOnly && !templateName.trim())}>{templateOnly ? t('medley.saveTemplate') : t('medley.use')}</button>}
         </footer>
       </div>
     </div>}
