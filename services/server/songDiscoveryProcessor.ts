@@ -230,7 +230,10 @@ export async function runSongDiscoveryProcessor(
       candidatesQuery.empty && !GENERIC_TITLES.has(identity.normalizedTitle) &&
       identity.normalizedArtists.length > 0 &&
       normalizedWordCount >= MIN_LYRICS_WORDS_FOR_STRONG_MATCH &&
-      finalClassification === 'likely_unique' && songData.status !== 'inactive';
+      finalClassification === 'likely_unique' && songData.status !== 'inactive' &&
+      // An unconfirmed administrator opt-out is never silently auto-published.
+      // It stays a reviewable candidate until the verified preference is resolved.
+      songData.globalCurationOptOut !== true;
 
     // 7. Structure the Occurrence input safely
     const occurrenceInput: Omit<GlobalLibraryCandidateOccurrence, 'id' | 'candidateId' | 'createdAt' | 'updatedAt'> = {
