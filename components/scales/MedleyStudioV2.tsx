@@ -93,20 +93,22 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const draftIdRef = React.useRef<string | null>(null);
   const activeIdentityRef = React.useRef<string | null>(null);
   const revisionRef = React.useRef(new Map<string, number>());
-  const queueRef = React.useRef<Promise<void>>(Promise.resolve());
+  const queueRef = React.useRef<Promise<boolean>>(Promise.resolve(true));
   const saveSequenceRef = React.useRef(0);
   const persist = React.useCallback((identity: StudioDraftIdentity, id: string, editor: DraftEditorState) => {
     const key = medleyDraftStorageKey(identity, id);
     const sequence = ++saveSequenceRef.current;
     setDraftStatus('saving');
-    const job = queueRef.current.catch(() => {}).then(async () => {
+    const job = queueRef.current.catch(() => false).then(async () => {
       const saved = await saveDurableMedleyDraft(identity, id, editor, revisionRef.current.get(key) || 0);
       revisionRef.current.set(key, saved.revision);
       setDurableDrafts(current => [saved, ...current.filter(item => item.key !== saved.key)].sort((a, b) => b.updatedAt - a.updatedAt));
       if (draftIdRef.current === id && saveSequenceRef.current === sequence) setDraftStatus('saved');
+      return true;
     }).catch((cause: unknown) => {
       if (draftIdRef.current === id && saveSequenceRef.current === sequence)
         setDraftStatus(cause instanceof MedleyDraftConflictError ? 'conflict' : 'failed');
+      return false;
     });
     queueRef.current = job;
     return job;
@@ -237,8 +239,20 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     }
   }, [isOpen, user?.uid, effectiveOrganizationId, draftScope]);
   const close = (keepDraft = true) => {
-    if (keepDraft && draftEdited && draftIdentity && draftIdRef.current) void persist(draftIdentity, draftIdRef.current, snapshot());
-    setOpen(false); previousFocusRef.current?.focus(); onClose?.();
+    const finish = () => { setOpen(false); previousFocusRef.current?.focus(); onClose?.(); };
+    if (keepDraft && draftEdited) {
+      if (!draftIdentity || !draftIdRef.current) {
+        setDraftStatus('failed');
+        setError(t('medleyStudioV2.draftSaveFailed'));
+        return;
+      }
+      void persist(draftIdentity, draftIdRef.current, snapshot()).then(saved => {
+        if (saved) finish();
+        else setError(t('medleyStudioV2.draftSaveFailed'));
+      });
+      return;
+    }
+    finish();
   };
   React.useEffect(() => {
     if (isOpen) closeButtonRef.current?.focus({ preventScroll: true });
@@ -257,7 +271,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
     };
     window.addEventListener('keydown', keydown);
     return () => window.removeEventListener('keydown', keydown);
-  }, [isOpen, history.past, history.future, onClose]);
+  }, [isOpen, history.past, history.future, onClose, close]);
   React.useEffect(() => {
     if (!isOpen || !draftEdited || !draftIdentity || !draftIdRef.current) return;
     const id = draftIdRef.current;
