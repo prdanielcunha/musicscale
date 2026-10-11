@@ -2261,6 +2261,8 @@
     "draftMissingSource": "Some source songs are unavailable in this organization. The draft is preserved; review before finishing.",
     "draftLimitReached": "This device has reached its draft limit. Delete an older draft.",
     "draftSaveFailed": "Could not save the draft on this device.",
+    "retryDraft": "Retry saving",
+    "saveConflictCopy": "Save my work as a copy",
     "useAsCue": "Use as cue",
     "templateNameRequired": "Name the medley before saving.",
     "createFromSong": "Create medley with this song",
