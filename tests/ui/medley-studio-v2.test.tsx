@@ -31,9 +31,17 @@ describe('feature-isolated visual studio', () => {
     const dialog = screen.getByRole('dialog');
     const sections = within(dialog).getByRole('group', { name: 'medleyStudioV2.sectionChoices' });
     fireEvent.click(within(sections).getByRole('button', { name: 'Refrão' }));
-    fireEvent.click(within(sections).getByRole('button', { name: 'medleyStudioV2.addPart' }));
+    const firstCard = within(dialog).getAllByTestId('medley-song-card')[0];
+    expect(within(dialog).getAllByTestId('medley-song-card')).toHaveLength(2);
+    fireEvent.click(within(firstCard).getByRole('button', { name: 'medleyStudioV2.addPart' }));
     expect(within(dialog).getByText('3 / 30 medley.excerpt')).toBeInTheDocument();
-    continueToReview(dialog, 2);
+    expect(within(dialog).getAllByTestId('medley-song-card')).toHaveLength(2);
+    expect(within(within(dialog).getAllByTestId('medley-song-card')[0]).getAllByTestId('medley-part-row')).toHaveLength(2);
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
+    expect(within(dialog).getAllByTestId('medley-song-bridge')).toHaveLength(1);
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
+    expect(within(dialog).getAllByTestId('medley-review-song-card')).toHaveLength(2);
+    expect(within(within(dialog).getAllByTestId('medley-review-song-card')[0]).getAllByRole('button', { name: 'medley.edit' })).toHaveLength(2);
     fireEvent.click(within(dialog).getByText('medley.use'));
     const medley = onChange.mock.calls[0][0][0];
     expect(medley.steps.map(step => step.songId)).toEqual(['A', 'A', 'B']);
@@ -41,6 +49,21 @@ describe('feature-isolated visual studio', () => {
     expect(medley.steps[1].snapshot).toBe(medley.steps[0].snapshot);
     expect(medley.steps[0].id).not.toBe(medley.steps[1].id);
     expect(a.chords).toBe(originalChart);
+  });
+  it('adds a new part within the same song from review, without creating an extra song card', () => {
+    const a = song('A', '[Intro]\nAm F\n[Refrão]\nC G');
+    const b = song('B', 'Dm G');
+    const onChange = vi.fn<(medleys: ScaleMedley[]) => void>();
+    render(<MedleyStudioV2 songs={[a, b]} medleys={[]} onChange={onChange} initialSongIds={['A', 'B']} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    continueToReview(dialog, 2);
+    const reviewCard = within(dialog).getAllByTestId('medley-review-song-card')[0];
+    fireEvent.click(within(reviewCard).getByRole('button', { name: 'medleyStudioV2.addPart' }));
+    expect(within(dialog).getAllByTestId('medley-song-card')).toHaveLength(2);
+    expect(within(within(dialog).getAllByTestId('medley-song-card')[0]).getAllByTestId('medley-part-row')).toHaveLength(2);
+    fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
+    expect(within(dialog).getAllByTestId('medley-song-bridge')).toHaveLength(1);
   });
   it('keeps unmarked charts available for manually choosing lines', () => {
     render(<MedleyStudioV2 songs={[song('A', 'Am F\\nPalavra'), song('B', 'G C')]} medleys={[]} onChange={vi.fn()} initialSongIds={['A','B']} />);
