@@ -20,7 +20,11 @@ import { useLimits, useAuth } from "../contexts/AuthContext";
 import { useApi } from "../contexts/ApiContext";
 import { useMedleyStudioV2Pilot } from "../hooks/useMedleyStudioV2Pilot";
 import { useCapability } from "../hooks/useCapability";
-import { listMedleyTemplates, saveMedleyTemplate } from "../services/medleyTemplateApi";
+import { listMedleyTemplates } from "../services/medleyTemplateApi";
+import { buildMedleyRepertoireSong, isSongForMedley } from "../utils/medleyRepertoireSong";
+import { collectLegacyMedleyCandidates } from "../utils/legacyMedleyCandidates";
+import { upsertMedleyRepertoireSong } from "../services/medleyRepertoireWrite";
+import type { ScaleMedley } from "../types";
 import Spinner from "../components/common/Spinner";
 import MusicWorkspaceSkeleton from "../components/common/MusicWorkspaceSkeleton";
 import Card from "../components/common/Card";
@@ -183,7 +187,7 @@ const SongsPage: React.FC = () => {
   const { openSongForm, openAiSongImport, openSongDetail, openDeleteSongConfirmation } =
     useModals();
   const { limits, effectivePlan } = useLimits();
-  const { userProfile, permissions, effectiveOrganizationId } = useAuth();
+  const { user, userProfile, permissions, effectiveOrganizationId } = useAuth();
   const templateOrgId = effectiveOrganizationId || userProfile?.organizationId || '';
   const canManageRepertoire = !!(permissions?.manageSongs || permissions?.['musicScale.manageSongs'] || permissions?.['musicscale.songs.edit']);
   const api = useApi();
@@ -192,38 +196,118 @@ const SongsPage: React.FC = () => {
   const { enabled: medleyStudioEnabled } = useMedleyStudioV2Pilot();
   const [medleyStudioOpen, setMedleyStudioOpen] = useState(false);
   const [medleyStudioSongIds, setMedleyStudioSongIds] = useState<string[]>([]);
-  const [medleyTemplates, setMedleyTemplates] = useState<MedleyTemplate[]>([]);
-  const [medleyTemplateToCopy, setMedleyTemplateToCopy] = useState<MedleyTemplate | null>(null);
-  const [templatesLoading, setTemplatesLoading] = useState(false);
-  const [templateListError, setTemplateListError] = useState('');
-  const refreshMedleyTemplates = async () => {
-    if (!api || !medleyStudioEnabled || !canManageScales) return;
-    setTemplatesLoading(true);
-    try { setMedleyTemplates(await listMedleyTemplates(api, templateOrgId)); setTemplateListError(''); }
-    catch { setTemplateListError(t('medley.templateLoadFailed')); }
-    finally { setTemplatesLoading(false); }
-  };
+  // Historical medley templates are migration inputs, never a separate user-facing list.
+  const [medleyRepairProgress, setMedleyRepairProgress] = useState('');
+  const repairedForOrg = useRef(new Set<string>());
+  const tenantRef = useRef(templateOrgId);
+  tenantRef.current = templateOrgId;
   const isOverLimit = songs.length >= limits.maxSongs;
   const isAiImportAllowed = useMusicScaleFeature('aiImport');
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const saveMedleyAsRepertoireSong = async (
+    arrangement: ScaleMedley,
+    name: string,
+    progress: (message: string) => void = () => {},
+    organizationId = templateOrgId,
+  ) => {
+    if (!api || !canManageRepertoire || !user?.uid || !organizationId ||
+        organizationId !== tenantRef.current) {
+      throw new Error('medleyStudioV2.repertoirePermissionRequired');
+    }
+    progress(t('medleyStudioV2.checkingRepertoire'));
+    // The repository is constructed for the signed-in tenant; never use another tenant's cached data.
+    const currentSongs = await api.songs.list();
+    if (organizationId !== tenantRef.current ||
+        currentSongs.some(song => song.organizationId !== organizationId)) {
+      throw new Error('medleyStudioV2.repertoirePermissionRequired');
+    }
+    progress(t('medleyStudioV2.generatingLyrics'));
+    const draft = buildMedleyRepertoireSong(arrangement, name, currentSongs);
+    const existing = currentSongs.find(song =>
+      song.organizationId === organizationId && isSongForMedley(song, arrangement.id));
+    if (organizationId !== tenantRef.current) throw new Error('medleyStudioV2.repertoirePermissionRequired');
+    if (!existing && currentSongs.length >= limits.maxSongs) {
+      throw new Error('medleyStudioV2.repertoireLimitReached');
+    }
+    progress(t('medleyStudioV2.savingRepertoire'));
+    await upsertMedleyRepertoireSong({
+      organizationId, userId: user.uid,
+      displayName: userProfile?.displayName, photoURL: userProfile?.photoURL,
+      draft, existingId: existing?.id,
+    });
+    if (organizationId === tenantRef.current) {
+      void Promise.resolve(refreshData()).catch(() => {});
+    }
+  };
+  const repairExistingMedleys = async (
+    orgId: string,
+    templates: MedleyTemplate[],
+    savedScales: import('../types').Scale[],
+  ) => {
+    if (!api || !canManageRepertoire || !orgId || orgId !== tenantRef.current) return;
+    const items = collectLegacyMedleyCandidates(orgId, templates, savedScales);
+    let repaired = 0;
+    let failed = 0;
+    for (const [index, item] of items.entries()) {
+      if (orgId !== tenantRef.current) return;
+      setMedleyRepairProgress(t('medleyStudioV2.repairProgress', { current: index + 1, total: items.length }));
+      try {
+        await saveMedleyAsRepertoireSong(item.arrangement, item.name, () => {}, orgId);
+        repaired++;
+      } catch (error) {
+        failed++;
+        logger.warn('Medley repertoire reconciliation skipped', {
+          arrangementId: item.arrangement.id, origin: item.origin, error,
+        });
+      }
+    }
+    if (orgId === tenantRef.current && items.length) {
+      setMedleyRepairProgress(t('medleyStudioV2.repairComplete', { repaired, failed }));
+    }
+  };
   const { allowance, refreshAllowance, loading: allowanceLoading, error: allowanceError } = useStarterPackAllowance();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
     const songId = searchParams.get('medleySongId');
-    if (!songId || loading || !medleyStudioEnabled || !canManageScales) return;
+    if (!songId || loading || !medleyStudioEnabled || !canManageRepertoire) return;
     const matches = songs.some(song => song.id === songId);
     if (matches) { setMedleyStudioSongIds([songId]); setMedleyStudioOpen(true); }
     setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('medleySongId'); return next; }, { replace: true });
-  }, [loading, songs, searchParams, medleyStudioEnabled, canManageScales, setSearchParams]);
-  useEffect(() => { setMedleyStudioOpen(false); setMedleyStudioSongIds([]); setMedleyTemplates([]); setMedleyTemplateToCopy(null); }, [userProfile?.organizationId]);
+  }, [loading, songs, searchParams, medleyStudioEnabled, canManageRepertoire, setSearchParams]);
   useEffect(() => {
-    if (!medleyStudioEnabled || !canManageScales || !api) return;
+    setMedleyStudioOpen(false);
+    setMedleyStudioSongIds([]);
+    setMedleyRepairProgress('');
+  }, [templateOrgId]);
+  useEffect(() => {
+    if (loading || error || !medleyStudioEnabled || !canManageRepertoire || !api ||
+        !templateOrgId || !user?.uid || repairedForOrg.current.has(templateOrgId)) return;
     let cancelled = false;
-    listMedleyTemplates(api, templateOrgId).then(items => { if (!cancelled) { setMedleyTemplates(items); setTemplateListError(''); } }).catch(() => { if (!cancelled) setTemplateListError(t('medley.templateLoadFailed')); });
+    const orgId = templateOrgId;
+    repairedForOrg.current.add(orgId);
+    // Both legacy storage locations are tenant-scoped. One failing must not hide the other.
+    void Promise.allSettled([listMedleyTemplates(api, orgId), api.scales.list()])
+      .then(async results => {
+        if (cancelled || tenantRef.current !== orgId) return;
+        const templates = results[0].status === 'fulfilled' ? results[0].value : [];
+        const savedScales = results[1].status === 'fulfilled' ? results[1].value : [];
+        if (results.every(result => result.status === 'rejected')) {
+          repairedForOrg.current.delete(orgId);
+          logger.warn('Legacy medley discovery unavailable', { organizationId: orgId });
+          return;
+        }
+        if (results.some(result => result.status === 'rejected')) {
+          logger.warn('Some legacy medley sources could not be read', { organizationId: orgId });
+        }
+        await repairExistingMedleys(orgId, templates, savedScales);
+      }).catch(reason => {
+        repairedForOrg.current.delete(orgId);
+        logger.warn('Legacy medley reconciliation unavailable', { organizationId: orgId, reason });
+      });
     return () => { cancelled = true; };
-  }, [api, medleyStudioEnabled, canManageScales, templateOrgId]);
+  }, [api, medleyStudioEnabled, canManageRepertoire, loading, error, user?.uid, templateOrgId]);
 
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
@@ -946,7 +1030,7 @@ const SongsPage: React.FC = () => {
             </button>
           </div>
 
-          {medleyStudioEnabled && canManageScales && songs.length >= 2 && <Button variant="secondary" onClick={() => { setMedleyTemplateToCopy(null); setMedleyStudioSongIds(selectedSongIds.length ? selectedSongIds : []); setMedleyStudioOpen(true); }}>
+          {medleyStudioEnabled && canManageRepertoire && songs.length >= 2 && <Button variant="secondary" onClick={() => { setMedleyStudioSongIds(selectedSongIds.length ? selectedSongIds : []); setMedleyStudioOpen(true); }}>
             {t('medleyStudioV2.createFromRepertoire')}
           </Button>}
           <Can I="musicscale.songs.edit">
@@ -985,26 +1069,7 @@ const SongsPage: React.FC = () => {
         </div>
       </div>
 
-      {medleyStudioEnabled && canManageScales && medleyTemplates.length > 0 && <section className="rounded-2xl border border-sky-500/20 bg-[#101827] p-3 text-white sm:p-4">
-        <h3 className="mb-3 text-sm font-bold">{t('medleyStudioV2.savedTemplates')}</h3>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {medleyTemplates.map(template => <div key={template.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <strong className="block truncate text-sm">{template.name}</strong>
-            <p className="mt-1 text-xs text-slate-400">{template.arrangement.steps.length} {t('medley.excerpt')} · v{template.arrangement.revision}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" className="min-h-[44px] rounded-lg border border-sky-400/30 px-3 text-xs text-sky-200" onClick={() => {
-                if (template.arrangement.steps.some(step => !songs.some(song => song.id === step.songId))) { setTemplateListError(t('medley.templateMissingSong')); return; }
-                setMedleyTemplateToCopy(template);
-                setMedleyStudioSongIds([...new Set(template.arrangement.steps.map(step => step.songId))]);
-                setMedleyStudioOpen(true);
-              }}>{t('medleyStudioV2.editCopy')}</button>
-              <button type="button" className="min-h-[44px] rounded-lg border border-white/15 px-3 text-xs text-white" onClick={() => navigate('/scales', { state: { preselectedSongIds: [...new Set(template.arrangement.steps.map(step => step.songId))], initialMedleyTemplateId: template.id } })}>{t('medleyStudioV2.addToScale')}</button>
-            </div>
-          </div>)}
-        </div>
-        {templateListError && <p role="alert" className="mt-2 text-xs text-amber-200">{templateListError}</p>}
-        <button type="button" className="mt-3 min-h-[44px] text-xs text-sky-300 underline" disabled={templatesLoading} onClick={() => void refreshMedleyTemplates()}>{t('medleyStudioV2.refreshTemplates')}</button>
-      </section>}
+      {medleyRepairProgress && <p role="status" aria-live="polite" className="mb-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-2 text-xs text-sky-700 dark:text-sky-200">{medleyRepairProgress}</p>}
 
       {filteredAndSortedSongs.length > 0 ? (
         viewMode === "cards" ? (
@@ -1016,11 +1081,12 @@ const SongsPage: React.FC = () => {
                   song={song}
                   onView={openSongDetail}
                   onEdit={openSongForm}
+                  onGeneratedLyrics={() => void refreshData()}
                   onDelete={openDeleteSongConfirmation}
                   onCreateScale={(s) =>
                     navigate("/scales", { state: { preselectedSongIds: [s.id] } })
                   }
-                  onCreateMedley={medleyStudioEnabled && canManageScales ? (song) => { setMedleyStudioSongIds([song.id]); setMedleyStudioOpen(true); } : undefined}
+                  onCreateMedley={medleyStudioEnabled && canManageRepertoire ? (song) => { setMedleyStudioSongIds([song.id]); setMedleyStudioOpen(true); } : undefined}
                   isSelectionMode={isSelectionMode}
                   isSelected={selectedSongIds.includes(song.id)}
                   onSelectToggle={handleSongSelect}
@@ -1391,23 +1457,17 @@ const SongsPage: React.FC = () => {
         </div>
       )}
 
-      {medleyStudioEnabled && canManageScales && medleyStudioOpen && songs.length > 0 && <React.Suspense fallback={<Spinner />}>
+      {medleyStudioEnabled && canManageRepertoire && medleyStudioOpen && songs.length > 0 && <React.Suspense fallback={<Spinner />}>
         <MedleyStudioV2
           songs={songs}
           medleys={[]}
           initialSongIds={medleyStudioSongIds}
-          initialMedley={medleyTemplateToCopy?.arrangement}
-          initialTemplateName={medleyTemplateToCopy ? medleyTemplateToCopy.name + ' (v' + (medleyTemplateToCopy.arrangement.revision + 1) + ')' : undefined}
-          draftScope={medleyTemplateToCopy ? 'template:' + medleyTemplateToCopy.id : 'repertoire'}
+          draftScope="repertoire"
           launchImmediately
           templateOnly
           onChange={() => { /* templates only: never alter a scheduled scale */ }}
-          onSaveTemplate={async (arrangement, name) => {
-            if (!api || !canManageScales) throw new Error('API unavailable');
-            await saveMedleyTemplate(api, templateOrgId, { name, arrangement, schemaVersion: 2, status: 'ready', ...(medleyTemplateToCopy ? { parentTemplateId: medleyTemplateToCopy.id } : {}) });
-            await refreshMedleyTemplates();
-          }}
-          onClose={() => { setMedleyStudioOpen(false); setMedleyTemplateToCopy(null); }}
+          onSaveTemplate={saveMedleyAsRepertoireSong}
+          onClose={() => setMedleyStudioOpen(false)}
         />
       </React.Suspense>}
       <UpgradePlanModal 

@@ -1,3 +1,8 @@
+MusicScale 0.11.0-beta.8 — 2026-10-11
+Repertório: gerar letra determinística a partir da cifra em músicas comuns e medleys, com prévia editável, preservando cifra, tablaturas e versos existentes; sem IA paga e sem inventar palavras.
+Medley Studio: salvar como música comum, com cifra e letra separadas; recuperar arranjos antigos de modelos e escalas em qualquer organização autorizada, sem misturar dados ou alterar edições manuais.
+Salvamento idempotente e transacional com checagem de tenant e permissão; nenhum delete, mudança de Firestore Rules, Stripe, Auth ou backfill destrutivo. Liberação condicionada à validação integral do SHA e smoke Firebase, preservando todos os hotfixes beta.27 e anteriores.
+
 MusicScale 0.11.0-beta.7 — 2026-10-11
 Medley Studio 2.0: rascunhos locais duráveis via IndexedDB, autosave automático, recuperação depois de fechar/reabrir o app, lista de rascunhos, renomear, duplicar, excluir e retomar. Estados visuais de salvamento e conflito em PT/EN/ES; cópia segura em caso de edição concorrente.
 Cópia armazenada apenas no dispositivo; NÃO declarar sincronização entre dispositivos implementada. Recuperação depende da disponibilidade de IndexedDB do navegador (pode ser removida em modo privativo ou limpeza de dados); sem alteração de dados na nuvem nem permissões.

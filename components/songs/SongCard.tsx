@@ -35,6 +35,7 @@ interface SongCardProps {
   onEdit: (song: PopulatedSong) => void;
   onDelete: (song: PopulatedSong) => void;
   onCreateScale: (song: PopulatedSong) => void;
+  onGeneratedLyrics?: () => void | Promise<void>;
   /** Optional and visible only under organization-scoped Medley Studio v2 rollout. */
   onCreateMedley?: (song: PopulatedSong) => void;
   isSelectionMode: boolean;
@@ -46,6 +47,7 @@ interface SongCardProps {
 
 import { useApi } from "../../contexts/ApiContext";
 import ConfirmationModal from "../common/ConfirmationModal";
+import GenerateLyricsDialog from "./GenerateLyricsDialog";
 
 const getLanguageFlag = (lang?: string) => {
   if (lang === 'pt') return '🇧🇷';
@@ -60,6 +62,7 @@ const SongCard: React.FC<SongCardProps> = ({
   onEdit,
   onDelete,
   onCreateScale,
+  onGeneratedLyrics,
   onCreateMedley,
   isSelectionMode,
   isSelected,
@@ -74,6 +77,7 @@ const SongCard: React.FC<SongCardProps> = ({
   const { executeSafeAction } = useSafeAction();
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isGeneratingLyrics, setIsGeneratingLyrics] = useState(false);
   const [isDeleteContentModalOpen, setIsDeleteContentModalOpen] = useState(false);
   const [contentToDelete, setContentToDelete] = useState<"cifra" | "letra" | null>(null);
   const [isDeletingContent, setIsDeletingContent] = useState(false);
@@ -311,6 +315,13 @@ const SongCard: React.FC<SongCardProps> = ({
                           {t('medleyStudioV2.createFromSong')}
                         </button>
                       )}
+                      {canEdit && !hasLyrics && hasChords && (
+                        <button type="button"
+                          onClick={(e) => handleActionClick(e, () => setIsGeneratingLyrics(true), `menu-generate-lyrics-${song.id}`)}
+                          className="w-full text-left px-3 py-2.5 text-sm font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/10 rounded-xl">
+                          {t('lyricsGeneration.generate')}
+                        </button>
+                      )}
                       {canEdit && (
                         <button
                           onClick={(e) => handleActionClick(e, () => onEdit(song), `menu-edit-${song.id}`)}
@@ -340,6 +351,13 @@ const SongCard: React.FC<SongCardProps> = ({
         )}
       </div>
 
+      {isGeneratingLyrics && (
+        <GenerateLyricsDialog
+          song={song}
+          onClose={() => setIsGeneratingLyrics(false)}
+          onSaved={() => onGeneratedLyrics?.()}
+        />
+      )}
       <ConfirmationModal
         isOpen={isDeleteContentModalOpen}
         onClose={() => { setIsDeleteContentModalOpen(false); setContentToDelete(null); }}

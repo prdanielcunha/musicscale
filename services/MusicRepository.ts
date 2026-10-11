@@ -30,7 +30,9 @@ export class MusicRepository {
         this.songs = new class extends BaseRepository<Song> {
             async create(data: Omit<Song, 'id' | 'createdAt' | 'createdBy' | 'organizationId'>): Promise<string> {
                 const id = await super.create(data);
-                if (typeof window !== 'undefined') {
+                // A custom arrangement is organization-owned, not an original global song.
+                // Never queue its combined copyrighted excerpts for global auto-curation.
+                if (typeof window !== 'undefined' && data.sourceType !== 'medley') {
                     // Fire-and-forget reprocessing to queue auto-curation
                     import('./firebase').then(({ auth }) => {
                         auth.currentUser?.getIdToken().then(token => {
