@@ -7,7 +7,9 @@ const isChordRow = (line: string): boolean => {
   if (!parts.length) return false;
   // Single notes on separate rows are chords, except A/B/C/D/E/F/G can also
   // be meaningful single-word lyrics: prefer preserving the ambiguous word.
-  return parts.length >= 2 && parts.every(part => CHORD.test(part) || /^(?:\d+x|x\d+)$/i.test(part));
+  if (!parts.every(part => CHORD.test(part) || /^(?:\\d+x|x\\d+)$/i.test(part))) return false;
+  // A bare A–G letter may be a sung fragment; a qualified chord is unambiguous.
+  return parts.length > 1 || /[^A-G]/.test(parts[0]);
 };
 const isTablature = (line: string): boolean =>
   /^\s*(?:e|B|G|D|A|E|[1-6])\s*\|[-\d\sxhpbr\/\\~().|:]+$/i.test(line) ||
