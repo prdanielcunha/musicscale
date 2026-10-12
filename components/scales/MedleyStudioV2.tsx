@@ -691,7 +691,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
                   last.endLine === Math.max(0, splitMedleySource(medleyChart(song)).length - 1) &&
                   suggestMedleySegments(medleyChart(song)).length > 1;
                 const suggestion = stage === 3 && following ? analyzeMedleyBridge(preview(last), preview(following)) : null;
-                return <React.Fragment key={group.blocks[0].id}>
+                return <React.Fragment key={`${group.songId}:${groupIndex}`}>
                   <article data-testid="medley-song-card" data-song-id={group.songId} className="rounded-xl border border-white/15 bg-white/[.035] p-3">
                     <div className="mb-3 flex items-center gap-3">
                       <span aria-hidden="true" className={'flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ' + artworkClass(group.songId)}><Music2 size={20} className="text-white/70" /></span>
