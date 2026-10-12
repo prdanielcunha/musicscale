@@ -31,6 +31,39 @@ describe('feature-isolated visual studio', () => {
     expect(within(dialog).getByText('medleyStudioV2.next')).toBeVisible();
   });
 
+  it('renders all five initially selected sections as real ordered, editable rows in the medley', () => {
+    const chart = '[Intro]\nC G\n[Primeira Parte]\nAm F\n[Refrão]\nF G\n[Segunda Parte]\nAm G\n[Refrão]\nC F';
+    const original = song('Ao Único', chart);
+    const onChange = vi.fn<(medleys: ScaleMedley[]) => void>();
+    render(<MedleyStudioV2 songs={[original, song('Outra', 'Dm G')]} medleys={[]} onChange={onChange} initialSongIds={['Ao Único', 'Outra']} />);
+    fireEvent.click(screen.getByText('medley.create'));
+    const dialog = screen.getByRole('dialog');
+    const firstCard = within(dialog).getAllByTestId('medley-song-card')[0];
+    const selected = within(firstCard).getAllByTestId('medley-part-row');
+    expect(selected).toHaveLength(5);
+    expect(selected.map(row => row.textContent)).toEqual([
+      expect.stringContaining('Intro'),
+      expect.stringContaining('Primeira Parte'),
+      expect.stringContaining('Refrão'),
+      expect.stringContaining('Segunda Parte'),
+      expect.stringContaining('Refrão'),
+    ]);
+    expect(within(dialog).getByText('6 / 30 medley.excerpt')).toBeInTheDocument();
+    const picker = within(firstCard).getByRole('group', { name: 'medleyStudioV2.sectionChoices' });
+    expect(within(picker).getAllByRole('button', { pressed: true })).toHaveLength(5);
+    fireEvent.click(within(picker).getByRole('button', { name: 'Segunda Parte' }));
+    expect(within(firstCard).getAllByTestId('medley-part-row')).toHaveLength(4);
+    expect(within(picker).getByRole('button', { name: 'Segunda Parte' })).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(within(picker).getByRole('button', { name: 'Segunda Parte' }));
+    expect(within(firstCard).getAllByTestId('medley-part-row')).toHaveLength(5);
+    continueToReview(dialog, 2);
+    fireEvent.click(within(dialog).getByText('medley.use'));
+    const medley = onChange.mock.calls[0][0][0];
+    expect(medley.steps.slice(0,5).map(step => step.label)).toEqual(['Intro','Primeira Parte','Refrão','Segunda Parte','Refrão']);
+    expect(medley.steps.slice(0,5).map(step => step.snapshot).join('\n')).toBe(chart);
+    expect(original.chords).toBe(chart);
+  });
+
   it('keeps focus in the section editor instead of jumping to the close button after editing', () => {
     const a = song('A', '[Intro]\nAm F\n[Refrão]\nC G');
     render(<MedleyStudioV2 songs={[a, song('B', 'Dm G')]} medleys={[]} onChange={vi.fn()} initialSongIds={['A', 'B']} />);
@@ -90,7 +123,7 @@ describe('feature-isolated visual studio', () => {
     const reviewCard = within(dialog).getAllByTestId('medley-review-song-card')[0];
     fireEvent.click(within(reviewCard).getByRole('button', { name: 'medleyStudioV2.addPart' }));
     expect(within(dialog).getAllByTestId('medley-song-card')).toHaveLength(2);
-    expect(within(within(dialog).getAllByTestId('medley-song-card')[0]).getAllByTestId('medley-part-row')).toHaveLength(2);
+    expect(within(within(dialog).getAllByTestId('medley-song-card')[0]).getAllByTestId('medley-part-row')).toHaveLength(3);
     fireEvent.click(within(dialog).getByText('medleyStudioV2.next'));
     expect(within(dialog).getAllByTestId('medley-song-bridge')).toHaveLength(1);
   });
