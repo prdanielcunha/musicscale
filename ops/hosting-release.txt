@@ -1,3 +1,8 @@
+MusicScale 0.11.0-beta.11 — 2026-10-12
+Medley Studio — correção de consistência visual: todas as partes selecionadas começam visíveis na timeline, como trechos reais independentes. Seções detectadas na cifra (Intro, Partes, Refrões repetidos) mantêm sua ordem, nomes, intervalos, repetições e edição; a origem permanece imutável.
+Rascunhos, medleys legados, seleção musical da primeira etapa, botão Adicionar música, pontes e salvamento da beta.10 preservados. Respeita limite canônico de 30 trechos sem perder linhas (fallback Música inteira quando não há espaço); sem alteração de schema, Firestore Rules/Functions, Hub/Auth, billing ou dados dos clientes.
+Publicação somente após revisão de PR, QA integral e E2E aprovados, promoção fast-forward sem force push, Firebase Hosting oficial e smoke de /version.json, rotas e API.
+
 MusicScale 0.11.0-beta.10 — 2026-10-11
 Novo fluxo do Medley Studio: etapa Músicas exclusiva para escolher, ordenar e remover músicas; etapa Partes com todas as seções selecionadas inicialmente e opção de desmarcar apenas as desejadas; botão Adicionar música logo após a última música na etapa de partes.
 Mantém alterações de rascunhos beta.9, progressão por pontes e revisão, cifras e letras originais, snapshots, A→B→A, permissões canônicas, dados e assinaturas dos clientes, i18n PT/EN/ES. Sem mudanças de Firestore Rules, Functions, Auth, billing, migrations ou exclusões.
