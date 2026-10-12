@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PopulatedSong, ScaleMedley } from '../../types';
-import { buildStudioPerformancePreview, compileStudioMedley, countStudioSongOccurrences, duplicateStudioBlock, groupStudioSongs, moveStudioBlock, removeStudioSongOccurrence, splitStudioBlock, toggleStudioSongSection, newStudioBlock, studioBlocksFromLegacy, mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
+import { buildStudioPerformancePreview, compileStudioMedley, countStudioSongOccurrences, duplicateStudioBlock, groupStudioSongs, moveStudioBlock, removeStudioSongOccurrence, splitStudioBlock, toggleStudioSongSection, newStudioBlock, newStudioSongBlocks, studioBlocksFromLegacy, mergeStudioScaleSongIds } from '../../utils/medleyStudioV2';
 import { suggestMedleySegments } from '../../utils/medleySegments';
 import { analyzeMedleyBridge, detectedHarmonyEvents } from '../../utils/medleyStudioHarmony';
 import { loadStudioDraft, saveStudioDraft, studioDraftKey } from '../../utils/medleyStudioDraft';
@@ -23,6 +23,34 @@ describe('isolated Medley Studio 2.0 legacy adapter', () => {
     expect(output.text).toContain('[2/2]\n[Intro]\nAm    F');
     expect(output.text.indexOf('→ Entrada suave')).toBeLessThan(output.text.indexOf('2. b'));
     expect(buildStudioPerformancePreview([first, second], [a, b], 20).truncated).toBe(true);
+  });
+
+  it('creates one independently editable block per initially selected section without touching the source', () => {
+    const chart = '[Intro]\nC G\n[Primeira Parte]\nAm F\n[Refrão]\nF G\n[Segunda Parte]\nDm G\n[Refrão]\nC G';
+    const track = song('Ao Único', chart);
+    let n = 0;
+    const blocks = newStudioSongBlocks(track, 30, () => 'part-' + ++n);
+    expect(blocks).toHaveLength(5);
+    expect(blocks.map(block => block.label)).toEqual(['Intro','Primeira Parte','Refrão','Segunda Parte','Refrão']);
+    expect(new Set(blocks.map(block => block.id)).size).toBe(5);
+    expect(blocks.map(block => block.startLine)).toEqual([0,2,4,6,8]);
+    expect(blocks.map(block => block.endLine)).toEqual([1,3,5,7,9]);
+    const compiled = compileStudioMedley(blocks, [track]);
+    expect(compiled.steps.map(block => block.snapshot).join('\n')).toBe(chart);
+    expect(track.chords).toBe(chart);
+    expect(blocks.every(block => block.repetitions === 1 && block.cue === '' && block.key === 'Am')).toBe(true);
+  });
+
+  it('keeps unmarked charts and the existing 30-part ceiling safe without losing any lines', () => {
+    let id = 0;
+    const unmarked = newStudioSongBlocks(b, 30, () => 'p-' + ++id);
+    expect(unmarked).toHaveLength(1);
+    expect(unmarked[0].label).toBe('');
+    const limited = newStudioSongBlocks(a, 1, () => 'p-' + ++id);
+    expect(limited).toHaveLength(1);
+    expect(limited[0]).toMatchObject({ startLine: 0, endLine: 4, label: '' });
+    expect(newStudioSongBlocks(a, 0)).toEqual([]);
+    expect(a.chords).toBe('[Intro]\nAm    F\nverso\n[Refrão]\nC     G');
   });
 
   it('groups contiguous excerpts in a single song card without losing source ordering', () => {

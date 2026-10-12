@@ -35,6 +35,30 @@ export function newStudioBlock(song: PopulatedSong, id: string = crypto.randomUU
   };
 }
 
+/**
+ * New medleys show an actual editable row for EVERY initially selected section.
+ * A whole-chart block is retained only for unsegmented charts or when expanding
+ * would exceed the existing 30-excerpt persistence limit. This never rewrites
+ * the source chart, existing arrangements or manually authored passages.
+ */
+export function newStudioSongBlocks(
+  song: PopulatedSong,
+  freeSlots = 30,
+  createId: () => string = () => crypto.randomUUID(),
+): StudioBlock[] {
+  if (freeSlots < 1) return [];
+  const initial = newStudioBlock(song, createId());
+  const sections = suggestMedleySegments(medleyChart(song));
+  if (sections.length < 2 || sections.length > freeSlots) return [initial];
+  return sections.map((section, index) => ({
+    ...initial,
+    id: index === 0 ? initial.id : createId(),
+    startLine: section.startLine,
+    endLine: section.endLine,
+    label: section.label || '',
+  }));
+}
+
 export function studioBlocksFromLegacy(medley: ScaleMedley): StudioBlock[] {
   // The persisted ScaleMedley contract has no draft-only origin flag. Reconstruct
   // manually repeated excerpts within each song appearance without a migration.

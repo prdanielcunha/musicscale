@@ -9,7 +9,7 @@ import { suggestMedleySegments } from '../../utils/medleySegments';
 import type { MedleySegment } from '../../utils/medleySegments';
 import { analyzeMedleyBridge } from '../../utils/medleyStudioHarmony';
 import {
-  buildStudioPerformancePreview, compileStudioMedley, countStudioSongOccurrences, duplicateStudioBlock, groupStudioSongs, moveStudioBlock, newStudioBlock, removeStudioSongOccurrence, splitStudioBlock,
+  buildStudioPerformancePreview, compileStudioMedley, countStudioSongOccurrences, duplicateStudioBlock, groupStudioSongs, moveStudioBlock, newStudioSongBlocks, removeStudioSongOccurrence, splitStudioBlock,
   previewStudioBlock, studioBlocksFromLegacy, toggleStudioSongSection,
 } from '../../utils/medleyStudioV2';
 import type { StudioBlock, StudioSongGroup } from '../../utils/medleyStudioV2';
@@ -202,7 +202,8 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   const start = (medley?: ScaleMedley) => {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const preferredSongs = [...new Set(initialSongIds || [])].map(id => songMap.get(id)).filter((song): song is PopulatedSong => !!song);
-    const blocks = medley ? studioBlocksFromLegacy(medley) : preferredSongs.slice(0, 30).map(song => newStudioBlock(song));
+    const blocks = medley ? studioBlocksFromLegacy(medley) : preferredSongs.reduce<StudioBlock[]>(
+      (items, song) => [...items, ...newStudioSongBlocks(song, 30 - items.length)], []);
     setHistory({ past: [], present: blocks, future: [] });
     setActiveId(blocks[0]?.id || null);
     setEditingId(medley?.id || null);
@@ -324,9 +325,9 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
   }, [isOpen, draftEdited, history.present, templateName, editingId, stage, activeId, user?.uid, effectiveOrganizationId, draftScope, persist]);
   const add = (song: PopulatedSong) => {
     if (steps.length >= 30) return setError(t('medley.invalid'));
-    const block = newStudioBlock(song);
-    edit(previous => [...previous, block]);
-    setActiveId(block.id);
+    const blocks = newStudioSongBlocks(song, 30 - steps.length);
+    edit(previous => [...previous, ...blocks]);
+    setActiveId(blocks[0].id);
   };
   const openSongSections = (song: PopulatedSong) => {
     const occurrence = [...songGroups].reverse().find(group => group.songId === song.id);
@@ -685,8 +686,12 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
                 const song = songMap.get(group.songId);
                 const last = group.blocks[group.blocks.length - 1];
                 const following = songGroups[groupIndex + 1]?.blocks[0];
+                const wholeChartGroup = !!song && group.blocks.length === 1 &&
+                  !last.label && last.startLine === 0 &&
+                  last.endLine === Math.max(0, splitMedleySource(medleyChart(song)).length - 1) &&
+                  suggestMedleySegments(medleyChart(song)).length > 1;
                 const suggestion = stage === 3 && following ? analyzeMedleyBridge(preview(last), preview(following)) : null;
-                return <React.Fragment key={group.blocks[0].id}>
+                return <React.Fragment key={`${group.songId}:${groupIndex}`}>
                   <article data-testid="medley-song-card" data-song-id={group.songId} className="rounded-xl border border-white/15 bg-white/[.035] p-3">
                     <div className="mb-3 flex items-center gap-3">
                       <span aria-hidden="true" className={'flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ' + artworkClass(group.songId)}><Music2 size={20} className="text-white/70" /></span>
@@ -703,7 +708,7 @@ export function MedleyStudioV2({ songs, medleys, onChange, onSaveTemplate, initi
                         return <li key={step.id} data-testid="medley-part-row" className={'rounded-lg border p-2 ' + (selected?.id === step.id ? 'border-sky-400 bg-sky-600/15' : 'border-white/10 bg-white/5')}>
                           <button type="button" className="flex min-h-[40px] w-full items-center gap-2 text-left focus-visible:outline-2 focus-visible:outline-sky-400" onClick={() => setActiveId(step.id)}>
                             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/10 text-xs tabular-nums">{partIndex + 1}</span>
-                            <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{step.label || t('medley.excerpt')}</strong><small className="text-xs text-slate-400">{step.repetitions}× · {step.key || '—'} · {t('medley.lines')} {step.startLine + 1}–{step.endLine + 1}</small></span>
+                            <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{step.label || (wholeChartGroup ? t('medley.whole') : t('medley.excerpt'))}</strong><small className="text-xs text-slate-400">{step.repetitions}× · {step.key || '—'} · {t('medley.lines')} {step.startLine + 1}–{step.endLine + 1}</small></span>
                           </button>
                           <div className="mt-2 flex flex-wrap gap-1 border-t border-white/10 pt-2">
                             <button type="button" className={button} disabled={!index} aria-label={t('medley.moveUp')} onClick={() => edit(items => moveStudioBlock(items, index, index - 1))}><ArrowUp size={16} /></button>
