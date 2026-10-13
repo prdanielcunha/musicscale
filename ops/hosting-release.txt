@@ -1,3 +1,8 @@
+MusicScale 0.11.0-beta.12 — 2026-10-13
+Connect Tool Gateway — restaura resposta HTTP 401 sem bearer nos quatro endpoints de próxima escala, repertório, presença e cifra. O middleware de trial do Hub continua validando organização, concessão e faturamento para requisições autenticadas; nenhuma permissão é ampliada.
+Preservadas integralmente as escalas, funções, perfis, medleys, assinaturas, regras de dados e todos os hotfixes anteriores, preservando todos os hotfixes beta.27 e anteriores.
+Publicação condicionada ao QA integral, Cloud Run/Firebase Hosting oficial e smoke de autenticação do Connect.
+
 MusicScale 0.11.0-beta.11 — 2026-10-12
 Medley Studio — correção de consistência visual: todas as partes selecionadas começam visíveis na timeline, como trechos reais independentes. Seções detectadas na cifra (Intro, Partes, Refrões repetidos) mantêm sua ordem, nomes, intervalos, repetições e edição; a origem permanece imutável.
 Rascunhos, medleys legados, seleção musical da primeira etapa, botão Adicionar música, pontes e salvamento da beta.10 preservados. Respeita limite canônico de 30 trechos sem perder linhas (fallback Música inteira quando não há espaço); sem alteração de schema, Firestore Rules/Functions, Hub/Auth, billing ou dados dos clientes.
