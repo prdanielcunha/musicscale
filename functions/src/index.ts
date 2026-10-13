@@ -6,6 +6,8 @@ if (getApps().length === 0) {
 
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import * as logger from 'firebase-functions/logger';
+import { getFirestore } from 'firebase-admin/firestore';
+import { runSongDiscoveryProcessor } from '../../services/server/songDiscoveryProcessor.js';
 import { processLocalSongWritten } from './processor.js'; 
 import { processGlobalSongContentMetricsWritten } from './globalSongMetricsProcessor.js';
 
@@ -43,6 +45,14 @@ export const onLocalSongWritten = onDocumentWritten(
     
     try {
       await processLocalSongWritten(change.after, songId, organizationId);
+      // Server-side processing is mandatory for songs created in ANY organization.
+      // Never rely on the browser remaining online after the local save.
+      if (!change.before.exists && songData.sourceType !== 'medley') {
+        const result = await runSongDiscoveryProcessor(songData, songId, organizationId, getFirestore(), event.id);
+        if (result.outcome === 'failed') {
+          throw new Error('GLOBAL_CURATION_PROCESSING_FAILED');
+        }
+      }
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : "Unknown error";
       logger.error('Error processing song write', {

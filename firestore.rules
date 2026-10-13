@@ -754,6 +754,22 @@ service cloud.firestore {
       allow write: if isAuthenticated() && isSystemAdmin();
     }
 
+    // Global curation: the Hub's canonical global roles only. Organization
+    // owners/admins are never promoted to ecosystem curators.
+    match /globalLibraryCandidates/{candidateId} {
+      allow read: if isSystemAdmin() || hasCanonicalSupportRole();
+      allow write: if false;
+      match /{subcollection}/{itemId} {
+        allow read: if isSystemAdmin() || hasCanonicalSupportRole();
+        allow write: if false;
+      }
+    }
+
+    match /songDiscoveryInbox/{id} {
+      allow read: if isSystemAdmin() || hasCanonicalSupportRole();
+      allow write: if false;
+    }
+
     match /songSubmissions/{id} {
       allow read: if isAuthenticated() && (isSystemAdmin() || resource.data.get('submittedBy', '') == request.auth.uid);
       allow create: if isAuthenticated() && hasOrgContext(incoming());

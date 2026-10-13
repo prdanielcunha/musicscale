@@ -1,10 +1,12 @@
 import { adminDb, adminAuth, admin } from '../firebaseAdmin.js';
 
 export const VALID_ECOSYSTEM_ROLES = [
-  'ceo', 
-  'global_admin', 
-  'ecosystem_owner', 
-  'founder'
+  'ceo',
+  'admin',
+  'global_admin',
+  'ecosystem_owner',
+  'founder',
+  'ecosystem_support'
 ];
 
 export interface AuthenticatedEcosystemContext {
