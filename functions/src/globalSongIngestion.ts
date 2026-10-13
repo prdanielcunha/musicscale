@@ -108,14 +108,15 @@ export async function ingestNewLocalSong(
     .doc(hash(identity.normalizedTitle + '|' + identity.normalizedArtists.join('|')));
   const globalRef = db.collection('globalSongs').doc('auto_' + hash(identity.normalizedTitle + '|' +
     identity.normalizedArtists.join('|')));
+  const orgRef = candidateRef.collection('organizations').doc(organizationId);
   const classification = scanLimited ? 'insufficient_data' :
     (globalMatch || candidateMatch) ? 'possible_duplicate' : 'likely_unique';
   const now = Date.now();
 
   return db.runTransaction(async (tx: any) => {
-    const [localSnap, candidateSnap, occurrenceSnap, reservationSnap, globalSnap] = await Promise.all([
+    const [localSnap, candidateSnap, occurrenceSnap, reservationSnap, globalSnap, orgSnap] = await Promise.all([
       tx.get(localRef), tx.get(candidateRef), tx.get(occurrenceRef),
-      tx.get(titleArtistReservation), tx.get(globalRef)
+      tx.get(titleArtistReservation), tx.get(globalRef), tx.get(orgRef)
     ]);
     if (!localSnap.exists || localSnap.data()?.organizationId !== organizationId) return 'ignored';
     if (localSnap.data()?.originGlobalSongId) return 'already_processed';
@@ -153,7 +154,9 @@ export async function ingestNewLocalSong(
     };
     if (!candidateSnap.exists) tx.set(candidateRef, newCandidate);
     else tx.update(candidateRef, {
-      occurrenceCount: FieldValue.increment(1), updatedAt: now, lastDiscoveredAt: now
+      occurrenceCount: FieldValue.increment(1),
+      ...(orgSnap.exists ? {} : { organizationCount: FieldValue.increment(1) }),
+      updatedAt: now, lastDiscoveredAt: now
     });
     tx.set(occurrenceRef, {
       id: occurrenceRef.id, candidateId, source: { organizationId, songId },
@@ -164,7 +167,6 @@ export async function ingestNewLocalSong(
       idempotencyKey: organizationId + '_' + songId, schemaVersion: 1,
       createdAt: now, updatedAt: now
     });
-    const orgRef = candidateRef.collection('organizations').doc(organizationId);
     tx.set(orgRef, { addedAt: now }, { merge: true });
     const logRef = candidateRef.collection('reviewLogs').doc();
     tx.set(logRef, {
