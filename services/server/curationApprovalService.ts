@@ -22,6 +22,8 @@ export interface CurationApprovalParams {
     occurrenceId: string;
     idempotencyKey: string;
     decodedToken: { uid: string; hasCurationAccess?: boolean; [key: string]: any };
+    /** Trusted server-only automatic approval. */
+    automated?: boolean;
 }
 
 export type CurationErrorCode =
@@ -101,6 +103,13 @@ export class CurationApprovalService {
                     return { success: true, alreadyApproved: true, globalSongId: candidateData.resultingGlobalSongId };
                 }
                 throw new CurationError('IDEMPOTENCY_CONFLICT', 'Candidata já foi aprovada por outra requisição.', 409);
+            }
+            if (params.automated && (
+                candidateData.classification !== 'likely_unique' ||
+                candidateData.occurrenceCount !== 1 ||
+                (candidateData.analysisSummary?.warningCodes || []).length > 0
+            )) {
+                throw new CurationError('CANDIDATE_STATE_INVALID', 'Publicação automática exige candidata inédita e verificável.', 409);
             }
             if (!['pending_review', 'likely_unique'].includes(candidateData.status)) {
                 throw new CurationError('CANDIDATE_STATE_INVALID', `Estado da candidata não permite aprovação. (Estado atual: ${candidateData.status})`, 400);
@@ -239,6 +248,10 @@ export class CurationApprovalService {
             }
 
             const primaryArtist = normArtists[0] || snapshot.artist || '';
+            const sourceSong = sourceSongMap.get(occData.source?.songId)?.songSnap.data() || {};
+            const originalAuthor = sourceSong.createdBy || {};
+            const originalAuthorUid = typeof originalAuthor === 'string' ? originalAuthor : (originalAuthor.uid || '');
+            const originalAuthorName = typeof originalAuthor === 'object' ? (originalAuthor.displayName || originalAuthor.name || '') : '';
             const safeSnapshotTitle = normalizedOptionalString(snapshot.title, 'snapshot.title', 'OCCURRENCE_SNAPSHOT_INVALID')!;
             const newGlobalSong = {
                 title: safeSnapshotTitle,
@@ -264,6 +277,13 @@ export class CurationApprovalService {
                 normalizedArtists: safeCanonical.normalizedArtists,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 createdBy: safeUid,
+                publicationMethod: params.automated ? 'automatic_curation' : 'manual_curation',
+                contribution: {
+                    organizationId: occData.source?.organizationId || '',
+                    songId: occData.source?.songId || '',
+                    userId: originalAuthorUid,
+                    userName: originalAuthorName
+                },
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 status: 'active',
                 importCount: 0
@@ -294,7 +314,7 @@ export class CurationApprovalService {
                 const serverTimestamp = admin.firestore.FieldValue.serverTimestamp();
                 const logData = {
                     eventType: 'approved',
-                    actorType: 'admin',
+                    actorType: params.automated ? 'system' : 'admin',
                     actorId: safeUid,
                     resultingGlobalSongId: globalSongRef.id,
                     schemaVersion: 1,
@@ -305,7 +325,7 @@ export class CurationApprovalService {
                         sourceSongId: occData.source?.songId || null,
                         sourceCandidateId: safeCandidateId,
                     },
-                    action: 'approved_as_new',
+                    action: params.automated ? 'automatically_approved_as_unique' : 'approved_as_new',
                     actorUid: safeUid,
                     createdAt: serverTimestamp
                 };
