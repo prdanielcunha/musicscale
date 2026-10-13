@@ -9,6 +9,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { isBulkImportEligibleCandidate } from "../utils/curation/bulkImportEligibility";
 
 import { CandidateDetailsModal } from '../components/curation/CandidateDetailsModal';
+import { GlobalSongCatalog } from '../components/curation/GlobalSongCatalog';
 import { OrganizationScannerModal } from '../components/curation/OrganizationScannerModal';
 import { InboxAnalysisModal } from '../components/curation/InboxAnalysisModal';
 import { ImportCandidatesModal } from '../components/curation/ImportCandidatesModal';
@@ -161,6 +162,7 @@ export default function CurationPage() {
 
   return (
     <div className="space-y-6 animate-fade-in relative max-w-5xl mx-auto">
+      <GlobalSongCatalog />
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
           {t('curation.title')}
