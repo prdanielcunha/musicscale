@@ -92,6 +92,11 @@ export function registerGlobalCurationCatalog(app: any, db: any, admin: any, req
         const keySnap = await tx.get(uniqueKey);
         if (keySnap.exists && keySnap.data().globalSongId !== ref.id)
           throw new Error('DUPLICATE_GLOBAL_SONG');
+        const previousArtistNames = prior.normalizedArtists ||
+          (prior.normalizedArtist ? [prior.normalizedArtist] : []);
+        const oldUniqueKey = db.collection('globalSongUniqueKeys').doc(hash(
+          String(prior.normalizedTitle || '') + '|' + previousArtistNames.join('|')));
+        const oldUniqueSnap = oldUniqueKey.id !== uniqueKey.id ? await tx.get(oldUniqueKey) : null;
         const patch = {
           ...body,
           ...buildGlobalSongSearchFields(updated),
@@ -107,6 +112,10 @@ export function registerGlobalCurationCatalog(app: any, db: any, admin: any, req
         tx.update(ref, patch);
         tx.set(uniqueKey, { globalSongId: ref.id, updatedBy: actorUid,
           updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        if (oldUniqueSnap?.exists && oldUniqueSnap.data()?.globalSongId === ref.id) {
+          // Release only this document's former identity when editing title/artist.
+          tx.delete(oldUniqueKey);
+        }
         tx.set(logRef, { action: 'edit_global_song', songId: ref.id, actorUid,
           fields: Object.keys(body), timestamp: admin.firestore.FieldValue.serverTimestamp() });
       });

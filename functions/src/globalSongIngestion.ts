@@ -1,43 +1,11 @@
 import { createHash } from 'node:crypto';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { extractSongIdentity } from '../../utils/songDiscovery/identityGenerator.js';
+import { buildGlobalSongSearchFields } from '../../utils/searchEngine.js';
 import { GENERIC_TITLES, MIN_LYRICS_WORDS_FOR_STRONG_MATCH } from '../../utils/songDiscovery/constants.js';
 
 const MAX_SCAN = 50;
 const hash = (input: string) => createHash('sha256').update(input).digest('hex');
-const clean = (input: unknown) => String(input || '').normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-const tokens = (text: string) => clean(text).split(' ').filter(Boolean);
-const prefixes = (values: string[], length = 2, max = 80) => {
-  const result = new Set<string>();
-  for (const value of values) for (let i = length; i <= value.length; i++) {
-    result.add(value.slice(0, i));
-    if (result.size >= max) return [...result];
-  }
-  return [...result];
-};
-const grams = (values: string[]) => {
-  const result = new Set<string>();
-  for (const value of values) for (let i = 0; i < value.length - 2; i++) result.add(value.slice(i, i + 3));
-  return [...result].slice(0, 80);
-};
-const buildSearchFields = (song: any) => {
-  const titles = tokens(song.title);
-  const artists = tokens(song.artist);
-  const lyrical = tokens(song.lyrics).filter(t => t.length > 2).slice(0, 80);
-  const chords = tokens(song.chords).filter(t => t.length > 2).slice(0, 80);
-  const key = String(song.key || '').trim();
-  return {
-    searchVersion: 3,
-    searchTokens: [...new Set([...titles, ...artists, ...lyrical, ...chords, ...tokens(song.version)])].slice(0, 150),
-    searchContentTokens: [...new Set([...lyrical, ...chords])].slice(0, 150),
-    searchTitlePrefixes: prefixes(titles),
-    searchArtistPrefixes: prefixes(artists),
-    searchTitleGrams: grams(titles),
-    searchArtistGrams: grams(artists),
-    searchKeyTokens: key ? [key] : []
-  };
-};
 
 export async function ingestNewLocalSong(
   songId: string, organizationId: string, songData: any, injectedDb: any = getFirestore()
@@ -180,7 +148,7 @@ export async function ingestNewLocalSong(
     if (!publish) return 'pending';
 
     const globalSong = {
-      ...snapshot, ...buildSearchFields(snapshot),
+      ...snapshot, ...buildGlobalSongSearchFields(snapshot),
       normalizedTitle: identity.normalizedTitle,
       normalizedArtist: identity.normalizedArtists[0],
       normalizedArtists: identity.normalizedArtists,
