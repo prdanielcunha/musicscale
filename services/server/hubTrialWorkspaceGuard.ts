@@ -81,6 +81,17 @@ export function createHubTrialWorkspaceMiddleware(deps:{db:any}) {
     // This check must run for ALL existing grants. The Hub's acquisition
     // rollout flag may be turned off without reopening expired music content.
     if (!isProtectedMusicWorkspaceApiPath(value(req.path))) return next();
+    // The Connect read handlers already reject missing/invalid credentials
+    // before resolving a tenant or reading any data. Preserve their canonical
+    // 401 response instead of having the trial guard return 400 first.
+    // Valid bearer calls still pass the full Hub trial/billing gate below.
+    if (/^\/api\/v1\/connect\/next-schedule(?:\/|$)/.test(value(req.path))) {
+      const headers = req.headers || {};
+      const forwarded = value(headers['x-connect-user-authorization']);
+      const standard = value(headers.authorization);
+      const bearer = forwarded || standard;
+      if (!/^Bearer\s+\S+/i.test(bearer)) return next();
+    }
     const selected = musicWorkspaceOrgFromRequest(req);
     if (selected.error || !selected.organizationId) {
       // Preserve the historical missing-tenant API contract used by existing
