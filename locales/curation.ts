@@ -1,5 +1,20 @@
 export const curationTranslations = {
   pt: {
+    bulkReview: {
+        "title": "Gerenciar pendências",
+        "approve": "aprovar",
+        "reject": "excluir",
+        "reason": "Exclusão administrativa em lote",
+        "approveSelected": "Aprovar selecionadas",
+        "rejectSelected": "Excluir selecionadas",
+        "approveAll": "Aprovar todas as pendentes",
+        "rejectAll": "Excluir todas as pendentes",
+        "confirmSelected": "Deseja {{action}} {{count}} pendência(s)? Cada operação será validada e auditada.",
+        "confirmWord": "CONFIRMAR TODAS",
+        "confirmAll": "Você está prestes a {{action}} TODAS as pendências globais de todas as organizações. Digite {{word}} para confirmar.",
+        "progress": "Processadas {{count}} de {{total}} pendências...",
+        "result": "Finalizado: {{succeeded}} concluídas, {{failed}} falharam (revisar individualmente)."
+    },
     added: {
         "title": "Título",
         "subtitle": "Catálogo global de todas as organizações · gerenciamento seguro",
@@ -94,6 +109,21 @@ export const curationTranslations = {
     loadMore: "Carregar Mais"
   },
   en: {
+    bulkReview: {
+        "title": "Manage pending reviews",
+        "approve": "approve",
+        "reject": "reject",
+        "reason": "Administrative batch rejection",
+        "approveSelected": "Approve selected",
+        "rejectSelected": "Reject selected",
+        "approveAll": "Approve all pending",
+        "rejectAll": "Reject all pending",
+        "confirmSelected": "Do you want to {{action}} {{count}} pending item(s)? Each action is verified and audited.",
+        "confirmWord": "CONFIRM ALL",
+        "confirmAll": "You are about to {{action}} ALL pending submissions from every organization. Type {{word}} to confirm.",
+        "progress": "Processed {{count}} of {{total}} submissions...",
+        "result": "Finished: {{succeeded}} completed, {{failed}} failed (review individually)."
+    },
     added: {
         "title": "Title",
         "subtitle": "Global catalog across all organizations · safe management",
@@ -188,6 +218,21 @@ export const curationTranslations = {
     loadMore: "Load More"
   },
   es: {
+    bulkReview: {
+        "title": "Gestionar pendientes",
+        "approve": "aprobar",
+        "reject": "rechazar",
+        "reason": "Rechazo administrativo por lotes",
+        "approveSelected": "Aprobar seleccionadas",
+        "rejectSelected": "Rechazar seleccionadas",
+        "approveAll": "Aprobar todas las pendientes",
+        "rejectAll": "Rechazar todas las pendientes",
+        "confirmSelected": "¿Quieres {{action}} {{count}} pendiente(s)? Cada operación se valida y audita.",
+        "confirmWord": "CONFIRMAR TODAS",
+        "confirmAll": "Vas a {{action}} TODAS las pendientes globales de todas las organizaciones. Escribe {{word}} para confirmar.",
+        "progress": "Procesadas {{count}} de {{total}} pendientes...",
+        "result": "Finalizado: {{succeeded}} completadas, {{failed}} fallaron (revisar individualmente)."
+    },
     added: {
         "title": "Título",
         "subtitle": "Catálogo global de todas las organizaciones · gestión segura",
