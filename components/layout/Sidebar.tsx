@@ -414,7 +414,9 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
 
   const isCurationAllowed = (id: string) => {
     if (id === "curation_queue") {
-        return isCurationAdmin || hasCapability("musicscale.songs.edit") || hasCapability("manageOrganization");
+        // Only canonical MillionsNest CEO/admin/support see the global curation menu.
+        // Tenant repertoire permissions never grant ecosystem-wide access.
+        return isCurationAdmin;
     }
     return true;
   };
