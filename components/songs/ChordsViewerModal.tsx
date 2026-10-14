@@ -152,6 +152,7 @@ const defaultSettings = {
 };
 
 const MAX_AUTOSCROLL_FRAME_DELTA_MS = 100;
+const CHORDS_AUTOSCROLL_SPEEDS_PX_PER_SECOND = [0, 6, 15, 35, 70, 125] as const;
 const TAP_MOVEMENT_TOLERANCE_PX = 18;
 const DOUBLE_TAP_MAX_DISTANCE_PX = 36;
 const DOUBLE_TAP_INTERVAL_MS = 300;
@@ -842,7 +843,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         MAX_AUTOSCROLL_FRAME_DELTA_MS,
       );
 
-      const pxPerSecond = speedLevel > 0 ? 15 + Math.pow(speedLevel, 2.2) * 8 : 0;
+      const pxPerSecond = CHORDS_AUTOSCROLL_SPEEDS_PX_PER_SECOND[speedLevel] ?? 0;
       const scrollDelta = (pxPerSecond / 1000) * elapsed;
       
       scrollPosRef.current += scrollDelta;
@@ -1028,14 +1029,21 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     [activeSectionIndex, sectionNavigatorItems],
   );
 
-  const scrollToSectionIndex = useCallback((sectionIndex: number) => {
+  const scrollToSectionIndex = useCallback((sectionIndex: number, preserveAutoScroll = false) => {
     const container = scrollContainerRef.current;
     const target = sectionRefs.current.get(sectionIndex);
     if (!container || !target) return false;
 
-    setIsAutoScrolling(false);
     const targetTop = Math.max(0, target.offsetTop - 126);
-    container.scrollTo({ top: targetTop, behavior: "smooth" });
+    if (preserveAutoScroll) {
+      // A live direction jumps immediately without stopping an active autoscroll.
+      container.scrollTop = targetTop;
+      scrollPosRef.current = container.scrollTop;
+      lastTimeRef.current = undefined;
+    } else {
+      setIsAutoScrolling(false);
+      container.scrollTo({ top: targetTop, behavior: "smooth" });
+    }
     return true;
   }, []);
 
@@ -1059,9 +1067,9 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     let frame: number | null = null;
     let fallback: number | null = null;
     frame = requestAnimationFrame(() => {
-      if (!scrollToSectionIndex(target.sectionIndex)) {
+      if (!scrollToSectionIndex(target.sectionIndex, true)) {
         fallback = window.setTimeout(() => {
-          scrollToSectionIndex(target.sectionIndex);
+          scrollToSectionIndex(target.sectionIndex, true);
         }, 80);
       }
     });
