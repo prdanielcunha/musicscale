@@ -55,6 +55,7 @@ import { medleyTemplateRoutes } from "./services/server/medleyTemplateRoutes.js"
 import { collectTenantMemberDirectoryCandidates, isVerifiedTenantMemberForMusicScaleWrite } from "./services/server/memberDirectoryCandidates.js";
 import { createMusicDataBootstrapHandler } from "./services/server/musicDataBootstrap.js";
 import { createConnectNextScheduleReadHandler } from "./services/server/connect/nextScheduleReadHandler.js";
+import { createConnectSupportDraftProxy } from './services/server/connect/supportDraftProxy.js';
 import { createConnectNextScheduleRepertoireReadHandler } from "./services/server/connect/nextScheduleRepertoireReadHandler.js";
 import { createConnectNextSchedulePresenceReadHandler } from "./services/server/connect/nextSchedulePresenceReadHandler.js";
 import { createConnectNextScheduleChartReadHandler } from "./services/server/connect/nextScheduleChartReadHandler.js";
@@ -226,6 +227,7 @@ const connectNextScheduleReadHandler = createConnectNextScheduleReadHandler({
   logger,
 });
 app.get("/api/v1/connect/next-schedule", connectNextScheduleReadHandler);
+app.post('/api/v1/connect/support-draft', createConnectSupportDraftProxy());
 
 const connectNextScheduleRepertoireReadHandler = createConnectNextScheduleRepertoireReadHandler({
   db,
