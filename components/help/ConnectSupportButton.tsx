@@ -26,7 +26,7 @@ function EnabledConnectSupportButton() {
         headers: { Authorization: `Bearer ${token}`, 'X-Connect-User-Authorization': `Bearer ${token}`, 'x-organization-id': effectiveOrganizationId, 'Content-Type': 'application/json' }, body: JSON.stringify({ locale }) });
       if (!response.ok) throw new Error();
       const data = await response.json(), url = new URL(data.draftUrl);
-      if (data.automaticSend !== false || data.product !== 'musicscale' || url.origin !== 'https://wa.me' || url.username || url.password || !/^\/[1-9][0-9]{7,14}$/.test(url.pathname)) throw new Error();
+      if (data.automaticSend !== false || data.product !== 'musicscale' || url.origin !== 'https://wa.me' || url.username || url.password || url.hash || !/^\/[1-9][0-9]{7,14}$/.test(url.pathname) || !Number.isSafeInteger(data.expiresAt) || data.expiresAt <= Date.now() || data.expiresAt > Date.now() + 630000 || !url.searchParams.get('text') || url.searchParams.get('text')!.length > 2048 || [...url.searchParams.keys()].some(key => key !== 'text') || url.searchParams.get('text')!.includes(token)) throw new Error();
       if (generation !== epoch.current) { popup?.close(); return; }
       if (popup) { if (!popup.closed) popup.location.href = url.toString(); } else window.location.assign(url.toString());
     } catch { popup?.close(); if (generation === epoch.current) setFailed(true); }
