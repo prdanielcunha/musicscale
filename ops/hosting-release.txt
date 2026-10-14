@@ -1,3 +1,7 @@
+MusicScale 0.11.1-beta.3 — 2026-10-14
+Cifras ao vivo: durante toque, arrasto manual, roda do mouse, trackpad e navegação por trechos, a rolagem automática continua em Play na velocidade já escolhida, seguindo sempre a nova posição sem retorno inesperado. A animação respeita a interação nativa enquanto o dedo está na tela e retoma ao soltar, sem mudar o estado Play/Pausar; no fim da música mantém Play para continuar caso o usuário volte para cima.
+Preserva as velocidades 6/15/35/70/125 px/s e comandos do condutor. Hotfix exclusivamente frontend/testes; sem mudanças Auth/Hub, Connect, backend, Firestore, RBAC, dados, escalas, assinaturas ou migrações. Deploy oficial Firebase Hosting somente após QA completo e smoke de produção, preservando integralmente a release beta.2 atual.
+
 MusicScale 0.11.1-beta.2 — 2026-10-14
 Release conjunto: Biblioteca Viva global / Curadoria para músicas novas manuais ou por IA de todas as organizações, independentemente da função local que possa cadastrar uma música.
 Garantido o hotfix 0.11.1-beta.0 de autenticação Connect 401 e preservando todos os hotfixes beta.27 e anteriores.
