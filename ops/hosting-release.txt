@@ -1,3 +1,7 @@
+MusicScale 0.11.1-beta.4 — 2026-10-14
+Suporte oficial Connect por ação explícita: identidade e organização revalidadas no Hub, rascunho manual sem envio automático, URL/expiração privadas validadas e fallback por e-mail. Build oficial exige gate 401 do Core; 21 simulações UI/relay aprovadas.
+Preserva integralmente a correção de rolagem de cifras da beta.3, biblioteca, escalas, autenticação, dados e assinaturas. Sem mudanças Meta, billing ou migrações.
+
 MusicScale 0.11.1-beta.3 — 2026-10-14
 Cifras no modo palco: a rolagem automática mantém Play ao arrastar a tela para cima/baixo, usar roda do mouse ou trackpad, clicar em trechos manuais e seguir comandos ao vivo do condutor. O motor usa a posição real após cada reposicionamento, sem saltar para a posição anterior. No fim da música Play permanece ativo e continua ao retornar para cima. Pausa somente pelo botão Play/Pausar ou seleção explícita da velocidade zero. Velocidades 6/15/35/70/125 px/s preservadas.
 Hotfix isolado no visualizador e testes, sem tocar em Auth, Hub, roles, Firestore Rules, funções, dados, escalas, organizações ou assinaturas. Não realizar migração, force push ou deploy de backend. Publicação somente após QA integral e smoke Firebase Hosting.
