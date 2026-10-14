@@ -431,7 +431,11 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
         if (item.id === "finops_diagnostics") {
            if (!finopsAllowed || finopsLoading) return null;
         } else {
-           const isAllowed = !item.permissionRequired || hasCapability(item.permissionRequired);
+           // A staff curator may have no active tenant subscription. Keep the
+           // Library group visible for Curation only, without exposing other
+           // paid repertoire items or making support a global plan bypass.
+           const isAllowed = (item.id === 'library' && isCurationAdmin) ||
+             !item.permissionRequired || hasCapability(item.permissionRequired);
            if (!isAllowed) return null;
         }
 
@@ -442,6 +446,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
              if (child.id === "finops_diagnostics") {
                  return finopsAllowed && !finopsLoading;
              }
+             if (child.id === 'curation_queue') return isCurationAdmin;
              return !child.permissionRequired || hasCapability(child.permissionRequired)
           });
           
