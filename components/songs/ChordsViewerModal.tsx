@@ -324,6 +324,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
+  const touchScrollInteractionRef = useRef(false);
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const scaleRef = useRef<number>(1);
@@ -382,9 +383,8 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (isAutoScrolling) {
-      setIsAutoScrolling(false);
-    }
+    // Navigating by touch must never toggle the player's Play/Pause state.
+    touchScrollInteractionRef.current = true;
 
     if (e.touches.length === 1) {
       touchGestureHadMultiplePointersRef.current = false;
@@ -432,6 +432,15 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     }
   };
 
+  const handleTouchCancel = () => {
+    touchScrollInteractionRef.current = false;
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    initialPinchDistRef.current = null;
+    clearTapCandidate();
+    lastTimeRef.current = undefined;
+  };
+
   const [showWorshipFlowBadge, setShowWorshipFlowBadge] = useState(false);
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -442,6 +451,11 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       touchStartYRef.current = null;
       if (e.touches.length === 0) {
         touchGestureHadMultiplePointersRef.current = false;
+        touchScrollInteractionRef.current = false;
+        lastTimeRef.current = undefined;
+        if (scrollContainerRef.current) {
+          scrollPosRef.current = scrollContainerRef.current.scrollTop;
+        }
       }
     };
 
@@ -837,6 +851,21 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       const scrollContainer = scrollContainerRef.current;
       if (!scrollContainer) return;
       
+      // Follow the reader's real position after a swipe, wheel or trackpad jump.
+      // While a finger is down, let native touch scrolling control the viewport.
+      const currentTop = scrollContainer.scrollTop;
+      if (
+        touchScrollInteractionRef.current ||
+        Math.abs(currentTop - scrollPosRef.current) > 1
+      ) {
+        scrollPosRef.current = currentTop;
+        lastTimeRef.current = undefined;
+      }
+      if (touchScrollInteractionRef.current) {
+        scrollAnimationRef.current = requestAnimationFrame(scrollStep);
+        return;
+      }
+
       if (lastTimeRef.current === undefined) lastTimeRef.current = timestamp;
       const elapsed = Math.min(
         Math.max(timestamp - lastTimeRef.current, 0),
@@ -845,18 +874,16 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
 
       const pxPerSecond = CHORDS_AUTOSCROLL_SPEEDS_PX_PER_SECOND[speedLevel] ?? 0;
       const scrollDelta = (pxPerSecond / 1000) * elapsed;
-      
-      scrollPosRef.current += scrollDelta;
+      const maxScrollTop = Math.max(
+        0,
+        scrollContainer.scrollHeight - scrollContainer.clientHeight,
+      );
+
+      scrollPosRef.current = Math.min(scrollPosRef.current + scrollDelta, maxScrollTop);
       scrollContainer.scrollTop = Math.round(scrollPosRef.current);
 
-      if (
-        scrollContainer.scrollTop + scrollContainer.clientHeight >=
-        scrollContainer.scrollHeight - 1
-      ) {
-        setIsAutoScrolling(false);
-        return;
-      }
-      
+      // Stay in Play mode even at the bottom: scrolling upward should resume
+      // automatically from the new position without another button press.
       lastTimeRef.current = timestamp;
       scrollAnimationRef.current = requestAnimationFrame(scrollStep);
     },
@@ -1035,17 +1062,16 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     if (!container || !target) return false;
 
     const targetTop = Math.max(0, target.offsetTop - 126);
-    if (preserveAutoScroll) {
-      // A live direction jumps immediately without stopping an active autoscroll.
+    if (preserveAutoScroll || isAutoScrolling) {
+      // Both live and manual jumps preserve Play; avoid fighting smooth scrolling.
       container.scrollTop = targetTop;
       scrollPosRef.current = container.scrollTop;
       lastTimeRef.current = undefined;
     } else {
-      setIsAutoScrolling(false);
       container.scrollTo({ top: targetTop, behavior: "smooth" });
     }
     return true;
-  }, []);
+  }, [isAutoScrolling]);
 
   const lastHandledLiveSectionCommandRef = useRef<string | null>(null);
 
@@ -1518,6 +1544,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
       >
         <AnimatePresence>
           {showWorshipFlowBadge && (
