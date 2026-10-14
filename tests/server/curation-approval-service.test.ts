@@ -403,6 +403,28 @@ describe('CurationApprovalService', () => {
         myT.registerDocument('songs/song1', { exists: true, data: () => ({ organizationId: 'org-HACKER' }) });
         await expect(service.approve(defaultParams)).rejects.toThrow('Música de origem não pertence');
     });
+    it('rejeita aprovação se música local já foi publicada em outra transação', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => stdCandidate });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => stdOccurrence });
+        myT.registerQuery('globalLibraryCandidates/c1/occurrences', [{
+            id: 'occ2', data: () => ({ source: { organizationId: 'org1', songId: 'song1' } })
+        }]);
+        myT.registerDocument('songs/song1', { exists: true, data: () => ({
+            organizationId: 'org1', originGlobalSongId: 'alreadyPublished'
+        }) });
+        await expect(service.approve(defaultParams)).rejects.toThrow('já está vinculada à Biblioteca Viva');
+    });
+    it('rejeita concorrência contra reserva de título+artista existente', async () => {
+        myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => stdCandidate });
+        myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => stdOccurrence });
+        const { createHash } = await import('node:crypto');
+        const reservationId = createHash('sha256').update('A|').digest('hex');
+        myT.registerDocument('globalSongUniqueKeys/' + reservationId, {
+            exists: true, data: () => ({ globalSongId: 'anotherPublishedSong' })
+        });
+        await expect(service.approve(defaultParams)).rejects.toThrow('mesma identidade');
+    });
+
     it('14. PROVA DO MOCK: Mock rejeita leitura após escrita (FIRESTORE_READ_AFTER_WRITE_FORBIDDEN)', async () => {
         let threw = false;
         try {

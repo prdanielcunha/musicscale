@@ -175,6 +175,12 @@ export class CurationApprovalService {
 
             const reservationRef = db.collection('globalSongs_reservations').doc(reservationId);
             const reservationSnap = await t.get(reservationRef);
+            // A single canonical title+artist reservation is shared by manual
+            // approvals, automatic Firebase ingest and administrative edits.
+            const uniqueKey = crypto.createHash('sha256')
+                .update(normTitle + '|' + normArtists.join('|')).digest('hex');
+            const uniqueRef = db.collection('globalSongUniqueKeys').doc(uniqueKey);
+            const uniqueSnap = await t.get(uniqueRef);
 
             const titleQuery = await t.get(
                 db.collection('globalSongs').where('normalizedTitle', '==', normTitle)
@@ -207,6 +213,11 @@ export class CurationApprovalService {
                     throw new CurationError("RESERVATION_COLLISION", "Colisão de reserva com outra candidata.", 409);
                 }
             }
+            if (uniqueSnap.exists) {
+                throw new CurationError('DUPLICATE_GLOBAL_SONG',
+                    'Já existe uma música publicada com a mesma identidade.', 409,
+                    uniqueSnap.data()?.globalSongId);
+            }
 
             for (const docSnap of titleQuery.docs) {
                 const globalSong = docSnap.data();
@@ -237,6 +248,11 @@ export class CurationApprovalService {
                 const songData = item.songSnap.data();
                 if (songData.organizationId !== item.sourceOrg) {
                     throw new CurationError('SOURCE_ORGANIZATION_MISMATCH', `Música de origem não pertence à organização informada.`, 403);
+                }
+                if (songData.originGlobalSongId) {
+                    throw new CurationError('DUPLICATE_GLOBAL_SONG',
+                        'Música de origem já está vinculada à Biblioteca Viva.', 409,
+                        songData.originGlobalSongId);
                 }
             }
 
@@ -293,6 +309,11 @@ export class CurationApprovalService {
                 ...buildGlobalSongSearchFields(newGlobalSong),
             };
             t.set(globalSongRef, indexedGlobalSong);
+            t.set(uniqueRef, {
+                globalSongId: globalSongRef.id,
+                candidateId: safeCandidateId,
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
 
             t.update(candidateRef, {
                 status: 'approved',
