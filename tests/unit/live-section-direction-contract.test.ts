@@ -39,12 +39,12 @@ describe('Live section direction contract', () => {
       ?.split('const [isFixingChords')[0] ?? '';
 
     expect(scrollHandler).toContain('preserveAutoScroll = false');
-    expect(scrollHandler).toContain('if (preserveAutoScroll) {');
+    expect(scrollHandler).toContain('if (preserveAutoScroll || isAutoScrolling) {');
     expect(scrollHandler).toContain('container.scrollTop = targetTop;');
     expect(scrollHandler).toContain('scrollPosRef.current = container.scrollTop;');
     expect(scrollHandler).toContain('lastTimeRef.current = undefined;');
-    expect(scrollHandler).toContain('} else {\n      setIsAutoScrolling(false);');
-    expect(scrollHandler.split('} else {')[0]).not.toContain('setIsAutoScrolling(');
+    expect(scrollHandler).toContain('} else {\n      container.scrollTo({ top: targetTop, behavior: "smooth" });');
+    expect(scrollHandler).not.toContain('setIsAutoScrolling(');
     expect(liveDirectionEffect.match(/scrollToSectionIndex\(target\.sectionIndex, true\)/g))
       .toHaveLength(2);
     expect(liveDirectionEffect).not.toContain('setIsAutoScrolling(');
