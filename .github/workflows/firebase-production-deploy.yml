@@ -21,6 +21,8 @@ env:
   # Presentation only; does not enable trials, entitlements, billing, or data migrations.
   MUSICSCALE_PREMIUM_PRESENTATION_ROLLOUT: 'true'
   OFFICIAL_FIREBASE_URL: https://mn-musicscale-555464791734.web.app
+  # Explicit manual action; identity/app/tenant are revalidated by Connect/Hub.
+  VITE_CONNECT_SUPPORT_ENABLED: 'true'
 
 jobs:
   deploy-production:
@@ -60,6 +62,18 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
+
+      - name: Verify canonical manual support boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(curl --silent --show-error --max-time 30 \
+            -o /tmp/connect-support-auth-smoke.json -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' \
+            --data '{"organizationId":"release-smoke","product":"musicscale"}' \
+            'https://connect.millionsnest.com/api/core/support/draft')"
+          test "$STATUS" = '401'
+          echo MUSICSCALE_SUPPORT_AUTH_BOUNDARY_OK
 
       - name: Build production bundle
         run: |
