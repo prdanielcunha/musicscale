@@ -1,3 +1,7 @@
+MusicScale 0.11.1-beta.2 — 2026-10-14
+Cifras / modo palco: rolagem automática continua ativada durante e após deslizar manualmente, usar trackpad/roda do mouse, selecionar trechos no topo e seguir comandos do condutor. A posição fracionária da animação se realinha imediatamente ao trecho atual, sem saltar de volta para a posição anterior. Ao chegar ao fim, permanece em Play para que a rolagem continue automaticamente caso o músico volte para cima. O botão Play/Pausar (ou controle explícito de velocidade 0) permanece responsável por parar. Velocidades aprovadas 6/15/35/70/125 px/s preservadas.
+Release isolada de frontend e testes; preserva integralmente funções e permissões, Firestore Rules/Functions, Auth/Hub, Cloud Run, organizações, dados, escalas e assinaturas. Sem migrations. Deploy exclusivamente Firebase Hosting após QA integral aprovado e smoke de produção.
+
 MusicScale 0.11.1-beta.1 — 2026-10-14
 Release conjunto: Biblioteca Viva global / Curadoria para músicas novas manuais ou por IA de todas as organizações, independentemente da função local que possa cadastrar uma música.
 Garantido o hotfix 0.11.1-beta.0 de autenticação Connect 401 e preservando todos os hotfixes beta.27 e anteriores.
