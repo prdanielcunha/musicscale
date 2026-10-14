@@ -446,7 +446,8 @@ describe('CurationApprovalService', () => {
         myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => stdCandidate });
         myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => stdOccurrence });
         await service.approve(defaultParams);
-        expect(myT.sets.length).toBe(3); // reservation, globalSong, reviewLog
+        expect(myT.sets.length).toBe(4); // reservation, global identity reservation, globalSong, reviewLog
+        expect(myT.sets.some(item => item.ref.path?.startsWith('globalSongUniqueKeys/'))).toBe(true);
         expect(myT.updates.length).toBe(1); // candidate status
     });
     it('17. review log já existente não é duplicado', async () => {
@@ -454,7 +455,7 @@ describe('CurationApprovalService', () => {
         myT.registerDocument('globalLibraryCandidates/c1/occurrences/o1', { exists: true, data: () => stdOccurrence });
         myT.registerDocument('globalLibraryCandidates/c1/reviewLogs/approve_idk1', { exists: true, data: () => ({}) }); // log exists!
         await service.approve(defaultParams);
-        expect(myT.sets.length).toBe(2); // reservation, globalSong
+        expect(myT.sets.length).toBe(3); // reservations (fingerprint and identity), globalSong
     });
     it('18. duplicidade de ocorrências atualiza o local song apenas uma vez', async () => {
         myT.registerDocument('globalLibraryCandidates/c1', { exists: true, data: () => stdCandidate });
@@ -654,7 +655,7 @@ describe('CurationApprovalService', () => {
         
         await service.approve(defaultParams);
         // If there was a read after write, myT.get would throw FIRESTORE_READ_AFTER_WRITE_FORBIDDEN.
-        expect(myT.sets.length).toBe(2);
+        expect(myT.sets.length).toBe(3); // reservations + global song, existing review log reused
     });
 
     it('12.1. uid numérico', async () => {
