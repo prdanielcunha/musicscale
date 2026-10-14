@@ -1,3 +1,8 @@
+MusicScale 0.11.1-beta.5 — 2026-10-14
+Escalas fixas: permitir que o mesmo integrante exerça teclado, vocal e ministro simultaneamente, ou quaisquer funções diferentes, com prevenção de duplicação exata de integrante/função, remoção independente e contagem de integrantes únicos.
+Preserva a release 0.11.1-beta.4 de suporte manual Connect, hotfix de cifras beta.3, Biblioteca Viva, Auth/Hub, dados de escalas, organizações e assinaturas. Sem migrações, exclusões, Rules/Functions/Cloud Run nem force push.
+Correção aprovada anteriormente na PR #514 com QA completo; revalidação integral do release nesta PR de produção obrigatória.
+
 MusicScale 0.11.1-beta.4 — 2026-10-14
 Suporte oficial Connect por ação explícita: identidade e organização revalidadas no Hub, rascunho manual sem envio automático, URL/expiração privadas validadas e fallback por e-mail. Build oficial exige gate 401 do Core; 21 simulações UI/relay aprovadas.
 Preserva integralmente a correção de rolagem de cifras da beta.3, biblioteca, escalas, autenticação, dados e assinaturas. Sem mudanças Meta, billing ou migrações.

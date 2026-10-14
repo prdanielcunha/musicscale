@@ -1243,6 +1243,7 @@
     "emptyFormationHint": "Comece selecionando uma função como Ministro, Backing Vocal, Bateria ou Teclado.",
     "addAs": "Adicionar como",
     "alreadyAdded": "Adicionado",
+    "assignedFunctions": "Funções na escala",
     "conflictWarning": "Conflito:",
     "noSpecialtyWarning": "Sem especialidade",
     "useSavedFormation": "Usar formação salva",

@@ -95,6 +95,10 @@ const FixedBandScaleManager: React.FC<FixedBandScaleManagerProps> = ({
     () => new Map(allUsers.map((u) => [u.uid, u])),
     [allUsers],
   );
+  const instrumentMap = useMemo(
+    () => new Map(instruments.map((instrument) => [instrument.id, instrument.name])),
+    [instruments],
+  );
 
   const handleOpenForm = (scale?: FixedBandScale) => {
     setSaveError(null);
@@ -208,11 +212,20 @@ const FixedBandScaleManager: React.FC<FixedBandScaleManagerProps> = ({
               </div>
               <div className="text-sm text-slate-600 dark:text-gray-300 flex items-center gap-1">
                 <UsersIcon className="w-4 h-4" />
-                <span>{t("scaleModal.memberCount", { count: scale.assignments.length })}</span>
+                <span>{t("scaleModal.memberCount", { count: new Set(scale.assignments.map((a) => a.userId)).size })}</span>
               </div>
               <p className="text-xs text-slate-500 dark:text-gray-400 pl-5 truncate">
-                {scale.assignments
-                  .map((a) => userMap.get(a.userId)?.displayName)
+                {[...new Set(scale.assignments.map((a) => a.userId))]
+                  .map((userId) => {
+                    const name = userMap.get(userId)?.displayName;
+                    if (!name) return null;
+                    const roles = scale.assignments
+                      .filter((a) => a.userId === userId)
+                      .map((a) => instrumentMap.get(a.instrumentId))
+                      .filter(Boolean)
+                      .join(" · ");
+                    return roles ? `${name} (${roles})` : name;
+                  })
                   .filter(Boolean)
                   .join(", ")}
               </p>
