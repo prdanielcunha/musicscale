@@ -63,6 +63,26 @@ describe('P3 chords autoscroll resume contract', () => {
     expect(visibilityEffect).toContain('removeEventListener');
   });
 
+  it('uses slower, progressive speeds at all levels, including very slow level 1', () => {
+    const speedTable = viewer.sourceText.match(
+      /const CHORDS_AUTOSCROLL_SPEEDS_PX_PER_SECOND = \[([^\]]+)\] as const;/,
+    );
+    expect(speedTable).not.toBeNull();
+
+    const speeds = speedTable![1].split(',').map((speed) => Number(speed.trim()));
+    expect(speeds).toEqual([0, 6, 15, 35, 70, 125]);
+    expect(speeds[0]).toBe(0);
+    expect(speeds[1]).toBeLessThan(10);
+
+    for (let level = 1; level <= 5; level++) {
+      expect(speeds[level]).toBeGreaterThan(speeds[level - 1]);
+      expect(speeds[level]).toBeLessThan(15 + Math.pow(level, 2.2) * 8);
+    }
+    expect(viewer.sourceText).toContain(
+      'const pxPerSecond = CHORDS_AUTOSCROLL_SPEEDS_PX_PER_SECOND[speedLevel] ?? 0;',
+    );
+  });
+
   it('continues to calculate movement from elapsed time at the selected speed', () => {
     expect(viewer.sourceText).toContain(
       'const scrollDelta = (pxPerSecond / 1000) * elapsed;',

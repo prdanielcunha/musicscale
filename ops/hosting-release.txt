@@ -1,3 +1,7 @@
+MusicScale 0.11.0-beta.12 — 2026-10-13
+Cifras ao vivo: reduz a velocidade nos cinco níveis da rolagem automática (1: 6 px/s; 2: 15; 3: 35; 4: 70; 5: 125). Na condução ao vivo, um comando de trecho muda a posição imediatamente sem pausar a rolagem de quem já a ativou; músicos pausados permanecem pausados, e saltos manuais mantêm o comportamento anterior.
+Release exclusivamente de frontend e testes, sem mudanças em autenticação, organizações, permissões, Hub, servidor, Cloud Run, Firestore Rules, dados, IA, assinaturas ou billing. QA completo obrigatório antes do deploy oficial Firebase Hosting; preservar todas as funções e todos os dados existentes.
+
 MusicScale 0.11.0-beta.11 — 2026-10-12
 Medley Studio — correção de consistência visual: todas as partes selecionadas começam visíveis na timeline, como trechos reais independentes. Seções detectadas na cifra (Intro, Partes, Refrões repetidos) mantêm sua ordem, nomes, intervalos, repetições e edição; a origem permanece imutável.
 Rascunhos, medleys legados, seleção musical da primeira etapa, botão Adicionar música, pontes e salvamento da beta.10 preservados. Respeita limite canônico de 30 trechos sem perder linhas (fallback Música inteira quando não há espaço); sem alteração de schema, Firestore Rules/Functions, Hub/Auth, billing ou dados dos clientes.
