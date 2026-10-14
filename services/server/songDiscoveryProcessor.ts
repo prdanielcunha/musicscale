@@ -4,6 +4,9 @@ import { compareSongs } from '../../utils/songDiscovery/matcher.js';
 import { GlobalLibraryCandidateRepository } from './globalLibraryCandidateRepository.js';
 import { GlobalLibraryCandidateOccurrence, GlobalLibraryCandidateMatch } from '../../utils/songDiscovery/curationTypes.js';
 import * as crypto from 'crypto';
+import { admin } from '../firebaseAdmin.js';
+import { CurationApprovalService } from './curationApprovalService.js';
+import { GENERIC_TITLES, MIN_LYRICS_WORDS_FOR_STRONG_MATCH } from '../../utils/songDiscovery/constants.js';
 
 const DISCOVERY_ALGORITHM_VERSION = '1.0';
 
@@ -125,22 +128,42 @@ export async function runSongDiscoveryProcessor(
   const repo = new GlobalLibraryCandidateRepository(dbInstance);
 
   try {
+    // Never classify a truncated search as evidence of uniqueness.
+    const MAX_MATCH_SCAN = 50;
     const globalSongsQuery = await dbInstance.collection('globalSongs')
       .where('normalizedTitle', '==', identity.normalizedTitle)
-      .limit(5)
-      .get();
+      .limit(MAX_MATCH_SCAN + 1).get();
+    const lyricsQuery = identity.lyricsFingerprint
+      ? await dbInstance.collection('globalSongs')
+          .where('lyricsFingerprint', '==', identity.lyricsFingerprint)
+          .limit(MAX_MATCH_SCAN + 1).get()
+      : null;
+    const globalDocs = new Map<string, any>();
+    for (const doc of [...globalSongsQuery.docs, ...(lyricsQuery?.docs || [])]) {
+      globalDocs.set(doc.id, doc);
+    }
+    const incompleteGlobalSearch = globalSongsQuery.docs.length > MAX_MATCH_SCAN ||
+      (lyricsQuery?.docs.length || 0) > MAX_MATCH_SCAN;
+    const lyricsAlreadyPresent = Boolean(lyricsQuery?.docs.length);
+    const hasMatchingGlobalArtist = Array.from(globalDocs.values()).some((doc: any) => {
+      const data = doc.data();
+      const artists = data.normalizedArtists || (data.normalizedArtist ? [data.normalizedArtist] : []);
+      return data.normalizedTitle === identity.normalizedTitle &&
+        (!artists.length || !identity.normalizedArtists.length ||
+         artists.some((artist: string) => identity.normalizedArtists.includes(artist)));
+    });
 
     let bestGlobalMatch: Omit<GlobalLibraryCandidateMatch, 'id' | 'createdAt' | 'updatedAt'> | null = null;
     const globalMatches: Omit<GlobalLibraryCandidateMatch, 'id' | 'createdAt' | 'updatedAt'>[] = [];
 
-    for (const doc of globalSongsQuery.docs) {
+    for (const doc of globalDocs.values()) {
       const globalData = doc.data() as any;
       const candidateIdentity = {
         normalizedTitle: globalData.normalizedTitle || '',
-        normalizedArtists: globalData.normalizedArtists || [],
+        normalizedArtists: globalData.normalizedArtists || (globalData.normalizedArtist ? [globalData.normalizedArtist] : []),
         normalizedLyrics: globalData.normalizedLyrics || null,
-        lyricsFingerprint: globalData.fingerprints?.lyrics || null,
-        contentFingerprint: globalData.fingerprints?.content || null,
+        lyricsFingerprint: globalData.lyricsFingerprint || globalData.fingerprints?.lyrics || null,
+        contentFingerprint: globalData.contentFingerprint || globalData.fingerprints?.content || null,
         originalTitle: globalData.title || '',
         openingLyrics: null,
         chorusLyrics: null,
@@ -173,11 +196,32 @@ export async function runSongDiscoveryProcessor(
 
     const candidatesQuery = await dbInstance.collection('globalLibraryCandidates')
       .where('canonicalIdentity.normalizedTitle', '==', identity.normalizedTitle)
-      .limit(5)
-      .get();
+      .limit(MAX_MATCH_SCAN + 1).get();
+    const candidateLyricsQuery = identity.lyricsFingerprint
+      ? await dbInstance.collection('globalLibraryCandidates')
+          .where('canonicalIdentity.lyricsFingerprint', '==', identity.lyricsFingerprint)
+          .limit(MAX_MATCH_SCAN + 1).get()
+      : null;
+    const candidateDocs = new Map<string, any>();
+    for (const doc of [...candidatesQuery.docs, ...(candidateLyricsQuery?.docs || [])]) {
+      candidateDocs.set(doc.id, doc);
+    }
+    const incompleteCandidateSearch = candidatesQuery.docs.length > MAX_MATCH_SCAN ||
+      (candidateLyricsQuery?.docs.length || 0) > MAX_MATCH_SCAN;
+    let pendingCandidateConflict = false;
 
-    for (const doc of candidatesQuery.docs) {
+    for (const doc of candidateDocs.values()) {
       const candidateData = doc.data() as any;
+      if (candidateData.status !== 'pending_review') continue;
+      const candidateArtist = candidateData.canonicalIdentity?.normalizedArtists || [];
+      if (
+        candidateData.canonicalIdentity?.lyricsFingerprint === identity.lyricsFingerprint &&
+        Boolean(identity.lyricsFingerprint)
+      ) pendingCandidateConflict = true;
+      if (candidateData.canonicalIdentity?.normalizedTitle === identity.normalizedTitle &&
+        (!candidateArtist.length || !identity.normalizedArtists.length ||
+        candidateArtist.some((artist: string) => identity.normalizedArtists.includes(artist)))
+      ) pendingCandidateConflict = true;
       const matchResult = compareSongs(identity, candidateData.canonicalIdentity);
 
       if (matchResult.classification === 'exact_match' || matchResult.classification === 'high_confidence_match') {
@@ -186,14 +230,26 @@ export async function runSongDiscoveryProcessor(
       }
     }
 
-    if (!targetCandidateId && globalSongsQuery.empty) {
+    if (incompleteGlobalSearch || incompleteCandidateSearch) {
       fallbackWarning = 'SEARCH_LIMITED_NO_GLOBAL_MATCH';
     }
 
     let finalClassification = bestGlobalMatch?.classification || 'likely_unique';
-    if (fallbackWarning === 'SEARCH_LIMITED_NO_GLOBAL_MATCH' || fallbackWarning?.includes('SEARCH_LIMITED')) {
-        finalClassification = 'insufficient_data';
+    if (finalClassification === 'likely_unique' &&
+        (lyricsAlreadyPresent || hasMatchingGlobalArtist || pendingCandidateConflict)) {
+      finalClassification = 'possible_duplicate';
     }
+    if (fallbackWarning) finalClassification = 'insufficient_data';
+
+    // Only strong, unambiguous evidence allows publication without a curator.
+    const lyricsWords = (identity.normalizedLyrics || '').split(/\s+/).filter(Boolean).length;
+    const mayAutoPublish = !fallbackWarning && !targetCandidateId &&
+      !hasMatchingGlobalArtist && !lyricsAlreadyPresent && !pendingCandidateConflict &&
+      !GENERIC_TITLES.has(identity.normalizedTitle) &&
+      identity.normalizedArtists.length > 0 &&
+      lyricsWords >= MIN_LYRICS_WORDS_FOR_STRONG_MATCH &&
+      finalClassification === 'likely_unique' &&
+      globalMatches.every(match => match.classification === 'likely_unique');
 
     // 7. Structure the Occurrence input safely
     const occurrenceInput: Omit<GlobalLibraryCandidateOccurrence, 'id' | 'candidateId' | 'createdAt' | 'updatedAt'> = {
@@ -242,7 +298,12 @@ export async function runSongDiscoveryProcessor(
       return { outcome: 'processed', candidateId: targetCandidateId, occurrenceId: safeOccurrenceId, candidateCreated: result.outcome === 'candidate_created' };
 
     } else {
-      const newCandidateId = identity.contentFingerprint || dbInstance.collection('globalLibraryCandidates').doc().id;
+      // An already resolved fingerprint must not swallow a new duplicate.
+      const fingerprintId = identity.contentFingerprint || dbInstance.collection('globalLibraryCandidates').doc().id;
+      const oldFingerprint = candidateDocs.get(fingerprintId);
+      const newCandidateId = oldFingerprint && oldFingerprint.data().status !== 'pending_review'
+        ? crypto.createHash('sha256').update(idempotencyKey + '_duplicate').digest('hex')
+        : fingerprintId;
       const result = await repo.addOccurrenceIdempotently(newCandidateId, occurrenceInput);
       const safeOccurrenceId = 'occurrenceId' in result ? result.occurrenceId : null;
 
@@ -258,6 +319,25 @@ export async function runSongDiscoveryProcessor(
 
       if (globalMatches.length > 0) {
         await repo.saveCandidateMatches(newCandidateId, globalMatches);
+      }
+
+      if (mayAutoPublish && result.outcome === 'candidate_created' && safeOccurrenceId) {
+        try {
+          const approval = new CurationApprovalService({ db: dbInstance, admin, logger: console });
+          await approval.approve({
+            candidateId: newCandidateId,
+            occurrenceId: safeOccurrenceId,
+            idempotencyKey: `automatic_${idempotencyKey}`,
+            decodedToken: { uid: 'millionsnest-auto-curation', hasCurationAccess: true },
+            automated: true
+          });
+          console.info('[Discovery] Verified unique song published', { songId, candidateId: newCandidateId });
+        } catch (err: any) {
+          // Candidate remains pending; the source song and scales are untouched.
+          console.warn('[Discovery] Automatic publication deferred for human review', {
+            songId, candidateId: newCandidateId, errorCode: err?.code || 'AUTO_APPROVAL_FAILED'
+          });
+        }
       }
 
       console.log('[Discovery] Document processed successfully: candidate created', {

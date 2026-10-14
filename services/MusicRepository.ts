@@ -29,24 +29,9 @@ export class MusicRepository {
         this.userProfile = userProfile;
         this.songs = new class extends BaseRepository<Song> {
             async create(data: Omit<Song, 'id' | 'createdAt' | 'createdBy' | 'organizationId'>): Promise<string> {
-                const id = await super.create(data);
-                // A custom arrangement is organization-owned, not an original global song.
-                // Never queue its combined copyrighted excerpts for global auto-curation.
-                if (typeof window !== 'undefined' && data.sourceType !== 'medley') {
-                    // Fire-and-forget reprocessing to queue auto-curation
-                    import('./firebase').then(({ auth }) => {
-                        auth.currentUser?.getIdToken().then(token => {
-                            if (token) {
-                                fetch('/api/curation/auto-process-song', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                    body: JSON.stringify({ songId: id })
-                                }).catch(err => console.error("Auto-process error:", err));
-                            }
-                        }).catch(() => {});
-                    }).catch(() => {});
-                }
-                return id;
+                // Cloud Functions owns the mandatory global-ingestion pipeline.
+                // No browser fire-and-forget call: closing the PWA cannot drop submissions.
+                return super.create(data);
             }
         }('songs', orgId, userProfile);
         this.scales = new class extends BaseRepository<Scale> {

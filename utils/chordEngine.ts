@@ -1423,7 +1423,6 @@ export function analyzeChordDocumentKeyCandidates(chords: string): ChordDocument
     }
   }
 
-  const topScore = canonicalCandidates[0]?.score || 0;
   const secondScore = canonicalCandidates[1]?.score || 0;
 
   const resultCandidates: ChordKeyCandidate[] = canonicalCandidates.map((cand, idx) => {

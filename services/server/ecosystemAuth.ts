@@ -1,11 +1,24 @@
 import { adminDb, adminAuth, admin } from '../firebaseAdmin.js';
 
 export const VALID_ECOSYSTEM_ROLES = [
-  'ceo', 
-  'global_admin', 
-  'ecosystem_owner', 
+  'ceo',
+  'admin',
+  'global_admin',
+  'ecosystem_owner',
   'founder'
 ];
+// Support can work in MusicScale global Curation only; it must not gain
+// access to unrelated system-maintenance endpoints using the same middleware.
+export const CURATION_ECOSYSTEM_ROLES = [...VALID_ECOSYSTEM_ROLES, 'ecosystem_support'];
+const CURATION_SUPPORT_PATHS = new Set([
+  '/api/admin/inbox-count',
+  '/api/admin/reanalyze-candidates',
+  '/api/admin/backfill-global-titles',
+  '/api/admin/backfill-global-titles/dry-run'
+]);
+export function isCurationSupportEndpoint(path: string): boolean {
+  return path.startsWith('/api/curation/') || CURATION_SUPPORT_PATHS.has(path);
+}
 
 export interface AuthenticatedEcosystemContext {
   uid: string;
@@ -14,7 +27,7 @@ export interface AuthenticatedEcosystemContext {
   hasCurationAccess: boolean;
 }
 
-export async function validateEcosystemAuthToken(authHeader: string | undefined, dbInstance: any, authInstance: any): Promise<{ statusCode?: number, error?: string, safeCode?: string, diagnostic?: any, context?: AuthenticatedEcosystemContext }> {
+export async function validateEcosystemAuthToken(authHeader: string | undefined, dbInstance: any, authInstance: any, allowCurationSupport = false): Promise<{ statusCode?: number, error?: string, safeCode?: string, diagnostic?: any, context?: AuthenticatedEcosystemContext }> {
     if (!dbInstance || !authInstance) {
       return { statusCode: 503, error: "SERVICE_UNAVAILABLE: Serviço de autorização temporariamente indisponível." };
     }
@@ -59,6 +72,7 @@ export async function validateEcosystemAuthToken(authHeader: string | undefined,
         return "present_invalid";
     };
 
+    const permittedRoles = allowCurationSupport ? CURATION_ECOSYSTEM_ROLES : VALID_ECOSYSTEM_ROLES;
     const sysRoleStatus = checkFieldStatus(userData?.systemRole);
     const ecoRoleStatus = checkFieldStatus(userData?.ecosystemRole);
     const glbRoleStatus = checkFieldStatus(userData?.globalRole);
@@ -68,7 +82,7 @@ export async function validateEcosystemAuthToken(authHeader: string | undefined,
     for (const r of rolesToTry) {
         if (r) {
             const rNorm = String(r).trim().toLowerCase();
-            if (VALID_ECOSYSTEM_ROLES.includes(rNorm)) {
+            if (permittedRoles.includes(rNorm)) {
                 finalValidRole = rNorm;
                 break;
             }
@@ -89,7 +103,7 @@ export async function validateEcosystemAuthToken(authHeader: string | undefined,
                 ecosystemRole: ecoRoleStatus,
                 globalRole: glbRoleStatus
             },
-            acceptedRoles: VALID_ECOSYSTEM_ROLES,
+            acceptedRoles: permittedRoles,
             message: "O backend não encontrou um papel global canônico em users/{uid}."
         }
       };
@@ -111,7 +125,7 @@ export async function validateEcosystemAuthToken(authHeader: string | undefined,
  */
 export async function requireEcosystemRole(req: any, res: any, next: any) {
   try {
-    const result = await validateEcosystemAuthToken(req.headers.authorization, adminDb, adminAuth);
+    const result = await validateEcosystemAuthToken(req.headers.authorization, adminDb, adminAuth, isCurationSupportEndpoint(String(req.path || '')));
     
     if (result.error) {
       const responsePayload: any = { error: result.error };

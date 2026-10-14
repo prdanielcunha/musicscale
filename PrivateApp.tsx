@@ -63,7 +63,7 @@ import { resolveSubscriptionAccess } from './utils/subscriptionAccessResolver';
 
 const AppLayout: React.FC = () => {
     const { t } = useTranslation();
-    const { user, userProfile, userRole, organization, subscription, isAdmin, isOwner, isGlobalAdmin, entitlements, isSupportMode, effectiveOrganizationName, loading: isAuthLoading, supportTargetType, isSubscriptionLoaded, isEntitlementsLoaded } = useAuth();
+    const { user, userProfile, userRole, organization, subscription, isAdmin, isOwner, isGlobalAdmin, isCurationAdmin, entitlements, isSupportMode, effectiveOrganizationName, loading: isAuthLoading, supportTargetType, isSubscriptionLoaded, isEntitlementsLoaded } = useAuth();
     const { isDegraded, publishEvent } = useEcosystem();
     const [isSidebarCollapsed, setSidebarCollapsed] = React.useState(true);
     const [isMobileViewport, setIsMobileViewport] = React.useState(() =>
@@ -92,7 +92,7 @@ const AppLayout: React.FC = () => {
         };
     }, []);
 
-    const isAllowedRouteDuringSuspension = location.pathname === '/plans' || location.pathname === '/profile' || location.pathname.startsWith('/debug');
+    const isAllowedRouteDuringSuspension = location.pathname === '/plans' || location.pathname === '/profile' || location.pathname.startsWith('/debug') || (isCurationAdmin && (location.pathname === '/curation' || location.pathname.startsWith('/curation/')));
     const contextValidation = React.useMemo(() => ({
         entitlements,
         organization,
