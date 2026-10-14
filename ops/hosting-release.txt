@@ -1,4 +1,4 @@
 MusicScale 0.11.0-beta.13 — 2026-10-13
 Curadoria Global da Biblioteca Viva: ingestão automática de músicas manuais e IA de todas as organizações, deduplicação protegida por reserva de identidade compartilhada, revisão centralizada CEO/admin/suporte MillionsNest, catálogo global auditável com edição e arquivamento lógico.
-Preserva integralmente as melhorias de Cifras ao Vivo da 0.11.0-beta.12 (velocidade de rolagem em cinco níveis e comportamento da condução). Esta versão exige regras Firestore canônicas do MillionsNest publicadas e verificação das Firebase Functions onLocalSongWritten, Cloud Run e Hosting.
+Preserva integralmente as melhorias de Cifras ao Vivo da 0.11.0-beta.12 (velocidade de rolagem em cinco níveis e comportamento da condução). Mantém a linha histórica anterior, preservando todos os hotfixes beta.27 e anteriores. Esta versão exige regras Firestore canônicas do MillionsNest publicadas e verificação das Firebase Functions onLocalSongWritten, Cloud Run e Hosting.
 Nenhuma migração destrutiva. Nenhuma exclusão de músicas, escalas, configurações ou assinaturas dos clientes.
