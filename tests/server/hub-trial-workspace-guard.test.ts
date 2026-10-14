@@ -112,6 +112,41 @@ describe('Hub internal trial music gateway protects Admin SDK routes',()=>{
       error:'X-Organization-Id is required',code:'MISSING_ORGANIZATION_ID'
     });
   });
+  it('preserves Connect 401 preflight from its read handler before tenant validation', async()=>{
+    const guard=createHubTrialWorkspaceMiddleware({db:fakeDb({marker:true})});
+    for(const pathname of [
+      '/api/v1/connect/next-schedule',
+      '/api/v1/connect/next-schedule/repertoire',
+      '/api/v1/connect/next-schedule/presence',
+      '/api/v1/connect/next-schedule/chart',
+    ]) {
+      const next=vi.fn();
+      const status=vi.fn(()=>({json:vi.fn()}));
+      await guard({path:pathname,headers:{},query:{}},{status},next);
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(status).not.toHaveBeenCalled();
+    }
+    const next=vi.fn();
+    const status=vi.fn(()=>({json:vi.fn()}));
+    await guard({path:'/api/v1/connect/next-schedule',
+      headers:{authorization:'Bearer valid-shaped-token'},query:{}},{status},next);
+    expect(next).not.toHaveBeenCalled();
+    expect(status).toHaveBeenCalledWith(400);
+  });
+  it('keeps Hub trial denial for authenticated Connect user even with forwarded bearer',async()=>{
+    const expired={...validTrial,beginsAt:new Date(now-15*DAY),expiresAt:new Date(now-DAY)};
+    const guard=createHubTrialWorkspaceMiddleware({db:fakeDb({marker:true,trial:expired})});
+    const next=vi.fn();
+    const json=vi.fn();
+    const status=vi.fn(()=>({json}));
+    await guard({
+      path:'/api/v1/connect/next-schedule',
+      headers:{'x-connect-user-authorization':'Bearer forwarded-token','x-organization-id':orgId},
+    },{status},next);
+    expect(status).toHaveBeenCalledWith(403);
+    expect(json).toHaveBeenCalledWith({error:'HUB_TRIAL_EXPIRED'});
+    expect(next).not.toHaveBeenCalled();
+  });
   it('middleware returns 403 and never runs the next handler on expired cohort',async()=>{
     const expired={...validTrial,beginsAt:new Date(now-15*DAY),expiresAt:new Date(now-DAY)};
     const guard=createHubTrialWorkspaceMiddleware({db:fakeDb({marker:true,trial:expired})});
