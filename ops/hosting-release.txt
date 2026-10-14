@@ -1,4 +1,9 @@
-MusicScale 0.11.1-beta.1 — 2026-10-14
+MusicScale 0.11.1-beta.3 — 2026-10-14
+Escalas fixas: um mesmo integrante pode ocupar simultaneamente funções distintas (ex.: teclado, vocal e ministro). Impede atribuições duplicadas do mesmo integrante na mesma função e mantém remoção individual, integrantes únicos no resumo e nomes das funções atribuídas.
+Preserva todas as formações existentes, escalas, músicas, permissões, assinaturas e configurações; sem migrações destrutivas nem alterações em Firebase Rules/Functions ou Cloud Run.
+Esta revisão integra a mudança validada na PR #514, preservando integralmente o código e o histórico da produção 0.11.1-beta.2 (incluindo a entrada Connect de suporte, ainda sujeita ao seu próprio feature flag).
+
+MusicScale 0.11.1-beta.2 — 2026-10-14
 Release conjunto: Biblioteca Viva global / Curadoria para músicas novas manuais ou por IA de todas as organizações, independentemente da função local que possa cadastrar uma música.
 Garantido o hotfix 0.11.1-beta.0 de autenticação Connect 401 e preservando todos os hotfixes beta.27 e anteriores.
 Curadoria exclusivamente CEO, administração global e suporte MillionsNest; publicação automática conservadora e pendências de duplicatas, registros de origem, edição/arquivamento lógico, ações em massa e histórico auditável.
@@ -118,3 +123,5 @@ MusicScale 0.11.0-beta.13 — 2026-10-13
 Curadoria Global da Biblioteca Viva: ingestão automática de músicas manuais e IA de todas as organizações, deduplicação protegida por reserva de identidade compartilhada, revisão centralizada CEO/admin/suporte MillionsNest, catálogo global auditável com edição e arquivamento lógico.
 Preserva integralmente as melhorias de Cifras ao Vivo da 0.11.0-beta.12 (velocidade de rolagem em cinco níveis e comportamento da condução). Mantém a linha histórica anterior, preservando todos os hotfixes beta.27 e anteriores. Esta versão exige regras Firestore canônicas do MillionsNest publicadas e verificação das Firebase Functions onLocalSongWritten, Cloud Run e Hosting.
 Nenhuma migração destrutiva. Nenhuma exclusão de músicas, escalas, configurações ou assinaturas dos clientes.
+
+Connect: entrada de suporte manual com origem assinada, transporte autenticado e validação canônica Hub. Botão condicionado a VITE_CONNECT_SUPPORT_ENABLED; permanece desativado até homologação autenticada do endpoint Core. Nenhum envio automático ou alteração da configuração Meta.
