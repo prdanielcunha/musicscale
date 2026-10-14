@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Modal from "../common/Modal";
 import Button from "../common/Button";
 import Spinner from "../common/Spinner";
+import ConnectSupportButton from './ConnectSupportButton';
 
 interface SupportModalProps {
   isOpen: boolean;
@@ -60,6 +61,7 @@ const SupportModal: React.FC<SupportModalProps> = ({
       maxWidth="max-w-md"
     >
       <div className="p-1">
+        <ConnectSupportButton />
         {sent ? (
           <div className="py-8 text-center animate-in fade-in zoom-in duration-300">
             <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
