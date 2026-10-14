@@ -1243,6 +1243,7 @@
     "emptyFormationHint": "Start by selecting a role like Minister, Backing Vocal, Drums, or Keyboard.",
     "addAs": "Add as",
     "alreadyAdded": "Already added",
+    "assignedFunctions": "Roles in this formation",
     "conflictWarning": "Possible conflict: this member is already scheduled in another event today.",
     "noSpecialtyWarning": "This member doesn't have this role in their profile.",
     "useSavedFormation": "Use saved formation",

@@ -1243,6 +1243,7 @@
     "emptyFormationHint": "Empieza seleccionando una función como Ministro, Coro, Batería o Teclado.",
     "addAs": "Añadir como",
     "alreadyAdded": "Ya añadido",
+    "assignedFunctions": "Funciones en esta formación",
     "conflictWarning": "Posible conflicto: este integrante ya está escalado en otro evento hoy.",
     "noSpecialtyWarning": "Este integrante no tiene esta función registrada en su perfil.",
     "useSavedFormation": "Usar formación guardada",

@@ -104,14 +104,18 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
   }));
 
   const addAssignment = (userId: string, instrumentId: string) => {
-    const currentAssignments = formData.assignments || [];
-    if (currentAssignments.some((a: BandMember) => a.userId === userId)) {
-      return; // Already added, simple block
-    }
-    setFormData((prev: any) => ({
-      ...prev,
-      assignments: [...(prev.assignments || []), { userId, instrumentId }],
-    }));
+    setFormData((prev: any) => {
+      const assignments: BandMember[] = prev.assignments || [];
+      // A member can serve in multiple functions, but each member/function
+      // combination must be unique, including on rapid repeated clicks.
+      if (assignments.some((a) => a.userId === userId && a.instrumentId === instrumentId)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        assignments: [...assignments, { userId, instrumentId }],
+      };
+    });
   };
 
   const removeAssignment = (userId: string, instrumentId: string) => {
@@ -224,6 +228,11 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
 
   const renderUserCard = (u: UserProfile, isCompatible: boolean) => {
     const isAdded = assignedUserIds.has(u.uid);
+    const assignedFunctions = currentAssignments
+      .filter((a) => a.userId === u.uid)
+      .map((a) => allInstrumentsMap.get(a.instrumentId) || a.instrumentId);
+    const selectedFunctionAlreadyAssigned = selectedInstruments.length === 1 &&
+      currentAssignments.some((a) => a.userId === u.uid && a.instrumentId === selectedInstruments[0].id);
     const conflicts = conflictsByUserId.get(u.uid);
 
     const userSpecialties = u.specialtyIds
@@ -236,7 +245,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
         key={u.uid}
         className={`flex flex-col p-3 rounded-xl border transition-all duration-200 ${
           isAdded
-            ? "border-primary/50 bg-primary/5 opacity-60"
+            ? "border-primary/50 bg-primary/5"
             : "border-slate-200 dark:border-white/5 bg-white dark:bg-[#1C1C1E] hover:border-primary/30"
         }`}
       >
@@ -262,7 +271,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
         <div className="flex flex-wrap gap-1 mb-3">
           {isAdded && (
             <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded">
-              {t('bandScaleModal.alreadyAdded')}
+              {t('bandScaleModal.assignedFunctions', 'Funções na escala')}: {assignedFunctions.join(' · ')}
             </span>
           )}
           {conflicts && conflicts.length > 0 && (
@@ -279,23 +288,29 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
 
         {/* Action Button */}
         <div className="mt-auto pt-2">
-          {selectedInstruments.length > 0 && !isAdded ? (
+          {selectedInstruments.length > 0 ? (
             selectedInstruments.length === 1 ? (
               <Button
                 type="button"
-                variant="secondary"
+                variant={selectedFunctionAlreadyAssigned ? "ghost" : "secondary"}
                 size="sm"
                 className="w-full text-xs font-semibold py-1.5"
+                disabled={selectedFunctionAlreadyAssigned}
                 onClick={() => addAssignment(u.uid, selectedInstruments[0].id)}
                 data-testid={`add-assignment-${u.uid}-${selectedInstruments[0].id}`}
               >
-                {t('bandScaleModal.addAs')} {selectedInstruments[0].name}
+                {selectedFunctionAlreadyAssigned
+                  ? t('bandScaleModal.alreadyAdded')
+                  : `${t('bandScaleModal.addAs')} ${selectedInstruments[0].name}`}
               </Button>
             ) : (
               <div className="flex flex-col gap-1.5 bg-slate-50 dark:bg-black/20 p-2 rounded-lg border border-slate-100 dark:border-white/5">
                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-0.5">Atribuir Função:</span>
                  <div className="flex flex-wrap gap-1.5">
                    {selectedInstruments.map(inst => {
+                     const isFunctionAlreadyAssigned = currentAssignments.some(
+                       (a) => a.userId === u.uid && a.instrumentId === inst.id
+                     );
                      let isSpecialty = u.specialtyIds?.includes(inst.id) || false;
                      if (!isSpecialty) {
                          const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -328,7 +343,9 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
                        <button
                          key={inst.id}
                          type="button"
-                         className={`px-2 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                         disabled={isFunctionAlreadyAssigned}
+                         aria-pressed={isFunctionAlreadyAssigned}
+                         className={`px-2 py-1 text-[11px] font-semibold rounded-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                            isSpecialty 
                              ? "bg-primary text-white hover:bg-primary/90 shadow-sm" 
                              : "bg-white dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20 border border-slate-200 dark:border-white/10"
@@ -336,7 +353,7 @@ const BandBuilder = forwardRef<BandBuilderHandle, BandBuilderProps>(({
                          onClick={() => addAssignment(u.uid, inst.id)}
                          data-testid={`add-assignment-${u.uid}-${inst.id}`}
                        >
-                         {inst.name}
+                         {inst.name}{isFunctionAlreadyAssigned ? ` · ${t('bandScaleModal.alreadyAdded')}` : ''}
                        </button>
                      );
                    })}
