@@ -83,6 +83,33 @@ describe('P3 chords autoscroll resume contract', () => {
     );
   });
 
+  it('does not turn off Play when the musician touches or drags the chart', () => {
+    const touchStart = viewer.sourceText.split('const handleTouchStart =')[1]
+      ?.split('const handleTouchMove =')[0] ?? '';
+    const touchEnd = viewer.sourceText.split('const handleTouchEnd =')[1]
+      ?.split('useEffect(() => {')[0] ?? '';
+
+    expect(touchStart).toContain('touchScrollInteractionRef.current = true;');
+    expect(touchStart).not.toContain('setIsAutoScrolling(');
+    expect(viewer.sourceText).toContain('onTouchCancel={handleTouchCancel}');
+    expect(touchEnd).toContain('touchScrollInteractionRef.current = false;');
+    expect(touchEnd).toContain('scrollPosRef.current = scrollContainerRef.current.scrollTop;');
+    expect(touchEnd).not.toContain('setIsAutoScrolling(false)');
+  });
+
+  it('realigns after manual scrolling instead of jumping back, including trackpad scrolls', () => {
+    const scrollStep = viewer.sourceText.split('const scrollStep = useCallback(')[1]
+      ?.split('useEffect(() => {')[0] ?? '';
+
+    expect(scrollStep).toContain('touchScrollInteractionRef.current ||');
+    expect(scrollStep).toContain('Math.abs(currentTop - scrollPosRef.current) > 1');
+    expect(scrollStep).toContain('scrollPosRef.current = currentTop;');
+    expect(scrollStep).toContain('lastTimeRef.current = undefined;');
+    expect(scrollStep).toContain('scrollAnimationRef.current = requestAnimationFrame(scrollStep);');
+    expect(scrollStep).not.toContain('setIsAutoScrolling(false)');
+    expect(scrollStep).toContain('Math.min(scrollPosRef.current + scrollDelta, maxScrollTop)');
+  });
+
   it('continues to calculate movement from elapsed time at the selected speed', () => {
     expect(viewer.sourceText).toContain(
       'const scrollDelta = (pxPerSecond / 1000) * elapsed;',
