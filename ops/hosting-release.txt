@@ -1,4 +1,6 @@
-MusicScale 0.11.0-beta.12 — 2026-10-13
+MusicScale 0.11.1-beta.0 — 2026-10-14
+Hotfix exclusivo da API Connect: ausência de bearer chega ao handler canônico e responde401 antes do tenant; bearer autenticado mantém gate Hub/trial/billing. Nenhuma alteração musical/UI/dados/permissões.
+Preserva integralmente a apresentação e todos os hotfixes da versão publicada0.11.0-beta.12.
 Cifras ao vivo: reduz a velocidade nos cinco níveis da rolagem automática (1: 6 px/s; 2: 15; 3: 35; 4: 70; 5: 125). Na condução ao vivo, um comando de trecho muda a posição imediatamente sem pausar a rolagem de quem já a ativou; músicos pausados permanecem pausados, e saltos manuais mantêm o comportamento anterior.
 Release exclusivamente de frontend e testes, sem mudanças em autenticação, organizações, permissões, Hub, servidor, Cloud Run, Firestore Rules, dados, IA, assinaturas ou billing. QA completo obrigatório antes do deploy oficial Firebase Hosting; preservar todas as funções e todos os dados existentes.
 
