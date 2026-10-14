@@ -23,7 +23,10 @@ describe('Global Live Library universal curation contract', () => {
     const catalog = source('services/server/globalCurationCatalog.ts');
     expect(catalog).toContain("status: 'archived'");
     expect(catalog).toContain("action: 'archive_global_song'");
-    expect(catalog).not.toContain('tx.delete(');
+    // Only the obsolete identity reservation may be released after title/artist edits.
+    // Neither the published global song nor tenant-owned songs/scales are deleted.
+    expect(catalog).toContain('tx.delete(oldUniqueKey)');
+    expect(catalog).not.toMatch(/tx\.delete\(\s*(?:ref|songRef|globalSongRef|localRef)\s*\)/);
     expect(catalog).not.toContain("collection('scales')");
   });
 });
