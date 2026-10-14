@@ -3,13 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import Button from '../common/Button';
 
-export default function ConnectSupportButton() {
+function EnabledConnectSupportButton() {
   const { user, effectiveOrganizationId } = useAuth();
   const { i18n } = useTranslation();
   const epoch = useRef(0);
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false);
   useEffect(() => { epoch.current++; setBusy(false); setFailed(false); return () => { epoch.current++; }; }, [user?.uid, effectiveOrganizationId]);
-  if (import.meta.env.VITE_CONNECT_SUPPORT_ENABLED !== 'true') return null;
   const locale = i18n.language.startsWith('en') ? 'en-US' : i18n.language.startsWith('es') ? 'es-ES' : 'pt-BR';
   const copy = {
     'pt-BR': ['Conversar no WhatsApp oficial', 'Não foi possível abrir o WhatsApp. Use o suporte por e-mail abaixo.'],
@@ -34,4 +33,8 @@ export default function ConnectSupportButton() {
     finally { if (generation === epoch.current) setBusy(false); }
   };
   return <div className="mb-4"><Button type="button" disabled={busy || !user || !effectiveOrganizationId} onClick={() => void open()} className="w-full">{copy[0]}</Button>{failed && <p role="status" className="mt-2 text-sm text-slate-500">{copy[1]}</p>}</div>;
+}
+
+export default function ConnectSupportButton() {
+  return import.meta.env.VITE_CONNECT_SUPPORT_ENABLED === 'true' ? <EnabledConnectSupportButton /> : null;
 }
