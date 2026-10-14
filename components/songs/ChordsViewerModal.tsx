@@ -1029,14 +1029,21 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     [activeSectionIndex, sectionNavigatorItems],
   );
 
-  const scrollToSectionIndex = useCallback((sectionIndex: number) => {
+  const scrollToSectionIndex = useCallback((sectionIndex: number, preserveAutoScroll = false) => {
     const container = scrollContainerRef.current;
     const target = sectionRefs.current.get(sectionIndex);
     if (!container || !target) return false;
 
-    setIsAutoScrolling(false);
     const targetTop = Math.max(0, target.offsetTop - 126);
-    container.scrollTo({ top: targetTop, behavior: "smooth" });
+    if (preserveAutoScroll) {
+      // A live direction jumps immediately without stopping an active autoscroll.
+      container.scrollTop = targetTop;
+      scrollPosRef.current = container.scrollTop;
+      lastTimeRef.current = undefined;
+    } else {
+      setIsAutoScrolling(false);
+      container.scrollTo({ top: targetTop, behavior: "smooth" });
+    }
     return true;
   }, []);
 
@@ -1060,9 +1067,9 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     let frame: number | null = null;
     let fallback: number | null = null;
     frame = requestAnimationFrame(() => {
-      if (!scrollToSectionIndex(target.sectionIndex)) {
+      if (!scrollToSectionIndex(target.sectionIndex, true)) {
         fallback = window.setTimeout(() => {
-          scrollToSectionIndex(target.sectionIndex);
+          scrollToSectionIndex(target.sectionIndex, true);
         }, 80);
       }
     });
