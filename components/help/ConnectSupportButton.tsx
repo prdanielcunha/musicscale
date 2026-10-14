@@ -23,7 +23,7 @@ function EnabledConnectSupportButton() {
     try {
       const token = await user.getIdToken();
       const response = await fetch('/api/v1/connect/support-draft', { method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'x-organization-id': effectiveOrganizationId, 'Content-Type': 'application/json' }, body: JSON.stringify({ locale }) });
+        headers: { Authorization: `Bearer ${token}`, 'X-Connect-User-Authorization': `Bearer ${token}`, 'x-organization-id': effectiveOrganizationId, 'Content-Type': 'application/json' }, body: JSON.stringify({ locale }) });
       if (!response.ok) throw new Error();
       const data = await response.json(), url = new URL(data.draftUrl);
       if (data.automaticSend !== false || data.product !== 'musicscale' || url.origin !== 'https://wa.me' || url.username || url.password || !/^\/[1-9][0-9]{7,14}$/.test(url.pathname)) throw new Error();

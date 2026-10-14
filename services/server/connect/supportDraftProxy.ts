@@ -10,7 +10,7 @@ export function createConnectSupportDraftProxy(fetchImpl: typeof fetch = fetch) 
         Object.keys(req.body).some(key => key !== 'locale') || !['pt-BR', 'en-US', 'es-ES'].includes(req.body.locale)) return res.status(400).json({ code: 'INVALID_SUPPORT_SCOPE' });
     try {
       const response = await fetchImpl(CONNECT_ENDPOINT, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000),
-        headers: { Authorization: token, 'Content-Type': 'application/json' },
+        headers: { Authorization: token, 'X-Connect-User-Authorization': token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ product: 'musicscale', organizationId: org, locale: req.body.locale }) });
       if (!response.ok) return res.status([401, 403, 404, 409].includes(response.status) ? response.status : 503).json({ code: 'SUPPORT_UNAVAILABLE' });
       const data = await response.json();

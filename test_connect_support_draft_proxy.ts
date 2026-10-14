@@ -6,6 +6,7 @@ let data: any = { product: 'musicscale', automaticSend: false, expiresAt: Date.n
 const proxy = createConnectSupportDraftProxy(async (url, init) => {
   calls++; assert.equal(url, 'https://connect.millionsnest.com/api/core/support/draft'); assert.equal(init.redirect, 'error');
   assert.equal((init.headers as any).Authorization, request.headers.authorization);
+  assert.equal((init.headers as any)['X-Connect-User-Authorization'], request.headers.authorization);
   assert.deepEqual(JSON.parse(String(init.body)), { product: 'musicscale', organizationId: 'synthetic-org', locale: 'pt-BR' });
   return new Response(JSON.stringify(data), { status });
 });
