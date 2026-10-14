@@ -9,6 +9,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { isBulkImportEligibleCandidate } from "../utils/curation/bulkImportEligibility";
 
 import { CandidateDetailsModal } from '../components/curation/CandidateDetailsModal';
+import { GlobalSongCatalog } from '../components/curation/GlobalSongCatalog';
 import { OrganizationScannerModal } from '../components/curation/OrganizationScannerModal';
 import { InboxAnalysisModal } from '../components/curation/InboxAnalysisModal';
 import { ImportCandidatesModal } from '../components/curation/ImportCandidatesModal';
@@ -147,6 +148,74 @@ export default function CurationPage() {
         : prev.map(candidate => candidate.candidateId === id ? { ...candidate, status } : candidate));
   };
 
+  const [pendingBulkBusy, setPendingBulkBusy] = useState(false);
+  const [pendingBulkStatus, setPendingBulkStatus] = useState('');
+
+  const applyPendingDecisions = async (ids: string[], action: 'approve' | 'reject') => {
+    setPendingBulkBusy(true);
+    let succeeded = 0;
+    let failed = 0;
+    try {
+      for (const id of ids) {
+        try {
+          if (action === 'approve') {
+            const occs = await curationService.fetchOccurrences(id);
+            const base = occs.find((o: any) => o.id);
+            if (!base) throw new Error('NO_OCCURRENCE');
+            await curationService.approveAsNew(id, base.id, 'bulk_approve_' + id + '_' + Date.now());
+          } else {
+            await curationService.rejectCandidate(id, 'other',
+              t('curation.bulkReview.reason'), 'bulk_reject_' + id + '_' + Date.now());
+          }
+          succeeded++;
+          handleCandidateResolved(id, action === 'approve' ? 'approved' : 'rejected');
+        } catch {
+          failed++;
+        }
+        setPendingBulkStatus(t('curation.bulkReview.progress', { count: succeeded + failed, total: ids.length }));
+      }
+      setPendingBulkStatus(t('curation.bulkReview.result', { succeeded, failed }));
+      await fetchCandidates(false);
+    } finally {
+      setPendingBulkBusy(false);
+    }
+  };
+
+  const processPendingSelected = async (action: 'approve' | 'reject') => {
+    if (!selectedCandidateIds.length || pendingBulkBusy) return;
+    if (!window.confirm(t('curation.bulkReview.confirmSelected', {
+      count: selectedCandidateIds.length, action: t('curation.bulkReview.' + action)
+    }))) return;
+    await applyPendingDecisions(selectedCandidateIds, action);
+  };
+
+  const processPendingAll = async (action: 'approve' | 'reject') => {
+    if (pendingBulkBusy) return;
+    const word = t('curation.bulkReview.confirmWord');
+    if (window.prompt(t('curation.bulkReview.confirmAll', {
+      action: t('curation.bulkReview.' + action), word
+    })) !== word) return;
+    setPendingBulkBusy(true);
+    try {
+      const ids: string[] = [];
+      let next: QueryDocumentSnapshot<DocumentData> | null = null;
+      do {
+        const page = await curationService.fetchCandidates({
+          status: 'pending_review', limitMsgs: 20, lastDoc: next || undefined
+        });
+        ids.push(...page.candidates.filter((c: any) => c.status === 'pending_review')
+          .map((c: any) => c.candidateId));
+        next = page.hasMore ? page.lastDoc : null;
+        if (ids.length > 10000) throw new Error('BULK_LIMIT_REACHED');
+      } while (next);
+      await applyPendingDecisions([...new Set(ids)], action);
+    } catch (e: any) {
+      setPendingBulkStatus(e?.message || 'REQUEST_FAILED');
+    } finally {
+      setPendingBulkBusy(false);
+    }
+  };
+
   const getStatusLabel = (candidate: any) => {
       if (candidate.status === 'approved') return t('curation.status.approved');
       if (candidate.status === 'linked') return t('curation.status.linked');
@@ -161,6 +230,7 @@ export default function CurationPage() {
 
   return (
     <div className="space-y-6 animate-fade-in relative max-w-5xl mx-auto">
+      <GlobalSongCatalog />
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
           {t('curation.title')}
@@ -261,6 +331,49 @@ export default function CurationPage() {
          </div>
       </div>
 
+      {filter === 'pending_review' && !loading && (
+        <div className="bg-white dark:bg-[#1A1A1A] rounded-2xl border border-slate-200 dark:border-white/10 p-4 space-y-3">
+          <h2 className="font-semibold text-slate-900 dark:text-white">{t('curation.bulkReview.title')}</h2>
+          <div className="flex flex-wrap gap-2 items-center">
+            <button type="button" disabled={pendingBulkBusy} onClick={() => {
+              const ids = candidates.filter((c: any) => c.status === 'pending_review')
+                .map((c: any) => c.candidateId);
+              setSelectedCandidateIds(previous => [...new Set([...previous, ...ids])]);
+            }} className="rounded-lg px-3 py-2 text-xs border border-slate-300 dark:border-white/20">
+              {t('curation.bulk.selectPage')}
+            </button>
+            <button type="button" disabled={pendingBulkBusy} onClick={() => setSelectedCandidateIds([])}
+              className="rounded-lg px-3 py-2 text-xs border border-slate-300 dark:border-white/20">
+              {t('curation.bulk.clearSelection')}
+            </button>
+            <span className="text-xs text-slate-500">{t('curation.bulk.selected', { count: selectedCandidateIds.length })}</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={!selectedCandidateIds.length || pendingBulkBusy}
+              onClick={() => void processPendingSelected('approve')}
+              className="rounded-lg px-3 py-2 text-sm bg-indigo-600 text-white disabled:opacity-40">
+              {t('curation.bulkReview.approveSelected')}
+            </button>
+            <button type="button" disabled={!selectedCandidateIds.length || pendingBulkBusy}
+              onClick={() => void processPendingSelected('reject')}
+              className="rounded-lg px-3 py-2 text-sm border border-red-500 text-red-600 dark:text-red-400 disabled:opacity-40">
+              {t('curation.bulkReview.rejectSelected')}
+            </button>
+            <button type="button" disabled={pendingBulkBusy}
+              onClick={() => void processPendingAll('approve')}
+              className="rounded-lg px-3 py-2 text-sm border border-indigo-500 text-indigo-600 dark:text-indigo-400 disabled:opacity-40">
+              {t('curation.bulkReview.approveAll')}
+            </button>
+            <button type="button" disabled={pendingBulkBusy}
+              onClick={() => void processPendingAll('reject')}
+              className="rounded-lg px-3 py-2 text-sm border border-red-500 text-red-600 dark:text-red-400 disabled:opacity-40">
+              {t('curation.bulkReview.rejectAll')}
+            </button>
+          </div>
+          {pendingBulkStatus && <p role="status" className="text-sm text-slate-500">{pendingBulkStatus}</p>}
+        </div>
+      )}
+
       {filter === 'likely_unique' && !loading && (
           <div className="bg-white dark:bg-[#1A1D24] p-4 rounded-2xl border border-slate-200 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 scale-in">
               <div className="flex flex-wrap gap-2 items-center">
@@ -349,7 +462,8 @@ export default function CurationPage() {
                     : t('curation.card.recent');
 
                   const isSelected = selectedCandidateIds.includes(candidate.candidateId);
-                  const isSelectable = filter === 'likely_unique' && isBulkImportEligibleCandidate(candidate);
+                  const isSelectable = (filter === 'likely_unique' && isBulkImportEligibleCandidate(candidate)) ||
+                    (filter === 'pending_review' && candidate.status === 'pending_review');
 
                   return (
                   <div key={candidate.candidateId} className={`relative bg-white dark:bg-[#1A1A1A] border ${isSelected ? 'border-primary ring-1 ring-primary' : 'border-slate-200 dark:border-white/10'} rounded-2xl p-5 hover:border-primary/50 transition-colors shadow-sm flex flex-col justify-between group`}>

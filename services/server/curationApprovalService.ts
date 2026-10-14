@@ -22,6 +22,8 @@ export interface CurationApprovalParams {
     occurrenceId: string;
     idempotencyKey: string;
     decodedToken: { uid: string; hasCurationAccess?: boolean; [key: string]: any };
+    /** Trusted server-only automatic approval. */
+    automated?: boolean;
 }
 
 export type CurationErrorCode =
@@ -102,6 +104,13 @@ export class CurationApprovalService {
                 }
                 throw new CurationError('IDEMPOTENCY_CONFLICT', 'Candidata já foi aprovada por outra requisição.', 409);
             }
+            if (params.automated && (
+                candidateData.classification !== 'likely_unique' ||
+                candidateData.occurrenceCount !== 1 ||
+                (candidateData.analysisSummary?.warningCodes || []).length > 0
+            )) {
+                throw new CurationError('CANDIDATE_STATE_INVALID', 'Publicação automática exige candidata inédita e verificável.', 409);
+            }
             if (!['pending_review', 'likely_unique'].includes(candidateData.status)) {
                 throw new CurationError('CANDIDATE_STATE_INVALID', `Estado da candidata não permite aprovação. (Estado atual: ${candidateData.status})`, 400);
             }
@@ -166,6 +175,12 @@ export class CurationApprovalService {
 
             const reservationRef = db.collection('globalSongs_reservations').doc(reservationId);
             const reservationSnap = await t.get(reservationRef);
+            // A single canonical title+artist reservation is shared by manual
+            // approvals, automatic Firebase ingest and administrative edits.
+            const uniqueKey = crypto.createHash('sha256')
+                .update(normTitle + '|' + normArtists.join('|')).digest('hex');
+            const uniqueRef = db.collection('globalSongUniqueKeys').doc(uniqueKey);
+            const uniqueSnap = await t.get(uniqueRef);
 
             const titleQuery = await t.get(
                 db.collection('globalSongs').where('normalizedTitle', '==', normTitle)
@@ -198,6 +213,11 @@ export class CurationApprovalService {
                     throw new CurationError("RESERVATION_COLLISION", "Colisão de reserva com outra candidata.", 409);
                 }
             }
+            if (uniqueSnap.exists) {
+                throw new CurationError('DUPLICATE_GLOBAL_SONG',
+                    'Já existe uma música publicada com a mesma identidade.', 409,
+                    uniqueSnap.data()?.globalSongId);
+            }
 
             for (const docSnap of titleQuery.docs) {
                 const globalSong = docSnap.data();
@@ -229,6 +249,11 @@ export class CurationApprovalService {
                 if (songData.organizationId !== item.sourceOrg) {
                     throw new CurationError('SOURCE_ORGANIZATION_MISMATCH', `Música de origem não pertence à organização informada.`, 403);
                 }
+                if (songData.originGlobalSongId) {
+                    throw new CurationError('DUPLICATE_GLOBAL_SONG',
+                        'Música de origem já está vinculada à Biblioteca Viva.', 409,
+                        songData.originGlobalSongId);
+                }
             }
 
             // === PHASE 2: WRITES ===
@@ -239,6 +264,10 @@ export class CurationApprovalService {
             }
 
             const primaryArtist = normArtists[0] || snapshot.artist || '';
+            const sourceSong = sourceSongMap.get(occData.source?.songId)?.songSnap.data() || {};
+            const originalAuthor = sourceSong.createdBy || {};
+            const originalAuthorUid = typeof originalAuthor === 'string' ? originalAuthor : (originalAuthor.uid || '');
+            const originalAuthorName = typeof originalAuthor === 'object' ? (originalAuthor.displayName || originalAuthor.name || '') : '';
             const safeSnapshotTitle = normalizedOptionalString(snapshot.title, 'snapshot.title', 'OCCURRENCE_SNAPSHOT_INVALID')!;
             const newGlobalSong = {
                 title: safeSnapshotTitle,
@@ -264,6 +293,13 @@ export class CurationApprovalService {
                 normalizedArtists: safeCanonical.normalizedArtists,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 createdBy: safeUid,
+                publicationMethod: params.automated ? 'automatic_curation' : 'manual_curation',
+                contribution: {
+                    organizationId: occData.source?.organizationId || '',
+                    songId: occData.source?.songId || '',
+                    userId: originalAuthorUid,
+                    userName: originalAuthorName
+                },
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 status: 'active',
                 importCount: 0
@@ -273,6 +309,11 @@ export class CurationApprovalService {
                 ...buildGlobalSongSearchFields(newGlobalSong),
             };
             t.set(globalSongRef, indexedGlobalSong);
+            t.set(uniqueRef, {
+                globalSongId: globalSongRef.id,
+                candidateId: safeCandidateId,
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
 
             t.update(candidateRef, {
                 status: 'approved',
@@ -294,7 +335,7 @@ export class CurationApprovalService {
                 const serverTimestamp = admin.firestore.FieldValue.serverTimestamp();
                 const logData = {
                     eventType: 'approved',
-                    actorType: 'admin',
+                    actorType: params.automated ? 'system' : 'admin',
                     actorId: safeUid,
                     resultingGlobalSongId: globalSongRef.id,
                     schemaVersion: 1,
@@ -305,7 +346,7 @@ export class CurationApprovalService {
                         sourceSongId: occData.source?.songId || null,
                         sourceCandidateId: safeCandidateId,
                     },
-                    action: 'approved_as_new',
+                    action: params.automated ? 'automatically_approved_as_unique' : 'approved_as_new',
                     actorUid: safeUid,
                     createdAt: serverTimestamp
                 };

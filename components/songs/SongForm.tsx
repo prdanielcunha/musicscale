@@ -2,13 +2,12 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Song, PopulatedSong, Tag, ChordKeyRepairDraftSong } from "../../types";
-import { useEcosystemAdmin } from "../../hooks/useEcosystemAdmin";
 import Button from "../common/Button";
 import { useAuth } from "../../contexts/AuthContext";
 import { useModals } from "../../contexts/ModalContext";
 import { detectLanguageFromText } from "../../utils/languageDetector";
 import { getSongFreshnessStatus } from "../../utils/songHelpers";
-import { Globe, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { generateLyricsFromChords } from "../../utils/generateLyricsFromChords";
 
 const formInputClass = "mt-1 input-base";
@@ -36,12 +35,10 @@ const SongForm: React.FC<SongFormProps> = ({
   onClose,
   isSubmitting,
   tags,
-  defaultOptions,
 }) => {
   const { t } = useTranslation();
   const { openDraftChordKeyRepair } = useModals();
   const { userProfile, permissions, organization } = useAuth();
-  const { isEcosystemAdmin } = useEcosystemAdmin();
   const canManageRepertoire = !!(permissions?.manageSongs || permissions?.['musicScale.manageSongs']);
   const canManageChords = !!(permissions?.manageSongs || permissions?.['musicScale.manageSongs'] || permissions?.manageChords || permissions?.['musicscale.chords.edit']);
 
@@ -65,10 +62,9 @@ const SongForm: React.FC<SongFormProps> = ({
   const [manualLanguageSelected, setManualLanguageSelected] = useState(false);
   const [lyricsGenerationStatus, setLyricsGenerationStatus] = useState<'generated' | 'empty' | ''>('');
 
-  const [options, setOptions] = useState({
-    saveToOrganization: defaultOptions?.saveToOrganization ?? true,
-    saveToGlobalLibrary: defaultOptions?.saveToGlobalLibrary ?? false,
-  });
+  // The organization save is mandatory. The Firebase creation trigger
+  // routes every new song through global curation with no user opt-out.
+  const options = { saveToOrganization: true, saveToGlobalLibrary: false };
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -77,10 +73,6 @@ const SongForm: React.FC<SongFormProps> = ({
   ) => {
     if (e.target.type === "checkbox") {
       const { name, checked } = e.target as HTMLInputElement;
-      if (name === "saveToOrganization" || name === "saveToGlobalLibrary") {
-        setOptions((prev) => ({ ...prev, [name]: checked }));
-        return;
-      }
       setFormData((prev) => ({ ...prev, [name]: checked }));
       return;
     }
@@ -470,49 +462,11 @@ const SongForm: React.FC<SongFormProps> = ({
         </div>
       </div>
 
-      {/* Save Options */}
-      <div className="p-4 bg-slate-50 dark:bg-slate-800/20 rounded-2xl border border-slate-200 dark:border-white/5 space-y-4">
-        <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider">Destino do Salvamento</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <label
-            className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${options.saveToOrganization ? 'bg-primary/5 border-primary/20 ring-1 ring-primary/20' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10'}`}
-          >
-            <input
-              type="checkbox"
-              name="saveToOrganization"
-              checked={options.saveToOrganization}
-              onChange={handleChange}
-              className="h-5 w-5 rounded bg-slate-200 dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-primary focus:ring-primary-dark"
-            />
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className={`w-4 h-4 ${options.saveToOrganization ? 'text-primary' : 'text-slate-400'}`} />
-                <span className={`text-sm font-bold ${options.saveToOrganization ? 'text-primary' : 'text-slate-700 dark:text-gray-300'}`}>Organização Atual</span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">{organization?.name || 'Sua equipe'}</p>
-            </div>
-          </label>
-
-          {isEcosystemAdmin && (
-            <label
-              className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${options.saveToGlobalLibrary ? 'bg-orange-500/5 border-orange-500/20 ring-1 ring-orange-500/20' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10'}`}
-            >
-              <input
-                type="checkbox"
-                name="saveToGlobalLibrary"
-                checked={options.saveToGlobalLibrary}
-                onChange={handleChange}
-                className="h-5 w-5 rounded bg-slate-200 dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-orange-500 focus:ring-orange-500"
-              />
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <Globe className={`w-4 h-4 ${options.saveToGlobalLibrary ? 'text-orange-500' : 'text-slate-400'}`} />
-                  <span className={`text-sm font-bold ${options.saveToGlobalLibrary ? 'text-orange-500' : 'text-slate-700 dark:text-gray-300'}`}>Salvar também na Biblioteca Viva MusicScale</span>
-                </div>
-                <p className="text-xs text-slate-500 mt-0.5">Estará disponível publicamente na Biblioteca Viva</p>
-              </div>
-            </label>
-          )}
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/20 border border-slate-200 dark:border-white/5">
+        <ShieldCheck className="w-5 h-5 text-primary shrink-0" />
+        <div className="text-sm">
+          <p className="font-semibold text-slate-800 dark:text-white">Salvar na organização</p>
+          <p className="text-xs text-slate-500">{organization?.name || 'Sua equipe'} · Envio automático à Biblioteca Viva para verificação de duplicidades.</p>
         </div>
       </div>
 
@@ -522,7 +476,7 @@ const SongForm: React.FC<SongFormProps> = ({
         </Button>
         <Button
           type="submit"
-          disabled={isSubmitting || (!canManageRepertoire && !canManageChords) || (!options.saveToOrganization && !options.saveToGlobalLibrary)}
+          disabled={isSubmitting || (!canManageRepertoire && !canManageChords)}
         >
           {isSubmitting
             ? "Salvando..."

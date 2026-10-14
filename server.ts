@@ -48,6 +48,7 @@ import Stripe from "stripe";
 import { PLAN_FEATURES, PLAN_LIMITS } from "./services/entitlementsConstants.js";
 import { compareSongs } from "./utils/songDiscovery/matcher.js";
 import { requireEcosystemRole } from "./services/server/ecosystemAuth.js";
+import { registerGlobalCurationCatalog } from './services/server/globalCurationCatalog.js';
 import { MUSIC_SCALE_MEMBER_FIELDS, resolveMemberDirectoryMusicProfile, writeMusicScaleMemberProjection } from "./services/server/musicScaleMemberProjection.js";
 import { resolveOrganizationAuthorization } from "./services/server/organizationAuthorization.js";
 import { medleyTemplateRoutes } from "./services/server/medleyTemplateRoutes.js";
@@ -4658,6 +4659,8 @@ app.post(
       }
   });
 
+  registerGlobalCurationCatalog(app, db, admin, requireEcosystemRole);
+
   app.post("/api/curation/approve", requireEcosystemRole, async (req: any, res: any) => {
     try {
         if (!db) throw new Error("Database not initialized");
@@ -5592,6 +5595,17 @@ app.post("/api/curation/auto-process-song", async (req: any, res: any) => {
               return res.status(500).json({ error: "Banco de dados não carregado." });
           }
 
+          // Optional user-initiated retry. Firebase creation triggers are authoritative.
+          const bearer = req.headers.authorization;
+          if (typeof bearer !== 'string' || !bearer.startsWith('Bearer '))
+              return res.status(401).json({ error: 'UNAUTHORIZED' });
+          let actorUid: string;
+          try {
+              actorUid = (await admin.auth().verifyIdToken(bearer.slice(7), true)).uid;
+          } catch {
+              return res.status(401).json({ error: 'INVALID_TOKEN' });
+          }
+
           const { songId } = req.body;
           if (!songId || typeof songId !== 'string' || songId.trim().length === 0) {
               return res.status(400).json({ error: "O parâmetro songId é obrigatório e deve ser uma string não vazia." });
@@ -5605,6 +5619,10 @@ app.post("/api/curation/auto-process-song", async (req: any, res: any) => {
           }
 
           const songData = songSnap.data();
+          const creator = songData?.createdBy;
+          const creatorUid = typeof creator === 'string' ? creator : creator?.uid;
+          if (!creatorUid || actorUid !== creatorUid)
+              return res.status(403).json({ error: 'FORBIDDEN' });
           const organizationId = songData?.organizationId;
 
           if (!organizationId) {

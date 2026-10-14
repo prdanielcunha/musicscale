@@ -1,3 +1,9 @@
+MusicScale 0.11.1-beta.1 — 2026-10-14
+Release conjunto: Biblioteca Viva global / Curadoria para músicas novas manuais ou por IA de todas as organizações, independentemente da função local que possa cadastrar uma música.
+Garantido o hotfix 0.11.1-beta.0 de autenticação Connect 401 e preservando todos os hotfixes beta.27 e anteriores.
+Curadoria exclusivamente CEO, administração global e suporte MillionsNest; publicação automática conservadora e pendências de duplicatas, registros de origem, edição/arquivamento lógico, ações em massa e histórico auditável.
+Firebase Rules globais já publicados no Hub. Firebase Functions, Cloud Run e Hosting exigem certificação de deploy. Sem migrações destrutivas, force push, remoção de escalas, funções de membros ou alterações de assinaturas.
+
 MusicScale 0.11.1-beta.0 — 2026-10-14
 Hotfix exclusivo da API Connect: ausência de bearer chega ao handler canônico e responde401 antes do tenant; bearer autenticado mantém gate Hub/trial/billing. Nenhuma alteração musical/UI/dados/permissões.
 Preserva integralmente a apresentação e todos os hotfixes da versão publicada0.11.0-beta.12.
@@ -107,3 +113,8 @@ Hotfix P0: proprietário e administradores agora conseguem salvar o nome de exib
 Nome salvo e exibido através da projeção musical autenticada; conta, e-mail e permissões globais do Hub não são alterados.
 A edição de funções e especialidades reconhece membros legados ativos comprovados do mesmo tenant, sem reviver membros removidos ou inativos.
 Preserva beta.23 integralmente (convites validados, funções musicais escolhidas por convite), beta.22, escalas fixas, assinatura e dados.
+
+MusicScale 0.11.0-beta.13 — 2026-10-13
+Curadoria Global da Biblioteca Viva: ingestão automática de músicas manuais e IA de todas as organizações, deduplicação protegida por reserva de identidade compartilhada, revisão centralizada CEO/admin/suporte MillionsNest, catálogo global auditável com edição e arquivamento lógico.
+Preserva integralmente as melhorias de Cifras ao Vivo da 0.11.0-beta.12 (velocidade de rolagem em cinco níveis e comportamento da condução). Mantém a linha histórica anterior, preservando todos os hotfixes beta.27 e anteriores. Esta versão exige regras Firestore canônicas do MillionsNest publicadas e verificação das Firebase Functions onLocalSongWritten, Cloud Run e Hosting.
+Nenhuma migração destrutiva. Nenhuma exclusão de músicas, escalas, configurações ou assinaturas dos clientes.

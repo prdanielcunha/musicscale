@@ -16,8 +16,9 @@ describe("AI song import save action", () => {
     expect(source).not.toContain("sm:hidden fixed bottom-0 left-0 right-0");
   });
 
-  it("blocks a no-destination save and exposes saving state", () => {
-    expect(source).toMatch(/!options\.saveToOrganization && !options\.saveToGlobalLibrary/);
+  it("saves every new AI song in its organization with mandatory background curation", () => {
+    expect(source).toContain('await api.songs.create(songDataToSave)');
+    expect(source).not.toContain('api.submitToGlobal(');
     expect(source).toContain('aria-busy={isSaving}');
     expect(source).toContain('t("aiImport.saveSong", "Salvar música")');
   });

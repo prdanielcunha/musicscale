@@ -9,7 +9,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { DuplicateSongModal, DuplicateMatch } from "./DuplicateSongModal";
 import { getSongSimilarityScore } from "../../lib/songMatch";
 import { useMusic } from "../../contexts/MusicDataContext";
-import { useEcosystemAdmin } from "../../hooks/useEcosystemAdmin";
 
 interface AiSongImportModalProps {
   isOpen: boolean;
@@ -83,10 +82,9 @@ export const mergeAiImportResponse = (data: unknown) => {
   };
 };
 
-const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, defaultOptions }) => {
+const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose }) => {
   const { t } = useTranslation();
   const { userProfile, permissions, organization } = useAuth();
-  const { isEcosystemAdmin } = useEcosystemAdmin();
   const api = useApi();
   const { refreshData, songs } = useMusic();
   const { success, error: toastError, feedbackToast } = useToast();
@@ -112,8 +110,8 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
   });
 
   const [options, setOptions] = useState({
-    saveToOrganization: defaultOptions?.saveToOrganization ?? true,
-    saveToGlobalLibrary: defaultOptions?.saveToGlobalLibrary ?? false,
+    saveToOrganization: true,
+    saveToGlobalLibrary: false,
   });
   
   const [previewData, setPreviewData] = useState<any>(null);
@@ -303,14 +301,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    if (type === "checkbox") {
-      const { checked } = e.target as HTMLInputElement;
-      if (name === "saveToOrganization" || name === "saveToGlobalLibrary") {
-        setOptions(prev => ({ ...prev, [name]: checked }));
-        return;
-      }
-    }
+    const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (name === "rawText" && error) {
       setError(null);
@@ -455,28 +446,14 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
     }
   };
 
-  const executeSave = async (songDataToSave: any, forceSave = false) => {
+  const executeSave = async (songDataToSave: any, _forceSave = false) => {
     setIsSaving(true);
     if (error) setError(null);
     try {
-      if (options.saveToOrganization) {
-        await api.songs.create(songDataToSave);
-      }
-
-      if (options.saveToGlobalLibrary && isEcosystemAdmin) {
-        await api.submitToGlobal(userProfile, songDataToSave, forceSave, isEcosystemAdmin);
-      }
-
+      await api.songs.create(songDataToSave);
       refreshData();
       onClose();
-
-      if (options.saveToGlobalLibrary && options.saveToOrganization) {
-         success("Música importada!", "A música foi cadastrada no seu repertório e na Biblioteca Viva.");
-      } else if (options.saveToGlobalLibrary) {
-         success("Música importada!", "A música foi adicionada à Biblioteca Viva.");
-      } else {
-        success("Música importada com sucesso!", `O arranjo estruturado de ${songDataToSave.title} foi cadastrado.`);
-      }
+      success("Música importada!", "Salva no Ministério e enviada automaticamente para verificação na Biblioteca Viva.");
       
       // Trigger contextual feedback after a short delay
       setTimeout(() => {
@@ -514,16 +491,11 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
   const executeReplace = async (existingSong: any, songDataToSave: any) => {
     if (!api || !userProfile || !existingSong?.id) return;
 
-    const hasGlobalMatch = duplicateInfo?.matches.some((match) => match.location === 'global_library') ?? false;
     setIsSaving(true);
     if (error) setError(null);
 
     try {
       await api.replaceSongContent(existingSong.id, songDataToSave);
-
-      if (options.saveToGlobalLibrary && isEcosystemAdmin && !hasGlobalMatch) {
-        await api.submitToGlobal(userProfile, songDataToSave);
-      }
 
       await refreshData();
       setDuplicateInfo(null);
@@ -554,16 +526,6 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
   const handleSave = async (forceSave = false) => {
     if (!api || !userProfile || !previewData) return;
 
-    if (!options.saveToOrganization && !options.saveToGlobalLibrary) {
-      toastError(
-        t(
-          "aiImport.selectSaveDestination",
-          "Selecione pelo menos um destino para salvar a música.",
-        ),
-      );
-      return;
-    }
-    
     if (targetKey && isValidKey(targetKey) && previewData.selectedKey && !areKeysEnharmonicallyEquivalent(targetKey, previewData.selectedKey)) {
       toastError(t("aiImport.preview.applyBeforeSave", "Você escolheu outro tom. Toque em \"Aplicar tom\" para atualizar a cifra antes de salvar."));
       const applyBtn = document.getElementById("ai-import-apply-key");
@@ -637,21 +599,6 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
             }
         }
         
-        if (options.saveToGlobalLibrary && isEcosystemAdmin) {
-            const { checkGlobalDuplicates } = await import('../../services/globalLibraryService');
-            const result = await checkGlobalDuplicates(songData.title, songData.artist, songData.key);
-            if (result.isDuplicate || result.matches.length > 0) {
-                for (const match of result.matches) {
-                   matches.push({
-                       song: match,
-                       score: result.isDuplicate ? 1.0 : 0.85,
-                       matchType: result.isDuplicate ? 'exact' : 'probable',
-                       location: 'global_library'
-                   });
-                }
-            }
-        }
-        
         matches.sort((a, b) => b.score - a.score);
 
         if (matches.length > 0) {
@@ -705,7 +652,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
               onClick={() => void handleSave(false)}
               disabled={
                 isSaving ||
-                (!options.saveToOrganization && !options.saveToGlobalLibrary)
+                !canManageSongs
               }
               aria-busy={isSaving}
               className="flex min-h-[48px] flex-[2] items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 font-bold tracking-wide text-white shadow-lg shadow-indigo-500/10 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 dark:bg-white dark:text-slate-900 sm:flex-none sm:min-w-[180px]"
@@ -922,19 +869,10 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose, 
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-           {/* Save Options */}
-           <div className="p-4 bg-slate-50 dark:bg-slate-800/20 rounded-2xl border border-slate-200 dark:border-white/5 space-y-4">
-              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("aiImport.saveDestination", "Destino do Salvamento")}</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                 <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-500 transition-colors cursor-pointer bg-white dark:bg-white/5">
-                    <input type="checkbox" checked={options.saveToOrganization} onChange={(e) => setOptions({...options, saveToOrganization: e.target.checked})} className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("aiImport.saveToMinistry", "Salvar no Ministério")}</span>
-                 </label>
-                 <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-500 transition-colors cursor-pointer bg-white dark:bg-white/5">
-                    <input type="checkbox" checked={options.saveToGlobalLibrary} onChange={(e) => setOptions({...options, saveToGlobalLibrary: e.target.checked})} className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("aiImport.saveToLibrary", "Minha Biblioteca Pessoal")}</span>
-                 </label>
-              </div>
+           <div className="rounded-xl border border-indigo-200/50 dark:border-indigo-500/20 bg-indigo-50/50 dark:bg-indigo-500/5 px-4 py-3">
+             <p className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+               {t("aiImport.globalAutomaticCuration", "Salva no Ministério e enviada automaticamente à Biblioteca Viva para verificação.")}
+             </p>
            </div>
 
            <div className="bg-white dark:bg-white/[0.02] dark:backdrop-blur-xl p-5 rounded-[20px] border border-black/[0.04] dark:border-white/5 shadow-sm space-y-3">

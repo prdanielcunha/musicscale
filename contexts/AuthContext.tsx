@@ -434,7 +434,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const resolvedSystemRole = resolveCanonicalGlobalRole({ ecoContext, userProfile });
     const isGlobalAdmin = isCanonicalGlobalAdminRole(resolvedSystemRole);
     const isSupportMode = isCanonicalEcosystemSupportRole(resolvedSystemRole);
-    const isCurationAdmin = isGlobalAdmin;
+    const isCurationAdmin = isGlobalAdmin || isSupportMode;
 
     const value = useMemo(() => ({
     user,
