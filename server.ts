@@ -1513,33 +1513,36 @@ app.post(
       })}`);
 
       if (process.env.MUSICSCALE_CONNECT_SCALE_PUBLISHED_EVENTS_ENABLED === 'true') {
-        // AFTER the successful canonical MusicScale command transaction. Never
-        // change its existing member notifications, RBAC, receipts or reply.
-        try {
-          const eventOutcome = await publishCanonicalScaleEventToConnect({
-            enabled: true,
-            organizationId: orgId,
-            musicScaleId,
-            publishRevision: anyResult.version,
-            signingSecret: process.env.MUSICSCALE_CONNECT_SOURCE_EVENT_SECRET,
-            targetsJson: process.env.MUSICSCALE_CONNECT_OPERATOR_TARGETS_JSON,
-            loadCanonicalScale: async () => {
-              const persisted = await db.collection('scales').doc(musicScaleId).get();
-              if (!persisted.exists) return null;
-              const data = persisted.data() || {};
-              return {
-                organizationId: data.organizationId,
-                status: data.status,
-                publishRevision: data.publishRevision,
-                updatedAt: data.updatedAt?.toDate?.(),
-              };
-            },
-          });
-          logger.info('[MusicScale Connect Event] ' + eventOutcome);
-        } catch {
-          // Network ambiguity must never re-run publishMusicScale or duplicate
-          // member notifications. Keep normal HTTP success truthful.
-          logger.warn('[MusicScale Connect Event] NOT_ENQUEUED_OR_UNCONFIRMED');
+        // Source still OFF by default. MusicScale owns all member notifications;
+        // Connect receives only distinct canonical operator alert events.
+        const sourceTriggers: Array<'scale.published' | 'scale.presence_pending'> =
+          anyResult.createdResponseCount > 0
+            ? ['scale.published', 'scale.presence_pending']
+            : ['scale.published'];
+        for (const trigger of sourceTriggers) {
+          try {
+            const eventOutcome = await publishCanonicalScaleEventToConnect({
+              enabled: true, trigger, organizationId: orgId, musicScaleId,
+              publishRevision: anyResult.version,
+              signingSecret: process.env.MUSICSCALE_CONNECT_SOURCE_EVENT_SECRET,
+              targetsJson: process.env.MUSICSCALE_CONNECT_OPERATOR_TARGETS_JSON,
+              loadCanonicalScale: async () => {
+                const persisted = await db.collection('scales').doc(musicScaleId).get();
+                if (!persisted.exists) return null;
+                const data = persisted.data() || {};
+                return {
+                  organizationId: data.organizationId,
+                  status: data.status,
+                  publishRevision: data.publishRevision,
+                  updatedAt: data.updatedAt?.toDate?.(),
+                };
+              },
+            });
+            logger.info('[MusicScale Connect Event] ' + trigger + ':' + eventOutcome);
+          } catch {
+            // No unbounded retry or duplicate domain publication.
+            logger.warn('[MusicScale Connect Event] ' + trigger + ':NOT_ENQUEUED_OR_UNCONFIRMED');
+          }
         }
       }
 
