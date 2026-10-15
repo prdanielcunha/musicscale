@@ -3,7 +3,7 @@
  * This path never grants an entitlement from user-controlled org projections.
  * Existing paid Stripe subscriptions are evaluated separately and first.
  */
-export const HUB_MUSICSCALE_TRIAL_BASE_MS=14*86_400_000;
+export const HUB_MUSICSCALE_TRIAL_BASE_MS=7*86_400_000;
 const DAY_MS=86_400_000;
 function ms(value:unknown):number|null {
   if(value&&typeof value==='object'){
@@ -27,7 +27,10 @@ export function hubMusicScaleTrialWindow(record:any,organizationId:string,now=Da
       record.status!=='active'||record.consumed!==true||record.revoked===true||
       !Number.isSafeInteger(record.grantVersion)||record.grantVersion<2)return no;
   const begins=ms(record.beginsAt),ends=ms(record.expiresAt);
-  if(begins===null||ends===null||ends-begins!==HUB_MUSICSCALE_TRIAL_BASE_MS)return no;
+  const duration=begins===null||ends===null?0:ends-begins;
+  const legacy=record.grantVersion===2&&duration===14*DAY_MS;
+  if(begins===null||ends===null||!Number.isFinite(begins)||!Number.isFinite(ends)||
+      (duration!==HUB_MUSICSCALE_TRIAL_BASE_MS&&!legacy))return no;
   let effectiveEndsAt=ends;
   if(record.extensionCount===1){
     const days=record.extensionDays,extended=ms(record.extensionEndsAt);

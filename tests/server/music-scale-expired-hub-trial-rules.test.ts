@@ -15,14 +15,14 @@ const paths = ['songs/song-1', 'scales/scale-1', 'bandScales/band-1', 'fixedBand
 async function seed(options: {
   trialSource?: boolean; endsInDays?: number; startOffsetDays?: number;
   extensionDays?: number; paidMusic?: boolean; nestLocalOnly?: boolean;
-  tamperDuration?: boolean;
+  tamperDuration?: boolean; legacy?: boolean; grantVersion?:number;
 } = {}) {
   await env.withSecurityRulesDisabled(async context => {
     const db = context.firestore();
     const org = {
       status:'active',ownerUid:'owner',
       apps:{musicscale:options.trialSource ? {
-        status:'trialing',trialSource:'hub_internal_trial',trialUsed:true,trialEndsAt:Timestamp.fromMillis(now() + (options.endsInDays ?? 12)*DAY),
+        status:'trialing',trialSource:'hub_internal_trial',trialUsed:true,trialEndsAt:Timestamp.fromMillis(now() + (options.endsInDays ?? 5)*DAY),
       } : {status:'active'}}
     };
     await setDoc(doc(db,'organizations/org-1'), org);
@@ -37,12 +37,12 @@ async function seed(options: {
     await setDoc(doc(db,'organizations/org-1/notes/entry'), {organizationId:'org-1',text:'musical note'});
     await setDoc(doc(db,'scales/scale-1/responses/owner'),{organizationId:'org-1',userId:'owner',status:'accepted'});
     if(options.trialSource){
-      const end = now() + (options.endsInDays ?? 12)*DAY;
-      const start = end - (options.tamperDuration ? 13 : 14)*DAY;
+      const end = now() + (options.endsInDays ?? 5)*DAY;
+      const start = end - (options.tamperDuration ? 6 : options.legacy ? 14 : 7)*DAY;
       await setDoc(doc(db,'musicscale_internal_trials/org-1'),{
         appId:'musicscale',organizationId:'org-1',ownerUid:'owner',
         source:'hub_internal_trial',status:'active',revoked:false,
-        consumed:true,grantVersion:2,beginsAt:Timestamp.fromMillis(start),
+        consumed:true,grantVersion:options.grantVersion??(options.legacy?2:3),beginsAt:Timestamp.fromMillis(start),
         expiresAt:Timestamp.fromMillis(end),
         ...(options.extensionDays ? {
           extensionCount:1,extensionDays:options.extensionDays,
@@ -81,10 +81,18 @@ describe.skipIf(!hasEmulator)('Hub no-card MusicScale Firestore expiry policy',(
     await assertSucceeds(readPath('organizations/org-1/notes/entry'));
   });
 
-  it('allows verified active 14-day Hub grant without any Stripe checkout',async()=>{
-    await seed({trialSource:true,endsInDays:12});
+  it('allows verified active seven-day Hub grant without any Stripe checkout',async()=>{
+    await seed({trialSource:true,endsInDays:5});
     for(const path of paths)await assertSucceeds(readPath(path));
     await assertSucceeds(readPath('scales/scale-1/responses/owner'));
+  });
+
+  it('keeps legacy 14-day grants and rejects a new 14-day claim',async()=>{
+    await seed({trialSource:true,endsInDays:12,legacy:true});
+    await assertSucceeds(readPath('songs/song-1'));
+    await env.clearFirestore();
+    await seed({trialSource:true,endsInDays:5,legacy:true,grantVersion:3});
+    await assertFails(readPath('songs/song-1'));
   });
 
   it('denies every tested musical read after a Hub trial expires',async()=>{
@@ -115,8 +123,8 @@ describe.skipIf(!hasEmulator)('Hub no-card MusicScale Firestore expiry policy',(
     await assertSucceeds(readPath('scales/scale-1'));
   });
 
-  it('rejects malformed 14-day grants even with matching tenant metadata',async()=>{
-    await seed({trialSource:true,endsInDays:12,tamperDuration:true});
+  it('rejects malformed grants even with matching tenant metadata',async()=>{
+    await seed({trialSource:true,endsInDays:5,tamperDuration:true});
     await assertFails(readPath('songs/song-1'));
   });
 
@@ -134,7 +142,7 @@ describe.skipIf(!hasEmulator)('Hub no-card MusicScale Firestore expiry policy',(
   });
 
   it('keeps cross-tenant data private independent of trial status',async()=>{
-    await seed({trialSource:true,endsInDays:12});
+    await seed({trialSource:true,endsInDays:5});
     await assertFails(getDoc(doc(env.authenticatedContext('outside').firestore(),'songs/song-1')));
   });
 });
