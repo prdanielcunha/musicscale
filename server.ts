@@ -4,6 +4,7 @@ import { resolveHubMusicScaleTrialFromDb } from './services/server/hubMusicScale
 import { resolvePaidMusicScaleContract } from './services/server/musicScalePaidContract.js';
 import { createHubTrialWorkspaceMiddleware } from './services/server/hubTrialWorkspaceGuard.js';
 import { logger } from './lib/logger.js';
+import { publishCanonicalScaleEventToConnect } from './services/server/connect/canonicalScalePublishedEvent.js';
 logger.info("Server process started");
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -1510,6 +1511,33 @@ app.post(
         fromCache: !!anyResult.fromCache,
         durationMs
       })}`);
+
+      if (process.env.MUSICSCALE_CONNECT_SCALE_PUBLISHED_EVENTS_ENABLED === 'true') {
+        try {
+          const outcome = await publishCanonicalScaleEventToConnect({
+            enabled: true,
+            organizationId: orgId,
+            musicScaleId,
+            publishRevision: anyResult.version,
+            signingSecret: process.env.MUSICSCALE_CONNECT_SOURCE_EVENT_SECRET,
+            targetsJson: process.env.MUSICSCALE_CONNECT_OPERATOR_TARGETS_JSON,
+            loadCanonicalScale: async () => {
+              const persisted = await db.collection('scales').doc(musicScaleId).get();
+              if (!persisted.exists) return null;
+              const data = persisted.data() || {};
+              return {
+                organizationId: data.organizationId,
+                status: data.status,
+                publishRevision: data.publishRevision,
+                updatedAt: data.updatedAt?.toDate?.(),
+              };
+            },
+          });
+          logger.info('[MusicScale Connect Event] ' + outcome);
+        } catch {
+          logger.warn('[MusicScale Connect Event] NOT_ENQUEUED_OR_UNCONFIRMED');
+        }
+      }
 
       return res.status(200).json(result);
     } catch (error: any) {
