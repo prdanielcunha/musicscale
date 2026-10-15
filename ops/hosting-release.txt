@@ -1,3 +1,7 @@
+MusicScale 0.11.1-beta.5 — 2026-10-15
+Avaliações internas Hub de sete dias: backend aceita novos grants de sete dias e preserva grants legados versão 2 de 14 dias, suas extensões e a prioridade dos contratos pagos. Mantém dados, escalas, funções, configurações e a integração canônica de billing.
+Leitor compatível antes da mudança do emissor Hub. Rules compartilhadas pertencem exclusivamente ao pipeline do Hub; este deploy não cria avaliações nem altera assinaturas existentes.
+
 MusicScale 0.11.1-beta.4 — 2026-10-14
 Suporte oficial Connect por ação explícita: identidade e organização revalidadas no Hub, rascunho manual sem envio automático, URL/expiração privadas validadas e fallback por e-mail. Build oficial exige gate 401 do Core; 21 simulações UI/relay aprovadas.
 Preserva integralmente a correção de rolagem de cifras da beta.3, biblioteca, escalas, autenticação, dados e assinaturas. Sem mudanças Meta, billing ou migrações.

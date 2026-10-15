@@ -180,3 +180,7 @@ NÃO VERIFICADO.
 - Eficiência e cobertura total do sistema offline (PWA) e do cache Workbox local.
 - Todas as variáveis secretas operacionais.
 - Qualidade integral de conversão do auto-scroll na tela visualizadora em dispositivos heterogêneos.
+
+## Avaliação interna sem cartão (2026-10-15)
+
+O Hub emite novas avaliações MusicScale de sete dias (grant versão 3). Backend e Rules reconhecem sete dias e preservam o prazo original de grants legados versão 2 de 14 dias. Pagamentos continuam centralizados no Hub; contratos Stripe ativos são avaliados antes de grants vencidos. Nenhuma migração ou alteração de dados de clientes é necessária. Política canônica: `prdanielcunha/millionsnest/docs/ECOSYSTEM_SEVEN_DAY_TRIAL_POLICY.md`.
