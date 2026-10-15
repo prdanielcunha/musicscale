@@ -99,6 +99,23 @@ describe('MusicScale official canonical published event bridge', () => {
     expect(calls[0].timestamp).toBe(calls[1].timestamp);
   });
 
+  it('separates published and newly pending-presence operator events without participant fanout', async () => {
+    const payloads: Array<Record<string, unknown>> = [];
+    const input = options({ fetchImpl: vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const event = JSON.parse(String(init?.body));
+      payloads.push(event);
+      return new Response(JSON.stringify({ accepted: true, duplicate: false }), { status: 202 });
+    }) as typeof fetch });
+    expect(await publishCanonicalScaleEventToConnect(input)).toBe('accepted');
+    expect(await publishCanonicalScaleEventToConnect({ ...input, trigger: 'scale.presence_pending' })).toBe('accepted');
+    expect(payloads.map(e => e.trigger)).toEqual(['scale.published', 'scale.presence_pending']);
+    expect(payloads[0].eventId).not.toBe(payloads[1].eventId);
+    expect(payloads[0].occurredAt).toBe(payloads[1].occurredAt);
+    expect(payloads[1]).not.toHaveProperty('memberIds');
+    expect(payloads[1]).not.toHaveProperty('phone');
+    expect(payloads[1]).not.toHaveProperty('responses');
+  });
+
   it('never retries an ambiguous network or failed upstream response', async () => {
     const lost = vi.fn(async () => { throw new Error('synthetic network timeout'); });
     await expect(publishCanonicalScaleEventToConnect(options({ fetchImpl: lost as typeof fetch })))
