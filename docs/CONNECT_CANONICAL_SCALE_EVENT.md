@@ -25,3 +25,7 @@ This is a permitted Connect Inbox operator review event, not member reminders/pr
 ## Tests
 
 Run npm run test:connect-scale-events (flag-off, config failure, canonical tenant/revision, stable HMAC/idempotency, minimal payload, no transport retries). Included in npm run test:scale-release. CI is not evidence of real Meta/iPhone delivery. Keep flag OFF until signed real acceptance and permissions are proven.
+
+## Official pending-presence operator trigger
+
+When the canonical publish transaction creates at least one new response (`createdResponseCount > 0`), the same server-only guarded producer emits an additional event `scale.presence_pending` with a separate stable SHA-256 eventId. The published event ID and behavior remain unchanged. This is **one internal review alert** tied to the organization/revision, not per-member notifications, not a reminder, not a new member response, and never a WhatsApp send. A later presence change with no canonical new-response publisher is NOT covered by this trigger; direct follow-up/reminder events still need their own source mutation and consent/window/Tool Gateway contract. HMAC mapping and event flag remain OFF without explicit verified config. Both events are post-commit best effort and remain subject to a future durable domain outbox.
