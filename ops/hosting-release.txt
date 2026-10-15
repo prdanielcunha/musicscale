@@ -1,3 +1,6 @@
+MusicScale 0.11.1-beta.6 — 2026-10-15
+Publicador canônico do evento scale.published para a fila interna MillionsNest Connect após confirmação do comando oficial. Flag DESLIGADA até fonte HMAC e operador/conversa Hub autorizados. Não gera nem duplica notificações de músicos, não envia mensagens Meta e não altera Web Push, escalas, autorizações, dados, cobrança ou Firestore Rules. Próximo gate: CI completo, revisão e verificação do SHA realmente publicado; esta integração ainda NÃO comprova automação de domínio ponta a ponta.
+
 MusicScale 0.11.1-beta.5 — 2026-10-15
 Avaliações internas Hub de sete dias: backend aceita novos grants de sete dias e preserva grants legados versão 2 de 14 dias, suas extensões e a prioridade dos contratos pagos. Mantém dados, escalas, funções, configurações e a integração canônica de billing.
 Leitor compatível antes da mudança do emissor Hub. Rules compartilhadas pertencem exclusivamente ao pipeline do Hub; este deploy não cria avaliações nem altera assinaturas existentes.
