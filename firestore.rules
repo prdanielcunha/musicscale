@@ -58,7 +58,9 @@ service cloud.firestore {
         grant.get('grantVersion', 0) >= 2 &&
         grant.get('beginsAt', null) is timestamp &&
         grant.get('expiresAt', null) is timestamp &&
-        grant.expiresAt == grant.beginsAt + duration.value(14, 'd') &&
+        (grant.expiresAt == grant.beginsAt + duration.value(7, 'd') ||
+          (grant.get('grantVersion', 0) == 2 &&
+            grant.expiresAt == grant.beginsAt + duration.value(14, 'd'))) &&
         request.time >= grant.beginsAt &&
         (
           (
