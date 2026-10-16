@@ -141,3 +141,6 @@ Current conformance: MusicScale already provides native Google entry. Preserve i
 - Exigir QA completo no SHA exato, confirmação de ancestry, arquivos críticos e integridade de refs; release crítica exige revisão específica.
 - Confirmar SHAs idênticos após promoção. Mesmo SHA em Git não certifica deploy Firebase/Cloud Run.
 - Restrições técnicas dependem de rulesets/ambientes/permissões do GitHub; este AGENTS.md é somente instrução para agentes.
+
+## Connect source recovery
+The independent worker is `services/server/connect/runIndependentScaleRecovery.ts`, bundled into the Cloud Run image. Only the protected production workflow may invoke its IAM-authenticated job; copy approved source-only configuration from the exact Ready serving revision. Never enable the source flag, install credentials, broaden IAM or infer operator mappings as a side effect. Tenant receipt cursor and event leases must stay durable. GitHub cron is best effort; OFF/no-op and synthetic tests are not evidence of live recovery.
