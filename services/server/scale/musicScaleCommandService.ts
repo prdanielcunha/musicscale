@@ -8,6 +8,7 @@ import { AssignmentNotificationFormatter } from '../../../lib/AssignmentNotifica
 import type { FirebaseFirestore } from '@firebase/firestore-types';
 import { buildPreparationPublishChangeSummary } from './preparationChangeSummary.js';
 import { validateMedleys } from '../../../utils/medleyModel.js';
+import { makeConnectScaleReceiptOutbox } from '../connect/durableScaleOutbox.js';
 import type { Song } from '../../../types.js';
 
 async function verifyMedleys(db: ReturnType<typeof getFirestore>, transaction: FirebaseFirestore.Transaction,
@@ -419,6 +420,7 @@ params: {
     idempotencyKey: string;
     payload: unknown;
     correlationId: string;
+    connectEventsEnabled?: boolean;
   }) {
     const { authUid, orgId, musicScaleId, idempotencyKey, payload, correlationId } = params;
     
@@ -969,6 +971,9 @@ params: {
         requestFingerprint: fingerprint,
         correlationId,
         result: successResult,
+        ...(params.connectEventsEnabled ? { connectOutbox: makeConnectScaleReceiptOutbox({
+          enabled: true, musicScaleId, publishRevision: nextRevision, createdResponseCount,
+        }) } : {}),
       });
 
       return {

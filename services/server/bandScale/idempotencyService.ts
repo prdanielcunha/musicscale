@@ -1,6 +1,7 @@
 import * as crypto from "crypto";
 import { adminDb as db, admin } from "../../firebaseAdmin.js";
 import type { FirebaseFirestore } from "@firebase/firestore-types";
+import type { ConnectScaleReceiptOutbox } from '../connect/durableScaleOutbox.js';
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue | undefined };
 
@@ -15,6 +16,7 @@ export interface CommandReceipt<TResult = unknown> {
   correlationId?: string;
   result: TResult;
   completedAt: unknown; // firestore Timestamp
+  connectOutbox?: ConnectScaleReceiptOutbox;
 }
 
 export class IdempotencyService {
