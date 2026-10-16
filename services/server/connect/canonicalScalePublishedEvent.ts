@@ -14,6 +14,8 @@ export type ConnectScalePublisherOptions = {
   organizationId: string;
   musicScaleId: string;
   publishRevision: number;
+  /** `scale.presence_pending` is emitted only for newly created official pending responses. */
+  trigger?: 'scale.published' | 'scale.presence_pending';
   signingSecret?: string;
   targetsJson?: string;
   loadCanonicalScale: () => Promise<MusicScalePublishedSnapshot | null>;
@@ -75,8 +77,11 @@ export async function publishCanonicalScaleEventToConnect(
   if (!Number.isSafeInteger(now) || now < 0 ||
       +actual.updatedAt > now + 30000 || +actual.updatedAt < now - 7 * 86400000) return 'stale_revision';
 
+  const trigger = options.trigger ?? 'scale.published';
+  if (!['scale.published', 'scale.presence_pending'].includes(trigger)) throw new Error('CONNECT_SCALE_EVENT_TRIGGER_INVALID');
   const eventId = createHash('sha256').update(JSON.stringify([
     'musicscale', options.organizationId, options.musicScaleId, options.publishRevision,
+    ...(trigger === 'scale.published' ? [] : [trigger]),
   ])).digest('hex');
   const raw = JSON.stringify({
     schemaVersion: 1,
@@ -85,7 +90,7 @@ export async function publishCanonicalScaleEventToConnect(
     organizationId: options.organizationId,
     conversationId: target.conversationId,
     occurredAt: actual.updatedAt.toISOString(),
-    trigger: 'scale.published',
+    trigger,
     recipientUid: target.recipientUid,
   });
   const timestamp = String(now);

@@ -1,3 +1,6 @@
+MusicScale 0.11.1-beta.7 — 2026-10-16
+Connect: registro opcional de eventos scale.published/scale.presence_pending no recibo oficial de publicação, com recuperação limitada, idempotência e revisão humana. Apenas alerta interno de operador, nenhum envio direto de WhatsApp/Meta; a publicação de escalas e as notificações dos músicos não dependem da rede Connect. Flags de origem seguem DESLIGADAS até operador/thread Hub, segredo HMAC, recuperação independente, validação de consentimento e aceite físico. Sem alterações em Firestore Rules, Stripe, dados, RBAC ou permissões.
+
 MusicScale 0.11.1-beta.6 — 2026-10-15
 Publicador canônico do evento scale.published para a fila interna MillionsNest Connect após confirmação do comando oficial. Flag DESLIGADA até fonte HMAC e operador/conversa Hub autorizados. Não gera nem duplica notificações de músicos, não envia mensagens Meta e não altera Web Push, escalas, autorizações, dados, cobrança ou Firestore Rules. Próximo gate: CI completo, revisão e verificação do SHA realmente publicado; esta integração ainda NÃO comprova automação de domínio ponta a ponta.
 
