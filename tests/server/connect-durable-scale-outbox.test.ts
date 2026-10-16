@@ -12,7 +12,7 @@ const targets = JSON.stringify({ 'org-a': { recipientUid: 'verified-operator', c
 function fakeDatabase(marker: ConnectScaleReceiptOutbox, org = 'org-a') {
   const receipt: Record<string, any> = {
     commandType: 'musicScale.publish', organizationId: org, entityId: 'scale-1',
-    result: { version: 7 }, connectOutbox: marker,
+    result: { version: marker.publishRevision }, connectOutbox: marker,
   };
   const scale = {
     organizationId: org, status: 'published', publishRevision: 7,
