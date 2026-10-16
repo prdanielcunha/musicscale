@@ -5,7 +5,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 COPY . .
-RUN npm run build
+RUN npm run build && npx esbuild services/server/connect/runIndependentScaleRecovery.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/connect-recovery.mjs
 
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app

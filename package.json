@@ -47,7 +47,7 @@
     "release:minor": "node scripts/bump-release.mjs minor",
     "release:revision": "node scripts/bump-release.mjs revision",
     "release:visual": "node scripts/bump-release.mjs visual",
-    "test:connect-scale-events": "vitest run tests/server/connect-canonical-scale-published-event.test.ts tests/server/connect-durable-scale-outbox.test.ts"
+    "test:connect-scale-events": "vitest run tests/server/connect-canonical-scale-published-event.test.ts tests/server/connect-durable-scale-outbox.test.ts tests/server/connect-independent-scale-recovery.test.ts tests/server/connect-source-recovery-workflow.test.ts"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",

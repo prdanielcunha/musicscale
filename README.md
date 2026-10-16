@@ -109,3 +109,6 @@ Consulte os documentos em `/docs` para manuais técnicos focados:
 * `docs/AI_CHANGE_PROTOCOL.md`
 * `docs/GLOBAL_LIBRARY_CURATION_DATA_MODEL.md`
 * E o arquivo `AGENTS.md` (mandatório para IA).
+
+### Recuperação independente Connect
+O worker de origem pode recuperar `scale.published` e `scale.presence_pending` sem visitas ao app, pelo job IAM autenticado e cron protegido descritos em `docs/CONNECT_DURABLE_SCALE_OUTBOX.md`. Mantém a origem OFF por padrão e não ativa WhatsApp ou Push.
