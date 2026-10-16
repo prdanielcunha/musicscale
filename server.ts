@@ -1514,20 +1514,18 @@ app.post(
       })}`);
 
       if (process.env.MUSICSCALE_CONNECT_SCALE_PUBLISHED_EVENTS_ENABLED === 'true') {
-        try {
-          // Bounded recovery only from canonical, transactionally persisted
-          // command receipts for this already-authorized organization.
-          // Never fail or repeat the successful scale publication.
-          const recovery = await recoverConnectScaleReceipts({
-            enabled: true, organizationId: orgId, db, limit: 3,
-            signingSecret: process.env.MUSICSCALE_CONNECT_SOURCE_EVENT_SECRET,
-            targetsJson: process.env.MUSICSCALE_CONNECT_OPERATOR_TARGETS_JSON,
-          });
-          logger.info('[MusicScale Connect Receipt Recovery] ' +
-            JSON.stringify(recovery));
-        } catch {
+        // Best effort in this HTTP invocation: respond to the musician promptly.
+        // Cloud Run may pause after response; the canonical receipt remains
+        // pending for an independent, authorized recovery worker to revisit.
+        void recoverConnectScaleReceipts({
+          enabled: true, organizationId: orgId, db, limit: 1,
+          signingSecret: process.env.MUSICSCALE_CONNECT_SOURCE_EVENT_SECRET,
+          targetsJson: process.env.MUSICSCALE_CONNECT_OPERATOR_TARGETS_JSON,
+        }).then(recovery => {
+          logger.info('[MusicScale Connect Receipt Recovery] ' + JSON.stringify(recovery));
+        }).catch(() => {
           logger.warn('[MusicScale Connect Receipt Recovery] DEFERRED');
-        }
+        });
       }
 
       return res.status(200).json(result);
