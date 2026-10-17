@@ -1,0 +1,23 @@
+name: MusicScale source recovery dispatch
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+permissions:
+  actions: write
+  contents: read
+concurrency:
+  group: musicscale-source-recovery-dispatch
+  cancel-in-progress: false
+jobs:
+  dispatch:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Dispatch protected production worker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --method POST "/repos/$GITHUB_REPOSITORY/actions/workflows/connect-source-recovery-production.yml/dispatches" -f ref=production

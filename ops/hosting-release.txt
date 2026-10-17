@@ -1,3 +1,6 @@
+MusicScale 0.11.1-beta.8 — 2026-10-16
+Connect: worker independente de recuperação dos recibos de escala e presença, com cursor durável por organização, leases, backoff, retomada e agendamento protegido production-only. Origem permanece DESLIGADA; sem envio Meta, Push ou novas notificações para músicos. Publicação exige QA integral, privacidade canônica de recibos, destinos/HMAC aprovados e prova operacional separada. Preserva todas as funcionalidades e dados da beta.7.
+
 MusicScale 0.11.1-beta.7 — 2026-10-16
 Connect: registro opcional de eventos scale.published/scale.presence_pending no recibo oficial de publicação, com recuperação limitada, idempotência e revisão humana. Apenas alerta interno de operador, nenhum envio direto de WhatsApp/Meta; a publicação de escalas e as notificações dos músicos não dependem da rede Connect. Flags de origem seguem DESLIGADAS até operador/thread Hub, segredo HMAC, recuperação independente, validação de consentimento e aceite físico. Sem alterações em Firestore Rules, Stripe, dados, RBAC ou permissões.
 

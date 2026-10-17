@@ -19,6 +19,8 @@ function fakeDatabase(marker: ConnectScaleReceiptOutbox, org = 'org-a') {
     updatedAt: { toDate: () => new Date(start - 5000) },
   };
   const query = { count: 0 };
+  let cursor: any;
+  const cursorRef = { kind: 'cursor', async get() { return { data: () => cursor }; } };
   function ref(kind: 'receipt' | 'scale') {
     return {
       kind,
@@ -38,14 +40,15 @@ function fakeDatabase(marker: ConnectScaleReceiptOutbox, org = 'org-a') {
         return { collection: (name: string) => {
           expect(name).toBe('_commandReceipts');
           return {
+            doc: () => cursorRef,
             where(field: string, op: string, states: string[]) {
               expect([field, op, states]).toEqual(['connectOutbox.state', 'in', ['pending','processing']]);
-              return { limit(n: number) {
+              return { orderBy() { return this; }, limit(n: number) {
                 expect(n).toBeLessThanOrEqual(5);
-                return { async get() {
+                return { orderBy() { return this; }, startAfter() { return this; }, async get() {
                   query.count++;
                   return { docs: ['pending','processing'].includes(receipt.connectOutbox.state) ? [
-                    { ref: receiptRef },
+                    { ref: receiptRef, id: 'receipt-1' },
                   ] : [] };
                 } };
               } };
@@ -57,6 +60,7 @@ function fakeDatabase(marker: ConnectScaleReceiptOutbox, org = 'org-a') {
     async runTransaction(fn: (tx: any) => Promise<unknown>) {
       return fn({
         get: (r: { get: () => Promise<unknown> }) => r.get(),
+        set(_r: unknown, value: unknown) { cursor = value; },
         update(r: { kind: string }, patch: Record<string, any>) {
           expect(r.kind).toBe('receipt');
           for (const [path, value] of Object.entries(patch)) {
@@ -169,4 +173,82 @@ describe('MusicScale Connect durable receipt outbox', () => {
     expect(db.receipt.connectOutbox.state).toBe('needs_review');
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+});
+
+// Query-aware fixture: exercising cursor movement, not a fixed returned page.
+function pagedDatabase() {
+  const rows = new Map<string, any>();
+  const ref = (id: string) => ({ id, async get() { return { data: () => structuredClone(rows.get(id)) }; } });
+  const collection: any = {
+    doc: ref,
+    where: () => {
+      let after = '', take = 5;
+      const query: any = {
+        orderBy: () => query, limit(n: number) { take = n; return query; },
+        startAfter(id: string) { after = id; return query; },
+        async get() { return { docs: [...rows.keys()].sort().filter(id => id > after &&
+          ['pending', 'processing'].includes(rows.get(id)?.connectOutbox?.state))
+          .slice(0, take).map(id => ({ id, ref: ref(id) })) }; },
+      };
+      return query;
+    },
+  };
+  const firestore: any = {
+    collection: (name: string) => {
+      expect(name).toBe('organizations');
+      return { doc: (id: string) => {
+        expect(id).toBe('org-a');
+        return { collection: (key: string) => { expect(key).toBe('_commandReceipts'); return collection; } };
+      } };
+    },
+    async runTransaction(fn: any) {
+      return fn({ get: (r: any) => r.get(),
+        set: (r: any, data: any) => rows.set(r.id, data),
+        update: (r: any, patch: any) => {
+          const data = rows.get(r.id);
+          for (const [key, value] of Object.entries(patch)) data.connectOutbox[key.split('.')[1]] = value;
+        },
+      });
+    },
+  };
+  return { rows, firestore };
+}
+
+it('crosses arbitrarily many blocked pages, survives process restart and wraps', async () => {
+  const db = pagedDatabase();
+  for (let i = 0; i < 13; i++) {
+    db.rows.set(String(i).padStart(2, '0'), {
+      organizationId: 'org-a', commandType: 'musicScale.publish', entityId: 'scale-1', result: { version: 7 },
+      connectOutbox: { ...makeConnectScaleReceiptOutbox({ enabled: true, musicScaleId: 'scale-1', publishRevision: 7,
+        createdResponseCount: 0 }), retryAt: new Date(start + 3600000).toISOString() },
+    });
+  }
+  // A later eligible row is terminal without needing any network/scale reads.
+  db.rows.get('12').connectOutbox.attempts = 3;
+  db.rows.get('12').connectOutbox.retryAt = '';
+  const run = () => recoverConnectScaleReceipts({ enabled: true, organizationId: 'org-a', signingSecret: secret,
+    targetsJson: targets, now: () => start, db: db.firestore, limit: 5 });
+  expect((await run()).scanned).toBe(5);
+  expect((await run()).scanned).toBe(5);
+  expect((await run()).scanned).toBe(3);
+  expect(db.rows.get('12').connectOutbox.state).toBe('needs_review');
+  expect((await run()).scanned).toBe(0);
+  expect(db.rows.get('_connectRecoveryCursorV1').after).toBe('');
+  expect((await run()).scanned).toBe(5);
+});
+
+it('does not reclaim an active lease, and recovers expired exhausted leases', async () => {
+  const db = pagedDatabase();
+  db.rows.set('00', { organizationId: 'org-a', commandType: 'musicScale.publish', entityId: 'scale-1',
+    result: { version: 7 }, connectOutbox: {
+      ...makeConnectScaleReceiptOutbox({ enabled: true, musicScaleId: 'scale-1', publishRevision: 7, createdResponseCount: 0 }),
+      state: 'processing', attempts: 3, leaseToken: 'crashed-worker', leaseUntil: new Date(start + 30000).toISOString(),
+    } });
+  const run = (now: number) => recoverConnectScaleReceipts({ enabled: true, organizationId: 'org-a', signingSecret: secret,
+    targetsJson: targets, now: () => now, db: db.firestore, limit: 5 });
+  await run(start);
+  expect(db.rows.get('00').connectOutbox.state).toBe('processing');
+  await run(start + 31000); // wrap
+  await run(start + 31000);
+  expect(db.rows.get('00').connectOutbox.state).toBe('needs_review');
 });

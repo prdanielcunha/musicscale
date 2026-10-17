@@ -16,3 +16,11 @@ Falhas/ambiguidades de rede mantêm o evento `pending` com backoff e limite de 3
 
 ## Evidências solicitadas antes de release
 `npm run test:connect-scale-events`, `npm run test:scale-release`, `npm run lint`, `npm run build` e QA do workflow oficial no SHA exato. Depois PR aprovado e release guard de arquivos de servidor. Nunca usar force push. O sucesso do CI não prova ingestão real de evento nem presença/entrega no aparelho.
+
+## Recuperação independente implementada em 16 de outubro
+
+`runIndependentScaleRecovery` percorre somente as até 100 organizações do mapa aprovado no servidor, continua após falha isolada e publica métricas agregadas sem identificadores. Cada organização recebe uma página de até cinco recibos. Cursor durável `_commandReceipts/_connectRecoveryCursorV1`, ordem por ID e atualização CAS permitem atravessar páginas ocupadas por leases/backoff sem starvation. Página vazia reinicia a varredura na próxima execução; um processo reiniciado usa o cursor persistido. A transação de lease e a deduplicação por trigger continuam vigentes. O worker não chama publicação de escala, gravação financeira ou notificação de músicos.
+
+O contêiner inclui `dist/connect-recovery.mjs`. O cron de `main` solicita o workflow de `production`, que autentica via WIF existente e executa um Cloud Run Job com a identidade runtime do MusicScale. Não há endpoint público novo nem chave de worker compartilhada com browser. O job copia apenas a configuração de origem já instalada e aprovada na revisão servida, exige Secret Manager para HMAC e fixa o digest imutável da única revisão Ready com 100% do tráfego. Permissões/IAM, secrets, Rules, índices, configuração Meta e flags não são alterados. Se a origem está desligada, retorna `MUSICSCALE_SOURCE_RECOVERY_DISABLED_NO_MUTATION` antes de criar/executar jobs.
+
+Esta seção substitui a limitação anterior de implementação somente oportunística. **Não afirma ativação operacional:** o cron é best effort, sem SLA horário. Exigem comprovação externa: configuração aprovada instalada, permissão existente para criar/executar o job, índice em produção, execução real agendada, logs de recuperação e ingestão real no Connect. Sem essas provas a flag permanece OFF. Nenhum teste sintético certifica Meta ou iPhone físico.

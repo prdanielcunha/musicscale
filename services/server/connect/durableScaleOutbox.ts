@@ -60,7 +60,8 @@ function validMarker(value: unknown): value is ConnectScaleReceiptOutbox {
   const v = value as ConnectScaleReceiptOutbox;
   return !!v && v.schemaVersion === 1 &&
     ['pending', 'processing', 'complete', 'needs_review'].includes(v.state) &&
-    typeof v.musicScaleId === 'string' && v.musicScaleId.length > 0 &&
+    typeof v.musicScaleId === 'string' && v.musicScaleId.length > 0 && v.musicScaleId.length <= 180 &&
+    v.musicScaleId.trim() === v.musicScaleId && !/[\\/\u0000-\u001f\u007f]/.test(v.musicScaleId) &&
     Number.isSafeInteger(v.publishRevision) && v.publishRevision > 0 &&
     Array.isArray(v.triggers) && v.triggers.length >= 1 && v.triggers.length <= 2 &&
     v.triggers.every(t => t === 'scale.published' || t === 'scale.presence_pending') &&
@@ -69,13 +70,13 @@ function validMarker(value: unknown): value is ConnectScaleReceiptOutbox {
 }
 
 /**
- * Bounded opportunistic recovery. It reads ONLY existing private, organization-scoped
+ * Bounded recovery with a persistent tenant cursor. It reads ONLY existing private, organization-scoped
  * _commandReceipts from a server-approved target mapping. A crash between a
  * Connect 202 and receipt update may replay the identical event ID; Connect's
  * persistent event key deduplicates it. No WhatsApp, Meta or member notifications.
  *
- * This is not a scheduler. Complete unattended delivery requires a separately
- * authorized, protected periodic runner and live positive end-to-end proof.
+ * Invoked by the independent IAM-authenticated job and the publish fast path.
+ * Cursor CAS prevents concurrent workers from moving pagination backwards.
  */
 export async function recoverConnectScaleReceipts(options: {
   organizationId: string;
@@ -88,7 +89,7 @@ export async function recoverConnectScaleReceipts(options: {
   db?: ReturnType<typeof getFirestore>;
 }): Promise<{ scanned: number; completed: number; review: number; pending: number }> {
   const counts = { scanned: 0, completed: 0, review: 0, pending: 0 };
-  if (!options.enabled || !options.signingSecret || options.signingSecret.length < 32 ||
+  if (!options.enabled || !options.signingSecret || options.signingSecret.length < 32 || options.signingSecret.length > 4096 ||
       !safeConnectOutboxScope(options.organizationId, options.targetsJson)) return counts;
   const db = options.db ?? getFirestore();
   const clock = options.now ?? Date.now;
@@ -96,7 +97,16 @@ export async function recoverConnectScaleReceipts(options: {
   const receipts = db.collection('organizations').doc(options.organizationId).collection('_commandReceipts');
   // Single-field 'in' query: no collectionGroup scan, cross-tenant query,
   // composite index or new Firestore collection.
-  const items = await receipts.where('connectOutbox.state', 'in', ['pending', 'processing']).limit(limit).get();
+  const cursorRef = receipts.doc('_connectRecoveryCursorV1');
+  const cursorSnapshot = await cursorRef.get();
+  const cursor = cursorSnapshot.data();
+  const previousToken = typeof cursor?.token === 'string' ? cursor.token : '';
+  const after = typeof cursor?.after === 'string' && cursor.after.length <= 1500 &&
+    !/[\\/\u0000-\u001f\u007f]/.test(cursor.after) ? cursor.after : '';
+  let query = receipts.where('connectOutbox.state', 'in', ['pending', 'processing'])
+    .orderBy('__name__').limit(limit);
+  if (after) query = query.startAfter(after);
+  const items = await query.get();
   for (const row of items.docs) {
     counts.scanned++;
     const token = randomUUID();
@@ -114,7 +124,7 @@ export async function recoverConnectScaleReceipts(options: {
           Date.parse(marker.retryAt ?? '') > now) return null;
       if (marker.attempts >= 3) {
         tx.update(row.ref, { 'connectOutbox.state': 'needs_review', 'connectOutbox.resultCode': 'retry_limit' });
-        return null;
+        return 'needs_review' as const;
       }
       tx.update(row.ref, {
         'connectOutbox.state': 'processing',
@@ -124,6 +134,7 @@ export async function recoverConnectScaleReceipts(options: {
       });
       return { ...marker, attempts: marker.attempts + 1 } as ConnectScaleReceiptOutbox;
     });
+    if (claimed === 'needs_review') { counts.review++; continue; }
     if (!claimed) continue;
 
     const delivered = new Set(claimed.delivered);
@@ -171,5 +182,16 @@ export async function recoverConnectScaleReceipts(options: {
     else if (finished === 'needs_review') counts.review++;
     else if (finished === 'pending') counts.pending++;
   }
+  // Advance even when every row is leased/backing off/malformed. Otherwise a
+  // permanently blocked first page can starve every later ready receipt.
+  // Empty pages wrap on the NEXT invocation, bounding both work and reads.
+  await db.runTransaction(async tx => {
+    const current = (await tx.get(cursorRef)).data();
+    if ((typeof current?.token === 'string' ? current.token : '') !== previousToken) return;
+    tx.set(cursorRef, {
+      schemaVersion: 1, token: randomUUID(),
+      after: items.docs.at(-1)?.id ?? '',
+    });
+  });
   return counts;
 }
