@@ -1,5 +1,10 @@
 name: MusicScale source recovery dispatch
 on:
+  # Bootstrap the existing protected worker when this dispatcher is installed/changed.
+  # No app-code push triggers recovery; production flags and source gates remain authoritative.
+  push:
+    branches: [main]
+    paths: ['.github/workflows/connect-source-recovery-hourly.yml']
   schedule:
     - cron: '23 * * * *'
   workflow_dispatch:
