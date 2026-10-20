@@ -24,9 +24,10 @@ export class ReuseAwareMusicRepository extends MusicRepository {
 
     this.musicScaleCommands = {
       save: async (musicScaleId: string, payload: MusicScaleCommandPayload, idempotencyKey: string) => {
-        const normalizedPayload = await this.normalizeBandReusePayload(musicScaleId, payload);
         try {
-          return await baseCommands.save(musicScaleId, normalizedPayload, idempotencyKey);
+          // The canonical command already validates the link. Avoid a blocking
+          // browser Firestore read before every otherwise valid save.
+          return await baseCommands.save(musicScaleId, payload, idempotencyKey);
         } catch (error: any) {
           if (error?.code !== 'BAND_SCALE_ALREADY_LINKED') throw error;
 
@@ -36,9 +37,8 @@ export class ReuseAwareMusicRepository extends MusicRepository {
         }
       },
       publish: async (musicScaleId: string, payload: MusicScaleCommandPayload, idempotencyKey: string) => {
-        const normalizedPayload = await this.normalizeBandReusePayload(musicScaleId, payload);
         try {
-          return await baseCommands.publish(musicScaleId, normalizedPayload, idempotencyKey);
+          return await baseCommands.publish(musicScaleId, payload, idempotencyKey);
         } catch (error: any) {
           if (error?.code !== 'BAND_SCALE_ALREADY_LINKED') throw error;
 
