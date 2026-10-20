@@ -1,6 +1,15 @@
-MusicScale 0.11.1-beta.6 — 2026-10-20
+MusicScale 0.11.1-beta.9 — 2026-10-20
 Salvamento/publicação: comando canônico antes de leituras de compatibilidade no navegador; reutilização de banda somente após conflito confirmado pelo servidor. Atualização lastScheduledAt com até cinco transações concorrentes, preservando validação tenant e monotonicidade.
 Sem alterações em autenticação, memberships, permissões, Rules, billing, Functions ou dados existentes. Publicar somente após QA no SHA exato e revisão do diff.
+
+MusicScale 0.11.1-beta.8 — 2026-10-16
+Connect: worker independente de recuperação dos recibos de escala e presença, com cursor durável por organização, leases, backoff, retomada e agendamento protegido production-only. Origem permanece DESLIGADA; sem envio Meta, Push ou novas notificações para músicos. Publicação exige QA integral, privacidade canônica de recibos, destinos/HMAC aprovados e prova operacional separada. Preserva todas as funcionalidades e dados da beta.7.
+
+MusicScale 0.11.1-beta.7 — 2026-10-16
+Connect: registro opcional de eventos scale.published/scale.presence_pending no recibo oficial de publicação, com recuperação limitada, idempotência e revisão humana. Apenas alerta interno de operador, nenhum envio direto de WhatsApp/Meta; a publicação de escalas e as notificações dos músicos não dependem da rede Connect. Flags de origem seguem DESLIGADAS até operador/thread Hub, segredo HMAC, recuperação independente, validação de consentimento e aceite físico. Sem alterações em Firestore Rules, Stripe, dados, RBAC ou permissões.
+
+MusicScale 0.11.1-beta.6 — 2026-10-15
+Publicador canônico do evento scale.published para a fila interna MillionsNest Connect após confirmação do comando oficial. Flag DESLIGADA até fonte HMAC e operador/conversa Hub autorizados. Não gera nem duplica notificações de músicos, não envia mensagens Meta e não altera Web Push, escalas, autorizações, dados, cobrança ou Firestore Rules. Próximo gate: CI completo, revisão e verificação do SHA realmente publicado; esta integração ainda NÃO comprova automação de domínio ponta a ponta.
 
 MusicScale 0.11.1-beta.5 — 2026-10-15
 Avaliações internas Hub de sete dias: backend aceita novos grants de sete dias e preserva grants legados versão 2 de 14 dias, suas extensões e a prioridade dos contratos pagos. Mantém dados, escalas, funções, configurações e a integração canônica de billing.
