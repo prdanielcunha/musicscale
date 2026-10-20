@@ -399,16 +399,23 @@ export class MusicScaleCommandService {
     const parsed = new Date(Date.UTC(year, month - 1, day));
     if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return;
 
-    for (const songId of new Set((songIds || []).filter(id => typeof id === 'string' && id.trim()))) {
-      const songRef = db.collection('songs').doc(songId);
-      await db.runTransaction(async transaction => {
-        const songSnap = await transaction.get(songRef);
-        if (!songSnap.exists) return;
-        const song = songSnap.data() || {};
-        if (song.organizationId !== orgId) return;
-        const current = typeof song.lastScheduledAt === 'string' ? song.lastScheduledAt : null;
-        if (!current || scheduledDate > current) transaction.update(songRef, { lastScheduledAt: scheduledDate });
-      });
+    const uniqueSongIds = [...new Set((songIds || []).filter(id => typeof id === 'string' && id.trim()))];
+    // Keep atomic, monotonic updates and bounded load, without N sequential
+    // round trips delaying the already committed scale. Await every operation.
+    for (let offset = 0; offset < uniqueSongIds.length; offset += 5) {
+      const results = await Promise.allSettled(uniqueSongIds.slice(offset, offset + 5).map(songId => {
+        const songRef = db.collection('songs').doc(songId);
+        return db.runTransaction(async transaction => {
+          const songSnap = await transaction.get(songRef);
+          if (!songSnap.exists) return;
+          const song = songSnap.data() || {};
+          if (song.organizationId !== orgId) return;
+          const current = typeof song.lastScheduledAt === 'string' ? song.lastScheduledAt : null;
+          if (!current || scheduledDate > current) transaction.update(songRef, { lastScheduledAt: scheduledDate });
+        });
+      }));
+      const failure = results.find(result => result.status === 'rejected');
+      if (failure?.status === 'rejected') throw failure.reason;
     }
   }
 

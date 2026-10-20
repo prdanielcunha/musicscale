@@ -1,3 +1,7 @@
+MusicScale 0.11.1-beta.6 — 2026-10-20
+Salvamento/publicação: comando canônico antes de leituras de compatibilidade no navegador; reutilização de banda somente após conflito confirmado pelo servidor. Atualização lastScheduledAt com até cinco transações concorrentes, preservando validação tenant e monotonicidade.
+Sem alterações em autenticação, memberships, permissões, Rules, billing, Functions ou dados existentes. Publicar somente após QA no SHA exato e revisão do diff.
+
 MusicScale 0.11.1-beta.5 — 2026-10-15
 Avaliações internas Hub de sete dias: backend aceita novos grants de sete dias e preserva grants legados versão 2 de 14 dias, suas extensões e a prioridade dos contratos pagos. Mantém dados, escalas, funções, configurações e a integração canônica de billing.
 Leitor compatível antes da mudança do emissor Hub. Rules compartilhadas pertencem exclusivamente ao pipeline do Hub; este deploy não cria avaliações nem altera assinaturas existentes.

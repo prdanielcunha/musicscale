@@ -1115,6 +1115,41 @@ describe('MusicScaleCommandService (Backend)', () => {
     expect(dbState.get('songs/song-1')!.data.lastScheduledAt).toBe('2026-12-01');
   });
 
+  it('starts song maintenance concurrently, with at most five transactions in flight', async () => {
+    const originalRunTransaction = mockDbCommandService.runTransaction.bind(mockDbCommandService);
+    let active = 0;
+    let peak = 0;
+    const releases: Array<() => void> = [];
+    mockDbCommandService.runTransaction = async callback => {
+      active++;
+      peak = Math.max(peak, active);
+      await new Promise<void>(resolve => releases.push(resolve));
+      try { return await originalRunTransaction(callback); }
+      finally { active--; }
+    };
+    try {
+      const service = MusicScaleCommandService as unknown as {
+        updateSongsLastScheduledAt(db: TestFirestore, orgId: string, songIds: string[], date: string): Promise<void>;
+      };
+      let completed = false;
+      const pending = service.updateSongsLastScheduledAt(mockDbCommandService, 'org-1',
+        Array.from({ length: 7 }, (_, i) => `latency-song-${i}`), '2026-10-20').then(() => { completed = true; });
+      expect(active).toBe(5);
+      expect(completed).toBe(false);
+      releases.splice(0).forEach(release => release());
+      await vi.waitFor(() => expect(releases).toHaveLength(2));
+      expect(peak).toBe(5);
+      expect(completed).toBe(false);
+      releases.splice(0).forEach(release => release());
+      await pending;
+      expect(completed).toBe(true);
+      expect(active).toBe(0);
+    } finally {
+      releases.forEach(release => release());
+      mockDbCommandService.runTransaction = originalRunTransaction;
+    }
+  });
+
   it('31. falha best-effort de lastScheduledAt não desfaz save confirmado', async () => {
     setupBasicScale();
     dbState.set('songs/song-1', { data: { organizationId: 'org-1' }, version: 1 });
