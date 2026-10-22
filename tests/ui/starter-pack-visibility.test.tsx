@@ -109,6 +109,7 @@ describe('SongsPage Starter Pack Visibility', () => {
           <Route path="/songs" element={<SongsPage />} />
           <Route path="/library" element={<div data-testid="mock-library">Library</div>} />
           <Route path="/" element={<div data-testid="mock-home">Home</div>} />
+          <Route path="/start" element={<div data-testid="mock-onboarding">Primeiros passos</div>} />
         </Routes>
       </MemoryRouter>
     );
@@ -155,6 +156,29 @@ describe('SongsPage Starter Pack Visibility', () => {
     expect(screen.queryByTestId('mock-starter-modal')).not.toBeInTheDocument();
     // Still in /songs
     expect(screen.getByTestId('starter-pack-empty-card')).toBeInTheDocument();
+  });
+
+  it('cancela pelo X ou botão e retorna à tela anterior do onboarding', async () => {
+    renderWithRouter([{
+      pathname: '/songs',
+      search: '?starterPack=1',
+      state: { starterRepertoireOrigin: 'first-value-journey', starterRepertoireReturnTo: '/start?step=repertoire' }
+    }] as any);
+    await waitFor(() => expect(screen.getByTestId('mock-starter-modal')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('mock-modal-cancel'));
+    expect(screen.getByTestId('mock-onboarding')).toBeInTheDocument();
+    expect(mockRefreshData).not.toHaveBeenCalled();
+  });
+
+  it('retorna à jornada após confirmação', async () => {
+    renderWithRouter([{
+      pathname: '/songs',
+      search: '?starterPack=1',
+      state: { starterRepertoireOrigin: 'first-value-journey', starterRepertoireReturnTo: '/' }
+    }] as any);
+    await waitFor(() => expect(screen.getByTestId('mock-starter-modal')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('mock-modal-complete'));
+    await waitFor(() => expect(screen.getByTestId('mock-home')).toBeInTheDocument());
   });
 
   it('Cenário 5: Saldo loading', () => {
