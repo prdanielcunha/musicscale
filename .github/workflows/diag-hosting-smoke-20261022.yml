@@ -32,3 +32,23 @@ jobs:
               rm -f "$h" "$b"
             done
           done
+
+      - name: Check independent NestTuner asset and protected MusicScale API response
+        shell: bash
+        run: |
+          set -u
+          for url in \
+            'https://mn-nesttuner-555464791734.web.app/pt/?embed=musicscale&version=0.6.7-beta.1' \
+            'https://mn-nesttuner-555464791734.web.app/embed/nesttuner-element.v0.6.7-beta.1.js' \
+            'https://musicscale.millionsnest.com/api/v1/ecosystem/access-context?organizationId=production-release-smoke'; do
+            echo "===== $url ====="
+            h="$(mktemp)"; b="$(mktemp)"
+            rc=0
+            status="$(curl --silent --show-error --location --max-time 20 --dump-header "$h" --output "$b" --write-out '%{http_code}' "$url" 2>&1)" || rc=$?
+            echo "curl_exit=$rc status=$status"
+            grep -iE '^(HTTP/|cache-control:|content-type:|location:)' "$h" | head -12 || true
+            echo "body_bytes=$(wc -c < "$b")"
+            head -c 160 "$b" || true
+            echo
+            rm -f "$h" "$b"
+          done
