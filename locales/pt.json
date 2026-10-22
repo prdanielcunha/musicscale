@@ -1719,6 +1719,16 @@
     "scaleResponses.errors.notAssigned": "Você não está escalado neste evento."
   },
   "firstValueJourney": {
+    "choiceMethod": "Como deseja escolher?",
+    "moreSuggestions": "Ver outras sugestões",
+    "backToSuggestions": "Voltar às sugestões",
+    "chooseSongsByName": "Escolher músicas pelo nome",
+    "manualChoiceExplanation": "Pesquise entre as músicas disponíveis neste pacote e marque uma por uma. A seleção sugerida foi limpa.",
+    "suggestionChoiceExplanation": "Ver outras sugestões troca a lista e a seleção atual. Nada será importado até você confirmar.",
+    "searchSongs": "Buscar pelo nome ou artista",
+    "noMoreSuggestions": "Estas são as sugestões disponíveis agora. Você também pode escolher pelo nome.",
+    "noSearchResults": "Nenhuma música encontrada. Tente outro nome ou artista.",
+    "backToFirstSteps": "Voltar aos primeiros passos",
     "title": "Prepare seu primeiro culto",
     "subtitle": "Vamos organizar repertório, escala e publicação. Você poderá alterar tudo depois.",
     "progress": "{{current}} de {{total}} etapas essenciais concluídas",
