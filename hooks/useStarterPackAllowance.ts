@@ -9,7 +9,17 @@ export interface StarterPackError {
   correlationId?: string;
 }
 
-export function useStarterPackAllowance() {
+export interface StarterPackAllowanceResult {
+  starterPack: any[];
+  // Optional for older callers and tests; the server may not supply a pool yet.
+  suggestionPool?: any[];
+  allowance: StarterPackAllowance | null;
+  loading: boolean;
+  error: StarterPackError | null;
+  refreshAllowance: () => Promise<void>;
+}
+
+export function useStarterPackAllowance(): StarterPackAllowanceResult {
   const { organization, user } = useAuth();
   const [allowance, setAllowance] = useState<StarterPackAllowance | null>(null);
   const [starterPack, setStarterPack] = useState<any[]>([]);
