@@ -27,9 +27,11 @@ export function generateDeterministicStarterSongId(orgId: string, globalSongId: 
 }
 
 /**
- * Selects up to 10 starter songs from globalSongs without requiring a compound query index.
+ * Selects bounded starter candidates without a compound index.
+ * Existing callers keep the original ten unless they explicitly request more.
  */
-export async function selectStarterPack(db: any): Promise<any[]> {
+export async function selectStarterPack(db: any, maxSongs: number = 10): Promise<any[]> {
+  const limit = Math.max(1, Math.min(30, Math.floor(maxSongs) || 10));
   const songsRef = db.collection("globalSongs");
 
   // Fetch all marked as onboardingStarter
@@ -42,9 +44,9 @@ export async function selectStarterPack(db: any): Promise<any[]> {
   // Sort onboardingStarterRank
   starterSongs.sort((a: any, b: any) => (a.onboardingStarterRank || 999) - (b.onboardingStarterRank || 999));
 
-  // If we need more to reach 10, fetch general active globalSongs and filter in-memory
-  if (starterSongs.length < 10) {
-    const needed = 10 - starterSongs.length;
+  // Fill the remaining candidate slots with active popular Portuguese songs.
+  if (starterSongs.length < limit) {
+    const needed = limit - starterSongs.length;
     // Query simply status === active, limit to 100
     const activeSnap = await songsRef.where("status", "==", "active").limit(100).get();
     const activeSongs = activeSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
@@ -73,7 +75,7 @@ export async function selectStarterPack(db: any): Promise<any[]> {
     }
   }
 
-  return uniqueSongs.slice(0, 10);
+  return uniqueSongs.slice(0, limit);
 }
 
 /**
