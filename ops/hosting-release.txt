@@ -145,3 +145,5 @@ Preserva integralmente as melhorias de Cifras ao Vivo da 0.11.0-beta.12 (velocid
 Nenhuma migração destrutiva. Nenhuma exclusão de músicas, escalas, configurações ou assinaturas dos clientes.
 
 Connect: entrada de suporte manual com origem assinada, transporte autenticado e validação canônica Hub. Botão condicionado a VITE_CONNECT_SUPPORT_ENABLED; permanece desativado até homologação autenticada do endpoint Core. Nenhum envio automático ou alteração da configuração Meta.
+
+2026-10-22: approved transparent MillionsNest parent branding (presentation only).
