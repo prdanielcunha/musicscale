@@ -3493,7 +3493,8 @@ app.post(
           return res.status(403).json({ error: "Insufficient permissions to read songs" });
       }
 
-      const starterSongs = await selectStarterPack(db);
+      // Same bounded pool is checked for suggestions and server-side import authorization.
+      const starterSongs = await selectStarterPack(db, 30);
       
       // Check which ones are already imported
       const importedIds = new Set();
@@ -3522,7 +3523,12 @@ app.post(
         alreadyImported: importedIds.has(s.id)
       }));
 
-      res.json({ success: true, starterPack: safeStarterSongs, allowance: context.allowance });
+      res.json({
+        success: true,
+        starterPack: safeStarterSongs.slice(0, 10),
+        suggestionPool: safeStarterSongs,
+        allowance: context.allowance
+      });
     } catch (err: any) {
       logger.error(`[Onboarding] Starter pack resolution failed: orgId=${orgId}`, err);
       return res.status(500).json({ 
@@ -3567,7 +3573,8 @@ app.post(
         return res.status(400).json({ error: "No songs selected" });
       }
 
-      const starterSongs = await selectStarterPack(db);
+      // Same bounded pool is checked for suggestions and server-side import authorization.
+      const starterSongs = await selectStarterPack(db, 30);
       
       const validation = validateStarterSelection(selectedSongIds, starterSongs);
       if (!validation.valid) {

@@ -9,10 +9,21 @@ export interface StarterPackError {
   correlationId?: string;
 }
 
-export function useStarterPackAllowance() {
+export interface StarterPackAllowanceResult {
+  starterPack: any[];
+  // Optional for older callers and tests; the server may not supply a pool yet.
+  suggestionPool?: any[];
+  allowance: StarterPackAllowance | null;
+  loading: boolean;
+  error: StarterPackError | null;
+  refreshAllowance: () => Promise<void>;
+}
+
+export function useStarterPackAllowance(): StarterPackAllowanceResult {
   const { organization, user } = useAuth();
   const [allowance, setAllowance] = useState<StarterPackAllowance | null>(null);
   const [starterPack, setStarterPack] = useState<any[]>([]);
+  const [suggestionPool, setSuggestionPool] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<StarterPackError | null>(null);
   const retryCount = useRef(0);
@@ -20,6 +31,7 @@ export function useStarterPackAllowance() {
   const fetchAllowance = useCallback(async (signal?: AbortSignal, isRetry = false) => {
     if (!organization?.id || !user) {
       setAllowance(null);
+      setSuggestionPool([]);
         setStarterPack([]);
       setLoading(false);
       return;
@@ -69,6 +81,7 @@ export function useStarterPackAllowance() {
         });
         setAllowance(null);
         setStarterPack([]);
+        setSuggestionPool([]);
         setLoading(false);
         return;
       }
@@ -85,6 +98,7 @@ export function useStarterPackAllowance() {
       if (data.success && isValidAllowance) {
         setAllowance(data.allowance);
         setStarterPack(Array.isArray(data.starterPack) ? data.starterPack : []);
+        setSuggestionPool(Array.isArray(data.suggestionPool) ? data.suggestionPool : (Array.isArray(data.starterPack) ? data.starterPack : []));
         setError(null);
       } else if (!isValidAllowance) {
         setError({
@@ -93,6 +107,7 @@ export function useStarterPackAllowance() {
         });
         setAllowance(null);
         setStarterPack([]);
+        setSuggestionPool([]);
         setLoading(false);
       } else {
         throw new Error('Formato de resposta inválido');
@@ -105,6 +120,8 @@ export function useStarterPackAllowance() {
         code: 'NETWORK_ERROR'
       });
       setAllowance(null);
+      setStarterPack([]);
+      setSuggestionPool([]);
     } finally {
       if (!isRetry || retryCount.current >= 1) {
         setLoading(false);
@@ -115,8 +132,10 @@ export function useStarterPackAllowance() {
   useEffect(() => {
     const controller = new AbortController();
     
-    // Clear allowance immediately on organization change
+    // Clear allowance and candidate list immediately on organization change
     setAllowance(null);
+    setStarterPack([]);
+    setSuggestionPool([]);
     setLoading(true);
     
     fetchAllowance(controller.signal);
@@ -128,6 +147,7 @@ export function useStarterPackAllowance() {
 
   return {
     starterPack,
+    suggestionPool,
     allowance,
     loading,
     error,

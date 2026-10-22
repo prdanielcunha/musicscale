@@ -528,7 +528,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, onLinkClic
           }`}
           title={t("nav.back_to_ecosystem", "Voltar para MillionsNest")}
         >
-          <MoveLeft className={`w-4 h-4 text-slate-300 group-hover:text-white transition-colors ${isCollapsed ? "" : "mr-2"}`} />
+          <img src="/brand/millionsnest/v1/mark-192.png" alt="" aria-hidden="true" width={20} height={20} style={{display:"inline-block",width:20,height:20,objectFit:"contain",verticalAlign:"middle",marginRight:isCollapsed ? 0 : 8,flexShrink:0}} />
           {!isCollapsed && <span className="text-[12px] font-medium text-slate-300 group-hover:text-white">Voltar</span>}
         </button>
 

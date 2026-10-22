@@ -1719,6 +1719,16 @@
     "scaleResponses.errors.notAssigned": "No estás programado para este evento."
   },
   "firstValueJourney": {
+    "choiceMethod": "¿Cómo deseas elegir?",
+    "moreSuggestions": "Ver otras sugerencias",
+    "backToSuggestions": "Volver a las sugerencias",
+    "chooseSongsByName": "Elegir canciones por nombre",
+    "manualChoiceExplanation": "Busca entre las canciones disponibles en este paquete y selecciónalas una por una. Se ha borrado la selección sugerida.",
+    "suggestionChoiceExplanation": "Ver otras sugerencias cambia la lista y la selección actual. Nada se importa hasta que confirmes.",
+    "searchSongs": "Buscar por canción o artista",
+    "noMoreSuggestions": "Estas son las sugerencias disponibles por ahora. También puedes elegir por nombre.",
+    "noSearchResults": "No se encontraron canciones. Prueba otro título o artista.",
+    "backToFirstSteps": "Volver a los primeros pasos",
     "title": "Prepara tu primer servicio",
     "subtitle": "Organicemos el repertorio, el cronograma y la publicación. Podrás cambiar todo después.",
     "progress": "{{current}} de {{total}} pasos esenciales completados",
