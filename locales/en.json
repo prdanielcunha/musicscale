@@ -1719,6 +1719,16 @@
     "scaleResponses.errors.notAssigned": "You are not scheduled for this event."
   },
   "firstValueJourney": {
+    "choiceMethod": "How would you like to choose?",
+    "moreSuggestions": "Show other suggestions",
+    "backToSuggestions": "Back to suggestions",
+    "chooseSongsByName": "Choose songs by name",
+    "manualChoiceExplanation": "Search the songs available in this pack and select them one at a time. Suggested selections have been cleared.",
+    "suggestionChoiceExplanation": "Other suggestions replace the current list and selection. Nothing is imported until you confirm.",
+    "searchSongs": "Search by song or artist",
+    "noMoreSuggestions": "These are the available suggestions for now. You can also choose by name.",
+    "noSearchResults": "No songs found. Try another title or artist.",
+    "backToFirstSteps": "Back to first steps",
     "title": "Prepare your first service",
     "subtitle": "Let's organize repertoire, schedule, and publication. You can change everything later.",
     "progress": "{{current}} of {{total}} essential steps completed",
