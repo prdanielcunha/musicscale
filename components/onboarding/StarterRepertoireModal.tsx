@@ -3,7 +3,7 @@ import Modal from "../common/Modal";
 import { useAuth } from '../../contexts/AuthContext';
 import { useEcosystem } from '../../contexts/EcosystemContext';
 import { useMusic } from '../../contexts/MusicDataContext';
-import { Music, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Loader2, RefreshCw, Search } from 'lucide-react';
 import { GlobalSong } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { useStarterPackAllowance } from '../../hooks/useStarterPackAllowance';
@@ -12,24 +12,44 @@ interface StarterRepertoireModalProps {
   isOpen: boolean;
   onCancel: () => void;
   onCompleted: (result?: any) => void;
+  returnToJourney?: boolean;
 }
 
-export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: StarterRepertoireModalProps) {
+export function StarterRepertoireModal({ isOpen, onCancel, onCompleted, returnToJourney = false }: StarterRepertoireModalProps) {
   const { organization, user } = useAuth();
   const { t } = useTranslation();
   const { refreshData, songs } = useMusic();
   const { publishEvent } = useEcosystem();
-  const { starterPack: hookStarterPack, allowance, refreshAllowance, error: hookError, loading: hookLoading } = useStarterPackAllowance();
+  const { starterPack: hookStarterPack, suggestionPool, allowance, refreshAllowance, error: hookError, loading: hookLoading } = useStarterPackAllowance();
+  const availableCandidates = suggestionPool?.length ? suggestionPool : hookStarterPack;
+  const [choiceMode, setChoiceMode] = useState<'suggestions' | 'manual'>('suggestions');
+  const [suggestionBatch, setSuggestionBatch] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
+  const suggestionCount = Math.min(10, availableCandidates.length);
+  const visibleSuggestions = Array.from({ length: suggestionCount }, (_, i) =>
+    availableCandidates[(suggestionBatch * 10 + i) % availableCandidates.length]
+  );
+  const normalizedSearch = searchTerm.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const listSongs = choiceMode === 'manual'
+    ? availableCandidates.filter(song =>
+        `${song.title || ''} ${song.artist || ''}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(normalizedSearch))
+    : visibleSuggestions;
   useEffect(() => {
     if (!isOpen) {
       setSelectedIds(new Set());
       setImportError(null);
+      setChoiceMode('suggestions');
+      setSuggestionBatch(0);
+      setSearchTerm('');
     }
   }, [isOpen]);
 
   useEffect(() => {
     setSelectedIds(new Set());
     setImportError(null);
+    setChoiceMode('suggestions');
+    setSuggestionBatch(0);
+    setSearchTerm('');
   }, [organization?.id]);
 
   useEffect(() => {
@@ -90,6 +110,28 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
       }
       return next;
     });
+  };
+
+  const handleNextSuggestions = () => {
+    if (choiceMode === 'manual') {
+      setChoiceMode('suggestions');
+      return;
+    }
+    if (availableCandidates.length <= 10) return;
+    const nextBatch = (suggestionBatch + 1) % Math.ceil(availableCandidates.length / 10);
+    const nextSongs = Array.from({ length: suggestionCount }, (_, i) =>
+      availableCandidates[(nextBatch * 10 + i) % availableCandidates.length]
+    );
+    const importedIds = new Set(songs.map(song => song.originGlobalSongId).filter(Boolean));
+    setSelectedIds(new Set(nextSongs.filter(song => !importedIds.has(song.id)).slice(0, allowance?.remaining ?? 0).map(song => song.id)));
+    setSuggestionBatch(nextBatch);
+  };
+
+  const handleChooseManually = () => {
+    if (choiceMode === 'manual') return;
+    setChoiceMode('manual');
+    setSelectedIds(new Set());
+    setSearchTerm('');
   };
 
   const handleImport = async () => {
@@ -175,6 +217,47 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
             <p className="text-sm text-zinc-400 leading-relaxed">
               {t('firstValueJourney.starterModalDescription', 'Estas músicas foram selecionadas da Biblioteca Viva para acelerar seu primeiro culto. Revise a lista e escolha quais deseja adicionar. Nada será importado até você confirmar, e tudo poderá ser editado depois.')}
             </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3" role="group" aria-label={t('firstValueJourney.choiceMethod', 'Como deseja escolher?')}>
+              <button
+                type="button"
+                onClick={handleNextSuggestions}
+                disabled={hookLoading || availableCandidates.length === 0 || (choiceMode === 'suggestions' && availableCandidates.length <= 10)}
+                className="rounded-xl border border-indigo-500/40 bg-indigo-500/10 px-4 py-3 text-left text-sm font-semibold text-indigo-200 hover:bg-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:opacity-40"
+              >
+                <RefreshCw className="w-4 h-4 inline-block mr-2" />
+                {choiceMode === 'manual' ? t('firstValueJourney.backToSuggestions', 'Voltar às sugestões') : t('firstValueJourney.moreSuggestions', 'Ver outras sugestões')}
+              </button>
+              <button
+                type="button"
+                onClick={handleChooseManually}
+                disabled={hookLoading || availableCandidates.length === 0}
+                aria-pressed={choiceMode === 'manual'}
+                className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:opacity-40 ${choiceMode === 'manual' ? 'border-white/60 bg-white/10 text-white' : 'border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800'}`}
+              >
+                <Search className="w-4 h-4 inline-block mr-2" />
+                {t('firstValueJourney.chooseSongsByName', 'Escolher músicas pelo nome')}
+              </button>
+            </div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              {choiceMode === 'manual'
+                ? t('firstValueJourney.manualChoiceExplanation', 'Pesquise as músicas disponíveis neste pacote e marque uma por uma. A seleção sugerida foi limpa.')
+                : t('firstValueJourney.suggestionChoiceExplanation', 'Ver outras sugestões troca a lista e a seleção atual. Nada será importado até você confirmar.')}
+            </p>
+            {choiceMode === 'manual' && (
+              <label className="block pt-1">
+                <span className="sr-only">{t('firstValueJourney.searchSongs', 'Buscar músicas pelo nome ou artista')}</span>
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={event => setSearchTerm(event.target.value)}
+                  placeholder={t('firstValueJourney.searchSongs', 'Buscar músicas pelo nome ou artista')}
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+              </label>
+            )}
+            {choiceMode === 'suggestions' && availableCandidates.length <= 10 && availableCandidates.length > 0 && (
+              <p className="text-xs text-zinc-500">{t('firstValueJourney.noMoreSuggestions', 'Estas são as sugestões disponíveis agora. Você também pode escolher pelo nome.')}</p>
+            )}
             {allowance?.completed ? (
                <p className="text-xs font-bold text-red-400 uppercase tracking-widest pt-2">
                  {t('starterPackAllowance.completedModalMessage', 'O pacote inicial desta organização já foi utilizado.')}
@@ -213,14 +296,17 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
             <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
             <p className="text-zinc-500">{t('onboarding.fetching_repertoire', 'Buscando o melhor repertório...')}</p>
           </div>
-        ) : hookStarterPack.length === 0 ? (
+        ) : availableCandidates.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center py-10">
             <p className="text-zinc-400 mb-2">Seu pacote inicial está vazio no momento.</p>
             <p className="text-sm text-zinc-500">Volte mais tarde quando houver novas músicas disponíveis.</p>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-            {hookStarterPack.map(song => {
+            {listSongs.length === 0 && (
+              <p className="p-5 text-center text-sm text-zinc-400">{t('firstValueJourney.noSearchResults', 'Nenhuma música encontrada. Tente outro nome ou artista.')}</p>
+            )}
+            {listSongs.map(song => {
               const isAlreadyImported = alreadyImportedIds.has(song.id);
               const isSelected = selectedIds.has(song.id);
               
@@ -269,7 +355,7 @@ export function StarterRepertoireModal({ isOpen, onCancel, onCompleted }: Starte
             onClick={onCancel}
             className="px-5 py-2.5 text-zinc-400 hover:text-white transition-colors font-medium"
           >
-            {t('onboarding.cancel', 'Cancelar')}
+            {returnToJourney ? t('firstValueJourney.backToFirstSteps', 'Voltar aos primeiros passos') : t('onboarding.cancel', 'Cancelar')}
           </button>
           <button 
             onClick={handleImport}
