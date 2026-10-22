@@ -184,3 +184,7 @@ NÃO VERIFICADO.
 ## Avaliação interna sem cartão (2026-10-15)
 
 O Hub emite novas avaliações MusicScale de sete dias (grant versão 3). Backend e Rules reconhecem sete dias e preservam o prazo original de grants legados versão 2 de 14 dias. Pagamentos continuam centralizados no Hub; contratos Stripe ativos são avaliados antes de grants vencidos. Nenhuma migração ou alteração de dados de clientes é necessária. Política canônica: `prdanielcunha/millionsnest/docs/ECOSYSTEM_SEVEN_DAY_TRIAL_POLICY.md`.
+
+## Aquisição gratuita e IA de avaliação (2026-10-22)
+
+O Hub ativa uma avaliação de sete dias sem checkout e projeta o plano Pro e suas features no contrato por app. Os endpoints de sugestão e análise leem primeiro esse contrato canônico. `nestAiProxy` valida o token no Hub antes de reservar uma solicitação em `organizations/{orgId}/musicscaleLiveAiUsage/trial`; dez solicitações são compartilhadas com o gateway Hub, durante toda a avaliação. O contador é mantido somente pelo backend; expiração, quota inválida e indisponibilidade falham fechadas. Clientes pagos são excluídos da reserva, com prevalência do contrato Stripe canônico e sem alteração de cobrança. O limite existente da Biblioteca Viva continua em 20 importações por avaliação.
