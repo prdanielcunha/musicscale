@@ -1,0 +1,34 @@
+name: Diagnostic - MusicScale Public Hosting
+on:
+  push:
+    branches:
+      - chatgpt/diag-hosting-smoke-20261022
+permissions:
+  contents: read
+jobs:
+  http-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check official and Firebase public URLs without credentials
+        shell: bash
+        run: |
+          set -u
+          for base in https://mn-musicscale-555464791734.web.app https://musicscale.millionsnest.com; do
+            for path in / /start /stage-tools/tuner /version.json; do
+              echo "===== ${base}${path} ====="
+              h="$(mktemp)"; b="$(mktemp)"
+              rc=0
+              status="$(curl --silent --show-error --location --max-time 20 --dump-header "$h" --output "$b" --write-out '%{http_code}' "${base}${path}?smoke=diagnostic" 2>&1)" || rc=$?
+              echo "curl_exit=$rc status=$status"
+              grep -iE '^(HTTP/|cache-control:|content-type:|location:|x-served-by:|server:)' "$h" | head -20 || true
+              if [ "$path" = /version.json ]; then
+                head -c 150 "$b" || true
+                echo
+              else
+                echo "body_bytes=$(wc -c < "$b")"
+                echo "html=$(grep -iEq '<!doctype html|<html' "$b" && echo yes || echo no)"
+              fi
+              rm -f "$h" "$b"
+            done
+          done
