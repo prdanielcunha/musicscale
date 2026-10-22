@@ -97,7 +97,7 @@ export const MusicScaleLanding: React.FC<MusicScaleLandingProps> = ({
       </main>
 
       <footer className="border-t border-zinc-800/80 py-8 text-center text-xs text-zinc-500">
-        MillionsNest Ecosystem &copy; {new Date().getFullYear()} MusicScale. Todos os direitos reservados.
+        <a href="https://www.millionsnest.com" className="inline-flex items-center align-middle" aria-label="MillionsNest"><img src="/brand/millionsnest/v1/logo-on-dark.png" alt="MillionsNest" width={1400} height={282} className="mr-3 h-5 w-auto object-contain" /></a> &copy; {new Date().getFullYear()} MusicScale. Todos os direitos reservados.
       </footer>
     </div>
   );
