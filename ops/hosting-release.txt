@@ -1,3 +1,6 @@
+MusicScale 0.11.1-beta.10 — 2026-10-22
+Identidade visual: símbolo MillionsNest aprovado com transparência real nos acessos ao Hub e assinatura do ecossistema. Preserva todas as funcionalidades, dados, permissões e correções das versões anteriores.
+
 MusicScale 0.11.1-beta.9 — 2026-10-20
 Salvamento/publicação: comando canônico antes de leituras de compatibilidade no navegador; reutilização de banda somente após conflito confirmado pelo servidor. Atualização lastScheduledAt com até cinco transações concorrentes, preservando validação tenant e monotonicidade.
 Sem alterações em autenticação, memberships, permissões, Rules, billing, Functions ou dados existentes. Publicar somente após QA no SHA exato e revisão do diff.
