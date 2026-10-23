@@ -1,4 +1,4 @@
-MusicScale 0.11.1-beta.11 — 2026-10-22
+MusicScale 0.11.2-beta.0 — 2026-10-23
 Avaliação sem cartão: recursos Pro pelo contrato canônico do Hub e dez solicitações de IA por avaliação, com contador transacional compartilhado e proteção contra reset pelo navegador. Preserva contratos pagos, dados, escalas, permissões e todos os hotfixes anteriores.
 
 MusicScale 0.11.1-beta.10 — 2026-10-22
@@ -153,3 +153,5 @@ Nenhuma migração destrutiva. Nenhuma exclusão de músicas, escalas, configura
 Connect: entrada de suporte manual com origem assinada, transporte autenticado e validação canônica Hub. Botão condicionado a VITE_CONNECT_SUPPORT_ENABLED; permanece desativado até homologação autenticada do endpoint Core. Nenhum envio automático ou alteração da configuração Meta.
 
 2026-10-22: approved transparent MillionsNest parent branding (presentation only).
+
+2026-10-23: official public WhatsApp support with product/source/subject, after verified Connect publication.
