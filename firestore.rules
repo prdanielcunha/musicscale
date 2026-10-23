@@ -579,8 +579,8 @@ service cloud.firestore {
         // Sensitive subcollections with narrower rules must always be excluded
         // from this generic app wildcard. Firestore ORs overlapping allow rules.
         allow read: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && app != 'app_entitlements' && isAuthenticated() && checkOrgAccess(orgId) && isOrgActive(orgId);
-        allow create: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && app != 'app_entitlements' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
-        allow update, delete: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && app != 'app_entitlements' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
+        allow create: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && app != 'app_entitlements' && app != 'trial_usage' && app != 'musicscaleLiveAiUsage' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
+        allow update, delete: if app != 'members' && app != 'musicscale_members' && app != 'invites' && app != 'musicscale_invite_role_intents' && app != 'join_requests' && app != 'notifications' && app != 'app_entitlements' && app != 'trial_usage' && app != 'musicscaleLiveAiUsage' && isAuthenticated() && checkOrgWriteAccess(orgId) && isOrgActive(orgId);
       }
     }
 

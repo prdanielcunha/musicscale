@@ -1,5 +1,7 @@
 import { createNestAiClient, type Locale, type NestAiClient } from '@millionsnest/ai';
 
+import {reserveHubTrialAiRequest} from './hubTrialAiBudget.js';
+
 type RequestLike = {
   headers?: Record<string, string | string[] | undefined>;
 };
@@ -21,6 +23,7 @@ export function createMusicScaleNestAiClient(input: {
   organizationId: string;
   locale?: unknown;
   fetcher?: typeof fetch;
+  reserveTrialAi?: (organizationId:string) => Promise<void>;
 }): NestAiClient {
   const authorization = header(input.req, 'authorization').trim();
   const appCheck = header(input.req, 'x-firebase-appcheck').trim();
@@ -61,7 +64,7 @@ export function createMusicScaleNestAiClient(input: {
     return tokenPromise;
   };
 
-  return createNestAiClient({
+  const client = createNestAiClient({
     appId: 'musicscale',
     organizationId,
     locale,
@@ -70,6 +73,16 @@ export function createMusicScaleNestAiClient(input: {
     baseUrl: process.env.NESTAI_BASE_URL || 'https://ai.millionsnest.com/v1/',
     fetcher,
   });
+  const originalRun: NestAiClient['run'] = client.run.bind(client);
+  const run: NestAiClient['run'] = async <T>(request: any) => {
+    // The Hub verifies identity, membership, app entitlement and App Check before quota consumption.
+    await getToken();
+    if (input.reserveTrialAi) await input.reserveTrialAi(organizationId);
+    else await reserveHubTrialAiRequest(undefined, organizationId);
+    return originalRun<T>(request);
+  };
+  client.run = run;
+  return client;
 }
 
 export function nestAiHttpStatus(error: unknown): number {
