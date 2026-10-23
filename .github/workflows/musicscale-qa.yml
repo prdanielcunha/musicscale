@@ -18,6 +18,7 @@ jobs:
   qa-core:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
     steps:
     - uses: actions/checkout@v4
       with:
@@ -81,9 +82,17 @@ jobs:
         distribution: 'temurin'
         java-version: '21'
 
-    - name: Install Playwright Browsers
-      timeout-minutes: 8
-      run: npx playwright install --with-deps chromium webkit
+    - name: Verify pinned Playwright browser runtime
+      run: |
+        node --input-type=module - <<'JS'
+        import { existsSync } from 'node:fs';
+        import { chromium, webkit } from 'playwright';
+        import { createRequire } from 'node:module';
+        const require = createRequire(import.meta.url);
+        if (require('@playwright/test/package.json').version !== '1.62.1') throw new Error('Update the reviewed Playwright container with the package version');
+        for (const browser of [chromium, webkit]) if (!existsSync(browser.executablePath())) throw new Error('Pinned browser executable missing');
+        console.log('PINNED_PLAYWRIGHT_BROWSERS_READY');
+        JS
 
     - name: Run E2E Bootstrap Smoke - All Browsers
       run: >-
@@ -156,6 +165,7 @@ jobs:
     needs: qa-core
     timeout-minutes: 45
     runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
     strategy:
       fail-fast: false
       matrix:
@@ -184,9 +194,18 @@ jobs:
         distribution: 'temurin'
         java-version: '21'
 
-    - name: Install Playwright Browsers
-      timeout-minutes: 8
-      run: npx playwright install --with-deps chromium webkit
+    - name: Verify pinned Playwright browser runtime
+      run: |
+        node --input-type=module - <<'JS'
+        import { existsSync } from 'node:fs';
+        import { chromium, webkit } from 'playwright';
+        import { createRequire } from 'node:module';
+        const require = createRequire(import.meta.url);
+        if (require('@playwright/test/package.json').version !== '1.62.1') throw new Error('Update the reviewed Playwright container with the package version');
+        for (const browser of [chromium, webkit]) if (!existsSync(browser.executablePath())) throw new Error('Pinned browser executable missing');
+        console.log('PINNED_PLAYWRIGHT_BROWSERS_READY');
+        JS
+
 
     - name: Run Full Playwright E2E - ${{ matrix.project }}
       run: >-
