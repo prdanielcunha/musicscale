@@ -1,40 +1,25 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../contexts/AuthContext';
-import Button from '../common/Button';
 
-function EnabledConnectSupportButton() {
-  const { user, effectiveOrganizationId } = useAuth();
+/** Public support remains available when login, entitlement or the app API is failing. */
+export default function ConnectSupportButton() {
   const { i18n } = useTranslation();
-  const epoch = useRef(0);
-  const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false);
-  useEffect(() => { epoch.current++; setBusy(false); setFailed(false); return () => { epoch.current++; }; }, [user?.uid, effectiveOrganizationId]);
+  const id = useId();
+  const [topic, setTopic] = useState('help');
   const locale = i18n.language.startsWith('en') ? 'en-US' : i18n.language.startsWith('es') ? 'es-ES' : 'pt-BR';
   const copy = {
-    'pt-BR': ['Conversar no WhatsApp oficial', 'Não foi possível abrir o WhatsApp. Use o suporte por e-mail abaixo.'],
-    'en-US': ['Chat on official WhatsApp', 'Could not open WhatsApp. Use email support below.'],
-    'es-ES': ['Hablar por WhatsApp oficial', 'No se pudo abrir WhatsApp. Usa el soporte por correo abajo.'],
+    'pt-BR': { label: 'Como podemos ajudar?', action: 'Conversar no WhatsApp oficial', hint: 'Toque em Enviar no WhatsApp para iniciar o atendimento.', topics: ['Ajuda para usar', 'Algo não funcionou', 'Entrar na minha conta', 'Assinatura e cobrança', 'Conhecer os planos', 'Outro assunto'] },
+    'en-US': { label: 'How can we help?', action: 'Chat on official WhatsApp', hint: 'Tap Send in WhatsApp to start the conversation.', topics: ['Help using the app', 'Something went wrong', 'Sign in to my account', 'Subscription and billing', 'Explore plans', 'Something else'] },
+    'es-ES': { label: '¿Cómo podemos ayudarte?', action: 'Hablar por WhatsApp oficial', hint: 'Pulsa Enviar en WhatsApp para iniciar la conversación.', topics: ['Ayuda para usar', 'Algo no funcionó', 'Entrar en mi cuenta', 'Suscripción y cobros', 'Conocer los planes', 'Otro asunto'] },
   }[locale];
-  const open = async () => {
-    if (!user || !effectiveOrganizationId || busy) return;
-    const generation = epoch.current;
-    const popup = window.open('about:blank', '_blank'); if (popup) popup.opener = null;
-    setBusy(true); setFailed(false);
-    try {
-      const token = await user.getIdToken();
-      const response = await fetch('/api/v1/connect/support-draft', { method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'X-Connect-User-Authorization': `Bearer ${token}`, 'x-organization-id': effectiveOrganizationId, 'Content-Type': 'application/json' }, body: JSON.stringify({ locale }) });
-      if (!response.ok) throw new Error();
-      const data = await response.json(), url = new URL(data.draftUrl);
-      if (data.automaticSend !== false || data.product !== 'musicscale' || url.origin !== 'https://wa.me' || url.username || url.password || url.hash || !/^\/[1-9][0-9]{7,14}$/.test(url.pathname) || !Number.isSafeInteger(data.expiresAt) || data.expiresAt <= Date.now() || data.expiresAt > Date.now() + 630000 || !url.searchParams.get('text') || url.searchParams.get('text')!.length > 2048 || [...url.searchParams.keys()].some(key => key !== 'text') || url.searchParams.get('text')!.includes(token)) throw new Error();
-      if (generation !== epoch.current) { popup?.close(); return; }
-      if (popup) { if (!popup.closed) popup.location.href = url.toString(); } else window.location.assign(url.toString());
-    } catch { popup?.close(); if (generation === epoch.current) setFailed(true); }
-    finally { if (generation === epoch.current) setBusy(false); }
-  };
-  return <div className="mb-4"><Button type="button" disabled={busy || !user || !effectiveOrganizationId} onClick={() => void open()} className="w-full">{copy[0]}</Button>{failed && <p role="status" className="mt-2 text-sm text-slate-500">{copy[1]}</p>}</div>;
-}
-
-export default function ConnectSupportButton() {
-  return import.meta.env.VITE_CONNECT_SUPPORT_ENABLED === 'true' ? <EnabledConnectSupportButton /> : null;
+  const url = new URL('https://connect.millionsnest.com/api/core/support/contact');
+  url.search = new URLSearchParams({ product: 'musicscale', source: 'app', topic, locale, open: '1' }).toString();
+  return <div className="mb-5 space-y-3">
+    <label htmlFor={id} className="block text-sm font-medium text-slate-700 dark:text-slate-200">{copy.label}</label>
+    <select id={id} value={topic} onChange={event => setTopic(event.target.value)} className="w-full min-h-[48px] rounded-xl bg-slate-100 px-3 py-3 text-slate-900 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-primary">
+      {['help', 'error', 'access', 'billing', 'sales', 'other'].map((value, index) => <option key={value} value={value}>{copy.topics[index]}</option>)}
+    </select>
+    <a href={url.toString()} target="_blank" rel="noopener noreferrer" className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 text-center font-semibold text-white hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2">{copy.action}</a>
+    <p className="text-xs text-slate-500 dark:text-slate-400">{copy.hint}</p>
+  </div>;
 }
