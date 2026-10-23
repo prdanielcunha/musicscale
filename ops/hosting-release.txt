@@ -1,3 +1,6 @@
+MusicScale 0.11.1-beta.11 — 2026-10-22
+Avaliação sem cartão: recursos Pro pelo contrato canônico do Hub e dez solicitações de IA por avaliação, com contador transacional compartilhado e proteção contra reset pelo navegador. Preserva contratos pagos, dados, escalas, permissões e todos os hotfixes anteriores.
+
 MusicScale 0.11.1-beta.10 — 2026-10-22
 Identidade visual: símbolo MillionsNest aprovado com transparência real nos acessos ao Hub e assinatura do ecossistema. Preserva todas as funcionalidades, dados, permissões e correções das versões anteriores.
 

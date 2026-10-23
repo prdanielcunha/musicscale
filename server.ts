@@ -3281,7 +3281,7 @@ app.post(
 
       let plan = 'starter';
       if (orgSnap.exists) {
-          plan = orgSnap.data()?.music_scale_plan || orgSnap.data()?.plan || 'starter';
+          plan = orgSnap.data()?.apps?.musicscale?.plan || orgSnap.data()?.music_scale_plan || orgSnap.data()?.plan || 'starter';
           if (typeof plan !== 'string') plan = 'starter';
           plan = plan.toLowerCase().trim();
           if (plan === 'premium' || plan === 'pro_unlimited') plan = 'pro';
@@ -3389,7 +3389,7 @@ app.post(
 
       let plan = 'starter';
       if (orgSnap.exists) {
-          plan = orgSnap.data()?.music_scale_plan || orgSnap.data()?.plan || 'starter';
+          plan = orgSnap.data()?.apps?.musicscale?.plan || orgSnap.data()?.music_scale_plan || orgSnap.data()?.plan || 'starter';
           if (typeof plan !== 'string') plan = 'starter';
           plan = plan.toLowerCase().trim();
           if (plan === 'premium' || plan === 'pro_unlimited') plan = 'pro';
