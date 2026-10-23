@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useFirstScaleExperience } from '../../hooks/useFirstScaleExperience';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +30,7 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
   } = journey;
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
   const { openSongForm, openScaleForm, openAiSongImport } = useModals();
   const { hasCapability } = useCapability();
@@ -61,7 +62,7 @@ export function FirstScaleJourneyCard({ journey: propJourney }: { journey?: Firs
             <div className="space-y-6">
             {/* Recommended Action */}
             <button
-              onClick={() => handleAction('starterPack', () => navigate('/songs?starterPack=1', { state: { starterRepertoireOrigin: 'first-value-journey' } }))}
+              onClick={() => handleAction('starterPack', () => navigate('/songs?starterPack=1', { state: { starterRepertoireOrigin: 'first-value-journey', starterRepertoireReturnTo: `${location.pathname}${location.search}${location.hash}` } }))}
               data-primary-action="true"
               className="w-full relative overflow-hidden group text-left rounded-2xl bg-[#121214] border border-white/[0.08] hover:border-indigo-500/50 transition-all duration-300 p-6 md:p-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
             >

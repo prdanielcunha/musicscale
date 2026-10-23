@@ -338,6 +338,10 @@ const SongsPage: React.FC = () => {
   const [isStarterModalOpen, setIsStarterModalOpen] = useState(false);
 
   const openedFromFirstValueJourney = location.state?.starterRepertoireOrigin === 'first-value-journey';
+  const requestedReturnTo = location.state?.starterRepertoireReturnTo;
+  const starterRepertoireReturnTo =
+    typeof requestedReturnTo === 'string' && requestedReturnTo.startsWith('/') && !requestedReturnTo.startsWith('//')
+      ? requestedReturnTo : '/';
 
   // Se a organização for trocada enquanto o modal estiver aberto:
   // fechar o modal e descartar a origem antiga
@@ -367,7 +371,7 @@ const SongsPage: React.FC = () => {
   const handleStarterRepertoireCancel = () => {
     setIsStarterModalOpen(false);
     if (openedFromFirstValueJourney) {
-      navigate('/', { replace: true });
+      navigate(starterRepertoireReturnTo, { replace: true });
     } else {
       setSearchParams(prev => {
          prev.delete('starterPack');
@@ -384,7 +388,7 @@ const SongsPage: React.FC = () => {
       await refreshAllowance();
       
       if (openedFromFirstValueJourney) {
-        navigate('/', { replace: true });
+        navigate(starterRepertoireReturnTo, { replace: true });
         return;
       }
       
@@ -394,6 +398,10 @@ const SongsPage: React.FC = () => {
       }, { replace: true, state: {} });
     } catch (error) {
       console.error("Failed to refresh data after starter pack import:", error);
+      if (openedFromFirstValueJourney) {
+        navigate(starterRepertoireReturnTo, { replace: true });
+        return;
+      }
       setSearchParams(prev => {
          prev.delete('starterPack');
          return prev;
@@ -754,16 +762,9 @@ const SongsPage: React.FC = () => {
         />
         <StarterRepertoireModal
           isOpen={isStarterModalOpen}
-          onCancel={() => setIsStarterModalOpen(false)}
-          onCompleted={async () => {
-            setIsStarterModalOpen(false);
-            if (typeof refreshData === 'function') {
-              await refreshData();
-            }
-            if (typeof refreshAllowance === 'function') {
-              await refreshAllowance();
-            }
-          }}
+          onCancel={handleStarterRepertoireCancel}
+          onCompleted={handleStarterRepertoireCompleted}
+          returnToJourney={openedFromFirstValueJourney}
         />
       </>
     );
@@ -1497,6 +1498,7 @@ const SongsPage: React.FC = () => {
           isOpen={isStarterModalOpen}
           onCancel={handleStarterRepertoireCancel}
           onCompleted={handleStarterRepertoireCompleted}
+          returnToJourney={openedFromFirstValueJourney}
         />
     </div>
   );
