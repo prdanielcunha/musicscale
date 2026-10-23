@@ -19,10 +19,15 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     container: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+    defaults:
+      run:
+        shell: bash
     steps:
     - uses: actions/checkout@v4
       with:
         persist-credentials: false
+    - name: Trust only the checked out CI workspace
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
     - name: Require a new version for production promotion
       if: github.event_name == 'pull_request' && github.base_ref == 'production'
@@ -166,6 +171,9 @@ jobs:
     timeout-minutes: 45
     runs-on: ubuntu-latest
     container: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -178,6 +186,8 @@ jobs:
     - uses: actions/checkout@v4
       with:
         persist-credentials: false
+    - name: Trust only the checked out CI workspace
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
     - name: Set up Node.js 22
       uses: actions/setup-node@v4
