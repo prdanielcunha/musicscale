@@ -137,6 +137,28 @@ describe('02B create adapter matrix', () => {
   });
 });
 
+describe('02B acceptance timeout regression', () => {
+  it('does not abort a successful Hub invitation acceptance after eight seconds', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetcher = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((resolve, reject) => {
+        const timer = setTimeout(() => resolve(response(200, validAccept())), 9000);
+        init.signal?.addEventListener('abort', () => {
+          clearTimeout(timer);
+          reject(new Error('request aborted'));
+        });
+      }));
+      const result = new HubInvitationAdapter({ origin: 'https://hub.example', fetch: fetcher as any })
+        .accept('Bearer valid-id-token', 'invite-token', 'org-1');
+      await vi.advanceTimersByTimeAsync(9000);
+      await expect(result).resolves.toMatchObject({ success: true, organizationId: 'org-1' });
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('02B Hub acceptance response validation', () => {
   it.each([
     ['missing organizationId', { organizationId: undefined }],
