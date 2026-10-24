@@ -1,3 +1,6 @@
+MusicScale 0.11.2-beta.1 — 2026-10-24
+Hotfix convites: aceitação canônica Hub com tolerância de 25 segundos para transação e partida fria, retorno de erros reais em PT/EN/ES e tratamento seguro de falha de rede/proxy. Sem mudança em Auth, permissões, cobrança, membership, limites de plano, Firestore Rules ou dados existentes. Publicação somente após QA no SHA exato, Cloud Run antes do Hosting e smoke autenticado.
+
 MusicScale 0.11.2-beta.0 — 2026-10-23
 Avaliação sem cartão: recursos Pro pelo contrato canônico do Hub e dez solicitações de IA por avaliação, com contador transacional compartilhado e proteção contra reset pelo navegador. Preserva contratos pagos, dados, escalas, permissões e todos os hotfixes anteriores.
 
