@@ -63,7 +63,10 @@ export class HubInvitationAdapter {
 
   private async post(path: string, bearer: string, body: object): Promise<any> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.options.timeoutMs ?? 8000);
+    // Canonical acceptance can involve a cold Hub instance and an atomic Firestore transaction.
+    // Avoid aborting a successful single-use invitation while the Hub is still committing.
+    const defaultTimeoutMs = path === '/api/v1/invitations/accept' ? 25000 : 8000;
+    const timer = setTimeout(() => controller.abort(), this.options.timeoutMs ?? defaultTimeoutMs);
     try {
       const response = await (this.options.fetch || fetch)(`${resolveHubOrigin(this.options.origin)}${path}`, {
         method: 'POST', headers: { 'content-type': 'application/json', authorization: bearer },
