@@ -74,6 +74,19 @@ describe('JoinPage invitation routes (H-R)', () => {
     await waitFor(() => expect(showToast).toHaveBeenCalled()); expect(screen.queryByText('false')).toBeNull();
     window.history.replaceState({}, '', original);
   });
+  it.each([
+    ['INVITE_EXPIRED', 'Este convite expirou. Peça um novo convite ao responsável pela organização.'],
+    ['INVITE_ALREADY_CONSUMED', 'Este convite já foi utilizado ou revogado. Peça um novo convite.'],
+    ['MEMBER_LIMIT_REACHED', 'A organização atingiu o limite de integrantes do plano. Procure um administrador.'],
+    ['HUB_UNAVAILABLE', 'O serviço de convites está temporariamente indisponível. Tente novamente.'],
+    ['INVALID_TOKEN', 'Este convite é inválido ou não foi encontrado. Peça um novo link.']
+  ])('explains a canonical failure %s without losing its safe diagnostic code', async (reason, message) => {
+    authState.user = { getIdToken: vi.fn(async () => 'id-token') };
+    acceptInvite.mockResolvedValue({ success: false, message: reason });
+    renderJoin('/join/org-1?token=non-secret', '/join/:organizationId');
+    fireEvent.click(screen.getByText('Aceitar convite'));
+    expect(await screen.findByText(`${message} (${reason})`)).toBeTruthy();
+  });
   it('R displays a safe backend reason', async () => {
     authState.user = { getIdToken: vi.fn(async () => 'id-token') }; acceptInvite.mockResolvedValue({ success: false, message: 'EMAIL_MISMATCH' });
     renderJoin('/join?invite=legacy', '/join'); fireEvent.click(screen.getByText('Aceitar convite'));
