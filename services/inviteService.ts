@@ -33,11 +33,21 @@ export const decodeToken = (token: string): { orgId: string, inviteId: string } 
 };
 
 export async function acceptInvite(idToken: string, token: string, organizationId?: string) {
-  const response = await fetch('/api/orgs/accept-invite', {
-    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${idToken}` },
-    body: JSON.stringify({ token, ...(organizationId ? { organizationId } : {}) })
-  });
-  const data = await response.json();
-  if (!response.ok) return { success: false, message: data.reasonCode || data.error || 'error' };
-  return data;
+  try {
+    const response = await fetch('/api/orgs/accept-invite', {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ token, ...(organizationId ? { organizationId } : {}) })
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || data?.success !== true) {
+      // Never expose proxy HTML, tokens or unsanitized server exceptions to the user.
+      const code = typeof data?.reasonCode === 'string' ? data.reasonCode
+        : typeof data?.error === 'string' ? data.error
+        : response.ok ? 'INVALID_HUB_RESPONSE' : 'HUB_REQUEST_FAILED';
+      return { success: false as const, message: code };
+    }
+    return data;
+  } catch {
+    return { success: false as const, message: 'NETWORK_ERROR' };
+  }
 }

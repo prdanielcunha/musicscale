@@ -36,23 +36,58 @@ export default function JoinPage() {
       const localized = lang.startsWith('en') ? {
         login: 'Your session needs to be refreshed. Sign in and try again.',
         email: 'This invitation belongs to a different email address.',
+        expired: 'This invitation has expired. Ask the organization to send you a new one.',
+        used: 'This invitation has already been used or revoked. Ask for a new invitation.',
+        capacity: 'This organization has reached its member limit. Contact an administrator.',
+        capacityUnknown: 'We could not verify the organization member limit. Contact an administrator.',
+        inactive: 'This organization is unavailable. Contact an administrator.',
+        invalid: 'This invitation is invalid or could not be found. Ask for a new link.',
+        unavailable: 'The invitation service is temporarily unavailable. Please try again.',
         generic: 'We could not accept your invitation. Please try again.'
       } : lang.startsWith('es') ? {
         login: 'Tu sesión debe actualizarse. Inicia sesión y vuelve a intentarlo.',
         email: 'Esta invitación pertenece a otra dirección de correo.',
+        expired: 'Esta invitación ha caducado. Pide una nueva a la organización.',
+        used: 'Esta invitación ya fue utilizada o revocada. Solicita una nueva.',
+        capacity: 'La organización alcanzó el límite de miembros. Contacta a un administrador.',
+        capacityUnknown: 'No pudimos verificar el límite de miembros. Contacta a un administrador.',
+        inactive: 'Esta organización no está disponible. Contacta a un administrador.',
+        invalid: 'Esta invitación no es válida o no se encontró. Solicita otro enlace.',
+        unavailable: 'El servicio de invitaciones no está disponible temporalmente. Inténtalo de nuevo.',
         generic: 'No pudimos aceptar tu invitación. Inténtalo de nuevo.'
       } : {
         login: 'Sua sessão precisa ser atualizada. Entre novamente e tente aceitar o convite.',
         email: 'Este convite pertence a outro endereço de e-mail.',
+        expired: 'Este convite expirou. Peça um novo convite ao responsável pela organização.',
+        used: 'Este convite já foi utilizado ou revogado. Peça um novo convite.',
+        capacity: 'A organização atingiu o limite de integrantes do plano. Procure um administrador.',
+        capacityUnknown: 'Não foi possível verificar o limite de integrantes. Procure um administrador.',
+        inactive: 'Esta organização está indisponível. Procure um administrador.',
+        invalid: 'Este convite é inválido ou não foi encontrado. Peça um novo link.',
+        unavailable: 'O serviço de convites está temporariamente indisponível. Tente novamente.',
         generic: 'Não foi possível aceitar o convite. Tente novamente.'
       };
-      setError(
-        ['UNAUTHORIZED', 'UNAUTHENTICATED', 'INVALID_ID_TOKEN'].includes(reason)
-          ? localized.login
-          : ['INVITE_IDENTITY_MISMATCH', 'EMAIL_MISMATCH'].includes(reason)
-            ? localized.email
-            : localized.generic
-      );
+      const reasonGroups: Record<string, keyof typeof localized> = {
+        UNAUTHORIZED: 'login', UNAUTHENTICATED: 'login', INVALID_ID_TOKEN: 'login',
+        AUTHENTICATED_EMAIL_REQUIRED: 'login', AUTHENTICATED_USER_UNAVAILABLE: 'login',
+        INVITE_IDENTITY_MISMATCH: 'email', EMAIL_MISMATCH: 'email',
+        INVITE_EXPIRED: 'expired', TOKEN_EXPIRED: 'expired',
+        INVITE_ALREADY_CONSUMED: 'used', INVITE_MAX_USES_REACHED: 'used',
+        INVITE_NOT_PENDING: 'used', INVITE_REVOKED: 'used',
+        MEMBER_LIMIT_REACHED: 'capacity',
+        MEMBER_LIMIT_UNAVAILABLE: 'capacityUnknown', MEMBER_LIMIT_INVALID: 'capacityUnknown',
+        ORGANIZATION_INACTIVE: 'inactive', ORGANIZATION_NOT_FOUND: 'inactive',
+        INVALID_ORG: 'inactive', INVITE_NOT_FOUND: 'invalid',
+        INVALID_TOKEN: 'invalid', INVALID_ORGANIZATION_ID: 'invalid',
+        HUB_UNAVAILABLE: 'unavailable', HUB_NOT_CONFIGURED: 'unavailable',
+        SERVICE_UNAVAILABLE: 'unavailable', NETWORK_ERROR: 'unavailable',
+        INVALID_HUB_RESPONSE: 'unavailable', HUB_REQUEST_FAILED: 'unavailable',
+        INTERNAL_ERROR: 'unavailable', INTERNAL_SERVER_ERROR: 'unavailable'
+      };
+      const category = reasonGroups[reason] || 'generic';
+      // A safe reason code helps support distinguish business rules from outages.
+      const diagnosticCode = /^[A-Z][A-Z0-9_]{2,63}$/.test(reason) ? ` (${reason})` : '';
+      setError(localized[category] + diagnosticCode);
       setProcessing(false);
     }
   };
