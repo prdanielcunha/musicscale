@@ -19,6 +19,11 @@ import { UserIcon } from "../components/icons/UserIcon";
 import { UsersIcon } from "../components/icons/UsersIcon";
 import { XCircleIcon } from "../components/icons/XCircleIcon";
 import { composeSpecialtyCatalog, specialtyKey } from "../utils/specialtyCatalog";
+import Button from "../components/common/Button";
+import CanonicalHubInviteModal from "../components/team/CanonicalHubInviteModal";
+import { UserPlus } from "lucide-react";
+import { useCapability } from "../hooks/useCapability";
+import { isGlobalPrivilegedUser } from "../hooks/useEcosystemAdmin";
 
 const getRoleBadgeStyle = (roleName?: string) => {
   switch (roleName) {
@@ -105,7 +110,12 @@ const BandPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { instruments, roles, allUsers, loading, error } = useMusic();
-  const { organization } = useAuth();
+  const { user, userProfile, isOwner, isAdmin } = useAuth();
+  const { hasCapability } = useCapability();
+  const canInviteMembers =
+    isGlobalPrivilegedUser(user, userProfile) ||
+    isOwner || isAdmin || hasCapability("musicscale.members.manage");
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [specialtyFilterIds, setSpecialtyFilterIds] = useState<string[]>([]);
 
@@ -190,11 +200,29 @@ const BandPage: React.FC = () => {
 
   return (
     <div className="ms-band-page space-y-6">
-      <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-slate-500 dark:text-gray-400 max-w-3xl">
           {t("band.subtitle", "Veja todos os músicos, vocais e ministros cadastrados no sistema.")}
         </p>
+        {canInviteMembers && (
+          <Button
+            type="button"
+            onClick={() => setIsInviteOpen(true)}
+            leftIcon={<UserPlus className="h-4 w-4" aria-hidden="true" />}
+            className="w-full sm:w-auto"
+          >
+            {t("users.invite_user", "Convidar integrante")}
+          </Button>
+        )}
       </div>
+
+      {canInviteMembers && (
+        <CanonicalHubInviteModal
+          isOpen={isInviteOpen}
+          onClose={() => setIsInviteOpen(false)}
+          availableMusicScaleRoles={roles}
+        />
+      )}
 
       <Card className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
