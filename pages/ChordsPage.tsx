@@ -1,3 +1,6 @@
+import Modal from "../components/common/Modal";
+import { resolveChordContentSourceKey, validateChordContentKeyConsistency } from "../utils/chordEngine";
+import { getEffectiveKey } from "../utils/scaleSongSettings";
 import React, { useState, useMemo, useEffect, useDeferredValue } from "react";
 import { useTranslation } from "react-i18next";
 import { useMusic } from "../contexts/MusicDataContext";
@@ -33,10 +36,16 @@ const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 
 const ChordsPage: React.FC = () => {
   const { t } = useTranslation();
-  const { songs, tags, loading, error } = useMusic();
-  const { openAddChordModal, saveChord, isSubmitting } = useModals();
+  const { songs, tags, loading, error, refreshData } = useMusic();
+  const { openAddChordModal, saveChord, isSubmitting, openPersistedChordKeyRepair } = useModals();
   const { permissions } = useAuth();
   const [songInModal, setSongInModal] = useState<PopulatedSong | null>(null);
+  const [isKeyAuditOpen, setKeyAuditOpen] = useState(false);
+  const keyAudit = useMemo(() => isKeyAuditOpen ? songs.flatMap(song => {
+    const expected = resolveChordContentSourceKey(song.metadata)?.key || getEffectiveKey(song);
+    const result = validateChordContentKeyConsistency(song.chords || '', expected);
+    return result.status === 'MISMATCH' ? [{ song, expected, detected: result.detectedKey }] : [];
+  }) : [], [songs, isKeyAuditOpen]);
   const [searchTerm, setSearchTerm] = useState("");
   const [keyFilter, setKeyFilter] = useState("all");
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
@@ -130,6 +139,26 @@ const ChordsPage: React.FC = () => {
   return (
     <div className="space-y-5 sm:space-y-6">
       <RepertoireMetricsView songs={songs} mode="chords" />
+      <div className="flex justify-end">
+        <Button variant="secondary" onClick={() => setKeyAuditOpen(true)}>{t('premiumV2.performance.auditKeys')}</Button>
+      </div>
+      <Modal isOpen={isKeyAuditOpen} onClose={() => setKeyAuditOpen(false)} title={t('premiumV2.performance.auditKeys')}>
+        <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">{t('premiumV2.performance.auditHint')}</p>
+        {keyAudit.length === 0 ? <p>{t('premiumV2.performance.auditNoMismatch')}</p> : (
+          <ul className="space-y-3">
+            {keyAudit.map(({ song, expected, detected }) => (
+              <li key={song.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 p-3">
+                <div className="min-w-0"><p className="font-semibold break-words">{song.title}</p><p className="text-sm text-slate-500">{t('premiumV2.performance.auditCandidate', { expected, detected })}</p></div>
+                {(permissions?.manageSongs || permissions?.['musicscale.songs.edit']) && <Button size="sm" onClick={() => {
+                  setKeyAuditOpen(false);
+                  openPersistedChordKeyRepair(song, () => { void refreshData(); });
+                }}>{t('premiumV2.performance.auditReview')}</Button>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
+
 
       <section className="ms-panel relative overflow-hidden p-4 sm:p-5">
         <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent" />

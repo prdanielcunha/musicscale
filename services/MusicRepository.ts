@@ -2,10 +2,12 @@ import { BaseRepository, removeUndefinedValues } from '../lib/BaseRepository';
 import { 
     Song, Scale, EventType, Location, EventName, Tag, Instrument, BandScale, FixedBandScale, UserProfile, Role, LiveWorshipSession, ChordSourceConfirmation, MedleyTemplate
 } from '../types';
-import { doc, writeBatch, serverTimestamp, addDoc, collection, runTransaction } from 'firebase/firestore';
+import { doc, writeBatch, serverTimestamp, addDoc, collection, runTransaction, FieldPath } from 'firebase/firestore';
 import { db } from './firebase';
 import { transposeChordDocument, normalizeKey, isValidKey, getSignedSemitones, areKeysEnharmonicallyEquivalent, analyzeChordDocumentKeyCandidates, validateTransposedPreview, toEpochMillis, resolveChordContentSourceKey, buildChordKeyCorrectionMetadata } from '../utils/chordEngine';
 import { buildSongContentReplacementPatch } from '../utils/songReplacement';
+import { buildPerformanceSongKeyPatch } from '../utils/performanceSongKey';
+import { getEffectiveKey } from '../utils/scaleSongSettings';
 
 export class MusicRepository {
     private readonly orgId: string;
@@ -362,6 +364,43 @@ export class MusicRepository {
                 lastUpdated: Date.now(),
             });
             return sequence;
+        });
+    }
+
+    async savePerformanceSongKey(input: {
+        songId: string; targetKey: string; scope: 'scale' | 'repertoire';
+        scaleId?: string; expectedChords: string; expectedKey: string;
+    }): Promise<void> {
+        if (!this.userProfile?.uid || !isValidKey(input.targetKey)) throw new Error('INVALID_CHORD_KEY');
+        await runTransaction(db, async transaction => {
+            const songRef = doc(db, 'songs', input.songId);
+            const snapshot = await transaction.get(songRef);
+            const song = snapshot.data() as Song | undefined;
+            if (!song || song.organizationId !== this.orgId) throw new Error('CHORD_SCOPE_DENIED');
+            if ((song.chords || '') !== input.expectedChords) throw new Error('CHORD_CONTENT_CHANGED');
+            if (input.scope === 'scale') {
+                if (!input.scaleId) throw new Error('CHORD_SCOPE_DENIED');
+                const scaleRef = doc(db, 'scales', input.scaleId);
+                const scaleSnapshot = await transaction.get(scaleRef);
+                const scale = scaleSnapshot.data() as Scale | undefined;
+                if (!scale || scale.organizationId !== this.orgId || !scale.songIds.includes(input.songId)) {
+                    throw new Error('CHORD_SCOPE_DENIED');
+                }
+                if (getEffectiveKey(song, scale.songSettings?.[input.songId]) !== input.expectedKey) {
+                    throw new Error('CHORD_CONTENT_CHANGED');
+                }
+                // FieldPath preserves every other song and this song's BPM;
+                // Firestore Rules remain the authority for scale write permission.
+                transaction.update(scaleRef,
+                    new FieldPath('songSettings', input.songId, 'key'), normalizeKey(input.targetKey),
+                    'lastModifiedAt', serverTimestamp());
+            } else {
+                if (getEffectiveKey(song) !== input.expectedKey) throw new Error('CHORD_CONTENT_CHANGED');
+                transaction.update(songRef, removeUndefinedValues({
+                    ...buildPerformanceSongKeyPatch(song, input.targetKey),
+                    chordsLastModifiedAt: serverTimestamp(), lastModifiedAt: serverTimestamp(),
+                }));
+            }
         });
     }
 

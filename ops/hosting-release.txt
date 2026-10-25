@@ -1,3 +1,6 @@
+MusicScale 0.11.2-beta.4 — 2026-10-25
+Cifras: salvamento explícito do tom na escala ou no repertório, origem dos acordes separada do tom de execução, verificação de divergências sem alteração automática, preservação da letra e do capotraste e App Check na ferramenta de ajuste por IA. Transações preservam BPM e outras músicas e rejeitam conteúdo concorrente. Sem migração de dados nem mudança em acesso, Firestore Rules ou cobrança.
+
 MusicScale 0.11.2-beta.3 — 2026-10-25
 Sincronização não destrutiva das branches main e production; preserva todo o código testado e publicado em 0.11.2-beta.2. Nenhuma mudança em lógica de aplicativo, identidade, autorizações, regras Firestore, escalas, dados ou cobrança. Merge histórico com dois pais, sem force-push. Bump de versão exigido pelo gate de release.
 

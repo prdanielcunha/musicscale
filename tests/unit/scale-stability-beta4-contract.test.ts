@@ -50,8 +50,8 @@ describe("MusicScale beta.4 scale stability contract", () => {
     expect(settings.indexOf("song.selectedKey")).toBeLessThan(settings.indexOf("if (song.key) return song.key;"));
   });
 
-  it("transposes scale-local overrides from the selected key", () => {
-    expect(settings).toContain('const baseKey = song.selectedKey || song.key || song.originalKey || "";');
+  it("uses explicit chart-source metadata before the selected-key fallback", () => {
+    expect(settings).toContain('resolveChordContentSourceKey(song.metadata)?.key || getEffectiveKey(song)');
   });
 
   it("uses the same selected-key precedence in the chord performance viewer", () => {

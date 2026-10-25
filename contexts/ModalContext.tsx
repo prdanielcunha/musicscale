@@ -924,13 +924,14 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const openAddChordModal = useCallback(() => { closeAllModals(); setAddChordModalOpen(true); }, [closeAllModals]);
 
   const saveChord = useCallback(async (data: { songId: string, chords: string }) => {
-    if (!user || !userProfile || !api) return;
+    if (!user || !userProfile || !api) throw new Error("CHORD_SCOPE_DENIED");
     setIsSubmitting(true);
     try {
-      await api.songs.update(data.songId, { chords: data.chords });
+      await api.updateSongChords(data.songId, data.chords);
       await refreshData();
     } catch (e) {
       logger.error("Failed to save chords", e);
+      throw e;
     } finally {
       setIsSubmitting(false);
     }
@@ -1194,9 +1195,8 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             isOpen={isAddChordModalOpen}
             onClose={() => setAddChordModalOpen(false)}
             onSave={async (data) => {
-                const savePromise = saveChord(data);
+                await saveChord(data);
                 setAddChordModalOpen(false);
-                await savePromise;
             }}
             songs={songs}
             isSubmitting={isSubmitting}
