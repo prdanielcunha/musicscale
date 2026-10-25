@@ -14,7 +14,7 @@ import { Save } from "lucide-react";
 import { useToast } from "../../contexts/ToastContext";
 import { requestChordRepair } from "../../services/chordRepairClient";
 import { applyScaleSongSettings, getEffectiveKey } from "../../utils/scaleSongSettings";
-import { areKeysEnharmonicallyEquivalent, resolveChordContentSourceKey, transposeChordDocument, validateChordContentKeyConsistency } from "../../utils/chordEngine";
+import { areKeysEnharmonicallyEquivalent, isValidKey, resolveChordContentSourceKey, transposeChordDocument, validateChordContentKeyConsistency } from "../../utils/chordEngine";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { KeyIcon } from "../icons/KeyIcon";
@@ -992,6 +992,10 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   }, [librarySongs, song]);
   const parsedContent = useMemo(() => {
     if (!performanceChart?.chords) return [];
+    // Legacy/unknown key labels must never prevent the musician reading a chart.
+    if (!isValidKey(basePerformanceKey) || !isValidKey(effectivePerformanceKey)) {
+      return parseChordsAndLyrics(performanceChart.chords);
+    }
     const chords = transposeChordDocument(performanceChart.chords, basePerformanceKey, effectivePerformanceKey).chords;
     return parseChordsAndLyrics(chords);
   }, [performanceChart, basePerformanceKey, effectivePerformanceKey]);
