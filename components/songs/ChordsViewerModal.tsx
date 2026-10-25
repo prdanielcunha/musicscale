@@ -9,6 +9,12 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import type { PopulatedSong, ScaleSongNavigationContext } from "../../types";
 import Button from "../common/Button";
+import Modal from "../common/Modal";
+import { Save } from "lucide-react";
+import { useToast } from "../../contexts/ToastContext";
+import { requestChordRepair } from "../../services/chordRepairClient";
+import { applyScaleSongSettings, getEffectiveKey } from "../../utils/scaleSongSettings";
+import { areKeysEnharmonicallyEquivalent, transposeChordDocument, validateChordContentKeyConsistency } from "../../utils/chordEngine";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { KeyIcon } from "../icons/KeyIcon";
@@ -241,7 +247,8 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   const { t } = useTranslation();
   const { user, permissions, userProfile, effectiveOrganizationId } = useAuth();
   const { theme } = useTheme();
-  const { songs: librarySongs } = useMusic();
+  const { songs: librarySongs, scales, refreshData } = useMusic();
+  const { toast } = useToast();
   const api = useApi();
   const { isPowerSave } = useAdaptivePerformance();
 
@@ -264,6 +271,16 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     chordsPalette[settings.chordsColorIndex ?? 0] || chordsPalette[0];
 
   const [transpose, setTranspose] = useState(0);
+  const [isKeySaveOpen, setKeySaveOpen] = useState(false);
+  const [isSavingKey, setSavingKey] = useState(false);
+  const keySaveLock = useRef(false);
+  const [savedKey, setSavedKey] = useState<string | null>(null);
+  const [persistedScaleKey, setPersistedScaleKey] = useState<string | null>(null);
+  const operationScope = `${effectiveOrganizationId}:${song?.id}:${scaleContext?.scaleId || ''}`;
+  const operationScopeRef = useRef(operationScope);
+  operationScopeRef.current = operationScope;
+  const canSaveScaleKey = !!(permissions?.manageScales || permissions?.['musicscale.scales.manage']);
+  useEffect(() => { setSavedKey(null); setPersistedScaleKey(null); setKeySaveOpen(false); }, [song?.id, effectiveOrganizationId, scaleContext?.scaleId, isOpen]);
   const basePerformanceKey = useMemo(
     () => song?.selectedKey || song?.key || song?.originalKey || "C",
     [song?.selectedKey, song?.key, song?.originalKey],
@@ -349,6 +366,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       !isOpen ||
       !isUIVisible ||
       isEditing ||
+      isKeySaveOpen ||
       isWorshipFlow ||
       isAutoScrolling ||
       activeTab !== "none" ||
@@ -372,6 +390,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     activeTab,
     isStageMetronomeOpen,
     isStagePadOpen,
+    isKeySaveOpen,
     controlsActivityTick,
     song?.id,
   ]);
@@ -961,23 +980,68 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     }
   };
 
-  const parsedContent = useMemo(() => {
-    if (!song?.chords) return [];
-    const parsedLines = parseChordsAndLyrics(song.chords);
-    if (transpose !== 0) {
-      return parsedLines.map((line) =>
-        line.type === "chord"
-          ? { ...line, content: transposeChord(line.content, transpose) }
-          : line,
-      );
-    }
-    return parsedLines;
-  }, [song, transpose]);
-
   const effectivePerformanceKey = useMemo(
     () => transposeChord(basePerformanceKey, transpose),
     [basePerformanceKey, transpose],
   );
+  const performanceChart = useMemo(() => song ? applyScaleSongSettings(song) : null, [song]);
+  const parsedContent = useMemo(() => {
+    if (!performanceChart?.chords) return [];
+    const chords = transposeChordDocument(performanceChart.chords, basePerformanceKey, effectivePerformanceKey).chords;
+    return parseChordsAndLyrics(chords);
+  }, [performanceChart, basePerformanceKey, effectivePerformanceKey]);
+  const keyCheck = useMemo(() => validateChordContentKeyConsistency(
+    performanceChart?.chords || '', basePerformanceKey,
+  ), [performanceChart?.chords, basePerformanceKey]);
+  const hasUnsavedKey = !areKeysEnharmonicallyEquivalent(savedKey || basePerformanceKey, effectivePerformanceKey);
+
+  const openKeyReview = () => {
+    const canonical = librarySongs.find(item => item.id === song?.id);
+    if (!canonical || !song) return;
+    setActiveTab("none");
+    openPersistedChordKeyRepair(canonical, updatedSong => {
+      onSongUpdate?.(applyScaleSongSettings(updatedSong, { key: effectivePerformanceKey }));
+      void refreshData();
+    });
+  };
+
+  const saveKey = async (scope: 'scale' | 'repertoire') => {
+    if (keySaveLock.current || !api || !song) return;
+    if (scope === 'scale' ? !canSaveScaleKey : !canManageChords) return;
+    const canonical = librarySongs.find(item => item.id === song.id);
+    if (!canonical || canonical.organizationId !== effectiveOrganizationId) {
+      toast({ type: 'error', message: t('premiumV2.performance.keySaveError') });
+      return;
+    }
+    const scopeAtStart = operationScope;
+    keySaveLock.current = true;
+    setSavingKey(true);
+    try {
+      await api.savePerformanceSongKey({
+        songId: song.id, targetKey: effectivePerformanceKey, scope,
+        scaleId: scaleContext?.scaleId, expectedChords: canonical.chords || '',
+        expectedKey: scope === 'scale' ? persistedScaleKey || basePerformanceKey : getEffectiveKey(canonical),
+      });
+      if (operationScopeRef.current !== scopeAtStart) return;
+      const scaleKey = scales.find(item => item.id === scaleContext?.scaleId)?.songSettings?.[song.id]?.key;
+      setPersistedScaleKey(scope === 'scale' || !scaleKey ? effectivePerformanceKey : scaleKey);
+      setSavedKey(effectivePerformanceKey);
+      setKeySaveOpen(false);
+      toast({ type: 'success', message: t('premiumV2.performance.keySaved') });
+      void refreshData();
+    } catch (error) {
+      if (error instanceof Error && error.message === 'CHORD_KEY_REVIEW_REQUIRED') {
+        setKeySaveOpen(false);
+        toast({ type: 'info', message: t('premiumV2.performance.keyReviewRequired') });
+        openKeyReview();
+      } else {
+        toast({ type: 'error', message: t('premiumV2.performance.keySaveError') });
+      }
+    } finally {
+      keySaveLock.current = false;
+      setSavingKey(false);
+    }
+  };
 
   const sectionNavigatorItems = useMemo(
     () => buildSongSectionNavigatorItems(parsedContent),
@@ -1132,36 +1196,27 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
       return;
     }
 
+    const scopeAtStart = operationScope;
     setIsFixingChords(true);
     try {
-      const token = await user.getIdToken();
-      const res = await fetch("/api/fix-chords", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          organizationId: effectiveOrganizationId,
-          chords: sourceChords, 
-          instructions: prompt 
-        }),
+      const canonical = librarySongs.find(item => item.id === song?.id);
+      const context = canonical?.metadata;
+      const fixedChords = await requestChordRepair({
+        organizationId: effectiveOrganizationId,
+        chords: sourceChords,
+        instructions: [
+          'Review harmony, source key and capo before suggesting changes. Non-diatonic chords, borrowed chords and modulations may be intentional. Preserve lyrics, sections and chord alignment. Return only the chart, no explanations or markdown fences. Do not transpose to the performance key without an explicit request.',
+          `Written key: ${context?.chordContentKey || getEffectiveKey(canonical || song!)}; shape: ${context?.shapeKey || 'unknown'}; capo: ${context?.capo ?? 'unknown'}; performance key: ${effectivePerformanceKey}.`,
+          prompt.slice(0, 1400),
+        ].join('\n').slice(0, 2000),
       });
-      
-      if (!res.ok) {
-        throw new Error("Erro na API");
-      }
-      
-      const data = await res.json();
-      if (data.fixedChords) {
-        if (fromEditor) setEditedChords(data.fixedChords);
-        else {
-          setOriginalBackup(sourceChords);
-          await onSave({ songId: song!.id, chords: data.fixedChords });
-        }
-      }
+      // AI suggestions are drafts. The existing chart changes only after Save.
+      if (operationScopeRef.current !== scopeAtStart) return;
+      setEditedChords(fixedChords);
+      setIsEditing(true);
     } catch (err) {
-      alert(t("premiumV2.performance.aiFixError"));
+      const code = err instanceof Error && ['aiLimitError', 'aiAccessError'].includes(err.message) ? err.message : 'aiFixError';
+      toast({ type: 'error', message: t(`premiumV2.performance.${code}`) });
     } finally {
       setIsFixingChords(false);
     }
@@ -1227,7 +1282,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
             <button
               onClick={() => {
                 setIsEditing(true);
-                setEditedChords(song.chords);
+                setEditedChords(librarySongs.find(item => item.id === song.id)?.chords || song.chords);
                 setIsUIVisible(true);
               }}
               className="px-3 h-9 md:h-10 flex items-center gap-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 transition-all text-[13px] font-semibold tracking-wide"
@@ -1415,16 +1470,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                     size="sm"
                     variant="primary"
                     className="w-full bg-indigo-600 hover:bg-indigo-500 text-white border-none transition-colors"
-                    onClick={() => {
-                      setActiveTab("none");
-                      if (song) {
-                        openPersistedChordKeyRepair(song, (updatedSong) => {
-                          if (onSongUpdate) {
-                            onSongUpdate(updatedSong);
-                          }
-                        });
-                      }
-                    }}
+                    onClick={openKeyReview}
                   >
                     {t("premiumV2.performance.adjustChordKey")}
                   </Button>
@@ -1772,6 +1818,40 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         )}
       </AnimatePresence>
 
+      {!isEditing && (hasUnsavedKey || keyCheck.status === 'MISMATCH') && (
+        <div className="fixed left-3 right-3 bottom-28 md:bottom-32 z-[146] flex justify-center pointer-events-none">
+          <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#15151a]/95 p-2 shadow-xl max-w-lg">
+            {keyCheck.status === 'MISMATCH' && canRepairChordKey && (
+              <button className="px-3 py-2 text-sm text-amber-200" onClick={openKeyReview}>
+                {t('premiumV2.performance.keyMismatch')}
+              </button>
+            )}
+            {hasUnsavedKey && (canManageChords || (scaleContext?.scaleId && canSaveScaleKey)) && (
+              <button className="inline-flex items-center gap-2 rounded-xl bg-white text-black px-4 py-2.5 text-sm font-semibold" onClick={() => { markControlsActivity(); setKeySaveOpen(true); }}>
+                <Save size={16} />{t('premiumV2.performance.saveKey', { key: effectivePerformanceKey })}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      <Modal isOpen={isKeySaveOpen} onClose={() => { if (!isSavingKey) setKeySaveOpen(false); }} title={t('premiumV2.performance.saveKeyTitle', { key: effectivePerformanceKey })} maxWidth="max-w-md" zIndexClass="z-[180]">
+        <div className="space-y-3">
+          {scaleContext?.scaleId && canSaveScaleKey && (
+            <Button className="w-full" disabled={isSavingKey} onClick={() => void saveKey('scale')}>
+              {t('premiumV2.performance.saveInScale')}
+            </Button>
+          )}
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('premiumV2.performance.saveInScaleHint')}</p>
+          {canManageChords && (
+            <Button className="w-full" variant="secondary" disabled={isSavingKey} onClick={() => void saveKey('repertoire')}>
+              {t('premiumV2.performance.saveInRepertoire')}
+            </Button>
+          )}
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('premiumV2.performance.saveInRepertoireHint')}</p>
+          {isSavingKey && <Spinner size="sm" />}
+        </div>
+      </Modal>
+
       {!isEditing && (
         <div
           onPointerDown={markControlsActivity}
@@ -1780,6 +1860,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
           <div className="flex items-center gap-2 p-2 bg-[#0A0A0C]/85 backdrop-blur-3xl border border-white/[0.08] shadow-[0_16px_40px_rgba(0,0,0,0.6)] rounded-full isolate relative">
             <div className="flex items-center bg-[#000000]/50 rounded-full ml-1 border border-white/[0.04] shadow-inner">
               <button
+                aria-label={t("technicalParts.transpose_down")}
                 className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 rounded-l-full transition-colors font-medium text-lg px-2"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1801,6 +1882,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                 </span>
               </div>
               <button
+                aria-label={t("technicalParts.transpose_up")}
                 className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 rounded-r-full transition-colors font-medium text-lg px-2"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1898,7 +1980,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
               )
             }
           >
-            Normalizar Espaços
+            {t('premiumV2.performance.normalizeSpaces')}
           </Button>
           <Button
             variant="outline"
@@ -1906,7 +1988,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
             onClick={() => handleAIAjuste(true)}
             disabled={isFixingChords}
           >
-            {isFixingChords ? <Spinner size="sm" /> : "✨ IA: Ajustar"}
+            {isFixingChords ? <Spinner size="sm" /> : t("premiumV2.performance.aiAdjust")}
           </Button>
           <div className="flex-1 min-w-0" />
           <Button
@@ -1914,17 +1996,23 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
             onClick={() => setIsEditing(false)}
             disabled={isSubmitting}
           >
-            Cancelar
+            {t("common.cancel")}
           </Button>
           <Button
             variant="primary"
             onClick={async () => {
-              await onSave({ songId: song.id, chords: editedChords.trim() });
-              setIsEditing(false);
+              try {
+                const canonical = librarySongs.find(item => item.id === song.id);
+                await onSave({ songId: song.id, chords: editedChords.trim() });
+                setOriginalBackup(canonical?.chords || song.chords || null);
+                setIsEditing(false);
+              } catch {
+                toast({ type: 'error', message: t('premiumV2.performance.keySaveError') });
+              }
             }}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isFixingChords}
           >
-            {isSubmitting ? <Spinner size="sm" /> : "Salvar Cifra"}
+            {isSubmitting ? <Spinner size="sm" /> : t("premiumV2.performance.saveChart")}
           </Button>
         </div>
       )}

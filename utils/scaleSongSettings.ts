@@ -1,5 +1,5 @@
 import { Song, ScaleSongSettings } from '../types';
-import { getKeyDifference, parseChordsAndLyrics, transposeChord } from '../components/songs/ChordsRenderer';
+import { isValidKey, resolveChordContentSourceKey, transposeChordDocument } from './chordEngine';
 
 export const getEffectiveKey = (song: Song, settings?: ScaleSongSettings): string => {
   if (settings && settings.key) return settings.key;
@@ -66,35 +66,26 @@ export const normalizeScaleSongSettings = (
 };
 
 export const applyScaleSongSettings = <T extends Song>(song: T, settings?: ScaleSongSettings): T => {
-  if (!settings) return song;
-
-  // Always clone the song to avoid mutating the original object
+  // The written chart has its own source key. A selected/performance key is a
+  // destination, never proof of the pitch of imported chord shapes.
   const newSong = { ...song };
-
-  // Explicitly delete any legacy hidden metadata fields to ensure data integrity
   delete (newSong as any)._untransposedKey;
   delete (newSong as any)._untransposedChords;
+  const sourceKey = resolveChordContentSourceKey(song.metadata)?.key || getEffectiveKey(song);
+  const targetKey = getEffectiveKey(song, settings);
 
-  const baseKey = song.selectedKey || song.key || song.originalKey || "";
-  const baseChords = song.chords || "";
-
-  if (settings.key !== undefined && settings.key !== null) {
-    const semitones = baseKey ? getKeyDifference(baseKey, settings.key) : 0;
-    
-    newSong.key = settings.key;
-    newSong.selectedKey = settings.key;
-
-    if (semitones !== 0 && baseChords && baseChords.trim().length > 0) {
-        const parsed = parseChordsAndLyrics(baseChords);
-        newSong.chords = parsed.map(line => 
-            line.type === 'chord' ? transposeChord(line.content, semitones) : line.content
-        ).join('\n');
-    } else {
-        newSong.chords = baseChords;
-    }
+  if (isValidKey(sourceKey) && isValidKey(targetKey) && song.chords?.trim()) {
+    newSong.chords = transposeChordDocument(song.chords, sourceKey, targetKey).chords;
+    // This is a display copy only. Keeping its content key aligned makes repeated
+    // application idempotent (populated scales can pass through this twice).
+    newSong.metadata = { ...song.metadata, chordContentKey: targetKey, normalizedToConcertKey: true };
+  }
+  if (targetKey) {
+    newSong.key = targetKey;
+    newSong.selectedKey = targetKey;
   }
 
-  if (settings.bpm !== undefined && settings.bpm !== null) {
+  if (settings?.bpm !== undefined && settings.bpm !== null) {
     newSong.bpm = settings.bpm;
   }
 

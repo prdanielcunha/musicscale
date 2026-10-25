@@ -262,6 +262,27 @@ export function transposeChordLinePreserveSpacingWithPreference(line: string, se
   return parts.join('');
 }
 
+/** Visit only musical tokens, preserving lyrics (notably Portuguese A/E/Em). */
+function mapDocumentChordTokens(text: string, transform: (chord: string) => string): string {
+  const lines = text.split('\n');
+  return lines.map((line, index) => {
+    const withoutSection = line.replace(/^\s*\[([^\]]+)\]\s*/, (header, label) => isChordToken(label) ? header : '');
+    const chordRow = classifyLine(withoutSection, index, lines).type === LineType.CHORD_LINE;
+    if (!chordRow) {
+      // ChordPro mixed lines: only explicit [chord] markers are musical.
+      return line.replace(/\[([^\]]+)\]/g, (marker, chord) => isChordToken(chord) ? `[${transform(chord)}]` : marker);
+    }
+    return line.split(/(\s+|[|]+)/).map(part => {
+      let core = part, prefix = '', suffix = '';
+      if ((core.startsWith('[') && core.endsWith(']')) ||
+          (core.startsWith('(') && core.endsWith(')') && !core.slice(1, -1).includes('('))) {
+        prefix = core[0]; suffix = core[core.length - 1]; core = core.slice(1, -1);
+      }
+      return isChordToken(core) ? prefix + transform(core) + suffix : part;
+    }).join('');
+  }).join('\n');
+}
+
 export function transposeChordDocument(
   chords: string,
   sourceKey: string,
@@ -318,40 +339,15 @@ export function transposeChordDocument(
     useFlats = flatKeysList.includes(normTarget);
   }
 
-  const lines = chords.split('\n');
   let changedChordCount = 0;
-
-  const transposedLines = lines.map((line, idx) => {
-    const cl = classifyLine(line, idx, lines);
-    
-    let lineHasChords = false;
-    const parts = line.split(/(\s+|[|]+)/);
-    for (const part of parts) {
-      const core = part.trim().replace(/^[(|[\]]+|[(|[\]]+$/g, '');
-      if (core && isChordToken(core)) {
-        lineHasChords = true;
-        break;
-      }
-    }
-
-    if (lineHasChords && cl.type !== LineType.SITE_NOISE_LINE && cl.type !== LineType.CHORD_DICTIONARY_LINE) {
-      for (const part of parts) {
-        const core = part.trim().replace(/^[(|[\]]+|[(|[\]]+$/g, '');
-        if (core && isChordToken(core)) {
-          const transposed = transposeChordWithPreference(core, semitones, useFlats, normTarget);
-          if (transposed !== core) {
-            changedChordCount++;
-          }
-        }
-      }
-      return transposeChordLinePreserveSpacingWithPreference(line, semitones, useFlats, normTarget);
-    }
-
-    return line;
+  const transposedText = mapDocumentChordTokens(chords, chord => {
+    const result = transposeChordWithPreference(chord, semitones, useFlats, normTarget);
+    if (result !== chord) changedChordCount++;
+    return result;
   });
 
   return {
-    chords: transposedLines.join('\n'),
+    chords: transposedText,
     semitones,
     changedChordCount,
   };
@@ -1283,7 +1279,9 @@ export function analyzeChordDocumentKeyCandidates(chords: string): ChordDocument
     return { candidates: [] };
   }
 
-  const lines = chords.split('\n');
+  const musicalTokens: string[] = [];
+  mapDocumentChordTokens(chords, chord => { musicalTokens.push(chord); return chord; });
+  const lines = [musicalTokens.join(' ')];
   const chordTokens: { root: string; quality: 'Major' | 'Minor'; isSlash: boolean; raw: string }[] = [];
   let firstTokenRoot: string | null = null;
   let lastTokenRoot: string | null = null;
@@ -1465,24 +1463,19 @@ export function validateTransposedPreview(
     return { valid: true };
   }
 
-  const origLyrics = removeChordOnlyLinesFromLyrics(originalChords);
-  const transLyrics = removeChordOnlyLinesFromLyrics(transposedChords);
+  // Section headers may share a line with chords: "[Intro] C9 D6(11)".
+  // Comparing lyric extraction treated those changing chord tokens as lyrics
+  // and rejected valid transpositions. Compare the invariant text and spacing.
+  const invariantText = (text: string) => mapDocumentChordTokens(text, () => '<chord>');
+  const origLyrics = invariantText(originalChords);
+  const transLyrics = invariantText(transposedChords);
   if (origLyrics !== transLyrics) {
     return { valid: false, error: 'A letra foi alterada após a transposição' };
   }
 
   const getChordTokens = (text: string): string[] => {
     const tokens: string[] = [];
-    const lines = text.split('\n');
-    for (const line of lines) {
-      const parts = line.split(/(\s+|[|]+)/);
-      for (const part of parts) {
-        const core = part.trim().replace(/^[(|[\]]+|[(|[\]]+$/g, '');
-        if (core && isChordToken(core)) {
-          tokens.push(core);
-        }
-      }
-    }
+    mapDocumentChordTokens(text, chord => { tokens.push(chord); return chord; });
     return tokens;
   };
 

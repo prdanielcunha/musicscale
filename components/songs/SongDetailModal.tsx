@@ -1,3 +1,4 @@
+import { applyScaleSongSettings, getEffectiveKey } from "../../utils/scaleSongSettings";
 import { logger } from "../../lib/logger";
 
 import React, {
@@ -349,7 +350,10 @@ const SongDetailModal: React.FC<SongDetailModalProps> = ({
       // If we are in the context of a scale, we MUST use the initialSong because
       // it already has the transposed chords and local settings applied.
       // Otherwise, we can refresh from the global songs array.
-      const resolvedSong = scaleContext ? initialSong : (songs.find((s) => s.id === initialSong.id) || initialSong);
+      const canonicalSong = songs.find((s) => s.id === initialSong.id) || initialSong;
+      const resolvedSong = scaleContext
+        ? applyScaleSongSettings(canonicalSong, { key: getEffectiveKey(initialSong), bpm: initialSong.bpm })
+        : canonicalSong;
       setSong(resolvedSong);
 
       const effectiveMode = openMode || (startInPerformanceMode ? "performance" : "detail");
