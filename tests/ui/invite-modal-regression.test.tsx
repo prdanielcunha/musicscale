@@ -57,7 +57,7 @@ describe('MusicScale Hub invite modal crash and duplication regressions', () => 
     expect(screen.getByText(/função Líder \/ Ministro/)).toBeTruthy();
     fireEvent.click(screen.getByText('Gerar link desta função'));
     await waitFor(() => expect(request).toHaveBeenCalledTimes(1));
-    expect(JSON.parse(request.mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse(String(request.mock.calls[0][1]?.body || '{}'))).toMatchObject({
       organizationId: 'familia', organizationRole: 'member', mode: 'link', roleId: 'leader'
     });
     expect(await screen.findByDisplayValue('https://musicscale.millionsnest.com/join/familia?token=example-token')).toBeTruthy();
