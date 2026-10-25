@@ -40,7 +40,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('MusicScale Hub invite modal crash and duplication regressions', () => {
   it('choosing a musical function on iPhone path renders and generates an invitation without dereferencing null prop', async () => {
-    const request = vi.fn(async () => ({
+    const request = vi.fn(async (_url: string, _init?: RequestInit) => ({
       ok: true, json: async () => ({
         success: true, invitation: { id: 'invite-1', targetAppId: 'musicscale' },
         inviteUrl: 'https://musicscale.millionsnest.com/join/familia?token=example-token',
