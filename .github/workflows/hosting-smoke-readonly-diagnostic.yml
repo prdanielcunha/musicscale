@@ -22,13 +22,13 @@ jobs:
             if command -v "$binary" >/dev/null; then echo "FOUND_IN_PATH=$binary"; else echo "NOT_IN_PATH=$binary"; fi
           done
           for BASE in https://mn-musicscale-555464791734.web.app https://musicscale.millionsnest.com; do
-            for PATH in / /start /stage-tools/tuner /version.json; do
+            for ROUTE in / /start /stage-tools/tuner /version.json; do
               BODY="$RUNNER_TEMP/musicscale-hosting-body.txt" HEADERS="$RUNNER_TEMP/musicscale-hosting-headers.txt"
-              STATUS="$(curl -sS --max-time 15 -D "$HEADERS" -o "$BODY" -w '%{http_code}' "$BASE$PATH?incident=20261025" || true)"
-              echo "TARGET=$BASE$PATH STATUS=$STATUS"
+              STATUS="$(curl -sS --max-time 15 -D "$HEADERS" -o "$BODY" -w '%{http_code}' "$BASE$ROUTE?incident=20261025" || true)"
+              echo "TARGET=$BASE$ROUTE STATUS=$STATUS"
               grep -Ei '^(cache-control|content-type|location|server|x-cache|cf-cache-status|x-served-by):' "$HEADERS" | sed 's/^/HEADER: /' || true
               echo "RESPONSE_BYTES=$(wc -c < "$BODY" | tr -d ' ')"
-              if [ "$PATH" = /version.json ] && [ "$STATUS" = 200 ]; then
+              if [ "$ROUTE" = /version.json ] && [ "$STATUS" = 200 ]; then
                 node -e "try {const v=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));console.log('VERSION='+(typeof v.version==='string'?v.version:'MISSING'))}catch{console.log('VERSION_NOT_JSON')}" "$BODY"
               else
                 if grep -Eiq '<!doctype html|<html' "$BODY"; then echo 'BODY_HTML=true'; else echo 'BODY_HTML=false'; fi
