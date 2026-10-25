@@ -14,6 +14,13 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
+          echo "DIAGNOSTIC_PATH=$PATH"
+          for binary in /usr/bin/curl /bin/curl /usr/local/bin/curl /usr/bin/mktemp /bin/mktemp /usr/bin/sed /bin/grep /usr/bin/grep /usr/bin/rm /usr/bin/node /usr/local/bin/node; do
+            if [[ -x "$binary" ]]; then echo "BINARY_AVAILABLE=$binary"; else echo "BINARY_UNAVAILABLE=$binary"; fi
+          done
+          for binary in curl grep mktemp sed node rm; do
+            if command -v "$binary" >/dev/null; then echo "FOUND_IN_PATH=$binary"; else echo "NOT_IN_PATH=$binary"; fi
+          done
           for BASE in https://mn-musicscale-555464791734.web.app https://musicscale.millionsnest.com; do
             for PATH in / /start /stage-tools/tuner /version.json; do
               BODY="$RUNNER_TEMP/musicscale-hosting-body.txt" HEADERS="$RUNNER_TEMP/musicscale-hosting-headers.txt"
