@@ -16,7 +16,7 @@ jobs:
           set -uo pipefail
           for BASE in https://mn-musicscale-555464791734.web.app https://musicscale.millionsnest.com; do
             for PATH in / /start /stage-tools/tuner /version.json; do
-              BODY="$(mktemp)" HEADERS="$(mktemp)"
+              BODY="$RUNNER_TEMP/musicscale-hosting-body.txt" HEADERS="$RUNNER_TEMP/musicscale-hosting-headers.txt"
               STATUS="$(curl -sS --max-time 15 -D "$HEADERS" -o "$BODY" -w '%{http_code}' "$BASE$PATH?incident=20261025" || true)"
               echo "TARGET=$BASE$PATH STATUS=$STATUS"
               grep -Ei '^(cache-control|content-type|location|server|x-cache|cf-cache-status|x-served-by):' "$HEADERS" | sed 's/^/HEADER: /' || true
