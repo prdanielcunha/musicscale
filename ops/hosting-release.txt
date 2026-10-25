@@ -1,3 +1,6 @@
+MusicScale 0.11.2-beta.2 — 2026-10-25
+Hotfix UI convites: seleção de função musical não gera erro de renderização ao escolher item no modal; lista mostra uma opção por nome, sem excluir registros originais, e bloqueia nomes ambíguos cujas permissões divergem. Nenhuma alteração em auth, dados, funções existentes, roles, planos, Firestore ou pagamentos. Testes de regressão.
+
 MusicScale 0.11.2-beta.1 — 2026-10-24
 Hotfix convites: aceitação canônica Hub com tolerância de 25 segundos para transação e partida fria, retorno de erros reais em PT/EN/ES e tratamento seguro de falha de rede/proxy. Sem mudança em Auth, permissões, cobrança, membership, limites de plano, Firestore Rules ou dados existentes. Publicação somente após QA no SHA exato, Cloud Run antes do Hosting e smoke autenticado.
 

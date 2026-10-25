@@ -45,7 +45,10 @@ describe('Users canonical MillionsNest invitation experience', () => {
     expect(modal).toContain('{ roleId: selectedMusicScaleRole.id }');
     expect(modal).toContain('context?.currentOrganizationId || organization?.id || ""');
     expect(modal).not.toContain('userProfile?.activeOrganizationId ||');
-    expect(modal).toContain('["owner", "dono", "ceo", "global_admin"');
+    const inviteRoleOptions = read('utils/inviteMusicRoleOptions.ts');
+    expect(modal).toContain('resolveInviteMusicRoleOptions');
+    expect(inviteRoleOptions).toContain("'owner', 'dono', 'ceo', 'global_admin'");
+    expect(inviteRoleOptions).toContain('PROTECTED_ROLE_NAMES');
   });
 
   it.each(['pt', 'en', 'es'])('ships invitation copy in %s', locale => {
