@@ -1189,7 +1189,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
   ]);
 
   const [isFixingChords, setIsFixingChords] = useState(false);
-  const [originalBackup, setOriginalBackup] = useState<string | null>(null);
+  const [originalBackup, setOriginalBackup] = useState<{ songId: string; organizationId: string | null; chords: string } | null>(null);
 
   const handleAIAjuste = async (fromEditor: boolean = false) => {
     const prompt = window.prompt(
@@ -1492,7 +1492,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                 >
                   {t("premiumV2.performance.resetDefaults")}
                 </Button>
-                {canManageChords && originalBackup && (
+                {canManageChords && originalBackup?.songId === song.id && originalBackup.organizationId === effectiveOrganizationId && (
                   <Button
                     size="sm"
                     variant="danger"
@@ -1500,7 +1500,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                     onClick={async () => {
                       if (window.confirm(t("premiumV2.performance.restoreOriginalConfirm"))) {
                         try {
-                          await onSave({ songId: song.id, chords: originalBackup });
+                          await onSave({ songId: song.id, chords: originalBackup.chords });
                           setOriginalBackup(null);
                         } catch {
                           toast({ type: 'error', message: t('premiumV2.performance.keySaveError') });
@@ -2015,7 +2015,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
               try {
                 const canonical = librarySongs.find(item => item.id === song.id);
                 await onSave({ songId: song.id, chords: editedChords.trim() });
-                setOriginalBackup(canonical?.chords || song.chords || null);
+                setOriginalBackup({ songId: song.id, organizationId: effectiveOrganizationId, chords: canonical?.chords || song.chords || '' });
                 setIsEditing(false);
               } catch {
                 toast({ type: 'error', message: t('premiumV2.performance.keySaveError') });
