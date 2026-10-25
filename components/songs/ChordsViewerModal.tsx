@@ -14,7 +14,7 @@ import { Save } from "lucide-react";
 import { useToast } from "../../contexts/ToastContext";
 import { requestChordRepair } from "../../services/chordRepairClient";
 import { applyScaleSongSettings, getEffectiveKey } from "../../utils/scaleSongSettings";
-import { areKeysEnharmonicallyEquivalent, transposeChordDocument, validateChordContentKeyConsistency } from "../../utils/chordEngine";
+import { areKeysEnharmonicallyEquivalent, resolveChordContentSourceKey, transposeChordDocument, validateChordContentKeyConsistency } from "../../utils/chordEngine";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { KeyIcon } from "../icons/KeyIcon";
@@ -574,6 +574,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
         isEditing ||
+        isKeySaveOpen ||
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
       ) {
@@ -636,7 +637,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isEditing, scaleContext, onNavigate]);
+  }, [isOpen, isEditing, isKeySaveOpen, scaleContext, onNavigate]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -985,6 +986,10 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     [basePerformanceKey, transpose],
   );
   const performanceChart = useMemo(() => song ? applyScaleSongSettings(song) : null, [song]);
+  const editorSourceKey = useMemo(() => {
+    const original = librarySongs.find(item => item.id === song?.id) || song;
+    return original ? resolveChordContentSourceKey(original.metadata)?.key || getEffectiveKey(original) : '';
+  }, [librarySongs, song]);
   const parsedContent = useMemo(() => {
     if (!performanceChart?.chords) return [];
     const chords = transposeChordDocument(performanceChart.chords, basePerformanceKey, effectivePerformanceKey).chords;
@@ -1490,11 +1495,12 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                     className="w-full"
                     onClick={async () => {
                       if (window.confirm(t("premiumV2.performance.restoreOriginalConfirm"))) {
-                        await onSave({
-                          songId: song.id,
-                          chords: originalBackup,
-                        });
-                        setOriginalBackup(null);
+                        try {
+                          await onSave({ songId: song.id, chords: originalBackup });
+                          setOriginalBackup(null);
+                        } catch {
+                          toast({ type: 'error', message: t('premiumV2.performance.keySaveError') });
+                        }
                       }
                     }}
                   >
@@ -1636,6 +1642,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                 className="w-full max-w-4xl mx-auto pt-24 pb-32 px-5 cursor-default mt-4"
                 onClick={(e) => e.stopPropagation()}
               >
+                <p className="mb-3 text-sm text-slate-400">{t('premiumV2.performance.editingRepertoire', { key: editorSourceKey })}</p>
                 <textarea
                   value={editedChords}
                   onChange={(e) => setEditedChords(e.target.value)}
@@ -1818,8 +1825,8 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         )}
       </AnimatePresence>
 
-      {!isEditing && (hasUnsavedKey || keyCheck.status === 'MISMATCH') && (
-        <div className="fixed left-3 right-3 bottom-28 md:bottom-32 z-[146] flex justify-center pointer-events-none">
+      {!isEditing && !isStagePadOpen && !isStageMetronomeOpen && ((hasUnsavedKey && (canManageChords || (scaleContext?.scaleId && canSaveScaleKey))) || (keyCheck.status === 'MISMATCH' && canRepairChordKey)) && (
+        <div className={`fixed left-3 right-3 ${scaleContext ? 'bottom-[14.5rem]' : 'bottom-28'} md:bottom-32 z-[146] flex justify-center pointer-events-none`}>
           <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#15151a]/95 p-2 shadow-xl max-w-lg">
             {keyCheck.status === 'MISMATCH' && canRepairChordKey && (
               <button className="px-3 py-2 text-sm text-amber-200" onClick={openKeyReview}>

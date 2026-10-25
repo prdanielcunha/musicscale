@@ -28,6 +28,7 @@ export const premiumV2Translations = {
       noLyricsDescription: 'Ajuste os filtros ou adicione letras às músicas do seu repertório para vê-las aqui.',
     },
     performance: {
+      editingRepertoire: "Editando o repertório · Tom dos acordes: {{key}}. O tom escolhido para a escala não altera este original.",
       keyReviewRequired: "Confirme o tom dos acordes escritos antes de substituir a cifra do repertório.",
       auditKeys: "Verificar tons do repertório",
       auditHint: "Análise dos acordes escritos e dos dados de tom e capotraste. Divergências são sugestões para revisão: acordes emprestados e modulações podem ser intencionais. Nada é alterado automaticamente.",
@@ -110,6 +111,7 @@ export const premiumV2Translations = {
       noLyricsDescription: 'Adjust the filters or add lyrics to songs in your repertoire to see them here.',
     },
     performance: {
+      editingRepertoire: "Editing the repertoire · Written chord key: {{key}}. The schedule’s selected key does not change this original.",
       keyReviewRequired: "Confirm the written chord key before replacing the repertoire chart.",
       auditKeys: "Check repertoire keys",
       auditHint: "Analyzes written chords and key/capo data. Mismatches are review suggestions: borrowed chords and modulations may be intentional. Nothing changes automatically.",
@@ -192,6 +194,7 @@ export const premiumV2Translations = {
       noLyricsDescription: 'Ajusta los filtros o añade letras a las canciones de tu repertorio para verlas aquí.',
     },
     performance: {
+      editingRepertoire: "Editando el repertorio · Tono de los acordes: {{key}}. El tono elegido para la programación no cambia este original.",
       keyReviewRequired: "Confirma el tono de los acordes escritos antes de sustituir la cifra del repertorio.",
       auditKeys: "Verificar tonos del repertorio",
       auditHint: "Analiza los acordes escritos y los datos de tono y cejilla. Las diferencias son sugerencias para revisar: los acordes prestados y las modulaciones pueden ser intencionales. Nada cambia automáticamente.",
