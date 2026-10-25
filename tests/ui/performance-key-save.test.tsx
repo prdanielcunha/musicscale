@@ -64,6 +64,19 @@ describe('save a changed performance key', () => {
     expect(screen.getByText('A tua presença')).toBeInTheDocument();
     expect(screen.getByText('E eu te amo')).toBeInTheDocument();
   });
+  it('does not offer a previous song’s backup after navigating to another song', async () => {
+    const props = { isOpen: true, onClose: vi.fn(), onSave: vi.fn().mockResolvedValue(undefined), isSubmitting: false, scaleContext: { scaleId: 'scale1', currentIndex: 0, songs: [fixture.song as any] }, onNavigate: vi.fn() };
+    const view = render(<ChordsViewerModal {...props} song={fixture.song as any} />);
+    fireEvent.click(screen.getByText('premiumV2.performance.edit'));
+    fireEvent.click(screen.getByText('premiumV2.performance.saveChart'));
+    await waitFor(() => expect(screen.queryByText('premiumV2.performance.saveChart')).not.toBeInTheDocument());
+    fireEvent.click(screen.getByText('Test chart'));
+    expect(screen.getByText('premiumV2.performance.restoreOriginal')).toBeInTheDocument();
+    view.rerender(<ChordsViewerModal {...props} song={{ ...fixture.song, id: 's2' } as any} />);
+    fireEvent.click(screen.getByText('Test chart'));
+    expect(screen.getByText('premiumV2.performance.textSize')).toBeInTheDocument();
+    expect(screen.queryByText('premiumV2.performance.restoreOriginal')).not.toBeInTheDocument();
+  });
   it('keeps the dialog and unsaved change after denied/failed persistence', async () => {
     fixture.save.mockRejectedValue(new Error('permission-denied'));
     mount();
