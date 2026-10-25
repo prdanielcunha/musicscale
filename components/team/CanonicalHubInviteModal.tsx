@@ -6,6 +6,7 @@ import type { Role } from "../../types";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEcosystem } from "../../contexts/EcosystemContext";
 import { isGlobalPrivilegedUser } from "../../hooks/useEcosystemAdmin";
+import { resolveInviteMusicRoleOptions } from "../../utils/inviteMusicRoleOptions";
 
 type InviteMode = "email" | "link";
 type OrganizationInviteRole = "admin" | "manager" | "member" | "viewer";
@@ -55,11 +56,16 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
   // Never send invitations to a stale organization from the legacy user profile.
   // The selected organization and role grants come from the canonical Hub session.
   const activeOrganizationId = context?.currentOrganizationId || organization?.id || "";
-  const selectableMusicScaleRoles = availableMusicScaleRoles.filter(role =>
-    !!role.id && (!role.organizationId || role.organizationId === activeOrganizationId) &&
-    !["owner", "dono", "ceo", "global_admin", "ecosystem_owner", "founder", "support", "suporte"].includes(role.name.trim().toLowerCase())
+  // Role names can be duplicated in old organization data. Collapse equivalent
+  // entries without touching Firestore; ambiguous permission variants are never
+  // silently mapped to an arbitrary role ID.
+  const musicScaleRoleOptions = useMemo(
+    () => resolveInviteMusicRoleOptions(availableMusicScaleRoles, activeOrganizationId),
+    [availableMusicScaleRoles, activeOrganizationId]
   );
+  const selectableMusicScaleRoles = musicScaleRoleOptions.filter(option => !option.ambiguous).map(option => option.role);
   const selectedMusicScaleRole = musicScaleRole || selectableMusicScaleRoles.find(role => role.id === selectedMusicScaleRoleId) || null;
+  const hasAmbiguousMusicScaleRoles = musicScaleRoleOptions.some(option => option.ambiguous);
 
   const inviteableRoles = useMemo<OrganizationInviteRole[]>(() => {
     const isGlobal = isGlobalAdmin || isGlobalPrivilegedUser(currentUser, userProfile);
@@ -165,7 +171,7 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
     }
     if (code === "INVALID_EMAIL" || code === "INVALID_INVITE_EMAIL") return t("users.invite.invalid_email", "Informe um e-mail válido.");
     if (code === "INVALID_INVITE_ROLE") return t("users.invite.invalid_role", "Esse nível de acesso não pode ser usado neste convite.");
-    if (code === "HUB_UNAVAILABLE" || code === "HUB_NOT_CONFIGURED" || code === "INTERNAL_ERROR") {
+    if (code === "HUB_UNAVAILABLE" || code === "HUB_NOT_CONFIGURED" || code === "INTERNAL_ERROR" || code === "INVALID_HUB_RESPONSE" || code === "INVITE_CREATE_FAILED") {
       return t("users.invite.hub_unavailable", "O MillionsNest está temporariamente indisponível. Tente novamente.");
     }
     return t("users.invite.create_error", "Não foi possível criar o convite. Tente novamente.");
@@ -488,7 +494,7 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
                 })}
               </div>
 
-              {!musicScaleRole && selectableMusicScaleRoles.length > 0 && (
+              {!musicScaleRole && musicScaleRoleOptions.length > 0 && (
                 <div className="mt-4">
                   <label htmlFor="invite-musicscale-role" className="mb-2 block text-sm font-medium text-slate-400">
                     {t("users.invite.musicscale_role_select", "Função musical no MusicScale (opcional)")}
@@ -501,10 +507,20 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
                     className="input-base min-h-11 w-full"
                   >
                     <option value="">{t("users.invite.musicscale_role_none", "Definir função musical depois")}</option>
-                    {selectableMusicScaleRoles.map(role => (
-                      <option key={role.id} value={role.id}>{role.name}</option>
+                    {musicScaleRoleOptions.map(({ role, ambiguous }) => (
+                      <option key={role.id} value={ambiguous ? `ambiguous_${role.id}` : role.id} disabled={ambiguous}>
+                        {role.name}{ambiguous ? " — cadastros com permissões diferentes" : ""}
+                      </option>
                     ))}
                   </select>
+                  {hasAmbiguousMusicScaleRoles && (
+                    <p className="mt-2 text-xs leading-5 text-amber-400" role="status">
+                      {t(
+                        "users.invite.duplicate_role_warning",
+                        "Algumas funções têm o mesmo nome, mas permissões diferentes. Elas aparecem uma só vez e não podem ser selecionadas para convites até serem revisadas em Funções. Nenhum cadastro foi excluído."
+                      )}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -523,7 +539,7 @@ export const CanonicalHubInviteModal: React.FC<CanonicalHubInviteModalProps> = (
                       : t(
                           "users.invite.musicscale_role_link",
                           "O convite registra o nível de acesso e a função {{role}}. Ambos serão aplicados automaticamente quando a pessoa aceitar.",
-                          { role: musicScaleRole.name },
+                          { role: selectedMusicScaleRole.name },
                         )
                     : t(
                         "users.invite.musicscale_role_default",
