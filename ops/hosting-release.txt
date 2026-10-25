@@ -1,3 +1,6 @@
+MusicScale 0.11.2-beta.3 — 2026-10-25
+Sincronização não destrutiva das branches main e production; preserva todo o código testado e publicado em 0.11.2-beta.2. Nenhuma mudança em lógica de aplicativo, identidade, autorizações, regras Firestore, escalas, dados ou cobrança. Merge histórico com dois pais, sem force-push. Bump de versão exigido pelo gate de release.
+
 MusicScale 0.11.2-beta.2 — 2026-10-25
 Hotfix UI convites: seleção de função musical não gera erro de renderização ao escolher item no modal; lista mostra uma opção por nome, sem excluir registros originais, e bloqueia nomes ambíguos cujas permissões divergem. Nenhuma alteração em auth, dados, funções existentes, roles, planos, Firestore ou pagamentos. Testes de regressão.
 
