@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   investigate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Inspect HTTP response metadata without credentials or tenant data
