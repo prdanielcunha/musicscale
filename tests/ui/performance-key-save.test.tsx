@@ -26,6 +26,7 @@ function mount() {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  fixture.song.key = 'G'; fixture.song.selectedKey = 'G';
   fixture.permissions = { manageSongs: true, manageScales: true };
   fixture.save.mockResolvedValue(undefined); fixture.refresh.mockResolvedValue(undefined);
   Element.prototype.scrollIntoView = vi.fn();
@@ -56,6 +57,12 @@ describe('save a changed performance key', () => {
     fireEvent.click(screen.getByText('premiumV2.performance.saveKey'));
     fireEvent.click(screen.getByText('premiumV2.performance.saveInScale'));
     await waitFor(() => expect(fixture.save).toHaveBeenLastCalledWith(expect.objectContaining({ targetKey: 'G', expectedKey: 'G#' })));
+  });
+  it('keeps legacy charts readable when the stored key label is unknown', () => {
+    fixture.song.key = 'unknown'; fixture.song.selectedKey = 'unknown';
+    mount();
+    expect(screen.getByText('A tua presença')).toBeInTheDocument();
+    expect(screen.getByText('E eu te amo')).toBeInTheDocument();
   });
   it('keeps the dialog and unsaved change after denied/failed persistence', async () => {
     fixture.save.mockRejectedValue(new Error('permission-denied'));
