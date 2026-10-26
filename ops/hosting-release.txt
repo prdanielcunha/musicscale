@@ -1,4 +1,4 @@
-MusicScale 0.11.2-beta.4 — 2026-10-25
+MusicScale 0.11.2-beta.5 — 2026-10-26
 Cifras: salvamento explícito do tom na escala ou no repertório, origem dos acordes separada do tom de execução, verificação de divergências sem alteração automática, preservação da letra e do capotraste e App Check na ferramenta de ajuste por IA. Transações preservam BPM e outras músicas e rejeitam conteúdo concorrente. Sem migração de dados nem mudança em acesso, Firestore Rules ou cobrança.
 
 MusicScale 0.11.2-beta.3 — 2026-10-25
@@ -167,3 +167,5 @@ Connect: entrada de suporte manual com origem assinada, transporte autenticado e
 2026-10-22: approved transparent MillionsNest parent branding (presentation only).
 
 2026-10-23: official public WhatsApp support with product/source/subject, after verified Connect publication.
+
+2026-10-26: alinhar contrato NestTuner com módulo oficial 0.6.7-beta.2, verificado HTTP 200; preservar suporte, permissões e demais funcionalidades.
