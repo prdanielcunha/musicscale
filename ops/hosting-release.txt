@@ -1,3 +1,6 @@
+MusicScale 0.11.2-beta.6 — 2026-10-27
+Avaliação de sete dias confirmada no primeiro bootstrap autenticado do app, com datas e autorização controladas pelo Hub. Reservas não consomem tempo nem liberam dados musicais antes da confirmação. Mantém integralmente versões anteriores, clientes pagos e limites existentes.
+
 MusicScale 0.11.2-beta.5 — 2026-10-26
 Cifras: salvamento explícito do tom na escala ou no repertório, origem dos acordes separada do tom de execução, verificação de divergências sem alteração automática, preservação da letra e do capotraste e App Check na ferramenta de ajuste por IA. Transações preservam BPM e outras músicas e rejeitam conteúdo concorrente. Sem migração de dados nem mudança em acesso, Firestore Rules ou cobrança.
 
