@@ -1,6 +1,7 @@
 import { applyEcosystemEntitlements } from './services/effectiveEntitlements.js';
 import { organizationHasEcosystemAccess } from './services/server/ecosystemEntitlements.js';
 import { resolveHubMusicScaleTrialFromDb } from './services/server/hubMusicScaleTrial.js';
+import { confirmHubTrialFirstAccess } from './services/server/hubTrialFirstAccess.js';
 import { resolvePaidMusicScaleContract } from './services/server/musicScalePaidContract.js';
 import { createHubTrialWorkspaceMiddleware } from './services/server/hubTrialWorkspaceGuard.js';
 import { logger } from './lib/logger.js';
@@ -1102,6 +1103,9 @@ app.post(
 
           res.set('Server-Timing', timingValue);
           res.set('X-MusicScale-Timing', timingValue);
+
+          // App and identity loaded. Hub revalidates membership before starting 168h.
+          await confirmHubTrialFirstAccess({organizationId:orgId,organization:orgData,authorization:authHeader});
 
           res.json({
               success: true,
