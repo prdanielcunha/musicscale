@@ -1,3 +1,7 @@
+MusicScale 0.11.2-beta.7 — 2026-10-28
+Desempenho de abertura em conexões lentas: downloads tardios continuam a inicialização sem rejeição definitiva aos 12 segundos; feedback leve PT/EN/ES antes e depois do script de entrada; idiomas carregados sob demanda; fonte Inter sem bloquear primeira pintura; registro do cache PWA após prontidão da primeira tela.
+Preserva integralmente funções, identidade visual final, dados, escalas, assinaturas, permissões e políticas de acesso. Sem alterações em backend, Auth, Hub, Rules ou migrações. Publicar somente após QA completo do SHA exato e revisão assistida deste marcador.
+
 MusicScale 0.11.2-beta.6 — 2026-10-27
 Avaliação de sete dias confirmada no primeiro bootstrap autenticado do app, com datas e autorização controladas pelo Hub. Reservas não consomem tempo nem liberam dados musicais antes da confirmação. Mantém integralmente versões anteriores, clientes pagos e limites existentes.
 

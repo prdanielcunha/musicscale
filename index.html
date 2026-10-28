@@ -51,7 +51,9 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous">
+    <!-- Preserve Inter without making an external font stylesheet block first paint. -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" crossorigin="anonymous">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous"></noscript>
     <style>
       :root {
         /* Default Light Mode Variables */
@@ -199,21 +201,28 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 <script>
-      // Boot Resilience Watchdog
-      document.addEventListener("DOMContentLoaded", () => {
-        setTimeout(() => {
+      // Boot Resilience Watchdog: module downloads delay DOMContentLoaded.
+      // Start now so slow entry-script downloads also receive useful feedback.
+      window.setTimeout(() => {
           const splash = document.getElementById('splash-loader');
           if (splash) {
+            const messages = {
+              pt: ['O MusicScale continua carregando', 'Sua conexão está demorando. Continuamos carregando o aplicativo. Você também pode tentar novamente.', 'Tentar novamente'],
+              en: ['MusicScale is still loading', 'Your connection is taking longer. We’re still loading the app. You can also try again.', 'Try again'],
+              es: ['MusicScale sigue cargando', 'Tu conexión está tardando. Seguimos cargando la aplicación. También puedes intentar de nuevo.', 'Intentar de nuevo']
+            };
+            let language = navigator.language;
+            try { language = localStorage.getItem('millionsnest_i18n_lng') || language; } catch {}
+            const text = messages[(language || '').toLowerCase().split('-')[0]] || messages.pt;
             splash.innerHTML = `
               <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; text-align: center; padding: 20px;">
-                <h2 style="font-size: 20px; font-weight: 700; color: #111827; margin: 0 0 12px 0; letter-spacing: -0.025em;">Não foi possível iniciar o MusicScale</h2>
-                <p style="font-size: 14px; font-weight: 500; color: #4B5563; margin: 0 0 24px 0; line-height: 1.5; max-width: 300px;">O aplicativo demorou mais que o esperado para abrir. Tente recarregar a página.</p>
-                <button onclick="window.location.reload()" style="padding: 12px 24px; border-radius: 12px; border: none; background: #007AFF; color: white; font-weight: 600; font-size: 15px; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0, 122, 255, 0.2);">Tentar novamente</button>
+                <h2 style="font-size: 20px; font-weight: 700; color: #111827; margin: 0 0 12px 0; letter-spacing: -0.025em;">${text[0]}</h2>
+                <p style="font-size: 14px; font-weight: 500; color: #4B5563; margin: 0 0 24px 0; line-height: 1.5; max-width: 300px;">${text[1]}</p>
+                <button onclick="window.location.reload()" style="padding: 12px 24px; border-radius: 12px; border: none; background: #007AFF; color: white; font-weight: 600; font-size: 15px; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0, 122, 255, 0.2);">${text[2]}</button>
               </div>
             `;
           }
-        }, 12000);
-      });
+      }, 12000);
 </script>
 </head>
   <body class="bg-background text-slate-800 dark:text-gray-200 transition-colors duration-300 selection:bg-primary/30 selection:text-primary-dark antialiased">
