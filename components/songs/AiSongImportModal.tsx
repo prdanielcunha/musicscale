@@ -28,6 +28,7 @@ import { nestAiProtectedHeaders } from "../../services/nestAiBrowser";
 import { FeatureLockedCard } from "../premium/EntitlementGates";
 import { transposeChordDocument, validateChordContentKeyConsistency, isValidKey, normalizeKey, areKeysEnharmonicallyEquivalent } from "../../utils/chordEngine";
 import { buildSongParts } from "./songParts";
+import { getMusicalKeyOptions } from "../../utils/musicalKeyOptions";
 
 type AiPreviewKeyValidationStatus =
   | "MATCH"
@@ -170,10 +171,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose }
     return () => clearInterval(interval);
   }, [step]);
 
-  const COMMON_KEYS = [
-    "C", "C#", "Db", "D", "Eb", "E", "F", "F#", "Gb", "G", "Ab", "A", "Bb", "B",
-    "Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"
-  ];
+  const keyOptions = getMusicalKeyOptions(targetKey);
 
   const resolveInitialPhysicalChordKey = (data: any) => {
     if (!data) return null;
@@ -944,7 +942,7 @@ const AiSongImportModal: React.FC<AiSongImportModalProps> = ({ isOpen, onClose }
                        onChange={(e) => setTargetKey(e.target.value)}
                      >
                        <option value="">Selecione...</option>
-                       {COMMON_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
+                       {keyOptions.map(({ value, label }) => <option key={label} value={value}>{label}</option>)}
                      </select>
                    </div>
                    <Button
