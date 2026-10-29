@@ -3,6 +3,7 @@ import { BrowserRouter, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import StartupInteractionBoundary from './components/bootstrap/StartupInteractionBoundary';
+import DeferredPwaRegistration from './components/bootstrap/DeferredPwaRegistration';
 import LoginPage from './pages/LoginPage';
 
 const PrivateApp = lazy(() => import('./PrivateApp'));
@@ -43,6 +44,7 @@ export const RootApp: React.FC = () => {
 
 const App: React.FC = () => (
     <BrowserRouter>
+        <DeferredPwaRegistration />
         <RootApp />
     </BrowserRouter>
 );

@@ -1,16 +1,15 @@
 import { releaseNewsTranslations } from '../locales/releaseNews';
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
+import resourcesToBackend from "i18next-resources-to-backend";
 import LanguageDetector from "i18next-browser-languagedetector";
 import pt from "../locales/pt.json";
-import en from "../locales/en.json";
-import es from "../locales/es.json";
 import { curationTranslations } from "../locales/curation";
 import { curationModalTranslations } from "../locales/curationModals";
 import { dashboardGreetingTranslations } from "../locales/dashboardGreetings";
 import { premiumV2Translations } from "../locales/premiumV2";
 import { songDuplicateResolutionTranslations } from "../locales/songDuplicateResolution";
-import { trackMissingKey } from "../utils/languageDiagnostics";
+import { trackMissingKey } from "../utils/missingTranslationKeys";
 
 const SUPPORTED_DOCUMENT_LANGUAGES = new Set(["pt", "en", "es"]);
 
@@ -58,7 +57,33 @@ i18n.on("initialized", () => {
   syncDocumentLanguage(i18n.resolvedLanguage || i18n.language);
 });
 
-i18n
+export const i18nReady = i18n
+  .use(resourcesToBackend(async (language: string) => {
+    // PT is the bundled fallback; other catalogs are fetched only when selected.
+    if (language === "en") {
+      const { default: en } = await import("../locales/en.json");
+      return buildTranslationResource(
+        en,
+        { ...curationTranslations.en, modals: curationModalTranslations.en },
+        dashboardGreetingTranslations.en,
+        premiumV2Translations.en,
+        releaseNewsTranslations.en,
+        songDuplicateResolutionTranslations.en,
+      );
+    }
+    if (language === "es") {
+      const { default: es } = await import("../locales/es.json");
+      return buildTranslationResource(
+        es,
+        { ...curationTranslations.es, modals: curationModalTranslations.es },
+        dashboardGreetingTranslations.es,
+        premiumV2Translations.es,
+        releaseNewsTranslations.es,
+        songDuplicateResolutionTranslations.es,
+      );
+    }
+    throw new Error(`Unsupported translation language: ${language}`);
+  }))
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
@@ -73,27 +98,10 @@ i18n
           songDuplicateResolutionTranslations.pt,
         ),
       },
-      en: {
-        translation: buildTranslationResource(
-          en,
-          { ...curationTranslations.en, modals: curationModalTranslations.en },
-          dashboardGreetingTranslations.en,
-          premiumV2Translations.en,
-          releaseNewsTranslations.en,
-          songDuplicateResolutionTranslations.en,
-        ),
-      },
-      es: {
-        translation: buildTranslationResource(
-          es,
-          { ...curationTranslations.es, modals: curationModalTranslations.es },
-          dashboardGreetingTranslations.es,
-          premiumV2Translations.es,
-          releaseNewsTranslations.es,
-          songDuplicateResolutionTranslations.es,
-        ),
-      },
     },
+    partialBundledLanguages: true,
+    supportedLngs: ["pt", "en", "es"],
+    load: "languageOnly",
     fallbackLng: "pt",
     interpolation: {
       escapeValue: false,

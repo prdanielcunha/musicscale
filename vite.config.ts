@@ -60,6 +60,8 @@ export default defineConfig(({ mode }) => {
         versionManifestPlugin,
         VitePWA({
           registerType: 'autoUpdate',
+          // Register after the first usable screen, so precache does not compete with startup.
+          injectRegister: null,
           // PNG icons are already covered by globPatterns; avoid adding the same URLs twice.
           includeManifestIcons: false,
           workbox: {
