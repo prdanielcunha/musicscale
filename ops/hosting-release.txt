@@ -1,3 +1,6 @@
+MusicScale 0.11.2-beta.8 — 2026-10-29
+Importação por IA: uma opção por tonalidade e modo, com grafias equivalentes agrupadas (C# / Db, F# / Gb). Preserva a grafia já selecionada sem reescrever músicas ou cifras. Sem mudança de dados, acesso, backend ou cobrança.
+
 MusicScale 0.11.2-beta.7 — 2026-10-28
 Desempenho de abertura em conexões lentas: downloads tardios continuam a inicialização sem rejeição definitiva aos 12 segundos; feedback leve PT/EN/ES antes e depois do script de entrada; idiomas carregados sob demanda; fonte Inter sem bloquear primeira pintura; registro do cache PWA após prontidão da primeira tela.
 Preserva integralmente funções, identidade visual final, dados, escalas, assinaturas, permissões e políticas de acesso. Sem alterações em backend, Auth, Hub, Rules ou migrações. Publicar somente após QA completo do SHA exato e revisão assistida deste marcador.
