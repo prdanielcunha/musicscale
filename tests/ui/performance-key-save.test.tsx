@@ -47,6 +47,20 @@ describe('save a changed performance key', () => {
     await waitFor(() => expect(fixture.save).toHaveBeenCalledWith(expect.objectContaining({ scope: 'scale', targetKey: 'G#', songId: 's1', scaleId: 'scale1' })));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
+  it('dismisses the corner prompt without saving or undoing the performance key', () => {
+    mount();
+    fireEvent.click(screen.getByLabelText('technicalParts.transpose_up'));
+    const actions = screen.getByTestId('performance-key-actions');
+    expect(actions).toHaveClass('fixed', 'right-3', 'justify-end');
+    expect(actions).not.toHaveClass('left-3', 'justify-center');
+    fireEvent.click(screen.getByLabelText('premiumV2.performance.dismissKeySave'));
+    expect(screen.queryByText('premiumV2.performance.saveKey')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chords-viewer-transposed-key')).toHaveTextContent('G#');
+    expect(fixture.save).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText('technicalParts.transpose_up'));
+    expect(screen.getByText('premiumV2.performance.saveKey')).toBeInTheDocument();
+    expect(screen.getByTestId('chords-viewer-transposed-key')).toHaveTextContent('A');
+  });
   it('can save again after returning to the original key', async () => {
     mount();
     fireEvent.click(screen.getByLabelText('technicalParts.transpose_up'));

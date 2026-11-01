@@ -36,6 +36,7 @@ export const premiumV2Translations = {
       auditCandidate: "Tom dos acordes informado: {{expected}} · Possível tom: {{detected}}",
       auditReview: "Revisar",
 
+      dismissKeySave: "Fechar aviso de salvar tom",
       saveKey: "Salvar tom {{key}}",
       saveKeyTitle: "Onde salvar o tom {{key}}?",
       saveInScale: "Só nesta escala",
@@ -119,6 +120,7 @@ export const premiumV2Translations = {
       auditCandidate: "Reported written key: {{expected}} · Possible key: {{detected}}",
       auditReview: "Review",
 
+      dismissKeySave: "Dismiss key save prompt",
       saveKey: "Save key {{key}}",
       saveKeyTitle: "Where should key {{key}} be saved?",
       saveInScale: "Only in this schedule",
@@ -202,6 +204,7 @@ export const premiumV2Translations = {
       auditCandidate: "Tono escrito informado: {{expected}} · Posible tono: {{detected}}",
       auditReview: "Revisar",
 
+      dismissKeySave: "Cerrar aviso de guardar tono",
       saveKey: "Guardar tono {{key}}",
       saveKeyTitle: "¿Dónde guardar el tono {{key}}?",
       saveInScale: "Solo en esta programación",
