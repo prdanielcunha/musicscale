@@ -186,46 +186,29 @@ export function areKeysEnharmonicallyEquivalent(keyA: string, keyB: string): boo
   return idxA === idxB;
 }
 
-export function transposeChordWithPreference(chord: string, semitones: number, useFlats: boolean, targetKey?: string): string {
-  if (semitones === 0) return chord;
-  semitones = ((semitones % 12) + 12) % 12;
+/** Pitch-class arithmetic accepts legacy/theoretical spellings but emits stage-readable notes. */
+export function getNotePitchClass(note: string): number {
+  const match = normalizeKey(note).match(/^([A-G])([#b]{0,2})$/);
+  if (!match) return -1;
+  const natural = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[match[1]];
+  const alteration = [...match[2]].reduce((sum, accidental) => sum + (accidental === '#' ? 1 : -1), 0);
+  return (natural + alteration + 12) % 12;
+}
 
-  const chordRegex = /^([A-G][#b]?)(.*?)(\/([A-G][#b]?))?$/;
-  const match = chord.match(chordRegex);
-
+export function transposeChordWithPreference(chord: string, semitones: number, useFlats: boolean, _targetKey?: string): string {
+  const match = normalizeKey(chord).match(/^([A-G][#b]{0,2})(.*?)(?:\/([A-G][#b]{0,2}))?$/);
   if (!match) return chord;
-
-  const root = match[1];
-  const extensions = match[2] || '';
-  const bass = match[4];
-
+  const [, root, extensions, bass] = match;
+  const shift = ((semitones % 12) + 12) % 12;
   const transposeNote = (note: string): string => {
-    let index = NOTES.indexOf(note);
-    if (index === -1) {
-      index = FLAT_NOTES.indexOf(note);
-    }
-    if (index === -1) return note; 
-    let transposedIndex = (index + semitones) % 12;
-
-    if (targetKey) {
-      const normTarget = normalizeKey(targetKey);
-      if (normTarget.startsWith('F#') || normTarget.startsWith('D#')) {
-        if (transposedIndex === 5) return 'E#';
-        if (transposedIndex === 0) return 'B#';
-      } else if (normTarget.startsWith('C#')) {
-        if (transposedIndex === 0) return 'B#';
-        if (transposedIndex === 5) return 'E#';
-      }
-    }
-
-    return useFlats ? FLAT_NOTES[transposedIndex] : NOTES[transposedIndex]; 
+    const pitch = getNotePitchClass(note);
+    if (pitch < 0) return note;
+    // A zero-shift preview preserves ordinary source spellings; repair only
+    // exceptional spellings left by older versions (B#, E#, Cb, Fb, doubles).
+    if (shift === 0 && (NOTES.includes(note) || FLAT_NOTES.includes(note))) return note;
+    return (useFlats ? FLAT_NOTES : NOTES)[(pitch + shift) % 12];
   };
-
-  let result = transposeNote(root) + extensions;
-  if (bass) {
-    result += '/' + transposeNote(bass);
-  }
-  return result;
+  return transposeNote(root) + extensions + (bass ? '/' + transposeNote(bass) : '');
 }
 
 export function transposeChordLinePreserveSpacingWithPreference(line: string, semitones: number, useFlats: boolean, targetKey?: string): string {
@@ -318,14 +301,6 @@ export function transposeChordDocument(
 
   const semitones = (targetIndex - sourceIndex + 12) % 12;
 
-  if (semitones === 0) {
-    return {
-      chords,
-      semitones: 0,
-      changedChordCount: 0,
-    };
-  }
-
   // Determine preference for flats vs sharps
   let useFlats = false;
   const pref = options?.accidentalPreference || 'auto';
@@ -382,7 +357,7 @@ interface ClassifiedLine {
 }
 
 export function isChordToken(token: string): boolean {
-  let core = token.trim();
+  let core = normalizeKey(token.trim());
   core = core.replace(/\*+$/, '');
   
   if (core.startsWith('(') && core.endsWith(')') && !core.substring(1, core.length - 1).includes('(')) {
@@ -394,7 +369,7 @@ export function isChordToken(token: string): boolean {
   }
 
   // Expanded to support pt-BR chords like C7M, F#m7(11), Eadd9, etc.
-  const regex = /^[A-G][#b]?(m|M|maj|min|dim|aug|sus|add)?\d*(m|M|maj|min|dim|aug|sus|add)?(\([^)]+\))?(\/[A-G][#b]?)?$/i;
+  const regex = /^[A-G][#b]{0,2}(m|M|maj|min|dim|aug|sus|add)?\d*(m|M|maj|min|dim|aug|sus|add)?(\([^)]+\))?(\/[A-G][#b]{0,2})?$/i;
   return regex.test(core) && !/^[A-G][A-Z]+$/.test(core); // prevent matching ALL uppercase words if any?
 }
 
@@ -601,33 +576,7 @@ export function cleanChordsText(chordsText: string): string {
 
 
 export function transposeChord(chord: string, semitones: number): string {
-    if (semitones === 0) return chord;
-    semitones = ((semitones % 12) + 12) % 12;
-
-    const chordRegex = /^([A-G][#b]?)(.*?)(\/([A-G][#b]?))?$/;
-    const match = chord.match(chordRegex);
-
-    if (!match) return chord;
-
-    const root = match[1];
-    const extensions = match[2] || '';
-    const bass = match[4];
-
-    const transposeNote = (note: string): string => {
-        let index = NOTES.indexOf(note);
-        if (index === -1) {
-            index = FLAT_NOTES.indexOf(note);
-        }
-        if (index === -1) return note; 
-        let transposedIndex = (index + semitones) % 12;
-        return NOTES[transposedIndex]; 
-    };
-
-    let result = transposeNote(root) + extensions;
-    if (bass) {
-        result += '/' + transposeNote(bass);
-    }
-    return result;
+  return transposeChordWithPreference(chord, semitones, false);
 }
 
 export function transposeChordLinePreserveSpacing(line: string, semitones: number): string {

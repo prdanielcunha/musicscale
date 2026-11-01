@@ -1,4 +1,4 @@
-const CHORD_WORD_REGEX = /^([A-G][#b]?(?:m|maj|min|dim|aug|sus|add|M|º|°|\d|7M|M7)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?)$/;
+const CHORD_WORD_REGEX = /^([A-G][#b]{0,2}(?:m|maj|min|dim|aug|sus|add|M|º|°|\d|7M|M7)*(?:\([^)]*\))?(?:\/[A-G][#b]{0,2})?)$/;
 
 const SECTION_PATTERNS = [
   /^(?:intro|introducao|introduccion|introduction)(?:\s+\d+)?$/,
@@ -149,7 +149,7 @@ export const extractLyricsFromCanonicalChordDocument = (input: string): string =
     if (isChordOnlyCandidate(trimmed)) continue;
 
     const lyric = line
-      .replace(/\[[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|M|º|°|\d|7M|M7)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?\]/g, '')
+      .replace(/\[[A-G][#b]{0,2}(?:m|maj|min|dim|aug|sus|add|M|º|°|\d|7M|M7)*(?:\([^)]*\))?(?:\/[A-G][#b]{0,2})?\]/g, '')
       .trim();
     if (lyric) output.push(lyric);
   }

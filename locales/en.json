@@ -776,6 +776,8 @@
     "import_error": "The import was interrupted. Completed songs were preserved and no existing song was overwritten."
   },
   "technicalParts": {
+    "hide_solo": "Hide solo / tablature",
+    "view_solo": "View solo / tablature",
     "button": "Parts",
     "eyebrow": "Song parts",
     "part": "Part",

@@ -113,12 +113,14 @@ describe("worship song section parser", () => {
     ).toBe(false);
   });
 
-  it("keeps technical solo headings navigable but does not turn arbitrary bracket metadata into a section", () => {
+  it("keeps technical solo headings inside a collapsed passage without adding navigation items", () => {
     const parsed = parseChordsAndLyrics(
       "[Tab - Solo Intro]\n(sem capotraste)\n[Capotraste 2]\nC G Am F",
     );
 
-    expect(parsed[0]).toEqual({ type: "section", content: "[Tab - Solo Intro]" });
+    expect(parsed[0].type).toBe("technical");
+    expect(parsed[0].content).toContain("[Tab - Solo Intro]");
+    expect(buildSongSectionNavigatorItems(parsed)).toEqual([]);
     expect(parsed.some((line) => line.type === "section" && line.content.includes("Capotraste"))).toBe(false);
   });
 

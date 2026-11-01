@@ -1,7 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { isChordOnlyCandidate, normalizeChordDocumentStructure } from '../../utils/chordDocumentNormalizer';
-import { isChordToken } from '../../utils/chordEngine';
+import { classifyLine, LineType, isChordToken, transposeChordWithPreference } from '../../utils/chordEngine';
 
 export const getNotesArray = () => [
   "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
@@ -33,27 +34,8 @@ export const getKeyDifference = (originalKey: string, targetKey: string): number
 };
 
 export const transposeChord = (line: string, amount: number): string => {
-  if (!amount || amount === 0) return line;
-
-  const noteMap: { [key: string]: string } = {
-    Cb: "B", C: "C", "C#": "C#", Db: "C#", D: "D", "D#": "D#", Eb: "D#",
-    E: "E", Fb: "E", "E#": "F", F: "F", "F#": "F#", Gb: "F#", G: "G",
-    "G#": "G#", Ab: "G#", A: "A", "A#": "A#", Bb: "A#", B: "B",
-  };
-  const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-
-  const chordRegex =
-    /(?<![a-zA-ZÁÉÍÓÚÃÕÇáéíóúãõç])([A-G][#b]?(?:m|maj|min|dim|aug|sus|add|M|º|°|\d|7M|M7)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?)(?![a-zA-ZÁÉÍÓÚÃÕÇáéíóúãõç])/g;
-
-  return line.replace(chordRegex, (chord) => {
-    return chord.replace(/[A-G][#b]?/g, (note: string) => {
-      const normalizedNote = noteMap[note] || note;
-      let index = notes.indexOf(normalizedNote);
-      if (index === -1) return note;
-      const newIndex = (((index + amount) % 12) + 12) % 12;
-      return notes[newIndex];
-    });
-  });
+  const chordRegex = /(?<![\p{L}#b])([A-G][#b]{0,2}(?:m|maj|min|dim|aug|sus|add|M|º|°|\d|7M|M7)*(?:\([^)]*\))?(?:\/[A-G][#b]{0,2})?)(?![\p{L}#b])/gu;
+  return line.replace(chordRegex, chord => transposeChordWithPreference(chord, amount, false));
 };
 
 export const foldSectionLabel = (value: string): string =>
@@ -210,17 +192,57 @@ export const isChordLine = (line: string): boolean => {
 };
 
 export type ParsedSongLine = {
-  type: "section" | "chord" | "lyric";
+  type: "section" | "chord" | "lyric" | "technical";
   content: string;
 };
 
-export const parseChordsAndLyrics = (text: string): ParsedSongLine[] => {
+export const parseChordsAndLyrics = (
+  text: string,
+  tabs: Array<{ section?: string | null; content?: string | null }> = [],
+): ParsedSongLine[] => {
   if (!text || typeof text !== "string") return [];
 
   const parsed: ParsedSongLine[] = [];
   const sourceLines = normalizeChordDocumentStructure(text).split("\n");
 
-  sourceLines.forEach((line) => {
+  const technicalLines = new Set<number>();
+  const numberedPart = (line: string) => /^\[?(?:parte|part)\s+\d+(?:\s+(?:de|of)\s+\d+)?\]?$/i.test(line.trim());
+  // Keep tablature and its local helper labels together. Never infer a solo
+  // merely from an instrumental chord progression or a numbered vocal verse.
+  sourceLines.forEach((line, index) => {
+    if (classifyLine(line, index, sourceLines).type !== LineType.TAB_LINE) return;
+    technicalLines.add(index);
+    const helpers: number[] = [];
+    for (let j = index - 1; j >= 0; j--) {
+      if (numberedPart(sourceLines[j])) {
+        helpers.push(j);
+        helpers.forEach(helper => technicalLines.add(helper));
+        break;
+      }
+      if (!sourceLines[j].trim() || isChordLine(sourceLines[j])) helpers.push(j);
+      else break;
+    }
+  });
+  let inSolo = false;
+  sourceLines.forEach((line, index) => {
+    const section = splitSongSectionPrefix(line);
+    if (section && !numberedPart(line)) {
+      inSolo = /^(?:solo|riff|tab(?:latura)?|dedilhado|punteo)\b/i.test(cleanSectionLabel(section.label));
+    }
+    if (inSolo) technicalLines.add(index);
+  });
+
+  const pushTechnical = (content: string) => {
+    const previous = parsed[parsed.length - 1];
+    if (previous?.type === 'technical') previous.content += '\n' + content;
+    else parsed.push({ type: 'technical', content });
+  };
+
+  sourceLines.forEach((line, index) => {
+    if (technicalLines.has(index)) {
+      pushTechnical(line);
+      return;
+    }
     const section = splitSongSectionPrefix(line);
 
     if (section) {
@@ -244,7 +266,96 @@ export const parseChordsAndLyrics = (text: string): ParsedSongLine[] => {
     });
   });
 
+  // Older imports already extracted the tab rows, leaving numbered labels
+  // behind. Reattach stored tabs without changing the saved chart.
+  for (let i = parsed.length - 1; i >= 0; i--) {
+    if (numberedPart(parsed[i].content) && tabs.some(tab => tab.content?.trim())) {
+      let end = i + 1;
+      while (end < parsed.length && parsed[end].type !== 'section' &&
+        (parsed[end].type === 'chord' || !parsed[end].content.trim())) end++;
+      if (end === parsed.length || parsed[end].type === 'section' || parsed[end].type === 'technical') {
+        const content = parsed.slice(i, end).map(line => line.content).join('\n');
+        parsed.splice(i, end - i, { type: 'technical', content });
+      }
+    }
+  }
+  // Remove empty technical-only section headings from the section navigator.
+  for (let i = parsed.length - 1; i >= 0; i--) {
+    if (parsed[i].type !== 'section') continue;
+    let end = i + 1;
+    while (end < parsed.length && parsed[end].type !== 'section') end++;
+    const body = parsed.slice(i + 1, end);
+    if (body.some(line => line.type === 'technical') &&
+        body.every(line => line.type === 'technical' || !line.content.trim())) {
+      const content = [parsed[i].content, ...body.map(line => line.content)].join('\n');
+      parsed.splice(i, end - i, { type: 'technical', content });
+    }
+  }
+  // Some legacy imports retained a chord-only helper under a duplicate vocal
+  // heading after extracting its tab. Collapse only with both pieces of evidence.
+  for (let i = parsed.length - 1; i >= 0; i--) {
+    if (parsed[i].type !== 'section') continue;
+    const key = foldSectionLabel(cleanSectionLabel(parsed[i].content));
+    let end = i + 1;
+    while (end < parsed.length && parsed[end].type !== 'section') end++;
+    if (end < parsed.length && foldSectionLabel(cleanSectionLabel(parsed[end].content)) === key &&
+        tabs.some(tab => tab.content?.trim() && foldSectionLabel(tab.section || '') === key) &&
+        parsed.slice(i + 1, end).every(line => line.type === 'chord' || !line.content.trim())) {
+      const content = parsed.slice(i, end).map(line => line.content).join('\n');
+      parsed.splice(i, end - i, { type: 'technical', content });
+    }
+  }
+  const groupedTabs = new Map<string, string[]>();
+  tabs.forEach(tab => {
+    if (!tab.content?.trim()) return;
+    const label = tab.section?.trim() || '';
+    const key = foldSectionLabel(label);
+    const group = groupedTabs.get(key) || [];
+    group.push(tab.content);
+    groupedTabs.set(key, group);
+  });
+  groupedTabs.forEach((contents, key) => {
+    const content = contents.join('\n\n');
+    // Anchor at the matching song section; unmatched legacy tabs remain accessible.
+    const sectionIndex = parsed.findIndex(line => line.type === 'section' &&
+      foldSectionLabel(cleanSectionLabel(line.content)) === key);
+    let insertAt = sectionIndex < 0 ? parsed.length : sectionIndex + 1;
+    if (sectionIndex >= 0) {
+      while (insertAt < parsed.length && parsed[insertAt].type !== 'section') insertAt++;
+    }
+    if (!parsed.some(line => line.type === 'technical' && line.content.includes(content))) {
+      parsed.splice(insertAt, 0, { type: 'technical', content });
+    }
+  });
+  // Blank separators inside multipart tabs must not create extra controls.
+  for (let i = parsed.length - 1; i >= 0; i--) {
+    if (parsed[i].type !== 'technical') continue;
+    let next = i + 1;
+    while (next < parsed.length && !parsed[next].content.trim()) next++;
+    if (parsed[next]?.type === 'technical') {
+      parsed[i].content += '\n\n' + parsed[next].content;
+      parsed.splice(i + 1, next - i);
+    }
+  }
   return parsed;
+};
+
+export const TechnicalPassage: React.FC<{ content: string; color: string }> = ({ content, color }) => {
+  const { t } = useTranslation();
+  return (
+    <details className="group my-3 rounded-xl border border-current/15 px-3 py-2 text-sm" style={{ color }} onClick={event => event.stopPropagation()}>
+      <summary className="cursor-pointer min-h-11 flex items-center font-semibold select-none">
+        <span className="group-open:hidden">{t('technicalParts.view_solo')}</span>
+        <span className="hidden group-open:inline">{t('technicalParts.hide_solo')}</span>
+      </summary>
+      {content.split('\n').some((line, index, lines) => classifyLine(line, index, lines).type === LineType.TAB_LINE) && (
+        <p className="text-xs opacity-70 whitespace-normal py-2">{t('technicalParts.key_notice')}</p>
+      )}
+      <pre className="overflow-x-auto whitespace-pre font-mono py-3 text-[0.9em] leading-relaxed" tabIndex={0}>
+        {content.trim()}
+      </pre>
+    </details>
+  );
 };
 
 export const parseLyricsAndSections = (text: string): ParsedSongLine[] => {
@@ -372,6 +483,9 @@ export const ChordsRenderer: React.FC<ChordsRendererProps> = ({
         const isPrevSection = index > 0 && parsedContent[index - 1]?.type === "section";
         const isNextLyric = index < parsedContent.length - 1 && parsedContent[index + 1]?.type === "lyric";
 
+        if (line.type === "technical") {
+          return <TechnicalPassage key={index} content={line.content} color={activeChordsColor} />;
+        }
         if (line.type === "section") {
           return (
             <div

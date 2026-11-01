@@ -776,6 +776,8 @@
     "import_error": "A importação foi interrompida. As músicas já concluídas foram preservadas; nenhuma música existente foi sobrescrita."
   },
   "technicalParts": {
+    "hide_solo": "Ocultar solo / tablatura",
+    "view_solo": "Ver solo / tablatura",
     "button": "Partes",
     "eyebrow": "Partes da música",
     "part": "Parte",

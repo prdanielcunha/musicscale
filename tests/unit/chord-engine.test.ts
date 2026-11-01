@@ -40,7 +40,7 @@ Saltando pelos montes`;
   it('1. deve transpor de E para F# corretamente', () => {
     const result = transposeChordDocument(chordsSample, 'E', 'F#');
     expect(result.semitones).toBe(2);
-    expect(result.chords).toContain('F#   C#/E#   D#m   B');
+    expect(result.chords).toContain('F#   C#/F   D#m   B');
     expect(result.chords).toContain('F#   C#');
     expect(result.chords).toContain('D#m   B');
     expect(result.chords).toContain('Quem é esse que vem');
@@ -67,10 +67,10 @@ Saltando pelos montes`;
     expect(result.chords).toBe('F#m D A E');
   });
 
-  it('5. deve transpor de B/D# para C#/E# corretamente (preferindo sustenidos para F#)', () => {
+  it('5. deve transpor de B/D# para C#/F corretamente (preferindo sustenidos para F#)', () => {
     const chords = 'B/D#';
     const result = transposeChordDocument(chords, 'E', 'F#'); // E -> F# is +2 semitones
-    expect(result.chords).toBe('C#/E#');
+    expect(result.chords).toBe('C#/F');
   });
 
   it('6. deve transpor de C#m para D#m corretamente', () => {
@@ -112,13 +112,13 @@ Saltando pelos montes`;
   it('12. deve transpor corretamente em linhas com barras de compasso', () => {
     const chords = '| E | B/D# | C#m | A |';
     const result = transposeChordDocument(chords, 'E', 'F#');
-    expect(result.chords).toBe('| F# | C#/E# | D#m | B |');
+    expect(result.chords).toBe('| F# | C#/F | D#m | B |');
   });
 
   it('13. deve transpor linhas de Intro com acordes', () => {
     const chords = 'Intro: E B/D# C#m A';
     const result = transposeChordDocument(chords, 'E', 'F#');
-    expect(result.chords).toBe('Intro: F# C#/E# D#m B');
+    expect(result.chords).toBe('Intro: F# C#/F D#m B');
   });
 
   it('14. deve transpor linhas de Solo com acordes', () => {
@@ -130,13 +130,13 @@ Saltando pelos montes`;
   it('15. deve preservar espaços múltiplos entre acordes', () => {
     const chords = 'E      B/D#      C#m';
     const result = transposeChordDocument(chords, 'E', 'F#');
-    expect(result.chords).toBe('F#      C#/E#      D#m');
+    expect(result.chords).toBe('F#      C#/F      D#m');
   });
 
   it('16. deve preservar quebras de linha', () => {
     const chords = 'E\n\nB/D#\nC#m';
     const result = transposeChordDocument(chords, 'E', 'F#');
-    expect(result.chords).toBe('F#\n\nC#/E#\nD#m');
+    expect(result.chords).toBe('F#\n\nC#/F\nD#m');
   });
 
   it('17. deve manter a letra intacta', () => {
@@ -256,7 +256,7 @@ describe('validateTransposedPreview', () => {
 
 describe('validateChordContentKeyConsistency', () => {
   it('identifies a MATCH in F#', () => {
-    const res = validateChordContentKeyConsistency("F# C#/E# D#m B", "F#");
+    const res = validateChordContentKeyConsistency("F# C#/F D#m B", "F#");
     expect(res.status).toBe('MATCH');
     expect(res.expectedKey).toBe('F#');
     expect(typeof res.detectedKey).toBe("string");
@@ -265,7 +265,7 @@ describe('validateChordContentKeyConsistency', () => {
   });
 
   it('identifies a MATCH enharmonic', () => {
-    const res = validateChordContentKeyConsistency("F# C#/E# D#m B", "Gb");
+    const res = validateChordContentKeyConsistency("F# C#/F D#m B", "Gb");
     expect(res.status).toBe('MATCH');
     expect(typeof res.detectedKey).toBe("string");
     expect(areKeysEnharmonicallyEquivalent(res.detectedKey!, "Gb")).toBe(true);

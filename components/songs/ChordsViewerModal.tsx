@@ -138,6 +138,7 @@ import {
   transposeChord,
   isChordLine,
   parseChordsAndLyrics,
+  TechnicalPassage,
   buildSongSectionNavigatorItems,
   foldSectionLabel,
   lightThemeColors,
@@ -994,10 +995,10 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     if (!performanceChart?.chords) return [];
     // Legacy/unknown key labels must never prevent the musician reading a chart.
     if (!isValidKey(basePerformanceKey) || !isValidKey(effectivePerformanceKey)) {
-      return parseChordsAndLyrics(performanceChart.chords);
+      return parseChordsAndLyrics(performanceChart.chords, performanceChart.tabs);
     }
     const chords = transposeChordDocument(performanceChart.chords, basePerformanceKey, effectivePerformanceKey).chords;
-    return parseChordsAndLyrics(chords);
+    return parseChordsAndLyrics(chords, performanceChart.tabs);
   }, [performanceChart, basePerformanceKey, effectivePerformanceKey]);
   const keyCheck = useMemo(() => validateChordContentKeyConsistency(
     performanceChart?.chords || '', basePerformanceKey,
@@ -1701,6 +1702,9 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                       const isFocusedSection =
                         focusedSectionIndexes.has(index);
 
+                      if (line.type === "technical") {
+                        return <TechnicalPassage key={`${song.id}:${index}`} content={line.content} color={activeChordsColor} />;
+                      }
                       if (line.type === "section") {
                         return (
                           <div
