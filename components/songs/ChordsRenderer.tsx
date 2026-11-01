@@ -292,14 +292,16 @@ export const parseChordsAndLyrics = (
     }
   }
   // Some legacy imports retained a chord-only helper under a duplicate vocal
-  // heading after extracting its tab. Collapse only with both pieces of evidence.
+  // heading after extracting its tab. Old imports sometimes attached all tabs
+  // to Intro, so require a duplicate heading and stored tabs rather than a
+  // reliable legacy tab section label. Keep the helper accessible.
   for (let i = parsed.length - 1; i >= 0; i--) {
     if (parsed[i].type !== 'section') continue;
     const key = foldSectionLabel(cleanSectionLabel(parsed[i].content));
     let end = i + 1;
     while (end < parsed.length && parsed[end].type !== 'section') end++;
     if (end < parsed.length && foldSectionLabel(cleanSectionLabel(parsed[end].content)) === key &&
-        tabs.some(tab => tab.content?.trim() && foldSectionLabel(tab.section || '') === key) &&
+        tabs.some(tab => tab.content?.trim()) &&
         parsed.slice(i + 1, end).every(line => line.type === 'chord' || !line.content.trim())) {
       const content = parsed.slice(i, end).map(line => line.content).join('\n');
       parsed.splice(i, end - i, { type: 'technical', content });

@@ -191,6 +191,7 @@ export function getNotePitchClass(note: string): number {
   const match = normalizeKey(note).match(/^([A-G])([#b]{0,2})$/);
   if (!match) return -1;
   const natural = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[match[1]];
+  if (natural === undefined) return -1;
   const alteration = [...match[2]].reduce((sum, accidental) => sum + (accidental === '#' ? 1 : -1), 0);
   return (natural + alteration + 12) % 12;
 }

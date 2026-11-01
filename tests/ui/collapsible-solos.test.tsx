@@ -31,7 +31,7 @@ describe('optional solo passages', () => {
     expect(parsed.some(line => line.content === 'Cantamos juntos')).toBe(true);
   });
   it('collapses legacy duplicate chord helpers but retains the sung verse', () => {
-    const parsed = parseChordsAndLyrics('[Primeira Parte]\nA9\n[Primeira Parte]\nE\nMe escutas', [{ section: 'Primeira Parte', content: tab }]);
+    const parsed = parseChordsAndLyrics('[Primeira Parte]\nA9\n[Primeira Parte]\nE\nMe escutas', [{ section: 'Intro', content: tab }]);
     expect(buildSongSectionNavigatorItems(parsed).map(section => section.label)).toEqual(['Primeira Parte']);
     expect(parsed.some(line => line.type === 'technical' && line.content.includes('A9'))).toBe(true);
     expect(parsed.some(line => line.content === 'Me escutas')).toBe(true);
