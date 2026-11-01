@@ -1,3 +1,7 @@
+MusicScale 0.11.2-beta.9 — 2026-11-01
+Cifras: transposição cromática legível, com fundamentais e baixos corretos e sem acidentes duplos na saída. Solos e tablaturas opcionais recolhidos; botão Salvar tom no canto inferior direito com opção de fechar sem salvar. PT/EN/ES.
+Publicação autorizada pelo proprietário nesta conversa; promover somente após QA integral do SHA exato. Inclui rebuild do Cloud Run pelo uso compartilhado do motor de cifras; Hosting oficial somente após prontidão da API. Preserva dados, funções, escalas, assinaturas, acesso e todas as correções anteriores. Sem migração, Rules, IAM ou mudança de cobrança.
+
 MusicScale 0.11.2-beta.8 — 2026-10-29
 Importação por IA: uma opção por tonalidade e modo, com grafias equivalentes agrupadas (C# / Db, F# / Gb). Preserva a grafia já selecionada sem reescrever músicas ou cifras. Sem mudança de dados, acesso, backend ou cobrança.
 

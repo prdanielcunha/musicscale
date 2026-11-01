@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "motion/react";
 import type { PopulatedSong, ScaleSongNavigationContext } from "../../types";
 import Button from "../common/Button";
 import Modal from "../common/Modal";
-import { Save } from "lucide-react";
+import { Save, X } from "lucide-react";
 import { useToast } from "../../contexts/ToastContext";
 import { requestChordRepair } from "../../services/chordRepairClient";
 import { applyScaleSongSettings, getEffectiveKey } from "../../utils/scaleSongSettings";
@@ -138,6 +138,7 @@ import {
   transposeChord,
   isChordLine,
   parseChordsAndLyrics,
+  TechnicalPassage,
   buildSongSectionNavigatorItems,
   foldSectionLabel,
   lightThemeColors,
@@ -272,6 +273,7 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
 
   const [transpose, setTranspose] = useState(0);
   const [isKeySaveOpen, setKeySaveOpen] = useState(false);
+  const [isKeySaveDismissed, setKeySaveDismissed] = useState(false);
   const [isSavingKey, setSavingKey] = useState(false);
   const keySaveLock = useRef(false);
   const [savedKey, setSavedKey] = useState<string | null>(null);
@@ -994,15 +996,19 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
     if (!performanceChart?.chords) return [];
     // Legacy/unknown key labels must never prevent the musician reading a chart.
     if (!isValidKey(basePerformanceKey) || !isValidKey(effectivePerformanceKey)) {
-      return parseChordsAndLyrics(performanceChart.chords);
+      return parseChordsAndLyrics(performanceChart.chords, performanceChart.tabs);
     }
     const chords = transposeChordDocument(performanceChart.chords, basePerformanceKey, effectivePerformanceKey).chords;
-    return parseChordsAndLyrics(chords);
+    return parseChordsAndLyrics(chords, performanceChart.tabs);
   }, [performanceChart, basePerformanceKey, effectivePerformanceKey]);
   const keyCheck = useMemo(() => validateChordContentKeyConsistency(
     performanceChart?.chords || '', basePerformanceKey,
   ), [performanceChart?.chords, basePerformanceKey]);
   const hasUnsavedKey = !areKeysEnharmonicallyEquivalent(savedKey || basePerformanceKey, effectivePerformanceKey);
+  const showKeySavePrompt = hasUnsavedKey && !isKeySaveDismissed &&
+    (canManageChords || (scaleContext?.scaleId && canSaveScaleKey));
+  // Dismiss only the current suggestion; another key/song gets a fresh prompt.
+  useEffect(() => { setKeySaveDismissed(false); }, [effectivePerformanceKey, operationScope, isOpen]);
 
   const openKeyReview = () => {
     const canonical = librarySongs.find(item => item.id === song?.id);
@@ -1701,6 +1707,9 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
                       const isFocusedSection =
                         focusedSectionIndexes.has(index);
 
+                      if (line.type === "technical") {
+                        return <TechnicalPassage key={`${song.id}:${index}`} content={line.content} color={activeChordsColor} />;
+                      }
                       if (line.type === "section") {
                         return (
                           <div
@@ -1829,18 +1838,23 @@ const ChordsViewerModal: React.FC<ChordsViewerModalProps> = ({
         )}
       </AnimatePresence>
 
-      {!isEditing && !isStagePadOpen && !isStageMetronomeOpen && ((hasUnsavedKey && (canManageChords || (scaleContext?.scaleId && canSaveScaleKey))) || (keyCheck.status === 'MISMATCH' && canRepairChordKey)) && (
-        <div className={`fixed left-3 right-3 ${scaleContext ? 'bottom-[14.5rem]' : 'bottom-28'} md:bottom-32 z-[146] flex justify-center pointer-events-none`}>
-          <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#15151a]/95 p-2 shadow-xl max-w-lg">
+      {!isEditing && !isStagePadOpen && !isStageMetronomeOpen && (showKeySavePrompt || (keyCheck.status === 'MISMATCH' && canRepairChordKey)) && (
+        <div data-testid="performance-key-actions" className={`fixed right-3 md:right-6 ${scaleContext ? 'bottom-[14.5rem]' : 'bottom-28'} md:bottom-32 z-[146] max-w-[calc(100vw-1.5rem)] flex justify-end pointer-events-none`}>
+          <div className="pointer-events-auto flex flex-col items-end gap-2" onClick={event => event.stopPropagation()}>
             {keyCheck.status === 'MISMATCH' && canRepairChordKey && (
-              <button className="px-3 py-2 text-sm text-amber-200" onClick={openKeyReview}>
+              <button className="rounded-xl border border-white/10 bg-[#15151a]/95 px-3 py-2 text-sm text-amber-200 shadow-xl" onClick={openKeyReview}>
                 {t('premiumV2.performance.keyMismatch')}
               </button>
             )}
-            {hasUnsavedKey && (canManageChords || (scaleContext?.scaleId && canSaveScaleKey)) && (
-              <button className="inline-flex items-center gap-2 rounded-xl bg-white text-black px-4 py-2.5 text-sm font-semibold" onClick={() => { markControlsActivity(); setKeySaveOpen(true); }}>
-                <Save size={16} />{t('premiumV2.performance.saveKey', { key: effectivePerformanceKey })}
-              </button>
+            {showKeySavePrompt && (
+              <div className="inline-flex items-center gap-1 rounded-2xl border border-white/10 bg-[#15151a]/95 p-1.5 shadow-xl">
+                <button type="button" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white text-black px-3 py-2 text-sm font-semibold" onClick={() => { markControlsActivity(); setKeySaveOpen(true); }}>
+                  <Save size={16} />{t('premiumV2.performance.saveKey', { key: effectivePerformanceKey })}
+                </button>
+                <button type="button" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white/70 hover:bg-white/10 hover:text-white" aria-label={t('premiumV2.performance.dismissKeySave')} title={t('premiumV2.performance.dismissKeySave')} onClick={() => { markControlsActivity(); setKeySaveDismissed(true); }}>
+                  <X size={18} aria-hidden="true" />
+                </button>
+              </div>
             )}
           </div>
         </div>
